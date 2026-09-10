@@ -31,6 +31,17 @@ export default async function regress({ run, check, getPlayer }) {
   check('flag shower recognised', isShower({ name: 'stall', object_type: 'fixture', flags: { shower: true } }) === true);
   check('non-shower furniture ignored', isShower({ name: 'a wooden chair', object_type: 'furniture', flags: {} }) === false);
 
+  // A shower must OFFER its verbs on sight. Before this, `shower` was reachable
+  // only from inside the `use shower` panel, which a player has to already
+  // suspect exists.
+  const { hooks: bodilyHooks } = await import('./index.js');
+  const showerDesc = await bodilyHooks['furniture.describe']({ name: 'shower stall', object_type: 'shower', flags: {}, id: 'f_regress_shower' });
+  check('examining a shower offers the shower verb', /data-action="shower"/.test(showerDesc || ''), String(showerDesc).slice(0, 90));
+  check('…and offers clean alongside it', /data-action="clean"/.test(showerDesc || ''), String(showerDesc).slice(0, 90));
+  // …and nothing else grows a bathroom line by accident.
+  const chairDesc = await bodilyHooks['furniture.describe']({ name: 'a wooden chair', object_type: 'furniture', flags: {}, id: 'f_regress_chair' });
+  check('an ordinary chair says nothing about washing', chairDesc === undefined, String(chairDesc));
+
   // A toilet is recognised by name, not just object_type/flags — content
   // routinely types toilets as 'furniture'/'fixture'. Without this, relief,
   // flush, and the fouled/peed describe line all silently miss them.
@@ -125,7 +136,7 @@ export default async function regress({ run, check, getPlayer }) {
   last = foulToilet('regress-fill', 'poop', 'zone_regress_public');
   check('...and overflows on the one that fills it', last.overflowed === true, JSON.stringify(last));
   last = foulToilet('regress-fill', 'poop', 'zone_regress_public');
-  check('...and keeps overflowing — it does not fix itself', last.overflowed === true, JSON.stringify(last));
+  check("...and keeps overflowing — it doesn't fix itself", last.overflowed === true, JSON.stringify(last));
 
   // Bailing it out by hand is a real (grim) answer: each scoop is one deposit
   // and one `measure of filth` you now have to deal with.
@@ -184,7 +195,7 @@ export default async function regress({ run, check, getPlayer }) {
   // attack_npc, a thrown turd becomes a 4-star police response, which is absurd.
   const { CRIME_DEFAULTS } = await import('../../server/engine/crimes.js');
   check('throwing filth has its own charge', !!CRIME_DEFAULTS.filth_assault);
-  check('...that is nowhere near an assault response',
+  check("...that's nowhere near an assault response",
     CRIME_DEFAULTS.filth_assault.stars < CRIME_DEFAULTS.attack_npc.stars, CRIME_DEFAULTS.filth_assault.stars);
   check('...but worse than tagging a wall',
     CRIME_DEFAULTS.filth_assault.stars > CRIME_DEFAULTS.graffiti.stars);
@@ -198,7 +209,7 @@ export default async function regress({ run, check, getPlayer }) {
   const { getAlias } = await import('../../server/engine/commands/aliases.js');
   check('throw is no longer blanket-aliased to stow', getAlias('throw') !== 'stow', getAlias('throw'));
   r = await run('throw rustypipe at nobodyhere');
-  check('throwing a non-filth item is not claimed by bodily',
+  check("throwing a non-filth item isn't claimed by bodily",
     !/don't see .* here to throw/i.test(r?.message || ''), r?.message);
   check('...and says so rather than silently stowing it',
     /can't throw that/i.test(r?.message || ''), r?.message);
@@ -213,7 +224,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('washing hands clears filth on the hands', await clearBodyStain(p, 'hands') === true);
   check('...and really clears it', !p.appearance_data.soiled_state);
   p.appearance_data = { soiled_state: { type: 'feces', locations: ['face'] } };
-  check('washing hands does not clear a stain somewhere else',
+  check("washing hands doesn't clear a stain somewhere else",
     await clearBodyStain(p, 'hands') === false && !!p.appearance_data.soiled_state);
   p.appearance_data = {};
 
@@ -223,7 +234,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('a comfortable gut carries no risk at all', fartRisk(0.5) === 0 && fartRisk(0.74) === 0);
   check('risk starts only past the floor', fartRisk(0.8) > 0);
   check('...and climbs toward the involuntary ceiling', fartRisk(1) > fartRisk(0.85));
-  check('it is a gamble, never a certainty', fartRisk(1) < 0.5, fartRisk(1));
+  check("it's a gamble, never a certainty", fartRisk(1) < 0.5, fartRisk(1));
   check('the risk band overlaps the warnings the player already gets',
     fartRisk(80 / 110) === 0 && fartRisk(95 / 110) > 0);
 
@@ -285,7 +296,7 @@ export default async function regress({ run, check, getPlayer }) {
   // The stream scales the same way, and the dribble runs on after a big one.
   const trickle = P.buildActionCue({ action: 'stream', intensity: 0.1, seed: 7 });
   const torrent = P.buildActionCue({ action: 'stream', intensity: 1.0, seed: 7 });
-  check('a barely-full bladder does not splatter', trickle.config.layers.length < torrent.config.layers.length,
+  check("a barely-full bladder doesn't splatter", trickle.config.layers.length < torrent.config.layers.length,
     { trickle: trickle.config.layers.length, torrent: torrent.config.layers.length });
   check('a full one is louder', torrent.config.layers[0].gain > trickle.config.layers[0].gain);
   const dribLow  = P.buildActionCue({ action: 'stream', intensity: 0.1, state: 'dribble', seed: 7 });
@@ -315,7 +326,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('...and worse thirst costs more',
     effectiveStat({ ...WARM, thirst: 4 }, 'stat_endurance')
       < effectiveStat({ ...WARM, thirst: 15 }, 'stat_endurance'));
-  check('...with the cognitive hit held back until it is severe',
+  check("...with the cognitive hit held back until it's severe",
     effectiveStat({ ...WARM, thirst: 15 }, 'stat_brains') === 6
       && effectiveStat({ ...WARM, thirst: 4 }, 'stat_brains') < 6);
   check('heat costs Brains, not Reflexes', (() => {
@@ -335,7 +346,7 @@ export default async function regress({ run, check, getPlayer }) {
     skillStatBonus({ ...WARM, body_temp_c: 30 }, 'blades') < skillStatBonus(WARM, 'blades'));
   check('...and a skill governed by neither is untouched by cold',
     skillStatBonus({ ...WARM, body_temp_c: 30 }, 'cooking') === skillStatBonus(WARM, 'cooking'));
-  check('the player is told why they are worse',
+  check("the player is told why they're worse",
     conditionReport({ ...WARM, body_temp_c: 32, hunger: 10 }).length === 2);
   check('a healthy player has nothing to report', conditionReport(WARM).length === 0);
 
@@ -364,7 +375,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('...but twelve days up is ruinous', fatigueOf(awake(288)) >= FATIGUE_RUINED);
   check('it caps rather than running away', fatigueOf(awake(1000)) === 100);
   check('exhaustion costs Brains first', statPenalty(awake(FATIGUE_FULL_HOURS), 'stat_brains') > 0);
-  check('...and Reflexes only once it is severe',
+  check("...and Reflexes only once it's severe",
     statPenalty(awake(24), 'stat_reflexes') === 0 && statPenalty(awake(FATIGUE_FULL_HOURS), 'stat_reflexes') > 0);
   check('tired reaches combat through the same funnel',
     skillStatBonus(awake(FATIGUE_FULL_HOURS), 'dodge') < skillStatBonus(WARM, 'dodge'));
@@ -426,7 +437,7 @@ export default async function regress({ run, check, getPlayer }) {
     effectiveStat(cool(8, 10), 'stat_cool') < effectiveStat(cool(8, 100), 'stat_cool'));
   check('...which makes the next hit land harder — the loop is real',
     resistSanityLoss(cool(8, 10), 10) > resistSanityLoss(cool(8, 100), 10));
-  check('but the spiral has a floor and cannot reach zero',
+  check("but the spiral has a floor and can't reach zero",
     effectiveStat(cool(1, 0), 'stat_cool') === 1);
 
   // ── adjustSanity: the funnel every writer goes through ─────────────────────
@@ -436,7 +447,7 @@ export default async function regress({ run, check, getPlayer }) {
   const chill = cool(10, 50), rattledGuy = cool(1, 50);
   check('a loss is resisted by composure',
     Math.abs(adjustSanity({ ...chill }, -10)) < Math.abs(adjustSanity({ ...rattledGuy }, -10)));
-  check('...and a GAIN is never damped — Cool is not a tax on drinks',
+  check("...and a GAIN is never damped — Cool isn't a tax on drinks",
     adjustSanity({ ...chill }, 10) === 10 && adjustSanity({ ...rattledGuy }, 10) === 10);
   check('resistance can never swallow a hit whole',
     adjustSanity({ ...cool(20, 50) }, -1) === -1);
@@ -616,7 +627,7 @@ export default async function regress({ run, check, getPlayer }) {
     await pool(`SELECT 1 FROM dream_templates WHERE cause='dream'`) >= 5);
   check('a dream template never carries a drug',
     await pool(`SELECT 1 FROM dream_templates WHERE cause='dream' AND drug_id IS NOT NULL`) === 0);
-  check('there is a default drug set to fall back to',
+  check("there's a default drug set to fall back to",
     await pool(`SELECT 1 FROM dream_templates WHERE cause='drug' AND drug_id IS NULL`) > 0);
 
   // The mode split: dissociatives take you somewhere, psychedelics stay put and
@@ -656,14 +667,14 @@ export default async function regress({ run, check, getPlayer }) {
     check(`${d} is a psychedelic — it transforms the room`,
       await pool(`SELECT 1 FROM drug_transforms WHERE drug_id=$1`, [d]) > 0);
   }
-  check('there is a default transform set too',
+  check("there's a default transform set too",
     await pool(`SELECT 1 FROM drug_transforms WHERE drug_id IS NULL`) > 0);
 
   // ── Transforms are per-viewer and MUST NOT mutate the shared cache ──────────
   const { addTransform, applyTransforms, getTransform, clearTransforms } =
     await import('../../server/engine/phantoms.js');
   const shared = [{ id: 'furn_regress_chair', name: 'a plain chair', description: 'A chair.' }];
-  addTransform('regress-tripper', 'furn_regress_chair', { name: 'a breathing chair', description: 'It is breathing.', looks: ['In. Out.'], says: ['Sit.'] });
+  addTransform('regress-tripper', 'furn_regress_chair', { name: 'a breathing chair', description: "It's breathing.", looks: ['In. Out.'], says: ['Sit.'] });
   const seen = applyTransforms('regress-tripper', shared);
   check('the tripper sees the transformed name', seen[0].name === 'a breathing chair', seen[0].name);
   check('...and NOBODY else does', applyTransforms('regress-sober', shared)[0].name === 'a plain chair');
@@ -688,7 +699,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('a drug dreamscape really did build from the khole pool', !!tripEntry);
   check('...and its occupant reads as gone, with no sleeping object at all',
     bodyTell({ current_zone: tripEntry }, room) === 'glassy-eyed');
-  check('...while being IN the dream room is not a tell to itself',
+  check("...while being IN the dream room isn't a tell to itself",
     bodyTell({ current_zone: tripEntry }, tripEntry) === null);
   dissolveDreamscape('regress-tell');
   check('a null player is a safe no-op', bodyTell(null, room) === null);
@@ -777,7 +788,7 @@ export default async function regress({ run, check, getPlayer }) {
   const tethers = (await q(`SELECT * FROM dream_tethers`)).rows;
   check('there are tether lines to draw on', tethers.length >= 20);
   check('...including impersonal ones', tethers.filter(t => t.kind === 'none').length >= 5,
-    'a dream that is always about you is as predictable as one that never is');
+    "a dream that's always about you is as predictable as one that never is");
   for (const k of ['zone', 'npc', 'item', 'death']) {
     check(`...and ${k} lines that hook onto real state`, tethers.some(t => t.kind === k));
   }
@@ -786,10 +797,10 @@ export default async function regress({ run, check, getPlayer }) {
   // better for the restraint. What matters is that each KIND can still name its
   // fact, or the fact is decorative and the pool is secretly all flavour.
   for (const k of ['zone', 'npc', 'item', 'death']) {
-    check(`${k} lines can name the thing they are about`,
+    check(`${k} lines can name the thing they're about`,
       tethers.some(t => t.kind === k && /\{value\}/.test(t.line)));
   }
-  check('no impersonal line carries a token it cannot fill',
+  check("no impersonal line carries a token it can't fill",
     tethers.filter(t => t.kind === 'none' && /\{value\}/.test(t.line)).length === 0);
 
   // The failure that would reach a player: a line whose fact is missing printing
@@ -896,7 +907,7 @@ export default async function regress({ run, check, getPlayer }) {
   })());
   check('...and is gone once it has had its minute',
     zoneAir(p.current_zone, Date.now() + TAINT_MS + 1).length === 0);
-  check('an expired taint is dropped from the store as it is read',
+  check("an expired taint is dropped from the store as it's read",
     !(zoneAir(p.current_zone, Date.now() + TAINT_MS + 1)).some(a => a.type === 'fart'));
 
   // The gather hook is what lets a room stink of several things at once —
@@ -914,9 +925,9 @@ export default async function regress({ run, check, getPlayer }) {
   check('acuity lowers the floor and raises the cap',
     perceptionBand(2).floor < base.floor && perceptionBand(2).limit > base.limit, perceptionBand(2));
   check('impairment does the reverse', perceptionBand(-2).floor > base.floor, perceptionBand(-2));
-  check('the floor never goes negative, so acuity cannot loop back around',
+  check("the floor never goes negative, so acuity can't loop back around",
     perceptionBand(99).floor === 0 && perceptionBand(-99).floor <= 8);
-  check('even a blunted sense still gets the thing that is on fire',
+  check("even a blunted sense still gets the thing that's on fire",
     perceive([{ text: 'fire', strength: 10 }], perceptionBand(-3)).length === 1);
 
   // The whole point: the faint band is generated either way and only acuity reads it.
@@ -1014,10 +1025,10 @@ export default async function regress({ run, check, getPlayer }) {
   check('a noise source puts its zone in the index', isNoisy('regress-quiet-zone'));
   markNoisy('regress-quiet-zone', 'cook-2');
   clearNoisy('regress-quiet-zone', 'cook-1');
-  check('two sources in one room do not cancel each other', isNoisy('regress-quiet-zone'));
+  check("two sources in one room don't cancel each other", isNoisy('regress-quiet-zone'));
   clearNoisy('regress-quiet-zone', 'cook-2');
   check('the last one out clears the room', !isNoisy('regress-quiet-zone'));
-  check('the index does not leak entries', noisyZoneCount() === before, noisyZoneCount());
+  check("the index doesn't leak entries", noisyZoneCount() === before, noisyZoneCount());
   // A vessel can be carried out of the room it started cooking in, so a source
   // must be forgettable without knowing where it left itself.
   markNoisy('regress-zone-a', 'wanderer');
@@ -1068,7 +1079,7 @@ export default async function regress({ run, check, getPlayer }) {
   // exactly as much as it makes you worse at smelling.
   check('...and buys protection with it — a crowd that would blow you out no longer can',
     wouldOverload(bare, 6) && !wouldOverload(masked, 6), { bare, masked });
-  check('but it does not make you immune — something truly foul still gets through',
+  check("but it doesn't make you immune — something truly foul still gets through",
     wouldOverload(masked, 10), overloadThreshold(masked));
 
   recomputeSenseDamp(p, [{ tags: { sense_damp: { smell: -2 } } }, { tags: { sense_damp: { smell: -1 } } }]);
@@ -1076,7 +1087,7 @@ export default async function regress({ run, check, getPlayer }) {
   // Two tiers per sense: plugs take the edge off, a respirator seals. Enough
   // of either and you can walk through the worst thing in the game untouched —
   // perceiving nothing, which is the price.
-  check('the cheap tier alone is not enough to survive an extreme event', (() => {
+  check("the cheap tier alone isn't enough to survive an extreme event", (() => {
     recomputeSenseDamp(p, [{ tags: { sense_damp: { smell: -1 } } }]);
     return wouldOverload(gearDamp(p, 'smell'), EXTREME + 2);
   })());
@@ -1096,10 +1107,10 @@ export default async function regress({ run, check, getPlayer }) {
   check('attune refuses an ordinary nervous system', /ordinary/i.test(r?.message || ''), r?.message);
   p.stat_senses = 9; p._senseDominant = null;
   r = await run('attune nonsense');
-  check('attune rejects a sense that does not exist', /isn't a sense/i.test(r?.message || ''), r?.message);
+  check("attune rejects a sense that doesn't exist", /isn't a sense/i.test(r?.message || ''), r?.message);
   r = await run('attune smell');
   check('the first attunement is free', /comes forward/i.test(r?.message || ''), r?.message);
   r = await run('attune hearing');
-  check('...but changing it is a clinic job', /clinic/i.test(r?.message || ''), r?.message);
+  check("...but changing it's a clinic job", /clinic/i.test(r?.message || ''), r?.message);
   p.stat_senses = savedStat; p._senseDominant = savedDom; p._senseSecond = savedSec;
 }

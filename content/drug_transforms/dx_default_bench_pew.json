@@ -7,7 +7,7 @@
   "description": "A bench, quite ordinary, with a person-shaped warmth still in it and the wood still faintly bowed where the weight was. Whoever it was has only just stood up, and keeps having only just stood up.",
   "drug_id": null,
   "emotes": [
-    "{it} creaks, once, under a weight that is not on it.",
+    "{it} creaks, once, under a weight that isn't on it.",
     "{it} settles as though somebody has just got up.",
     "{it} stays exactly as warm as it was."
   ],
@@ -15,15 +15,15 @@
   "fx_intensity": 0.5,
   "id": "dx_default_bench_pew",
   "looks": [
-    "The seat is warm in one place and cold everywhere else, and the warm place does not fade.",
+    "The seat is warm in one place and cold everywhere else, and the warm place doesn't fade.",
     "The wood is worn to a shine in exactly one spot and untouched either side of it.",
-    "There is a shape in the dust on the floor where two feet were, and the dust has not filled it in."
+    "There's a shape in the dust on the floor where two feet were, and the dust hasn't filled it in."
   ],
   "matches": "bench",
   "name": "a bench with somebody just gone from it",
   "says": [
-    "They will be back. They always come back.",
-    "Sit somewhere else, if you do not mind.",
+    "They'll be back. They always come back.",
+    "Sit somewhere else, if you don't mind.",
     "That spot is taken."
   ],
   "scope": "object"

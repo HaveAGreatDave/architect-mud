@@ -137,6 +137,81 @@ world.
 
 ---
 
+## 4b. The prod egress meter — what a `--prod` script just spent
+
+The report measures the *server's* egress. It says nothing about the other
+spender: a developer running a one-shot against production. Every script that
+goes through `connectTarget({ prod: true })` in
+[`scripts/content/lib.mjs`](../scripts/content/lib.mjs) now prints what it read
+on the way out, and appends a JSONL row to `data/ops/prod-reads.log` (gitignored
+— it's local evidence, not shared state):
+
+```
+prod egress: 588 B over 6 queries, 0.5s — ep-….us-east-1.aws.neon.tech
+```
+
+Above 25 MB it says so loudly. Override with `PROD_EGRESS_WARN_MB`, which is
+also how you exercise the loud path without spending 25 MB to see it.
+
+**This exists because of 2026-09-07.** Egress ran 89 MB one day and ~600 MB the
+next, in a cycle already projected at 190% of the cap. Deploys were 2/day, peak
+population was **1**, no scheduled task opts out of the idle gate, and the drift
+report has compared inside Postgres since July — so none of the usual suspects
+fit. The only surviving trace was `pg_stat_user_tables` on prod, showing
+**8,992 seq scans over `zones` for 98,986,080 tuples**, about 5,700 full passes
+over a table the server reads once at boot. The scripts that did it had already
+been deleted. A number printed at the time would have named the culprit in one
+line, and the meter is that line.
+
+⚠ **The count is exact wire bytes** — `socket.bytesRead`, which is what Neon
+bills. It isn't an estimate from stringifying result sets: that would cost a full
+extra copy of every export and disagree with the invoice. Where the socket isn't
+reachable it degrades to a row count and says the byte figure is unavailable,
+because a wrong number here is worse than no number.
+
+⚠ **It reports on process exit, not on `client.end()`.** A run that throws half
+way through has still spent the egress, and that's the run you most want it for.
+
+### The ad-hoc path, which is the one that matters
+
+`connectTarget` only covers the *pipeline* scripts. The documented one-shot
+pattern —
+
+```bash
+node --env-file=.env.prod scripts/<name>.mjs
+```
+
+— goes through `query()` in [`server/models/db.js`](../server/models/db.js)
+instead, and that is the path with no review and no CI behind it. It's also the
+shape of what spent the 600 MB. So the pool meters itself too, on the same terms:
+exact `socket.bytesRead`, **remote targets only**, one line on exit.
+
+⚠ **It sums across the pool, not one connection.** A pooled client is destroyed
+and replaced on idle timeout and its socket's counter dies with it, so a closing
+connection banks its total on the way out. Reading only the live sockets would
+under-report every long run — the wrong direction for a budget alarm.
+
+Its loud threshold is **100 MB** (`DB_EGRESS_WARN_MB`), not 25: a cold start
+legitimately reads ~13.5 MB, and a game server that cried wolf at every shutdown
+would train everyone to ignore it.
+
+Calibration, if you want to trust it: 300 `zones` rows measured **172.6 KB**,
+which extrapolates to ~9.9 MB for the table — against the 9.83 MB §4 gets from
+`pg_column_size`. Two independent methods, agreeing.
+
+### What still isn't covered
+
+`scripts/ops/attribution.mjs` owns its own pool, deliberately unmetered — three
+aggregate queries returning ~45 rows, and a meter on it would be ceremony.
+
+`npm run db:backup-prod` shells out to `pg_dump`, so no `pg` client of ours ever
+sees those bytes. It now reports its own dump size as egress instead. ⚠ **A full
+dump is ~17 MB, not the ~120 MB the storage counter implies** — storage includes
+indexes, bloat and WAL; a plain-format dump is data as text. Corrected 2026-09-07,
+having made exactly that mistake in this section's first draft.
+
+---
+
 ## 5. What the APIs will and won't tell you
 
 **⚠ Neon's `/consumption_history` is a paid endpoint.** The obvious API for this

@@ -1,8 +1,10 @@
 {
-  "description": "A stainless urn on a hotplate, with a brown ring baked into the drip tray so thoroughly it has become a feature of the tray. The coffee in it was made at some point. It is hot, it is here at four in the morning, and nobody has ever claimed a single thing beyond that for it.",
+  "description": "A stainless urn on a hotplate, a sleeve of paper cups beside it, and a brown ring baked into the drip tray so thoroughly it has become a feature of the tray. The coffee in it was made at some point. It's hot and it's here at four in the morning.",
   "flags": {
-    "aliases": "urn, coffee, coffee machine, pot, hot water",
-    "brew_tier": "kettle"
+    "aliases": "urn, coffee, coffee machine, pot, hot water, cups, cup",
+    "brew_tier": "kettle",
+    "vends": "item_paper_cup",
+    "vend_line": "You pull a paper cup off the stack beside the urn. It comes away with two others stuck inside it, and you put those back."
   },
   "hp": null,
   "hp_max": null,

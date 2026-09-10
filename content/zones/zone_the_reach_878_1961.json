@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A skin of dried crust over mud, cracked into plates that tilt and clack underfoot. Beneath the crust it is still wet, and it is still the wrong colour.",
+  "description": "A skin of dried crust over mud, cracked into plates that tilt and clack underfoot. Beneath the crust it's still wet, and it's still the wrong colour.",
   "exits": {
     "east": "zone_the_reach_879_1961",
     "north": "zone_the_reach_878_1960",

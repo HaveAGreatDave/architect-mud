@@ -5,7 +5,7 @@
     "Somewhere along it, something is being repaired."
   ],
   "cause": "drug",
-  "description": "The structure with nothing living in it. Just the thing itself, going away in every direction, holding. It was made and it is being maintained and there is nobody in this part of it. It is the most beautiful thing you have been shown and it was not shown to you.",
+  "description": "The structure with nothing living in it. Just the thing itself, going away in every direction, holding. It was made and it's being maintained and there's nobody in this part of it. It's the most beautiful thing you have been shown and it wasn't shown to you.",
   "drug_id": "drug_dmt",
   "fx": "crawl",
   "fx_intensity": 0.85,
@@ -14,9 +14,9 @@
   "objects": [
     {
       "looks": [
-        "It holds. That is what it does and it is doing it everywhere at once.",
+        "It holds. It's holding everywhere at once, without effort.",
         "The joints are the interesting part. Somebody solved them.",
-        "It goes on past where you can follow it and it does not thin out."
+        "It goes on past where you can follow it and it doesn't thin out."
       ],
       "name": "the lattice"
     },

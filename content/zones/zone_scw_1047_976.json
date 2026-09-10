@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A clean tent over a boarded floor, with the sides rolled up in the heat. Two cots, both made. A cabinet of instruments laid out in order on a folded cloth, a hand-drawn chart of the body pinned to the centre post with a great many annotations, and a bucket of soapy water by the entrance that gets changed while you are standing there. Somebody in here is having a splinter taken out and is being extremely brave about it, out loud, at length.",
+  "description": "A clean tent over a boarded floor, with the sides rolled up in the heat. Two cots, both made. A cabinet of instruments laid out in order on a folded cloth, a hand-drawn chart of the body pinned to the centre post with a great many annotations, and a bucket of soapy water by the entrance that gets changed while you're standing there. Somebody in here is having a splinter taken out and is being extremely brave about it, out loud, at length.",
   "exits": {
     "east": "zone_scw_1048_976",
     "north": "zone_scw_1047_975",

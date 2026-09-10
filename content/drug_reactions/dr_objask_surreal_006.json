@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Is there anything behind me? I cannot turn round.",
+  "self_line": "Is there anything behind me? I can't turn round.",
   "source": "object_ask",
   "tone": "surreal"
 }

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The rim of the tableland, a clean red face of it going up out of reach. There is no way up here. There is a way up somewhere, and this is not it. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "The rim of the tableland, a clean red face of it going up out of reach. There's no way up here. There's a way up somewhere, and this isn't it. Off toward the middle of the country there's a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
   "exits": {
     "east": "zone_terminus_1230_927",
     "north": "zone_terminus_1229_926",

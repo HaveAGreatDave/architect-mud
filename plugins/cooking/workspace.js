@@ -192,7 +192,7 @@ function vesselActions(v, contents, ctx) {
   const boilable = kind !== 'bowl' && kind !== 'bread';
   if (boilable && ctx.taps?.length && !wet && !anyCooking) {
     out.push(act('fill', `fill ${name}`, contents.some(r => profileNameFor(r) === 'dry_starch')
-      ? 'pasta and rice will not cook without it'
+      ? "pasta and rice won't cook without it"
       : 'water from the tap, to boil in'));
   }
   if (boilable && !anyCooking && contents.some(isMedium)) {
@@ -217,7 +217,7 @@ function vesselActions(v, contents, ctx) {
   // dried on is worth scrubbing, and leaving it is worse than a clean pan.
   const fond = fondState(cd.fond);
   if (fond === 'fresh' && !cd.deglazed && contents.some(r => profileNameFor(r) === 'liquid')) {
-    out.push(act('deglaze', `deglaze ${name}`, 'beats any seasoning — it is a technique'));
+    out.push(act('deglaze', `deglaze ${name}`, "beats any seasoning — it's a technique"));
   }
   if (fond === 'residue' || (fond !== 'none' && !contents.length)) {
     out.push(act('scour', `scour ${name}`, 'a pan you browned in and ignored is worse than a clean one'));
@@ -371,7 +371,7 @@ function walkthroughFor(template, chosen, c, ctx) {
   const wet = profiles.includes('liquid') || (c.childrenOf.get(vessel.id) || []).some(r => profileNameFor(r) === 'liquid');
   if (profiles.includes('dry_starch') && !wet) {
     out.push(step(`Fill the ${vName} at the ${c.taps[0]?.name || 'tap'}.`, `fill ${vName}`,
-      c.taps.length ? 'pasta and rice will not cook without it' : 'no water source in this room'));
+      c.taps.length ? "pasta and rice won't cook without it" : 'no water source in this room'));
   }
 
   // 4. Load the pan IN THE ORDER THE METHOD SAYS, and say what the method says

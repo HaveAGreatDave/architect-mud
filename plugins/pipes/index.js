@@ -157,7 +157,7 @@ async function cmdHookah(args, raw, player) {
 
   const bowl = bowls.get(furn.id);
   const state = bowl
-    ? `The bowl is packed with ${bowl.drugName}, and there is some left in it.`
+    ? `The bowl is packed with ${bowl.drugName}, and there's some left in it.`
     : `The bowl is empty. Somebody has to ${teachVerb('pack', 'pack')} it.`;
   return {
     type: 'output',
@@ -217,7 +217,7 @@ async function cmdPack(args, raw, player) {
     }, player.id);
     return {
       type: 'output',
-      message: `You work the ${drug.name} into the bowl of the ${noun}, seat the coal on top and draw until the water knocks. It is going.<br>${teachVerb('puff', 'puff')} to take a pull. Anyone on a hose can.`,
+      message: `You work the ${drug.name} into the bowl of the ${noun}, seat the coal on top and draw until the water knocks. It's going.<br>${teachVerb('puff', 'puff')} to take a pull. Anyone on a hose can.`,
     };
   }
 

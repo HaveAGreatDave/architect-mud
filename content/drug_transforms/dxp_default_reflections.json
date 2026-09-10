@@ -9,7 +9,7 @@
   "emotes": [
     "{it} moves, and goes on moving in three places after it has stopped.",
     "{it} steps sideways and leaves one of itself where it was.",
-    "{it} folds back down to one, briefly, and then does not stay there."
+    "{it} folds back down to one, briefly, and then doesn't stay there."
   ],
   "fx": null,
   "fx_intensity": 0.5,
@@ -17,14 +17,14 @@
   "looks": [
     "The copies lag by different amounts. The furthest one is still finishing the last thing.",
     "When they raise a hand, the hand keeps arriving for a while afterwards.",
-    "Looking directly at any one of them makes it the real one, which does not help."
+    "Looking directly at any one of them makes it the real one, which doesn't help."
   ],
   "matches": null,
   "name": "a person with several reflections",
   "says": [
     "Only one of us is talking.",
     "Pick whichever you like. It makes no odds.",
-    "The others are not saying anything, so it is fine."
+    "The others aren't saying anything, so it's fine."
   ],
   "scope": "person"
 }

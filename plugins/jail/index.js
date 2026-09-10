@@ -749,7 +749,7 @@ registerLockType('detentionlock', {
     messages: {
       lock:   'The detention lock seats itself with a heavy magnetic clunk.',
       unlock: 'The detention lock disengages.',
-      denied: 'The detention lock reads your file, finds it open, and does not move.',
+      denied: "The detention lock reads your file, finds it open, and doesn't move.",
     },
   },
   authFn: detentionAuth,
@@ -886,7 +886,7 @@ export const routeHandler = async (path, method, body, auth) => {
     const playerId = String(body?.playerId || '');
     if (!playerId) return { status: 400, body: { error: 'playerId required' } };
     const { rows } = await query('SELECT player_id, fine FROM jail_prisoners WHERE player_id = $1', [playerId]);
-    if (!rows[0]) return { status: 404, body: { error: 'That player is not in jail' } };
+    if (!rows[0]) return { status: 404, body: { error: "That player isn't in jail" } };
     const forgiven = Number(rows[0].fine) || 0;
     await query('UPDATE jail_prisoners SET fine = 0, release_at = NOW() WHERE player_id = $1', [playerId]);
     // The guard's line reads as a normal walk-out; the pardon itself is announced

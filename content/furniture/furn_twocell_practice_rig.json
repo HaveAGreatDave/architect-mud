@@ -1,5 +1,5 @@
 {
-  "description": "A dead hololock panel bolted to a length of scaffold board and wired to a scoreboard cannibalised from a dartboard. A hand-lettered card is taped beneath it: BREAK IT ALL YOU LIKE. NOTHING BEHIND IT BUT THE WALL. The lock cycles a fresh sequence every time somebody beats it, and buzzes like a wasp in a tin when they don't.",
+  "description": "A dead hololock panel on a scaffold board, wired to a scoreboard cannibalised from a dartboard. A card taped beneath it reads: BREAK IT ALL YOU LIKE. NOTHING BEHIND IT BUT THE WALL. The lock cycles a fresh sequence every time it's beaten, and buzzes like a wasp in a tin when it isn't.",
   "flags": {
     "hack_difficulty": 2,
     "hack_rig": true

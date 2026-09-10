@@ -1,6 +1,6 @@
 {
   "asks": [
-    "Are you going to sit, or are you working out whether you are allowed?",
+    "Are you going to sit, or are you working out whether you're allowed?",
     "Who told you about this room?",
     "Do you know how many that tally is up to?"
   ],
@@ -8,23 +8,23 @@
   "drug_id": "drug_mescaline",
   "emotes": [
     "{it} takes the light along one polished arm as if somebody just ran a hand down it.",
-    "Dust settles on {it} and, a moment later, is not on it any more.",
+    "Dust settles on {it} and, a moment later, isn't on it any more.",
     "{it} sits in the middle of the floor as though the room was built around it, which it now appears to have been."
   ],
   "fx": null,
   "fx_intensity": 0.5,
   "id": "dx_mescaline_chair_throne",
   "looks": [
-    "The dip in the seat is exactly the shape of somebody. It is not exactly your shape, and that bothers you more than it should.",
-    "There are marks cut into the underside of the arm where nobody would ever see them. They are a tally, and it is a long one.",
-    "It is warm. There is no sun in here and it is warm."
+    "The dip in the seat is exactly the shape of somebody. It isn't exactly your shape, and that bothers you more than it should.",
+    "There are marks cut into the underside of the arm where nobody would ever see them. They're a tally, and it's a long one.",
+    "It's warm. There's no sun in here and it's warm."
   ],
   "matches": "chair",
   "name": "a worn stone seat",
   "says": [
     "Others have sat. It held them.",
-    "You may. It is not a throne. It is only very old.",
-    "The count under the arm is not people. Do not worry about the count."
+    "You may. It isn't a throne. It's only very old.",
+    "The count under the arm isn't people. Don't worry about the count."
   ],
   "scope": "object"
 }

@@ -232,7 +232,7 @@ async function cmdNull(args, raw, player, broadcast) {
 
   const skill = await nullcraftLevel(player);
   if (skill < op.minSkill) {
-    return { type: 'error', message: `You know what ${op.label.toLowerCase()} means. You do not know how to do it.` };
+    return { type: 'error', message: `You know what ${op.label.toLowerCase()} means. You don't know how to do it.` };
   }
 
   // ── Arm the board ─────────────────────────────────────────────────────────
@@ -426,7 +426,7 @@ async function cmdVeil(args, raw, player) {
 
   setVeil(player.id, strength, VEIL_MS);
   return { type: 'output', message:
-    `<span class="msg-system">The ${device.name} warms against your chest. You do not vanish — nothing does. `
+    `<span class="msg-system">The ${device.name} warms against your chest. You don't vanish — nothing does. `
     + `Every lens in the district simply stops being sure it saw anything worth writing down.</span>` };
 }
 
@@ -446,7 +446,7 @@ async function cmdEmp(args, raw, player, broadcast) {
   addTrace(player.id, 6, 30);
 
   return { type: 'output', message:
-    `<span class="msg-system">You crack the charge. It doesn't care whose pockets it is in.</span>${traceLine(player.id)}` };
+    `<span class="msg-system">You crack the charge. It doesn't care whose pockets it's in.</span>${traceLine(player.id)}` };
 }
 
 // ── Failure has consequences (spec §30) ──────────────────────────────────────
@@ -473,7 +473,7 @@ async function failureReaction(player, target, subsystem, opId, check, broadcast
   // The owner notices a clumsy attempt on their own body before a subtle one.
   if (target.ownerId && target.ownerId !== player.id && (badness >= 3 || traceOf(player.id) >= TRACE_ALERT)) {
     sendToPlayer(target.ownerId, { type: 'message', message:
-      `<span class="text-amber">Your ${target.name} reports a handshake you did not authorise.</span>` });
+      `<span class="text-amber">Your ${target.name} reports a handshake you didn't authorise.</span>` });
   }
 
   // Let the owning plugin have its own say — a camera turning to look at you, a

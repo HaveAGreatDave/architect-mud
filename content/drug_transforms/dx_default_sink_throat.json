@@ -4,7 +4,7 @@
     "What did the last one put down here?",
     "Do you want it back?"
   ],
-  "description": "A throat, opening downward, fitted where a sink would be. It is damp and pink and moves a little, swallowing at intervals whether or not anything has been put into it.",
+  "description": "A throat, opening downward, fitted where a sink would be. It's damp and pink and moves a little, swallowing at intervals whether or not anything has been put into it.",
   "drug_id": null,
   "emotes": [
     "{it} swallows, unprompted, and the sound carries.",
@@ -17,14 +17,14 @@
   "looks": [
     "It swallows every so often, dry, and you can watch the whole length of the movement.",
     "The rim is worn smooth and pale, the way a much-used thing goes.",
-    "There is a slow warm draught coming up out of it, and it smells of nothing at all."
+    "There's a slow warm draught coming up out of it, and it smells of nothing at all."
   ],
   "matches": "sink",
   "name": "a throat set in the wall",
   "says": [
     "Anything you like. It all goes the same way.",
-    "I have not been fed since this morning.",
-    "You are meant to run the tap first."
+    "I haven't been fed since this morning.",
+    "You're meant to run the tap first."
   ],
   "scope": "object"
 }

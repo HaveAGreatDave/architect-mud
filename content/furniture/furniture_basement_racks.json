@@ -1,5 +1,5 @@
 {
-  "description": "Floor-to-ceiling metal shelving bolted to the far wall. Most shelves are empty; the rest hold broken equipment, unmarked boxes, and things that stopped being useful before anyone thought to throw them out.",
+  "description": "Floor-to-ceiling metal shelving bolted to the far wall. Most shelves are empty; the rest hold broken equipment and unmarked boxes.",
   "flags": {
     "interactions": [
       "lean"

@@ -40,7 +40,7 @@ export default async function regress({ check }) {
   check('fully covered is slow, never immune', rate(-20, 0) > 0, String(rate(-20, 0)));
   check('deeper cold accrues faster', rate(-30, 1) > rate(-20, 1), `${rate(-30, 1)} > ${rate(-20, 1)}`);
   check('onset is below freezing, not at it (skin is warmer than the air)', ONSET_C < 0, String(ONSET_C));
-  check('thaw threshold sits above onset so the meter cannot chatter', THAW_C > ONSET_C, `${THAW_C} > ${ONSET_C}`);
+  check("thaw threshold sits above onset so the meter can't chatter", THAW_C > ONSET_C, `${THAW_C} > ${ONSET_C}`);
 
   // Time to the first stage in genuinely dangerous cold — the number that decides whether the
   // system is felt at all. Bare hands at −20°C should nip in well under half an hour.
@@ -55,7 +55,7 @@ export default async function regress({ check }) {
 
   check('a clean body reports nothing', frostbiteReport(body(0)) === null, 'null');
   check('a nipped body reports the stage', frostbiteReport(body(30))?.stage === 'frostnip', frostbiteReport(body(30))?.stage);
-  check('a reversible case is not flagged permanent', frostbiteReport(body(30)).permanent === false, 'reversible');
+  check("a reversible case isn't flagged permanent", frostbiteReport(body(30)).permanent === false, 'reversible');
   check('a deep case with a latched floor IS permanent', frostbiteReport(body(95, 90)).permanent === true, 'permanent');
 
   // A FIELD KIT buys back the use of your hands, never the hands. Same bargain the injury

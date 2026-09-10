@@ -5,7 +5,7 @@
     "Something crosses the plateau a long way off, at your speed."
   ],
   "cause": "drug",
-  "description": "A wide flat place with a low ceiling, lit evenly by nothing in particular. You are very heavy here. Everything you decide to do happens a moment after you decide it, and the gap has stopped bothering you.",
+  "description": "A wide flat place with a low ceiling, lit evenly by nothing in particular. You're very heavy here. Everything you decide to do happens a moment after you decide it, and the gap has stopped bothering you.",
   "drug_id": "drug_dxm",
   "fx": "tunnel",
   "fx_intensity": 0.6,
@@ -23,11 +23,11 @@
     {
       "looks": [
         "Reporting in from a considerable distance. All well.",
-        "They are managing without you and doing a decent job.",
+        "They're managing without you and doing a decent job.",
         "They belong to somebody sensible."
       ],
       "name": "your legs"
     }
   ],
-  "weather": "The air is heavy and even and does not move. Weather would have to be arranged, and nobody has."
+  "weather": "The air is heavy and even and doesn't move. Weather would have to be arranged, and nobody has."
 }

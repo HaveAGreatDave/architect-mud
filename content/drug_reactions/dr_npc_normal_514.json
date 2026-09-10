@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": "wary",
   "room_line": "{npc} makes a show of noticing exactly what state {player} is in.",
-  "self_line": "{npc} makes a point of noticing what state you are in.",
+  "self_line": "{npc} makes a point of noticing what state you're in.",
   "source": "npc",
   "tone": "normal"
 }

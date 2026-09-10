@@ -10,6 +10,74 @@
 export default async ({ check }) => {
   const { isPowerDevice } = await import('./index.js');
 
+  // ── Combat audio ──────────────────────────────────────────────────────────
+  // Same argument as the terrain checklist further down: the tables are the
+  // system, and what goes wrong is not a wrong number, it is the world growing a
+  // new weapon or damage type and this never finding out. An unmapped weapon is
+  // a whole class of weapon that makes no sound, which nobody reports as a bug
+  // because silence is not an error.
+  {
+    const { _combat } = await import('./index.js');
+    await import('../../client/shared/tagCatalog.js');
+    await import('../../client/shared/procedural-sfx.js');
+    const P = globalThis.ProceduralSFX;
+    const cat = globalThis.TAG_CATALOG;
+
+    const skills = cat.weapon_skill.options;
+    const unmapped = skills.filter(s => !_combat.COMBAT_WEAPON[s]);
+    check('every weapon_skill has a combat sound', unmapped.length === 0, unmapped.join(', '));
+
+    // damage_type is checked with `in`, not truthiness: `radiation` maps to null
+    // ON PURPOSE (it makes no noise), and that is a decision somebody recorded
+    // rather than a row they forgot. A NEW type would be neither and must fail.
+    const types = cat.damage_type.options;
+    const missing = types.filter(t => !(t in _combat.COMBAT_TYPE));
+    check('every damage_type is accounted for, silence included', missing.length === 0, missing.join(', '));
+
+    // Every action either table names has to be one the generator answers to —
+    // a typo here is a cue that builds nothing, silently, forever.
+    const cues = [...Object.values(_combat.COMBAT_WEAPON), ...Object.values(_combat.COMBAT_TYPE)].filter(Boolean);
+    const dead = cues.filter(c => !P.buildCookingCue({ ...c, intensity: 0.6, seed: 1 })?.config?.layers?.length);
+    check('every combat cue builds real layers', dead.length === 0, dead.map(c => c.action).join(', '));
+    check('a miss builds a whiff', P.buildCookingCue({ action: 'whiff', weight: 0.4, intensity: 0.5, seed: 2 })?.config?.layers?.length > 0);
+
+    // ⚠ A COMBAT CUE IS NOT A KITCHEN CUE. `sizzle` left at its own default is a
+    // pan of frying food — 1.5s and two dozen randomised burst layers — and a
+    // fight lands a hit every couple of seconds. Anything routed through a
+    // continuous generator has to say how long it lasts, and the cap is the
+    // check: this is about cost and about a hit sounding like a hit, not taste.
+    const long = cues.filter(c => (P.buildCookingCue({ ...c, intensity: 0.6, seed: 3 })?.config?.duration ?? 0) > 0.75);
+    check('no combat cue runs longer than a hit', long.length === 0,
+      long.map(c => `${c.action}/${c.material || c.surface}`).join(', '));
+    const fat = cues.filter(c => (P.buildCookingCue({ ...c, intensity: 0.6, seed: 3 })?.config?.layers?.length ?? 0) > 12);
+    check('no combat cue is a particle field', fat.length === 0,
+      fat.map(c => `${c.action} (${P.buildCookingCue({ ...c, intensity: 0.6, seed: 3 }).config.layers.length} layers)`).join(', '));
+
+    // A blade to the head finds bone. The only place the body is modelled finer
+    // than "meat".
+    check('an edge to the head hits bone',
+      _combat.combatCue(_combat.COMBAT_WEAPON.blades, { part: 'head', damage: 10 }).material === 'bone');
+    check('…and anywhere else is still meat',
+      _combat.combatCue(_combat.COMBAT_WEAPON.blades, { part: 'torso', damage: 10 }).material === 'wet_meat');
+    // A club to the head is still a club — the bone rule is for edges only.
+    check('a blunt weapon to the head does not become a chop',
+      _combat.combatCue(_combat.COMBAT_WEAPON.clubs, { part: 'head', damage: 10 }).action === 'impact');
+
+    // Intensity has to be audible at the bottom and saturate at the top, or a
+    // real fight is either inaudible or uniformly maximal.
+    const i = (d, c) => _combat.combatIntensity(d, c);
+    check('a glancing blow is still audible', i(1) > 0.25, String(i(1)));
+    check('a heavy blow is louder than a light one', i(30) > i(3));
+    check('intensity is clamped at both ends', i(0) >= 0 && i(9999, true) <= 1);
+    check('a crit is louder than the same damage without one', i(10, true) > i(10, false));
+
+    // The exclusion that stops this doubling up with every other system that
+    // routes through applyStrikeToPlayer — each of those owns its own sound.
+    check('a shared strike is not voiced as combat', !_combat.COMBAT_SOURCES.has('strike'));
+    check('…but a creature, an NPC and another player are',
+      ['enemy', 'npc', 'pvp'].every(s => _combat.COMBAT_SOURCES.has(s)));
+  }
+
   check('a generator is a power device', isPowerDevice({ object_type: 'generator', hp_max: 100 }));
   check('…and so is a junction box', isPowerDevice({ object_type: 'junction_box', hp_max: 40 }));
 
@@ -22,8 +90,8 @@ export default async ({ check }) => {
 
   // An indestructible junction box is a content error, not a hum: the bed is for
   // a device that can be smashed to kill it, so no hp_max means no bed.
-  check('a power device with no HP bar does not count', !isPowerDevice({ object_type: 'junction_box', hp_max: null }));
-  check('and nothing at all does not throw', !isPowerDevice(null) && !isPowerDevice(undefined));
+  check("a power device with no HP bar doesn't count", !isPowerDevice({ object_type: 'junction_box', hp_max: null }));
+  check("and nothing at all doesn't throw", !isPowerDevice(null) && !isPowerDevice(undefined));
 
   // ── The dense sound tier ──────────────────────────────────────────────────
   const { footingFor, lockFamilyOf, TERRAIN_STEP, FLOOR_STEP } = await import('./index.js');
@@ -62,7 +130,7 @@ export default async ({ check }) => {
   check('a lock family is read off the door\'s own tag',
     lockFamilyOf({ tags: { 'lock:hololock': {} } }) === 'hololock');
   check('an unlocked door has no family', lockFamilyOf({ tags: { unbreakable: true } }) === null);
-  check('a door with no tags at all does not throw', lockFamilyOf({}) === null && lockFamilyOf(null) === null);
+  check("a door with no tags at all doesn't throw", lockFamilyOf({}) === null && lockFamilyOf(null) === null);
 
   // Every cue the two emitters can produce has to build a sound. A cue that
   // returns null is a silent door, and a silent door is exactly as informative
@@ -89,7 +157,7 @@ export default async ({ check }) => {
   // the game whose job is to carry a refusal to somebody who is not reading.
   const denied = JSON.stringify(P.buildActionCue({ action: 'lock', surface: 'hololock', state: 'denied', seed: 5 }));
   const opened = JSON.stringify(P.buildActionCue({ action: 'lock', surface: 'hololock', state: 'unlock', seed: 5 }));
-  check('a refused lock does not sound like an opened one', denied !== opened);
+  check("a refused lock doesn't sound like an opened one", denied !== opened);
 
   // ── Bearable for hours, and blended ───────────────────────────────────────
   //

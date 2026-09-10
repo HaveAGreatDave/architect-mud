@@ -51,10 +51,10 @@ const TOLD = 'thorn_gate_told';
  * neither), but she does not get one, because she does not talk in clauses.
  */
 const WARDEN_LINE =
-  '<span class="ambient">The thorn does not move.</span><br>' +
+  '<span class="ambient">The thorn doesn\'t move.</span><br>' +
   '<span class="ambient">Quarrel Nine looks at you for a while. "You already went somewhere," ' +
-  'she says. "I do not care where. But you cannot stand in two places, and you are standing in ' +
-  'that one." She turns back to the road. "Come back when you are not."</span>';
+  'she says. "I don\'t care where. But you can\'t stand in two places, and you\'re standing in ' +
+  'that one." She turns back to the road. "Come back when you\'re not."</span>';
 
 const pathFlag = (player, name) => Number(player?._flags?.get(`path_${name}`)) || 0;
 
@@ -70,7 +70,7 @@ export function registerThornGate() {
       messages: {
         lock: 'The thorn closes over the gap, unhurried, the way it has for thirty years.',
         unlock: 'The thorn draws back off the frame and lets you through.',
-        denied: 'The thorn does not move.',
+        denied: "The thorn doesn't move.",
       },
     },
 

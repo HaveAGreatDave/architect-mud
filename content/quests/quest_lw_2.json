@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The Watch have a camera core put by. Rennie Vasch, who keeps the freight yard off Kessler, has a dead one on her gate and no way of getting a new part that does not go through a company that would want to know why she wanted it.\n\nHalloran wraps it in oilcloth and does not explain the arrangement.\n\nYou ask who else makes them, since he has just finished saying the Watch does not.\n\n\"Three that I know of.\"\n\nYou wait for the names. They do not come, and he goes back to the bench.\n\n\"She does not thank anybody and you are not to wait for it. Put it in her hand, not on the desk.\"",
+  "description": "The Watch have a camera core put by. Rennie Vasch, who keeps the freight yard off Kessler, has a dead one on her gate and no way of getting a new part that doesn't go through a company that would want to know why she wanted it.\n\nHalloran wraps it in oilcloth and doesn't explain the arrangement.\n\nYou ask who else makes them, since he has just finished saying the Watch does not.\n\n\"Three that I know of.\"\n\nYou wait for the names. They don't come, and he goes back to the bench.\n\n\"She doesn't thank anybody and you aren't to wait for it. Put it in her hand, not on the desk.\"",
   "fail_on": [],
   "id": "quest_lw_2",
   "meta": {},
@@ -10,7 +10,7 @@
       "desc": "Take the wrapped core off Halloran's bench.",
       "emotes": [
         "{who} takes the parcel without unwrapping it.",
-        "{who} is not told what it cost or who it is for."
+        "{who} isn't told what it cost or who it's for."
       ],
       "id": "o_core",
       "item_id": "item_lw_camcore",
@@ -22,9 +22,9 @@
       "desc": "Get it to Rennie Vasch at the Kessler yard, and put it in her hand.",
       "emotes": [
         "{who} walks it up Kessler in daylight, because a parcel carried openly is a parcel nobody looks at.",
-        "{who} waits while she finishes with a driver who is in no hurry either.",
+        "{who} waits while she finishes with a driver who's in no hurry either.",
         "{who} puts it in her hand rather than on the desk, and she notices which one it was.",
-        "{who} is not thanked, and is watched all the way back to the gate."
+        "{who} isn't thanked, and is watched all the way back to the gate."
       ],
       "id": "o_hand",
       "requires": [

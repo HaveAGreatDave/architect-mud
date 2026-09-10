@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#2a2620",
   "color": "#8ba36a",
-  "description": "A narrow shopfront squeezed onto the last dry corner of Ironside before the grass takes over, painted a green that was chosen to look expensive and did not manage it. The window is triple-glazed, barred, and dressed with more care than anything else on the street: nine comics on nine little easels, each one under its own small lamp, each one in a sleeve, none of them for sale. A card in the corner of the display reads DO NOT TAP THE GLASS. The sign above the door is hand-lettered gold on black — MINT CONDITION — and under it, smaller: COMICS · CARDS · TAPES · NO EXCEPTIONS.",
+  "description": "A narrow shopfront squeezed onto the last dry corner of Ironside before the grass takes over, painted a green that was chosen to look expensive and didn't manage it. The window is triple-glazed, barred, and dressed with more care than anything else on the street: nine comics on nine little easels, each one under its own small lamp, each one in a sleeve, none of them for sale. A card in the corner of the display reads DO NOT TAP THE GLASS. The sign above the door is hand-lettered gold on black — MINT CONDITION — and under it, smaller: COMICS · CARDS · TAPES · NO EXCEPTIONS.",
   "exits": {
     "north": "zone_district_919_912",
     "south": "zone_mintcond_floor"

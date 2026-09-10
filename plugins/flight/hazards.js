@@ -15,6 +15,8 @@ import { on } from '../../server/engine/events.js';
 import { fireSpecializedAction } from '../../server/engine/specializedActions.js';
 import { applyTopical } from '../../server/engine/topical.js';
 import { getZonePlayers } from '../../server/engine/world.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
+import { carriedFluids } from './hangars.js';
 
 // The ion storm's peak, mirrored locally off the weather-event signal so the
 // hazard roll never has to reach into the weather plugin. `weather.event` fires
@@ -28,7 +30,7 @@ on('weather.event', ({ type, phase }) => {
 function empActive() { return Date.now() < empUntil; }
 import {
   liveAircraft, surfaceAt, pilotOf, persist, crash, toOccupants, out, sendToZone,
-  BANDS, effStats, getLivePlayer, detach, getZone, fieldFor as fieldOf,
+  BANDS, effStats, getLivePlayer, detach, getZone, fieldFor as fieldOf, PILOT_IP,
 } from './state.js';
 // `eject` also belongs to broadcast (eject a cassette); flight wins it by load
 // order and hands back when you're not bailing out of an aircraft.
@@ -110,7 +112,7 @@ export async function rollHazards(live) {
   // considerably worse. Self-clearing, so it ends without a verb.
   if (!live.hazard && empActive() && Math.random() < 0.5) {
     live.hazard = { type: 'EMP', stage: 0 };
-    toOccupants(live, '<span class="text-red">⚡ Every panel in the cockpit dies at once. Gauges, radio, nav — black. You are flying this thing by eye and by feel.</span>');
+    toOccupants(live, '<span class="text-red">⚡ Every panel in the cockpit dies at once. Gauges, radio, nav — black. You\'re flying this thing by eye and by feel.</span>');
     return;
   }
 
@@ -177,7 +179,9 @@ async function cmdExtinguish(args, raw, player) {
   live.row.engine_temp = Math.min(live.row.engine_temp, 120);
   if (!chk.success) return { type: 'emote', message: cut ? 'You chop the fuel but the fire\'s still lit — try again.' : 'The bottle empties and the flames gutter but hold. Again!' };
   live.hazard = null;
-  await awardSkillUse(player.id, 'piloting', 1);
+  // A real check just ran — pass its margin, so a fire caught late (a harder
+  // difficulty, a narrower win) teaches more than an easy one. See PILOT_IP.
+  await awardSkillUse(player.id, 'piloting', chk.margin);
   return { type: 'emote', message: cut
     ? '<span class="text-green">Fuel cut, the fire starves and dies. You\'re a glider now — find a field.</span>'
     : '<span class="text-green">The extinguisher smothers it. Smoke, but no more flame.</span>' };
@@ -202,7 +206,7 @@ async function cmdEject(args, raw, player, broadcast) {
   } else {
     const p = getLivePlayer(player.id);
     if (p) { p.hp = Math.max(0, Math.floor((p.hp || 0) * 0.15) - 10); }
-    out(player.id, '<span class="text-red">You bail with no chute. The ground is not merciful.</span>');
+    out(player.id, '<span class="text-red">You bail with no chute. The ground isn\'t merciful.</span>');
     const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
     if (p && p.hp <= 0) await handlePlayerDeath(p, null, { type: 'fall', label: 'Bailed out without a parachute' });
   }
@@ -257,7 +261,7 @@ async function cmdSpot(args, raw, player) {
   }
   if (eff < 3 && finds.length > 1) finds.length = 1;   // an unskilled eye misses things
   if (!finds.length) return { type: 'output', message: 'You scan the ground below. Nothing worth marking from up here.' };
-  await awardSkillUse(player.id, 'piloting', 0);
+  await awardSkillUse(player.id, 'piloting', PILOT_IP.ROUTINE);
   return { type: 'output', message: `<span class="text-cyan">From altitude you make out:</span>\n· ${finds.join('\n· ')}` };
 }
 
@@ -423,6 +427,27 @@ async function pourIntoHopper(player, args, craftName, cap, cd, save) {
   return { type: 'use', message: `You pour ${fluidType} from the ${can.name} into the ${craftName}'s hopper. <span class="text-dim">(hopper ${Math.round(hop.amount / cap * 100)}%)</span>` };
 }
 
+// The cockpit's HOPPER button, answered as data. A silent client resolve: it mutates nothing and
+// returns `noop`, so it can be re-asked after every pour without printing a line into the log.
+//
+// It hands over the SAME can list the hangar bench's Hopper tab is built from (`carriedFluids`),
+// which is the same predicate `pourIntoHopper` matches on — a button offering a can the verb
+// would then refuse is worse than no button. The panel decides nothing: it draws these rows and
+// sends `loadhopper with <name>`, an ordinary command a player could have typed.
+async function cmdHopperBay(args, raw, player) {
+  const { live, err } = requirePilot(player); if (err) return err;
+  const cap = hopperCap(live);
+  if (cap <= 0 || !(live.type.data && live.type.data.spray))
+    return { type: 'emote', message: `The ${live.type.name} has no chemical hopper.` };
+  const hop = (live.row.custom_data && live.row.custom_data.hopper) || {};
+  sendToPlayer(player.id, {
+    type: 'flight_hopper', craft: live.type.name,
+    cap, amount: Math.round(hop.amount || 0), fluid: hop.fluid_type || null,
+    airborne: !!live.row.airborne, cans: await carriedFluids(player),
+  });
+  return { type: 'noop' };
+}
+
 function bearing(from, to) {
   const dx = to.grid_x - from.grid_x, dy = to.grid_y - from.grid_y;
   const ns = dy < 0 ? 'N' : dy > 0 ? 'S' : '';
@@ -489,6 +514,7 @@ export const commands = {
   scan: cmdScanVerb,
   spray: cmdSpray,
   loadhopper: cmdLoadHopper,
+  hopperbay: cmdHopperBay,
   chart: cmdChart,
   squawk: cmdSquawk,
 };

@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "description": "A retail concourse ringed with frosted-glass storefronts: a jeweller, a tailor, a coffee bar, a newsstand, all catering to people who own the floors above. A kiosk near the fountain sells the essentials to everyone else at a markup that is itself a kind of insurance.",
+  "description": "A retail concourse ringed with frosted-glass storefronts: a jeweller, a tailor, a coffee bar, a newsstand, all catering to people who own the floors above. A kiosk near the fountain sells the essentials to everyone else at a markup that's itself a kind of insurance.",
   "exits": {
     "in": "zone_halcyon_elevator"
   },

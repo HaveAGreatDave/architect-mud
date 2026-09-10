@@ -245,7 +245,7 @@ export async function birthDateOf(player) {
 async function cmdBirthday(args, raw, player, broadcast) {
   const { today } = await gameNow();
   if (!today) {
-    return { type: 'error', message: 'The registry cannot reach the calendar. Try again in a moment.' };
+    return { type: 'error', message: "The registry can't reach the calendar. Try again in a moment." };
   }
 
   const born = await birthDateOf(player);
@@ -274,7 +274,7 @@ async function cmdBirthday(args, raw, player, broadcast) {
   if (String(claimed) === String(today.y)) {
     return {
       type: 'output',
-      message: `${head}\n<span style="color:var(--yellow)">Today, in fact.</span> <span class="text-dim">You have already had your pouch. There is one, and you have had it.</span>`,
+      message: `${head}\n<span style="color:var(--yellow)">Today, in fact.</span> <span class="text-dim">You have already had your pouch. There's one, and you have had it.</span>`,
     };
   }
 
@@ -291,7 +291,7 @@ async function cmdBirthday(args, raw, player, broadcast) {
   return {
     type: 'output',
     message: `${head}\n<span style="color:var(--yellow)">Today, in fact.</span>\n\n`
-      + `Somewhere a dispenser you are not standing near clunks anyway, and a bronze pouch you did not ask for is in your hands. `
+      + `Somewhere a dispenser you aren't standing near clunks anyway, and a bronze pouch you didn't ask for is in your hands. `
       + `MANY HAPPY RETURNS. <span class="text-dim">Issued once annually per registered instance. Nobody signed it.</span>`,
   };
 }

@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "You are turned through ninety degrees of something that is not space.",
+    "You're turned through ninety degrees of something that isn't space.",
     "The sideways speed increases without anything moving.",
-    "A voice says a number, and you are the number."
+    "A voice says a number, and you're the number."
   ],
   "cause": "drug",
-  "description": "The world has a seam in it and you have gone in along the seam. You are the length of it. Everything is happening sideways at a constant speed and you have been part of this arrangement for much longer than you have been alive.",
+  "description": "The world has a seam in it and you have gone in along the seam. You're the length of it. Everything is happening sideways at a constant speed and you have been part of this arrangement for much longer than you have been alive.",
   "drug_id": "drug_salvia",
   "fx": "crawl",
   "fx_intensity": 0.9,
@@ -14,17 +14,17 @@
   "objects": [
     {
       "looks": [
-        "It runs through everything, and you are what runs along it.",
+        "It runs through everything, and you're what runs along it.",
         "You have been travelling it since before you had a name for travelling.",
-        "It turns a corner that is not a direction, and you turn with it."
+        "It turns a corner that isn't a direction, and you turn with it."
       ],
       "name": "the seam"
     },
     {
       "looks": [
         "Enormous and entirely uninterested, the way a machine is uninterested.",
-        "It is checking your edges. You have edges.",
-        "It has done this to many things. You are not special and this is a relief."
+        "It's checking your edges. You have edges.",
+        "It has done this to many things. You aren't special and this is a relief."
       ],
       "name": "the thing turning you"
     }

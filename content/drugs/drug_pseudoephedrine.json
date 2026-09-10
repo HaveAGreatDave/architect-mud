@@ -21,7 +21,7 @@
       "comedown_seconds": 60,
       "comeup_scale": 0.5,
       "comeup_seconds": 20,
-      "end_message": "<span class=\"msg-system\">You are simply tired now, and your nose is blocked again.</span>",
+      "end_message": "<span class=\"msg-system\">You're simply tired now, and your nose is blocked again.</span>",
       "peak_mods": {
         "stamina_regen_per_sec": 0.5,
         "stat_reflexes": 1

@@ -3,7 +3,7 @@
   "id": "bt_amb_tv_001",
   "lines": [
     "\"Is that {tv_program} again?\"",
-    "\"It is always {tv_program}.\"",
+    "\"It's always {tv_program}.\"",
     "\"They must own it outright. Nobody schedules a thing that often on purpose.\"",
     "\"Somebody does. Somebody sits in a room and decides.\""
   ],

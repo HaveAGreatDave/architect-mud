@@ -1,5 +1,5 @@
 {
-  "description": "A dented aluminum baseball bat, taped at the grip with something dark and flaking. Deadball Coldwater League stamped near the barrel, half worn off. It has hit more than baseballs.",
+  "description": null,
   "flags": {},
   "id": "item_bat",
   "name": "aluminum bat",
@@ -9,6 +9,7 @@
       "min": 3
     },
     "damage_type": "kinetic",
+    "description": "A dented aluminum baseball bat, taped at the grip with something dark and flaking. Deadball Coldwater League stamped near the barrel, half worn off. It has hit more than baseballs.",
     "slot": "weapon_hand",
     "weapon": true,
     "weapon_skill": "clubs"

@@ -1,5 +1,5 @@
 {
-  "description": "A full-tang fighting knife with a blackened edge. Never jams, never runs dry, never asks questions.",
+  "description": null,
   "flags": {},
   "id": "item_combat_knife",
   "name": "combat knife",
@@ -9,7 +9,7 @@
       "min": 4
     },
     "damage_type": "edged",
-    "description": "A full-tang fighting knife with a blackened edge. Never jams, never runs dry, never asks questions.",
+    "description": "A full-tang fighting knife with a blackened edge. Never jams, never runs dry.",
     "min_skill": {
       "blades": 1
     },

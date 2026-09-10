@@ -13,15 +13,15 @@
   "fx_intensity": 0.5,
   "id": "dxs_default_watcher",
   "looks": [
-    "It has no obvious front. It is looking at you.",
+    "It has no obvious front. It's looking at you.",
     "It has moved. You would swear to it and you would be wrong.",
     "The coats are yours, or near enough that arguing would be work."
   ],
   "matches": null,
   "name": "a tall thin figure made of coats",
   "says": [
-    "Do not mind me.",
-    "I will be here when it wears off."
+    "Don't mind me.",
+    "I'll be here when it wears off."
   ],
   "scope": "spawn"
 }

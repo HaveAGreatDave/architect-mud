@@ -1,5 +1,5 @@
 {
-  "description": "A slab of end-grain maple on a steel frame, scrubbed pale and dished in the middle where forty years of the same cuts have worn it away. A spring scale hangs over it, its dial stopped somewhere near a number that is nobody's weight. Vesna Kroh works behind it, and does not put the cleaver down to talk to you.",
+  "description": "A slab of end-grain maple on a steel frame, scrubbed pale and dished in the middle where forty years of the same cuts have worn it away. A spring scale hangs over it, its dial stopped near a number that's nobody's weight. Vesna Kroh works behind it, and doesn't put the cleaver down to talk to you.",
   "flags": {
     "aliases": "counter, block, butcher block, till, checkout",
     "checkout": "npc_butcher_kroh",

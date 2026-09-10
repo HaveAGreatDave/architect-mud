@@ -1,9 +1,10 @@
 {
-  "description": "Two bags of engineered grass. Mellow, hungry, harmless-ish.",
+  "description": null,
   "flags": {},
   "id": "item_dreamsmoke",
   "name": "dreamsmoke",
   "tags": {
+    "description": "Two bags of engineered grass. Mellow, hungry, harmless-ish.",
     "drug": true
   },
   "type": "consumable",

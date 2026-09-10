@@ -2,7 +2,7 @@ import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
 import { renderMapBriefing, renderMapChart } from '../map-text.js';
 import { loggedPanelsSync, textMinigamesSync } from '../presentation.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, interiorLockedDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone, propsOf } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, interiorLockedDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone, propsOf, poiOf } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -18,7 +18,7 @@ import { forceStand } from '../posture.js';
 import { isSneaking } from '../stealth.js';
 import { isDreamZone, pushDreamFx } from '../dreamscape.js';
 import { registerMoveGate, runMoveGates, climbCheck, registerLockedProvider } from '../movement-gates.js';
-import { doorGuardsOnlyUnownedApartment, isResidentOf, getBuildingName } from '../apartments.js';
+import { doorGuardsOnlyUnownedApartment, isResidentOf, getBuildingName, playerControlsDoorApartment } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
 import { districtFor } from '../districts.js';
 import { getFlag, setFlag } from '../flags.js';
@@ -107,16 +107,21 @@ registerMoveGate(async ({ player, direction, door, to, from }) => {
 // It is deliberately NOT the whole gate. Lock AUTH is async (resolveLockAuth reads
 // a player's keys), and this is called per side of every tile in the minimap
 // window, so the question it answers is "is this door locked", which is true for
-// everyone standing there, rather than "would it open for you". A resident sees
-// their own front door red and unlocks it, which is what the room description has
-// always told them too.
+// everyone standing there, rather than "would it open for you".
+//
+// `unlockable` is the one thing it will say about the viewer, and only where the
+// answer needs no keyring: a unit they own. So a resident sees their own front
+// door drawn as theirs, and everyone else sees the same door shut.
 registerLockedProvider((player, from, dir, to) => {
   const door = doorOnLink(from.id, dir, to?.id);
   if (!door || door.hp <= 0 || door.lock_state !== 'locked') return null;
   if (doorGuardsOnlyUnownedApartment(door)) return null;       // unrented unit — vestigial
   if (door._autoLockedInside && autoLockLetsThrough(player, door, from)) return null;
   if (!getLockTagPublic(door)) return null;                    // locked with no lock installed
-  return { locked: true };
+  // ...and the orange half: a lock on a unit this player controls is a door of
+  // their own. A SUBSET of locked, never a swap — the red line stays, because the
+  // seam still cannot promise a keycard will work.
+  return { locked: true, unlockable: playerControlsDoorApartment(player, door) };
 }, 'engine:door-lock');
 
 // Encumbrance blocks the move — the law lives at movement, not acquisition
@@ -191,7 +196,7 @@ registerMoveGate(async ({ player, to }) => {
     if (verdict?.ok) return;
     if (verdict?.message) return { block: true, message: verdict.message };
   }
-  return { block: true, message: 'The rock goes up sheer in front of you. There is no way up it here.' };
+  return { block: true, message: "The rock goes up sheer in front of you. There's no way up it here." };
 }, 'engine:impassable-terrain');
 
 // Water is no longer a wall. Entering a water tile is a SWIM, not a block — the
@@ -245,7 +250,7 @@ function cmdLookSky(player) {
       "You stare at the ceiling. It stares back. Neither of you blink.",
       "It's a ceiling. Flat. Featureless. Deeply unimpressive. You've seen better.",
       "You look up. Ceiling. No sky. This is what happens when you live indoors.",
-      "The ceiling offers no weather information. It is simply there, being a ceiling.",
+      "The ceiling offers no weather information. It's simply there, being a ceiling.",
       "You crane your neck upward. Yep. That's a ceiling alright. Mystery solved.",
       "Sky unavailable in this location. Please proceed to an exit and try again.",
       "A ceiling. Possibly the same ceiling as before. You can't be sure.",
@@ -317,7 +322,7 @@ async function cmdLook(player, targetStr, broadcast) {
   if (targetStr === 'distance' || targetStr === 'out') return cmdLookDistance(player);
   if (!targetStr || targetStr === 'room' || targetStr === 'around') {
     const zone = getZone(player.current_zone);
-    if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
+    if (!zone) return { type:'error', message:"You're nowhere. This is a bug." };
     return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id, 8, player), ambience: ambienceFor(zone) };
   }
   const inMatch = targetStr.match(/^in\s+(.+)$/i);
@@ -875,7 +880,7 @@ export async function dragFollowers(leaderId, fromZoneId, direction, broadcast) 
 
 function cmdFollow(args, player, broadcast) {
   if (!args.length) {
-    if (!player.following) return { type: 'output', message: 'You are not following anyone.' };
+    if (!player.following) return { type: 'output', message: "You aren't following anyone." };
     player.following = null;
     return { type: 'output', message: 'You stop following.' };
   }
@@ -884,11 +889,11 @@ function cmdFollow(args, player, broadcast) {
   if (!target) return { type: 'error', message: `No player named "${args.join(' ')}" is online.` };
   player.following = target.id;
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} starts following ${target.handle}.` }, player.id);
-  return { type: 'output', message: `You are now following ${target.handle}. Type "follow" with no arguments to stop.` };
+  return { type: 'output', message: `You're now following ${target.handle}. Type "follow" with no arguments to stop.` };
 }
 
 function cmdUnfollow(player, broadcast) {
-  if (!player.following) return { type: 'output', message: 'You are not following anyone.' };
+  if (!player.following) return { type: 'output', message: "You aren't following anyone." };
   player.following = null;
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} stops following.` }, player.id);
   return { type: 'output', message: 'You stop following.' };
@@ -927,58 +932,14 @@ function buildingsAt(zone) {
   return names;
 }
 
-// Map POI icon — the single most salient landmark at a tile, for legibility.
-// Uses the clean signals (airfield membership, building_type on adjacent buildings)
-// plus vendor NPCs and up/down stairs. Deliberately SPARSE: most tiles return null.
-// Priority is the "what matters most here" order. { icon, poi } | null.
-const POI_ICON = { aa: '⌖', airport: '✈', police: '★', power: '⚡', club: '♥', nightclub: '🎶', bar: '🍺', hotel: '🏨', bathhouse: '♨', noodle_bar: '🍜', vendor: '$', home: '⌂', stairs: '⇕' };
-const POWER_RE = /coolant|turbine|reactor|powerplant/i;
-function buildingTypesAt(zone) {
-  const types = new Set();
-  for (const { target } of allExits(zone)) {
-    const t = getZone(target);
-    if (t?.flags?.is_building && t.flags.building_type) types.add(t.flags.building_type);
-  }
-  return types;
-}
-function hasVendorNpc(zoneId) {
-  for (const npc of getZoneNpcs(zoneId) || [])
-    if (npc.npc_type === 'vendor' || npc.flags?.personality === 'vendor' || npc.vendor_inventory?.length) return true;
-  return false;
-}
+// Map POI glyph — the single most salient landmark at a tile, for legibility.
+// Deliberately SPARSE: most tiles return null.
+const POI_ICON = { military: '⌖', airfield: '✈', depot: '🚚', fuel: '⛽', civic: '🏛', medical: '⚕', industry: '⚙', nightlife: '♥', restaurant: '🍽', grocery: '🛒', shops: '$', residence: '⌂', stairs: '⇕' };
+// The class itself is derived once, in world.js (poiOf), because the sidebar minimap needs
+// the same answer to tint the tile with. This end of it is only the glyph.
 function mapPoi(zone) {
-  // AA emplacements outrank everything (incl. the up/down-hatch stairs marker below)
-  // so a battery reads as a battery, not a stairwell.
-  if (zone.flags?.aa_site) return { icon: POI_ICON.aa, poi: 'aa' };
-  // MEMBERSHIP, not the name. This tested `flags.airfield_name` until 2026-08-02 —
-  // a display string standing in for "is this an airfield" — so the two hangar
-  // interiors that carried a courtesy copy of their field's name drew an airport
-  // marker, and a field would have lost its icon the moment someone left the name
-  // to fall back to the tile's own.
-  if (zone.flags?.airfield_id) return { icon: POI_ICON.airport, poi: 'airport' };
-  const bt = buildingTypesAt(zone);
-  if (bt.has('police')) return { icon: POI_ICON.police, poi: 'police' };
-  if (POWER_RE.test(zone.id || '') || POWER_RE.test(zone.name || '') ||
-      allExits(zone).some(e => { const t = getZone(e.target); return t?.flags?.is_building && (POWER_RE.test(t.id || '') || POWER_RE.test(t.name || '')); }))
-    return { icon: POI_ICON.power, poi: 'power' };
-  if (bt.has('club')) return { icon: POI_ICON.club, poi: 'club' };
-  if (bt.has('nightclub')) return { icon: POI_ICON.nightclub, poi: 'nightclub' };
-  // Bar vs hotel are split by whether the building houses people (hotel = lodging);
-  // both outrank the generic vendor $ so a bar with a bartender-vendor still reads as a bar.
-  if (bt.has('hotel')) return { icon: POI_ICON.hotel, poi: 'hotel' };
-  if (bt.has('bar')) return { icon: POI_ICON.bar, poi: 'bar' };
-  // Marrow Street's two destination-in-their-own-right shops outrank the generic $:
-  // you go to a bathhouse or a noodle counter for the thing, not for the shelf.
-  if (bt.has('bathhouse')) return { icon: POI_ICON.bathhouse, poi: 'bathhouse' };
-  if (bt.has('noodle_bar')) return { icon: POI_ICON.noodle_bar, poi: 'noodle_bar' };
-  if (bt.has('shop') || bt.has('grocery') || bt.has('store') || bt.has('dept_store') ||
-      bt.has('hardware') || bt.has('outfitter') || bt.has('bodega') || hasVendorNpc(zone.id))
-    return { icon: POI_ICON.vendor, poi: 'vendor' };
-  // Residential blocks (not hotels — those returned above) get a home marker, ranked
-  // below service/vendor POIs so a shop-fronted apartment tile still reads as a shop.
-  if (bt.has('apartment')) return { icon: POI_ICON.home, poi: 'home' };
-  if (zone.exits?.up || zone.exits?.down) return { icon: POI_ICON.stairs, poi: 'stairs' };
-  return null;
+  const poi = poiOf(zone);
+  return poi ? { icon: POI_ICON[poi] || null, poi } : null;
 }
 
 // One tile snapshot, positioned at (x,y) relative to the map's origin.

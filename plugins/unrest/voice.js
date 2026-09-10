@@ -60,7 +60,7 @@ export function quarterOf(key) {
 const AMBIENT = {
   grip: {
     watchful: [
-      'A patrol car rolls past at walking pace and does not stop.',
+      "A patrol car rolls past at walking pace and doesn't stop.",
       'Somebody in a clean coat photographs a doorway, then moves on.',
       'Two uniforms stand where they can see the whole street, saying nothing.',
     ],
@@ -78,7 +78,7 @@ const AMBIENT = {
   heat: {
     watchful: [
       'Fresh paint on the shutter, half scrubbed off and still legible.',
-      'Someone has taped a printed sheet to the pole. It is not an advertisement.',
+      "Someone has taped a printed sheet to the pole. It isn't an advertisement.",
       'Two people stop talking as you pass, and start again after you have.',
     ],
     tense: [
@@ -101,11 +101,11 @@ const CROSSING = {
   ],
   tense: [
     'Something is going on here. Doors that should be open are shut.',
-    'You are being looked at by three people who are pretending not to.',
+    "You're being looked at by three people who are pretending not to.",
   ],
   flashpoint: [
     'You have walked into the middle of something. Everyone here already knows what.',
-    'Whatever is happening on this block, it started before you arrived and it is not finished.',
+    "Whatever is happening on this block, it started before you arrived and it isn't finished.",
   ],
 };
 
@@ -131,7 +131,7 @@ const WIRE = {
     (p) => `Residents of ${p} are reminded that identity verification is routine — cooperation shortens it considerably.`,
   ],
   heat: [
-    (p) => `Reports of disorder in ${p} are unverified — Basin infrastructure is operating normally and there is no cause for concern.`,
+    (p) => `Reports of disorder in ${p} are unverified — Basin infrastructure is operating normally and there's no cause for concern.`,
     (p) => `A small number of unlicensed gatherings in ${p} have been dispersed — the matter is considered closed.`,
   ],
 };

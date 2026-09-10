@@ -3,12 +3,12 @@
   "behaviour_graph": {},
   "chitchat": [
     "Quietly, if you would.",
-    "Bed four is having a bad day. Do not take it personally.",
-    "Two hours, turn. Two hours, turn. It is not complicated.",
+    "Bed four is having a bad day. Don't take it personally.",
+    "Two hours, turn. Two hours, turn. It isn't complicated.",
     "You can talk to them. All of them. Some of them answer.",
     "I do the nights. It suits me."
   ],
-  "description": "A rangy man moving very quietly between ten beds. His eyes have no whites left in them, which is startling for about four seconds and then stops being anything at all.\n\nHe does not sleep. Not badly, not a little: not at all, and has not since he was twenty-two, and so the night rota in this building has one name on it and it is his. He has been awake for thirty-one years and he is the calmest person in the Scarletwastes.",
+  "description": "A rangy man moving very quietly between ten beds. His eyes have no whites left in them, which is startling for about four seconds and then stops being anything at all.\n\nHe doesn't sleep. Not badly, not a little: not at all, and hasn't since he was twenty-two, and so the night rota in this building has one name on it and it's his. He has been awake for thirty-one years and he's the calmest person in the Scarletwastes.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
@@ -40,11 +40,11 @@
           "next": "bye"
         }
       ],
-      "text": "He is quiet for long enough that you think he has not heard.\n\n\"Yes.\"\n\nHe goes to the next bed.\n\n\"I took bed seven to Coldwater. Two years ago, in a cart, four days, with a letter from Gristle laid out like a physician writes. Got to the Yards checkpoint. They read the letter.\"\n\nHe turns her, carefully, and settles the pillow.\n\n\"They were not cruel about it either.\""
+      "text": "He's quiet for long enough that you think he hasn't heard.\n\n\"Yes.\"\n\nHe goes to the next bed.\n\n\"I took bed seven to Coldwater. Two years ago, in a cart, four days, with a letter from Gristle laid out like a physician writes. Got to the Yards checkpoint. They read the letter.\"\n\nHe turns her, carefully, and settles the pillow.\n\n\"They weren't cruel about it either.\""
     },
     "root": {
       "actions": [],
-      "first": "\"Come in.\" He does not stop. \"Quietly, if you would, and you can stay as long as you like.\"",
+      "first": "\"Come in.\" He doesn't stop. \"Quietly, if you would, and you can stay as long as you like.\"",
       "options": [
         {
           "actions": [],
@@ -78,8 +78,8 @@
       "text": "\"Quietly, if you would.\"",
       "text_by_relation": {
         "close": "He puts a hand on your shoulder on the way past, briefly, and carries on down the row.",
-        "familiar": "\"Take that end,\" and it is a sheet, and you take it.",
-        "known": "\"You came back.\" He is pleased and does not stop moving."
+        "familiar": "\"Take that end,\" and it's a sheet, and you take it.",
+        "known": "\"You came back.\" He's pleased and doesn't stop moving."
       }
     },
     "sign": {
@@ -107,7 +107,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"That is Tallow's. She put it up after the fourth one.\"\n\nHe smooths a sheet.\n\n\"It means what it says. There is a rota on that door for turning and there is a second one nobody writes down for sitting, and when one of them goes, the whole town is in this room. All of it. The gate shift comes off the gate.\"\n\nHe straightens up.\n\n\"They can have the wall for an hour. We have decided that.\""
+      "text": "\"That's Tallow's. She put it up after the fourth one.\"\n\nHe smooths a sheet.\n\n\"It means what it says. There's a rota on that door for turning and there's a second one nobody writes down for sitting, and when one of them goes, the whole town is in this room. All of it. The gate shift comes off the gate.\"\n\nHe straightens up.\n\n\"They can have the wall for an hour. We have decided that.\""
     },
     "who": {
       "actions": [],
@@ -134,7 +134,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Bed one is Renna's brother. Bed three did the roof for forty years. Bed seven is nineteen.\"\n\nHe checks something, adjusts something.\n\n\"They went into the Fleshery and what they got was not the good kind. That is all. There is no more to it than that and there is no story in it and I would rather you did not go looking for one.\""
+      "text": "\"Bed one is Renna's brother. Bed three did the roof for forty years. Bed seven is nineteen.\"\n\nHe checks something, adjusts something.\n\n\"They went into the Fleshery and what they got wasn't the good kind. That's all. There's no more to it than that and there's no story in it and I would rather you didn't go looking for one.\""
     }
   },
   "faction": "ideology_wildblood",

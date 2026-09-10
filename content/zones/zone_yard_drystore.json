@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#26292e",
   "color": "#cdb489",
-  "description": "The dry store's floor: plain steel racking to the roofline, a pallet jack, a swept concrete deck. Cheap, dry, and defensible: the kind of space a young crew cuts its teeth holding.",
+  "description": "The dry store's floor: plain steel racking to the roofline, a pallet jack, a swept concrete deck. Cheap, dry, and defensible.",
   "exits": {
     "north": "zone_district_924_909"
   },
@@ -15,7 +15,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that is more information than you want.",
+      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that's more information than you want.",
       "light": 0.7,
       "name": "the high window",
       "visibility": 0.75

@@ -1,5 +1,5 @@
 {
-  "description": "A caged security light recessed high in the wall, on a switch you cannot reach from inside the cell.",
+  "description": "A caged security light recessed high in the wall, on a switch you can't reach from inside the cell.",
   "flags": {
     "interactions": [
       "switch"

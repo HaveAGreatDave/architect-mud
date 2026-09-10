@@ -3,7 +3,7 @@
   "id": "dr_npc_surreal_033",
   "npc_type": null,
   "relation": null,
-  "room_line": "{npc} carries on talking at {player}, who is plainly somewhere else.",
+  "room_line": "{npc} carries on talking at {player}, who's plainly somewhere else.",
   "self_line": "{npc} has been talking to you for a while. You come back into it partway through.",
   "source": "npc",
   "tone": "surreal"

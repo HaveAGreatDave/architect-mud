@@ -30,6 +30,8 @@ import {
 	describeApartmentStatus,
 	describeRentStatus,
 	describeDoorForcefield,
+	doorGuardsOnlyUnownedApartment,
+	playerControlsDoorApartment,
 } from "../apartments.js";
 import { fireHook, gatherHook } from "../plugins.js";
 import { isStackable } from "../tags.js";
@@ -54,6 +56,16 @@ import { isVendorClosed } from "../ai-behaviour.js";
 async function doorLockAttr(door, player) {
 	const lockTag = getLockTagPublic(door);
 	if (!lockTag) return "";
+	// ⚠ The exemptions below are the MOVE GATE's, restated (movement.js,
+	// 'engine:door-lock'). This used to read door.lock_state directly, which made it
+	// a second lock law, and it disagreed with the first: an unrented Solenne unit
+	// drew green on the minimap, red here, and then opened when you walked into it.
+	// A direction the dpad reddens must be a direction that actually stops you.
+	if (doorGuardsOnlyUnownedApartment(door)) return ""; // unrented unit — vestigial
+	// Orange before red, and asked the way the MAP asks it (playerControlsDoorApartment),
+	// so a door of your own reads the same on both surfaces. checkLockAuth stays as the
+	// second question because it also covers a borrowed credential, which ownership does not.
+	if (playerControlsDoorApartment(player, door)) return ' data-lock="owned"';
 	if (player && (await checkLockAuth(lockTag, door, player))) return ' data-lock="owned"';
 	if (door.lock_state === "locked") return ' data-lock="locked"';
 	return "";
@@ -874,7 +886,7 @@ const LIGHT_GATE = {
 	dim:     { dim: true, line: ["light-dim", "The light is poor here. Details are hard to make out."] },
 	gloomy:  { dim: true, hideItems: true, line: ["light-gloomy", "Gloom hangs thick — you catch shapes and movement, but little detail."] },
 	dark:    { dark: true, line: ["light-dark", "It's very dark. You can barely make out your surroundings."] },
-	murk:    { dark: true, hideNpcs: true, line: ["light-murk", "It is nearly black — only the vaguest shapes register."] },
+	murk:    { dark: true, hideNpcs: true, line: ["light-murk", "It's nearly black — only the vaguest shapes register."] },
 };
 
 // Compass bearing from a zone to its district landmark, off grid deltas. grid_y
@@ -996,7 +1008,7 @@ export async function describeZone(zone, player, out = {}) {
 		const { buildings, rooms, plain } = getConnectedDestinations(zone);
 		let darkDesc =
 			`<span class="zone-name">${zone.name}</span>\n` +
-			`<span class="light-level light-dark">It is completely dark here. You can't make out your surroundings.${windowHint}</span>`;
+			`<span class="light-level light-dark">It's completely dark here. You can't make out your surroundings.${windowHint}</span>`;
 		if (plain.length) {
 			// In pitch dark you can feel for openings but can't read where they lead.
 			const exitLinks = plain.map((p) => {

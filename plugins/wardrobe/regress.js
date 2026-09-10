@@ -74,7 +74,7 @@ export default async function regress({ run, check }) {
     { name: 'work', item_ids: ['item_missing_thing'] }, new Set()
   );
   check('an unreachable piece is marked unavailable', described.items[0].available === false);
-  check('an outfit with an unreachable piece is not wearable', described.wearable === false);
+  check("an outfit with an unreachable piece isn't wearable", described.wearable === false);
 
   // A piece you're WEARING is reachable — the bug this fixes had a just-saved
   // outfit render every item missing while the player had the clothes on.
@@ -82,7 +82,7 @@ export default async function regress({ run, check }) {
     { name: 'work', item_ids: ['item_worn_jacket'] }, new Set(['item_worn_jacket'])
   );
   check('a piece already on your body counts as available', onBody.items[0].available === true);
-  check('an outfit made of what you are wearing is wearable', onBody.wearable === true);
+  check("an outfit made of what you're wearing is wearable", onBody.wearable === true);
 
   // `dress` / `undress <wardrobe>` route and degrade politely with no wardrobe in
   // the room. `undress` is the load-bearing one: the plugin OVERRIDES the engine

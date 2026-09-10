@@ -180,7 +180,7 @@ function statutesScreen() {
     items,
     rows: [
       { label: 'Note', value: 'Stars are what a charge ADDS. They decay on their own if nobody catches up with you.' },
-      { label: '', value: 'Outside city limits there is no apparatus to report anything. The wastes charge nothing.' },
+      { label: '', value: "Outside city limits there's no apparatus to report anything. The wastes charge nothing." },
     ],
   };
 }
@@ -215,7 +215,7 @@ async function propertyScreen(player) {
     tabs: TABS.map(t => ({ id: t.label, label: t.label })),
     boardName: '⚖ Evidence locker',
     items,
-    rows: [{ label: 'Note', value: 'Nothing in the locker comes back. It is held, then it is purged. Consider it gone.' }],
+    rows: [{ label: 'Note', value: "Nothing in the locker comes back. It's held, then it's purged. Consider it gone." }],
   };
 }
 

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#232320",
-  "description": "A curtained alcove with a mirror, a stool and a strip of tape on the floor marked off in inches. The mirror is honest in a way mirrors elsewhere in this city have learned not to be. Pinned beside it, a chart of frostbite times against wind speed, annotated by hand, with a line at the bottom that just reads: BUY THE PARKA.",
+  "description": "A curtained alcove with a mirror, a stool and a strip of tape on the floor marked off in inches. Pinned beside it, a chart of frostbite times against wind speed, annotated by hand, with a line at the bottom that just reads: BUY THE PARKA.",
   "exits": {
     "west": "zone_secondskin_floor"
   },

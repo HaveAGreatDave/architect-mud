@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "A settled claim file is with a broker two districts over. It needs to be on the underwriting floor before the desk closes.\n\n\"Most of the work is carrying a number from where it was measured to where it is decided,\" Ives says.\n\nThe number is how many years the model gives Aldous Frear, forty-one, a substandard risk out of the Yards. Somebody on the ninth floor reads it this afternoon and sets his premium against it.\n\nIves files about four hundred of these a month. She has not read the name.",
+  "description": "A settled claim file is with a broker two districts over. It needs to be on the underwriting floor before the desk closes.\n\n\"Most of the work is carrying a number from where it was measured to where it's decided,\" Ives says.\n\nThe number is how many years the model gives Aldous Frear, forty-one, a substandard risk out of the Yards. Somebody on the ninth floor reads it this afternoon and sets his premium against it.\n\nIves files about four hundred of these a month. She hasn't read the name.",
   "fail_on": [],
   "id": "quest_asc_file",
   "meta": {},
@@ -23,7 +23,7 @@
     {
       "desc": "Take the file to the underwriting floor.",
       "emotes": [
-        "{who} carries a folder across a marble lobby and is not stopped once.",
+        "{who} carries a folder across a marble lobby and isn't stopped once.",
         "{who} puts it on a desk where eleven identical folders are already waiting, and none of them are urgent."
       ],
       "id": "o_take",

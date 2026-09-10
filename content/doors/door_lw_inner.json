@@ -15,7 +15,7 @@
     "lock:longwatch": {
       "canHack": false,
       "messages": {
-        "denied": "The inner door has no handle on this side. Whatever is behind it is not yours to see yet.",
+        "denied": "The inner door has no handle on this side. Whatever is behind it isn't yours to see yet.",
         "lock": "The inner door closes on its counterweight, slow and final.",
         "unlock": "A bolt draws back somewhere inside the frame, and the inner door swings."
       },

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#3f5c3a",
-  "description": "Trees crowd right down to the waterline, roots arched out of the bank where the lake has been quietly eating it. Someone has cut three of them, a long time ago, and left the rounds where they fell. Whoever it was did not come back for them.",
+  "description": "Trees crowd right down to the waterline, roots arched out of the bank where the lake has been quietly eating it. Someone has cut three of them, a long time ago, and left the rounds where they fell. Whoever it was didn't come back for them.",
   "exits": {
     "east": "zone_district_897_931",
     "north": "zone_district_896_930",

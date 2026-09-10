@@ -5,7 +5,7 @@
     "The kettle goes on. Nothing else about the room changes."
   ],
   "ambient_theme": "wasteland",
-  "description": "Set apart at the end of the row, windowless, with a drain running out from under the door to a sealed sump. The walls are double-skinned. There is a bell mounted by the door and a board beside it with a single name on it: whoever is going in next, and when.",
+  "description": "Set apart at the end of the row, windowless, with a drain running out from under the door to a sealed sump. The walls are double-skinned. There's a bell mounted by the door and a board beside it with a single name on it: whoever is going in next, and when.",
   "exits": {
     "north": "zone_scw_1051_976",
     "south": "zone_thorn_fleshery"

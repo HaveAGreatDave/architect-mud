@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "Downstairs, somebody who is not here moves a chair.",
+    "Downstairs, somebody who isn't here moves a chair.",
     "The light comes round to the hour you were sent to bed.",
     "Something is left in its place a little longer for you."
   ],
   "cause": "drug",
-  "description": "A room you were small in, at the correct size, which is to say the size it was rather than the size it is. Everything is where it was. You are being shown it and nothing is being said about it, and you are being given as long as you want.",
+  "description": "A room you were small in, at the correct size, which is to say the size it was rather than the size it is. Everything is where it was. You're being shown it and nothing is being said about it, and you're being given as long as you want.",
   "drug_id": "drug_ibogaine",
   "fx": "bloom",
   "fx_intensity": 0.5,
@@ -16,17 +16,17 @@
       "looks": [
         "The size it was. The ceiling is at the height it was.",
         "The marks on the door frame, at your heights, with the years.",
-        "It smells of the house. That is the part that gets you."
+        "It smells of the house. That's the part that gets you."
       ],
       "name": "the room"
     },
     {
       "looks": [
-        "Yours. You had forgotten it entirely and you have not forgotten anything about it.",
+        "Yours. You had forgotten it entirely and you haven't forgotten anything about it.",
         "You know what it cost and who paid and what it was for.",
-        "It is in the condition it was in on a specific day."
+        "It's in the condition it was in on a specific day."
       ],
-      "name": "what is on the shelf"
+      "name": "what's on the shelf"
     }
   ],
   "weather": "The particular warmth of a room where somebody was looked after."

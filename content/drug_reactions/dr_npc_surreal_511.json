@@ -3,8 +3,8 @@
   "id": "dr_npc_surreal_511",
   "npc_type": null,
   "relation": "close",
-  "room_line": "{npc} says something quiet to {player}, who does not appear to hear it.",
-  "self_line": "{npc} is saying something kind and it is arriving from a long way off.",
+  "room_line": "{npc} says something quiet to {player}, who doesn't appear to hear it.",
+  "self_line": "{npc} is saying something kind and it's arriving from a long way off.",
   "source": "npc",
   "tone": "surreal"
 }

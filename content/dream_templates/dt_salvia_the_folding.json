@@ -5,7 +5,7 @@
     "The room is opened out again to check, and folded back."
   ],
   "cause": "drug",
-  "description": "The room is being folded, along lines it has, by something that knows where they are. It is done neatly. Each fold brings a far part of the room against a near part and they match, because the room was made to be folded and you have only ever seen it open.",
+  "description": "The room is being folded, along lines it has, by something that knows where they are. It's done neatly. Each fold brings a far part of the room against a near part and they match, because the room was made to be folded and you have only ever seen it open.",
   "drug_id": "drug_salvia",
   "fx": "crawl",
   "fx_intensity": 0.95,
@@ -16,7 +16,7 @@
       "looks": [
         "Along lines that were always in the floor. You had taken them for boards.",
         "Sharp, and pressed, and done many times before.",
-        "They are the same lines each time, which is why it goes so neatly."
+        "They're the same lines each time, which is why it goes so neatly."
       ],
       "name": "the folds"
     },

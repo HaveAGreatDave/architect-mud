@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "A detail you definitely did not invent turns out to have been there the whole time.",
-    "It gets slightly more finished while you are not looking at it.",
-    "You try to think about something else, and there is a pause, and then that arrives too."
+    "A detail you definitely didn't invent turns out to have been there the whole time.",
+    "It gets slightly more finished while you aren't looking at it.",
+    "You try to think about something else, and there's a pause, and then that arrives too."
   ],
   "cause": "dream",
-  "description": "It is the thing you were thinking about before you went under. Not a version of it. It, worked up: finished, lit, and much larger, with all the parts you never got round to imagining supplied by somebody thorough. You did not ask for any of this. You only pictured it for a second, on the way down, the way anybody does.",
+  "description": "It's the thing you were thinking about before you went under. Not a version of it. It, worked up: finished, lit, and much larger, with all the parts you never got round to imagining supplied by somebody thorough. You didn't ask for any of this. You only pictured it for a second, on the way down, the way anybody does.",
   "drug_id": null,
   "fx": "ash",
   "fx_intensity": 0.3,
@@ -16,15 +16,15 @@
       "looks": [
         "Exactly what you had in mind, and a great deal more of it than you had in mind.",
         "Beautifully made. Nobody made it. You had it for about a second in a dark room.",
-        "It is waiting to see whether you are going to picture anything else."
+        "It's waiting to see whether you're going to picture anything else."
       ],
       "name": "the thing"
     },
     {
       "looks": [
         "The parts you never bothered with. Somebody has bothered.",
-        "Filled in, all the way to the edges, in a hand that is not yours.",
-        "You look for a mistake in it, on the grounds that you would have made one, and there is not one."
+        "Filled in, all the way to the edges, in a hand that isn't yours.",
+        "You look for a mistake in it, on the grounds that you would have made one, and there isn't one."
       ],
       "name": "the rest of it"
     }

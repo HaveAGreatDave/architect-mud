@@ -14,7 +14,7 @@
   "tags": {
     "lock:yachtlock": {
       "messages": {
-        "denied": "The suite hatch does not so much as acknowledge you. This deck belongs to Cyd alone.",
+        "denied": "The suite hatch doesn't so much as acknowledge you. This deck belongs to Cyd alone.",
         "lock": "The suite hatch seals with a whisper of hydraulics.",
         "unlock": "The suite hatch releases, recognising its owner."
       },

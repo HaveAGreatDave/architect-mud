@@ -102,8 +102,8 @@
   "faction": null,
   "flags": {
     "battle_cries": [
-      "$enemy whistles, and for a moment it is only the wind.",
-      "$enemy calls in a voice that is almost exactly somebody you know.",
+      "$enemy whistles, and for a moment it's only the wind.",
+      "$enemy calls in a voice that's almost exactly somebody you know.",
       "$enemy shrieks, dropping the act entirely."
     ],
     "first_strike_delay_ms": 800

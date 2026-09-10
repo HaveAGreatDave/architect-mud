@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "waterfront",
   "color": "#a98b63",
-  "description": "Weathered decking stretches out over the water, wide enough to land a truck, scarred with the drag-marks of cargo that hasn't come through in years. A bollard leans drunkenly at the lip; gulls the size of dogs watch you from the rail and do not move.",
+  "description": "Weathered decking stretches out over the water, wide enough to land a truck, scarred with the drag-marks of cargo that hasn't come through in years. A bollard leans drunkenly at the lip; gulls the size of dogs watch you from the rail and don't move.",
   "exits": {
     "east": "zone_district_910_905",
     "north": "zone_district_909_904",

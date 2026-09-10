@@ -1,11 +1,11 @@
 {
   "ambient": [
     "Another decade goes by. Nothing in the room moves.",
-    "You remember something from early on, and it is genuinely a long time ago now.",
+    "You remember something from early on, and it's genuinely a long time ago now.",
     "You catch yourself thinking of a person you have known here for forty years and have never met."
   ],
   "cause": "dream",
-  "description": "You have been here a very long time. Not waiting: living. There was a period early on that you think of as the good years, and a stretch after it you would rather not go into, and lately things have been steadier. None of it has happened to anybody. The room has not changed and neither have you, and the whole of it fits comfortably inside the gap between two breaths.",
+  "description": "You have been here a very long time. Not waiting: living. There was a period early on that you think of as the good years, and a stretch after it you would rather not go into, and lately things have been steadier. None of it has happened to anybody. The room hasn't changed and neither have you, and the whole of it fits comfortably inside the gap between two breaths.",
   "drug_id": null,
   "fx": "none",
   "fx_intensity": 0,
@@ -15,16 +15,16 @@
     {
       "looks": [
         "There have been a great many and you can account for all of them.",
-        "They are stacked behind you the way years are, thickest at the far end.",
+        "They're stacked behind you the way years are, thickest at the far end.",
         "You try to work out when you arrived, and the arithmetic keeps coming out at longer."
       ],
       "name": "the years"
     },
     {
       "looks": [
-        "Unchanged. You have looked at it for a century and could not describe it.",
-        "It has not aged, and neither has anything in it, and neither have you.",
-        "It is smaller than the time you have spent in it, which does not seem to be a problem for either of them."
+        "Unchanged. You have looked at it for a century and couldn't describe it.",
+        "It hasn't aged, and neither has anything in it, and neither have you.",
+        "It's smaller than the time you have spent in it, which doesn't seem to be a problem for either of them."
       ],
       "name": "the room"
     }

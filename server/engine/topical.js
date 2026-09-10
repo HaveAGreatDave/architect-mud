@@ -71,18 +71,18 @@ export const TOPICAL_CONSENT_DEFAULT = true;
  */
 export const TOPICAL_FLUIDS = {
   water:        { noun: 'water',          arrival: 'cold water breaks over you',                       wets: true,  stain: null,    harmful: false, absorb: 0 },
-  dirty_water:  { noun: 'filthy water',   arrival: 'water breaks over you, and it is not clean water',  wets: true,  stain: 'grease', harmful: false, absorb: 0 },
+  dirty_water:  { noun: 'filthy water',   arrival: "water breaks over you, and it isn't clean water",  wets: true,  stain: 'grease', harmful: false, absorb: 0 },
   fuel:         { noun: 'fuel',           arrival: 'raw fuel slaps across you, cold and stinking',      wets: true,  stain: 'fuel',  harmful: true,  absorb: 0.35 },
   acid:         { noun: 'acid',           arrival: 'it lands stinging and keeps stinging',              wets: true,  stain: 'chem',  harmful: true,  absorb: 0.20 },
   booze:        { noun: 'liquor',         arrival: 'liquor breaks over you, sharp and sweet',           wets: true,  stain: 'booze', harmful: false, absorb: 0.02 },
   hot_drink:    { noun: 'a scalding drink', arrival: 'it lands scalding',                               wets: true,  stain: 'grease', harmful: true, hot: true, absorb: 0.02 },
-  soft_drink:   { noun: 'a cold drink',   arrival: 'a cold drink breaks over you, and it is sticky',    wets: true,  stain: 'grease', harmful: false, absorb: 0 },
-  blood:        { noun: 'blood',          arrival: 'it lands warm, and it is blood',                    wets: true,  stain: 'blood', harmful: false, absorb: 0.05 },
+  soft_drink:   { noun: 'a cold drink',   arrival: "a cold drink breaks over you, and it's sticky",    wets: true,  stain: 'grease', harmful: false, absorb: 0 },
+  blood:        { noun: 'blood',          arrival: "it lands warm, and it's blood",                    wets: true,  stain: 'blood', harmful: false, absorb: 0.05 },
   chem:         { noun: 'chemical',       arrival: 'a bitter chemical mist settles over you',           wets: true,  stain: 'chem',  harmful: true,  absorb: 0.60 },
   // A drug carried in a solvent that WANTS to cross skin — the blotter case. The
   // liquid is inert on its own; what it delivers is whatever `drug` the container
   // resolver hands over, which is why there is no drug id in this table.
-  solvent:      { noun: 'a clear solvent', arrival: 'it lands cold and thin, and it does not run off — it sinks in', wets: true, stain: 'chem', harmful: true, absorb: 0.85 },
+  solvent:      { noun: 'a clear solvent', arrival: "it lands cold and thin, and it doesn't run off — it sinks in", wets: true, stain: 'chem', harmful: true, absorb: 0.85 },
 };
 
 /** Anything not in the table is still a liquid, and the law still applies to it. */

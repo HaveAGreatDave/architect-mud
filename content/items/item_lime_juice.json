@@ -1,10 +1,10 @@
 {
-  "description": "Sharp enough to make your jaw ache. Cuts through everything, including complacency.",
+  "description": null,
   "flags": {},
   "id": "item_lime_juice",
   "name": "lime juice",
   "tags": {
-    "description": "Sharp enough to make your jaw ache. Cuts through everything, including complacency.",
+    "description": "Sharp enough to make your jaw ache. Cuts through everything.",
     "drink_noun": "lime",
     "drink_profile": "juice",
     "pour_units": 8,

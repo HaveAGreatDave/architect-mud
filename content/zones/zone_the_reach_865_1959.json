@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Broken ground, the hardpan split into slabs by a heat that comes back every day and has never once been argued with.",
+  "description": "Broken ground, the hardpan split into slabs by a heat that comes back every day and has never been argued with.",
   "exits": {
     "east": "zone_the_reach_866_1959",
     "north": "zone_the_reach_865_1958",

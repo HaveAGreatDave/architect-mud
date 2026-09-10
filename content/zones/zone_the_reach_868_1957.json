@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Hardpan and thistle, with the footprint of a building that either burnt or was carried away for parts. The slab is still there, cracked across the middle, and rainwater has cut a channel through the crack that is now a fine place for lizards. Somebody parks here. There are fresh ruts and no vehicle.",
+  "description": "Hardpan and thistle, with the footprint of a building that either burnt or was carried away for parts. The slab is still there, cracked across the middle, and rainwater has cut a channel through the crack that's now a fine place for lizards. Somebody parks here. There are fresh ruts and no vehicle.",
   "exits": {
     "east": "zone_the_reach_869_1957",
     "north": "zone_the_reach_868_1956",

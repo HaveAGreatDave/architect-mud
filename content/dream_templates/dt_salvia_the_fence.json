@@ -5,7 +5,7 @@
     "A slat two along from you settles, and you feel it as your own."
   ],
   "cause": "drug",
-  "description": "You are a garden fence. This is not a metaphor and it is not funny. You have been a fence for a very long time, in a garden, in an afternoon, and you have the whole history of the paint on you.",
+  "description": "You're a garden fence. This isn't a metaphor and it isn't funny. You have been a fence for a very long time, in a garden, in an afternoon, and you have the whole history of the paint on you.",
   "drug_id": "drug_salvia",
   "fx": "crawl",
   "fx_intensity": 0.85,
@@ -24,10 +24,10 @@
       "looks": [
         "Ordinary. Somebody keeps it. You hold one edge of it.",
         "A ball came over once. You remember the ball.",
-        "It is the same afternoon it has always been."
+        "It's the same afternoon it has always been."
       ],
       "name": "the garden"
     }
   ],
-  "weather": "It is the same warm afternoon it has always been, and it is going to stay that way."
+  "weather": "It's the same warm afternoon it has always been, and it's going to stay that way."
 }

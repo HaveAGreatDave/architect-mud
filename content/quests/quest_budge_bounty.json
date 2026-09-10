@@ -1,6 +1,6 @@
 {
   "category": "The Under",
-  "description": "Budge is paid by the head and he is behind. Take ten sewer roaches off the count and bring the shells back to the Dripping Bend. He does not care how you do it, and he will pay the same whether he was standing next to you or not.",
+  "description": "Budge is paid by the head and he's behind. Take ten sewer roaches off the count and bring the shells back to the Dripping Bend. He doesn't care how you do it, and he'll pay the same whether he was standing next to you or not.",
   "fail_on": [],
   "id": "quest_budge_bounty",
   "meta": {},
@@ -10,7 +10,7 @@
       "count": 10,
       "desc": "Kill 10 sewer roaches. They work the sump and the crawls off it.",
       "emotes": [
-        "{who} brings a boot down on a roach and does not look at it afterwards.",
+        "{who} brings a boot down on a roach and doesn't look at it afterwards.",
         "{who} catches one against the brick before it can get to the wall."
       ],
       "id": "o_roaches",

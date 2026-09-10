@@ -165,7 +165,7 @@ const _questNodeDefs = {
   quest: {
     label: 'Quest',
     color: '#a04488',
-    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {}, ..._fmFromMeta({}) },
+    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {}, onFail: '', onTurnIn: '', resolutions: [], blocks: [], available: null, ..._fmFromMeta({}) },
     renderBody: (n) => `<div style="font-size:11px;color:var(--accent)">${_escQ(n.data.name || '(unnamed quest)')}</div>
       ${n.data.questType === 'flight_template' ? '<div style="font-size:10px;color:var(--text-dim)">✈ flight template</div>' : ''}
       ${n.data.repeatable ? '<div style="font-size:10px;color:var(--text-dim)">repeatable</div>' : ''}`,
@@ -179,6 +179,14 @@ const _questNodeDefs = {
       ${_qField('Description', _qTextarea('data.description', n.data.description, 3))}
       ${_qField('Repeatable?', _qSelect('data.repeatable', [[false, 'One-time'], [true, 'Repeatable']], !!n.data.repeatable))}
       ${_qField('Quest Type', _qSelect('data.questType', [['standard', 'Standard (incl. job board)'], ['flight_template', 'Flight Contract Template']], n.data.questType || 'standard'))}
+      ${_qField('On offer only when (JSON) — { "hours": [22, 4] } for an in-world window (it may wrap midnight), and/or { "when": <condition> }. Blank = always on offer.',
+        _qTextarea('data.available', n.data.available ? JSON.stringify(n.data.available, null, 2) : '', 3, true))}
+      ${_qField('Alternate endings (JSON) — [{ id, when, rewards, on_turn_in }]; the first whose "when" passes is paid, and the Reward node is the fallback. "when" is an ordinary condition, same as a dialogue option\'s.',
+        _qTextarea('data.resolutions', JSON.stringify(n.data.resolutions || [], null, 2), 5, true))}
+      ${_qField('On turn-in, start quest (id — blank for none)', _qInput('data.onTurnIn', n.data.onTurnIn, 'quest_the_next_job'))}
+      ${_qField('On failure, start quest (id — blank for none)', _qInput('data.onFail', n.data.onFail, 'quest_make_it_right'))}
+      ${_qField('Closes these quests for good when taken (ids, comma-separated) — permanent, so leave blank unless you mean it',
+        _qInput('data.blocks', (n.data.blocks || []).join(', '), 'quest_the_watch_offer'))}
       ${n.data.questType === 'flight_template'
         ? _qFlightMetaFields(n.data)
         : _qField('Advanced meta (JSON)', _qTextarea('data.meta', JSON.stringify(n.data.meta || {}, null, 2), 4, true))}
@@ -223,7 +231,7 @@ const _questNodeDefs = {
       const [tlabel, tph] = _qTargetLabel(n.data.kind);
       return `
       ${_qHelp(id,
-        'One goal that advances by world events. Kind picks the event: kill an enemy, give/turn in an item, visit a zone, retrieve an item, assassinate a named NPC, or escort one somewhere. "Retrieve item" completes when the player picks up the named item, and (unless auto-spawn is off) drops a fresh copy into the spawn zone the moment the quest starts, so it is always there to find. "Assassinate" names a PERSON where "Kill" names a species — any three rats satisfy a kill, only that one NPC satisfies an assassination. "Escort" is met when that NPC ARRIVES at the delivery zone walking with the player; give the NPC flags.escortable, or have their dialogue fire ESCORT_START, and remember they can be killed on the way. The commerce/act kinds (buy, sell, craft, equip, hack, spend, survive) take a blank target to mean "anything counts". "Spend" is counted in CREDITS, not in purchases. "Survive" means standing OUTDOORS from the peak of a named storm through to the all-clear — ducking inside earns nothing. Draw an edge from another objective\'s "unlocks" port into this one to gate it — it stays hidden until the prerequisite is done. No incoming objective edge = available from quest start.',
+        'One goal that advances by world events. Kind picks the event: kill an enemy, give/turn in an item, visit a zone, retrieve an item, assassinate a named NPC, or escort one somewhere. "Retrieve item" completes when the player picks up the named item, and (unless auto-spawn is off) drops a fresh copy into the spawn zone the moment the quest starts, so it\'s always there to find. "Assassinate" names a PERSON where "Kill" names a species — any three rats satisfy a kill, only that one NPC satisfies an assassination. "Escort" is met when that NPC ARRIVES at the delivery zone walking with the player; give the NPC flags.escortable, or have their dialogue fire ESCORT_START, and remember they can be killed on the way. The commerce/act kinds (buy, sell, craft, equip, hack, spend, survive) take a blank target to mean "anything counts". "Spend" is counted in CREDITS, not in purchases. "Survive" means standing OUTDOORS from the peak of a named storm through to the all-clear — ducking inside earns nothing. Any target field may hold a SELECTOR instead of a fixed id, rolled once when the player takes the quest and frozen for them: "@any_of:[item_a,item_b]", "@zone_with:map_id=coldwater" (or flags.terrain=marsh), "@enemy_in:coldwater". A selector that matches nothing refuses the quest, so keep them wide. Draw an edge from another objective\'s "unlocks" port into this one to gate it — it stays hidden until the prerequisite is done. No incoming objective edge = available from quest start.',
         'kind: retrieve\ntarget: ancient_relic\nspawnZone: zone_sewers\ncount: 1\ndesc: Recover the ancient relic from the sewers'
       )}
       ${_qField('Kind', _qSelect('data.kind', _Q_KINDS, n.data.kind))}
@@ -235,6 +243,11 @@ const _questNodeDefs = {
       ${n.data.kind === 'escort' ? _qField('Deliver them to (zone)', _qInput('data.spawnZone', n.data.spawnZone, 'zone_clinic')) : ''}
       ${_qField(_qCountLabel(n.data.kind), _qInput('data.count', n.data.count ?? 1, n.data.kind === 'spend' ? '5000' : '1', 'number'))}
       ${_qField('Description', _qTextarea('data.desc', n.data.desc, 2))}
+      ${_qField('Required to finish?', _qSelect('data.optional', [['no', "Yes — the quest isn't done without it"], ['yes', 'No — optional bonus objective']], n.data.optional || 'no'))}
+      ${n.data.optional === 'yes' ? `
+      ${_qField('Bonus credits (paid at turn-in if this was done)', _qInput('data.bonusCredits', n.data.bonusCredits ?? '', '100', 'number'))}
+      ${_qField('Bonus XP', _qInput('data.bonusXp', n.data.bonusXp ?? '', '5', 'number'))}
+      ` : ''}
       ${_qField('Action lines — flavour shown to the room each tick (one per line, {who} = player; blank = none)',
         _qTextarea('data.emotes', n.data.emotes, 3))}
       ${n.data.kind === 'visit' ? _qField('Task time (seconds) — how long standing here takes; a random Action line fires every couple seconds (blank/0 = completes instantly)',
@@ -267,7 +280,7 @@ const _questNodeDefs = {
       const [tlabel, tph] = _qTargetLabel(kind);
       return `
       ${_qHelp(id,
-        'A way this quest can BLOW. Same kinds as an objective and judged the same way — "assassinate npc_vale" as an objective means kill him, as a failure means he must not die. Two kinds are failure-only: "Ran out of time" (measured from the moment the quest was taken) and "Lost the escortee". A failed quest can be taken again from the start unless the quest node\'s meta sets failPermanent. Fail nodes need no edges — they are always live while the quest is.',
+        'A way this quest can BLOW. Same kinds as an objective and judged the same way — "assassinate npc_vale" as an objective means kill him, as a failure means he must not die. Two kinds are failure-only: "Ran out of time" (measured from the moment the quest was taken) and "Lost the escortee". A failed quest can be taken again from the start unless the quest node\'s meta sets failPermanent. Fail nodes need no edges — they\'re always live while the quest is.',
         'kind: timeout\ncount: 600\ndesc: The meet was over by then.'
       )}
       ${_qField('Kind', _qSelect('data.kind', _Q_FAIL_KINDS, kind))}
@@ -310,7 +323,7 @@ const _questNodeDefs = {
   reward: {
     label: 'Reward',
     color: '#b8912b',
-    defaultData: { credits: 0, xp: 0, items: [], flags: [], rep: [] },
+    defaultData: { credits: 0, xp: 0, advance: 0, items: [], flags: [], rep: [] },
     renderBody: (n) => {
       const items = Array.isArray(n.data.items) ? n.data.items.length : 0;
       const reps = Array.isArray(n.data.rep) ? n.data.rep.length : 0;
@@ -324,10 +337,11 @@ const _questNodeDefs = {
     getOutPorts: () => [],
     renderProperties: (n, ed, id) => `
       ${_qHelp(id,
-        'Granted when every objective feeding this node is complete. Items, flags and reputation are JSON arrays; leave blank for none. Reputation is the mirror of the Penalty node\'s — a list of {ideology, delta} — and it is how faction work PAYS. Standing decays on a 30-day half-life by design (it is meant to be kept up, not banked), so an order you want players to stay in needs repeatable work that pays it. The player is told only when a reward crosses them into a new TIER; a move within one passes without comment, which is what stops a repeatable printing a line every hand-in.',
+        'Granted when every objective feeding this node is complete. Items, flags and reputation are JSON arrays; leave blank for none. Reputation is the mirror of the Penalty node\'s — a list of {ideology, delta} — and it\'s how faction work PAYS. Standing decays on a 30-day half-life by design (it\'s meant to be kept up, not banked), so an order you want players to stay in needs repeatable work that pays it. The player is told only when a reward crosses them into a new TIER; a move within one passes without comment, which is what stops a repeatable printing a line every hand-in.',
         'credits: 250\nxp: 50\nitems: [{"item_id":"pistol","quantity":1}]\nrep: [{"ideology":"ideology_ascendants","delta":40}]\nflags: [{"scope":"player","flag":"super_trusts_me","value":"true"}]'
       )}
       ${_qField('Credits', _qInput('data.credits', n.data.credits ?? 0, '0', 'number'))}
+      ${_qField("Advance — paid when the quest is TAKEN, and kept if it's failed (0 = none)", _qInput('data.advance', n.data.advance ?? 0, '0', 'number'))}
       ${_qField('XP', _qInput('data.xp', n.data.xp ?? 0, '0', 'number'))}
       ${_qField('Items (JSON)', _qTextarea('data.items', JSON.stringify(n.data.items || [], null, 2), 3, true))}
       ${_qField('Reputation (JSON)', _qTextarea('data.rep', JSON.stringify(n.data.rep || [], null, 2), 3, true))}
@@ -385,6 +399,19 @@ window.VineQuestSchema = {
         emotes: Array.isArray(o.emotes) ? o.emotes.join('\n') : (o.emote ? String(o.emote) : ''),
         taskSeconds: o.taskSeconds != null ? o.taskSeconds : '',
         requires: Array.isArray(o.requires) ? o.requires : [],
+        // Optional objectives are tracked and paid like any other, but sit outside
+        // the finish line. Their own `rewards` are the bonus for having bothered;
+        // only credits and XP are editable here, the rest is data-only.
+        optional: o.optional === true ? 'yes' : 'no',
+        bonusCredits: o.rewards?.credits ?? '',
+        bonusXp: o.rewards?.xp ?? '',
+        // Everything in the bundle this panel does not edit, carried through the
+        // round trip so opening a quest in the editor cannot silently drop it.
+        _bonusRest: (() => {
+          if (!o.rewards || typeof o.rewards !== 'object') return null;
+          const { credits, xp, ...rest } = o.rewards;
+          return Object.keys(rest).length ? rest : null;
+        })(),
         _vine: o._vine,
       };
     });
@@ -396,7 +423,7 @@ window.VineQuestSchema = {
 
     // `_questId` is a non-persisted hint (toQuest ignores it) so the quest node can
     // reverse-scan NPC dialogue for "offered by" links. Absent for brand-new quests.
-    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, _questId: rec.id || '', ..._fmFromMeta(rec.meta) } };
+    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, onFail: rec.on_fail?.start_quest || '', onTurnIn: rec.on_turn_in?.start_quest || '', resolutions: Array.isArray(rec.resolutions) ? rec.resolutions : [], blocks: Array.isArray(rec.blocks) ? rec.blocks : [], available: rec.available || null, _questId: rec.id || '', ..._fmFromMeta(rec.meta) } };
 
     // Objective nodes + gating edges.
     const dependedOn = new Set();
@@ -442,7 +469,7 @@ window.VineQuestSchema = {
     // Reward node, fed by terminal objectives (or the quest itself if no objectives).
     const rewards = rec.rewards && typeof rec.rewards === 'object' ? rec.rewards : {};
     const rewardPos = rewards._vine || { x: rewardCol * 300 + 40, y: 60 };
-    nodes.reward = { type: 'reward', x: rewardPos.x, y: rewardPos.y, data: { credits: rewards.credits || 0, xp: rewards.xp || 0, items: rewards.items || [], rep: rewards.rep || [], flags: rewards.flags || [] } };
+    nodes.reward = { type: 'reward', x: rewardPos.x, y: rewardPos.y, data: { credits: rewards.credits || 0, xp: rewards.xp || 0, advance: rewards.advance || 0, items: rewards.items || [], rep: rewards.rep || [], flags: rewards.flags || [] } };
     const terminals = objs.filter(o => !dependedOn.has(o.id));
     if (terminals.length) terminals.forEach(o => edges.push({ fromNode: o.id, fromPort: 'unlocks', toNode: 'reward' }));
     else edges.push({ fromNode: 'quest', fromPort: 'start', toNode: 'reward' });
@@ -495,6 +522,18 @@ window.VineQuestSchema = {
       const ts = Number(node.data.taskSeconds);
       if (kind === 'visit' && ts > 0) obj.taskSeconds = ts;
       if (requires.length) obj.requires = requires;
+      if (node.data.optional === 'yes') {
+        obj.optional = true;
+        const bc = Number(node.data.bonusCredits) || 0;
+        const bx = Number(node.data.bonusXp) || 0;
+        // Preserve any richer reward bundle authored outside the editor (items,
+        // flags, rep) — this panel edits two fields of it, it does not own it.
+        if (bc || bx || node.data._bonusRest) {
+          obj.rewards = { ...(node.data._bonusRest || {}) };
+          if (bc) obj.rewards.credits = bc;
+          if (bx) obj.rewards.xp = bx;
+        }
+      }
       objectives.push(obj);
     }
 
@@ -536,6 +575,7 @@ window.VineQuestSchema = {
     const rewards = rewardNode ? {
       credits: Number(rewardNode[1].data.credits) || 0,
       xp: Number(rewardNode[1].data.xp) || 0,
+      advance: Number(rewardNode[1].data.advance) || 0,
       items: Array.isArray(rewardNode[1].data.items) ? rewardNode[1].data.items : [],
       rep: Array.isArray(rewardNode[1].data.rep) ? rewardNode[1].data.rep : [],
       flags: Array.isArray(rewardNode[1].data.flags) ? rewardNode[1].data.flags : [],
@@ -574,6 +614,20 @@ window.VineQuestSchema = {
       rewards,
       fail_on,
       penalties,
+      // A follow-up is a field on the quest rather than a node, because it names a
+      // DIFFERENT graph — a wire to a quest this canvas does not contain would be
+      // a wire to nothing.
+      // Alternate endings stay a JSON field rather than a node: a resolution is a
+      // condition plus a reward bundle, and drawing it as a second Reward box
+      // wired to nothing would suggest an ordering the runtime does not have.
+      available: (questNode?.data.available && typeof questNode.data.available === 'object' && Object.keys(questNode.data.available).length) ? questNode.data.available : null,
+      resolutions: Array.isArray(questNode?.data.resolutions) ? questNode.data.resolutions : [],
+      // Authored as a comma-separated line rather than JSON: it is a list of ids
+      // and nothing else, and a JSON box for that invites a syntax error instead
+      // of a quest id.
+      blocks: String(questNode?.data.blocks || '').split(',').map(s => s.trim()).filter(Boolean),
+      on_fail: questNode?.data.onFail ? { start_quest: String(questNode.data.onFail).trim() } : null,
+      on_turn_in: questNode?.data.onTurnIn ? { start_quest: String(questNode.data.onTurnIn).trim() } : null,
     };
   },
 };

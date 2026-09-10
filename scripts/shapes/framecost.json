@@ -1,0 +1,170 @@
+{
+ "total": 277348,
+ "cases": {
+  "cockpit:0:day": {
+   "calls": 17577,
+   "path": 12239,
+   "paint": 1968,
+   "blit": 641,
+   "state": 2590,
+   "grad": 136,
+   "other": 3,
+   "blur": 0
+  },
+  "cockpit:0:night": {
+   "calls": 17547,
+   "path": 11967,
+   "paint": 2123,
+   "blit": 675,
+   "state": 2620,
+   "grad": 159,
+   "other": 3,
+   "blur": 16
+  },
+  "cockpit:45:day": {
+   "calls": 20039,
+   "path": 13032,
+   "paint": 1708,
+   "blit": 1027,
+   "state": 4138,
+   "grad": 131,
+   "other": 3,
+   "blur": 0
+  },
+  "cockpit:45:night": {
+   "calls": 19983,
+   "path": 12740,
+   "paint": 1852,
+   "blit": 1063,
+   "state": 4170,
+   "grad": 155,
+   "other": 3,
+   "blur": 20
+  },
+  "cockpit:90:day": {
+   "calls": 17397,
+   "path": 11967,
+   "paint": 1828,
+   "blit": 699,
+   "state": 2824,
+   "grad": 76,
+   "other": 3,
+   "blur": 0
+  },
+  "cockpit:90:night": {
+   "calls": 17332,
+   "path": 11699,
+   "paint": 1960,
+   "blit": 735,
+   "state": 2842,
+   "grad": 93,
+   "other": 3,
+   "blur": 20
+  },
+  "cockpit:200:day": {
+   "calls": 17657,
+   "path": 11522,
+   "paint": 1716,
+   "blit": 851,
+   "state": 3430,
+   "grad": 135,
+   "other": 3,
+   "blur": 0
+  },
+  "cockpit:200:night": {
+   "calls": 17630,
+   "path": 11293,
+   "paint": 1823,
+   "blit": 886,
+   "state": 3472,
+   "grad": 153,
+   "other": 3,
+   "blur": 14
+  },
+  "cab:0:day": {
+   "calls": 16592,
+   "path": 12177,
+   "paint": 2128,
+   "blit": 419,
+   "state": 1706,
+   "grad": 159,
+   "other": 3,
+   "blur": 0
+  },
+  "cab:0:night": {
+   "calls": 16598,
+   "path": 11939,
+   "paint": 2286,
+   "blit": 461,
+   "state": 1730,
+   "grad": 179,
+   "other": 3,
+   "blur": 12
+  },
+  "cab:45:day": {
+   "calls": 17955,
+   "path": 12352,
+   "paint": 1855,
+   "blit": 711,
+   "state": 2882,
+   "grad": 152,
+   "other": 3,
+   "blur": 0
+  },
+  "cab:45:night": {
+   "calls": 17935,
+   "path": 12090,
+   "paint": 2002,
+   "blit": 756,
+   "state": 2910,
+   "grad": 174,
+   "other": 3,
+   "blur": 20
+  },
+  "cab:90:day": {
+   "calls": 15657,
+   "path": 11019,
+   "paint": 1649,
+   "blit": 577,
+   "state": 2330,
+   "grad": 79,
+   "other": 3,
+   "blur": 0
+  },
+  "cab:90:night": {
+   "calls": 15574,
+   "path": 10761,
+   "paint": 1778,
+   "blit": 605,
+   "state": 2338,
+   "grad": 89,
+   "other": 3,
+   "blur": 4
+  },
+  "cab:200:day": {
+   "calls": 15943,
+   "path": 10707,
+   "paint": 1705,
+   "blit": 671,
+   "state": 2718,
+   "grad": 139,
+   "other": 3,
+   "blur": 0
+  },
+  "cab:200:night": {
+   "calls": 15932,
+   "path": 10504,
+   "paint": 1812,
+   "blit": 709,
+   "state": 2752,
+   "grad": 152,
+   "other": 3,
+   "blur": 10
+  }
+ },
+ "scene": {
+  "w": 1280,
+  "h": 720,
+  "tiles": 1089
+ }
+}

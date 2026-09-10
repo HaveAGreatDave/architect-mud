@@ -1,7 +1,7 @@
 {
   "name": "audio",
   "version": "1.0.0",
-  "description": "Procedural SNES-style audio: music, SFX, ambience. Entirely separate from the text-based Sound system.",
+  "description": "Procedural SNES-style audio: music, SFX, ambience, and the procedural material/action layer (cooking, footsteps, doors, locks, bodily, combat). Entirely separate from the text-based Sound system. Combat is voiced off two axes that are already authored on every weapon and enemy — weapon_skill outgoing, damage_type incoming — so a new weapon is audible the day it is tagged; the incoming half rides registerDamageObserver, which is sync and query-free by contract.",
   "commands": [
     ".createsound",
     ".playsound"
@@ -28,5 +28,9 @@
       "door.sfx",
       "player.respawn"
     ]
-  }
+  },
+  "extensionPoints": [
+    "items.tags.weapon_skill",
+    "items.tags.damage_type"
+  ]
 }

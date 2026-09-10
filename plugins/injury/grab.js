@@ -118,8 +118,8 @@ export async function grabGate({ player, opts }) {
   return {
     block: true,
     message: held
-      ? `You pull against it. ${grabber.name} does not appear to have noticed.`
-      : `${grabber.name} has you. Its ${grabbingPart(grabber)} is not letting go.`,
+      ? `You pull against it. ${grabber.name} doesn't appear to have noticed.`
+      : `${grabber.name} has you. Its ${grabbingPart(grabber)} isn't letting go.`,
   };
 }
 registerMoveGate(grabGate, 'injury:grab');

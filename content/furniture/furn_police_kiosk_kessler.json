@@ -1,0 +1,16 @@
+{
+  "description": "A steel police kiosk the size of a phone box, bolted to the pavement outside Precinct 9 and painted the same tired navy as everything else the department owns. A hatch on the street side opens onto a shelf worn smooth at the elbows. The intercom grille inside has been dead long enough that somebody has stopped writing OUT OF ORDER on it.",
+  "flags": {
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_police_kiosk_kessler",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "police kiosk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 400,
+  "zone_id": "zone_district_923_911"
+}

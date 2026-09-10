@@ -50,5 +50,5 @@ export default async function regress({ check, getPlayer }) {
   p.statuses = [];
   const broke = await treat({ rate: 2, minimum: 10 });
   check('unaffordable treatment refuses', broke?.type === 'dialogue_line', JSON.stringify(broke)?.slice(0, 120));
-  check('unaffordable treatment does not heal', p.hp === 12, `hp ${p.hp}`);
+  check("unaffordable treatment doesn't heal", p.hp === 12, `hp ${p.hp}`);
 }

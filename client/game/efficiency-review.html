@@ -78,11 +78,11 @@ text.hi{fill:var(--accent);font-weight:600}
 
 <header>
   <h1><small>THOMAS · Architect MUD</small>Server &amp; Database Efficiency Review</h1>
-  <p class="sub">How a 15,781-room living world with weather, power, traffic, AI and 130 plugins runs on a free Render dyno and a Neon compute that is asleep most of the time — what is left to do, and where the ceiling actually is. <span class="pill">updated 2026-08-16</span></p>
+  <p class="sub">How a 15,781-room living world with weather, power, traffic, AI and 130 plugins runs on a free Render dyno and a Neon compute that's asleep most of the time — what's left to do, and where the ceiling actually is. <span class="pill">updated 2026-08-16</span></p>
 </header>
 
 <h2><span class="num">§ 0</span>The shape of the problem</h2>
-<p class="lede">Everything below follows from one fact, so it is worth stating before any of the cleverness.</p>
+<p class="lede">Everything below follows from one fact, so it's worth stating before any of the cleverness.</p>
 
 <div class="card">
 <p style="margin-top:0"><strong>Prod Postgres is somewhere else.</strong> Neon is a remote managed database, so every <code>query()</code> is a pool checkout plus a network round trip — tens of milliseconds, whether it reads one row or a thousand. The bill and the lag are both driven by <em>round-trip count</em>, not query cost.</p>
@@ -142,7 +142,7 @@ text.hi{fill:var(--accent);font-weight:600}
       <path d="M0,0 L8,4 L0,8 z" fill="var(--warn)"/></marker>
   </defs>
 </svg>
-<figcaption>The whole architecture in one picture. The database is not in the gameplay loop — it is a durable log the loop drains into on a timer.</figcaption>
+<figcaption>The whole architecture in one picture. The database isn't in the gameplay loop — it's a durable log the loop drains into on a timer.</figcaption>
 </figure>
 
 <hr class="rule">
@@ -202,12 +202,12 @@ text.hi{fill:var(--accent);font-weight:600}
 </figure>
 
 <p>The cost of the pattern is discipline, and a violation fails <em>silently</em> — no error, just an un-persisted change. So the invariants are written into the architecture doc as numbered rules: set the flag at every mutation site; never mutate a coalesced field after its flush in the same tick; write through and clear the flag on death and logout; drop a mid-loop write-through from that cycle's batch; offline players are DB rows and keep direct writes.</p>
-<p>There is deliberately <strong>no generic dirty-flag framework and no shutdown flush</strong>. Instead every checkpoint field must be <em>crash-benign by construction</em> — restored slightly stale in a direction that doesn't reward crashing. Money, inventory, deaths and kills stay durable write-through, so none of the interesting state carries crash exposure.</p>
+<p>There's deliberately <strong>no generic dirty-flag framework and no shutdown flush</strong>. Instead every checkpoint field must be <em>crash-benign by construction</em> — restored slightly stale in a direction that doesn't reward crashing. Money, inventory, deaths and kills stay durable write-through, so none of the interesting state carries crash exposure.</p>
 
 <h3>4 · Nothing ticks on an empty world</h3>
 <p>This is the one that turns architecture into money. Neon suspends an idle compute after ~5 minutes and stops billing. A single recurring tick that awaits a query inside that idle window keeps a connection alive and pins the compute awake — the server then bills 24/7 for nobody.</p>
 <p>So <code>scheduler.js</code> idle-gates <em>by default</em>: every registered callback simply doesn't fire when <code>hasActivePlayers()</code> is false, and running-while-empty is the deliberate opt-in. That inverts the old convention where an author had to remember the guard — and one forgotten guard (a surveillance camera refresh) is exactly what pinned the compute once.</p>
-<p>The keepalive ping follows the same logic from the other side: it hits <code>/health</code>, which is memory-only, so it holds <em>Render</em> awake without ever waking <em>Neon</em> — and it is itself idle-gated, because ungated it spent ~730 of the workspace's 750 monthly instance-hours holding up a process that had nothing to do.</p>
+<p>The keepalive ping follows the same logic from the other side: it hits <code>/health</code>, which is memory-only, so it holds <em>Render</em> awake without ever waking <em>Neon</em> — and it's itself idle-gated, because ungated it spent ~730 of the workspace's 750 monthly instance-hours holding up a process that had nothing to do.</p>
 
 <figure>
 <svg viewBox="0 0 900 210" role="img" aria-label="Chart: a day of billed compute, ungated versus idle-gated">
@@ -244,7 +244,7 @@ text.hi{fill:var(--accent);font-weight:600}
 <h3>Bonus: the parts that could have been expensive and aren't</h3>
 <ul>
 <li><strong>No build step, no framework.</strong> 215 client JS files ship as-is; the only gate is a ~2 s parse smoke that catches the backtick-in-a-template-literal bug that once killed the entire client boot on prod.</li>
-<li><strong>No ORM.</strong> 2,922 call sites, one <code>query()</code> helper, plain parameterized SQL. There is no query builder generating something surprising at 3am.</li>
+<li><strong>No ORM.</strong> 2,922 call sites, one <code>query()</code> helper, plain parameterized SQL. There's no query builder generating something surprising at 3am.</li>
 <li><strong>No startup migrations.</strong> Boot touches neither schema nor content, so a restart costs a read of the world and nothing else.</li>
 <li><strong>The loose <code>setInterval</code>s are session-scoped, not clock ticks.</strong> The trip transform, MIS event loop, card-table shuffle SFX and dreamscape beat all bypass the scheduler — correctly: they exist only while a specific player is doing a specific thing, they self-cancel, and several defensively self-cancel again if the player vanishes. None of them can run on an empty world.</li>
 <li><strong>Content is git, not a live editing surface.</strong> 37,184 JSON files deploy through CI, so prod content changes cost a push — not a migration, not a boot-time rewrite.</li>
@@ -300,7 +300,7 @@ text.hi{fill:var(--accent);font-weight:600}
       <path d="M0,0 L8,4 L0,8 z" fill="var(--warn)"/></marker>
   </defs>
 </svg>
-<figcaption>Walking across the city is free. That is the entire trick — and it's why the world can be 15,781 rooms deep without the hosting bill noticing.</figcaption>
+<figcaption>Walking across the city is free. That's the entire trick — and it's why the world can be 15,781 rooms deep without the hosting bill noticing.</figcaption>
 </figure>
 
 <hr class="rule">
@@ -344,17 +344,17 @@ text.hi{fill:var(--accent);font-weight:600}
 <hr class="rule">
 
 <h2><span class="num">§ 4</span>What's left</h2>
-<p class="lede">Four open items. The first three are ordinary maintenance; the fourth is structural, and it is what the next section is about.</p>
+<p class="lede">Four open items. The first three are ordinary maintenance; the fourth is structural, and it's what the next section is about.</p>
 
 <div class="find">
 <h3><span class="tag t-warn">backlog</span> 1 · 67 advisory lint findings, and the shape of the tail</h3>
-<p><code>npm run db:query-lint -- --all</code> lists them. They are not distributed evenly: <strong>28 sit in <code>broadcast</code></strong>, 7 in <code>zone-validator</code>, 7 in <code>tablet</code>, and the rest is a long thin tail of one or two per plugin.</p>
+<p><code>npm run db:query-lint -- --all</code> lists them. They aren't distributed evenly: <strong>28 sit in <code>broadcast</code></strong>, 7 in <code>zone-validator</code>, 7 in <code>tablet</code>, and the rest is a long thin tail of one or two per plugin.</p>
 <p class="why"><strong>Why it matters, honestly: less than the number suggests.</strong> What remains is dominated by map-derivation sweeps, studio-wiring routes and dev-panel CRUD — cold paths run by an admin, where a round trip is the correct price. <strong>The work is triage, not conversion:</strong> walk the list, fix anything on a player path, and mark the rest <code>query-lint-ok</code> with a reason so the number means something. A backlog nobody has read is indistinguishable from a backlog of bugs.</p>
 </div>
 
 <div class="find">
 <h3><span class="tag t-info">use it</span> 2 · The meter exists; nothing watches it yet</h3>
-<p><b>DB/min</b> ships on the dev-panel World State monitor, coloured by per-player slope. But nobody has looked at it under real concurrent load, and there is no alert, no record, and no baseline written down anywhere but this page.</p>
+<p><b>DB/min</b> ships on the dev-panel World State monitor, coloured by per-player slope. But nobody has looked at it under real concurrent load, and there's no alert, no record, and no baseline written down anywhere but this page.</p>
 <p class="why"><strong>Why it matters:</strong> the point of a standing meter is to make a regression visible without a profiling session — which only pays off if somebody reads it at a moment that matters, i.e. with players online. <strong>Next step:</strong> capture the number at a busy moment, write it beside the ~40/min idle floor as the baseline, and pick the threshold that means "something new is per-player".</p>
 </div>
 
@@ -365,8 +365,8 @@ text.hi{fill:var(--accent);font-weight:600}
 </div>
 
 <div class="find">
-<h3><span class="tag t-bad">structural</span> 4 · One process owns the world, and that is the ceiling</h3>
-<p>Everything that makes this cheap — the boot-loaded Maps, RAM-authoritative player state, coalesced flushes — assumes a single Node process is the authority. That is the right call and it is why the hosting bill is what it is. But scaling out is not a config change; it is a decision with a redesign attached.</p>
+<h3><span class="tag t-bad">structural</span> 4 · One process owns the world, and that's the ceiling</h3>
+<p>Everything that makes this cheap — the boot-loaded Maps, RAM-authoritative player state, coalesced flushes — assumes a single Node process is the authority. That's the right call and it's why the hosting bill is what it is. But scaling out isn't a config change; it's a decision with a redesign attached.</p>
 <p class="why"><strong>Why it matters:</strong> the honest version of the story is <em>"extremely cheap up to one box, then a decision"</em> — and nobody has established where that box's limit is, so the decision has no trigger.</p>
 </div>
 
@@ -376,7 +376,7 @@ text.hi{fill:var(--accent);font-weight:600}
 <p class="lede">The database was the bottleneck everyone assumed, and it measurably isn't. So the useful question changes: as players arrive, <em>what actually breaks first?</em></p>
 
 <h3>The four ceilings, and which one you hit</h3>
-<p>Four resources can run out. They don't run out together, and the design has pushed one of them so far away that it is no longer the one to watch.</p>
+<p>Four resources can run out. They don't run out together, and the design has pushed one of them so far away that it's no longer the one to watch.</p>
 
 <figure>
 <svg viewBox="0 0 900 340" role="img" aria-label="Chart: four resource ceilings and roughly where each is reached as concurrent players increase">
@@ -410,7 +410,7 @@ text.hi{fill:var(--accent);font-weight:600}
   <text x="840" y="162" font-size="10" text-anchor="end">world is a fixed cost; a player is a small object</text>
 
   <line x1="600" y1="20" x2="600" y2="296" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="6 4"/>
-  <text x="612" y="198" fill="var(--bad)" font-size="11">the wall is here — and it is the EVENT LOOP</text>
+  <text x="612" y="198" fill="var(--bad)" font-size="11">the wall is here — and it's the EVENT LOOP</text>
   <text x="612" y="216" font-size="10">not Postgres, and not memory</text>
   <text x="612" y="236" font-size="10">one box saturates on CPU and fan-out</text>
   <text x="612" y="252" font-size="10">long before the DB tier notices</text>
@@ -434,7 +434,7 @@ text.hi{fill:var(--accent);font-weight:600}
 </div>
 
 <h3>The crowd problem, which is the interesting one</h3>
-<p>Player count is not really the variable. <strong>Players per zone is.</strong> Two hundred people spread across the Basin cost almost nothing extra; two hundred people in one bar is a different program — every say, every emote, every swing fans out to everyone present, serialised once per recipient.</p>
+<p>Player count isn't really the variable. <strong>Players per zone is.</strong> Two hundred people spread across the Basin cost almost nothing extra; two hundred people in one bar is a different program — every say, every emote, every swing fans out to everyone present, serialised once per recipient.</p>
 
 <figure>
 <svg viewBox="0 0 900 300" role="img" aria-label="Chart: broadcast cost climbs sharply with players gathered in one room, while the same players spread across zones stay linear">
@@ -455,7 +455,7 @@ text.hi{fill:var(--accent);font-weight:600}
 
   <line x1="600" y1="25" x2="600" y2="245" stroke="var(--border)" stroke-dasharray="4 4"/>
   <text x="590" y="108" text-anchor="end" font-size="10">a launch-night bar is over here</text>
-  <text x="590" y="124" text-anchor="end" font-size="10">and it is the only case worth testing</text>
+  <text x="590" y="124" text-anchor="end" font-size="10">and it's the only case worth testing</text>
 </svg>
 <figcaption>The mitigation this design already has is that the world is <em>enormous</em> — 15,781 rooms is a lot of places to not be standing together. The failure mode is anything that deliberately gathers everyone: a broadcast finale, a boss, a launch night.</figcaption>
 </figure>
@@ -463,7 +463,7 @@ text.hi{fill:var(--accent);font-weight:600}
 <h3>What to do at each step, before rewriting anything</h3>
 <div class="scroll">
 <table>
-<thead><tr><th>Scale</th><th>What is true there</th><th>The move</th></tr></thead>
+<thead><tr><th>Scale</th><th>What's true there</th><th>The move</th></tr></thead>
 <tbody>
 <tr><td class="kv">today → ~50</td><td>Comfortably inside every ceiling; the DB is asleep half the day</td><td>Nothing. Read the meter occasionally.</td></tr>
 <tr><td class="kv">~50 → 200</td><td>Tick CPU and fan-out begin to matter. The DB still won't.</td><td><strong>Measure socket bytes per event</strong> and profile one busy tick. Cheap, and it decides everything after it.</td></tr>
@@ -510,9 +510,9 @@ text.hi{fill:var(--accent);font-weight:600}
 
 <p>Three things make that shape workable rather than aspirational — and none of them was built for it:</p>
 <ul>
-<li><strong>The durable tier is already shared and already correct.</strong> Money, inventory, deaths and kills write through to Postgres at the mutation site today. Two processes doing that is not a new correctness problem; it is the existing one.</li>
+<li><strong>The durable tier is already shared and already correct.</strong> Money, inventory, deaths and kills write through to Postgres at the mutation site today. Two processes doing that isn't a new correctness problem; it's the existing one.</li>
 <li><strong>Cross-region travel is already a seam, not a step.</strong> Void travel made leaving a region an explicit transition with its own code path — a shard handoff has an obvious place to live.</li>
-<li><strong>Plugins are already per-process by construction.</strong> A plugin holds RAM state and registers ticks; nothing in the loader assumes it is the only copy running.</li>
+<li><strong>Plugins are already per-process by construction.</strong> A plugin holds RAM state and registers ticks; nothing in the loader assumes it's the only copy running.</li>
 </ul>
 <p>What would genuinely have to change are the <em>global</em> systems that assume one process sees everyone: broadcast channels, chat/radio, wanted and heat, corp influence, and anything walking <code>world.players</code> expecting the full roster. That list is the real cost of the move, and writing it out properly is the first day's work whenever the day comes.</p>
 

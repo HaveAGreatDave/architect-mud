@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A long service corridor behind a second, heavier door: the part of the base most of the Watch have never been shown. Bare bulbs on a hand-strung line, doors off both sides, and a smell of ink and hot metal coming up it.\n\nThe ink is the point. Behind one of these doors somebody is making permits, ration books and transit papers, which is how a person who is not supposed to exist buys food and crosses a checkpoint. This is not where the Watch live. This is where the Watch work.",
+  "description": "A long service corridor behind a second, heavier door: the part of the base most of the Watch have never been shown. Bare bulbs on a hand-strung line, doors off both sides, and a smell of ink and hot metal coming up it.\n\nFollow the ink. Behind one of these doors somebody is making permits, ration books and transit papers, which is how a person who isn't supposed to exist buys food and crosses a checkpoint. The Watch don't live down here. They work down here.",
   "exits": {
     "east": "zone_lw_plot",
     "north": "zone_lw_cage",

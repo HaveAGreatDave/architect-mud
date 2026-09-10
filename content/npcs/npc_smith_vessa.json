@@ -131,10 +131,10 @@
     }
   },
   "chitchat": [],
-  "description": "A short, thick-forearmed woman with a burn scar that climbs out of her collar and stops just under her jaw, and the permanent squint of somebody who has looked into a forge for a living. She talks to you while working and does not stop working.",
+  "description": "A short, thick-forearmed woman with a burn scar that climbs out of her collar and stops just under her jaw, and the permanent squint of somebody who has looked into a forge for a living. She talks to you while working and doesn't stop working.",
   "dialogue_tree": {
     "bye": {
-      "text": "She is already back at the wheel."
+      "text": "She's already back at the wheel."
     },
     "green": {
       "options": [
@@ -154,7 +154,7 @@
           "text": "Noted."
         }
       ],
-      "text": "\"House work is mine. The Trueline. Circle mark on every one, signature on the ones that earned it. Redlaw is transit-warden surplus, good steel, boring. Blackvane is behind the glass and you can look at it.\" She pauses. \"And if somebody in the Reach offers you a Blackvane with a motor on it, that is a decal and a chainsaw and your own business.\""
+      "text": "\"House work is mine. The Trueline. Circle mark on every one, signature on the ones that earned it. Redlaw is transit-warden surplus, good steel, boring. Blackvane is behind the glass and you can look at it.\" She pauses. \"And if somebody in the Reach offers you a Blackvane with a motor on it, that's a decal and a chainsaw and your own business.\""
     },
     "root": {
       "options": [

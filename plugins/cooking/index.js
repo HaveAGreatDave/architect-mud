@@ -1056,7 +1056,7 @@ async function cmdScore(args, raw, player) {
   if (t.food.custom_data?.minced) return { type: 'error', message: `There's nothing left of it to score.` };
   await stampPrep(t.food.inv_id ?? t.food.id, { scored: true });
   cookSfx(player, { action: 'chop', material: sfxMaterial(t.food), intensity: 0.3 });
-  return { type: 'output', message: `You score ${t.food.name} across the fat in a diamond, a quarter inch deep. It will take seasoning now, and heat.` };
+  return { type: 'output', message: `You score ${t.food.name} across the fat in a diamond, a quarter inch deep. It'll take seasoning now, and heat.` };
 }
 
 // `tenderise <meat>` — beat it flat. Mince's gentler cousin: faster and far
@@ -1095,7 +1095,7 @@ async function cmdMarinate(args, raw, player) {
   await stampPrep(t.food.inv_id ?? t.food.id, { marinated_at: Date.now() });
   return {
     type: 'output',
-    message: `You put ${t.food.name} in the ${bath.name} and leave it. It wants hours, and it will be worth every one of them.`,
+    message: `You put ${t.food.name} in the ${bath.name} and leave it. It wants hours, and it'll be worth every one of them.`,
   };
 }
 
@@ -1622,7 +1622,7 @@ const PLATTER_MIN_COMPONENTS = 3;
 //
 // Rotated so it doesn't read as a system message on the tenth meal.
 const IMPROVISED_PLATING = [
-  `Off a paper plate, because that is what there is.`,
+  `Off a paper plate, because that's what there is.`,
   `Onto a paper plate that goes soft under it almost immediately.`,
   `A paper plate, doubled up, because one was never going to hold.`,
   `Straight onto a paper plate. It bows in the middle and you eat faster than you meant to.`,
@@ -1828,7 +1828,7 @@ async function fillVessel(args, raw, player) {
 
   cookSfx(player, { action: 'pour', material: 'liquid', flow: 0.9 });
   return { type: 'use', message: foul
-    ? `You fill the ${vessel.name} from the ${src.name}. <span style="color:var(--red)">The water comes out cloudy and wrong. Cooking in this will not make it clean.</span>`
+    ? `You fill the ${vessel.name} from the ${src.name}. <span style="color:var(--red)">The water comes out cloudy and wrong. Cooking in this won't make it clean.</span>`
     : `You fill the ${vessel.name} from the ${src.name}.` };
 }
 

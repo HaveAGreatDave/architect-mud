@@ -8,13 +8,14 @@ file-level map.
 | --- | --- |
 | `index.js` | escrow, the in-memory mirror, the verbs, the death hook that mints the head |
 | `poster.js` | **the one builder.** Every surface renders these lines |
+| `receptacle.js` | the head-shaped hole: authored per-board prose + a complete generic fallback |
 | `tablet-app.js` | THE BOARD app — read-only, registers into `plugins/tablet/registry.js` |
 | `regress.js` | frame geometry, anonymity, escrow arithmetic |
 
 The client skin is [`client/game/js/panels/wantedposter.js`](../../client/game/js/panels/wantedposter.js),
 routed from `dispatch.js` on `wanted_poster`.
 
-## The four things not to change without reading why
+## The five things not to change without reading why
 
 1. **The head is an item, in the corpse.** Not a flag, not an auto-payout. Every
    interesting thing that can happen to a bounty — the theft, the ambush at the
@@ -30,6 +31,12 @@ routed from `dispatch.js` on `wanted_poster`.
 4. **Escrow is closed with a guarded `UPDATE ... WHERE status='open'` before a
    single credit moves.** Two heads arriving at two boards in the same tick is
    the case that pays twice if you reverse those two statements.
+
+5. **The receptacle is content, and the board is a machine.** Every line a player
+   reads when handing a head in comes off `flags.receptacle` on the furniture row,
+   so a new board is a content file and never an edit to this folder. Posting and
+   redeeming check zone power; reading never does, because paper does not need
+   electricity.
 
 ## Tunables
 

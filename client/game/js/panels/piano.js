@@ -84,22 +84,72 @@ function noteName(offset) {
   return SEMITONES[offset % 12] + (octave + Math.floor(offset / 12));
 }
 
+// ── Held notes ───────────────────────────────────────────────────────────────
+// Struck voices (piano, rhodes, musicbox, pluck) are fire-and-forget: the note
+// is over on its own schedule and how long a finger sat there is not a question
+// it asks. A BLOWN voice — the organ — lasts exactly as long as the key is down,
+// so it needs a handle to end it with and a note-off on the wire.
+//
+// The cue itself says which it is (`cue.sustained`, set by the INSTRUMENTS table
+// in procedural-sfx.js), so nothing here knows the difference between an organ
+// and a piano; it just keeps a handle when it is given one. A struck voice hands
+// back null and this whole layer costs it one branch and no extra wire traffic.
+const sounding = new Map();     // own notes, keyed by keyboard offset
+const roomNotes = new Map();    // other people's, keyed by `${playerId}:${note}`
+const pointerNotes = new Map(); // pointerId → offset, so multi-touch releases right
+
 // Build and play a voice locally. The SAME call the room makes when it receives
 // somebody else's note — one path, so what you hear yourself play is exactly
 // what everyone else hears.
+// Authored voices — a dev-panel `audio_instruments` row rather than one of the
+// five in procedural-sfx.js. The server sends the config once per sit and once
+// per room entry, never per note, so the note wire stays the ~40 bytes it was.
+// A name with no config here falls back to the code table, which is what makes
+// the whole thing additive.
+const voiceConfigs = new Map();
+export function onVoiceConfig(msg) {
+  if (msg?.voice && msg.config) voiceConfigs.set(msg.voice, msg.config);
+}
+
 export function playNoteLocal(v, note, velocity) {
   const P = window.ProceduralSFX;
-  if (!P) return;
-  const cue = P.buildNoteCue({ instrument: v, note, velocity });
-  if (cue) window.AudioEngine?.playSfx(cue);
+  if (!P) return null;
+  const config = voiceConfigs.get(v) || null;
+  const cue = P.buildNoteCue({ instrument: v, note, velocity, config });
+  if (!cue) return null;
+  return window.AudioEngine?.playSfx(cue, 1, { sustain: cue.sustained === true }) || null;
 }
 
 function strike(offset, velocity) {
   const note = noteName(offset);
   window.AudioEngine?.init?.();
-  playNoteLocal(voice, note, velocity);   // first, and without waiting for anyone
+  // Retrigger: the same key going down twice without an intervening release
+  // (a lost keyup, a pointer that left the key) must not orphan the first voice.
+  sounding.get(offset)?.release();
+  const handle = playNoteLocal(voice, note, velocity);   // first, and without waiting for anyone
+  if (handle) sounding.set(offset, handle); else sounding.delete(offset);
   flash(keyEls.get(offset), 'self');
   sendRaw({ type: 'instrument_note', note, velocity: Math.round(velocity * 100) / 100 });
+}
+
+// Lifting a key. Silent for a struck voice — there is no handle and nothing to
+// tell the room, so the wire stays exactly as quiet as it was.
+function releaseOwn(offset) {
+  const handle = sounding.get(offset);
+  if (!handle) return;
+  sounding.delete(offset);
+  handle.release();
+  sendRaw({ type: 'instrument_note', note: noteName(offset), off: true });
+}
+
+// Every way a performance can stop that is not a keyup: closing the panel,
+// losing the keyboard, standing up, walking out. A held note has to end at all
+// of them or it outlives the instrument.
+function releaseAllNotes() {
+  for (const h of sounding.values()) h.release();
+  for (const h of roomNotes.values()) h.release();
+  sounding.clear();
+  roomNotes.clear();
 }
 
 // ── Someone else in the room ─────────────────────────────────────────────────
@@ -107,7 +157,18 @@ function strike(offset, velocity) {
 // too, the key lights up under their name — which is the only way to tell a duet
 // from a very fast soloist.
 export function onRoomNote(msg) {
-  playNoteLocal(msg.voice || 'piano', msg.note, msg.velocity ?? 0.75);
+  // Everything that player was holding, at once — they got up, walked out or
+  // logged off, and there will be no per-note keyup for any of it.
+  if (msg.allNotes) {
+    const pre = `${msg.playerId}:`;
+    for (const [k, h] of roomNotes) if (k.startsWith(pre)) { h.release(); roomNotes.delete(k); }
+    return;
+  }
+  const key = `${msg.playerId}:${msg.note}`;
+  if (msg.off) { roomNotes.get(key)?.release(); roomNotes.delete(key); return; }
+  roomNotes.get(key)?.release();   // retrigger, same reasoning as strike()
+  const handle = playNoteLocal(msg.voice || 'piano', msg.note, msg.velocity ?? 0.75);
+  if (handle) roomNotes.set(key, handle); else roomNotes.delete(key);
   if (!el) return;
   const off = offsetOf(msg.note);
   if (off != null) flash(keyEls.get(off), 'other');
@@ -153,7 +214,9 @@ function onKeyDown(e) {
 
 function onKeyUp(e) {
   const off = KEYMAP[e.key.toLowerCase()];
-  if (off !== undefined) held.delete(off);
+  if (off === undefined) return;
+  held.delete(off);
+  releaseOwn(off);
 }
 
 function shiftOctave(d) {
@@ -243,13 +306,29 @@ function build() {
     setLive(true);
     const r = k.getBoundingClientRect();
     const depth = Math.max(0, Math.min(1, (ev.clientY - r.top) / r.height));
-    strike(Number(k.dataset.off), 0.45 + depth * 0.5);
+    const off = Number(k.dataset.off);
+    pointerNotes.set(ev.pointerId, off);
+    strike(off, 0.45 + depth * 0.5);
   });
+  // On WINDOW, not on the key: a finger that slides off the key it pressed, or a
+  // drag that ends over the room pane, still has to end the note. The pointerId
+  // is what makes that work with more than one finger down at once.
+  const endPointer = (ev) => {
+    const off = pointerNotes.get(ev.pointerId);
+    if (off === undefined) return;
+    pointerNotes.delete(ev.pointerId);
+    releaseOwn(off);
+  };
+  window.addEventListener('pointerup', endPointer);
+  window.addEventListener('pointercancel', endPointer);
 
   keys.addEventListener('keydown', onKeyDown);
   keys.addEventListener('keyup', onKeyUp);
   keys.addEventListener('focus', () => setLive(true));
-  keys.addEventListener('blur', () => setLive(false));
+  // Losing the keyboard drops every key with it — the browser will not send the
+  // keyups for keys that were down when focus left, so without this a held note
+  // survives an alt-tab and only the 30s cap in the engine ever ends it.
+  keys.addEventListener('blur', () => { setLive(false); held.clear(); for (const o of [...sounding.keys()]) releaseOwn(o); });
   el.querySelector('.pk-close').addEventListener('click', () => { sendCmdSilent('play stop'); closePianoPanel(); });
   // Transposing has to be reachable without arrow keys, which is to say without
   // a keyboard. Shown on every device — they're useful with a mouse too.
@@ -364,4 +443,5 @@ export function closePianoPanel() {
   setLive(false);
   el.classList.remove('active');
   held.clear();
+  releaseAllNotes();
 }

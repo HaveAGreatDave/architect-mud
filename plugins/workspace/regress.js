@@ -143,9 +143,9 @@ export default async function regress({ run, check, getPlayer }) {
     r = await run('workspace');
     const carriedPan = r.area?.find(v => v.id === panId);
     check('a carried pan is in the Preparation Area, in hand', carriedPan?.place === 'in hand', JSON.stringify(r.area));
-    check('...with what is in it listed as its contents',
+    check("...with what's in it listed as its contents",
       carriedPan?.contents?.length === 1 && carriedPan.contents[0].id === steakId, JSON.stringify(carriedPan?.contents));
-    check('food that is not in a pan is a loose Component, not a vessel',
+    check("food that isn't in a pan is a loose Component, not a vessel",
       r.components?.some(c => c.id === looseId) && !r.components.some(c => c.id === steakId), JSON.stringify(r.components));
     check('...and raw food reads as raw', r.components.find(c => c.id === looseId)?.state === 'raw');
     check('the room is no longer reported empty', r.empty === false);
@@ -164,7 +164,7 @@ export default async function regress({ run, check, getPlayer }) {
     const stored = r.area?.find(v => v.id === boxPanId);
     check('a pan left in a cabinet is in the Preparation Area, and says where',
       stored?.place === 'in the test workspace cabinet', JSON.stringify(r.area?.map(a => a.place)));
-    check('...and what is inside THAT pan is found too (the two-level read)',
+    check("...and what's inside THAT pan is found too (the two-level read)",
       stored?.contents?.length === 1 && stored.contents[0].id === boxSteakId, JSON.stringify(stored?.contents));
 
     const box = r.storage?.find(s => s.id === CAB);
@@ -209,7 +209,7 @@ export default async function regress({ run, check, getPlayer }) {
     const looseActs = labels(a.components.find(c => c.id === looseId)?.actions);
     check('raw meat offers the prep that applies to it',
       looseActs.includes('score') && looseActs.includes('tenderise'), looseActs.join(','));
-    check('...and offers to put it in the pan you are holding',
+    check("...and offers to put it in the pan you're holding",
       looseActs.some(l => l.startsWith('→')), looseActs.join(','));
     check('...but not mince, with no blade in reach', !looseActs.includes('mince'), looseActs.join(','));
 
@@ -247,7 +247,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('an empty cookbook suggests nothing, and says so',
       view.assistant && !view.assistant.groups.length && /Nothing written down yet/.test(view.assistant.note),
       JSON.stringify(view.assistant));
-    check('...and never names a recipe you have not discovered',
+    check("...and never names a recipe you haven't discovered",
       !JSON.stringify(view.assistant).toLowerCase().includes('stew'), JSON.stringify(view.assistant));
 
     await learnRecipe(player.id, 'stew');
@@ -257,8 +257,8 @@ export default async function regress({ run, check, getPlayer }) {
       .find(r => r.key === key);
 
     let stew = findRecipe(view, 'stew');
-    check('a known recipe is scored against what is in the room', !!stew, JSON.stringify(view.assistant));
-    check('...with meat in hand but no liquid or starch, it is short two things',
+    check("a known recipe is scored against what's in the room", !!stew, JSON.stringify(view.assistant));
+    check("...with meat in hand but no liquid or starch, it's short two things",
       stew.group === 'Missing Ingredients' && stew.missing.length === 2, JSON.stringify(stew));
     check('...and the shortfall is a real weight, not a bare count',
       stew.missing.some(m => /g of /.test(m)), JSON.stringify(stew.missing));
@@ -302,7 +302,7 @@ export default async function regress({ run, check, getPlayer }) {
       }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id, object_type=EXCLUDED.object_type');
 
       const both = await run('workspace');
-      check('a room that is two workspaces reports both',
+      check("a room that's two workspaces reports both",
         (both.providers || []).length === 2, JSON.stringify(both.providers));
       const other = await run('workspace chembench');
       check('...and naming one picks it', other.provider === 'chembench', other.provider);
@@ -378,12 +378,12 @@ export default async function regress({ run, check, getPlayer }) {
     check('...and names the exact rows it would use, wherever they are',
       stew.uses.includes(looseId) && stew.uses.includes(brothId)
       && stew.uses.includes(spudId) && stew.uses.includes(potId), JSON.stringify(stew.uses));
-    check('...including the pot that is still in the cabinet — that is the point',
+    check("...including the pot that's still in the cabinet — that's the point",
       stew.uses.includes(potId), JSON.stringify(stew.uses));
     const promised = new Set(stew.uses);
 
     let r2 = await run('prepare nonsense soufflé');
-    check('preparing a recipe you do not know is refused, and says where to look',
+    check("preparing a recipe you don't know is refused, and says where to look",
       r2?.type === 'error' && /isn't a recipe you know/.test(r2.message), JSON.stringify(r2));
 
     r2 = await run('prepare stew');
@@ -415,7 +415,7 @@ export default async function regress({ run, check, getPlayer }) {
     // for every vessel but the one this plan chose that is right. For THAT one it
     // read as absence, so a loaded pot came back "you're short of broth" while the
     // Assistant two lines above scored the same recipe at 100%.
-    check('...and says so, rather than claiming you are short of what is in the pot',
+    check("...and says so, rather than claiming you're short of what's in the pot",
       /already/i.test(r2.message) && !/short/i.test(r2.message), JSON.stringify(r2));
 
     // THE case for the whole design: the world moved, so the step that depended
@@ -559,8 +559,8 @@ export default async function regress({ run, check, getPlayer }) {
     check('workspace text: names the working area', /KITCHEN/.test(t), t.slice(0, 60));
     check('workspace text: carries the status readout', /Power/.test(t) && /ONLINE/.test(t));
     check('workspace text: an offline status is flagged, not silently dropped', /text-red/.test(t));
-    check('workspace text: lists what is on the surface', /iron pan/.test(t));
-    check('workspace text: lists what is within reach', /rat haunch/.test(t));
+    check("workspace text: lists what's on the surface", /iron pan/.test(t));
+    check("workspace text: lists what's within reach", /rat haunch/.test(t));
     check('workspace text: carries quantity and prep notes', /×3/.test(t) && /minced/.test(t), t);
     check('workspace text: lists tools', /boning knife/.test(t));
     // A cook in progress is the one thing on the panel that MOVES; the panel dims
@@ -574,7 +574,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('workspace text: a shortfall says WHAT is short', /onion/.test(t));
     // …but only for recipes you already know — the provider decides that, and the
     // renderer must not invent a listing of the undiscovered half.
-    check('workspace text: closes on the provider note about what is undiscovered',
+    check("workspace text: closes on the provider note about what's undiscovered",
       /44 still out there/.test(t), t.slice(-120));
     check('workspace text: offers the other provider in the room',
       t.includes('workspace chembench'));

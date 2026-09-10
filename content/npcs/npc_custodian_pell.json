@@ -1,11 +1,106 @@
 {
   "banter": [],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "check_work"
+      },
+      "check_work": {
+        "type": "action",
+        "action_type": "CHECK_VENDOR_WORK",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "endShift": "post_shift",
+        "offWork": "off_home_check"
+      },
+      "go_to_work": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait"
+      },
+      "work_wait": {
+        "type": "wait",
+        "seconds": 60,
+        "jitter": 30,
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "work_say",
+        "ifFalse": "check_work"
+      },
+      "work_say": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work"
+      },
+      "have_life": {
+        "type": "action",
+        "action_type": "HAVE_LIFE",
+        "next": "check_work"
+      },
+      "post_shift": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps"
+      },
+      "go_home_ps": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "home_life_ps"
+      },
+      "home_life_ps": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work"
+      },
+      "off_home_check": {
+        "type": "condition",
+        "condition_type": "AT_HOME",
+        "ifTrue": "home_idle",
+        "ifFalse": "off_random"
+      },
+      "off_random": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "branch_0": "have_life",
+        "branch_1": "go_home_off"
+      },
+      "go_home_off": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "check_work"
+      },
+      "home_idle": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work"
+      }
+    }
+  },
   "chitchat": [
     "moves his mop over bare rubble in careful, reverent strokes.",
     "\"Mustn't let it get untidy. The Architect notices untidy things.\""
   ],
-  "description": "Pell mops. That is the whole of Pell's visible ministry: a slow, devotional mopping of floors that crumbled to gravel years ago. He hums the Coldwater hum under his breath and flinches if you interrupt the rhythm.",
+  "description": "Pell mops. That's the whole of Pell's visible ministry: a slow, devotional mopping of floors that crumbled to gravel years ago. He hums the Coldwater hum under his breath and flinches if you interrupt the rhythm.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
@@ -27,10 +122,53 @@
   "studio_zone_id": null,
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
-  "vendor_schedule": {},
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 5,
+        "to": 17
+      }
+    ],
+    "tue": [
+      {
+        "from": 5,
+        "to": 17
+      }
+    ],
+    "wed": [
+      {
+        "from": 5,
+        "to": 17
+      }
+    ],
+    "thu": [
+      {
+        "from": 5,
+        "to": 17
+      }
+    ],
+    "fri": [
+      {
+        "from": 5,
+        "to": 17
+      }
+    ],
+    "sat": [
+      {
+        "from": 5,
+        "to": 17
+      }
+    ],
+    "sun": [
+      {
+        "from": 5,
+        "to": 17
+      }
+    ]
+  },
   "vendor_shop_name": null,
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_under_894_903"
 }

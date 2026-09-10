@@ -122,7 +122,7 @@ export default async function regress({ check, getPlayer }) {
     player.current_zone = B; player.aircraftId = 'ac_escort_test';
     emit('zone.entered', { actor: player, zone: B, from: A });
     await new Promise(r2 => setTimeout(r2, 30));
-    check('an aboard escortee is not walked by the landing', npc.zone_id === null, String(npc.zone_id));
+    check("an aboard escortee isn't walked by the landing", npc.zone_id === null, String(npc.zone_id));
 
     arrived = null;
     setDownCompanions(live, B);

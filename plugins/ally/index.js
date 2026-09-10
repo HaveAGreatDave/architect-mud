@@ -267,7 +267,7 @@ function cmdAlly(args, raw, player, broadcast) {
   // this person fights for you. The verb is how you re-collect an arrangement you
   // already made, not how you conscript a stranger.
   if (!npc.flags?.fights_for_you) {
-    return { type: 'emote', message: `${npc.name} is not fighting anybody's battles for them.` };
+    return { type: 'emote', message: `${npc.name} isn't fighting anybody's battles for them.` };
   }
   const res = enlist(player, npc);
   return { type: res.ok ? 'output' : 'error', message: res.message };

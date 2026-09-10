@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "I will be here. That is most of what I do.",
+  "self_line": "I'll be here. That's most of what I do.",
   "source": "object_reply_farewell",
   "tone": "surreal"
 }

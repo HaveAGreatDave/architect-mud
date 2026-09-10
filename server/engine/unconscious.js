@@ -107,7 +107,7 @@ export function tickUnconscious(beings, notify) {
     const by = b._koBy;
     if (wakeUp(b) && notify) {
       notify(b, by
-        ? `You come round on the floor with a head full of broken glass. ${by}, you think. You are fairly sure it was ${by}.`
+        ? `You come round on the floor with a head full of broken glass. ${by}, you think. You're fairly sure it was ${by}.`
         : `You come round on the floor with a head full of broken glass, and no idea how long you were down.`);
     }
   }

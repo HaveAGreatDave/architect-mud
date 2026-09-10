@@ -1,10 +1,11 @@
 {
-  "description": "A gimballed cradle-arm that carries and tips each reagent into the beaker with a machinist's steadiness. Automates the DECANT stage of a splice.",
+  "description": null,
   "flags": {},
   "id": "item_auto_decant",
   "name": "auto-decanter",
   "tags": {
     "automates": "charge",
+    "description": "A gimballed cradle-arm that carries and tips each reagent into the beaker with a machinist's steadiness. Automates the DECANT stage of a splice.",
     "lab_upgrade": true
   },
   "type": "device",

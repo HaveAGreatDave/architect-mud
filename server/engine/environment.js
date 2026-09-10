@@ -28,7 +28,7 @@ import { schedule } from './scheduler.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
 import { emit } from './events.js';
-import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture, propsOf } from './world.js';
+import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture, propsOf, reloadZone } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
 
 // ---------------------------------------------------------------------------
@@ -655,6 +655,18 @@ function computeZoneLoad(zoneId) {
   return load;
 }
 
+// Streetlights INSTALLED in a zone, lit or not. A streetlight only draws after
+// dark (computeZoneLoad above), so draw alone cannot tell a road with lamp
+// columns on it from open ground — by day every lit street in the city reads as
+// unwired. The dev power map wants the wiring, not the hour.
+function countStreetlights(zoneId) {
+  let n = 0;
+  for (const f of getZoneFurniture(zoneId)) {
+    if (f.object_type === 'light' && f.light_type === 'streetlight') n++;
+  }
+  return n;
+}
+
 // Lit-fixture count/lumens for a zone — the RAM form of the GROUP BY the sim
 // used to run over the whole furniture table. Uses light_on (actual), not
 // light_on_intended, matching the original.
@@ -683,6 +695,7 @@ function loadZonePowerAndLighting() {
       generatorId: z.generator_id,
       generatorType: z.generator_id ? (generatorRows.get(z.generator_id)?.generator_type ?? null) : null,
       hasEmergencyLighting: light ? !!light.has_emergency_lighting : false,
+      streetlights: countStreetlights(z.id),
       artificialLight: computeArtificialLight(z.status, light),
       flags: zf,
       gridX: wz?.grid_x ?? null,
@@ -1998,7 +2011,7 @@ export function lightHitPenalty(category) {
 // category change (wire into commands.js room rendering / zone.describeAmbient).
 export function describeVisibilityTransition(prevCategory, nextCategory) {
   if (prevCategory !== 'dark' && nextCategory === 'dark') {
-    return 'It is becoming difficult to make out more than shadows.';
+    return "It's becoming difficult to make out more than shadows.";
   }
   if (prevCategory === 'dark' && nextCategory !== 'dark') {
     return 'Light returns, revealing your surroundings once again.';
@@ -2263,7 +2276,7 @@ async function firePulse() {
       if (darkened.has(zoneId)) {
         deps.broadcast(zoneId, wrap('Every light around you dies at once. Screens, streetlamps, the hum behind the walls — all of it, gone between one breath and the next.'));
       } else if (skyVantage(zoneId) !== 'buried' && skyVantage(zoneId) !== 'sealed') {
-        deps.broadcast(zoneId, wrap('Across the rooftops a whole quarter of the city goes out at once, block after block, and does not come back.'));
+        deps.broadcast(zoneId, wrap("Across the rooftops a whole quarter of the city goes out at once, block after block, and doesn't come back."));
       }
     }
   }
@@ -2786,6 +2799,7 @@ export function getPowerMap() {
     availableKw: z.availableKw,
     maxCapacityKw: z.maxCapacityKw,
     artificialLight: z.artificialLight,
+    streetlights: z.streetlights,
     generatorId: z.generatorId,
     generatorType: z.generatorType,
   }));
@@ -3127,7 +3141,7 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
   // From world.zones, which this module already imports — the install only reads
   // flags, name and the grid coords, all of which the Map carries verbatim.
   const zone = world.zones.get(zoneId);
-  if (!zone) throw new Error(`Zone ${zoneId} does not exist`);
+  if (!zone) throw new Error(`Zone ${zoneId} doesn't exist`);
 
   // Junction boxes serve building interiors only. Every external/outdoor tile is
   // fed straight from a city power plant (city_grid), so a JB there is meaningless
@@ -3442,6 +3456,15 @@ async function createUtilityRoomWithJunctionBox(query, network, root) {
   // runtime override so the deploy can never orphan the utility room.
   await addExitOverride(anchor.id, 'down', utilId, 'power');
 
+  // ⚠ The room exists in the DB and NOWHERE ELSE until this line. installGenerator
+  // resolves its zone from world.zones (the RAM Map), not from the table, so the
+  // install below threw `Zone <id> doesn't exist` for every building this
+  // self-heal was written to rescue — the whole path could only ever succeed on a
+  // room that survived to a restart. Reload the anchor too: its 'down' exit was
+  // just added as an override and the Map is still holding the old exits.
+  await reloadZone(utilId);
+  await reloadZone(anchor.id);
+
   // A worklight, so the room reads and has a load to power.
   await insertFurniture({
     id: `furn_light_${utilId}`, zone_id: utilId,
@@ -3527,6 +3550,20 @@ export async function fixBuildingPowerConnections() {
         [network]
       );
       if (vehicle.length) continue;
+      // …and never under a SEALED room. An interior with no exits anywhere in its
+      // network is off-map on purpose: Cathode's den (plugins/strays) is a real,
+      // exitless zone whose seal is a system invariant — hiding is absence, and
+      // the strays suite asserts the den has no exits. The utility room arrives
+      // as a 'down' exit override, so digging one breaks that seal at runtime
+      // while leaving zones.exits looking innocent. It would also be pointless:
+      // nothing can walk into a sealed room, and a room with no fixtures has
+      // nothing to power.
+      const { rows: reachable } = await query(
+        `SELECT 1 FROM zones WHERE id = ANY($1::text[])
+           AND COALESCE(exits::text, '{}') <> '{}' LIMIT 1`,
+        [network]
+      );
+      if (!reachable.length) continue;
       // Self-heal: dig a utility room below the building and drop a junction box.
       try {
         const made = await createUtilityRoomWithJunctionBox(query, network, root);

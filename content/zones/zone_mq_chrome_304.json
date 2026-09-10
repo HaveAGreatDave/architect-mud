@@ -1,7 +1,7 @@
 {
   "ambient_theme": "indoors",
   "bg_color": "#8b9096",
-  "description": "A corner unit, which here means two windows instead of one and a draft to match. A bed, a footlocker, a sink that runs brown for a ten-count before it clears. The door is steel. The door is the point.",
+  "description": "A corner unit, which here means two windows instead of one and a draft to match. A bed, a footlocker, a sink that runs brown for a ten-count before it clears. The door is steel, and it's the only thing in here anyone spent money on.",
   "exits": {
     "east": "zone_mq_chrome_f3"
   },

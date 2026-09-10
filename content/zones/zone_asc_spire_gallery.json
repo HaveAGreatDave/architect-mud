@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "description": "A long hall of lit vitrines, each holding one rung of the ladder: a first crude jack; a coil of subdermal weave; a cortical backup drive on black velvet, labelled THE ONLY THING WORTH KEEPING. The exhibit is arranged so you walk it from meat to something else, and by the end you are meant to want it.",
+  "description": "A long hall of lit vitrines, each holding one rung of the ladder: a first crude jack; a coil of subdermal weave; a cortical backup drive on black velvet, labelled THE ONLY THING WORTH KEEPING. The exhibit is arranged so you walk it from meat to something else, and by the end you're meant to want it.",
   "exits": {
     "down": "zone_asc_spire_concourse",
     "up": "zone_asc_spire_sanctum"

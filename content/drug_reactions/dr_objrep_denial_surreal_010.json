@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Then nothing is happening and you are having a lovely quiet evening.",
+  "self_line": "Then nothing is happening and you're having a lovely quiet evening.",
   "source": "object_reply_denial",
   "tone": "surreal"
 }

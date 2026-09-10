@@ -3,10 +3,10 @@
   "id": "bt_amb_scientist_065",
   "lines": [
     "\"The result is fine.\"",
-    "\"So what is wrong?\"",
+    "\"So what's wrong?\"",
     "\"The explanation. The explanation is wrong.\"",
-    "\"Then the result is not fine.\"",
-    "\"No. It is not.\""
+    "\"Then the result isn't fine.\"",
+    "\"No. It's not.\""
   ],
   "personality": "scientist",
   "sort_order": 464

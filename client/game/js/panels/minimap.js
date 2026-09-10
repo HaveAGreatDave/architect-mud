@@ -25,8 +25,16 @@ import { renderMinimapCanvas, hideCanvas } from './minimap-canvas.js';
 // script ran after DOMContentLoaded — a warm cache — which is why it passed
 // local testing and broke on a live load. `const` before use, not after.
 let _savedOverlay = 'labels';
-try { _savedOverlay = loadSettings().mapOverlay || 'labels'; } catch {}
-const mapState = { avenueOverlay: _savedOverlay, tracePath: null, traceDirs: null };
+let _savedColor = false;
+try {
+  const _s = loadSettings();
+  _savedOverlay = _s.mapOverlay || 'labels';
+  _savedColor = (_s.mapColor || 'off') === 'on';
+} catch {}
+const mapState = { avenueOverlay: _savedOverlay, poiColor: _savedColor, tracePath: null, traceDirs: null };
+// Seeded here as well as in setMapColor, because the first paint happens before
+// applySettings runs its hook and the DOM half is a class on the root element.
+try { document.documentElement.classList.toggle('map-poi-color', _savedColor); } catch {}
 
 // (Avenue View — a toggle that stripped room symbols down to "does a named artery
 // run through here" — is gone, button and all. Its wiring outlived the button by
@@ -867,6 +875,8 @@ function renderMinimapDom(nodes, direction) {
         const cterr = terrainOf(node);
         if (node.spec?.fill) cs.push(`background-color:${node.spec.fill}`);
         else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
+        const cInk = poiInk(node);
+        if (cInk) cs.push(`color:${cInk}`, `--poi-ink:${cInk}`);
         const cterrCls = cterr ? ` mm-terr mm-${cterr} mm-styled` : '';
         const cStyle = cs.length ? ` style="${cs.join(';')}"` : '';
         html += `<span class="mm-c mm-room mm-current${cterrCls}"${cStyle} title="${escapeHtml(titleFor(node))}">${symFor(node, overlay)}${doorMarks(node, 'mm')}</span>`;
@@ -909,6 +919,13 @@ function renderMinimapDom(nodes, direction) {
         styles.push(`background-color:${node.spec.fill}`, `color:${node.spec.text}`);
         styled = ' mm-styled';
       }
+      // Landmark ink, after the terrain branch so it wins: a building standing on
+      // painted ground still draws its footprint in its own colour.
+      const pInk = poiInk(node);
+      // `--poi-ink` is the Labels-mode half: .map-bld-label is white-on-black by default
+      // and reads the var when a landmark set one, so the code takes the colour the
+      // footprint would have had. The black stroke is what keeps it legible either way.
+      if (pInk) { styles.push(`color:${pInk}`, `--poi-ink:${pInk}`); styled = ' mm-styled'; }
       const terrCls = terr ? ` mm-terr mm-${terr}` : '';
       // Perimeter wall. `spec.curtain` is the derived list of the tile's OWN EDGES the
       // wall stands on (see deriveCurtain in scripts/content/derive.mjs), so a class per
@@ -1093,22 +1110,51 @@ function streetColor(a, b, regional) {
   return DANGER_STREET[Math.max(DANGER_RANK[a.danger] ?? 0, DANGER_RANK[b.danger] ?? 0)];
 }
 
-// Landmark icons — icon glyph must match the server POI_ICON in movement.js.
+// Landmark classes — the glyphs must match the server POI_ICON in movement.js, and the
+// keys must match world.js's POI_BY_BUILDING, which is where a building is filed.
+//
+// The colour is the map's find-it-at-a-glance layer: a tile's building footprint is
+// drawn in its landmark's ink instead of the palette's, so an airfield, a depot, a
+// clinic and a shop are four colours on the map rather than four grey rooftops with
+// names you have to open the tablet to read. It is deliberately the ICON that takes
+// the colour and never the tile fill — the fill is the ground, which derive.mjs
+// resolved from the terrain palette, and a renderer that repaints it is inventing a
+// colour no author chose. See poiInk() for the two tiles this is allowed to reach.
 export const POI_LEGEND = {
-  aa:      { icon: '⌖', label: 'AA battery' },
-  airport: { icon: '✈', label: 'Airport / airfield' },
-  police:  { icon: '★', label: 'Police station' },
-  power:   { icon: '⚡', label: 'Power plant' },
-  club:    { icon: '♥', label: 'Strip club' },
-  nightclub: { icon: '🎶', label: 'Nightclub' },
-  hotel:   { icon: '🏨', label: 'Hotel' },
-  bar:     { icon: '🍺', label: 'Bar' },
-  bathhouse: { icon: '♨', label: 'Bathhouse / baths' },
-  noodle_bar: { icon: '🍜', label: 'Noodle counter' },
-  vendor:  { icon: '$', label: 'Vendor / shop' },
-  home:    { icon: '⌂', label: 'Apartments / housing' },
-  stairs:  { icon: '⇕', label: 'Stairs (up/down)' },
+  residence:  { icon: '⌂', label: 'Residence',      color: '#8fcf7a' },
+  restaurant: { icon: '🍽', label: 'Restaurant',     color: '#f2913c' },
+  grocery:    { icon: '🛒', label: 'Grocery',        color: '#e8b91f' },
+  shops:      { icon: '$', label: 'Shops & trade',  color: '#3fbfae' },
+  nightlife:  { icon: '♥', label: 'Nightlife',      color: '#e0569a' },
+  medical:    { icon: '⚕', label: 'Medical',        color: '#e8737f' },
+  civic:      { icon: '🏛', label: 'Civic & law',    color: '#7f9cff' },
+  industry:   { icon: '⚙', label: 'Industry',       color: '#a08a76' },
+  airfield:   { icon: '✈', label: 'Airfield',       color: '#5ec8ff' },
+  depot:      { icon: '🚚', label: 'Freight depot',  color: '#8b46c7' },
+  fuel:       { icon: '⛽', label: 'Fuel & charging', color: '#b478e8' },
+  military:   { icon: '⌖', label: 'Military',       color: '#e05a4c' },
+  stairs:     { icon: '⇕', label: 'Stairs (up/down)', color: '#8f99a6' },
 };
+
+// Every ink here also has to work as a PLATE in Labels mode — the box takes the colour and
+// the two-letter code stays white on top of it — so these are chosen to hold white text,
+// not to be light. Grocery and restaurant are one hue apart on purpose, as are the freight
+// depot and the fuel stop: near in kind, near in colour, still tellable apart at a 12px
+// tile. Ground freight is deliberately NOT a blue — the map already spends blue on the
+// airfield and on civic, and a third one made a depot read as one of those at a glance.
+// The landmark ink for a tile, or null to leave it on the palette's own colour.
+//
+// Only a BUILDING takes it. The server derives a tile's POI from its neighbours too
+// — that is what makes the tablet's landmark row useful on a street corner — and a
+// street that inherited a shop's category would have its lane markings repainted
+// gold, which is the one thing on this map that must stay legible as a road. So the
+// tint reaches a facade or an enterable door and nothing else.
+export function poiInk(node) {
+  if (!mapState.poiColor) return null;
+  if (!node?.poi) return null;
+  if (!node.enterable && !node.building_type) return null;
+  return POI_LEGEND[node.poi]?.color || null;
+}
 
 // (The building-type emoji overlay — BUILDING_ICON, the map's third "icons" mode —
 // is gone. A glyph stamped on top of the rooftop footprint fought the tile art it
@@ -1172,14 +1218,17 @@ const ENTRANCE_DIRS = new Set(['north', 'south', 'east', 'west']);
 // the single green line on the facade's door edge (see doorMarks).
 //
 // `locked_dirs` is the third state, a subset of the open ones: a way through that a
-// lock is holding shut. Wall red, at full strength.
+// lock is holding shut. Wall red, at full strength. `unlockable_dirs` is the fourth
+// and a subset of THAT: a lock you can undo, drawn orange — shut, but yours.
 const CARDINALS = ['north', 'south', 'east', 'west'];
 function edgeMarks(node, pfx) {
   const open = node?.open_dirs;
   if (!Array.isArray(open)) return '';
   const locked = Array.isArray(node?.locked_dirs) ? node.locked_dirs : [];
+  const mine = Array.isArray(node?.unlockable_dirs) ? node.unlockable_dirs : [];
   return CARDINALS.map(d => {
-    const state = locked.includes(d) ? 'locked' : (open.includes(d) ? 'open' : 'shut');
+    const state = locked.includes(d) ? (mine.includes(d) ? 'unlockable' : 'locked')
+      : (open.includes(d) ? 'open' : 'shut');
     return `<span class="${pfx}-edge ${pfx}-edge-${d} ${state}"></span>`;
   }).join('');
 }
@@ -1189,9 +1238,19 @@ function edgeMarks(node, pfx) {
 // the street it would just outline every building.
 function doorMarks(node, pfx) {
   if (Array.isArray(node?.open_dirs)) return edgeMarks(node, pfx);
-  if (ENTRANCE_DIRS.has(node?.entrance))
-    return `<span class="${pfx}-edge ${pfx}-edge-${node.entrance} open"></span>`;
-  return '';
+  if (!ENTRANCE_DIRS.has(node?.entrance)) return '';
+  // The one line a facade draws takes the same three lock colours an interior edge
+  // does (facadeLockDirs, server/engine/world.js). It was hardcoded 'open', which is
+  // why a bolted front door read green out on the street while the dpad reddened the
+  // same direction from the same door.
+  // ...and a LAW holding the building shut reddens it too. Shop hours have no door row
+  // to hang a lock off, so they arrive as the tile's own `shut` flag — the same flag
+  // that paints the red inset. A green door beside that inset says the opposite thing
+  // about the same building in the same square, which is what read as a bug.
+  const locked = node?.shut || (Array.isArray(node?.locked_dirs) && node.locked_dirs.includes(node.entrance));
+  const mine = locked && Array.isArray(node?.unlockable_dirs) && node.unlockable_dirs.includes(node.entrance);
+  const state = mine ? 'unlockable' : locked ? 'locked' : 'open';
+  return `<span class="${pfx}-edge ${pfx}-edge-${node.entrance} ${state}"></span>`;
 }
 
 // The tile-label overlay mode (none | labels) lives in the shared settings store as
@@ -1214,6 +1273,22 @@ export function setMapOverlay(mode) {
 }
 /** The active overlay mode, for the canvas renderer (which has no mapState access). */
 export function mapOverlayMode() { return mapState.avenueOverlay || 'labels'; }
+
+// Landmark colour (Tablet OS → Settings → Layout → "Map Colour"), off by default.
+//
+// It is gated in poiInk() and NOWHERE ELSE: that function is what both renderers and
+// the tablet's own map ask for a landmark's ink, so switching it off takes the tint off
+// a footprint and the coloured plate out from under a label in one move rather than in
+// four. The white-plate half is the CSS/canvas default that a null ink already falls to.
+export function setMapColor(on) {
+  const next = !!on;
+  if (next === mapState.poiColor) return;
+  mapState.poiColor = next;
+  document.documentElement.classList.toggle('map-poi-color', next);
+  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+}
+/** Whether landmark colour is on, for the canvas renderer. */
+export function poiColorOn() { return !!mapState.poiColor; }
 /** Enter a building from a minimap click. The DOM path routes the same command
  *  through main.js's delegated action-link handler; canvas has no elements to
  *  delegate on, so it sends directly. */

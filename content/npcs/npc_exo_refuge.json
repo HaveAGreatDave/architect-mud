@@ -2,13 +2,13 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "There is a bed. There is always a bed.",
-    "You do not have to say where you came from.",
-    "First name in the book. That is all we want.",
-    "The fire stays lit. Do not put it out for us.",
+    "There's a bed. There's always a bed.",
+    "You don't have to say where you came from.",
+    "First name in the book. That's all we want.",
+    "The fire stays lit. Don't put it out for us.",
     "Some of them stay a night. Some of them stay thirty years."
   ],
-  "description": "A woman in her fifties making up a bed that is already made, because it has been empty three weeks and she does it anyway. There is a fire lit at the end of the hall for nobody, and a chair pulled up to it for nobody, and she has clearly had that fire going since long before you came up the road.",
+  "description": "A woman in her fifties making up a bed that's already made, because it has been empty three weeks and she does it anyway. There's a fire lit at the end of the hall for nobody, and a chair pulled up to it for nobody, and she has clearly had that fire going since long before you came up the road.",
   "dialogue_tree": {
     "book": {
       "actions": [],
@@ -35,12 +35,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because that is all anybody needs to be given a bed.\"\n\nShe smooths the sheet.\n\n\"There are eleven people in this compound who came up that road with a surname they did not want any more. Two of them run things. One of them is my husband. If the book asked for the rest of it, none of the three would be here, and I would have been the reason.\""
+      "text": "\"Because that's all anybody needs to be given a bed.\"\n\nShe smooths the sheet.\n\n\"There are eleven people in this compound who came up that road with a surname they didn't want any more. Two of them run things. One of them is my husband. If the book asked for the rest of it, none of the three would be here, and I would have been the reason.\""
     },
     "bye": {
       "actions": [],
       "options": [],
-      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+      "text": "\"Mind how you go.\"\n\nShe holds the door until you're through it."
     },
     "cost": {
       "actions": [],
@@ -67,7 +67,7 @@
           "next": "bye"
         }
       ],
-      "text": "She actually laughs.\n\n\"Nothing. Sorry. That is a horrible answer to have to give somebody, I know, and everybody hates it for about a week.\"\n\nShe tucks the corner in.\n\n\"You want to be told the price so you can decide whether you can afford it. There is not one. Eat at the table, wash your bowl, take an end if somebody is carrying something. That is the whole of it and it is not a trick and I am afraid you will not believe me for a while.\""
+      "text": "She actually laughs.\n\n\"Nothing. Sorry. That's a horrible answer to have to give somebody, I know, and everybody hates it for about a week.\"\n\nShe tucks the corner in.\n\n\"You want to be told the price so you can decide whether you can afford it. There isn't one. Eat at the table, wash your bowl, take an end if somebody is carrying something. There's nothing else to it, it isn't a trick, and I'm afraid you won't believe me for a while.\""
     },
     "out": {
       "actions": [],
@@ -94,7 +94,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"They leave.\"\n\nShe straightens up and looks down the hall at the six open doors and the six made beds.\n\n\"Most of them go back to it, you know. Six in ten. They get to about the fourth week and there is a morning where the quiet is unbearable and they walk out through the gate and Ambler wishes them a safe road.\" A pause. \"And about one in nine of those comes back, some years later, and there is a bed.\"\n\n\"I have made this one up every week for three years. He is called Tobin. He will get here.\""
+      "text": "\"They leave.\"\n\nShe straightens up and looks down the hall at the six open doors and the six made beds.\n\n\"Most of them go back to it, you know. Six in ten. They get to about the fourth week and there's a morning where the quiet is unbearable and they walk out through the gate and Ambler wishes them a safe road.\" A pause. \"And about one in nine of those comes back, some years later, and there's a bed.\"\n\n\"I have made this one up every week for three years. He's called Tobin. He'll get here.\""
     },
     "root": {
       "actions": [],
@@ -129,11 +129,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is a bed. There is always a bed.\"",
+      "text": "\"There's a bed. There's always a bed.\"",
       "text_by_relation": {
-        "close": "She has moved the chair by the fire round to face the door, and does not say she has.",
+        "close": "She has moved the chair by the fire round to face the door, and doesn't say she has.",
         "familiar": "\"Your one is made up.\" It is. It has been all week.",
-        "known": "\"You are still with us.\" She sounds glad about it."
+        "known": "\"You're still with us.\" She sounds glad about it."
       }
     }
   },

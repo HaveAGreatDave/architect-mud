@@ -82,7 +82,7 @@ async function cmdRig(args, raw, player) {
   const truck = idArg ? await getTruck(idArg, player.id) : (parked.length === 1 ? parked[0] : null);
   if (!truck && parked.length > 1) return whichTruckLine(`rig ${sub}`, parked, null, true);
   if (!truck) return say(idArg ? "That isn't one of yours." : 'You have nothing parked here to work on.');
-  if (rigOf(player)?.truckId === truck.id) return say('Climb down first — nobody works on a truck they are sitting in.');
+  if (rigOf(player)?.truckId === truck.id) return say("Climb down first — nobody works on a truck they're sitting in.");
   const cd = truck.custom_data || {};
 
   if (sub === 'strip') return await rigStrip(player);
@@ -132,9 +132,9 @@ async function rigParts(player, what) {
   else await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
     [`inv_${randomUUID().slice(0, 12)}`, owner, spec.item]);
   return say(spec.carry
-    ? `<span class="item-grant">${cap(spec.label)}, ${cost}₵. It goes in the cab and you will feel it on every hill.</span>`
+    ? `<span class="item-grant">${cap(spec.label)}, ${cost}₵. It goes in the cab and you'll feel it on every hill.</span>`
     : `<span class="item-grant">${cap(spec.label)}, ${cost}₵.</span>
-<span class="text-dim">The yard crane swings it down onto the hardstand beside you. It stays where it lands — an engine is not luggage.</span>`);
+<span class="text-dim">The yard crane swings it down onto the hardstand beside you. It stays where it lands — an engine isn't luggage.</span>`);
 }
 
 const SPARES_PRICE = 140;
@@ -156,8 +156,8 @@ async function rigSpares(player, nArg) {
     );
   }
   return say(`<span class="item-grant">${n === 1 ? 'A box' : `${n} boxes`} of truck spares.</span>\n`
-    + `<span class="text-dim">The man behind the counter does not ask where you are going. `
-    + `One box is one go at it on the shoulder, and it is spent whether the repair takes or not.</span> `
+    + `<span class="text-dim">The man behind the counter doesn't ask where you're going. `
+    + `One box is one go at it on the shoulder, and it's spent whether the repair takes or not.</span> `
     + `<span class="item-loss">-${cost}₵</span>`);
 }
 
@@ -189,10 +189,10 @@ async function partsMissing(player, dmg, parts) {
       // will be looking in a table that does not exist.
       : await query('SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND quantity>0 LIMIT 1', [GROUND(player.current_zone), spec.item]);
     if (have.rows.length) continue;
-    return say(`<span class="text-amber">The ${PART_LABELS[p].label.toLowerCase()} has not worn out, it has FAILED.</span>
+    return say(`<span class="text-amber">The ${PART_LABELS[p].label.toLowerCase()} hasn't worn out, it has FAILED.</span>
 `
       + `<span class="text-dim">No hours and no money fix that — it needs ${spec.label}`
-      + (spec.carry ? ', and you are not carrying any. ' : ', and there is not one standing here. An engine goes where a forklift puts it. ')
+      + (spec.carry ? ", and you aren't carrying any. " : ", and there isn't one standing here. An engine goes where a forklift puts it. ")
       + `Yards sell them.</span>`);
   }
   return null;
@@ -300,12 +300,12 @@ async function rigFit(player, truck, cd, arg) {
 async function rigUnfit(player, truck, cd, arg) {
   const key = (arg || '').toLowerCase();
   const fitted = installedFits(cd);
-  if (!fitted.length) return say('There is nothing bolted to it.');
+  if (!fitted.length) return say("There's nothing bolted to it.");
   if (!key) return say(`Take what off? <span class="text-dim">${fitted.map((k) => `rig unfit ${k}`).join(' · ')}</span>`);
   const slot = SLOTS.find((s) => s.id === key);
   const id = slot ? fitInSlot(cd, slot.id)
     : (FITTINGS[key] ? key : FIT_IDS.find((k) => FITTINGS[k].name.toLowerCase() === key));
-  if (!id || !fitted.includes(id)) return say('Nothing like that is on it.');
+  if (!id || !fitted.includes(id)) return say("Nothing like that's on it.");
   cd.fits = fitted.filter((k) => k !== id);
   await saveTruckData(truck.id, player.id, cd);
   const live = rigOf(player);
@@ -334,7 +334,7 @@ async function rigUnfit(player, truck, cd, arg) {
 function fitCatalogue(truck, cd, only) {
   const fitted = new Set(installedFits(cd));
   const head = `<span class="text-amber">The cosmetic shelf — ${truck.type.name}</span>\n`
-    + `<span class="text-dim">None of it does anything. One per place; swapping is free once it is yours.</span>`;
+    + `<span class="text-dim">None of it does anything. One per place; swapping is free once it's yours.</span>`;
   const shelf = (sid) => SLOTS.filter((s) => !sid || s.id === sid).map((s) => {
     const items = FIT_IDS.filter((id) => FITTINGS[id].slot === s.id).map((id) => {
       const f = FITTINGS[id], on = fitted.has(id), price = priceFor(cd, id);
@@ -407,7 +407,7 @@ async function rigRepair(player, truck, cd, mode, part) {
   if (target) return await rigRepairPart(player, truck, cd, dmg, target, pro);
   const cond = truck.condition ?? 1;
   if (cond >= 0.995) return say(`The ${truck.type.name} is as good as it gets.`);
-  if (!pro && cond >= FIELD_CAP) return say(`Nothing you can do to it with hand tools — it is already past what a field repair reaches. <span class="text-dim">rig repair shop</span>`);
+  if (!pro && cond >= FIELD_CAP) return say(`Nothing you can do to it with hand tools — it's already past what a field repair reaches. <span class="text-dim">rig repair shop</span>`);
   // THE WHOLE TRUCK, IF NOTHING ON IT HAS ACTUALLY FAILED. That is the rule the parts economy
   // hangs on: an ordinary tired rig is one bill and one visit, exactly as it always was, and it is
   // only a component that has GONE which turns the job into finding the thing itself.
@@ -495,12 +495,12 @@ async function rigTune(player, truck, cd, vals) {
   const next = {};
   keys.forEach((k, i) => { next[k] = clampTune(vals[i], range) ?? 0; });
   cd.tune = next;
-  if (!await saveTruckData(truck.id, player.id, cd)) return say('That truck will not take a setting.');
+  if (!await saveTruckData(truck.id, player.id, cd)) return say("That truck won't take a setting.");
   await awardSkillUse(player.id, 'fabrication', 0);
   await repush(player, 'bench');
   const capped = keys.some(k => Math.abs(next[k]) >= range);
   return say(`<span class="item-grant">Dialled in: ${keys.map(k => `${TUNE_PARAMS[k].label} ${next[k] > 0 ? '+' : ''}${next[k]}`).join(', ')}.</span>`
-    + (capped ? ' <span class="text-dim">That is as far as your hands and your gear will take it — a workshop instrument set would go further.</span>' : ''));
+    + (capped ? ' <span class="text-dim">That\'s as far as your hands and your gear will take it — a workshop instrument set would go further.</span>' : ''));
 }
 
 async function rigKit(player, truck, cd, kitId) {
@@ -615,7 +615,7 @@ async function rigTrim(player, truck, cd, args) {
     } else if (isDashMaterial(k)) want.mat = k;
     else if (isDashColourway(k)) want.col = k;
     else if (k === CUSTOM_COL) {   // refit a mix already stored — the way back after trying a swatch
-      if (!now.cust) return say('You have not mixed one yet. <span class="text-dim">rig trim panel=#4a1f2e needle=#ffd489 glow=#c07a34</span>');
+      if (!now.cust) return say('You haven\'t mixed one yet. <span class="text-dim">rig trim panel=#4a1f2e needle=#ffd489 glow=#c07a34</span>');
       want.col = CUSTOM_COL;
     } else if (k) return say(`No such trim: <b>${k.replace(/[<>]/g, '')}</b>. Try <span class="text-dim">rig trim</span> on its own for the book.`);
   }
@@ -637,7 +637,7 @@ async function rigTrim(player, truck, cd, args) {
       + cols.map(([k, c]) => line(k, c.label, '', k === (now.col || truckStockTrim(truck).col))).join('\n')
       + (now.cust ? '\n' + line(CUSTOM_COL, 'your own mix', `${now.cust.panel} panel, ${now.cust.needle} needle, ${now.cust.glow} glow`, now.col === CUSTOM_COL) : '')
       + `\n<span class="text-dim">Or mix one: </span><span class="action-link" data-action="cmd" data-cmd="rig trim panel=#4a1f2e needle=#ffd489 glow=#c07a34">panel, needle and glow, in hex</span>`
-      + `\n<span class="text-dim">The bench does not sell instruments. What is in the binnacle came with the truck.</span>`);
+      + `\n<span class="text-dim">The bench doesn't sell instruments. What's in the binnacle came with the truck.</span>`);
   }
   const next = sanitizeTrim({ ...now, ...want }, now);
   if (JSON.stringify(next) === JSON.stringify(now)) { await repush(player, 'bench'); return { type: 'noop' }; }
@@ -650,7 +650,7 @@ async function rigTrim(player, truck, cd, args) {
   await repush(player, 'bench');
   const said = [next.mat && DASH_MATERIALS[next.mat]?.label,
     next.col === CUSTOM_COL ? 'your own mix' : next.col && DASH_COLOURWAYS[next.col]?.label].filter(Boolean).join(', ');
-  return say(`<span class="item-grant">Retrimmed — ${cost}₵.</span> ${said}. It smells of glue and it will for a week.`);
+  return say(`<span class="item-grant">Retrimmed — ${cost}₵.</span> ${said}. It smells of glue and it'll for a week.`);
 }
 // What the truck LEFT THE FACTORY IN, for the catalogue's "fitted" marks. One mapping, in the
 // shared file the renderer reads — a second copy here would drift the first time a stock interior
@@ -678,7 +678,7 @@ async function rigFuel(player, truck, bay, depot) {
   const pump = pumpAt({ leg: 'city', zoneId: yard?.id }) || pumpAt({ leg: 'city', zoneId: bay?.id });
   if (!pump) return say('This yard keeps no diesel. You would have to run it to a pump.');
   const need = 1 - (truck.fuel ?? 1);
-  if (need < 0.02) return say('It is already full.');
+  if (need < 0.02) return say("It's already full.");
   const cost = Math.round(need * FUEL_FULL);
   if ((player.credits || 0) < cost) return say(`Filling it is ${cost}₵ and you have ${player.credits || 0}₵.`);
   player.credits -= cost;
@@ -732,9 +732,9 @@ async function rigStrip(player) {
   if (Math.abs(rig.speed) > HITCH_MPH) return say('Not at this speed. Stop alongside it first.');
   if (rig.leg !== 'corridor' || !rig.route) return say('Nothing out here to strip. Wrecks are a road thing.');
   const w = wreckNear(rig.route, rig.s);
-  if (!w) return say('There is nothing beside you but ground. <span class="text-dim">The radio tells you about wrecks before you reach them.</span>');
+  if (!w) return say('There\'s nothing beside you but ground. <span class="text-dim">The radio tells you about wrecks before you reach them.</span>');
   if (w.stripped) {
-    return say('<span class="text-dim">Somebody has been through it already. The housings are gone, the panels are gone, and what is left is the shape of a truck with nothing in it.</span>');
+    return say('<span class="text-dim">Somebody has been through it already. The housings are gone, the panels are gone, and what\'s left is the shape of a truck with nothing in it.</span>');
   }
   const chk = await skillCheck(player, 'fabrication', 6);
   await awardSkillUse(player.id, 'fabrication', chk.margin);
@@ -750,7 +750,7 @@ async function rigStrip(player) {
     [`inv_${randomUUID().slice(0, 12)}`, player.id, got.item, qty]);
   return say(`<span class="item-grant">You get the cover off and take ${got.label}.</span>
 `
-    + `<span class="text-dim">${w.who ? `Whatever happened to ${w.who} out here, it is not going to happen to their gearbox as well.` : 'Nobody is coming back for the rest of it.'}</span>`);
+    + `<span class="text-dim">${w.who ? `Whatever happened to ${w.who} out here, it isn't going to happen to their gearbox as well.` : 'Nobody is coming back for the rest of it.'}</span>`);
 }
 
 // Resolved by ITEM ID rather than by name or tag. A tag would be the house preference, but a tag

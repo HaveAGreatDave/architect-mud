@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The air holds a sweetish chemical note that you stop noticing after a minute, which is worse than noticing it.",
+  "description": "The air holds a sweetish chemical note that you stop noticing after a minute.",
   "exits": {
     "north": "zone_the_reach_882_1963",
     "south": "zone_the_reach_882_1965",

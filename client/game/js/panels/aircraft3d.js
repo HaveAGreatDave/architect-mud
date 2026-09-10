@@ -19,6 +19,7 @@
 const clampN = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 export const hex2rgb = (h) => { if (typeof h !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(h)) return null; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+import { FW_ROWS, TRUCK_ROWS } from '../../../shared/vehicle-models.js';
 import { rasterFaces, blitRaster, depthAt, maskRaster, depthWinAt } from './model-raster.js';
 export const shadeRgb = (c, m) => `rgb(${clampN(c[0] * m, 0, 255) | 0},${clampN(c[1] * m, 0, 255) | 0},${clampN(c[2] * m, 0, 255) | 0})`;
 const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
@@ -974,7 +975,7 @@ function rotAboutAxis(pts, A, B, ang) {
 }
 
 // Visor-nose group: does this class HAVE one (→ null if not), for the driver to gate the animation.
-export function visorSpecFor(cls) { return (FW_PARAMS[cls] || {}).visor || null; }
+export function visorSpecFor(cls) { return (fwParams(cls) || {}).visor || null; }
 
 // Geometry that exists ONLY to be seen through an open cargo mouth — the hold's inner box and the
 // fold-down ramp stowed inside it. With the nose shut it's sealed inside the fuselage, where it is
@@ -2329,10 +2330,20 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
   // (fades in on throttle, fades out first on shutdown). A soft fade near zero avoids a hard pop.
   const dFade = clampN(disc * 3.5, 0, 1);
   if (dFade > 0.01) {
+    // ⚠ THE SEGMENT COUNT IS SOLVED FOR THE DISC’S SCREEN SIZE, and a fixed sixteen is what
+    // "the propeller has blockiness around it, lighter than the rest of the view" was. From the
+    // pilot’s seat this disc is drawn at H * 0.62 — a 223 px radius on a 360 px frame — and a
+    // 16-gon at that radius has an 87 px flat edge, filled with a pale wash. It reads as a
+    // faceted lighter shape sitting over the windscreen, which is exactly what was reported.
+    // The error that matters is the SAGITTA, not the chord: r(1 - cos(pi/N)), so holding it under
+    // 0.4 px needs N >= pi * sqrt(r / 0.8) — about 52 segments head-on in a cockpit and about 22
+    // for a contact’s prop across the valley, which is the point of solving it rather than
+    // picking a bigger constant. One path, one fill, one stroke, whatever N is.
+    const NS = Math.max(16, Math.min(96, Math.ceil(Math.PI * Math.sqrt(Math.max(1, rpx) / 0.8))));
     const rim = [];
-    for (let i = 0; i < 16; i++) { const q = at(i / 16 * Math.PI * 2, r, 0); if (!q) return; rim.push(q); }
+    for (let i = 0; i < NS; i++) { const q = at(i / NS * Math.PI * 2, r, 0); if (!q) return; rim.push(q); }
     ctx.beginPath(); ctx.moveTo(rim[0].sx, rim[0].sy);
-    for (let i = 1; i < 16; i++) ctx.lineTo(rim[i].sx, rim[i].sy);
+    for (let i = 1; i < NS; i++) ctx.lineTo(rim[i].sx, rim[i].sy);
     ctx.closePath();
     ctx.fillStyle = `rgba(205,216,226,${dFade * (0.06 + disc * 0.09)})`; ctx.fill();
     ctx.strokeStyle = `rgba(228,238,246,${dFade * (0.14 + disc * 0.16)})`; ctx.lineWidth = 1; ctx.stroke();
@@ -2358,6 +2369,52 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
   }
 }
 
+// ── TUNING THE TWO PARAMETER TABLES FROM OUTSIDE ───────────────────────────
+// FW_PARAMS and TRUCK_SHAPES are plain numbers that GENERATE a mesh, which is the whole reason a
+// vehicle can be tuned at all: nothing in either table is drawing code. The Modelshop pushes a
+// modified row through setVehicleParams() and gets the real builder back, so what it shows is the
+// mesh the sim would build rather than a second renderer's idea of one.
+//
+// Every read of either table goes through fwParams()/truckShape() and nothing reads them directly,
+// because a table read that skips the override is a slider that moves half the aeroplane.
+//
+// ⚠ A CHANGE MUST BUST THE MESH CACHE. aircraftFaces memoises on cls+detail+armed+variant and
+// nothing in that key says which parameters built it, so without the flush the first build of a
+// class wins for the rest of the session and every slider after it appears to do nothing.
+//
+// This is a DESIGN-TIME seam and holds nothing durable: an override lives in one browser tab until
+// it is cleared or the page reloads. Persisting one means editing the table below.
+const _vehOverride = { fw: new Map(), truck: new Map() };
+function overrideTable(kind) {
+  const t = _vehOverride[kind];
+  if (!t) throw new Error('unknown vehicle parameter table: ' + kind);
+  return t;
+}
+function baseRow(kind, id) { return (kind === 'fw' ? FW_PARAMS : TRUCK_SHAPES)[id] || null; }
+function fwParams(cls) { return _vehOverride.fw.get(cls) || FW_PARAMS[cls] || null; }
+function truckShape(id) { return _vehOverride.truck.get(id) || TRUCK_SHAPES[id] || null; }
+// The shipping row, for a caller that wants to seed a form from it. A copy, so an editor holding
+// the object cannot edit the table it is supposed to be overriding.
+export function vehicleParamBase(kind, id) {
+  const row = baseRow(kind, id);
+  return row ? { ...row } : null;
+}
+export function vehicleParamIds(kind) { return Object.keys(kind === 'fw' ? FW_PARAMS : TRUCK_SHAPES); }
+// `patch` is merged ONTO the shipping row, so a caller sends the fields it changed and inherits
+// the rest; `null` drops the override for that id.
+export function setVehicleParams(kind, id, patch) {
+  const t = overrideTable(kind);
+  const row = baseRow(kind, id);
+  if (!row) throw new Error('no such vehicle row: ' + kind + '/' + id);
+  if (patch === null) t.delete(id); else t.set(id, { ...row, ...patch });
+  clearVehicleFacesCache();
+}
+export function clearVehicleParams() {
+  _vehOverride.fw.clear();
+  _vehOverride.truck.clear();
+  clearVehicleFacesCache();
+}
+
 // Per-class fixed-wing parameters (normalised units).
 const FW_DEFAULT = {
   noseF: 1.05, tailF: -1.05, fr: 0.12, fv: 0.12, span: 0.95, wingH: 0,
@@ -2366,7 +2423,17 @@ const FW_DEFAULT = {
   finF0: -0.74, finF1: -0.98, finF2: -1.06, finH: 0.50, fins: [0],
   engines: [-0.24, 0.24], nacF: -0.02, nacH: -0.02,
 };
-const FW_PARAMS = {
+// ── THE FIXED-WING ROWS ────────────────────────────────────────────────────
+// The numbers now live in content/vehicle_models/fw_*.json and reach here through the bake
+// (`npm run vehicles:bake`). The NOTES stayed: which real aircraft each one is, and what was
+// tried and rejected getting there, is the reason the numbers are what they are, and a JSON
+// file is a poor place to keep a paragraph.
+//
+// ⚠ AN AUTHORED ROW IS THE RESOLVED SET, not a patch over FW_DEFAULT. The table used to spread
+// the defaults into each class; a file that did the same would not say what a Warthog's span
+// is, only that it differs. FW_DEFAULT is now the starting point for a new class and the
+// fallback for a class with no row.
+//
   // NOTE: there is no `ultralight` row. The Mayfly was promoted off this generator to her own
   // hand-authored mesh (buildCessna, above) — a parametric lozenge could give her a Cessna's
   // PROPORTIONS but never a Cessna's shapes, and she is the airframe most players look at. Her
@@ -2376,16 +2443,9 @@ const FW_PARAMS = {
   // deep, flat-sided BOX of a fuselage held near-constant most of its length, with the signature
   // DROOPED, POINTED "anteater" nose (noseZ pulls the radome down below the fuselage line to a
   // point). Shortened from the original (empennage pulled in to match) so it reads less stretched.
-  prop: { ...FW_DEFAULT, fr: 0.13, fv: 0.135, span: 1.02, noseF: 1.00, tailF: -0.92,
     // The wing sits flat ON the cabin roof (crown 0.135), not half-buried in it.
-    wingH: 0.161, dih: 0.01, wRootF: 0.36, wRootB: -0.10, wTipF: 0.26, wTipB: -0.06,
-    hF: -0.70, hB: -0.89, hTipF: -0.75, hTipB: -0.91, hSpan: 0.40,
-    finH: 0.60, finF0: -0.63, finF1: -0.88, finF2: -0.94,
     // Long nacelles that run from ahead of the wing to well BEHIND its trailing edge — the Otter's
     // engines are slung along the wing, not bolted to the front of it (nacHalf sets the length).
-    engines: [-0.42, 0.42], nacF: 0.06, nacHalf: 0.28, nacH: 0.11, prop: 'wing',
-    dorsal: -0.24,   // the long dorsal fin fillet running forward off the fin along the spine
-    struts: true, gear: true, gearStyle: 'oleo', boxy: 0.86,
     // THE TWIN OTTER NOSE (per ref photos). The flat-topped slab box holds FULL width AND height
     // back to the windscreen (bodyTube 0.62), then two things happen at once ahead of it:
     //  • the ROOF drops hard (noseVTaper shrinks height ~1.6× faster than width) → a steep,
@@ -2393,7 +2453,6 @@ const FW_PARAMS = {
     //  • the centreline eases down a touch (noseZ −0.05) so that low point sits just below the
     //    fuselage line — the gentle droop — while the belly keeps rising to meet it (a wedge, not
     //    the old sagging tube). Longer nose (noseF 0.92→1.00) for the anteater reach.
-    noseBlunt: 2.2, noseZ: -0.05, noseDroopK: 0.7, noseVTaper: 1.6, bodyTube: 0.62, tailUp: 0.075,
     // FLIGHT DECK CUT INTO THE HULL (per ref photo), not a hump on the roof. Rings at the
     // windscreen top/base + side-window divisions give each pane its own bay; `glaze` turns the
     // upper facets between them to glass. On a 12-gon the upper half is k 0…5 (starboard sill →
@@ -2401,35 +2460,23 @@ const FW_PARAMS = {
     // the two panes wrap up and over the crown and around the corners into the side glass, split
     // only by the painted centre post; the side-window bays glaze the side band (k0/k5) alone, so
     // the cabin ROOF behind the windscreen stays solid.
-    extraF: [0.84, 0.70, 0.62, 0.48, 0.34],
-    glaze: { f0: 0.70, f1: 0.30, ks: [0, 5], wsKs: [0, 1, 2, 3, 4, 5], wsF: 0.63, art: 'mule' } },
   // Reaper — an A-10 Warthog (per ref): a straight-wing, twin-tail gun platform with two fat
   // turbofans mounted HIGH on stub pylons off the rear fuselage. A SLIM fuselage (thin fr) that's
   // still deep, a slightly pointed nose, and the twin fins out at the tailplane tips.
-  gunship: { ...FW_DEFAULT, fr: 0.115, fv: 0.14, span: 0.86, noseF: 1.0, tailF: -1.0,
-    wingH: -0.03, dih: 0.02, wRootF: 0.22, wRootB: -0.30, wTipF: 0.16, wTipB: -0.26, hSpan: 0.36,
-    engines: [], podEngines: [[-0.40, 0.27, 0.15], [-0.40, -0.27, 0.15]], podPylon: true,
-    fins: [-0.34, 0.34], finF0: -0.82, finF1: -1.02, finF2: -1.08, finH: 0.44, wingGuns: true, gear: true, gearPods: true,
-    noseBlunt: 2.5, boxy: 0.22, bodyTube: 0.15, tailUp: 0.04,   // slim roundish central body — the bulk reads from the wings/nacelles
     // THE WARTHOG BUBBLE (per ref): a single-seat clamshell canopy sitting proud of the nose, with
     // a heavy windscreen bow ahead of it and near-frameless glass over the crown. arc 5 + segs 8
     // round the bubble properly (it's a hemisphere in section, not a three-facet tent), and the
     // 'reaper' canopy art paints the bow frame, the gold-flashed armoured panes, the HUD glow and
     // the one pilot in there — the same treatment the Viper's greenhouse gets.
-    canopy: { f0: 0.60, f1: 0.16, w: 0.078, h: 0.112, front: 0.16, tail: 0.06, segs: 8, arc: 5, sink: 0.01, art: 'reaper' } },
   // Leviathan — an Antonov An-124 (per ref): a huge four-engine wide-body heavy freighter. A
   // long near-circular constant tube with an upswept cargo boat-tail; a swept HIGH wing set with
   // ANHEDRAL (drooping tips) carrying four big podded turbofans on underwing pylons; a tall swept
   // fin; a blunt rounded radome nose; and its signature multi-wheel 'centipede' belly gear. It's
   // a cantilever wing — NO lift struts (unlike the strut-braced Otter).
-  heavy: { ...FW_DEFAULT, fr: 0.205, fv: 0.215, span: 1.05, noseF: 1.15, tailF: -1.12, hSpan: 0.46, finH: 0.66,
-    wingH: 0.20, dih: -0.05, wRootF: 0.34, wRootB: -0.14, wTipF: 0.20, wTipB: -0.10,
-    engines: [-0.60, -0.34, 0.34, 0.60], nacF: 0.26, nacH: -0.03, nacR: 0.095, pylons: true, heavyGear: true,
     // Nose leg forward of the visor cut (0.78) so it hangs off the swinging nose and hinges with it
     // as one piece — see `noseGearAt` in addHeavyGear and the visor tagging in buildFixedWing.
     // …and at the fore-aft MIDDLE of that nose section (0.78 → 1.15), rather than hard up against
     // the hinge where it read as hanging off the seam instead of being carried by the nose.
-    noseGearAt: 0.839,
     // BODY (per ref photo): the An-124 is a DEEP near-circular tube — taller than it is wide (the
     // upper flight deck sits over a full-height cargo bay) — held at constant section over most of
     // its length, closed by a bluntly rounded radome up front and an UPSWEPT cargo boat-tail aft.
@@ -2457,8 +2504,6 @@ const FW_PARAMS = {
     // section, and the narrowest possible band was still 45° tall — a greenhouse. At 24 a facet is
     // 15°, so the flight deck can be a tight strip near the crown the way the real one is. The extra
     // rings cost ~100 faces on the whole airframe and buy the one detail you actually look at.
-    sides: 24, noseBlunt: 2.2, noseCowl: 0.10, boxy: 0.06, bodyTube: 0.56, tailUp: 0.145,
-    noseZ: -0.03, noseDroopK: 0.60, noseVTaper: 1.1, noseVFloor: 0.60,
     // Cargo VISOR NOSE (C-5 Galaxy / An-124): parked with the engines shut down the whole forward
     // section hinges fully UP (~90°), exposing the cargo hold + ramp; powering on lowers it home.
     // THE CUT IS AHEAD OF THE FLIGHT DECK, not behind it — on the real aeroplane the visor swings up
@@ -2475,7 +2520,6 @@ const FW_PARAMS = {
     // `cockpitTilt` pitches the pilot's camera up with `noseVisor` and rotates back down as the
     // visor closes. Leave the glass on the fixed fuselage and the camera swings while the windows
     // it's looking through don't, which is the one arrangement that can't be right.
-    visor: { hingeAt: 0.4870, maxAng: 1.20, ramp: 0.50 },
     // FLIGHT DECK CUT INTO THE HULL, not a hump bolted on the roof (the Mule's treatment, and what
     // the real aeroplane does): the An-124's cockpit windows are set into the upper forward fuselage
     // above the cargo deck, so the glass IS the skin there. On a 16-gon the upper half is k 0…7
@@ -2496,8 +2540,6 @@ const FW_PARAMS = {
     // 24 facets AROUND wants matching resolution ALONG, or the hull is smooth in section and creased
     // in profile. The tailcone was the worst of it — three rings carrying the whole 1.1-long upswept
     // boat-tail — so −0.18/−0.55/−0.95 go in to let the upsweep actually curve.
-    extraF: [1.14, 1.11, 1.06, 0.98, 0.88, 0.78, 0.70, 0.62, 0.56, 0.40, -0.18, -0.55, -0.95],
-    bellyFlat: 0.55,   // flat cargo-deck underside with a chine, not a barrel — see ring()
     // wsF is tested against a bay's FORWARD station, so 0.74 makes the single bay 0.78→0.70 the
     // windscreen and everything aft of it side glass.
     // On a 24-gon the upper half is k 0…11 with the CROWN AT 6. The windscreen is k3…k8 — 45°→135°,
@@ -2505,10 +2547,8 @@ const FW_PARAMS = {
     // and the side glass aft is k3/k8 alone, the lowest facet of that strip carried backwards. The
     // fore-aft run is short too (0.78→0.62, one bay of screen and one of side glass): the deck used
     // to reach back to 0.56 and that length was half of why it read as too much glass.
-    glaze: { f0: 0.78, f1: 0.62, ks: [3, 8], wsKs: [3, 4, 5, 6, 7, 8], wsF: 0.74, art: 'leviathan' },
     // The flight-deck HUMP. Peaks at f=0.70, dead centre of the glass band (0.78→0.56), and blends
     // out to nothing well clear of the wing root at 0.34 so it can't crease the wing fairing.
-    hump: { f0: 0.42, f1: 0.98, h: 0.055 } },
   // NOTE: there is no `grasshopper` row either, and for the same reason as the Mayfly's — the Cub
   // was promoted off this generator to `buildCub`. Her section lives in CUB_STATIONS, her hull
   // profile is served by cubSection(), her stance by CUB_GROUND_PITCH, and her wing constants by
@@ -2518,29 +2558,17 @@ const FW_PARAMS = {
   // BROAD constant-chord SQUARE wing (rectangular planform — no taper, no sweep, square-cut tips);
   // a chunky slab-sided fuselage with a blunt radial cowl; a raised bubble cockpit set high for
   // visibility over the nose; nose-high spatted TAILDRAGGER gear. Reads heavy and workmanlike.
-  locust: { ...FW_DEFAULT, fr: 0.100, fv: 0.105, span: 1.14, noseF: 1.00, tailF: -0.98,
-    wingH: -0.09, dih: 0.03, wRootF: 0.30, wRootB: -0.22, wTipF: 0.30, wTipB: -0.22, hSpan: 0.40,
-    hF: -0.70, hB: -0.90, hTipF: -0.74, hTipB: -0.92,
-    finF0: -0.64, finF1: -0.92, finF2: -0.98, finH: 0.52, fins: [0],
-    engines: [], prop: 'nose', gear: true, gearStyle: 'taildragger', gearAg: true, groundPitch: 10,
     // A turbine ag-plane's nose is a FAT round cowl carrying a big blunt spinner, not a snout that
     // tapers to a spike — noseCowl floors the cowl face wide (0.34) and `spinner` 0.9 fills most of
     // it, which is the single biggest reason the type reads as heavy machinery rather than a toy.
-    noseBlunt: 2.6, noseCowl: 0.34, boxy: 0.5, bodyTube: 0.12, tailUp: 0.04, spinner: 0.9,
     // THE HOPPER. Everything between the firewall and the windscreen on an Air Tractor is the
     // chemical tank, and it is the type's actual silhouette: a fat swelling of the spine that
     // steps DOWN to the cockpit, which is why the pilot sits so high and so far back. Peaks at
     // f 0.70 and blends out at 0.46, clear of the canopy base so the two never crease into
     // each other (the canopy rides the plain crown, not the hump).
-    hump: { f0: 0.46, f1: 0.94, h: 0.048 },
     // Rings through the cowl / hopper / windscreen step — without them the whole forward half is
     // one straight wedge and the hump has nothing to curve over.
-    extraF: [0.90, 0.78, 0.70, 0.58, 0.50, 0.20],
-    dorsal: -0.30,   // the long shallow fin fillet up the spine — the tail of a working aeroplane
-    exhaust: { f: 0.74, g: 0.86, z: -0.005, at: [0, -0.05] },   // stub stacks out of the cowl flanks
     // The spray rig, hung off the trailing edge and reaching almost tip to tip.
-    sprayBoom: { f: -0.26, drop: 0.055, reach: 0.94, nozzles: 11 },
-    canopy: { f0: 0.52, f1: 0.16, w: 0.082, h: 0.112, front: 0.22, tail: 0.20, segs: 6, arc: 5, sink: 0.015, art: 'locust' } },   // raised ag cockpit, set high and stepped down off the hopper
   // Shrike — the dive bomber (per ref: a Ju 87, futurised). Four things carry the silhouette,
   // and they are the four you can name from a hundred yards:
   //  • THE INVERTED GULL WING — a short steep anhedral centre section down to a knee at ~30%
@@ -2558,30 +2586,12 @@ const FW_PARAMS = {
   //    changes — which is the whole brief for this airframe.
   // Plus the braced tailplane (struts up to the fin from the stabiliser, per ref) and the
   // dive brakes out at the knee. Square-cut tips, deliberately: nothing about her is elegant.
-  divebomber: { ...FW_DEFAULT, fr: 0.098, fv: 0.132, span: 1.06, noseF: 1.06, tailF: -1.00,
-    wingH: 0.028, wRootF: 0.30, wRootB: -0.20, wTipF: 0.26, wTipB: -0.18, hSpan: 0.42,
-    gull: { at: 0.30, drop: -0.088, rise: 0.132 },   // down hard to the knee, then a long lift out to the tip
-    hF: -0.70, hB: -0.90, hTipF: -0.74, hTipB: -0.92,
-    finF0: -0.62, finF1: -0.96, finF2: -1.02, finH: 0.58, fins: [0],
-    engines: [], prop: 'nose', gear: true, gearStyle: 'taildragger', gearAg: true, groundPitch: 9,
     // The snout: a fat cowl face (a ducted turbine, not a spike) with a big blunt spinner in it,
     // and the centreline eased down so the nose reads as a long tapering wedge rather than a tube.
-    noseBlunt: 2.4, noseCowl: 0.30, noseZ: -0.035, noseDroopK: 0.6, spinner: 0.82,
-    boxy: 0.46, bodyTube: 0.18, tailUp: 0.05,
-    extraF: [0.92, 0.80, 0.68, 0.56, 0.30],
-    dorsal: -0.28,   // spine fillet forward off the fin
-    exhaust: { f: 0.78, g: 0.88, z: -0.008, at: [0, -0.045, -0.09] },   // a row of stacks down the cowl flank
-    diveBrakes: { u0: 0.22, u1: 0.44, drop: 0.062, aft: 0.05 },
     // The load: one big one on the centreline crutch, and four small ones out under the gull's
     // outer panels where the trousers are not in the way. The rack is authored here rather than in
     // the flight model because it is a SHAPE — what she is armed with is `data.bombs` on the type.
-    stores: [[0.10, 0, -0.175, 0.40, 0.036],
-      [0.02, 0.46, -0.055, 0.22, 0.021], [0.02, -0.46, -0.055, 0.22, 0.021],
-      [0.02, 0.62, -0.030, 0.22, 0.021], [0.02, -0.62, -0.030, 0.22, 0.021]],
-    stabStruts: true,   // the braced tailplane — a strut each side from the stabiliser up to the fin
-    chinScoop: { f0: 0.76, f1: 0.30, w: 0.052, h: 0.055 },   // the ventral intake under the nose
-    canopy: { f0: 0.58, f1: -0.14, w: 0.076, h: 0.090, front: 0.24, tail: 0.16, segs: 7, arc: 5, sink: 0.014, art: 'shrike' } },
-};
+const FW_PARAMS = FW_ROWS;
 
 // The starboard (right) wingtip station [f, g, h] in normalised model space — the outboard
 // mid-chord point of the wing, so nav lights anchor exactly ON the wingtips instead of
@@ -2600,7 +2610,7 @@ export function wingtipStation(cls) {
   if (cls === 'ultralight') return [(cePt(CE_SPAN, 0, 0.5)[0] + cePt(CE_SPAN, 1, 0.5)[0]) / 2, CE_SPAN, cePt(CE_SPAN, 0.5, 0.5)[2]];
   // Same again for the Cub, off her own wing constants — she has no FW_PARAMS row either.
   if (cls === 'grasshopper') return [(cuPt(CU_SPAN, 0, 0.5)[0] + cuPt(CU_SPAN, 1, 0.5)[0]) / 2, CU_SPAN, cuPt(CU_SPAN, 0.5, 0.5)[2]];
-  const p = FW_PARAMS[cls] || FW_PARAMS.prop;
+  const p = fwParams(cls) || fwParams('prop');
   // A cranked (gull) wing's tip is NOT wingH+dih — it is the knee height plus the outer
   // panel's rise. Ask the wing where its own tip is rather than restating the flat-wing sum,
   // or the nav lamps hang in the air beside a wing that folds away from them.
@@ -2630,7 +2640,7 @@ export function vehicleLamps(cls, variant = '') {
   // Same strip as the mesh (see the ⚠ in buildTruck) — a fitted rig must not read as another type.
   const typeId = String(variant).replace(/[~^].*$/, '').split('+')[0];
   const FITS = new Set(String(variant).match(/\^([a-z.]+)/)?.[1].split('.') || []);
-  const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
+  const S = truckShape(typeId) || truckShape('hauler');
   const L = truckLampGeom(S);
   // INTO THE MESH'S OWN FRAME. Build (or hit the cache for) the variant so its centring is known,
   // then move every station by the same shift and settle the whole set is drawn in — see the ⚠ at
@@ -2760,7 +2770,7 @@ export function groundPitchFor(cls, armed = false) {
   // now a named export beside the mesh, the way the Viper's is. Miss this and a taildragger renders
   // sitting flat on a tailwheel that is no longer touching the ground.
   if (cls === 'grasshopper') return CUB_GROUND_PITCH;
-  return FW_PARAMS[cls]?.groundPitch || 0;
+  return fwParams(cls)?.groundPitch || 0;
 }
 
 // ── THE TRUCK'S DRAW ORDER, AND WHY IT IS NOT A DEPTH SORT ───────────────────
@@ -2919,7 +2929,7 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
     : cls === 'heli' ? (armed ? buildAttackHeli() : buildHeli())
     : cls === 'ultralight' ? buildCessna(detail)
     : cls === 'grasshopper' ? buildCub(detail)
-    : buildFixedWing(FW_PARAMS[cls] || FW_PARAMS.prop, detail);
+    : buildFixedWing(fwParams(cls) || fwParams('prop'), detail);
   _cache[key] = faces;
   // ── ⚠ THE TRUCK KEYS ARE BOUNDED AND NOTHING ELSE IS ───────────────────────
   // Every other class here has a handful of keys and they are all resident within a minute of
@@ -2948,6 +2958,13 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
     }
   }
   return faces;
+}
+// Drop every memoised mesh. Called only by the parameter overrides above — a scene never needs
+// this, because geometry is static for as long as the table is.
+export function clearVehicleFacesCache() {
+  for (const k of Object.keys(_cache)) delete _cache[k];
+  _truckKeys.length = 0;
+  TRUCK_META.clear();
 }
 const TRUCK_CACHE_MAX = 96;
 const _truckKeys = [];
@@ -3024,12 +3041,9 @@ const _truckKeys = [];
 // Everything hanging off the box follows for free — the tail-lamp stations are struck from
 // 'frame0 + 0.06 - S.deck' and the ribs space across 'S.deck', so none of them needed a second
 // edit. 'tTop' still derives from 'hi'. Collision is still untouched (see the ⚠ above).
-const TRUCK_SHAPES = {
-  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.225, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.38, aero: 0,    skirt: 0, lamps: 0.25, trim: 0.05, rig: 'cage' },
-  hauler:      { cab: 0.24, nose: 0.04, hi: 0.248, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.44, aero: 0.35, skirt: 0, lamps: 0.55, trim: 0.40, rig: 'rack' },
-  drayman:     { cab: 0.24, nose: 0.06, hi: 0.270, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.58, aero: 0.75, skirt: 1, lamps: 0.8,  trim: 0.75, rig: null },
-  continental: { cab: 0.26, nose: 0.10, hi: 0.300, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.76, aero: 1,    skirt: 1, lamps: 1,    trim: 1.00, rig: null },
-};
+// The four rows are authored in content/vehicle_models/truck_*.json — see the fixed-wing note
+// above for why the prose stayed here and only the numbers moved.
+const TRUCK_SHAPES = TRUCK_ROWS;
 // `variant` is `<typeId>` or `<typeId>+t` for a rig with a trailer on the back. BOBTAIL IS A REAL
 // SILHOUETTE and has to look like one — a tractor with nothing behind it is short, stubby and
 // obviously unloaded, which is most of what makes running empty feel different from the outside.
@@ -3054,7 +3068,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // the trailer marker, so a lazy split would hand `hauler+t^rp.lb` a tail of 't^rp.lb' and every
   // fitted rig would silently render bobtail.
   const [typeId, tail] = str.replace(/[~^].*$/, '').split('+');
-  const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
+  const S = truckShape(typeId) || truckShape('hauler');
   const hitched = tail === 't' || solo;   // solo IS a trailer: the box gets built, the tractor is spliced off after
   const fine = detail >= 1;
   // "Was there enough money on this truck for that?" — see the note on TRUCK_SHAPES.trim. Reads as
@@ -4890,7 +4904,7 @@ function ptInScreenPoly(x, y, P) {
 export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_NEAR_Z) {
   const id = lv?.decal; if (!id || id === 'none') return;
   const img = decalTex(id); if (!img) return;
-  const p = FW_PARAMS[cls] || FW_PARAMS.prop;
+  const p = fwParams(cls) || fwParams('prop');
   // The decal is mapped onto the ACTUAL fuselage surface, front(nose)→rear, rather than as a flat
   // billboard at the widest half-width. A billboard overshoots the rounded/boxy hull and hangs the
   // art off the edge; instead each grid vertex is pushed out to the hull's cross-section at its

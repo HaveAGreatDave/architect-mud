@@ -342,7 +342,7 @@ function departureLine(live, reason) {
     return `<span class="text-dim">A courier in Syndicate grey collects ${name} without a word to anybody. ` +
       `${renderLine('{They} {do} not look back on the way out, which is somehow worse than if {they} had.', live)}</span>`;
   }
-  return `<span class="text-dim">${name} packs the little there is to pack, and goes.</span>`;
+  return `<span class="text-dim">${name} packs the little there's to pack, and goes.</span>`;
 }
 
 // ── Billing ───────────────────────────────────────────────────────────────────
@@ -404,7 +404,7 @@ export async function billingTick(todayOverride = null) {
     for (const g of group) {
       await query('UPDATE player_consorts SET next_due=$1, missed=$2 WHERE id=$3', [next, missed, g.id]);
     }
-    notify(p.id, `<span style="color:var(--yellow)">B.L.I.S.S.: retainer of ${owed}₵ for ${names} could not be drawn. ` +
+    notify(p.id, `<span style="color:var(--yellow)">B.L.I.S.S.: retainer of ${owed}₵ for ${names} couldn't be drawn. ` +
       `One more missed day and the placement is collected.</span>`);
   }
 }

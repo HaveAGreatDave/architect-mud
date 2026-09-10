@@ -1,5 +1,5 @@
 {
-  "description": "A wooden counter worn pale in nine evenly spaced patches, with nine stools bolted to the floor beneath it and standing room for as many again behind.",
+  "description": "Worn pale in nine evenly spaced patches, with the stools bolted to the floor beneath it.",
   "flags": {
     "interactions": [
       "sit"

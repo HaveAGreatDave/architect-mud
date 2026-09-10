@@ -1,6 +1,6 @@
 {
   "addiction_chance": 0.08,
-  "description": "A designer psychedelic that does not do gentle. Roll the dice.",
+  "description": "A designer psychedelic that doesn't do gentle. Roll the dice.",
   "duration_seconds": 300,
   "effects": {
     "hallucination": {
@@ -12,7 +12,7 @@
         },
         {
           "atSec": 45,
-          "text": "[trip]The walls are the wrong colour. They know they are the wrong colour. They are furious about it.[/trip]"
+          "text": "[trip]The walls are the wrong colour. They know they're the wrong colour. They're furious about it.[/trip]"
         },
         {
           "atSec": 85,
@@ -20,19 +20,19 @@
         },
         {
           "atSec": 125,
-          "text": "[trip]Something enormous is screaming just below the range of hearing and it is getting closer.[/trip]"
+          "text": "[trip]Something enormous is screaming just below the range of hearing and it's getting closer.[/trip]"
         },
         {
           "atSec": 165,
-          "text": "[trip]The floor tilts. The ceiling drips. None of it is trying to help you.[/trip]"
+          "text": "[trip]The floor tilts. The ceiling drips. None of it's trying to help you.[/trip]"
         },
         {
           "atSec": 205,
-          "text": "[trip]You are being watched by the architecture and it does not like what it sees.[/trip]"
+          "text": "[trip]You're being watched by the architecture and it doesn't like what it sees.[/trip]"
         },
         {
           "atSec": 245,
-          "text": "[trip]For a moment you are certain you have always been here and will never leave.[/trip]"
+          "text": "[trip]For a moment you're certain you have always been here and will never leave.[/trip]"
         },
         {
           "atSec": 280,
@@ -46,7 +46,7 @@
     "instant": {
       "sanity": -18
     },
-    "onset_message": "<span class=\"msg-system\">It does not ease in. It kicks the door off its hinges.</span>",
+    "onset_message": "<span class=\"msg-system\">It doesn't ease in. It kicks the door off its hinges.</span>",
     "onset_seconds": 10,
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The worst of it drains away, leaving you shaking and drenched and unconvinced it's really gone.</span>",
@@ -69,7 +69,7 @@
       "max_reduction": 0.85
     },
     "withdrawal": {
-      "message": "The parts of it that were not real have not agreed to stop being in the room.",
+      "message": "The parts of it that weren't real haven't agreed to stop being in the room.",
       "mods": {
         "stat_cool": -3,
         "stat_reflexes": -1
@@ -77,7 +77,7 @@
       "onset_seconds": 1800,
       "stages": {
         "easing": "It thins out to an ordinary room and one wrong shape, and the wrong shape can be argued with.",
-        "onset": "You check the corner of the room. There is nothing in the corner of the room.",
+        "onset": "You check the corner of the room. There's nothing in the corner of the room.",
         "peak": "Something is standing at the edge of your vision with the patience of furniture, and turning your head only puts it in the other eye.",
         "rising": "You check it again about every four minutes, and you have started doing it without deciding to.",
         "tail": "Walls are walls. You have got it down to checking the once, on the way past."

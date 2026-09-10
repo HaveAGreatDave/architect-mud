@@ -1,11 +1,13 @@
 {
-  "description": "A lever machine in unlacquered brass and walnut, two groups, the eagle on top rubbed dull where sixty years of hands have steadied themselves against it. It predates the building it stands in. Nothing about it is automatic; the pressure comes off a spring and a forearm. That is the whole argument for it.",
+  "description": "A lever machine in unlacquered brass and walnut, two groups, the eagle on top rubbed dull where sixty years of hands have steadied themselves on it. It predates the building. Nothing about it's automatic; the pressure comes off a spring and a forearm. A brass tube at the side warms the cups.",
   "flags": {
-    "aliases": "espresso rig,espresso machine,lever machine,rig,machine",
+    "aliases": "espresso rig,espresso machine,lever machine,rig,machine,cup dispenser,cups",
     "brew_tier": "barista",
     "interactions": [
       "examine"
-    ]
+    ],
+    "vend_line": "You push the brass tube and a demitasse comes off the stack, already warm from the boiler.",
+    "vends": "item_demitasse_cup"
   },
   "hp": null,
   "hp_max": null,

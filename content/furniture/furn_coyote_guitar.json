@@ -1,0 +1,20 @@
+{
+  "description": "A steel-string guitar hung on a nail behind the bar, the body scarred pale where belt buckles have been. The house rule is on masking tape across the headstock: PLAY IT OR LEAVE IT. The fifth string is brighter than the other five. Somebody restrung it and never came back for their change.",
+  "flags": {
+    "instrument": "pluck",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_guitar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "House Guitar",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 640,
+  "zone_id": "zone_the_reach_872_1954"
+}

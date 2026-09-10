@@ -1,0 +1,85 @@
+{
+  "id": "locust",
+  "kind": "fw",
+  "params": {
+    "bodyTube": 0.12,
+    "boxy": 0.5,
+    "canopy": {
+      "arc": 5,
+      "art": "locust",
+      "f0": 0.52,
+      "f1": 0.16,
+      "front": 0.22,
+      "h": 0.112,
+      "segs": 6,
+      "sink": 0.015,
+      "tail": 0.2,
+      "w": 0.082
+    },
+    "dih": 0.03,
+    "dorsal": -0.3,
+    "engines": [],
+    "exhaust": {
+      "at": [
+        0,
+        -0.05
+      ],
+      "f": 0.74,
+      "g": 0.86,
+      "z": -0.005
+    },
+    "extraF": [
+      0.9,
+      0.78,
+      0.7,
+      0.58,
+      0.5,
+      0.2
+    ],
+    "finF0": -0.64,
+    "finF1": -0.92,
+    "finF2": -0.98,
+    "finH": 0.52,
+    "fins": [
+      0
+    ],
+    "fr": 0.1,
+    "fv": 0.105,
+    "gear": true,
+    "gearAg": true,
+    "gearStyle": "taildragger",
+    "groundPitch": 10,
+    "hB": -0.9,
+    "hF": -0.7,
+    "hSpan": 0.4,
+    "hTipB": -0.92,
+    "hTipF": -0.74,
+    "hump": {
+      "f0": 0.46,
+      "f1": 0.94,
+      "h": 0.048
+    },
+    "nacF": -0.02,
+    "nacH": -0.02,
+    "noseBlunt": 2.6,
+    "noseCowl": 0.34,
+    "noseF": 1,
+    "prop": "nose",
+    "span": 1.14,
+    "spinner": 0.9,
+    "sprayBoom": {
+      "drop": 0.055,
+      "f": -0.26,
+      "nozzles": 11,
+      "reach": 0.94
+    },
+    "tailF": -0.98,
+    "tailUp": 0.04,
+    "wRootB": -0.22,
+    "wRootF": 0.3,
+    "wTipB": -0.22,
+    "wTipF": 0.3,
+    "wingH": -0.09
+  }
+}
+

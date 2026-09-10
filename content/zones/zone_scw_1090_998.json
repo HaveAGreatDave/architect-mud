@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The wall has been shedding itself down onto the flat for a very long time, and the pile it has made reaches better than halfway up. The last part is rock; everything under it is the wall in smaller pieces, and it moves when you do.",
+  "description": "The wall has been shedding itself down onto the flat for a very long time, and the pile it has made reaches better than halfway up. The last part is rock; everything under it's the wall in smaller pieces, and it moves when you do.",
   "exits": {
     "east": "zone_scw_1091_998",
     "north": "zone_scw_1090_997",

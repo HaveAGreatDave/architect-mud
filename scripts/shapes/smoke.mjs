@@ -83,6 +83,55 @@ async function main() {
     problems.push(`paint  ${f.key} (night=${f.night}, ${f.front ? 'entrance toward camera' : 'entrance away'}) → ${f.err}`);
   }
 
+  // ── VEHICLES ──
+  // Every aircraft and truck class, and every colour it hands the canvas. The NaN check is the
+  // point: SHAPE_STUB_CTX accepts any string, so 'rgba(255,55,55,NaN)' passes headlessly and
+  // throws in a real browser on the first navigation lamp — which is exactly how the Modelshop's
+  // vehicle preview shipped broken with every other gate green.
+  for (const f of ws.vehicleRenderSmoke()) problems.push(`vehicle ${f}`);
+
+  // ── NEAR TIER ──
+  // Proves the near-detail tier adds to the picture. shapeRenderSmoke already proves it adds
+  // nothing to the captured geometry; this is the other half.
+  for (const f of ws.nearTierSmoke()) problems.push(`near   ${f}`);
+
+  // ── THE WORLD QUEUE ──
+  // The city is painted back-to-front off one scalar per face and, until this, nothing checked
+  // the result — the sort tests that existed all run on the truck's own mesh. This asks the one
+  // question a single depth per face cannot answer on its own: does a thing standing on a roof
+  // paint after that roof? It carries its own control, so a green line here means the sweep
+  // reproduced the failure and the constraint fixed it.
+  for (const f of ws.sortOrderSmoke()) problems.push(`sort   ${f}`);
+
+  // ── AND THE BIOME ARCHETYPES CAPTURE TOO ──
+  // A building_type with no model of its own is drawn by the shared biome set, and until the
+  // occluder pass started asking about them nothing downstream of capture had ever seen one. They
+  // are solid buildings — `luxtower` is a thirty-storey tower — so the field has to know they are
+  // there, and the field can only be told by a capture that SOLVES. Same two gates the 172 arms
+  // answer to: it captures at all, and it is affine in the footprint and the storey height, checked
+  // at a scale the decomposition never saw.
+  for (const { key, m } of ws.shapeArchetypeRegistry()) {
+    const segs = ws.shapeForModel(m, 3);
+    if (!segs || !segs.length) { problems.push(`arch   ${key}: no capture — it occludes nothing`); continue; }
+    const err = ws.shapeLinearityError(m, 3);
+    if (err) problems.push(`arch   ${key}: ${err}`);
+  }
+
+  // ── AND DO A BUILDING’S OWN LIGHTS SURVIVE ITS OWN OCCLUDER? ──
+  // A light that is culled draws nothing and throws nothing, so a whole class of them can stop
+  // reaching the screen with no symptom at all. This counts both sides of the probe over a night
+  // street and fails if the ratio collapses — never if a single light is hidden, which is the
+  // probe doing its job.
+  const LIGHT_ID = '__smoke-light';
+  stubCanvas(LIGHT_ID, 1280, 720);
+  for (const f of ws.lightVisibilitySmoke(LIGHT_ID)) problems.push(`light  ${f}`);
+
+  // ── WALL TEXTURES ──
+  // Every palette in WALL_COL bakes, and every material family is still reached by one. A wall
+  // texture is generated lazily the first time a building wearing it comes into view, so this is
+  // the only thing that ever runs most of these generators.
+  for (const f of ws.wallTexSmoke()) problems.push(`wall   ${f}`);
+
   // ── INTERIOR ──
   // The canopy, the cowl, the passenger window frame and the truck cab. Same rationale as the
   // models above: the only thing that ever runs one of these is somebody sitting in that vehicle,
@@ -99,6 +148,16 @@ async function main() {
   const marks = ws.markRenderSmoke();
   for (const f of marks) problems.push(`mark   ${f.key} (night=${f.night}) → ${f.err}`);
   const markLine = `Marks: ${marks.ran} statue/gate/bay/highway-sign passes clean (night+day).`;
+
+  // ── ADORNMENT OCCLUSION ──
+  // A light, a sign or a beacon is queued at its own depth lifted DECO_LIFT toward the camera, and
+  // that lift is smaller than any real building gap and larger than a host's own half-depth — so a
+  // lamp behind its own near wall painted straight through it. The fix is a probe against the
+  // occlusion field the building pass already builds, and its margins are invisible in the picture
+  // until somebody notices signage has quietly stopped appearing. See decoHidden in windshield.js.
+  const deco = ws.decoOcclusionSmoke();
+  for (const f of deco) problems.push(`deco   ${f}`);
+  const decoLine = `Adornment occlusion: ${deco.ran} probe cases — a light behind a wall is culled, one on the wall it is mounted to is not, and a landmark is probed only when GLASS 2 owns the mass.`;
 
   // ── HIGH GROUND ──
   // The cliff massif is the only mass in the sim that is TERRAIN, and it is the only one you can
@@ -386,6 +445,205 @@ async function main() {
     problems.push(`could not read client/shared/building-shapes.js (${e.message}). Run: npm run shapes:bake`);
   }
 
+  // ── AUTHORED VEHICLE ROWS ──
+  // Two questions, and the same reason they live here rather than in content:lint: a vehicle row
+  // never reaches the database either. It is baked into a client module, so its gate belongs beside
+  // the renderer that reads it.
+  let vehicleLine = 'Vehicle rows: none.';
+  try {
+    const { bakeVehicles, readVehicleFiles, renderModule } = await import('./bake-vehicles.mjs');
+    const { rows, errors } = bakeVehicles(readVehicleFiles());
+    for (const e of errors) problems.push(`vehicle row — ${e}`);
+    if (!errors.length) {
+      // 1. STALE BAKE. Compared as the rendered MODULE rather than row by row, because the file is
+      // what aircraft3d.js imports and a formatting change in the bake is drift too.
+      const { readFileSync: rf } = await import('node:fs');
+      const onDisk = rf(new URL('../../client/shared/vehicle-models.js', import.meta.url), 'utf8');
+      if (onDisk.replace(/\r\n/g, '\n') !== renderModule({ rows }).replace(/\r\n/g, '\n')) {
+        problems.push('stale vehicle bake — client/shared/vehicle-models.js differs from content/vehicle_models/. Run: npm run vehicles:bake');
+      }
+      // 2. THE ROW ACTUALLY REACHES THE MESH. A file can be valid, bake cleanly and still be
+      // authored for a class nothing builds — so ask the renderer for the row it would use and
+      // fail if it is not the one on disk. This is the vehicle half of the orphan check.
+      const veh = await import('../../client/game/js/panels/aircraft3d.js');
+      for (const kind of ['fw', 'truck']) {
+        for (const id of Object.keys(rows[kind])) {
+          const live = veh.vehicleParamBase(kind, id);
+          if (JSON.stringify(live) !== JSON.stringify(rows[kind][id])) {
+            problems.push(`vehicle row ${kind}/${id} is authored but the renderer builds from something else`);
+          }
+        }
+      }
+      // 3. THE ROW STILL BUILDS A MESH. The schema can only say a value is JSON — a string where
+      // a number belongs is legal JSON and legal content, and it reaches the builder as NaN,
+      // which paints nothing and throws nothing. Same rule as the adornments' NaN gate: build
+      // every authored vehicle and fail on a single non-finite vertex.
+      for (const [kind, id] of [...Object.keys(rows.fw).map((k) => ['fw', k]), ...Object.keys(rows.truck).map((k) => ['truck', k])]) {
+        const faces = kind === 'truck' ? veh.aircraftFaces('truck', 1, false, id) : veh.aircraftFaces(id, 1);
+        if (!faces.length) { problems.push(`vehicle row ${kind}/${id} builds no faces at all`); continue; }
+        const bad = faces.some((f) => f.p.some((pt) => pt.some((n) => !Number.isFinite(n))));
+        if (bad) problems.push(`vehicle row ${kind}/${id} builds a mesh with non-finite vertices — a field is the wrong type`);
+      }
+      const n = Object.keys(rows.fw).length + Object.keys(rows.truck).length;
+      vehicleLine = `Vehicle rows: ${n} authored (${Object.keys(rows.fw).length} fixed-wing, ${Object.keys(rows.truck).length} truck); bake current.`;
+    }
+  } catch (e) {
+    problems.push(`vehicle rows — ${e.message}`);
+  }
+
+  // ── AUTHORED MODELS ──
+  // The same three questions the code arms get, asked of the data half. They are here rather than
+  // in content:lint because an authored model never reaches the database — models:bake compiles it
+  // into a client module, so its gate belongs beside the renderer's.
+  let authoredLine = 'Authored models: none.';
+  let diffLine = null;
+  let authoredReach = null;
+  try {
+    const { bakeModels, readModelFiles } = await import('./bake-models.mjs');
+    const { ADORN_SCHEMA, DETAIL_SCHEMA } = await import('../../client/shared/building-model-schema.js');
+    const files = readModelFiles();
+    const { models: fresh, errors } = bakeModels(files);
+    for (const e of errors) problems.push(`authored model — ${e}`);
+
+    // 1. STALE BAKE, the same direct comparison the shapes bake gets above.
+    const baked = (await import('../../client/shared/building-models.js')).AUTHORED_MODELS;
+    const drifted = [...new Set([...Object.keys(fresh), ...Object.keys(baked)])]
+      .filter((k) => JSON.stringify(fresh[k]) !== JSON.stringify(baked[k]));
+    if (drifted.length) {
+      problems.push(`stale authored bake — ${drifted.length} binding(s) differ from client/shared/building-models.js `
+        + `(${drifted.slice(0, 5).join(', ')}${drifted.length > 5 ? ', …' : ''}). Run: npm run models:bake`);
+    }
+
+    // 2. ORPHANS. A file that binds to a key a hand-written arm already owns is inert — it
+    // validates, bakes, ships and never draws, because the registry merge is `??=` on purpose.
+    // Silence is the failure mode this whole codebase keeps rediscovering, so it is named here.
+    const live = new Set(models.map((r) => r.key));
+    for (const key of Object.keys(baked)) {
+      const m = ws.shapeModelRegistry().find((r) => r.key === key)?.m;
+      if (!live.has(key)) problems.push(`authored model '${key}' resolves to nothing in the live registry`);
+      else if (m && m.type !== 'authored') {
+        problems.push(`authored model '${key}' is shadowed by a hand-written '${m.type}' arm — it will never draw. `
+          + 'Rebind it, or delete the arm deliberately.');
+      }
+    }
+
+    // 3. THE TWO ADORNMENT LISTS. windshield.js cannot import scripts/, so its dispatch table and
+    // ADORN_SCHEMA are written out twice. Compared by value here, because the failure otherwise is
+    // an authored field that validates and bakes and then silently draws nothing at all.
+    const schemaKinds = Object.keys(ADORN_SCHEMA).sort().join(',');
+    const rendererKinds = [...ws.AUTHORED_ADORN_KINDS].sort().join(',');
+    if (schemaKinds !== rendererKinds) {
+      problems.push('adornment drift — model-schema.mjs knows [' + schemaKinds + '] and windshield.js draws ['
+        + rendererKinds + ']. A kind in only one of them is a field that validates and never paints.');
+    }
+    // ── AND THE SAME FOR DETAIL, THOUGH ONLY HALF OF IT IS STILL TWO LISTS ──
+    // The schema moved to client/shared/, which windshield.js CAN import and now does — so the
+    // per-kind screen floors are read off it rather than restated, and cannot drift. What is still
+    // two lists is the vocabulary itself: a kind DECLARED in the schema and not DRAWN by the
+    // renderer is a field that validates, bakes, and paints nothing.
+    const dSchema = Object.keys(DETAIL_SCHEMA).sort().join(',');
+    const dRenderer = [...ws.AUTHORED_DETAIL_KINDS].sort().join(',');
+    if (dSchema !== dRenderer) {
+      problems.push('detail drift — the schema knows [' + dSchema + '] and windshield.js draws [' + dRenderer + '].');
+    }
+    for (const k of Object.keys(DETAIL_SCHEMA)) {
+      if (DETAIL_SCHEMA[k].px !== ws.DETAIL_PX[k]) {
+        problems.push(`detail '${k}': the schema floors it at ${DETAIL_SCHEMA[k].px}px and the renderer at ${ws.DETAIL_PX[k]}px`);
+      }
+    }
+    // 4. THE ADORNMENTS ACTUALLY REACH THE CAMERA. See authoredAdornSmoke in windshield.js —
+    // an adornment drawn at a non-finite position paints nothing and throws nothing, so every
+    // other gate here reports a clean model with its neon silently missing.
+    for (const f of ws.authoredAdornSmoke()) problems.push(`authored adorn — ${f}`);
+    // 4b. AND EVERY DETAIL KIND DECLARED, not merely every kind some model happens to use. A new
+    // kind is used by nothing on the day it lands, so the key-drift check above is the only gate it
+    // faces — and a drawer reading the wrong field name passes that, projects at undefined and
+    // paints nothing. See authoredDetailSmoke in windshield.js.
+    for (const f of ws.authoredDetailSmoke()) problems.push(`authored detail — ${f}`);
+    // 4c. AND WHICH WALL A PER-FACE PALETTE LANDS ON. Face counts cannot see a shopfront on a
+    // flank — swap it and the count is identical. See facePalsSmoke in windshield.js.
+    for (const f of ws.facePalsSmoke()) problems.push(`face palettes — ${f}`);
+
+    // 5. DETERMINISM, and 6. THE PORT CLAIMS. Both from scripts/shapes/modeldiff.mjs.
+    //
+    // Determinism is the precondition for every comparison the port depends on: a model that draws
+    // differently on a second identical render cannot be diffed at all. It is also worth having on
+    // its own — a Math.random or a real-clock read in an arm makes that building different every
+    // frame, and nothing else here would see it, because the capture harness holds `now` fixed and
+    // never runs one model twice at the same camera.
+    //
+    // The port gate then re-checks every `portedFrom` claim against the arm it replaced, for as
+    // long as that arm exists. It is vacuous until something is ported, and wired now so that the
+    // first port is measured rather than trusted.
+    const { determinismSweep, portedSweep } = await import('./modeldiff.mjs');
+    for (const f of determinismSweep(ws)) problems.push(`determinism — ${f}`);
+    for (const f of portedSweep(ws)) problems.push(`port — ${f}`);
+    const ported = models.filter((r) => r.m.type === 'authored' && r.m.portedFrom).length;
+    // A stand-in is NOT diffed against the arm it replaces — it is a different building on
+    // purpose — but it is named, every push, because a model quietly overriding a hand-written
+    // arm is exactly the kind of thing that should never be discovered by surprise.
+    const standIns = models.filter((r) => r.m.type === 'authored' && r.m.replaces);
+    for (const r of standIns) {
+      console.log(`  ⓘ ${r.key} stands in for the hand-written ${r.m.replaces} arm — RENDER_TUNE.legacyArms puts it back.`);
+    }
+    diffLine = `Model diff: all ${models.length} models render identically twice; ${ported} ported model(s) match the arm they replaced.`;
+
+    // 7. CAN ANY TILE ACTUALLY REACH IT?
+    //
+    // The orphan check above proves a binding resolves in the REGISTRY. That is not the same
+    // question as whether a building in the world resolves to it, and the difference is not
+    // academic: `modelFor` prefers a building's NAME over its TYPE, and 408 of the 416 building
+    // tiles in Coldwater carry a name. So a model bound `by: 'type'` draws on almost nothing —
+    // the worked example shipped bound to `type:foundry`, whose three tiles are all named, and
+    // was invisible in the game while looking perfectly healthy in every other gate here.
+    //
+    // A warning rather than an error, because authoring a model before placing its tiles is a
+    // reasonable order to work in. It is printed by name so it cannot be a silence.
+    try {
+      const { readdirSync: rd, readFileSync: rf } = await import('node:fs');
+      const zoneDir = new URL('../../content/zones/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+      const live = new Set(ws.shapeModelRegistry().map((r) => r.key));
+      const reach = new Map();
+      for (const f of rd(zoneDir)) {
+        if (!f.endsWith('.json')) continue;
+        const z = JSON.parse(rf(zoneDir + f, 'utf8'));
+        const bt = z.flags?.building_type;
+        if (!bt) continue;
+        const bn = z.flags.building_name;
+        const slug = (bn || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+        // Exactly modelFor's order: a named model wins, then the type model.
+        const key = (bn && live.has('named:' + slug)) ? 'named:' + slug : 'type:' + bt;
+        reach.set(key, (reach.get(key) || 0) + 1);
+      }
+      // ── ⚠ AND THE OTHER DIRECTION: A TILE THAT RESOLVES TO NO MODEL AT ALL ──
+      // Such a tile is drawn by the generic archetype path (drawBuilding), and the occluder
+      // pre-pass skips it — `modelFor` returns null and the loop continues — so it registers as
+      // transparent: contacts, lights and the own ship all show straight through a building you
+      // can plainly see. Today that reaches NOTHING (every building tile in the world resolves to
+      // a named or typed model), which is exactly why it is worth gating: the hole is one new
+      // building_type away, and it would arrive looking like a lighting bug.
+      const modelless = new Map();
+      for (const [key, n] of reach) if (!live.has(key)) modelless.set(key, n);
+      for (const [key, n] of modelless) {
+        problems.push(`${n} building tile(s) resolve to '${key}', which has no model — they draw through the archetype path and OCCLUDE NOTHING. ` + 'Give the type a model, or teach the occluder pre-pass to register the archetype box.');
+      }
+      const unreached = Object.keys(baked).filter((k) => !(reach.get(k) > 0));
+      authoredReach = Object.keys(baked).length
+        ? `${Object.keys(baked).length - unreached.length}/${Object.keys(baked).length} authored binding(s) are reached by at least one tile`
+          + (unreached.length ? ` — NOT reached: ${unreached.join(', ')} (a name on the tile beats a type bind)` : '')
+        : null;
+    } catch (e) {
+      authoredReach = 'could not check tile reachability: ' + e.message;
+    }
+
+    const nSegs = Object.values(fresh).reduce((a, m) => a + m.segs.length, 0);
+    const nAdorn = Object.values(fresh).reduce((a, m) => a + m.adorn.length, 0);
+    authoredLine = `Authored models: ${files.length} file(s) → ${Object.keys(fresh).length} binding(s), `
+      + `${nSegs} segments + ${nAdorn} adornments, over ${Object.keys(ADORN_SCHEMA).length} adornment kinds the renderer agrees on.`;
+  } catch (e) {
+    problems.push(`authored models — ${e.message}. Run: npm run models:bake`);
+  }
+
   if (problems.length) {
     console.error(`✗ shapes:smoke — ${problems.length} problem(s) across ${models.length} building models:`);
     for (const p of problems) console.error(`    ${p}`);
@@ -399,8 +657,13 @@ async function main() {
   const at = (d) => models.reduce((s, { m }) => s + ws.shapeLodFaces(m, d), 0) / models.length;
   const full = at(1), mid = at(0.5), far = at(0);
   console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
+  console.log('  ' + vehicleLine);
+  console.log('  ' + authoredLine);
+  if (diffLine) console.log('  ' + diffLine);
+  if (authoredReach) console.log('  ' + authoredReach);
   console.log(`  Interiors: ${interiors.ran} canopy/cowl/window/cab passes clean (night+day × stopped+rolling).`);
   console.log('  ' + markLine);
+  console.log('  ' + decoLine);
   console.log('  ' + cliffLine);
   console.log(`  Views: ${views.ran} paintWindshield passes clean (cab/cockpit/chase/porthole/helm × night+day × clear+rain, plus the moon swept across a full month).`);
   console.log(`  Truck lamps: both headlamps visible on all ${lamps.length} rigs (weakest side ${Math.min(...lamps.flatMap(l => [l.left, l.right])).toFixed(0)}px²), and every one settles onto its lifters when parked.`);
@@ -417,6 +680,7 @@ async function main() {
   console.log('  Forecourt: all three lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — the pumps are still solid, and the island kerb is ridden over rather than hit.');
   console.log('  Carriageway: three parallel lanes measure as one 3-wide road, a lone street still measures 1, and a junction breaks the block.');
   console.log('  Signals: a head is square-on to its own approach and all but vanishes from the side, and the mast steel thins with distance instead of sitting on a floor.');
+  console.log('  World queue: a thing standing on a roof paints after the roof, across 14 cameras — and the control confirms the sweep still reproduces the failure without the constraint.');
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a
   // bad proxy: a mass face is a flat fill, a neon blade sets shadowBlur (a software blur per draw).

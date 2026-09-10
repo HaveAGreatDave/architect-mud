@@ -1,0 +1,20 @@
+{
+  "description": "A walnut music box on the third shelf, lid inlaid with a bird, the movement showing through a pane set into the base. The pawn ticket is still looped round the hinge and the date on it went by a long while ago. Wind it and it gives you about forty seconds of something.",
+  "flags": {
+    "instrument": "musicbox",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fence_musicbox",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Walnut Music Box",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 380,
+  "zone_id": "zone_fence_interior"
+}

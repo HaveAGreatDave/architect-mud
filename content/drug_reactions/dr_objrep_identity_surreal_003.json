@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Something with fewer opinions. It was restful. I would not go back.",
+  "self_line": "Something with fewer opinions. It was restful. I wouldn't go back.",
   "source": "object_reply_identity",
   "tone": "surreal"
 }

@@ -16,7 +16,7 @@
   },
   "chitchat": [
     "\"Six months I made the payment. Six. Ask them what six months buys you.\"",
-    "\"You get used to it being there. That is the bit nobody warns you about.\""
+    "\"You get used to it being there. That's the bit nobody warns you about.\""
   ],
   "description": "A tired woman in a good coat gone shapeless, sitting on the step of a shopfront with the window whitewashed from the inside. Her left hand catches the light wrong at the knuckles, which is where the jack goes, and she keeps it in her pocket without seeming to decide to.",
   "dialogue_tree": {
@@ -25,10 +25,10 @@
       "text": "She puts the hand back in her pocket."
     },
     "root": {
-      "first": "She looks up, sees somebody healthy standing over her, and works out what you are before you have opened your mouth. \"Right,\" she says, and does not get up. \"That was quick.\"",
+      "first": "She looks up, sees somebody healthy standing over her, and works out what you're before you have opened your mouth. \"Right,\" she says, and doesn't get up. \"That was quick.\"",
       "options": [
         {
-          "label": "It comes home until you are current.",
+          "label": "It comes home until you're current.",
           "next": "terms"
         },
         {
@@ -40,7 +40,7 @@
           "next": "bye"
         }
       ],
-      "text": "She is on the step again, hand in her pocket. \"Still here. Still not paying.\""
+      "text": "She's on the step again, hand in her pocket. \"Still here. Still not paying.\""
     },
     "terms": {
       "options": [
@@ -49,12 +49,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"I know how it goes. You will be gentle about it, and they will file it gently, and in a month there will be a gentle letter saying my account remains open.\" She takes the hand out of her pocket and looks at it. \"Get on with it, then. I would rather not see you make your mind up.\""
+      "text": "\"I know how it goes. You'll be gentle about it, and they'll file it gently, and in a month there will be a gentle letter saying my account remains open.\" She takes the hand out of her pocket and looks at it. \"Get on with it, then. I would rather not see you make your mind up.\""
     },
     "why": {
       "options": [
         {
-          "label": "It is not personal.",
+          "label": "It isn't personal.",
           "next": "terms"
         },
         {
@@ -62,7 +62,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The shop happened. Or stopped happening.\" She nods at the whitewashed glass without looking at it. \"They were very good about it, you know. Nobody shouted. They just kept sending the same polite line until the line stopped being polite, and now here you are, and you are the line.\""
+      "text": "\"The shop happened. Or stopped happening.\" She nods at the whitewashed glass without looking at it. \"They were very good about it, you know. Nobody shouted. They just kept sending the same polite line until the line stopped being polite, and now here you are, and you're the line.\""
     }
   },
   "faction": null,

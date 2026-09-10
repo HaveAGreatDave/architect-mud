@@ -12,8 +12,8 @@ export default async function regress({ check }) {
 
   // Newness gate.
   check('isNewPlayer: first-week account is new', _test.isNewPlayer(freshP) === true);
-  check('isNewPlayer: 40-day account is not new', _test.isNewPlayer(oldP) === false);
-  check('isNewPlayer: missing created_at is not new', _test.isNewPlayer({ id: 'x' }) === false);
+  check("isNewPlayer: 40-day account isn't new", _test.isNewPlayer(oldP) === false);
+  check("isNewPlayer: missing created_at isn't new", _test.isNewPlayer({ id: 'x' }) === false);
 
   // Tip drip: every tip unique, then it dries up (→ graduation).
   const seen = new Set();
@@ -66,12 +66,29 @@ export default async function regress({ check }) {
   }
   check('every voice has complete, quote-balanced line pools', badVoice === null, badVoice || '');
 
-  // Coworker banter: every thread is a well-formed two-hander — non-empty, only
-  // 'L'/'O' speakers, both voices present, quotes balanced per turn.
+  // Coworker banter. A voice may legitimately have NO coworker — Sully works the
+  // Pigeon alone, and the tick guards on `coworkerId` (`voice.coworkerId ? ... :
+  // null`), so absence is the documented opt-out rather than a missing field.
+  // This used to demand the pair outright, which cost nothing while both authored
+  // voices happened to have one and then failed the first solo bar.
+  //
+  // What IS a bug is a HALF-configured pair: an id with no threads, or threads
+  // with no id, either of which silently never fires and looks authored. The old
+  // shape could not tell those two apart from a deliberate solo.
+  //
+  // Where a pair is present, every thread must be a well-formed two-hander —
+  // non-empty, only 'L'/'O' speakers, both voices present, quotes balanced per turn.
   let badThread = null;
   let threadCount = 0;
+  let soloCount = 0;
   for (const [id, v] of allVoices) {
-    if (!Array.isArray(v.coworker) || !v.coworker.length || !v.coworkerId) { badThread = `${id}: no coworker`; break; }
+    const hasId = !!v.coworkerId;
+    const hasThreads = Array.isArray(v.coworker) && v.coworker.length > 0;
+    if (!hasId && !hasThreads) { soloCount++; continue; }
+    if (hasId !== hasThreads) {
+      badThread = `${id}: half-configured coworker (coworkerId=${hasId}, coworker threads=${hasThreads})`;
+      break;
+    }
     for (const thread of v.coworker) {
       threadCount++;
       const whos = thread.map(t => t[0]);
@@ -83,7 +100,8 @@ export default async function regress({ check }) {
     }
     if (badThread) break;
   }
-  check('coworker threads are well-formed two-handers', badThread === null, badThread || `${threadCount} threads`);
+  check('coworker threads are well-formed two-handers', badThread === null,
+    badThread || `${threadCount} threads, ${soloCount} solo bar(s)`);
 
   // Tip memory is per-bartender: a player who drained Lowry's pool still gets
   // Marla's. (freshP spent the default-keyed pool above.)

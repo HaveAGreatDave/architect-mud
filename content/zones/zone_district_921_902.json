@@ -8,7 +8,7 @@
   "ambient_theme": "forest",
   "bg_color": "#4a4642",
   "color": "#8ba36a",
-  "description": "A ten-storey slab of stained precast concrete shoved in between the freight lanes, its ground-floor windows bricked over and its upper ones dark, cracked, or gone. A board wired to the door reads ROOMS TO LET, and under it, in a shakier hand, NO REFUNDS NO EXCEPTIONS. It is the closest thing the Yards has to somewhere to live.",
+  "description": "A ten-storey slab of stained precast concrete shoved in between the freight lanes, its ground-floor windows bricked over and its upper ones dark, cracked, or gone. A board wired to the door reads ROOMS TO LET, and under it, in a shakier hand, NO REFUNDS NO EXCEPTIONS. It's the closest thing the Yards has to somewhere to live.",
   "exits": {
     "north": "zone_yards_tenement_lobby",
     "south": "zone_district_921_903"

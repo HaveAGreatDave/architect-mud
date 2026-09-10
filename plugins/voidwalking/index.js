@@ -360,7 +360,7 @@ async function describeRim(zone) {
   const where = dirs.length === 1
     ? `to the ${dirs[0]}`
     : `to the ${dirs.slice(0, -1).join(', ')} and ${dirs[dirs.length - 1]}`;
-  return `<span class="ambient">The ground runs out ${where}. There is no horizon that way to read and no distance to judge — only the waste, going on being nothing in particular for as long as you can stand to look at it. People do walk out into it from here. The ones who come back mostly come back somewhere else.</span>`;
+  return `<span class="ambient">The ground runs out ${where}. There's no horizon that way to read and no distance to judge — only the waste, going on being nothing in particular for as long as you can stand to look at it. People do walk out into it from here. The ones who come back mostly come back somewhere else.</span>`;
 }
 
 // ── A CAMP SAYS WHAT THE SHORT WAY COSTS ─────────────────────────────────────
@@ -377,9 +377,9 @@ function describeCut(zone) {
   const c = crossingOfRoom(zone?.id);
   const r = c?.plan?.rooms?.get(zone.id);
   if (!r?.cutSaves || !r.exits?.east) return undefined;
-  return `<span class="ambient">A path goes off east from the camp, out across the open where the road will not follow. `
+  return `<span class="ambient">A path goes off east from the camp, out across the open where the road won't follow. `
     + `Boots have been this way: it comes back to the tarmac about <b>${r.cutSaves} tiles</b> sooner than the long way round. `
-    + `There is nothing out there to walk toward and nothing to be seen from.</span>`;
+    + `There's nothing out there to walk toward and nothing to be seen from.</span>`;
 }
 
 // Which crossing a room belongs to, for a hook that is handed a zone and nothing else.
@@ -688,7 +688,7 @@ const ENCOUNTER_LINES = [
   'Something detaches from the haze and comes at you —',
   'A shape you took for a rock uncoils and charges —',
   'Grit scatters as it breaks cover —',
-  'You are not alone out here. It was waiting —',
+  "You aren't alone out here. It was waiting —",
 ];
 const HARD_ENCOUNTER_LINES = [
   'The ground itself seems to give something up —',
@@ -1235,7 +1235,7 @@ const VOID_ENTRY_BANNER = [
 ].join('\n');
 
 export async function launchCrossing(leader, gate, broadcast, heading) {
-  if (leader._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
+  if (leader._crossing) return { type: 'emote', message: "You're already out in the waste. The only way through it's through it." };
   const origin = leader.current_zone;
   const window = currentWindow();
   await discoverRoutes(leader, gate.key); // striking out charts this gate's routes
@@ -1258,7 +1258,7 @@ export async function launchCrossing(leader, gate, broadcast, heading) {
   const aimLine = aim ? ` You set your heading for ${aim.heading}.` : '';
   // The one place `march` is taught, because it is the one place where the number of tiles ahead of
   // somebody stops being a figure of speech. See plugins/voidwalking/march.js.
-  const marchLine = `\n<span class="text-dim">It is a long way on foot. ${teachVerb('march')} to walk it until something needs deciding.</span>`;
+  const marchLine = `\n<span class="text-dim">It's a long way on foot. ${teachVerb('march')} to walk it until something needs deciding.</span>`;
   const desc = await describeZone(entry, leader);
   return {
     type: 'move',
@@ -1277,7 +1277,7 @@ const playerStaging = new Map(); // pid -> stagingId
 
 function stagingLore(vdef) {
   const dests = (vdef?.dests || []).map(d => d.heading).join(' or ') || 'the unknown';
-  return `Past the wall the map ends and the waste begins — no roads out here, no rescue, no second chance the Architect will pay for. Between you and ${dests} lies trackless killing ground: it shifts with the wind, it buries its own dead, and it does not forgive the unprepared. Check your water. Check your people. When everyone's set, walk off the edge of the known world — and don't look back for whoever falls.`;
+  return `Past the wall the map ends and the waste begins — no roads out here, no rescue, no second chance the Architect will pay for. Between you and ${dests} lies trackless killing ground: it shifts with the wind, it buries its own dead, and it doesn't forgive the unprepared. Check your water. Check your people. When everyone's set, walk off the edge of the known world — and don't look back for whoever falls.`;
 }
 async function stagingInventory(pid) {
   const { rows } = await query(
@@ -1339,7 +1339,7 @@ function closeStaging(staging) {
 }
 function cancelStaging(player) {
   const staging = stagings.get(playerStaging.get(player.id));
-  if (!staging) return { type: 'emote', message: 'You are not mustering for anything.' };
+  if (!staging) return { type: 'emote', message: "You aren't mustering for anything." };
   closeStaging(staging);
   return { type: 'emote', message: 'You step back from the edge. The waste can wait.' };
 }
@@ -1372,8 +1372,8 @@ async function cmdVoidwalk(args, raw, player, broadcast) {
   if (sub === 'say') return stagingChat(player, args.slice(1).join(' '));
   const existing = stagings.get(playerStaging.get(player.id));
   if (existing) return buildStagingPanel(player, existing); // already mustering — re-open the window
-  if (player._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
-  return { type: 'emote', message: 'There is no word for it that works. Nobody steps into the waste by deciding to — they walk, and keep walking, out past the last street and the last fence and the last anything, until there is no next tile to step into. Then they take that step anyway. <span class="text-dim">(pick a direction and hold it until the world runs out)</span>' };
+  if (player._crossing) return { type: 'emote', message: "You're already out in the waste. The only way through it's through it." };
+  return { type: 'emote', message: 'There\'s no word for it that works. Nobody steps into the waste by deciding to — they walk, and keep walking, out past the last street and the last fence and the last anything, until there\'s no next tile to step into. Then they take that step anyway. <span class="text-dim">(pick a direction and hold it until the world runs out)</span>' };
 }
 
 async function onMovementEdge({ player, zone, direction, broadcast }) {
@@ -1429,7 +1429,7 @@ export async function frontierView(player) {
 // `frontier` — read the signpost at a gate: where can you strike out to from here.
 async function cmdFrontier(args, raw, player, broadcast) {
   const gate = voidGateOf(getZone(player.current_zone));
-  if (!gate) return { type: 'emote', message: 'You see no way to strike out into the waste from here — this is not a frontier region. (Your charted routes are on the Tablet Frontier map.)' };
+  if (!gate) return { type: 'emote', message: "You see no way to strike out into the waste from here — this isn't a frontier region. (Your charted routes are on the Tablet Frontier map.)" };
   await discoverRoutes(player, gate.key);
   const dests = gate.void.dests.map(d => `<b>${d.heading}</b>`).join(', ');
   return { type: 'output', message: `You read the waste from the edge. Somewhere out there, past the wind, the trail splits toward: ${dests}. (voidwalk, or just walk off the edge — and pray the fork reads true.)` };
@@ -1439,7 +1439,7 @@ async function cmdFrontier(args, raw, player, broadcast) {
 async function cmdScrawl(args, raw, player, broadcast) {
   const live = player._crossing;
   const c = live && crossings.get(live.instanceId);
-  if (!c) return { type: 'emote', message: 'There is nothing out here worth marking. (Scrawls are for the waste — you leave them for whoever comes after.)' };
+  if (!c) return { type: 'emote', message: "There's nothing out here worth marking. (Scrawls are for the waste — you leave them for whoever comes after.)" };
   const text = args.join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
   if (!text) return { type: 'error', message: 'Scrawl what? Four letters, max — a warning, a curse, a name. (scrawl RUN)' };
   const salt = getZone(player.current_zone)?.flags?.void_salt;
@@ -1489,7 +1489,7 @@ registerMoveGate(({ player, from, direction }) => {
   if (!from?.flags?.void_pitch) return;
   if (mutationFlag(player, 'flight')) return;
   return { block: true, message:
-    'The ground goes up sheer in front of you, and keeps going. There is no way up it with what you have on you.'
+    "The ground goes up sheer in front of you, and keeps going. There's no way up it with what you have on you."
     + '\n<span class="text-dim">Back the way you came, and round the long side.</span>' };
 }, 'voidwalking:pitch');
 
@@ -1498,7 +1498,7 @@ registerMoveGate(({ player, from, direction }) => {
   if (!from?.flags?.void_crossing) return;
   if (direction !== 'south') return; // only the advancing exit is barred; retreat/detour stay open
   if (getZoneEnemies(from.id).length === 0) return;
-  return { block: true, message: 'It plants itself between you and the way on — no getting past it until it is down.' };
+  return { block: true, message: "It plants itself between you and the way on — no getting past it until it's down." };
 }, 'voidwalking');
 
 // ── Node tracking + teardown + encounters (every move) ────────────────────────
@@ -1804,14 +1804,14 @@ async function cmdRest(args, raw, player) {
   const z = getZone(player.current_zone);
   const kind = z?.flags?.void_feature_kind;
   const ok = z?.flags?.void_wayside || kind === 'respite' || kind === 'shelter';
-  if (!ok) return { type: 'error', message: 'There is nowhere here to get off your feet that is any better than where you are standing.' };
+  if (!ok) return { type: 'error', message: "There's nowhere here to get off your feet that's any better than where you're standing." };
 
   if (getZoneEnemies(z.id).length)
     return { type: 'error', message: 'Not with that still standing there.' };
   if ((player.thirst ?? 100) <= REST_THIRST)
-    return { type: 'error', message: 'You are too far gone for that. Sitting still without water is just a slower way of doing the same thing.' };
+    return { type: 'error', message: "You're too far gone for that. Sitting still without water is just a slower way of doing the same thing." };
   if (player.hp >= player.hp_max && !(player.healOverTime?.length))
-    return { type: 'emote', message: 'You sit for a while. There is nothing about you that needs mending.' };
+    return { type: 'emote', message: "You sit for a while. There's nothing about you that needs mending." };
 
   player.thirst = Math.max(0, (player.thirst ?? 100) - REST_THIRST);
 
@@ -1825,7 +1825,7 @@ async function cmdRest(args, raw, player) {
   // every time you do it, which is what stops a cleared room becoming a free hotel.
   if (ENCOUNTERS_ON && Math.random() < chance * 2) {
     spawnFoe(c, z.id);
-    return { type: 'emote', message: '<span class="text-amber">You get your boots off and your back against something, and that is exactly how far you get.</span>' };
+    return { type: 'emote', message: '<span class="text-amber">You get your boots off and your back against something, and that\'s exactly how far you get.</span>' };
   }
 
   player.healOverTime = player.healOverTime || [];
@@ -1834,7 +1834,7 @@ async function cmdRest(args, raw, player) {
   const wet = z.flags?.water_source ? ' You drink, and refill, and drink again.' : '';
   return { type: 'emote', message:
     `<span class="text-green">You stop. Boots off, back against something solid, and for a while the country is just weather.</span>${warm}${wet}`
-    + '\n<span class="text-dim">You will feel it mending for a while yet. It cost you water you are not getting back out here.</span>' };
+    + '\n<span class="text-dim">You\'ll feel it mending for a while yet. It cost you water you aren\'t getting back out here.</span>' };
 }
 
 // ── FLAGGING A TRUCK DOWN ────────────────────────────────────────────────────
@@ -1884,25 +1884,25 @@ export function clearBeacon(playerId) { beacons.delete(playerId); }
 async function cmdFlag(args, raw, player) {
   const live = player._crossing;
   const c = live && crossings.get(live.instanceId);
-  if (!c) return { type: 'error', message: 'There is no road out here to flag anything down on.' };
+  if (!c) return { type: 'error', message: "There's no road out here to flag anything down on." };
   const z = getZone(player.current_zone);
   if (!z?.flags?.void_wayside)
     return { type: 'error', message: 'Nothing comes past here. You would have to be at a camp on the road for that.' };
   if (z.grid_x == null || z.grid_y == null)
-    return { type: 'error', message: 'You cannot tell where the road is from here.' };
+    return { type: 'error', message: "You can't tell where the road is from here." };
 
   const now = Date.now();
   const prev = beacons.get(player.id);
   if (prev && prev.until > now)
-    return { type: 'emote', message: 'You are already standing where they can see you, arm out.' };
+    return { type: 'emote', message: "You're already standing where they can see you, arm out." };
   if (prev && now - prev.at < BEACON_RECHARGE_MS)
     return { type: 'emote', message: 'You just did that. Give it a minute and try again.' };
 
   beacons.set(player.id, {
     until: now + BEACON_MS, at: now, x: z.grid_x, y: z.grid_y, zoneId: z.id, handle: player.handle,
   });
-  return { type: 'emote', message: '<span class="text-green">You walk out to the edge of the tarmac and put your arm out, and then there is nothing to do but stand there and be seen.</span>'
-    + '\n<span class="text-dim">Anything coming down this road will know you are here for a while. Whether it stops is somebody else\'s decision.</span>' };
+  return { type: 'emote', message: '<span class="text-green">You walk out to the edge of the tarmac and put your arm out, and then there\'s nothing to do but stand there and be seen.</span>'
+    + '\n<span class="text-dim">Anything coming down this road will know you\'re here for a while. Whether it stops is somebody else\'s decision.</span>' };
 }
 
 // ── Public surface for other systems ─────────────────────────────────────────

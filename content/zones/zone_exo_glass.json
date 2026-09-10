@@ -7,7 +7,7 @@
     "A leaf is turned over and looked at underneath and turned back."
   ],
   "ambient_theme": "indoors",
-  "description": "Warm, wet, and thirty degrees off the world outside. Beans up strings, tomatoes tied back, a bed of greens, and at the far end a stand of something with a red stem that you have never seen before and that is being watched very closely by whoever is on today.\n\nThe glass is not new. It has been salvaged pane by pane over a very long time and no two panes are quite the same colour, so the light in here comes down in a hundred slightly different greens.",
+  "description": "Warm, wet, and thirty degrees off the world outside. Beans up strings, tomatoes tied back, a bed of greens, and at the far end a stand of something with a red stem that you have never seen before and that's being watched very closely by whoever is on today.\n\nThe glass isn't new. It has been salvaged pane by pane over a very long time and no two panes are quite the same colour, so the light in here comes down in a hundred slightly different greens.",
   "exits": {
     "down": "zone_util_zone_exo_glass",
     "north": "zone_terminus_1224_933"

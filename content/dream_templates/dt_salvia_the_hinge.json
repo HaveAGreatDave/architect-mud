@@ -5,7 +5,7 @@
     "The join takes the load and holds."
   ],
   "cause": "drug",
-  "description": "You are the join between two things that are turning against each other. On one side, a flat afternoon in a place you know. On the other, the same afternoon, from the back. You are the part that lets them move and you are being used correctly.",
+  "description": "You're the join between two things that are turning against each other. On one side, a flat afternoon in a place you know. On the other, the same afternoon, from the back. You're the part that lets them move and you're being used correctly.",
   "drug_id": "drug_salvia",
   "fx": "crawl",
   "fx_intensity": 0.9,
@@ -15,8 +15,8 @@
     {
       "looks": [
         "An afternoon. Yours. Correct in every particular.",
-        "It is going along at the speed of an afternoon.",
-        "It has a back, and you are attached to it."
+        "It's going along at the speed of an afternoon.",
+        "It has a back, and you're attached to it."
       ],
       "name": "the near side"
     },

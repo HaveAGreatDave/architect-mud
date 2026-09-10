@@ -131,7 +131,7 @@
     }
   },
   "chitchat": [],
-  "description": "Behind the ballistic glass, a broad young woman in a charcoal uniform shirt with the sleeves rolled to the elbow, forearms like someone who used to do a job that involved lifting. One hand rests on a console showing four camera tiles; the other holds a pen over a paper log, because Citadel does not trust a record that can be deleted from somewhere else. She looks at the outline of you on her screen rather than at you, which after a few seconds becomes considerably more unpleasant than eye contact would have been.",
+  "description": "Behind the ballistic glass, a broad young woman in a charcoal uniform shirt with the sleeves rolled to the elbow, forearms like someone who used to do a job that involved lifting. One hand rests on a console showing four camera tiles; the other holds a pen over a paper log, because Citadel doesn't trust a record that can be deleted from somewhere else. She looks at the outline of you on her screen rather than at you, which after a few seconds becomes considerably more unpleasant than eye contact would have been.",
   "dialogue_tree": {
     "arch": {
       "options": [
@@ -144,7 +144,7 @@
           "next": "flag"
         }
       ],
-      "text": "\"Millimetre wave. It reads through cloth, leather, plating and skin.\" She doesn't look up. \"So what I've got on this screen is your outline, everything you're carrying, and where you've decided to carry it. Including the clever place. Especially the clever place. It's the first thing the software looks for, because everyone thinks of it and everyone thinks they thought of it first.\""
+      "text": "\"Millimetre wave. It reads through cloth, leather, plating and skin.\" Her eyes stay where they were. \"So what I've got on this screen is your outline, everything you're carrying, and where you've decided to carry it. Including the clever place. Especially the clever place. It's the first thing the software looks for, because everyone thinks of it and everyone thinks they thought of it first.\""
     },
     "arch2": {
       "options": [
@@ -161,7 +161,7 @@
     },
     "bye": {
       "options": [],
-      "text": "She goes back to the tiles. The pen stays where it is."
+      "text": "Her attention goes to the outline on the screen. The pen stays where it is."
     },
     "flag": {
       "options": [
@@ -225,7 +225,7 @@
           "next": "bye"
         }
       ],
-      "text": "She doesn't look up from the screen, where you are a pale outline with a bright inventory laid out inside it. \"Both doors are shut. That's not me being difficult, that's how the room works.\" The pen taps once. \"Talk while you're waiting, if you want. It's a very boring job.\""
+      "text": "She doesn't look up from the screen, where you're a pale outline with a bright inventory laid out inside it. \"Both doors are shut. That's not me being difficult, that's how the room works.\" The pen taps once. \"Talk while you're waiting, if you want. It's a very boring job.\""
     },
     "wanted": {
       "options": [

@@ -86,7 +86,7 @@ async function cmdIdeologies(args, raw, player) {
   const lean = classifyLean(stance, paths, reps);
   msg += lean
     ? `\nYou lean toward <span style="color:${lean.color}">${lean.name}</span>.\n`
-    : '\nYou have not yet taken a side.\n';
+    : "\nYou haven't yet taken a side.\n";
   return { type: 'ideologies', message: msg };
 }
 

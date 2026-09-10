@@ -18,7 +18,7 @@ import {
   MISSILE_RANGE_GATE, MISSILE_FLIGHT_MS, MISSILE_PK, MISSILE_DMG, MISSILE_COOLDOWN_MS,
   FLARE_DEFEAT, FLARE_WINDOW_MS, FLARE_COOLDOWN_MS, mslAmmo,
   SWARM_PK_MULT, SWARM_DMG_MULT, SWARM_CONE, SWARM_COOLDOWN_MS, salvoOf, effStats, effHardpoints,
-  bombLoad, bombAmmo,
+  bombLoad, bombAmmo, PILOT_IP,
 } from './state.js';
 import { conspicuousnessMult } from './livery.js';
 import { getZonePlayers, getZoneNpcs, getZoneEnemies } from '../../server/engine/world.js';
@@ -219,7 +219,7 @@ async function cmdAirFire(args, raw, player) {
   if (dmg < 0.008) return { type: 'noop' };                          // grazing burst — no real bite
 
   const killed = await applyAirDamage(target, dmg, player, 'shotdown');
-  await awardSkillUse(player.id, 'piloting', 1);
+  await awardSkillUse(player.id, 'piloting', PILOT_IP.GUNS);
   if (!killed) {
     const hullPct = Math.round((1 - target.row.damage) * 100);
     out(player.id, `<span class="text-green">Guns — hits on the ${target.type.name}. Hull ${hullPct}%.</span>`);
@@ -345,7 +345,7 @@ async function fireSwarmGround(live, player) {
       await query('UPDATE aa_sites SET active=0 WHERE id=$1', [best.site.id]);
       invalidateAASiteCache();   // drop the dead turret from pilots' 3D pictures next push
       emit('flight.aaSilenced', { siteId: best.site.id, siteName: best.site.name, zoneId: best.site.zone_id });
-      await awardSkillUse(player.id, 'piloting', 2);
+      await awardSkillUse(player.id, 'piloting', PILOT_IP.AA_SILENCED);
       if (zone) sendToZone(zone.id, { type: 'zone_event', message: `${best.site.name} disappears inside a rolling fireball.`, refresh: true });
       out(player.id, `<span class="text-green">SPLASH — the swarm guts ${best.site.name}. It's a smoking crater.</span>`);
     }
@@ -407,7 +407,7 @@ async function cmdBomb(args, raw, player) {
   if (live.lastBomb && nowMs - live.lastBomb < BOMB_COOLDOWN_MS) return { type: 'noop' };
   if (a.altitude_band === 'high') return advise('<span class="text-amber">Too high to pick out anything on the ground — bring her down.</span>');
   const down = -(c.pitch || 0);
-  if (down < BOMB_DIVE_DEG) return advise(`<span class="text-amber">The sight will not settle in level flight. Put the nose down — properly, past ${BOMB_DIVE_DEG}°.</span>`);
+  if (down < BOMB_DIVE_DEG) return advise(`<span class="text-amber">The sight won't settle in level flight. Put the nose down — properly, past ${BOMB_DIVE_DEG}°.</span>`);
   if ((c.airspeed || 0) < BOMB_IAS_MIN) return advise(`<span class="text-amber">Not enough speed in the dive — you need ${BOMB_IAS_MIN} knots on the clock before the rack will let go.</span>`);
 
   // WHERE IT GOES. The pilot's designated tile wins if it is genuinely ahead and in reach; that
@@ -456,7 +456,7 @@ async function cmdBomb(args, raw, player) {
   await bombKillAA(ax, ay, zone, player);
 
   const off = (ax !== tx || ay !== ty);
-  const grade = q > 0.75 ? 'Dead centre.' : q > 0.4 ? 'Close enough.' : 'Ugly, but it is down.';
+  const grade = q > 0.75 ? 'Dead centre.' : q > 0.4 ? 'Close enough.' : "Ugly, but it's down.";
   return { type: 'emote', message: off
     ? `<span class="text-amber">RELEASE — and it goes long. The bomb walks off to ${ax},${ay}.</span>`
     : `<span class="text-cyan">RELEASE — ${aimed ? 'onto the designated tile' : `onto ${ax},${ay}`}. ${grade}</span>` };
@@ -475,7 +475,7 @@ async function bombKillAA(ax, ay, zone, player) {
   if (!upd.rowCount) return;
   invalidateAASiteCache();
   emit('flight.aaSilenced', { siteId: site.id, siteName: site.name, zoneId: site.zone_id });
-  await awardSkillUse(player.id, 'piloting', 3);
+  await awardSkillUse(player.id, 'piloting', PILOT_IP.BOMB_KILL);
   if (zone) sendToZone(zone.id, { type: 'zone_event', message: `${site.name} ceases to exist.`, refresh: true });
   out(player.id, `<span class="text-green">SPLASH — ${site.name} is a hole in the ground.</span>`);
 }
@@ -502,7 +502,7 @@ async function bombBlastTile(zone, live, player, dmgMult, hitMult) {
   let hitPlayer = false, killedPlayer = false;
   for (const p of players) {
     if (Math.random() >= hit) {
-      out(p.id, '<span class="text-amber">The blast throws you flat and the air goes out of you — but you are still whole.</span>');
+      out(p.id, '<span class="text-amber">The blast throws you flat and the air goes out of you — but you\'re still whole.</span>');
       continue;
     }
     const lo = Math.round(BOMB_DMG.min * dmgMult), hi = Math.round(BOMB_DMG.max * dmgMult);
@@ -510,7 +510,7 @@ async function bombBlastTile(zone, live, player, dmgMult, hitMult) {
     hitPlayer = true;
     if (r.killed) {
       killedPlayer = true;
-      out(p.id, '<span class="text-red">The bomb goes off where you are standing. That is all.</span>');
+      out(p.id, '<span class="text-red">The bomb goes off where you\'re standing. That\'s all.</span>');
       announceKill(player.id, p.handle);
       await handlePlayerDeath(p, player, { type: 'bomb', label: `Bombed from a dive by ${player.handle}` });
     } else {
@@ -551,7 +551,7 @@ async function swarmBlastTile(zone, live, player) {
     hitPlayer = true;
     if (r.killed) {
       killedPlayer = true;
-      out(p.id, '<span class="text-red">The warhead finds you. There is not enough left to bury.</span>');
+      out(p.id, '<span class="text-red">The warhead finds you. There isn\'t enough left to bury.</span>');
       announceKill(player.id, p.handle);
       await handlePlayerDeath(p, player, { type: 'swarm', label: `Blown apart from the air by ${player.handle}` });
     } else {
@@ -624,7 +624,7 @@ async function tickMissiles(live) {
     const killed = await applyAirDamage(live, warhead, shooter, 'shotdown',
       `<span class="text-red">💥 MISSILE IMPACT — the airframe bucks hard and sheds metal. Hull ${hullAfter}%.</span>`);
     if (shooter) {
-      await awardSkillUse(shooter.id, 'piloting', 2);
+      await awardSkillUse(shooter.id, 'piloting', PILOT_IP.MISSILE);
       if (!killed) {
         out(shooter.id, `<span class="text-green">Splash — missile impact on the ${live.type.name}. Hull ${hullAfter}%.</span>`);
         sendToPlayer(shooter.id, { type: 'air_hit', role: 'dealt', hullPct: hullAfter });
@@ -886,7 +886,7 @@ async function rakeGroundBelow(live, player) {
     hitPlayer = true;
     if (r.killed) {
       killedPlayer = true;
-      out(p.id, '<span class="text-red">A cannon round catches you square. There is not enough left to call a body.</span>');
+      out(p.id, '<span class="text-red">A cannon round catches you square. There isn\'t enough left to call a body.</span>');
       announceKill(player.id, p.handle);
       await handlePlayerDeath(p, player, { type: 'strafe', label: `Strafed from the air by ${player.handle}` });
     } else {
@@ -957,7 +957,7 @@ async function applyStrafeResult(live, player, targetId, targetName, won) {
     await query('UPDATE aa_sites SET active=0 WHERE id=$1', [targetId]);
     invalidateAASiteCache();   // drop the silenced turret from pilots' 3D pictures next push
     emit('flight.aaSilenced', { siteId: targetId, siteName: targetName, zoneId: rows[0].zone_id });
-    await awardSkillUse(player.id, 'piloting', 2);
+    await awardSkillUse(player.id, 'piloting', PILOT_IP.AA_SILENCED);
     if (below) sendToZone(below.id, { type: 'zone_event', message: `${targetName} vanishes in a string of impacts and a secondary blast.`, refresh: true });
     out(player.id, `<span class="text-green">Guns, guns — you walk fire straight through ${targetName}. It's a smoking hole.</span>`);
   } else {

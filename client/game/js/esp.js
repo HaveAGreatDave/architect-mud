@@ -16,13 +16,13 @@ const SIREN_LINES = [
   'Somewhere outside, an emergency siren begins its slow, mournful climb.',
   'A distant wail rises and falls across the city — low, sweeping, like something alive.',
   'The air outside carries a sound you feel more than hear: the Emergency Security Protocol siren, cycling.',
-  'Beyond the walls, the siren moans in a long descending arc. Then rises again. It does not stop.',
+  "Beyond the walls, the siren moans in a long descending arc. Then rises again. It doesn't stop.",
   'Something in the distance howls — not an animal. The tone is mechanical, patient, inevitable.',
   'The emergency siren drifts through the streets outside, its pitch swelling and dropping in a slow, relentless sweep.',
   'Far off, the ESP siren rotates through its cycle. Low to high. High to low. Over and over.',
-  'The characteristic wail of an emergency siren bleeds through every crack and vent. It does not hurry.',
+  "The characteristic wail of an emergency siren bleeds through every crack and vent. It doesn't hurry.",
   'Outside, the siren continues — a long, rising moan that peaks, holds, then sinks back into the low register.',
-  'The emergency broadcast tone seeps through the building. It has the patience of something that knows you cannot leave.',
+  "The emergency broadcast tone seeps through the building. It has the patience of something that knows you can't leave.",
 ];
 
 let _lastSirenLine = -1;

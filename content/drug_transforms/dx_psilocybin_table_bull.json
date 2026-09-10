@@ -1,8 +1,8 @@
 {
   "asks": [
-    "Is there anything on my back? There is usually something on my back.",
+    "Is there anything on my back? There's usually something on my back.",
     "Do you intend to sit down, or is this a passing-through?",
-    "What is that noise? It has been going since before you arrived."
+    "What's that noise? It has been going since before you arrived."
   ],
   "description": "A black bull has folded its legs under itself right there, back flat and broad as a table top, and is chewing at nothing with its eyes half shut.",
   "drug_id": "drug_psilocybin",
@@ -16,14 +16,14 @@
   "fx_intensity": 0.5,
   "id": "dx_psilocybin_table_bull",
   "looks": [
-    "The back is a flat plane of muscle you could genuinely eat off. Flies are not landing on it; they are keeping a respectful distance.",
+    "The back is a flat plane of muscle you could genuinely eat off. Flies aren't landing on it; they're keeping a respectful distance.",
     "One horn is broken off short. The stump has been rubbed smooth against something, over years.",
-    "Its jaw works sideways, unhurried, grinding a mouthful of something it did not get in this room."
+    "Its jaw works sideways, unhurried, grinding a mouthful of something it didn't get in this room."
   ],
   "matches": "table",
   "name": "a bull lying down",
   "says": [
-    "Put it down on me if you like. I will not move quickly.",
+    "Put it down on me if you like. I won't move quickly.",
     "The floor is cold. I have been improving it.",
     "I stood up once today. It was enough."
   ],

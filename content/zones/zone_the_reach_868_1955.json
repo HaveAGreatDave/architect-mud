@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Main Street gives up here without ceremony. The hardpan goes soft at the edges, the last boardwalk plank is propped on a fuel drum, and past that it is scrub all the way to the horizon. Somebody has driven a length of rail into the ground and hung a bell on it. Nobody in town will say what the bell is for, only that you would know.",
+  "description": "Main Street gives up here without ceremony. The hardpan goes soft at the edges, the last boardwalk plank is propped on a fuel drum, and past that it's scrub all the way to the horizon. Somebody has driven a length of rail into the ground and hung a bell on it. Nobody in town will say what the bell is for, only that you would know.",
   "exits": {
     "east": "zone_the_reach_869_1955",
     "north": "zone_the_reach_868_1954",

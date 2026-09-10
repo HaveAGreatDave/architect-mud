@@ -5,7 +5,7 @@
     "The bag by the door waits to be dealt with."
   ],
   "cause": "drug",
-  "description": "You live here. You have always lived here, the arrangement is entirely familiar, and there is a bag by the door with the whole of your life in the Basin folded up inside it. That was the holiday. You are back now, and everything is where you left it.",
+  "description": "You live here. You have always lived here, the arrangement is entirely familiar, and there's a bag by the door with the whole of your life in the Basin folded up inside it. That was the holiday. You're back now, and everything is where you left it.",
   "drug_id": "drug_threshold",
   "fx": "crawl",
   "fx_intensity": 0.5,
@@ -15,19 +15,19 @@
     {
       "looks": [
         "Everything you thought you were, packed small.",
-        "There is a name on it and it is the name you have been using.",
-        "It will be put away in a minute and you will not think about it again."
+        "There's a name on it and it's the name you have been using.",
+        "It'll be put away in a minute and you won't think about it again."
       ],
       "name": "the bag by the door"
     },
     {
       "looks": [
-        "Entirely familiar, and not one part of it is from your life.",
+        "Entirely familiar, and not one part of it's from your life.",
         "You know where things are kept here. You have always known.",
         "It has been like this for ten thousand years and nothing has needed changing."
       ],
       "name": "the arrangement"
     }
   ],
-  "weather": "It is the weather of the place you live, which is this one, and always has been."
+  "weather": "It's the weather of the place you live, which is this one, and always has been."
 }

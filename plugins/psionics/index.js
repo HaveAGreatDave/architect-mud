@@ -127,7 +127,7 @@ async function cmdPsi(args, raw, player) {
     lines.push(`<span class="ambient">Everything outside those costs more, and shows on you.</span>`);
   } else if (rankAtLeast(rank, 'channeler')) {
     lines.push('');
-    lines.push(`<span class="ambient">You have not committed to a discipline yet. You will have to.</span>`);
+    lines.push(`<span class="ambient">You haven't committed to a discipline yet. You'll have to.</span>`);
   }
 
   // What is actually available to you right now — derived from the registry, so
@@ -190,11 +190,11 @@ async function cmdPsiResolve(args, raw, player) {
   if (!isAwakened(player)) return { type: 'error', message: 'Unknown command.' };
   const [, focus] = args || [];
   const REVEAL = {
-    image:    { low: 'A shape, moving. You could not swear to what it was.',
+    image:    { low: "A shape, moving. You couldn't swear to what it was.",
                 high: 'You see it: a room like this one, and somebody in a hurry.' },
-    emotion:  { low: 'Whoever held this last was not calm.',
+    emotion:  { low: "Whoever held this last wasn't calm.",
                 high: 'Fear, and under it something much older and much more tired.' },
-    location: { low: 'Somewhere with a hard floor. That is all it will give up.',
+    location: { low: "Somewhere with a hard floor. That's all it'll give up.",
                 high: 'Somewhere underground, with water running close by.' },
     identity: { low: 'Hands. Nothing about whose.',
                 high: 'A person about your height, favouring one leg. No face, and there never will be.' },

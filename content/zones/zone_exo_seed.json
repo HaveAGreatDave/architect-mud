@@ -2,11 +2,11 @@
   "ambient_events": [
     "A drawer comes out an inch, is looked into, and goes back.",
     "The thermometer is read and a number is written in the log.",
-    "It is very cold in here and very still and the stillness is the point.",
+    "It's very cold in here and very still. Nothing has been allowed to move in this room for a long time.",
     "Somebody counts under their breath, in tens, and gets to four hundred, and starts again tomorrow."
   ],
   "ambient_theme": "indoors",
-  "description": "Cold, dry and dark. Drawers, floor to ceiling, four hundred of them, each labelled with a name and a year and a number that goes down by one or two every season and occasionally back up by a hundred.\n\nThis is the single most valuable thing in the region and there is no lock on the door.",
+  "description": "Cold, dry and dark. Drawers, floor to ceiling, four hundred of them, each labelled with a name and a year and a number that goes down by one or two every season and occasionally back up by a hundred.\n\nThis is the single most valuable thing in the region and there's no lock on the door.",
   "exits": {
     "down": "zone_util_zone_exo_seed",
     "west": "zone_terminus_1221_934"

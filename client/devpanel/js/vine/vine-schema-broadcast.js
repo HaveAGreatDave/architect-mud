@@ -146,7 +146,7 @@ const _bcNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB(n.data.npc_id||'(no NPC)')}</div>`,
     getOutPorts: () => [{ key:'next', label:'next' }],
     renderProperties: (n, ed, id) => `
-      ${_bHelp(id,'Sets the broadcast "voice". Every Say node after this one will be prefixed with <strong>[NPC Name]</strong> until a new NPC Anchor is encountered or the graph loops. The NPC does not need to be present in the zone — they\'re a named voice only.<br><br>For a fully embodied host who reacts to world events, use the <strong>BROADCAST_SAY</strong> action in that NPC\'s AI behaviour graph instead.')}
+      ${_bHelp(id,'Sets the broadcast "voice". Every Say node after this one will be prefixed with <strong>[NPC Name]</strong> until a new NPC Anchor is encountered or the graph loops. The NPC doesn\'t need to be present in the zone — they\'re a named voice only.<br><br>For a fully embodied host who reacts to world events, use the <strong>BROADCAST_SAY</strong> action in that NPC\'s AI behaviour graph instead.')}
       ${_bField('NPC ID', _bInput('data.npc_id', n.data.npc_id, 'npc database id'))}`,
   },
 
@@ -318,7 +318,7 @@ const _bcNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB(n.data.graphic_id||'(no graphic)')}</div>`,
     getOutPorts: () => [{ key:'next', label:'next' }],
     renderProperties: (n, ed, id) => `
-      ${_bHelp(id,'Displays a graphic from the Graphics Library as ASCII art in the TV panel, or as pre-formatted text in the regular broadcast output. If the graphic_id is not found the node is skipped silently.')}
+      ${_bHelp(id,"Displays a graphic from the Graphics Library as ASCII art in the TV panel, or as pre-formatted text in the regular broadcast output. If the graphic_id isn't found the node is skipped silently.")}
       ${_bField('Graphic ID', _bInput('data.graphic_id', n.data.graphic_id, 'graphic database id'))}
       ${_bField('Caption (optional)', _bInput('data.caption', n.data.caption, 'Text shown below the graphic'))}`,
   },
@@ -330,7 +330,7 @@ const _bcNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB(n.data.overlay_type||'lower_third')}: ${_escB((n.data.text||'').slice(0,40))}</div>`,
     getOutPorts: () => [{ key:'next', label:'next' }],
     renderProperties: (n, ed, id) => `
-      ${_bHelp(id,'Pushes an overlay element to the TV panel for all current viewers. Does not stop graph execution — continues immediately to <em>next</em>. The overlay auto-clears after <em>duration</em> seconds, or when a <strong>Clear Overlay</strong> node fires.')}
+      ${_bHelp(id,"Pushes an overlay element to the TV panel for all current viewers. Doesn't stop graph execution — continues immediately to <em>next</em>. The overlay auto-clears after <em>duration</em> seconds, or when a <strong>Clear Overlay</strong> node fires.")}
       ${_bField('Type', _bSelect('data.overlay_type', [['lower_third','Lower Third (nameplate)'],['alert_flash','Alert Flash (full-screen)']], n.data.overlay_type||'lower_third'))}
       ${_bField('Main text', _bInput('data.text', n.data.text, 'DR. ELAINE VOSS'))}
       ${_bField('Subtext', _bInput('data.subtext', n.data.subtext, 'Chief Science Officer, NovaCorp'))}
@@ -370,7 +370,7 @@ const _bcNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB(n.data.overlayType||'text_card')}: ${_escB((n.data.text||n.data.graphic_id||'').slice(0,40))}</div>`,
     getOutPorts: () => [{ key:'next', label:'next' }],
     renderProperties: (n, ed, id) => `
-      ${_bHelp(id,'Pushes an on-screen overlay graphic to every viewer (and mirrors to the media-deck preview). A <strong>text card</strong> takes over the screen; a <strong>lower third</strong> is a nameplate strip; an <strong>alert flash</strong> is a full-screen alert. Does not stop the tick — continues to <em>next</em>; auto-clears after <em>duration</em> seconds or on a Clear Overlay node. This is the node the BSM <code>OVERLAY</code> / <code>LOWER_THIRD</code> directives import as.')}
+      ${_bHelp(id,"Pushes an on-screen overlay graphic to every viewer (and mirrors to the media-deck preview). A <strong>text card</strong> takes over the screen; a <strong>lower third</strong> is a nameplate strip; an <strong>alert flash</strong> is a full-screen alert. Doesn't stop the tick — continues to <em>next</em>; auto-clears after <em>duration</em> seconds or on a Clear Overlay node. This is the node the BSM <code>OVERLAY</code> / <code>LOWER_THIRD</code> directives import as.")}
       ${_bField('Type', _bSelect('data.overlayType', [['text_card','Text card (full screen)'],['lower_third','Lower third (nameplate)'],['alert_flash','Alert flash']], n.data.overlayType||'text_card'))}
       ${_bField('Main text', _bTextarea('data.text', n.data.text, 2))}
       ${_bField('Subtext (lower third)', _bInput('data.subtext', n.data.subtext, 'Chief Science Officer, NovaCorp'))}

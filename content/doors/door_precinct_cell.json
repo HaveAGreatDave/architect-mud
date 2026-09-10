@@ -16,7 +16,7 @@
       "canHack": false,
       "difficulty": 10,
       "messages": {
-        "denied": "The detention lock pulls your file, finds it open, and flatly refuses. You are not going anywhere.",
+        "denied": "The detention lock pulls your file, finds it open, and flatly refuses. You aren't going anywhere.",
         "lock": "The cell detention lock slams shut with a heavy magnetic clunk.",
         "unlock": "The cell detention lock disengages."
       }

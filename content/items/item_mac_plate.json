@@ -5,7 +5,7 @@
   "name": "square of mac and cheese",
   "tags": {
     "consumable": true,
-    "description": "A square cut out of a tray the size of a door, served on an enamel plate that has met a thousand of its brothers. The top is brown and tight, the middle gives, and it holds its shape all the way to the table, which is the entire point of the eggs.",
+    "description": "A square cut out of a tray the size of a door, served on an enamel plate that has met a thousand of its brothers. The top is brown and tight, the middle gives, and it holds its shape all the way to the table. The eggs are doing that work.",
     "restore_hp": 3,
     "restore_hunger": 38,
     "stackable": true,

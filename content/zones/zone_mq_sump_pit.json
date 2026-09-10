@@ -10,7 +10,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#55603f",
-  "description": "The back of the Sump, and the reason anyone drinks at the front. One low room with the stools cleared out of it permanently, a chalk ring scuffed into concrete around a second drain, and a ceiling low enough that a badly thrown slag comes back at you off the joists. The walls are padded in scavenged mattress foam, gaffer-taped and gone black at hand height, all but the back one, which is sheet steel and there to hit. Along the side: a bench, a bar, a stack of mismatched plates, and a run of sand-filled kegs for the ones who've worked out that Slagball is not a game you win with technique. A tally board hangs where the scoreboard used to, painted over so many times the numbers sit in relief. It smells of chalk, cold sweat, and the drain. Nobody has ever cleaned the drain. Back <b>south</b> to the bar.",
+  "description": "The back of the Sump, and the reason anyone drinks at the front. One low room with the stools cleared out of it permanently, a chalk ring scuffed into concrete around a second drain, and a ceiling low enough that a badly thrown slag comes back at you off the joists. The walls are padded in scavenged mattress foam, gaffer-taped and gone black at hand height, all but the back one, which is sheet steel and there to hit. Along the side: a bench, a bar, a stack of mismatched plates, and a run of sand-filled kegs for the ones who've worked out that Slagball isn't a game you win with technique. A tally board hangs where the scoreboard used to, painted over so many times the numbers sit in relief. It smells of chalk, cold sweat, and the drain. Nobody has ever cleaned the drain. Back <b>south</b> to the bar.",
   "exits": {
     "south": "zone_mq_sump_bar"
   },

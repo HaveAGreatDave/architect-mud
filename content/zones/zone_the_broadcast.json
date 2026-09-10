@@ -6,7 +6,7 @@
   ],
   "ambient_theme": null,
   "bg_color": "#000000",
-  "description": "Black. Complete, felted black, the kind that presses on your eyes. A single metal chair sits in a pool of nothing, bolted to a floor you can feel but not see, facing a wall that hasn't decided to exist yet. There is nothing else. There is nowhere else to look. The chair is, unmistakably, for you.",
+  "description": "Black. Complete, felted black, the kind that presses on your eyes. A single metal chair sits in a pool of nothing, bolted to a floor you can feel but not see, facing a wall that hasn't decided to exist yet. There's nothing else. There's nowhere else to look. The chair is, unmistakably, for you.",
   "exits": {
     "north": "zone_the_collapse"
   },

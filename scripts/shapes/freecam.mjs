@@ -208,3 +208,74 @@ ck(ft.view().z < u0, 'F still drops');
 
 console.log(`  ${cbad ? '✗' : '✓'} freecam turn-in-place — ${cbad} problem(s) total`);
 if (cbad) process.exit(1);
+
+// ── THE PITCH TERM ──────────────────────────────────────────────────────────
+// GLASS grew an optical axis that can tilt. Two things have to be true about it, and the first is
+// the one this file exists for.
+//
+// 1. AN UNPITCHED CAMERA IS BIT-IDENTICAL. cos 0 is exactly 1 and sin 0 exactly 0, so a single
+//    pitched closure would reduce algebraically — but `f·1 + u·0` is not the same floating-point
+//    expression as `f`, and every view in the game goes through this function. So the default is a
+//    separate closure, and that is asserted with Object.is rather than believed.
+//
+// 2. PITCH ACTUALLY TILTS THE VIEW, in the direction the sign says, about the eye. A point level
+//    with the eye and dead ahead sits on the horizon at pitch 0; tipping the view DOWN must move
+//    it UP the screen, and a point directly below the camera must come into frame at all, which it
+//    never could before.
+let pbad = 0;
+const pck = (ok, what) => { if (!ok) { pbad++; console.log(`  ✗ ${what}`); } };
+
+for (const heading of HEADINGS) {
+  // ⚠ AND AN AIRCRAFT'S OWN PITCH MUST NOT REACH THE CAMERA. `v.pitch` in this renderer is the
+  // CRAFT'S ATTITUDE IN DEGREES — four readers divide it by 26 or multiply it by π/180 — and the
+  // camera tilt is radians. For one afternoon `makeCam` read that field, so every degree of climb
+  // tipped the view fifty-seven degrees: the city hung upside down and the runway swung round like
+  // a billboard. The camera answers to `camPitch` and nothing else, and this is what says so.
+  const flying = makeCam(900, 240, 520, { heading, height: 0.3, map: null, pitch: 12, bank: 4 });
+  const level = makeCam(900, 240, 520, { heading, height: 0.3, map: null });
+  for (const [x, y, z] of [[0, -6, 0], [2, -9, 1.2], [-3, -4, 0.4]]) {
+    const a = flying.proj(x, y, z), b = level.proj(x, y, z);
+    same(a.sx, b.sx, `an aircraft pitch of 12° must not move sx @${heading}`);
+    same(a.sy, b.sy, `an aircraft pitch of 12° must not move sy @${heading}`);
+  }
+
+  const base = makeCam(900, 240, 520, { heading, height: 0.3, map: null });
+  const zero = makeCam(900, 240, 520, { heading, height: 0.3, map: null, camPitch: 0 });
+  for (const [dx, dy, wz] of PTS) {
+    const a = base.proj(dx, dy, wz), b = zero.proj(dx, dy, wz);
+    same(a.sx, b.sx, `pitch 0 proj.sx @${heading}`);
+    same(a.sy, b.sy, `pitch 0 proj.sy @${heading}`);
+    same(a.f, b.f, `pitch 0 proj.f @${heading}`);
+  }
+  for (const [aa, sd, wz] of FLS) {
+    const a = base.projFL(aa, sd, wz), b = zero.projFL(aa, sd, wz);
+    same(a.sx, b.sx, `pitch 0 projFL.sx @${heading}`);
+    same(a.sy, b.sy, `pitch 0 projFL.sy @${heading}`);
+  }
+}
+
+{
+  const flat = makeCam(900, 240, 520, { heading: 0, height: 0, eyeH: 2, map: null });
+  const down = makeCam(900, 240, 520, { heading: 0, height: 0, eyeH: 2, map: null, camPitch: 0.4 });
+  const up = makeCam(900, 240, 520, { heading: 0, height: 0, eyeH: 2, map: null, camPitch: -0.4 });
+  // Dead ahead, level with the eye: on the horizon when the view is level.
+  const ahead = [0, -6, 2];
+  pck(Math.abs(flat.proj(...ahead).sy - 240) < 1e-9, "level: a point at eye height sits on the horizon");
+  pck(down.proj(...ahead).sy < 240, "pitch down moves the view forward UP the screen");
+  pck(up.proj(...ahead).sy > 240, "pitch up moves it down");
+  // Lateral is untouched by pitch for a point on the view axis — a tilt is not a yaw.
+  pck(Math.abs(down.proj(...ahead).sx - flat.proj(...ahead).sx) < 1e-9, "…and does not slide it sideways");
+  // THE THING THE OLD PROJECTION COULD NOT DO AT ALL: see the ground below the camera. At pitch 0
+  // a point under the eye has f→0 and is clamped to the near plane; tipped down it has real depth.
+  const below = [0, -0.4, 0];
+  pck(down.proj(...below).f > flat.proj(...below).f, "looking down gives the ground under the camera real depth");
+  // A plan view: straight down, and a square on the ground stays square about the centre.
+  const plan = makeCam(900, 240, 520, { heading: 0, height: 0, eyeH: 6, map: null, camPitch: Math.PI / 2 });
+  const n = plan.proj(0, -4, 0), fpt = plan.proj(0, -8, 0);
+  pck(n.sy > fpt.sy, "straight down: nearer ground is lower on the screen");
+  const l = plan.proj(-2, -6, 0), r = plan.proj(2, -6, 0);
+  pck(Math.abs((l.sx + r.sx) / 2 - 450) < 1e-6, "…and the view is still centred on the axis");
+}
+
+console.log(`  ${pbad || bad ? "✗" : "✓"} pitch — unpitched cameras are bit-identical, and a pitched one tilts`);
+if (pbad) process.exit(1);

@@ -110,7 +110,7 @@
     }
   ],
   "death_message": "The strider's legs give out one after another, unhurried, and it settles onto the rock like a folding chair nobody caught.",
-  "description": "Eight feet of rust-red leg holding up eighteen inches of animal. It crosses the hardpan at the pace of a bored commuter and makes no noise at all doing it, which is the part that gets people. The thorax has a metallic sheen nobody has satisfactorily explained.",
+  "description": "Eight feet of rust-red leg holding up eighteen inches of animal. It crosses the hardpan at the pace of a bored commuter and makes no noise at all doing it. The thorax has a metallic sheen.",
   "dodge": 6,
   "faction": null,
   "flags": {

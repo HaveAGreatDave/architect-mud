@@ -1,10 +1,11 @@
 {
-  "description": "A square of grey impact mesh, folded like a field dressing and vacuum-sealed. It is heavier than it looks and it does not crease.",
+  "description": null,
   "flags": {},
   "id": "item_aug_subdermal_weave",
   "name": "a folded subdermal weave",
   "tags": {
-    "augment_hardware": "aug_subdermal_weave"
+    "augment_hardware": "aug_subdermal_weave",
+    "description": "A square of grey impact mesh, folded like a field dressing and vacuum-sealed. It's heavier than it looks and it doesn't crease."
   },
   "type": "misc",
   "value": 900,

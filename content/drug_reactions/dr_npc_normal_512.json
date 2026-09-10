@@ -3,8 +3,8 @@
   "id": "dr_npc_normal_512",
   "npc_type": null,
   "relation": "close",
-  "room_line": "{npc} asks {player} outright if they are all right, and waits.",
-  "self_line": "{npc} asks, plainly, whether you are all right, and waits for the answer.",
+  "room_line": "{npc} asks {player} outright if they're all right, and waits.",
+  "self_line": "{npc} asks, plainly, whether you're all right, and waits for the answer.",
   "source": "npc",
   "tone": "normal"
 }

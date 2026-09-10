@@ -20,17 +20,24 @@
 // permissive BSD-style licence that allows redistribution in source or binary
 // form with attribution — hence the attribution header written into the output.
 //
-// THE WORD LIST IS PRESERVED EXACTLY. The 25,731-word subset in the existing file
-// was curated (upstream is ~134k entries, most of them proper nouns and inflected
-// junk the narrator will never say) and the whole file is shipped to every client
-// on load, so this script re-looks-up the SAME words rather than re-choosing them.
-// A regeneration must not silently change what the browser downloads.
+// THE WORD LIST IS NEVER RE-CHOSEN, ONLY ADDED TO. The original subset was curated
+// (upstream is ~134k entries, most of them proper nouns and inflected junk a
+// narrator will never say) and the whole file is shipped to every client on load,
+// so this script re-looks-up the SAME words rather than re-deriving the cut. A
+// regeneration must not silently change what the browser downloads.
+//
+// Two explicit additions sit on top of that, each with its reason below: EXTRA
+// (contractions) and gameWords() (this game's own vocabulary). The second is why
+// "preserved exactly" is no longer the right description — the curation's rule
+// about proper nouns is correct for a generic narrator and wrong for one who says
+// `Delacroix` and `Coldwater` all day. Both are reported when the script runs, and
+// the output is committed, so an addition shows up in a diff rather than silently.
 //
 // ENCODING: one character per phone, indexed into `alpha`. Vowels now carry their
 // stress digit, so the token set grows from 39 to 69 (15 vowels × 3 stress levels
 // + 24 consonants) — but the blob is the same LENGTH, because it is still exactly
 // one character per phone. The file size does not move.
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -70,6 +77,47 @@ don't doesn't didn't won't wouldn't can't cannot couldn't shouldn't mustn't
 isn't aren't wasn't weren't hasn't haven't hadn't ain't needn't
 `.trim().split(/\s+/);
 
+// THE GAME'S OWN VOCABULARY. The curated subset was chosen as "common English
+// minus junk" — and upstream is ~134k entries, "most of them proper nouns the
+// narrator will never say". That reasoning is right for a generic narrator and
+// wrong for this one, who says these proper nouns constantly: 32% of the words in
+// the game's names and descriptions were absent, so every character name in the
+// game went through the letter-to-sound guesser.
+//
+// Descriptions and not just names, because READ ALOUD SPEAKS THE WHOLE LOG. The
+// words most likely to be mispronounced are the ones in room prose, to the player
+// who most depends on the voice working.
+//
+// Only words upstream actually HAS are added (the intersection happens for free
+// below — an unknown word simply finds no entry). The rest are true coinages that
+// no dictionary can help with: `marrick`, `kesh`, `slagworks`, `everydayman`.
+async function gameWords() {
+  const dir = join(ROOT, 'content');
+  const out = new Set();
+  let kinds = [];
+  try { kinds = await readdir(dir); } catch { return out; }
+  for (const kind of kinds) {
+    let files = [];
+    try { files = await readdir(join(dir, kind)); } catch { continue; }
+    for (const f of files) {
+      if (!f.endsWith('.json')) continue;
+      let row;
+      try { row = JSON.parse(await readFile(join(dir, kind, f), 'utf8')); } catch { continue; }
+      for (const key of ['name', 'description']) {
+        const v = row?.[key];
+        if (typeof v !== 'string') continue;
+        for (const part of v.split(/[^A-Za-z'’-]+/)) {
+          // Strip a possessive and any leading/trailing punctuation, then keep
+          // only things that look like words — CMUdict is keyed lower-case.
+          const w = part.replace(/[’']s$/, '').replace(/^[-']+|[-']+$/g, '').toLowerCase();
+          if (/^[a-z][a-z'-]{2,}$/.test(w)) out.add(w);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 async function main() {
   const words = await existingWords();
   const before = words.length;
@@ -94,6 +142,26 @@ async function main() {
     if (!dict.has(w)) dict.set(w, clean.slice(sp + 1).trim().split(/\s+/));
   }
   console.log(`· upstream carries ${dict.size} base entries`);
+
+  // Add the game's own vocabulary, intersected with upstream by construction:
+  // a word the dictionary does not carry finds no entry and is skipped here, so
+  // coinages never reach the encoder and never inflate the `missing` count below.
+  //
+  // Sorted, so the blob stays byte-deterministic across rebuilds. Reported rather
+  // than silent — the file ships to every client on load, and the rule this script
+  // was written under is that a regeneration must never quietly change what the
+  // browser downloads. A content edit CAN change this set, which is exactly why
+  // the count is printed and the result is committed.
+  const game = await gameWords();
+  const added = [];
+  for (const w of [...game].sort()) {
+    if (have.has(w) || !dict.has(w)) continue;
+    words.push(w); have.add(w); added.push(w);
+  }
+  const coinages = [...game].filter(w => !dict.has(w) && !have.has(w)).length;
+  console.log(`· game vocabulary: ${game.size} words, +${added.length} recovered from upstream, ` +
+    `${coinages} coinages left to the guesser`);
+  if (process.argv.includes('--list-added')) console.log(added.join(' '));
 
   // Token set: vowels keep their stress digit, consonants don't have one.
   const phones = [];

@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "{it} sighs. It is a completely ordinary sigh and that is the worst part.",
+  "self_line": "{it} sighs. It's a completely ordinary sigh and that's the worst part.",
   "source": "object_emote",
   "tone": "normal"
 }

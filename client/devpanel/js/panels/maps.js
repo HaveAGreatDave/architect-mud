@@ -321,6 +321,105 @@ function suggestZoneColor(existingHexColors) {
   return best;
 }
 
+// --- Shared "plan map" base --------------------------------------------------
+// One region, one floor, drawn as a deliberately dumb monochrome plan: terrain
+// tones only, no names or icons, so a coloured overlay on top is the only thing
+// competing for the eye. Two panels draw on it — the Enemies panel's spawn heat
+// map and the Power panel's regional grid — and they share this base so the
+// terrain palette can't drift into two different pictures of the same city.
+//
+// ⚠ The bounding-box-of-every-placed-zone grid is what froze the old City Grid
+// view at ~888 zones. What makes this shape affordable is that it is bounded to
+// ONE region on ONE floor and each cell is a bare few-pixel div — no text, no
+// per-cell exits. Keep both of those and it stays fast; widen either and it
+// won't.
+const PLAN_MAP_INK = '150,190,210';
+const PLAN_TERRAIN_TONE = {
+  water: 0.10, marsh: 0.13,
+  grass: 0.19, park: 0.19, scrub: 0.19,
+  sand: 0.24, dirt: 0.24, dirt_road: 0.26, gravel: 0.26, redrock: 0.24, ash: 0.22,
+  road: 0.34, asphalt: 0.34, concrete: 0.38, dock: 0.30,
+};
+const PLAN_TILE_DEFAULT = 0.16;   // placed tile with no authored terrain
+const PLAN_TILE_BUILDING = 0.62;  // facades read as solid mass
+
+function planTileIsBuilding(z) {
+  return !!(z.flags?.building_type || z.flags?.is_building);
+}
+function planTileTone(z) {
+  if (planTileIsBuilding(z)) return PLAN_TILE_BUILDING;
+  if (z.flags?.runway) return 0.42;
+  const t = z.flags?.terrain;
+  return (t && PLAN_TERRAIN_TONE[t] != null) ? PLAN_TERRAIN_TONE[t] : PLAN_TILE_DEFAULT;
+}
+
+// The Under carries no region_id (it's a district, not a region) but it's a whole
+// map's worth of world, so it gets its own bucket instead of drowning in the
+// unassigned pile beside stray basin tiles.
+function planRegionOf(z) {
+  return z.flags?.region_id || (z.flags?.district === 'sewer' ? '__under' : '__unassigned');
+}
+function planRegionName(regions, rid) {
+  return rid === '__under' ? 'The Under (sewers)'
+    : rid === '__unassigned' ? 'Unassigned tiles'
+    : (regions?.get(rid) || rid);
+}
+
+// The *tile* a zone should paint onto: its own if it sits on the grid, otherwise
+// the facade of the building whose interior map holds it. Walks up through nested
+// interior maps so a 4th-floor room still lands on the door. `mapParents` is
+// interior map id -> exterior parent zone id.
+function planTileZoneFor(zone, zoneById, mapParents) {
+  const seen = new Set();
+  let z = zone;
+  while (z && !seen.has(z.id)) {
+    if (planIsPlacedTile(z)) return z;
+    seen.add(z.id);
+    const parentId = mapParents.get(z.map_id);
+    z = parentId ? zoneById.get(parentId) : null;
+  }
+  return null;
+}
+
+// Zones that sit on the grid as actual ground.
+// ⚠ `grid_x != null` is NOT sufficient: an interior room carries 0,0 to mean
+// UNSET, and ONE such room in a region stretches its bounding box from the
+// region's own 93x52 out to 956x948 — nine hundred thousand cells for one
+// mis-parked zone. See reference/land-taxonomy.md.
+// ⚠ Shared with planTileZoneFor: an interior room parked at 0,0 is NOT a tile,
+// so folding must walk PAST it to the facade it hangs off. Returning it as its
+// own tile is what left building fronts dark on the power map while the rooms
+// behind them were lit.
+function planIsPlacedTile(z) {
+  return z.grid_x != null && z.grid_y != null
+    && !(z.grid_x === 0 && z.grid_y === 0 && (z.flags?.is_interior || z.flags?.is_apartment));
+}
+function planPlacedTiles(zones) {
+  return zones.filter(planIsPlacedTile);
+}
+
+// Region buckets that actually hold placed tiles, for a region <select>.
+function planRegionBuckets(zones) {
+  const byRegion = new Map();
+  for (const z of planPlacedTiles(zones)) {
+    const rid = planRegionOf(z);
+    if (!byRegion.has(rid)) byRegion.set(rid, []);
+    byRegion.get(rid).push(z);
+  }
+  return byRegion;
+}
+
+// The grid shell every plan map draws into. ⚠ Place each real tile explicitly
+// rather than emitting a div per cell of the bounding box: a region is not
+// obliged to be dense, and the empty-cell divs for a sparse one cost far more
+// than the tiles do.
+function planGridOpen(cols, cell) {
+  return `<div style="display:grid;grid-template-columns:repeat(${cols},${cell}px);grid-auto-rows:${cell}px;gap:1px;width:max-content">`;
+}
+function planCellPos(x, y, minX, minY) {
+  return `grid-column:${x - minX + 1};grid-row:${y - minY + 1}`;
+}
+
 function mapLegendHtml(mode) {
   return mode === 'power'
     ? `<span><span class="legend-swatch" style="background:rgba(80,160,255,0.4);border:1px solid rgba(100,180,255,0.9)"></span>⚡ City Plant</span>
@@ -350,7 +449,7 @@ async function openBigMap(mode = 'zones') {
     calls.push(API('/environment/power/generators').catch(() => []));
   }
   const [mapData, powerMap, generators] = await Promise.all(calls);
-  if (!mapData || mapData.error) { toast('Could not load map data', true); return; }
+  if (!mapData || mapData.error) { toast("Couldn't load map data", true); return; }
   bigMapOverlayData = {
     map: mapData.map,
     zones: new Map((mapData.zones || []).map(z => [z.id, { ...z, exits: z.exits || {}, grid_z: z.grid_z ?? 0 }])),
@@ -1247,8 +1346,8 @@ function _terrainBrush(zoneId, erase) {
 const TERRAIN_TILE_DEFAULTS = {
   dirt_road: { color: '#c9a86a', bg: '#241d13', ambient: 'outdoors', name: 'Dirt Track', desc: 'A graded dirt lane, packed hard by tyres and scored with old ruts. No kerb, no paint — just where the driving wears the ground down.' },
   redrock: { color: '#b5744a', bg: '#2a1c16', ambient: 'wasteland', name: 'The Rust Flats', wild: true, rad: 30, desc: 'Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.' },
-  scrub:   { color: '#8f9256', bg: '#242a1c', ambient: 'wasteland', name: 'Dead Scrub',      wild: true, rad: 25, desc: 'Low grey brush claws up through broken ground — brittle, half-dead stuff that shivers when there is no wind behind it.' },
-  ash:     { color: '#8a857f', bg: '#211f1d', ambient: 'wasteland', name: 'The Ash Barrens', wild: true, rad: 35, desc: 'A grey waste of settled ash, soft and deep, printed with the tracks of things that passed and did not come back.' },
+  scrub:   { color: '#8f9256', bg: '#242a1c', ambient: 'wasteland', name: 'Dead Scrub',      wild: true, rad: 25, desc: "Low grey brush claws up through broken ground — brittle, half-dead stuff that shivers when there's no wind behind it." },
+  ash:     { color: '#8a857f', bg: '#211f1d', ambient: 'wasteland', name: 'The Ash Barrens', wild: true, rad: 35, desc: "A grey waste of settled ash, soft and deep, printed with the tracks of things that passed and didn't come back." },
   marsh:   { color: '#5f7a4a', bg: '#1c241a', ambient: 'wasteland', name: 'The Toxic Marsh', wild: true, rad: 30, desc: 'Murky water pools between hummocks of sick green weed, slicked with a chemical sheen that never quite settles.' },
 };
 function _newTerrainTile(id, x, y, z, terr, mapId) {
@@ -2246,7 +2345,7 @@ function renderMapOverview() {
   // The Studio (npm run studio) is the file-authoring map tool — it edits
   // content/ directly, so what it draws is what ships. This panel edits the LIVE
   // DATABASE and the save-hook mirrors each edit into a file afterwards. Both
-  // work; what does not work is assuming they see each other. Say so, because
+  // work; what doesn't work is assuming they see each other. Say so, because
   // "I painted in the Studio and this map is stale" is the predictable failure
   // (map-pipeline-spec §10).
   let html = `<div style="margin:0 0 8px;padding:6px 10px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:3px;color:var(--text-dim);font-size:11px;line-height:1.5">

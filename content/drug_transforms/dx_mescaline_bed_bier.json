@@ -4,7 +4,7 @@
     "Do you want the blanket unfolded?",
     "Are you staying the night?"
   ],
-  "description": "A shelf cut straight out of the rock at the height of a bed, with a single folded blanket squared off at one end. It is exactly long enough for a person and it has been swept.",
+  "description": "A shelf cut straight out of the rock at the height of a bed, with a single folded blanket squared off at one end. It's exactly long enough for a person and it has been swept.",
   "drug_id": "drug_mescaline",
   "emotes": [
     "{it} holds the cold, patiently.",
@@ -17,13 +17,13 @@
   "looks": [
     "The stone is worn into a shallow dish along its length, and the dish fits a body.",
     "The blanket is coarse and clean and folded with real care.",
-    "There is a small ledge cut at the head end, for whatever you are carrying."
+    "There's a small ledge cut at the head end, for whatever you're carrying."
   ],
   "matches": "bed",
   "name": "a stone shelf laid with a blanket",
   "says": [
-    "Lie down. It is what it is cut for.",
-    "It is not as cold as it looks.",
+    "Lie down. It's what it's cut for.",
+    "It isn't as cold as it looks.",
     "Everyone who has used this got up again."
   ],
   "scope": "object"

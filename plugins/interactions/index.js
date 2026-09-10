@@ -170,7 +170,7 @@ async function cmdSit(args, raw, player, broadcast) {
 		const found = furnByName(player.current_zone, target, player);
 		const rows = found ? [found] : [];
 		if (!rows.length)
-			return { type: "emote", message: `There is no ${target} here.` };
+			return { type: "emote", message: `There's no ${target} here.` };
 		const interactions = rows[0].flags?.interactions || [];
 		if (!interactions.includes("sit"))
 			return {
@@ -180,7 +180,7 @@ async function cmdSit(args, raw, player, broadcast) {
 		if (posture(player) === "sitting")
 			return {
 				type: "emote",
-				message: `You are already sitting on the ${seenName(rows[0])}.`,
+				message: `You're already sitting on the ${seenName(rows[0])}.`,
 			};
 		// The POSTURE records the real piece — everyone else's look must read it
 		// the way the room actually is, and the illusion ends when the drug does.
@@ -194,7 +194,7 @@ async function cmdSit(args, raw, player, broadcast) {
 	}
 
 	if (posture(player) === "sitting")
-		return { type: "emote", message: "You are already sitting." };
+		return { type: "emote", message: "You're already sitting." };
 
 	// Find any sittable furniture in zone
 	const sitOn = furnWithInteraction(player.current_zone, "sit");
@@ -228,7 +228,7 @@ async function cmdLie(args, raw, player, broadcast) {
 		const found = furnByName(player.current_zone, target, player);
 		const rows = found ? [found] : [];
 		if (!rows.length)
-			return { type: "emote", message: `There is no ${target} here.` };
+			return { type: "emote", message: `There's no ${target} here.` };
 		const interactions = rows[0].flags?.interactions || [];
 		if (!interactions.includes("lie"))
 			return {
@@ -238,7 +238,7 @@ async function cmdLie(args, raw, player, broadcast) {
 		if (posture(player) === "lying")
 			return {
 				type: "emote",
-				message: `You are already lying on the ${seenName(rows[0])}.`,
+				message: `You're already lying on the ${seenName(rows[0])}.`,
 			};
 		setPosture(player, "lying", { sittingOn: rows[0].name });
 		return doEmote(
@@ -250,7 +250,7 @@ async function cmdLie(args, raw, player, broadcast) {
 	}
 
 	if (posture(player) === "lying")
-		return { type: "emote", message: "You are already lying down." };
+		return { type: "emote", message: "You're already lying down." };
 
 	// Find any surface you can lie on
 	const lieOn = furnWithInteraction(player.current_zone, "lie");
@@ -276,7 +276,7 @@ async function cmdLie(args, raw, player, broadcast) {
 
 function cmdStand(args, raw, player, broadcast) {
 	if (posture(player) === "standing")
-		return { type: "emote", message: "You are already standing." };
+		return { type: "emote", message: "You're already standing." };
 	setPosture(player, "standing");
 	return doEmote(
 		"You stand up.",
@@ -290,7 +290,7 @@ function cmdKneel(args, raw, player, broadcast) {
 	const { env, vis, zone } = getCtx(player);
 	const mod = envMod(env, vis, zone);
 	if (posture(player) === "kneeling")
-		return { type: "emote", message: "You are already kneeling." };
+		return { type: "emote", message: "You're already kneeling." };
 	setPosture(player, "kneeling");
 	return doEmote(
 		`You kneel down${mod}.`,
@@ -501,7 +501,7 @@ async function cmdLean(args, raw, player, broadcast) {
 		const found = furnByName(player.current_zone, target);
 		const rows = found ? [found] : [];
 		if (!rows.length)
-			return { type: "emote", message: `There is no ${target} here.` };
+			return { type: "emote", message: `There's no ${target} here.` };
 		const interactions = rows[0].flags?.interactions || [];
 		if (!interactions.includes("lean"))
 			return {
@@ -546,7 +546,7 @@ async function cmdWatch(args, raw, player, broadcast) {
 		const found = furnByName(player.current_zone, target);
 		const rows = found ? [found] : [];
 		if (!rows.length)
-			return { type: "emote", message: `There is no ${target} here.` };
+			return { type: "emote", message: `There's no ${target} here.` };
 		const interactions = rows[0].flags?.interactions || [];
 		if (!interactions.includes("watch"))
 			return {
@@ -611,7 +611,7 @@ async function cmdFollow(args, raw, player, broadcast) {
 	const target = args.join(" ").trim();
 	if (!target) {
 		if (!player.following)
-			return { type: "output", message: "You are not following anyone." };
+			return { type: "output", message: "You aren't following anyone." };
 		setLivePlayer(player.id, { ...player, following: null });
 		return { type: "output", message: "You stop following." };
 	}
@@ -676,7 +676,7 @@ function cmdReflect(args, raw, player, broadcast) {
 	const lines = [
 		`You pause and take stock of yourself. You are ${posture(player)}.`,
 	];
-	if ((player.wetness || 0) > 50) lines.push("You are soaking wet.");
+	if ((player.wetness || 0) > 50) lines.push("You're soaking wet.");
 	else if ((player.wetness || 0) > 20) lines.push("Your clothes are damp.");
 	if ((player.radiation || 0) > 70)
 		lines.push("A faint sickly glow emanates from your skin.");
@@ -706,12 +706,12 @@ async function cmdExamine(args, raw, player, broadcast) {
 
 async function cmdExamineSurroundings(player) {
 	const { env, vis, zone } = getCtx(player);
-	if (!zone) return { type: "emote", message: "You are nowhere." };
+	if (!zone) return { type: "emote", message: "You're nowhere." };
 
 	const parts = [];
 	if (vis.category === "pitch_dark")
 		parts.push(
-			"It is pitch black. You can barely make out your surroundings.",
+			"It's pitch black. You can barely make out your surroundings.",
 		);
 	else if (vis.category === "dark")
 		parts.push("The area is poorly lit, shapes barely visible.");
@@ -739,10 +739,10 @@ async function cmdExamineSurroundings(player) {
 
 	if (env.tempC !== undefined) {
 		const t = env.tempC;
-		if (t < 0) parts.push("It is freezing cold.");
-		else if (t < 10) parts.push("There is a biting chill in the air.");
+		if (t < 0) parts.push("It's freezing cold.");
+		else if (t < 10) parts.push("There's a biting chill in the air.");
 		else if (t > 35) parts.push("The heat is oppressive.");
-		else if (t > 28) parts.push("It is uncomfortably warm.");
+		else if (t > 28) parts.push("It's uncomfortably warm.");
 	}
 
 	const exits = Object.keys(zone.exits || {});

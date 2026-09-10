@@ -52,10 +52,10 @@
   },
   "chitchat": [
     "\"Fourteen this year. Fourteen of the little glass bastards, and every one of them stopped seeing.\"",
-    "\"You mark a thing, you know when it changes. That's the whole trick.\"",
+    "\"You mark a thing, you know when it changes. Everything else is guessing.\"",
     "\"Water's a foot down on last month. Somebody upstream is drinking.\""
   ],
-  "description": "A wiry old man with a hand-cranked lamp and a pole he uses more for sounding the muck than for walking. A chalk stub lives in his breast pocket, worn down to a nub, and he stops every so often to write something on a wall that you cannot read.",
+  "description": "A wiry old man with a hand-cranked lamp and a pole he uses more for sounding the muck than for walking. A chalk stub lives in his breast pocket, worn down to a nub, and he stops every so often to write something on a wall that you can't read.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -72,7 +72,7 @@
           "next": "bye"
         }
       ],
-      "text": "He looks at the wall, then back at you, weighing something.\n\n\"Marks are for them as can read them,\" he says, not unkindly. \"You read them, you would know why you have not been eaten yet. You do not, so walk in the middle and do not touch the wires.\""
+      "text": "He looks at the wall, then back at you, weighing something.\n\n\"Marks are for them as can read them,\" he says, not unkindly. \"You read them, you would know why you haven't been eaten yet. You do not, so walk in the middle and don't touch the wires.\""
     },
     "eye_accept": {
       "actions": [
@@ -87,12 +87,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"Mind the angles going in. The eye is not the only thing on that street with an opinion.\""
+      "text": "\"Mind the angles going in. The eye isn't the only thing on that street with an opinion.\""
     },
     "eye_offer": {
       "options": [
         {
-          "label": "I will close it.",
+          "label": "I'll close it.",
           "next": "eye_accept"
         },
         {
@@ -100,7 +100,7 @@
           "next": "bye"
         }
       ],
-      "text": "The old man taps the chalk stub against the wall twice before he uses it.\n\n\"Meltwater side. There is an eye over a doorway that people need, and it has been there four months, and folk have started going the long way round.\" He writes something on the brick that you cannot read. \"That is it on the list. It has been on the list a while.\"\n\n\"Go and close it. And do not be a story afterwards. A blind spot everybody has heard about is just a place people get arrested.\""
+      "text": "The old man taps the chalk stub against the wall twice before he uses it.\n\n\"Meltwater side. There's an eye over a doorway that people need, and it has been there four months, and folk have started going the long way round.\" He writes something on the brick that you can't read. \"That's it on the list. It has been on the list a while.\"\n\n\"Go and close it. And don't be a story afterwards. A blind spot everybody has heard about is just a place people get arrested.\""
     },
     "eye_report": {
       "actions": [
@@ -115,7 +115,7 @@
           "next": "bye"
         }
       ],
-      "text": "Nyall licks the chalk stub, finds the mark on the wall, and draws a line through it with what is unmistakably satisfaction.\n\n\"That doorway is a doorway again,\" he says."
+      "text": "Nyall licks the chalk stub, finds the mark on the wall, and draws a line through it with what's unmistakably satisfaction.\n\n\"That doorway is a doorway again,\" he says."
     },
     "looking": {
       "options": [
@@ -124,10 +124,10 @@
           "next": "bye"
         }
       ],
-      "text": "\"Things with lenses in them,\" he says, and does not elaborate, and clearly is not going to."
+      "text": "\"Things with lenses in them,\" he says, and doesn't elaborate, and clearly isn't going to."
     },
     "root": {
-      "first": "The old man hears you before he sees you, and he does not startle, which tells you something. He raises a hand-cranked lamp and holds it up until he is satisfied. \"Well,\" he says. \"You are not a rat and you are not a corpse, so that is two things.\"",
+      "first": "The old man hears you before he sees you, and he doesn't startle, which tells you something. He raises a hand-cranked lamp and holds it up until he's satisfied. \"Well,\" he says. \"You aren't a rat and you aren't a corpse, so that's two things.\"",
       "options": [
         {
           "label": "Who are you looking for?",
@@ -152,7 +152,7 @@
               "value": "active"
             }
           ],
-          "label": "What is on the wall today?",
+          "label": "What's on the wall today?",
           "next": "eye_offer"
         },
         {
@@ -173,7 +173,7 @@
           "next": "bye"
         }
       ],
-      "text": "The old man raises his lamp, considers you, and lowers it again.\n\n\"You are not one of the ones I am looking for,\" he says, \"so we will get along fine.\""
+      "text": "The old man raises his lamp, considers you, and lowers it again.\n\n\"You aren't one of the ones I'm looking for,\" he says, \"so we'll get along fine.\""
     },
     "wires": {
       "options": [
@@ -182,7 +182,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Ankle high, mostly.\" He cranks the lamp twice. \"They do not hurt you. They just tell me you came.\""
+      "text": "\"Ankle high, mostly.\" He cranks the lamp twice. \"They don't hurt you. They just tell me you came.\""
     }
   },
   "faction": "ideology_long_watch",

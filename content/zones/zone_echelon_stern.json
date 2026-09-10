@@ -7,7 +7,7 @@
   "ambient_theme": "coast",
   "bg_color": "#101820",
   "color": "#cfe6f2",
-  "description": "The stern lounge: a crescent of low leather seating open to the air, overlooking the black water of Coldwater Basin. Heaters glow amber under the rail. This is where deals are closed and confidences kept, with nothing behind you but the Basin. You can LOOK SOUTH, EAST, or WEST across the water. The foyer lies to the NORTH.",
+  "description": "The stern lounge: a crescent of low leather seating open to the air, overlooking the black water of Coldwater Basin. Heaters glow amber under the rail. Deals get closed out here, with nothing behind you but the Basin. You can LOOK SOUTH, EAST, or WEST across the water. The foyer lies to the NORTH.",
   "exits": {
     "north": "zone_echelon_foyer"
   },

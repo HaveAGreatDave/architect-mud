@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A long stone room built into the toe of the dam, and the loudest place for sixty miles: four horizontal wheels turning in cast housings, taking water off the dam and putting out shaft power along a line of overhead belting that goes out through the wall and into the rest of the works. Every housing has an inspection cover off and standing against it. There are no screens. There is a logbook on a lectern by the door with a pencil on a string, and the last entry is from this morning, and the handwriting is bad and the numbers are not.",
+  "description": "A long stone room built into the toe of the dam, and the loudest place for sixty miles: four horizontal wheels turning in cast housings, taking water off the dam and putting out shaft power along a line of overhead belting that goes out through the wall and into the rest of the works. Every housing has an inspection cover off and standing against it. There are no screens. There's a logbook on a lectern by the door with a pencil on a string, and the last entry is from this morning, and the handwriting is bad and the numbers are not.",
   "exits": {
     "east": "zone_dw_770_973",
     "north": "zone_dw_769_972",

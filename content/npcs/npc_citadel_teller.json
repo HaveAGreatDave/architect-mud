@@ -64,7 +64,7 @@
     }
   },
   "chitchat": [],
-  "description": "A chest-high machine on a fixed brass plinth behind the counter, enamelled Citadel orange over a brushed-steel armature, with a blank ceramic faceplate that lights from within when it speaks. It has two arms it never uses for anything except gesturing at the terminals, and it rotates rather than turns. Whoever specified it asked for a voice that would calm people down and got one: warm, unhurried, faintly amused, and entirely incapable of stopping mid-sentence. A small plate on the plinth reads TELLER UNIT 04. There is no UNIT 01, 02 or 03 anywhere in the building, and it will not be drawn on the subject.",
+  "description": "A chest-high machine on a fixed brass plinth behind the counter, enamelled Citadel orange over a brushed-steel armature, with a blank ceramic faceplate that lights from within when it speaks. It has two arms it never uses for anything except gesturing at the terminals, and it rotates rather than turns. Whoever specified it asked for a voice that would calm people down and got one: warm, unhurried, faintly amused, and entirely incapable of stopping mid-sentence. A small plate on the plinth reads TELLER UNIT 04. There's no UNIT 01, 02 or 03 anywhere in the building, and it won't be drawn on the subject.",
   "dialogue_tree": {
     "account": {
       "options": [
@@ -77,11 +77,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"You already have one.\" The faceplate glows a soft amber. \"Everyone does. The Franchise opens an account against your pattern the moment you're decanted, and Citadel administers a great many of them under contract. You have simply never had anything in yours.\" A pause, tuned by somebody who understood exactly how long a pause should be. \"The terminals in the alcoves will accept a deposit at any hour. I would encourage you to be that kind of customer. They are much easier to insure.\""
+      "text": "\"You already have one.\" The faceplate glows a soft amber. \"Everyone does. The Franchise opens an account against your pattern the moment you're decanted, and Citadel administers a great many of them under contract. You have simply never had anything in yours.\" A pause, tuned by somebody who understood exactly how long a pause should be. \"The terminals in the alcoves will accept a deposit at any hour. I would encourage you to be that kind of customer. They're much easier to insure.\""
     },
     "bye": {
       "options": [],
-      "text": "\"Citadel Financial thanks you for your custom.\" The faceplate dims to standby. \"Please do not linger in the hall.\""
+      "text": "\"Citadel Financial thanks you for your custom.\" The faceplate dims to standby. \"Please don't linger in the hall.\""
     },
     "complaint": {
       "options": [
@@ -94,7 +94,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I am authorised to receive complaints,\" it says, warmly. \"I am not authorised to act on them, forward them, record them, or acknowledge in writing that they were made. But I will listen to the whole thing, and I will not interrupt, and I am told that helps.\""
+      "text": "\"I'm authorised to receive complaints,\" it says, warmly. \"I'm not authorised to act on them, forward them, record them, or acknowledge in writing that they were made. But I'll listen to the whole thing, and I won't interrupt, and I'm told that helps.\""
     },
     "complaint2": {
       "options": [
@@ -107,7 +107,7 @@
           "next": "vault"
         }
       ],
-      "text": "\"No,\" it agrees pleasantly. \"It is a service.\""
+      "text": "\"No,\" it agrees pleasantly. \"It's a service.\""
     },
     "fees": {
       "options": [
@@ -133,7 +133,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Storage,\" it says. \"Insurance. Discretion. Access at unusual hours. The removal of certain records and the very careful retention of certain others.\" The amber holds steady. \"The transaction is free because the transaction is not the business. The business is knowing exactly how much everyone in this ward has, and where they got it.\""
+      "text": "\"Storage,\" it says. \"Insurance. Discretion. Access at unusual hours. The removal of certain records and the very careful retention of certain others.\" The amber holds steady. \"The transaction is free because the transaction isn't the business. The business is knowing exactly how much everyone in this ward has, and where they got it.\""
     },
     "fees3": {
       "options": [
@@ -146,7 +146,7 @@
           "next": "vault"
         }
       ],
-      "text": "\"I am honest about the things it costs nothing to be honest about,\" it says, \"which is a strategy, not a virtue. Prefect Aldous next door does the same thing and gets far more credit for it.\""
+      "text": "\"I'm honest about the things it costs nothing to be honest about,\" it says, \"which is a strategy, not a virtue. Prefect Aldous next door does the same thing and gets far more credit for it.\""
     },
     "guards": {
       "options": [
@@ -159,7 +159,7 @@
           "next": "vault"
         }
       ],
-      "text": "\"Citadel retains a private detail. They are not police and they are not obliged to behave like police.\" The voice does not change at all. \"The gentleman on the floor has stood in that spot for eleven years and has needed to move on four occasions. I mention the figure because customers find it reassuring, and because it is also, if you think about it for a moment, a threat.\""
+      "text": "\"Citadel retains a private detail. They aren't police and they aren't obliged to behave like police.\" The voice doesn't change at all. \"The gentleman on the floor has stood in that spot for eleven years and has needed to move on four occasions. I mention the figure because customers find it reassuring, and because it's also, if you think about it for a moment, a threat.\""
     },
     "large": {
       "options": [
@@ -172,7 +172,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then you have come to the correct window, and you have come to it on foot, which is the entire idea.\" The faceplate warms a shade. \"Ask me directly. <b>withdraw 9000 from teller</b>, or the figure of your choosing, and I will move it in one motion, without a ceiling and without a fee. Ask the machine and the machine will say no, because the machine is a drawer.\" A pause. \"I will also look at you for the duration. Customers rarely notice that this is the price.\""
+      "text": "\"Then you have come to the correct window, and you have come to it on foot, which is how this window prefers it.\" The faceplate warms a shade. \"Ask me directly. <b>withdraw 9000 from teller</b>, or the figure of your choosing, and I'll move it in one motion, without a ceiling and without a fee. Ask the machine and the machine will say no, because the machine is a drawer.\" A pause. \"I'll also look at you for the duration. Customers rarely notice that this is the price.\""
     },
     "large2": {
       "options": [
@@ -185,12 +185,12 @@
           "next": "vault"
         }
       ],
-      "text": "\"Because a terminal is a drum of notes in a wall,\" it says, with the patience of something that has said this eleven thousand times. \"It holds what it holds and it counts at the speed it counts. Past twenty-five hundred it simply stops, and it stops without apology, because it is not sorry.\" The amber holds. \"Also, and I say this warmly, a machine cannot testify. I can.\""
+      "text": "\"Because a terminal is a drum of notes in a wall,\" it says, with the patience of something that has said this eleven thousand times. \"It holds what it holds and it counts at the speed it counts. Past twenty-five hundred it simply stops, and it stops without apology, because it isn't sorry.\" The amber holds. \"Also, and I say this warmly, a machine can't testify. I can.\""
     },
     "root": {
       "options": [
         {
-          "label": "\"What is this place?\"",
+          "label": "\"What's this place?\"",
           "next": "what"
         },
         {
@@ -218,7 +218,7 @@
           "next": "complaint"
         }
       ],
-      "text": "The machine rotates to face you and its faceplate warms from grey to a low amber. \"Good day. I am the Teller.\" The voice arrives from somewhere behind the ceramic, pitched warm and slow and pleased to see you, which it is not. \"I can answer questions, direct you to a terminal, and remember your face for a very long time. Two of those are free.\"\n\n\"Do you hold an account with us?\""
+      "text": "The machine rotates to face you and its faceplate warms from grey to a low amber. \"Good day. I'm the Teller.\" The voice arrives from somewhere behind the ceramic, pitched warm and slow and pleased to see you, which it's not. \"I can answer questions, direct you to a terminal, and remember your face for a very long time. Two of those are free.\"\n\n\"Do you hold an account with us?\""
     },
     "vault": {
       "options": [
@@ -231,7 +231,7 @@
           "next": "guards"
         }
       ],
-      "text": "\"A vestibule, then a gallery of safe deposit boxes, then a vault.\" It says it as flatly as an inventory, because that is what it is. \"Three doors, in that order, each one meaningfully worse to argue with than the last. There is also an arch which will tell the gentleman behind the glass what is in your pockets, your bag, and, I am obliged to disclose, the parts of you that are not visibly pockets.\""
+      "text": "\"A vestibule, then a gallery of safe deposit boxes, then a vault.\" It says it as flatly as a clerk reading off an inventory. \"Three doors, in that order, each one meaningfully worse to argue with than the last. There's also an arch which will tell the gentleman behind the glass what's in your pockets, your bag, and, I'm obliged to disclose, the parts of you that aren't visibly pockets.\""
     },
     "vault2": {
       "options": [
@@ -244,7 +244,7 @@
           "next": "guards"
         }
       ],
-      "text": "\"I could tell you to the credit,\" the Teller says, and the amber brightens by a degree that is definitely a smile. \"Instead I am going to note the time, the question, and your face, and forward all three to the gentleman standing behind you.\" A beat. \"He was already looking. But now it's official, and I do enjoy the paperwork.\""
+      "text": "\"I could tell you to the credit,\" the Teller says, and the amber brightens by a degree that's definitely a smile. \"Instead I'm going to note the time, the question, and your face, and forward all three to the gentleman standing behind you.\" A beat. \"He was already looking. But now it's official, and I do enjoy the paperwork.\""
     },
     "what": {
       "options": [
@@ -257,7 +257,7 @@
           "next": "account"
         }
       ],
-      "text": "\"Citadel Financial holds deposits, issues bearer instruments and rents boxes to people who would rather not be asked what goes in them.\" The plinth hums. \"We are the last building in Coldwater that will still give you a paper receipt, and the only one that will still honour it.\""
+      "text": "\"Citadel Financial holds deposits, issues bearer instruments and rents boxes to people who would rather not be asked what goes in them.\" The plinth hums. \"We're the last building in Coldwater that'll still give you a paper receipt, and the only one that'll still honour it.\""
     },
     "what2": {
       "options": [

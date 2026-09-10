@@ -2,10 +2,10 @@
   "ambient": [
     "Something completes and the whole vault brightens by a degree.",
     "The pattern reorganises around you, making room.",
-    "A sound goes up that is unmistakably a greeting."
+    "A sound goes up that's unmistakably a greeting."
   ],
   "cause": "drug",
-  "description": "A vaulted space built out of moving pattern, every surface working at something. It has been prepared. There is a sense of a great deal of activity that paused, politely, about a second before you arrived, and is now waiting to resume.",
+  "description": "A vaulted space built out of moving pattern, every surface working at something. It has been prepared. There's a sense of a great deal of activity that paused, politely, about a second before you arrived, and is now waiting to resume.",
   "drug_id": "drug_dmt",
   "fx": "bloom",
   "fx_intensity": 0.9,
@@ -15,7 +15,7 @@
     {
       "looks": [
         "Structure that keeps completing itself and starting again, brighter.",
-        "It is decorated in a way that means something. You cannot read it and you can tell it is language.",
+        "It's decorated in a way that means something. You can't read it and you can tell it's language.",
         "It was built. Not grown, not found. Built, deliberately, and recently enough to still be proud."
       ],
       "name": "the vault"
@@ -24,7 +24,7 @@
       "looks": [
         "Paused, courteously, for you.",
         "Very complicated and going extremely well.",
-        "It resumes when you look away and stops when you look back, and it is not hiding."
+        "It resumes when you look away and stops when you look back, and it isn't hiding."
       ],
       "name": "the activity"
     }

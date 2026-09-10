@@ -1,11 +1,11 @@
 {
   "ambient": [
     "The rack cycles a relay, correctly, for nothing.",
-    "The mast takes a gust from a wind that is not here.",
+    "The mast takes a gust from a wind that isn't here.",
     "A cooling fan spins up, does its job, and spins down."
   ],
   "cause": "drug",
-  "description": "A concrete hut on nothing, with a mast on it and an equipment rack inside that is entirely lit and entirely idle. It has power. It has been serviced. It is relaying, faithfully and at full strength, an absence.",
+  "description": "A concrete hut on nothing, with a mast on it and an equipment rack inside that's entirely lit and entirely idle. It has power. It has been serviced. It's relaying, faithfully and at full strength, an absence.",
   "drug_id": "drug_deadair",
   "fx": "static",
   "fx_intensity": 0.75,
@@ -15,19 +15,19 @@
     {
       "looks": [
         "Every light green. Every meter at zero.",
-        "Serviced recently. There is a signature on the card and it has run.",
-        "It is retransmitting something. You can tell by how carefully it is doing it."
+        "Serviced recently. There's a signature on the card and it has run.",
+        "It's retransmitting something. You can tell by how carefully it's doing it."
       ],
       "name": "the rack"
     },
     {
       "looks": [
         "Guy-wired, painted, correct. Going up further than the sky is.",
-        "It hums, once, in weather that is not happening.",
-        "There is a red light at the top for aircraft. There are no aircraft."
+        "It hums, once, in weather that isn't happening.",
+        "There's a red light at the top for aircraft. There are no aircraft."
       ],
       "name": "the mast"
     }
   ],
-  "weather": "The mast takes a gust from a wind that is not happening. The red light at the top blinks for aircraft that are not coming."
+  "weather": "The mast takes a gust from a wind that isn't happening. The red light at the top blinks for aircraft that aren't coming."
 }

@@ -43,7 +43,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   const untaught = await run('mastery');
   check('mastery: an untrained body has nothing to show', untaught?.type === 'output');
-  check('mastery: ...and does not leak the discipline list to someone who has never trained',
+  check("mastery: ...and doesn't leak the discipline list to someone who has never trained",
     !DISCIPLINES.some(d => (untaught?.message || '').includes(d)), untaught?.message);
 
   setRank(P, 'body', 30);
@@ -74,7 +74,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('pulling the chrome does NOT hand the ceiling straight back',
     justPulled < 100, `cap ${justPulled}`);
   check('...and the stored rank is still untouched', storedRank(clean, 'body') === 90);
-  check('...and the stain is exactly what is missing',
+  check("...and the stain is exactly what's missing",
     Math.abs(stainOf(clean) - (100 - justPulled)) < 0.01);
 
   // Wind the clock forward by rewriting when the stain was last set — the same
@@ -85,7 +85,7 @@ export default async function regress({ run, check, getPlayer }) {
     `${justPulled} → ${halfFaded}`);
 
   clean._purity.at = Date.now() - STAIN_HALF_LIFE_DAYS * 10 * 86400000;
-  check('and eventually it is gone entirely — a stain, not a scar',
+  check("and eventually it's gone entirely — a stain, not a scar",
     purityCap(clean) === 100 && stainOf(clean) === 0);
   check('...and only THEN is the earned rank worth what it was',
     effectiveRank(clean, 'body') === 90);
@@ -111,7 +111,7 @@ export default async function regress({ run, check, getPlayer }) {
   // been modified is not the same as a body that never was — which is the
   // point of the whole mechanic and would make this next check a lie.
   clean._purity = null;
-  check('an unmodified body is given no reason it cannot go further', capReason(clean) === null);
+  check("an unmodified body is given no reason it can't go further", capReason(clean) === null);
   clean._augments.set('aug_test', { condition: 1 });
   check('...and a modified one is told in prose, never a number',
     typeof capReason(clean) === 'string' && !/\d/.test(capReason(clean)), capReason(clean));
@@ -123,12 +123,12 @@ export default async function regress({ run, check, getPlayer }) {
   // door reads what you ARE carrying, the ceiling reads what you CARRIED.
   const door = (over = {}) => ({ _augments: new Map(), _mutations: new Map(), _disciplines: new Map(), ...over });
 
-  check('an unmodified body is not asked to cleanse anything',
+  check("an unmodified body isn't asked to cleanse anything",
     !carriesModification(door()) && cleanseDemand(door(), 'Vance') === null);
 
   const chromed = door({ _augments: new Map([['a', { condition: 1 }]]) });
   check('working chrome closes the door', carriesModification(chromed));
-  check('...and a DEAD augment does not — it is not something you are carrying',
+  check("...and a DEAD augment does not — it isn't something you're carrying",
     !carriesModification(door({ _augments: new Map([['a', { condition: 0 }]]) })));
 
   // A REAL catalog id, not an invented one: `getMutations` silently skips ids
@@ -168,7 +168,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // The door must not be wired to the social ladder — it has rungs the Watch
   // admit, and refusing them here would be a silent second gate.
-  check('an awakened mind is never asked to cleanse — psionics is not a BODY',
+  check("an awakened mind is never asked to cleanse — psionics isn't a BODY",
     !carriesModification(door({ _flags: new Map([['psi_rank', 'seer']]) })));
 
   // ── the ladder: pure > psionic > augmented > mutant ───────────────────────
@@ -190,7 +190,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('...and costs no ceiling, because nothing was done to the BODY',
     purityCap(body({ _flags: new Map([['psi_rank', 'seer']]) })) === 100);
 
-  check('every rung has something to say, and it is never a refusal', (() => {
+  check("every rung has something to say, and it's never a refusal", (() => {
     for (const p of [pure, psi, aug]) {
       const g = standingGreeting(p, 'Vance');
       if (!g || !g.includes('Vance')) return false;
@@ -208,7 +208,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('...and the slur is about desertion, not about ability',
     standingWord(psi) === 'walkaway');
 
-  check('the greeting is mostly CODED — they do not usually say the quiet part', (() => {
+  check("the greeting is mostly CODED — they don't usually say the quiet part", (() => {
     // The slur is the rare register. Sample enough to catch a flipped default.
     let plain = 0;
     for (let i = 0; i < 400; i++) if (/\bBought\b/.test(standingGreeting(aug, 'Vance'))) plain++;
@@ -231,17 +231,17 @@ export default async function regress({ run, check, getPlayer }) {
 
   check('an unmet archetype reads as a shared zero rather than undefined',
     getRead(R, 'enemy:never_met').familiarity === 0 && Array.isArray(getRead(R, 'enemy:never_met').exploits));
-  check('...and that zero is frozen, so a caller cannot poison it for everyone',
+  check("...and that zero is frozen, so a caller can't poison it for everyone",
     Object.isFrozen(_test.ZERO_READ));
 
   adjustRead(R, 'enemy:enemy_scav_dog', { exploit: 'ex_left_knee' });
   adjustRead(R, 'enemy:enemy_scav_dog', { exploit: 'ex_left_knee' });
-  check('an exploit is recorded once, however often it is noticed',
+  check("an exploit is recorded once, however often it's noticed",
     getRead(R, 'enemy:enemy_scav_dog').exploits.length === 1);
 
   // ── decay: lazy, at hydrate, no tick ──────────────────────────────────────
   const nowSec = Date.now() / 1000;
-  check('a read seen just now has not decayed',
+  check("a read seen just now hasn't decayed",
     Math.abs(_test.decayed(100, nowSec, Date.now()) - 100) < 0.01);
   check('a fortnight halves it',
     Math.abs(_test.decayed(100, nowSec - 14 * 86400, Date.now()) - 50) < 0.5);
@@ -254,7 +254,7 @@ export default async function regress({ run, check, getPlayer }) {
   _test.prune(B);
   check('the read set is bounded so a login query can never get expensive',
     B._reads.size === MAX_READ_ROWS, `${B._reads.size}`);
-  check('...and it is the best-known archetypes that survive the prune',
+  check("...and it's the best-known archetypes that survive the prune",
     B._reads.has(`enemy:t${MAX_READ_ROWS + 19}`) && !B._reads.has('enemy:t0'));
 
   // ── Read: the archetype key, and the inversion ────────────────────────────
@@ -279,7 +279,7 @@ export default async function regress({ run, check, getPlayer }) {
   for (let i = 0; i < 12; i++) noteExchange(F, dog, { kind: 'incoming' });
   check('the longer the fight runs, the more you know — the whole point of the system',
     heatOn(F, dog) > early);
-  check('...and that is expressed as a tier, not a raw number',
+  check("...and that's expressed as a tier, not a raw number",
     tierAtLeast(readTier(heatOn(F, dog)), 'pattern'));
 
   check('a second individual of the same kind is its OWN read',
@@ -293,7 +293,7 @@ export default async function regress({ run, check, getPlayer }) {
   const heatBefore = heatOn(F, dog);
   const banked = bankHeat(F, 'ei_1');
   check('a finished fight banks what it taught', banked > 0);
-  check('...at a discount, so a grind cannot max an archetype', banked < heatBefore);
+  check("...at a discount, so a grind can't max an archetype", banked < heatBefore);
   check('...and the heat is gone with the fight', F._readHeat.has('ei_1') === false);
   check('...leaving ONE archetype row', F._reads.size === 1);
   check('now the next one of its kind starts ahead', heatOn(F, dog2) > 0);
@@ -330,8 +330,8 @@ export default async function regress({ run, check, getPlayer }) {
   check('composure starts at nothing', getComposure(C) === 0);
   check('Will buys headroom', composureCap(C) > composureCap({ _disciplines: new Map(), _augments: new Map(), _mutations: new Map() }));
   awardComposure(C, 99);
-  check('...and it cannot be exceeded', getComposure(C) === composureCap(C));
-  check('a spend it cannot afford takes NOTHING', (() => {
+  check("...and it can't be exceeded", getComposure(C) === composureCap(C));
+  check("a spend it can't afford takes NOTHING", (() => {
     const D = { _disciplines: new Map(), _augments: new Map(), _mutations: new Map(), _composure: 1 };
     return spendComposure(D, 3) === false && getComposure(D) === 1;
   })());
@@ -363,13 +363,13 @@ export default async function regress({ run, check, getPlayer }) {
 
   // ── stances ───────────────────────────────────────────────────────────────
   const S = { id: 'st', hp_max: 100, _disciplines: new Map([['body', 60]]), _augments: new Map(), _mutations: new Map() };
-  check('a stance you have not trained for is not offered',
+  check("a stance you haven't trained for isn't offered",
     knownStances({ _disciplines: new Map(), _augments: new Map(), _mutations: new Map() }).length === 0);
   check('a trained body is offered some', knownStances(S).length > 0);
 
   S._stance = { name: 'iron_body', startedAt: Date.now(), expiresAt: Date.now() + 60000 };
   check('a held brace adds soak', stanceSoak(S) > 0);
-  check('...that never touches player.soak, so there is no cache to invalidate',
+  check("...that never touches player.soak, so there's no cache to invalidate",
     S.soak === undefined);
 
   // THE reason stances are not written into the armour cache.
@@ -390,7 +390,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('every technique has a line for FAILING, because it can',
     Object.values(TECHNIQUES).every(t => typeof t.fail === 'string' && t.fail.length > 10));
 
-  check('a technique CAN fail — it is never a passive with extra steps', (() => {
+  check("a technique CAN fail — it's never a passive with extra steps", (() => {
     const weak = { _disciplines: new Map([['movement', 25]]), _augments: new Map(), _mutations: new Map() };
     const brute = { hit: 8, dodge: 8 };
     let failures = 0;
@@ -441,7 +441,7 @@ export default async function regress({ run, check, getPlayer }) {
   };
   const target = { instanceId: 'ei_w', templateId: 'enemy_t', name: 'thing', hp: 30, hit: 2, dodge: 2, lastAttack: Date.now() };
 
-  check('a window will not arm before you can read the thing at all',
+  check("a window won't arm before you can read the thing at all",
     canArm(W, target) === false);
 
   // Get the read up to 'pattern'.
@@ -449,12 +449,12 @@ export default async function regress({ run, check, getPlayer }) {
   check('...and will once you can', canArm(W, target) === true);
 
   check('a dead thing arms nothing', canArm(W, { ...target, hp: 0 }) === false);
-  check('with no composure there is no window', canArm({ ...W, _composure: 0 }, target) === false);
+  check("with no composure there's no window", canArm({ ...W, _composure: 0 }, target) === false);
 
   const win = armWindow(W, target);
   check('arming opens exactly one window', !!win && !!W._readWindow);
   check('...charged for it', getComposure(W) < 4);
-  check('...and a second cannot open on top of it', canArm(W, target) === false);
+  check("...and a second can't open on top of it", canArm(W, target) === false);
   check('the answer is one of the four the client is shown',
     OPTIONS.includes(win.correct), win.correct);
 
@@ -476,7 +476,7 @@ export default async function regress({ run, check, getPlayer }) {
   const win2 = armWindow(W, target);
   resolveWindow(W, win2.token, win2.correct);
   check('a correct read leaves an answer waiting', !!W._readAnswer);
-  check('...that another enemy\'s swing cannot eat',
+  check('...that another enemy\'s swing can\'t eat',
     takeAnswer(W, { instanceId: 'ei_other' }) === false);
   check('...and the right enemy\'s swing does', takeAnswer(W, target) === true);
   check('...exactly once', takeAnswer(W, target) === false);
@@ -555,9 +555,9 @@ export default async function regress({ run, check, getPlayer }) {
     // only shows up if the stored rank is above where the cap lands.
     setRank(C, 'body', 95);
 
-    check('mastery shape passes on a discipline that is high enough',
+    check("mastery shape passes on a discipline that's high enough",
       (await evalCondition({ mastery: 'body', min: 90 }, C)) === true);
-    check('…and fails on one that is not',
+    check("…and fails on one that's not",
       (await evalCondition({ mastery: 'body', min: 99 }, C)) === false);
     check("'any' reads the best discipline, not a named one",
       (await evalCondition({ mastery: 'any', min: 90 }, C)) === true);
@@ -670,7 +670,7 @@ export default async function regress({ run, check, getPlayer }) {
     // before changing it back.
     const { readFileSync } = await import('node:fs');
     const manifest = JSON.parse(readFileSync('plugins/mastery/plugin.json', 'utf8'));
-    check('blind fighting: mastery does not answer visibility.perceive',
+    check("blind fighting: mastery doesn't answer visibility.perceive",
       !(manifest.hooks || []).includes('visibility.perceive'), JSON.stringify(manifest.hooks || []));
     const idxSrc = readFileSync('plugins/mastery/index.js', 'utf8');
     check('blind fighting: …not in code either',
@@ -825,7 +825,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     await setFlag('player', 'lw_arc', '', T);
     const unsworn = await doTrain(T, entry, 'body');
-    check('oath: an unsworn body is not taught', /stood a watch/i.test(unsworn?.message || ''), unsworn?.message);
+    check("oath: an unsworn body isn't taught", /stood a watch/i.test(unsworn?.message || ''), unsworn?.message);
     check('oath: …and learns nothing from being refused', storedRank(T, 'body') === 0);
 
     // ⚠ Number(undefined) is NaN and NaN >= 10 is false, so an unset arc fails
@@ -853,7 +853,7 @@ export default async function regress({ run, check, getPlayer }) {
     await setFlag('player', 'lw_arc', '', T);
     check('oath: an unsworn body keeps a rank it already earned',
       storedRank(T, 'body') === earned, `${earned} -> ${storedRank(T, 'body')}`);
-    check('oath: …and it is still worth its effective value',
+    check("oath: …and it's still worth its effective value",
       effectiveRank(T, 'body') === earned, String(effectiveRank(T, 'body')));
 
     // The door still comes FIRST. A chromed stranger is told about the metal,

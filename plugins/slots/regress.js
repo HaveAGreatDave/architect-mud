@@ -70,7 +70,7 @@ export default async function regress({ check }) {
     // Broke → the guarded debit rejects the pull.
     await query('UPDATE players SET credits=0 WHERE id=$1', [PID]);
     r = await spin('spin 5', player);
-    check('a broke player cannot spin', r?.type === 'error', JSON.stringify(r)?.slice(0, 120));
+    check("a broke player can't spin", r?.type === 'error', JSON.stringify(r)?.slice(0, 120));
     check('failed pull leaves the balance at zero', (await dbCredits()) === 0, 'credits moved on a failed pull');
   } finally {
     await deleteFurniture(FURN).catch(() => {});

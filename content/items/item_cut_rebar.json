@@ -1,10 +1,10 @@
 {
-  "description": "A metre of ribbed steel bar, cut clean at one end and sheared ragged at the other. Deniably a building material. Everybody in the basin knows what it's actually for, including the person selling it to you.",
+  "description": null,
   "flags": {},
   "id": "item_cut_rebar",
   "name": "length of cut rebar",
   "tags": {
-    "description": "A metre of ribbed steel bar, cut clean at one end and sheared ragged at the other. Deniably a building material. Everybody in the basin knows what it's actually for, including the person selling it to you.",
+    "description": "A metre of ribbed steel bar, cut clean at one end and sheared ragged at the other. Deniably a building material.",
     "misc": true
   },
   "type": "misc",

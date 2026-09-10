@@ -36,13 +36,13 @@ export function runVarsCommand(rest) {
   // strange thing for a listing command to do, and "unset it" already has a word.
   if (m[2] === undefined) {
     const all = allVars();
-    if (!(name in all)) { appendMsg(`$${name} is not set.`, 'system'); return; }
+    if (!(name in all)) { appendMsg(`$${name} isn't set.`, 'system'); return; }
     appendMsg(`$${name} = ${all[name]}`, 'system');
     return;
   }
   const value = m[2].trim();
   if (!value) {
-    appendMsg(unsetVar(name) ? `$${name} unset.` : `$${name} was not set.`, 'system');
+    appendMsg(unsetVar(name) ? `$${name} unset.` : `$${name} wasn't set.`, 'system');
     return;
   }
   // The same expression evaluator a macro's `set` uses, so typing it by hand and

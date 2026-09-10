@@ -1,11 +1,11 @@
 {
   "cost": 9500,
-  "description": "Subdermal weave of the grade The First wears, laid in a lattice from throat to hip so the whole torso answers at once. Halcyon does not list it. There is no shelf it sits on and no price on any board — there is an account, and either it is the kind of account this goes on or it is not.",
+  "description": "Subdermal weave of the grade The First wears, laid in a lattice from throat to hip so the whole torso answers at once. Halcyon doesn't list it. There's no shelf it sits on and no price on any board — there's an account, and either it's the kind of account this goes on or it's not.",
   "failure_messages": {
     "burnout": "The whole torso locks rigid, throat to hip, and holds you upright in a way that has nothing to do with standing.",
     "dead": "The lattice goes slack under the skin all at once, and you feel every separate strand of it stop.",
     "fault": "A band of the lattice drops out across the ribs and that stripe of you stops reporting in.",
-    "strain": "The lattice tightens across the ribs and forgets to let go, and for a moment breathing is something you are doing on purpose."
+    "strain": "The lattice tightens across the ribs and forgets to let go, and for a moment breathing is something you're doing on purpose."
   },
   "heat_rate": 0.55,
   "id": "aug_seraph_lattice",

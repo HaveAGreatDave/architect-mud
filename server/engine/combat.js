@@ -390,10 +390,10 @@ function playerHitLine(player, targetName, partLabel, damage, damageType, critic
     return `<span class="crit-tag">EXECUTION</span> Your shot goes exactly where you sent it. ${targetName}'s ${part} comes apart — ${dmg}`;
   }
   if (execution === 'knockout') {
-    return `<span class="crit-tag">KNOCKOUT</span> You bring it down flat on ${targetName}'s ${part}. They fold up and do not get back up`;
+    return `<span class="crit-tag">KNOCKOUT</span> You bring it down flat on ${targetName}'s ${part}. They fold up and don't get back up`;
   }
   if (execution === 'maim') {
-    return `<span class="crit-tag">CALLED SHOT</span> You put it through ${targetName}'s ${part} — ${dmg}. Not enough to finish it, but it will never be right again`;
+    return `<span class="crit-tag">CALLED SHOT</span> You put it through ${targetName}'s ${part} — ${dmg}. Not enough to finish it, but it'll never be right again`;
   }
   if (critical) {
     return `<span class="crit-tag">${power ? 'CRITICAL POWER' : 'CRITICAL HIT'}</span> to the ${part}! You deal ${dmg} damage to ${targetName}`;
@@ -1034,7 +1034,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       power,
       // Say WHY, or a run of misses reads as bad luck instead of a wrong tool.
       message: playerMissLine(player, enemy.name, power)
-        + (flight?.hitMod < 0 ? ` <span class="dmg-type">It is above you. You need reach, or something that shoots.</span>` : '')
+        + (flight?.hitMod < 0 ? ` <span class="dmg-type">It's above you. You need reach, or something that shoots.</span>` : '')
         + swingLines(swing),
       enemyId: enemyInstanceId,
       enemyHp: enemy.hp,
@@ -1145,7 +1145,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       live.hp = Math.max(1, live.hp - jolt);   // humiliating, never lethal
       live._resDirty = true;
       if (live.id !== player.id) {
-        sendToPlayer(live.id, { type: 'output', message: `The water lights up. <span class="dmg-taken">${jolt}</span> — you are standing in it too.` });
+        sendToPlayer(live.id, { type: 'output', message: `The water lights up. <span class="dmg-taken">${jolt}</span> — you're standing in it too.` });
       }
     }
     player.hp = Math.max(1, (player.hp ?? player.hp_max) - jolt);
@@ -1431,7 +1431,7 @@ export async function enemyAttackPlayer(enemy, player) {
   const selfHp = selfHpTag(player.hp - damage, player.hp_max);
   // Said out loud, or it is a number moving on a screen nobody has open.
   const radTag = radDose
-    ? ` <span class="dmg-type">The air around it is wrong. (+${radDose} rad)</span>`
+    ? ` <span class="dmg-type">The air around it's wrong. (+${radDose} rad)</span>`
     : '';
 
   return {
@@ -1743,7 +1743,7 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
   // Some NPCs cannot be attacked at all (tutorial attendants, protected quest-givers).
   // A general seam: flags.no_attack refuses combat; flags.no_attack_message flavors it.
   if (npc.flags?.no_attack) {
-    return { success: false, message: npc.flags.no_attack_message || `Something stops you. ${npc.name} cannot be harmed.` };
+    return { success: false, message: npc.flags.no_attack_message || `Something stops you. ${npc.name} can't be harmed.` };
   }
 
   await ensureTunables();

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The inside face of the wall, and a path along it worn smooth by the daily round. Up close the thorn is not a hedge, it is an argument that took thirty years: layered, pegged, cut back and let go and cut back again, the salvage lattice long since swallowed. A crew is working a section with hooks and heavy gloves, and what they are doing is not repairing it. They are pruning it.",
+  "description": "The inside face of the wall, and a path along it worn smooth by the daily round. Up close the thorn isn't a hedge, it's an argument that took thirty years: layered, pegged, cut back and let go and cut back again, the salvage lattice long since swallowed. A crew is working a section with hooks and heavy gloves, and what they're doing isn't repairing it. They're pruning it.",
   "exits": {
     "east": "zone_scw_1045_978",
     "north": "zone_scw_1044_977",

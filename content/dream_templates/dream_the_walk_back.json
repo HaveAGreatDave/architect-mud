@@ -1,7 +1,7 @@
 {
   "ambient": [
     "You pass the corner you turn at. The corner you turn at is ahead.",
-    "A light goes on in an upstairs window and it is the window you know.",
+    "A light goes on in an upstairs window and it's the window you know.",
     "Your feet find a kerb before you see it, correctly."
   ],
   "cause": "dream",
@@ -16,7 +16,7 @@
       "looks": [
         "Yours. The bins are out on the right night.",
         "You have walked this in every weather and never at this length.",
-        "The numbers go up, which is correct, and they do not stop, which is also correct."
+        "The numbers go up, which is correct, and they don't stop, which is also correct."
       ],
       "name": "the street"
     },

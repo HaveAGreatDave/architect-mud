@@ -4,7 +4,7 @@
     "How much of this can you actually hold in your head?",
     "Would you like a window with you in it?"
   ],
-  "description": "A brass structure stands here the size of a wardrobe and the shape of a church seen from a long way off, and it is adding to itself, buttresses and tracery and small saints in small niches, without ever finishing.",
+  "description": "A brass structure stands here the size of a wardrobe and the shape of a church seen from a long way off, and it's adding to itself, buttresses and tracery and small saints in small niches, without ever finishing.",
   "drug_id": "drug_blotter",
   "emotes": [
     "{it} extrudes a spire, considers it, and folds it back in.",
@@ -15,16 +15,16 @@
   "fx_intensity": 0.5,
   "id": "dx_blotter_any_elaborating",
   "looks": [
-    "It is producing more of itself, tastefully, and at speed.",
+    "It's producing more of itself, tastefully, and at speed.",
     "You look at one square inch of it for about a year and a half.",
-    "Underneath all the detail it is exactly what it was, which is the strangest part."
+    "Underneath all the detail it's exactly what it was, which is the strangest part."
   ],
   "matches": null,
   "name": "a cathedral of folding brass",
   "says": [
-    "It is going very well, thank you for asking.",
-    "You are only seeing the first four or five layers.",
-    "This is what it does when you are not looking. You are welcome."
+    "It's going very well, thank you for asking.",
+    "You're only seeing the first four or five layers.",
+    "This is what it does when you aren't looking. You're welcome."
   ],
   "scope": "object"
 }

@@ -1,10 +1,19 @@
 {
-  "description": "A designer psychedelic that does not do gentle. Roll the dice.",
-  "flags": {},
+  "description": null,
+  "flags": {
+    "prefill": {
+      "drug_id": "drug_screamers",
+      "fluid_amount": 12,
+      "fluid_type": "drug"
+    }
+  },
   "id": "item_screamers",
   "name": "screamers",
   "tags": {
-    "drug": true
+    "description": "A designer psychedelic that doesn't do gentle. Roll the dice.",
+    "drug": true,
+    "fillable": 12,
+    "unique": true
   },
   "type": "consumable",
   "value": 100,

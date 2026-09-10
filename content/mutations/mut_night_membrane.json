@@ -1,7 +1,7 @@
 {
   "appearance": {
     "extreme": "Their eyes are permanently filmed over in the dark, flat and reflective as an animal caught in headlights. Looking at them is difficult.",
-    "obvious": "A milky membrane slides sideways across their eyes when the light shifts, and they do not seem to notice doing it.",
+    "obvious": "A milky membrane slides sideways across their eyes when the light shifts, and they don't seem to notice doing it.",
     "subtle": "Something pale flickers across their eyes when they blink."
   },
   "blocks_slots": [],
@@ -15,7 +15,7 @@
   "description": "A translucent second lid that slides across when the light drops. The dark opens up completely. So does everyone staring at you.",
   "drawbacks": [
     "Bright light is agony",
-    "Extremely visible when it is up"
+    "Extremely visible when it's up"
   ],
   "effects": {
     "acuity_sight": 2,

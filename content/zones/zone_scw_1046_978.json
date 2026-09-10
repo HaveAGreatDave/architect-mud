@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The burial ground, walled off with a knee-high course of dry stone and planted over with the same thorn as the wall, kept low. The markers are salvage plate with names punched through so the light comes past. Somebody has been at the weeds recently. There is a jar of water on one of the newer ones, and the jar is full.",
+  "description": "The burial ground, walled off with a knee-high course of dry stone and planted over with the same thorn as the wall, kept low. The markers are salvage plate with names punched through so the light comes past. Somebody has been at the weeds recently. There's a jar of water on one of the newer ones, and the jar is full.",
   "exits": {
     "east": "zone_scw_1047_978",
     "north": "zone_scw_1046_977",

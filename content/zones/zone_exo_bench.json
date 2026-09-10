@@ -6,7 +6,7 @@
     "Somebody measures a thing that has already been measured, and gets the same answer, and writes it down anyway."
   ],
   "ambient_theme": "indoors",
-  "description": "Vices, files, a treadle lathe, a forge banked low, and a rack of stock cut to length and sorted by length. Two long benches, and on the second one a thing half made that you cannot identify and that is clearly part of something much larger.\n\nOn the wall, a drawing. It is a drawing of a very tall structure, in section, dimensioned, and it has been corrected in three different hands over what looks like twenty years.",
+  "description": "Vices, files, a treadle lathe, a forge banked low, and a rack of stock cut to length and sorted by length. Two long benches, and on the second one a thing half made that you can't identify and that's clearly part of something much larger.\n\nOn the wall, a drawing. It's a drawing of a very tall structure, in section, dimensioned, and it has been corrected in three different hands over what looks like twenty years.",
   "exits": {
     "down": "zone_util_zone_exo_bench",
     "east": "zone_terminus_1227_936"

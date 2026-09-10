@@ -35,13 +35,13 @@ import { truckLivery } from '../../client/shared/truck-livery.js';   // stored p
 // station measures you against (see the scale house), so it is the number that matters.
 export const TRAILER_TYPES = [
   { id: 'flat', name: 'a flatbed', kg: 900, rated: 2200, price: 900,
-    blurb: 'Open deck, chained load, nothing to hide behind. Light, cheap, and everybody can see what you are carrying.' },
+    blurb: "Open deck, chained load, nothing to hide behind. Light, cheap, and everybody can see what you're carrying." },
   { id: 'box', name: 'a dry box', kg: 1400, rated: 3600, price: 2400,
-    blurb: 'The ordinary one. Doors at the back, a seal you can break, and nobody can tell what is in it from the road.' },
+    blurb: "The ordinary one. Doors at the back, a seal you can break, and nobody can tell what's in it from the road." },
   { id: 'reefer', name: 'a reefer', kg: 2100, rated: 4200, price: 5200,
     blurb: 'Insulated, and the unit on the nose runs whether you want it to or not. Heavy for what it holds, and worth it for what it holds.' },
   { id: 'tank', name: 'a tanker', kg: 2600, rated: 6000, price: 8800,
-    blurb: 'A long steel cylinder on a frame. It carries more than anything else on the lot and it does not like corners.' },
+    blurb: "A long steel cylinder on a frame. It carries more than anything else on the lot and it doesn't like corners." },
 ];
 export const trailerType = (id) => TRAILER_TYPES.find(t => t.id === id) || null;
 

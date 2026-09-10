@@ -52,7 +52,7 @@
         "type": "condition"
       },
       "r0": {
-        "text": "The bartender pours without asking and does not watch the glass, which is the closest thing to trust available here.",
+        "text": "The bartender pours without asking and doesn't watch the glass, which is the closest thing to trust available here.",
         "type": "say"
       },
       "r1": {
@@ -81,7 +81,7 @@
         "type": "random"
       },
       "s0": {
-        "text": "Conversation does not stop when you walk in. It just gets quieter and more specific.",
+        "text": "Conversation doesn't stop when you walk in. It just gets quieter and more specific.",
         "type": "say"
       },
       "s1": {

@@ -3,8 +3,8 @@
   "id": "dr_npc_normal_504",
   "npc_type": null,
   "relation": "stranger",
-  "room_line": "{npc} asks {player} if they are going to be long. No answer arrives.",
-  "self_line": "{npc} asks if you are going to be long.",
+  "room_line": "{npc} asks {player} if they're going to be long. No answer arrives.",
+  "self_line": "{npc} asks if you're going to be long.",
   "source": "npc",
   "tone": "normal"
 }

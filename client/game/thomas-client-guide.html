@@ -115,7 +115,7 @@ the world editors and the VINE graph tools the game is built with.</span></p>
 
 <div class="note ok"><b>One runner.</b> Triggers, timers, aliases, state rules, speedwalk and command
 stacking all end at the same macro runner. That means every one of them accepts the same script
-language &mdash; conditionals, loops, variables, calls &mdash; and there is exactly one place a runaway
+language &mdash; conditionals, loops, variables, calls &mdash; and there's exactly one place a runaway
 loop can live, with one <code>stop</code> that reaches all of it.</div>
 
 <hr>
@@ -130,34 +130,34 @@ trigger on|off #group         <span class="cm">disable/enable a whole group (nev
 trigger on|off all</code></pre>
 
 <h4>Worked examples</h4>
-<pre><code>trigger you are bleeding = bandage
+<pre><code>trigger you're bleeding = bandage
 trigger /^(\w+) hits you/ = flee
 trigger @loot pipe = take pipe
-trigger #combat you are hit = flee
+trigger #combat you're hit = flee
 trigger off #combat
 trigger once /the safe clicks/ = open safe
 trigger 3ln /the door opens.+inside/ = look
-trigger you are bleeding = gag;say I saw that</code></pre>
+trigger you're bleeding = gag;say I saw that</code></pre>
 
 <table>
 <tr><th>Piece</th><th>Meaning</th></tr>
-<tr><td><code>/&hellip;/</code></td><td>Regex. Anything not wrapped in slashes is a <b>case-insensitive substring</b> &mdash; the default you cannot write wrongly.</td></tr>
+<tr><td><code>/&hellip;/</code></td><td>Regex. Anything not wrapped in slashes is a <b>case-insensitive substring</b> &mdash; the default you can't write wrongly.</td></tr>
 <tr><td><code>$1</code>&ndash;<code>$9</code></td><td>Regex captures, substituted into the command text. An absent group becomes empty, never the literal <code>$3</code>.</td></tr>
 <tr><td><code>@channel</code></td><td>Scope to a semantic message class &mdash; <code>@say</code>, <code>@loot</code>, <code>@combat</code>, <code>@death</code>&hellip; (~30 of them). An empty pattern plus a channel matches every line on it.</td></tr>
 <tr><td><code>#group</code></td><td>A label you can switch on and off as a set. Not part of the rule's identity, so regrouping moves a rule rather than duplicating it.</td></tr>
-<tr><td><code>once</code></td><td>Fires, then retires itself from storage &mdash; it will not come back after a reload.</td></tr>
+<tr><td><code>once</code></td><td>Fires, then retires itself from storage &mdash; it won't come back after a reload.</td></tr>
 <tr><td><code>Nln</code></td><td>Multi-line, 1&ndash;10. Joins the last N lines and matches across them; regexes compile dot-all so <code>.</code> spans the join. Fires once per window, not once per line.</td></tr>
 </table>
 
 <div class="note"><b>Why <code>@</code> and not colour.</b> Other clients let you trigger on ANSI colour.
-THOMAS has no ANSI &mdash; it has ~30 semantic classes on every line, which is the thing colour was
-always a lossy proxy for. Colour triggers are deliberately never coming.</div>
+THOMAS has no ANSI &mdash; it has ~30 semantic classes on every line, and colour was
+always a lossy proxy for exactly those. Colour triggers are deliberately never coming.</div>
 
-<div class="note warn"><b>Three guards you will eventually meet.</b> A trigger fires a command, the
+<div class="note warn"><b>Three guards you'll eventually meet.</b> A trigger fires a command, the
 command prints a line, that line fires a trigger &mdash; a loop with the server in the middle, and the
 first trigger most people write is on a combat message. So: lines printed <i>during</i> a trigger chain
 fire nothing; each trigger has a 400&nbsp;ms cooldown; and if more than 25 fires happen inside a sliding
-10&nbsp;second window, <b>every trigger is switched off</b> and you are told so. It disables rather than
+10&nbsp;second window, <b>every trigger is switched off</b> and you're told so. It disables rather than
 throttles, because a throttled runaway still spams forever with nothing to explain it. Turn them back on
 with <code>trigger on all</code> once the pattern is fixed.</div>
 
@@ -167,10 +167,10 @@ line until a reload.</div>
 
 <h2 id="gag">2. Gagging lines</h2>
 <p>A trigger whose action is <code>gag</code> hides the matching line.</p>
-<pre><code>trigger you are bleeding = gag
+<pre><code>trigger you're bleeding = gag
 trigger @say Vex = gag;say heard you</code></pre>
 <p>Gagging is resolved when the trigger is <i>compiled</i>, not while the script runs, and the line is
-suppressed <b>before it is mounted</b> rather than removed afterwards. That is what makes the find bar,
+suppressed <b>before it's mounted</b> rather than removed afterwards. That's what makes the find bar,
 the scrollback cap and Read Aloud all agree without any of them knowing gagging exists.</p>
 <div class="note warn"><b>System messages can never be gagged</b> &mdash; that class carries the
 "all triggers switched off" notice. And gagged lines are still written to <code>.savelog</code>.</div>
@@ -183,7 +183,7 @@ on thirst &lt; 20 = drink water
 on clear                    <span class="cm">(also: on off)</span></code></pre>
 <p>The condition is a full expression (see <a href="#expr">&sect;8</a>) and is checked whenever your vitals update.</p>
 <div class="note warn"><b>Edge-triggered, never level-triggered.</b> It fires on the transition into
-the condition and will not fire again until the condition has gone false in between. Level-triggering
+the condition and won't fire again until the condition has gone false in between. Level-triggering
 would fire on every vitals update for as long as you were hurt &mdash; which in a fight means drinking
 your entire inventory.</div>
 
@@ -196,7 +196,7 @@ timer after 90s = say I have to go   <span class="cm">ONE-SHOT</span>
 timer off                        <span class="cm">stop them all, and stay off</span>
 timer clear                      <span class="cm">delete them all</span></code></pre>
 <p>Bare numbers mean seconds. The floor is <b>1s</b> &mdash; anything faster is a command every tick,
-forever. A one-shot retires itself from storage when it fires, so it does not return on the next reload
+forever. A one-shot retires itself from storage when it fires, so it doesn't return on the next reload
 and go off half an hour later with nothing to explain it.</p>
 
 <h2 id="aliases">5. Aliases</h2>
@@ -298,13 +298,13 @@ unquoted and may contain spaces: <code>has field bandage</code>, <code>lacks &he
 <h2 id="waitfor">9. <code>wait for</code> &mdash; what makes a script a program</h2>
 <pre><code>wait for the door opens
 wait for /^(\w+) collapses/ 30s
-wait for /you are dead/ 500ms</code></pre>
+wait for /you're dead/ 500ms</code></pre>
 <p>Captures bind into the rest of the script, exactly as trigger captures do. A miss leaves
 <code>$result</code> empty, so a script can branch on whether it actually landed. Parked scripts are
 woken before triggers are considered, and every matching waiter wakes, not just the first.</p>
-<div class="note warn"><b>Always bounded.</b> Default 10s, maximum 120s, and there is no unbounded
+<div class="note warn"><b>Always bounded.</b> Default 10s, maximum 120s, and there's no unbounded
 form. A script parked forever is indistinguishable from a hung client, and <code>stop</code> cannot
-reach a runner that is not on a step boundary.</div>
+reach a runner that isn't on a step boundary.</div>
 <p>Only <code>wait for &hellip;</code> is claimed &mdash; a bare <code>wait</code> still belongs to the game.</p>
 
 <h2 id="stop">10. Stopping everything</h2>
@@ -322,7 +322,7 @@ numpad digit. It fires while your caret is in the command box, and is suppressed
 keyboard (flight sim, cockpit, hangar, cab, piano) or at the login screen. One key, one macro &mdash;
 claiming releases the previous holder, and the manager shows you who that was.</p>
 <div class="note">F10&ndash;F12 are deliberately not offered: the browser owns them and intercepting
-them does not reliably win.</div>
+them doesn't reliably win.</div>
 <p>The smartbar reads <code>[+] [Tablet] [Inv]</code> then your macro buttons then the room's context
 verbs. Long-press ~350&nbsp;ms to lift a button and drag it; the order is remembered per browser.</p>
 
@@ -355,13 +355,13 @@ route off @say
 route clear</code></pre>
 <p>Panes are draggable by the title bar, natively resizable, remember their position, hold 400 lines and
 follow their own tail.</p>
-<div class="note"><b>Panes are derived, never authored.</b> There is no "create a pane" command &mdash;
+<div class="note"><b>Panes are derived, never authored.</b> There's no "create a pane" command &mdash;
 a pane exists because a rule names it. Closing a pane <b>hides</b> it; the rule survives. Use
 <code>route off &lt;pattern&gt;</code> to actually stop routing.</div>
 <div class="note">The routed copy is written <b>even when the line is gagged</b> &mdash; "send chat to
 its own window and keep it out of here" is the commonest reason to want this at all.</div>
 <p>The other half of split windows &mdash; an input area that stays put while output scrolls &mdash; was
-never a gap here. The command box does not scroll.</p>
+never a gap here. The command box doesn't scroll.</p>
 
 <h2 id="log">15. Highlights, find, transcript</h2>
 <pre><code>highlight reactor core     <span class="cm">toggle one, default colour</span>
@@ -396,8 +396,8 @@ accessibility voice auto-send</code></pre>
 <p>Off by default &mdash; a player who never asks for a microphone is never asked for one. Tap the mic
 button, hold it to talk, or press <span class="kbd">Ctrl/Cmd+Shift+M</span> from anywhere including
 inside the command box. (A chord, because the flight sim, the piano and WASD own the bare letter rows.)
-Firefox has no speech recognition and the button simply does not appear there.</p>
-<p>The feature is not the speech API &mdash; it's the normalizer. General speech recognition is trained
+Firefox has no speech recognition and the button simply doesn't appear there.</p>
+<p>The feature isn't the speech API &mdash; it's the normalizer. General speech recognition is trained
 on prose and this game's input is jargon, so "wield rusty pipe" comes back "field rusty pipe" and a bare
 <code>n</code> comes back "in". Three rules: <b>aggressive on one token, cautious on many</b> (a lone
 "in" becomes <code>n</code>; the same word inside "put the coat in the locker" is untouched); <b>the
@@ -416,7 +416,7 @@ accessibility speed slow|normal|brisk</code></pre>
 <p>Off by default, and deliberately so: the log is a live region, so a screen reader is
 <i>already</i> reading it &mdash; on by default would speak every line twice in two voices. Natural is
 recommended over the in-world synth, which fits the fiction but is harder work to listen to for an hour.</p>
-<p>It rides the UI audio channel, so muting the television does not stop the game being read to you
+<p>It rides the UI audio channel, so muting the television doesn't stop the game being read to you
 (the master Sound switch still does). Its queue is capped and drops the <b>oldest</b> &mdash; a voice
 minutes behind the game is describing a fight that already finished. Glyph art is never read. Entering a
 command interrupts it; <span class="kbd">Escape</span> stops it dead.</p>
@@ -466,18 +466,18 @@ keystroke</b>. An explicit <code>look</code> is always the full description.</p>
 
 <h2 id="sync">21. Your setup follows your account</h2>
 <p>Macros, triggers, aliases, timers, state rules, highlights, variables and routes are all stored
-server-side against your character. Log in on another machine and they are there. There is nothing to
+server-side against your character. Log in on another machine and they're there. There's nothing to
 export and no config file to copy.</p>
 <div class="note warn"><b>Two browsers open at once will clobber each other on the next edit.</b>
 Conflicts resolve last-writer-wins, deliberately.</div>
 <p>Not synced, on purpose: the smartbar drag order, and every device-level preference &mdash; volume,
-theme, text size, and therefore all the accessibility options. A phone and a desktop should not have to
+theme, text size, and therefore all the accessibility options. A phone and a desktop shouldn't have to
 agree about volume.</p>
 
 <h2 id="wont">22. What THOMAS deliberately won't do</h2>
 <div class="grid">
-<div class="card"><h4>Colour triggers</h4>There is no ANSI. <code>@channel</code> is the semantic thing colour was standing in for, and a worse duplicate would be the mistake.</div>
-<div class="card"><h4>Server-side automation</h4>Nothing here reaches the server except commands you could have typed. There is no scripting privilege to grant or revoke.</div>
+<div class="card"><h4>Colour triggers</h4>There's no ANSI. <code>@channel</code> is the semantic thing colour was standing in for, and a worse duplicate would be the mistake.</div>
+<div class="card"><h4>Server-side automation</h4>Nothing here reaches the server except commands you could have typed. There's no scripting privilege to grant or revoke.</div>
 <div class="card"><h4>Unbounded waiting</h4>Every <code>wait for</code> has a timeout. A parked script is indistinguishable from a hung client.</div>
 <div class="card"><h4>Continuous logging to disk</h4><code>.savelog</code> writes a session buffer on demand. Streaming needs a Chromium-only API.</div>
 <div class="card"><h4>Trigger set sharing</h4>No import/export of somebody else's rules.</div>

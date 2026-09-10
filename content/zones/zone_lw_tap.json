@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A wet little room of filter drums and hand pumps where the Watch make their own water. Three barrels in series, sand and charcoal and something the quartermaster won't name, and a brass tap at the end that runs clear. They do not draw from the city main. A meter that turns is a meter that tells the machine somebody is alive down here.",
+  "description": "A wet little room of filter drums and hand pumps where the Watch make their own water. Three barrels in series, sand and charcoal and something the quartermaster won't name, and a brass tap at the end that runs clear. They don't draw from the city main. A meter that turns is a meter that tells the machine somebody is alive down here.",
   "exits": {
     "west": "zone_lw_quarter"
   },

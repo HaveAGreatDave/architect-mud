@@ -5,7 +5,7 @@
     "Outside, a car goes past playing a song you were about to remember."
   ],
   "cause": "dream",
-  "description": "A corner shop with the lights off and the fridges still running, which you are certain you have bought something in. The stock is all one product, shelved with enormous care. The till is open and full. You are not going to take any of it, and the not-taking is the most exhausting thing you have ever done.",
+  "description": "A corner shop with the lights off and the fridges still running, which you're certain you have bought something in. The stock is all one product, shelved with enormous care. The till is open and full. You aren't going to take any of it, and the not-taking is the most exhausting thing you have ever done.",
   "drug_id": null,
   "fx": "rain",
   "fx_intensity": 0.5,
@@ -16,15 +16,15 @@
       "looks": [
         "Full, and counted, and counted again by someone who left.",
         "The notes are the right colour and the wrong size.",
-        "You close it. It is open."
+        "You close it. It's open."
       ],
       "name": "the till"
     },
     {
       "looks": [
-        "Every box is the same box. The label is a photograph of the shelf you are looking at.",
-        "You read the ingredients. It is a list of everyone you have met.",
-        "It is slightly warm, the way a thing is warm when it has just been put down."
+        "Every box is the same box. The label is a photograph of the shelf you're looking at.",
+        "You read the ingredients. It's a list of everyone you have met.",
+        "It's slightly warm, the way a thing is warm when it has just been put down."
       ],
       "name": "the product"
     },
@@ -37,5 +37,5 @@
       "name": "the door"
     }
   ],
-  "weather": "Outside the window it is raining, steadily, on a street that is completely dry."
+  "weather": "Outside the window it's raining, steadily, on a street that's completely dry."
 }

@@ -14,14 +14,14 @@
   "id": "dxs_blotter_lattice",
   "looks": [
     "It repeats, and each repeat contains a smaller whole one.",
-    "It is keeping time with your pulse and improving on it.",
+    "It's keeping time with your pulse and improving on it.",
     "You could put your hand through it. You do not."
   ],
   "matches": null,
   "name": "a lattice standing in the air",
   "says": [
-    "I am the same shape all the way in.",
-    "You are seeing about the first four layers."
+    "I'm the same shape all the way in.",
+    "You're seeing about the first four layers."
   ],
   "scope": "spawn"
 }

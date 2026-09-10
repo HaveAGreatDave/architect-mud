@@ -171,7 +171,7 @@ function deriveTag(org) {
 // stubs until the Phase-1 zone_control engine lands (income/upkeep/heat = 0).
 async function buildConsolePayload(player) {
   const m = getPlayerMembership(player.id);
-  if (!m) return err('You are not in a corp. Found one with "corp found <name>".');
+  if (!m) return err('You aren\'t in a corp. Found one with "corp found <name>".');
   const org = getOrg(m.org_id);
   const myRank = org.ranks.find(r => r.id === m.rank_id);
 
@@ -354,14 +354,14 @@ async function cmdFound(player, name) {
   await reloadOrg(orgId);
   return {
     type: 'corp_founded',
-    message: `<span class="skills-header">CORP FOUNDED</span>\nYou found <b>${esc(name)}</b> for ${FOUND_FEE}₵. You are its Founder.\nInvite with "corp invite <player>"; fund it with "corp contribute <amount>".`,
+    message: `<span class="skills-header">CORP FOUNDED</span>\nYou found <b>${esc(name)}</b> for ${FOUND_FEE}₵. You're its Founder.\nInvite with "corp invite <player>"; fund it with "corp contribute <amount>".`,
     player_update: { credits: player.credits },
   };
 }
 
 async function cmdInfo(player) {
   const m = getPlayerMembership(player.id);
-  if (!m) return { type: 'corp_info', message: 'You are not in a corp. Found one with "corp found <name>".' };
+  if (!m) return { type: 'corp_info', message: 'You aren\'t in a corp. Found one with "corp found <name>".' };
   const org = getOrg(m.org_id);
   const rank = org.ranks.find(r => r.id === m.rank_id);
   const { rows: [cnt] } = await query('SELECT COUNT(*)::int n FROM org_members WHERE org_id=$1', [m.org_id]);

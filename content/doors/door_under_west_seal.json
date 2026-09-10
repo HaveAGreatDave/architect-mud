@@ -17,7 +17,7 @@
       "messages": {
         "denied": "The passage west is choked with fallen brick and a rusted grate wedged tight behind it. Nothing back here is going anywhere.",
         "lock": "The grate settles back into the rubble with a grinding shriek.",
-        "unlock": "The grate does not move. Whatever's past it stays past it, for now."
+        "unlock": "The grate doesn't move. Whatever's past it stays past it, for now."
       }
     },
     "unbreakable": true

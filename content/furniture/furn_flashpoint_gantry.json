@@ -1,5 +1,5 @@
 {
-  "description": "A wire-fronted rack on the wall behind the counter, which is to say behind the counter and about a foot too far forward to actually be behind anything. The wire is there to slow a hand down rather than to stop one, and everybody in the building understands the arrangement.",
+  "description": "A wire-fronted rack on the wall behind the counter, which is to say behind the counter and about a foot too far forward to actually be behind anything. The wire is there to slow a hand down rather than to stop one.",
   "flags": {
     "aliases": "gantry, cigarettes, smokes, rack, wire",
     "backstock": "furn_flashpoint_crates",

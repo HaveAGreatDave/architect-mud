@@ -4,7 +4,7 @@
     "Do you know where the stopcock is?",
     "Is anyone paying for it, or is it me again?"
   ],
-  "description": "A badger the size of a short man, in canvas overalls with the knees gone, standing with its hands behind its back and surveying the room like it is deciding what to fix first.",
+  "description": "A badger the size of a short man, in canvas overalls with the knees gone, standing with its hands behind its back and surveying the room like it's deciding what to fix first.",
   "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} sniffs at the air twice and comes to a conclusion.",
@@ -16,15 +16,15 @@
   "id": "dxp_psilocybin_badger",
   "looks": [
     "The overalls are filthy in a competent way, at the knees and the forearms and nowhere else.",
-    "The claws are enormous, and clean, and clearly the reason it does not carry many tools.",
-    "It is planted on both feet in a manner that suggests it is quite hard to move."
+    "The claws are enormous, and clean, and clearly the reason it doesn't carry many tools.",
+    "It's planted on both feet in a manner that suggests it's quite hard to move."
   ],
   "matches": null,
   "name": "a badger in overalls",
   "says": [
-    "That will want doing before winter.",
+    "That'll want doing before winter.",
     "Whoever put that in was in a hurry.",
-    "I can get at it from underneath. That is not the problem."
+    "I can get at it from underneath. That isn't the problem."
   ],
   "scope": "person"
 }

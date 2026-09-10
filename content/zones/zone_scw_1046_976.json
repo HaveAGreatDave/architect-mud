@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The middle of the town: a swept oval of packed ground with a long fire trench down the centre of it and cook pots on chains over the coals. Benches, most of them mended. A board on a post carries the week in chalk, and the week is water duty, roof duty, gate duty and, in a different hand and underlined twice, WHOEVER IS TAKING THE GOOD KNIFE PUT IT BACK. People come through constantly on their way to somewhere else. Almost nobody looks at you for longer than it takes to decide you are not carrying anything heavy.",
+  "description": "The middle of the town: a swept oval of packed ground with a long fire trench down the centre of it and cook pots on chains over the coals. Benches, most of them mended. A board on a post carries the week in chalk, and the week is water duty, roof duty, gate duty and, in a different hand and underlined twice, WHOEVER IS TAKING THE GOOD KNIFE PUT IT BACK. People come through constantly on their way to somewhere else. Almost nobody looks at you for longer than it takes to decide you aren't carrying anything heavy.",
   "exits": {
     "east": "zone_scw_1047_976",
     "north": "zone_scw_1046_975",

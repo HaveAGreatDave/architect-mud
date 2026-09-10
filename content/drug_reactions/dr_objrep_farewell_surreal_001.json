@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Go on, then. I will hold the shape a while.",
+  "self_line": "Go on, then. I'll hold the shape a while.",
   "source": "object_reply_farewell",
   "tone": "surreal"
 }

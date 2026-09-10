@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A yard of criss-crossed line under a rigged canopy, because you do not dry washing under open sky here and everybody knows why. Sheets, work rags, small clothes, a great many socks. Two people are taking a sheet down between them in the practised way of people who have done it ten thousand times, and are talking about somebody else entirely.",
+  "description": "A yard of criss-crossed line under a rigged canopy, because you don't dry washing under open sky here and everybody knows why. Sheets, work rags, small clothes, a great many socks. Two people are taking a sheet down between them in the practised way of people who have done it ten thousand times, and are talking about somebody else entirely.",
   "exits": {
     "east": "zone_scw_1045_976",
     "north": "zone_scw_1044_975",

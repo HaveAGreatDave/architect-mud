@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#221f26",
-  "description": "Deeper than it is wide, and every inch of it accounted for. Spinner racks down the middle, sleeved back-issues wall to wall in graded rows, and a glass counter at the far end lit from underneath so the cards inside float on a shelf of white light. The air is cold and dry — dehumidifier running somewhere behind the wall, because paper is the whole business — and it smells of newsprint, warm electronics and, faintly, of soup. Handwritten cards are taped to everything. ASK BEFORE HANDLING. GRADING IS NOT A CONVERSATION. NO, IT IS NOT WORTH THAT.",
+  "description": "Deeper than it's wide, and every inch of it accounted for. Spinner racks down the middle, sleeved back-issues wall to wall in graded rows, and a glass counter at the far end lit from underneath so the cards inside float on a shelf of white light. The air is cold and dry — dehumidifier running somewhere behind the wall, because paper is the whole business — and it smells of newsprint, warm electronics and, faintly, of soup. Handwritten cards are taped to everything. ASK BEFORE HANDLING. GRADING IS NOT A CONVERSATION. NO, IT IS NOT WORTH THAT.",
   "exits": {
     "down": "zone_util_zone_mintcond_floor",
     "north": "zone_district_919_913",
@@ -15,7 +15,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

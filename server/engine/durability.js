@@ -415,7 +415,7 @@ export function conditionLine(row) {
     : repairs === 2 ? ', twice-mended'
     : repairs > 2 ? `, mended ${repairs} times` : '';
   const state = band.id === 'broken'
-    ? 'It is broken — it will not do its job until someone puts it right'
+    ? "It's broken — it won't do its job until someone puts it right"
     : `It is <span style="color:${band.colour}">${band.label.toLowerCase()}</span>${mend}`;
   // Reinforcement is the reason to hunt down a good repairman, so it has to be
   // legible on the item itself — and it names who did the work, which is how a
@@ -428,7 +428,7 @@ export function conditionLine(row) {
   // Fatigue has to be READABLE or the break is a gotcha. This is the warning
   // that makes rule 5 hold: by the time an item can go, it has been telling you.
   const fatigue = fatigueOf(row);
-  const brittle = fatigue >= 5 ? ' You would not trust it in a fight.'
+  const brittle = fatigue >= 5 ? " You wouldn't trust it in a fight."
     : fatigue >= 3 ? ' The repairs are starting to fight each other.'
     : fatigue >= 1 && band.id !== 'pristine' ? ' The mends are holding, for now.' : '';
   return `<span class="text-dim">${state}.${brittle}</span>${extra}`;

@@ -5,7 +5,7 @@
     "A bench creaks in the empty half of the hall."
   ],
   "ambient_theme": "outdoors",
-  "description": "A long low hall of dressed red stone, its doors standing open on the pad, its roof carrying a clerestory of narrow lights that catch the last of the sun and hold it after everything else has gone dark. There is no tower, no bell, no symbol cut anywhere into it. It is the biggest building here by a considerable margin and it is the only one that has not been made to look like anything.",
+  "description": "A long low hall of dressed red stone, its doors standing open on the pad, its roof carrying a clerestory of narrow lights that catch the last of the sun and hold it after everything else has gone dark. There's no tower, no bell, no symbol cut anywhere into it. It's the biggest building here by a considerable margin and it's the only one that hasn't been made to look like anything.",
   "exits": {
     "north": "zone_exo_waking",
     "south": "zone_terminus_1220_939"

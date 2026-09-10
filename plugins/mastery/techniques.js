@@ -50,7 +50,7 @@ export const STANCES = Object.freeze({
     soak: () => 0,
     // The cost IS the point. A stance that only gave would not be a stance.
     immobile: true,
-    enter: 'You plant yourself. You are not going anywhere, and neither is anyone who tries to move you.',
+    enter: "You plant yourself. You aren't going anywhere, and neither is anyone who tries to move you.",
     leave: 'You come off the root and your weight is yours again.',
     broken: 'Something lands hard enough to break the root.',
   },
@@ -106,7 +106,7 @@ export const TECHNIQUES = Object.freeze({
     apply: (ctx, roll) => {
       if (!roll.success) return null;
       ctx.negate = true;
-      ctx.negateLine = `${ctx.enemy.name} swings where you were. You are already not there.`;
+      ctx.negateLine = `${ctx.enemy.name} swings where you were. You're already not there.`;
       return 'slipped';
     },
     fail: 'You move early. It follows you.',
@@ -122,7 +122,7 @@ export const TECHNIQUES = Object.freeze({
     apply: (ctx, roll) => {
       if (!roll.success) return null;
       ctx.negate = true;
-      ctx.negateLine = `<span class="crit-tag">PERFECT TIMING.</span> You step inside the arc. It passes behind you, and you are already moving.`;
+      ctx.negateLine = `<span class="crit-tag">PERFECT TIMING.</span> You step inside the arc. It passes behind you, and you're already moving.`;
       // The counter goes down the ORDINARY swing path — the engine's own power
       // flag — so soak, body parts, crits, injury and loot-on-death all apply.
       // Never write enemy.hp from here.
@@ -130,7 +130,7 @@ export const TECHNIQUES = Object.freeze({
       return 'timed';
     },
     fail: 'You commit to the read, and the read is wrong. It lands.',
-    arm: 'You breathe out and stop reacting. You are waiting for one specific thing.',
+    arm: "You breathe out and stop reacting. You're waiting for one specific thing.",
   },
   ghost_step: {
     id: 'ghost_step',

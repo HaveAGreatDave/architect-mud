@@ -46,7 +46,7 @@ export default async function regress({ run, check }) {
     classify({ hallucination: {} }, { drug_family: 'not_a_real_family' }) === 'paranoid');
   check('classify: no flags at all still works', classify({ hallucination: {} }, undefined) === 'paranoid');
   // drug_class is a fallback only — a depressant shouldn't need both authored.
-  check('classify: drug_class still answers when there is no family',
+  check("classify: drug_class still answers when there's no family",
     classify({}, { drug_class: 'depressant' }) === 'sedated');
   check('classify: family WINS over class when both are present',
     classify({}, { drug_class: 'depressant', drug_family: 'dissociative' }) === 'dissociated');
@@ -139,7 +139,7 @@ export default async function regress({ run, check }) {
       String(_test.POUR_AGAIN.length));
     // ⚠ Real seconds apart, never a burst: five lines in one tick is a number going
     // up, and the entire point is that somebody standing there watches him go back.
-    check('pours: they are spaced far enough apart to be watched',
+    check("pours: they're spaced far enough apart to be watched",
       _test.POUR_GAP_MS[0] >= 15000 && _test.POUR_GAP_MS[1] > _test.POUR_GAP_MS[0],
       JSON.stringify(_test.POUR_GAP_MS));
   }

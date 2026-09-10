@@ -5,7 +5,7 @@
     "The far side gets one degree louder and stays there."
   ],
   "cause": "drug",
-  "description": "A small bright space with a great deal of arrangement in it, and the sense of a much larger room behind a wall that is busy becoming a door. You are being announced. Whatever is doing the announcing is fond of you and is getting it right.",
+  "description": "A small bright space with a great deal of arrangement in it, and the sense of a much larger room behind a wall that's busy becoming a door. You're being announced. Whatever is doing the announcing is fond of you and is getting it right.",
   "drug_id": "drug_dmt",
   "fx": "crawl",
   "fx_intensity": 0.6,
@@ -15,19 +15,19 @@
     {
       "looks": [
         "Everything here has been put where it is, recently, for your arrival.",
-        "It is not decoration. It is preparation.",
+        "It isn't decoration. It's preparation.",
         "It rearranges while you look at it, and improves."
       ],
       "name": "the arrangement"
     },
     {
       "looks": [
-        "It is not opening. It is being rewritten into the kind of thing that opens.",
-        "A great deal is happening on the far side and all of it is expecting you.",
-        "It will be finished in a moment. It has been a moment."
+        "It isn't opening. It's being rewritten into the kind of thing that opens.",
+        "A great deal is happening on the far side and all of it's expecting you.",
+        "It'll be finished in a moment. It has been a moment."
       ],
-      "name": "the wall that is becoming a door"
+      "name": "the wall that's becoming a door"
     }
   ],
-  "weather": "It is bright and dry, and the brightness has a direction and no source."
+  "weather": "It's bright and dry, and the brightness has a direction and no source."
 }

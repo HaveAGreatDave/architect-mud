@@ -2,7 +2,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "description": "The sewer beneath Meltwater Row is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here.",
+  "description": "The sewer beneath Meltwater Row is all crumbling grade and standing filth, the kind of dark that has never been disturbed by anyone with a reason to be here.",
   "exits": {
     "north": "zone_under_911_909",
     "south": "zone_under_911_911"

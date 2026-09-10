@@ -24,7 +24,7 @@ export default async function regress({ run, check, getPlayer }) {
   p.posture = 'standing'; p.npcCombatTargetId = null; delete p.shiftState;
   p.total_xp = 0;
   let r = await run('work');
-  check('work is open at zero XP (XP is not the gate)',
+  check("work is open at zero XP (XP isn't the gate)",
     r?.type === 'output' && !/lifetime XP/i.test(r?.message || ''), r?.message?.slice(0, 80));
   check('the gig gate is a positive number of runs', _test.gigGate() > 0, String(_test.gigGate()));
   const gateMsg = _test.gigGateMessage(2, 5);

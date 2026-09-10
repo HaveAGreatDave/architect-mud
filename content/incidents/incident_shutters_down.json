@@ -1,6 +1,6 @@
 {
   "cooldown_min": 360,
-  "description": "The tell that everyone local knows something the player does not. No mechanical effect at all, which is the point — it is a room full of people who have decided to be elsewhere.",
+  "description": "Everyone local knows something the player does not. No mechanical effect at all: a room full of people who have decided to be elsewhere.",
   "duration_min": 120,
   "enabled": 1,
   "flags": {},
@@ -11,14 +11,14 @@
     {
       "do": "ambient",
       "lines": [
-        "Another shutter comes down. It is nowhere near closing time.",
+        "Another shutter comes down. It's nowhere near closing time.",
         "The place three doors along has gone dark and locked, mid-afternoon.",
         "Two people are having a very short conversation about whether to stay open."
       ]
     },
     {
       "do": "gossip",
-      "text": "Half of {place} shut up at four. They know something and they are not saying it to me."
+      "text": "Half of {place} shut up at four. They know something and they aren't saying it to me."
     },
     {
       "do": "sound",

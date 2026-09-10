@@ -89,7 +89,7 @@
         },
         "next": "bsm_17",
         "style": "narration",
-        "text": "The same wall. The same man. The strip light has been changed; you can tell because it is straight now.",
+        "text": "The same wall. The same man. The strip light has been changed; you can tell because it's straight now.",
         "type": "say"
       },
       "bsm_17": {
@@ -134,7 +134,7 @@
         },
         "next": "bsm_3",
         "style": "narration",
-        "text": "No letterbox. No frame line. Whoever shot this had a consumer deck and a lamp and did not know the word for any of it.",
+        "text": "No letterbox. No frame line. Whoever shot this had a consumer deck and a lamp and didn't know the word for any of it.",
         "type": "say"
       },
       "bsm_20": {
@@ -144,7 +144,7 @@
         },
         "next": "bsm_21",
         "style": "narration",
-        "text": "A table. Two people on one side. The Clerk on the other, exactly the same size in frame as he was in the corridor, because the camera has not been moved and nobody thought to move it.",
+        "text": "A table. Two people on one side. The Clerk on the other, exactly the same size in frame as he was in the corridor, because the camera hasn't been moved and nobody thought to move it.",
         "type": "say"
       },
       "bsm_21": {
@@ -214,7 +214,7 @@
         },
         "next": "bsm_28",
         "style": "narration",
-        "text": "The Official takes it. The tape runs on for another forty seconds afterwards with nobody saying anything, because whoever was holding the camera did not know to stop.",
+        "text": "The Official takes it. The tape runs on for another forty seconds afterwards with nobody saying anything, because whoever was holding the camera didn't know to stop.",
         "type": "say"
       },
       "bsm_28": {
@@ -245,7 +245,7 @@
         },
         "next": "bsm_4",
         "style": "ambient",
-        "text": "♪ Room tone. A radiator. That is the entire soundtrack of this picture. ♪",
+        "text": "♪ Room tone. A radiator. That's the entire soundtrack of this picture. ♪",
         "type": "say"
       },
       "bsm_30": {
@@ -416,7 +416,7 @@
         },
         "next": "bsm_45",
         "style": "narration",
-        "text": "That is the whole of the victory, and the picture is aware of how that sounds.",
+        "text": "That's the whole of the victory, and the picture is aware of how that sounds.",
         "type": "say"
       },
       "bsm_45": {
@@ -425,7 +425,7 @@
           "y": 1520
         },
         "duration": 16,
-        "text": "FORM 9\n\nThe Clerk .............. would not give his name to the camera\nThe Official ........... did not know she was being filmed\nThe Voice .............. whoever was holding it\n\nTHERE IS NO DISTRIBUTOR AND THERE ARE NO RIGHTS.\nIF SOMEBODY CHARGED YOU TO WATCH THIS, TAKE YOUR MONEY BACK OFF THEM.",
+        "text": "FORM 9\n\nThe Clerk .............. wouldn't give his name to the camera\nThe Official ........... didn't know she was being filmed\nThe Voice .............. whoever was holding it\n\nTHERE IS NO DISTRIBUTOR AND THERE ARE NO RIGHTS.\nIF SOMEBODY CHARGED YOU TO WATCH THIS, TAKE YOUR MONEY BACK OFF THEM.",
         "type": "credits"
       },
       "bsm_5": {
@@ -435,7 +435,7 @@
         },
         "next": "bsm_6",
         "style": "narration",
-        "text": "A queue, filmed from the back. Twelve people. A strip light with a kink in it. The camera does not move for two minutes and forty seconds.",
+        "text": "A queue, filmed from the back. Twelve people. A strip light with a kink in it. The camera doesn't move for two minutes and forty seconds.",
         "type": "say"
       },
       "bsm_6": {
@@ -521,7 +521,7 @@
   "category": "film",
   "channel_id": "ch_7_1782953079593",
   "created_by": null,
-  "description": "Fourteen weeks of a wall, edited down to eleven minutes, shot on a consumer deck by somebody who did not know the word for any of it. No distributor and no rights.",
+  "description": "Fourteen weeks of a wall, edited down to eleven minutes, shot on a consumer deck by somebody who didn't know the word for any of it. No distributor and no rights.",
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": {

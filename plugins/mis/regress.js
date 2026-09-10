@@ -106,7 +106,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('open door: and another', hasConsent('c_gil', 'c_erin'));
     // The door is one player's own state and grants nothing outward.
     check('open door: does NOT let the opener act on others', !hasConsent('c_erin', 'c_frank'));
-    check('open door: does not leak to anyone else', !hasConsent('c_erin', 'c_gil'));
+    check("open door: doesn't leak to anyone else", !hasConsent('c_erin', 'c_gil'));
 
     // A named refusal beats the general yes, and takes the door with it.
     // Named `rv` rather than reusing the outer `r` — shadowing it in this block
@@ -142,7 +142,7 @@ export default async function regress({ run, check, getPlayer }) {
       isAttractedTo({ sexuality: 'Male and Female' }, male) && isAttractedTo({ sexuality: 'Male and Female' }, female));
     check('attraction: None opts out of both',
       !isAttractedTo({ sexuality: 'None' }, male) && !isAttractedTo({ sexuality: 'None' }, female));
-    check('attraction: unset does not default to men',
+    check("attraction: unset doesn't default to men",
       !isAttractedTo({}, male) && !isAttractedTo({}, female));
   }
 

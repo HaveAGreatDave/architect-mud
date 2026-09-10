@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Fine. I will be over here not existing. Do not knock into me.",
+  "self_line": "Fine. I'll be over here not existing. Don't knock into me.",
   "source": "object_reply_denial",
   "tone": "surreal"
 }

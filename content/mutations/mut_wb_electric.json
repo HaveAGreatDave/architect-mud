@@ -12,9 +12,9 @@
   "conceal_slots": [
     "torso"
   ],
-  "description": "Stacked cells of modified muscle down your flanks, holding a charge. You can feel it building. Discharging it is a relief.",
+  "description": "Stacked cells of modified muscle down your flanks, holding a charge. You can feel it building. Discharging it's a relief.",
   "drawbacks": [
-    "Electronics near you do not last"
+    "Electronics near you don't last"
   ],
   "effects": {
     "shock_attack": 14,

@@ -3,7 +3,8 @@
 // through to us), the device gate, the anti-spoof resolve guard, and clean
 // self-gating when there's nothing to hack. The full launch→win→burglary path
 // needs a real hacking device + witnessed crime and is covered by manual QA.
-import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache, interiorLockedDirs, world } from '../../server/engine/world.js';
+import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache, interiorLockedDirs, interiorLockDirs, isEnterableFacade, frontDoorOf, buildingEntranceDir, getMapByParentZone, getMinimapData, doorOnLink, world } from '../../server/engine/world.js';
+import { allExits } from '../../server/engine/exits.js';
 import { getRegisteredLockedProviders } from '../../server/engine/movement-gates.js';
 import { on, off, emit } from '../../server/engine/events.js';
 import { lockTypePassesWhileLocked, resolveLockAuth, getLockType } from '../../server/engine/locks.js';
@@ -140,7 +141,7 @@ export default async function regress({ run, check, getPlayer }) {
     tags: { 'lock:hololock': { canHack: true, difficulty: 5, messages: { denied: 'not recognized', unlock: 'click' } } },
   });
   r = await run(`unlock ${dir}`);
-  check('hololock: non-owner cannot unlock', /not recognized/.test(r?.message || '') && r?.type === 'error', JSON.stringify(r)?.slice(0, 100));
+  check("hololock: non-owner can't unlock", /not recognized/.test(r?.message || '') && r?.type === 'error', JSON.stringify(r)?.slice(0, 100));
   deleteDoorCache(holoDoorId);
 
   // Long Watch lock: the bunker blast door is gated on LIVE Long Watch standing,
@@ -253,14 +254,14 @@ export default async function regress({ run, check, getPlayer }) {
     put();
     check('a locked door paints its own side, and only its side', painted() === '["north"]', painted());
     put({ lock_state: 'unlocked' });
-    check('an unlocked door is not painted', interiorLockedDirs(room, p) === null);
+    check("an unlocked door isn't painted", interiorLockedDirs(room, p) === null);
     put({ is_open: 1, lock_state: 'locked' });
     check('a locked door still counts while standing open (the lock is the state)',
       painted() === '["north"]', painted());
     put({ hp: 0 });
-    check('a door already smashed off its hinges is not painted', interiorLockedDirs(room, p) === null);
+    check("a door already smashed off its hinges isn't painted", interiorLockedDirs(room, p) === null);
     put({ tags: {} });
-    check('locked with no lock installed is not painted (the gate lets it pass)',
+    check("locked with no lock installed isn't painted (the gate lets it pass)",
       interiorLockedDirs(room, p) === null);
     put();
     check('an exterior tile has no edges at all, so it can never have a red one',
@@ -275,11 +276,116 @@ export default async function regress({ run, check, getPlayer }) {
       const prior = getApartment(aptZone.id);
       put({ target_zone: aptZone.id });
       setApartmentCache(aptZone.id, null);
-      check("an unrented unit's lock is vestigial and is not painted",
+      check("an unrented unit's lock is vestigial and isn't painted",
         interiorLockedDirs(aptRoom, p) === null, painted(aptRoom));
       setApartmentCache(aptZone.id, { zone_id: aptZone.id, owner_id: 'regress_owner_' + p.id });
       check('...but the same lock on a rented one is', painted(aptRoom) === '["north"]', painted(aptRoom));
+      // The orange half: the same red line goes orange when the lock is one this
+      // player can undo. It is a SUBSET of locked, never a replacement for it —
+      // an unmarked red door may still open for you (a keycard is a query and the
+      // seam is sync), so the wrong direction to fail is the one being pinned.
+      const lockDirs = (z = aptRoom) => interiorLockDirs(z, p);
+      check("a stranger's locked door is red and not orange",
+        lockDirs().unlockable === null, JSON.stringify(lockDirs()));
+      setApartmentCache(aptZone.id, { zone_id: aptZone.id, owner_id: p.id });
+      check('...but the door of a unit you control is painted orange',
+        JSON.stringify(lockDirs().unlockable) === '["north"]', JSON.stringify(lockDirs()));
+      check('...and stays red as well — orange is a subset, not a swap',
+        JSON.stringify(lockDirs().locked) === '["north"]', JSON.stringify(lockDirs()));
+
+      // The orange half over the WIRE, on real geometry. Everything above asks the seam
+      // directly, which is one function short of what a player sees: the renderers colour
+      // an edge from `locked_dirs`/`unlockable_dirs` on the minimap NODE, so a payload
+      // that dropped either key would leave every door in the city green with the seam
+      // green-lit.
+      //
+      // ⚠ It locks the link's REAL door row rather than fabricating one. doorOnLink asks
+      // the connection first, so a made-up row on a link that already has a door is never
+      // reached — a first cut did exactly that, and both checks failed with [null,null]
+      // while the payload was working correctly.
+      const corridor = [...world.zones.values()].find(z =>
+        z.id !== aptZone.id && z.flags?.is_interior &&
+        allExits(z).some(e => e.target === aptZone.id
+          && ['north', 'south', 'east', 'west'].includes(e.dir)
+          && doorOnLink(z.id, e.dir, aptZone.id)));
+      if (corridor) {
+        const cDir = allExits(corridor).find(e => e.target === aptZone.id
+          && doorOnLink(corridor.id, e.dir, aptZone.id)).dir;
+        const real = doorOnLink(corridor.id, cDir, aptZone.id);
+        const node = () => (getMinimapData(corridor.id, 1, p) || []).find(n => n.id === corridor.id);
+        setDoorCache(real.id, { ...real, lock_state: 'locked', is_locked: 1 });
+        setApartmentCache(aptZone.id, { zone_id: aptZone.id, owner_id: 'regress_stranger_' + p.id });
+        const sNode = node();
+        check("the minimap node of a stranger's locked unit is red and not orange",
+          (sNode?.locked_dirs || []).includes(cDir) && sNode?.unlockable_dirs === undefined,
+          JSON.stringify([sNode?.locked_dirs, sNode?.unlockable_dirs]));
+        setApartmentCache(aptZone.id, { zone_id: aptZone.id, owner_id: p.id });
+        const mNode = node();
+        check('...and the node of your own carries the orange edge as well as the red',
+          (mNode?.locked_dirs || []).includes(cDir) && (mNode?.unlockable_dirs || []).includes(cDir),
+          JSON.stringify([mNode?.locked_dirs, mNode?.unlockable_dirs]));
+        setDoorCache(real.id, real);
+      }
       setApartmentCache(aptZone.id, prior || null);
+    }
+
+    // ── THE SAME LOCK, SEEN FROM THE STREET ──────────────────────────────────
+    // A facade is never stood on, so its front door sits one hop further in than
+    // any near/far-side lookup reaches. The map drew that one edge green whatever
+    // the door was doing, while the dpad — which does reach through (describe.js)
+    // — reddened the same direction. What is pinned here is that the street answer
+    // and the corridor answer now come out of the same seam.
+    {
+      const facade = [...world.zones.values()].find(z => {
+        if (!isEnterableFacade(z)) return false;
+        if (!['north', 'south', 'east', 'west'].includes(buildingEntranceDir(z))) return false;
+        // A building that already HAS a front door is no good to us: doorOnLink asks
+        // the connection first, so the real row would answer and our fabricated one
+        // would never be reached.
+        if (frontDoorOf(z)) return false;
+        const eid = getMapByParentZone(z.id)?.entry_zone_id;
+        return !!eid && !!allExits(z).find(e => e.target === eid);
+      });
+      if (facade) {
+        const entrance = buildingEntranceDir(facade);
+        const entryId = getMapByParentZone(facade.id).entry_zone_id;
+        const seamDir = allExits(facade).find(e => e.target === entryId).dir;
+        const fDoor = 'door_regress_facade_' + p.id;
+        const putF = (over = {}) => setDoorCache(fDoor, {
+          id: fDoor, zone_id: facade.id, exit_dir: seamDir, target_zone: entryId,
+          is_open: 0, hp: 100, hp_max: 100, lock_state: 'locked', tags: holo, ...over,
+        });
+        const prior = interiorLockedDirs(facade, p);
+        check('a facade with no door on its seam paints no locked edge', prior === null,
+          JSON.stringify(prior));
+        putF();
+        // The ENTRANCE side is what gets coloured, never the seam direction — the
+        // arrow says which way the door faces, and the link into the building is
+        // labelled independently ('in' on legacy buildings).
+        check('a locked front door reddens the facade edge the dpad reddens',
+          JSON.stringify(interiorLockedDirs(facade, p)) === JSON.stringify([entrance]),
+          JSON.stringify(interiorLockedDirs(facade, p)));
+        putF({ lock_state: 'unlocked' });
+        check('...and an unlocked one leaves it green', interiorLockedDirs(facade, p) === null);
+        putF({ tags: {} });
+        check("...and the gate exemptions carry over: no lock installed isn't painted",
+          interiorLockedDirs(facade, p) === null);
+
+        // ...and it survives the WIRE. Everything above asks the seam directly, which
+        // is one function short of what a player sees: the renderers colour a facade
+        // edge from `locked_dirs` on the minimap node, so a payload that dropped the
+        // key would leave every front door in the city green with the seam green-lit.
+        putF();
+        const fNode = (getMinimapData(facade.id, 1, p) || []).find(n => n.id === facade.id);
+        check('the minimap node of a locked facade carries the locked edge',
+          JSON.stringify(fNode?.locked_dirs) === JSON.stringify([entrance]),
+          `${facade.id} → ${JSON.stringify(fNode?.locked_dirs)}`);
+        putF({ lock_state: 'unlocked' });
+        const oNode = (getMinimapData(facade.id, 1, p) || []).find(n => n.id === facade.id);
+        check('...and an unlocked one carries no locked edge at all',
+          oNode?.locked_dirs === undefined, JSON.stringify(oNode?.locked_dirs));
+        deleteDoorCache(fDoor);
+      }
     }
     deleteDoorCache(edgeDoor);
   }

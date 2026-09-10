@@ -1,6 +1,6 @@
 {
   "category": "Halcyon",
-  "description": "An assessor is due at the Ward Nine permits window at some point today and does not intend to spend her morning standing in a corridor. You will. That is the job and Halcyon is not embarrassed about it.",
+  "description": "An assessor is due at the Ward Nine permits window at some point today and doesn't intend to spend her morning standing in a corridor. You will. That's the job and Halcyon isn't embarrassed about it.",
   "fail_on": [],
   "id": "quest_hal_queue",
   "meta": {},
@@ -14,7 +14,7 @@
       "desc": "Hold a place in the permits queue until the assessor arrives.",
       "emotes": [
         "{who} shuffles forward one place in ninety minutes.",
-        "{who} is asked twice what they are queuing for and does not know either time."
+        "{who} is asked twice what they're queuing for and doesn't know either time."
       ]
     }
   ],

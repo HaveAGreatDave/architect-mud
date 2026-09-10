@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "description": "A long marble counter under recessed light, staffed by people trained to say no beautifully. Screens behind the desk cycle agreed values, premiums, and the small print no one reads until it is far too late. This is where you <b>insure</b> an aircraft.",
+  "description": "A long marble counter under recessed light, staffed by people trained to say no beautifully. Screens behind the desk cycle agreed values, premiums, and the small print no one reads until it's far too late. This is where you <b>insure</b> an aircraft.",
   "exits": {
     "in": "zone_halcyon_elevator"
   },

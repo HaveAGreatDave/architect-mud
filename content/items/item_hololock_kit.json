@@ -1,9 +1,10 @@
 {
-  "description": "A matte-black case containing a compact hololock unit, its emitter array folded flat for transport. The bioelectric sensor array is rated for standard residential grade. Install on any door you own with INSTALL HOLOLOCK.",
+  "description": null,
   "flags": {},
   "id": "item_hololock_kit",
   "name": "hololock installation kit",
   "tags": {
+    "description": "A matte-black case containing a compact hololock unit, its emitter array folded flat for transport. The bioelectric sensor array is rated for standard residential grade. Install on any door you own with INSTALL HOLOLOCK.",
     "lockkit:hololock": true
   },
   "type": "misc",

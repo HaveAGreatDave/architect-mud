@@ -186,6 +186,24 @@ function npcAutoLockable(door) {
 // note. Runtime-only, like every other field on a door.
 function markAutoLock(door, insideZoneId) { door._autoLockedInside = insideZoneId || null; }
 
+// Is somebody ELSE still minding this shop? A storefront can be staffed in shifts
+// — a day clerk and a night clerk sharing one work_zone_id, which is how a shop
+// stays open around the clock — and the lockup below is keyed on the DEPARTING
+// npc alone, so without this the handover locks the door on a colleague already
+// behind the counter and the player is told a trading shop just shut. Excludes
+// the leaver by id rather than by zone, because callers differ on whether the
+// leaver's own zone_id has been reassigned by this point.
+export function anotherVendorOnDuty(zoneId, leaverId) {
+  const z = world.zones.get(zoneId);
+  if (!z) return false;
+  for (const id of z.npcs) {
+    if (id === leaverId) continue;
+    const n = world.npcs.get(id);
+    if (n && !isEnemy(n) && n.work_zone_id === zoneId) return true;
+  }
+  return false;
+}
+
 // Vendor closing-time farewells — picked when the vendor shuts up shop while a
 // player is mid-session. Warm if they bought, needling if they didn't.
 const VENDOR_CLOSE_HAPPY = [
@@ -396,10 +414,10 @@ export function vendorOffHoursLine(npc) {
 // lines for yet, and it says the one thing true of all of them — it made a sound and
 // it was not words.
 export const ANIMAL_CHITCHAT_LINES = [
-  'makes a short sound at you and does not repeat it.',
+  "makes a short sound at you and doesn't repeat it.",
   'looks up, considers you for a moment, and looks away again.',
   'shifts its weight and watches you without blinking.',
-  'makes a noise that is clearly meant, and clearly not words.',
+  "makes a noise that's clearly meant, and clearly not words.",
 ];
 
 export const DEFAULT_CHITCHAT_LINES = [
@@ -553,7 +571,7 @@ const WOKEN_GRACE_MINS   = 45;
 
 const STAY_ASLEEP_LINES = [
   (n) => `${n} mumbles something shapeless, rolls over, and stays fast asleep.`,
-  (n) => `${n} swats vaguely at the air and does not wake up.`,
+  (n) => `${n} swats vaguely at the air and doesn't wake up.`,
   (n) => `${n} keeps breathing slow and heavy, entirely untroubled by you.`,
   (n) => `${n} shifts, drags the blanket higher, and sleeps straight through it.`,
   (n) => `${n} frowns in their sleep, says one word of a conversation you aren't part of, and is gone again.`,
@@ -1180,7 +1198,8 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
           broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop and opens up for business.` });
           broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop.` });
           doorHandled = true;   // leave it open for business — don't close behind them
-        } else if (leavingWork && shopDoor.lock_state !== 'locked') {
+        } else if (leavingWork && shopDoor.lock_state !== 'locked'
+                   && !anotherVendorOnDuty(oldZoneId, entity.id)) {
           shopDoor.is_open = 0;
           shopDoor.lock_state = 'locked';
           markAutoLock(shopDoor, oldZoneId);   // the shop floor is the inside — a customer caught in it can still leave
@@ -2606,7 +2625,7 @@ function warnCommuteBlocked(entity, fromZone, workZone, why) {
   const now = Date.now();
   if (now - (_commuteWarned.get(entity.id) || 0) < COMMUTE_WARN_MS) return;
   _commuteWarned.set(entity.id, now);
-  console.warn(`[ai] ${entity.name} (${entity.id}) cannot reach work: ${fromZone} -> ${workZone} (${why}); home_zone=${entity.home_zone}`);
+  console.warn(`[ai] ${entity.name} (${entity.id}) can't reach work: ${fromZone} -> ${workZone} (${why}); home_zone=${entity.home_zone}`);
 }
 
 // A step the adjacency law refused. Same throttle and same reasoning as the

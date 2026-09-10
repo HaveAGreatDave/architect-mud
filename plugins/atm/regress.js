@@ -38,11 +38,11 @@ export default async function regress({ run, check, getPlayer }) {
   check('two terminals on one network share an allowance key',
     networkKey({ id: 'a', network_id: 'CitadelFinancial' }) === networkKey({ id: 'b', network_id: 'CitadelFinancial' }),
     networkKey({ id: 'a', network_id: 'CitadelFinancial' }));
-  check('rival networks do not share an allowance key',
+  check("rival networks don't share an allowance key",
     networkKey({ id: 'a', network_id: 'CitadelFinancial' }) !== networkKey({ id: 'a', network_id: 'Other' }));
   check('an unlinked terminal keys off itself, never null',
     networkKey({ id: 'lonely' }) === 'atm:lonely', networkKey({ id: 'lonely' }));
-  check('unlinked terminals do not pool with each other',
+  check("unlinked terminals don't pool with each other",
     networkKey({ id: 'x' }) !== networkKey({ id: 'y' }));
 
   check('the window is 24 hours', ALLOWANCE_WINDOW_SEC === 86400, String(ALLOWANCE_WINDOW_SEC));
@@ -78,7 +78,7 @@ export default async function regress({ run, check, getPlayer }) {
   // Partway through the window the player needs the REMAINING figure — being told
   // only the ceiling after spending half of it is the actively misleading case.
   const partial = overCapMessage('withdraw', 9000, spentHalf, machine);
-  check('a part-spent refusal quotes what is left', /1000₵/.test(partial), partial);
+  check("a part-spent refusal quotes what's left", /1000₵/.test(partial), partial);
   check('a part-spent refusal quotes what was already moved', /1500₵/.test(partial), partial);
   check('a part-spent refusal names the wait', /3h/.test(partial), partial);
 

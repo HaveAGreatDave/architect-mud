@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "You will look at me again on the way out. Everyone does.",
+  "self_line": "You'll look at me again on the way out. Everyone does.",
   "source": "object_reply_farewell",
   "tone": "surreal"
 }

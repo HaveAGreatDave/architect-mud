@@ -1,9 +1,10 @@
 {
-  "description": "A gram of shredded cured tobacco in a pouch. Roll it into a cigarette, or chew it, if you must.",
+  "description": null,
   "flags": {},
   "id": "item_loose_tobacco",
   "name": "loose tobacco",
   "tags": {
+    "description": "A gram of shredded cured tobacco in a pouch. Roll it into a cigarette, or chew it, if you must.",
     "drug": true
   },
   "type": "consumable",

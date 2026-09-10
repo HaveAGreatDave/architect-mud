@@ -83,7 +83,7 @@ export default async function regress({ run, check, getPlayer }) {
   // Emulate the sweep body exactly: delete, then detonate.
   _test.liveCharges.delete(charge.id);
   await _test.detonate({ ...charge }).catch(err => { blastError = err.message; });
-  check('detonation does not throw on a target that is gone', blastError === '', blastError);
+  check("detonation doesn't throw on a target that's gone", blastError === '', blastError);
   check('the charge is off the board before it goes off — a second sweep finds nothing',
     !_test.liveCharges.has(charge.id));
 

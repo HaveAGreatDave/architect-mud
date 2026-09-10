@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "They are nearly transparent. You can watch their pulse move through them, and the slow work of things that should not be visible.",
+    "extreme": "They're nearly transparent. You can watch their pulse move through them, and the slow work of things that shouldn't be visible.",
     "obvious": "Their skin is thin enough to show the blue map of everything underneath it.",
     "subtle": "The veins at their temples are unusually visible."
   },
@@ -15,9 +15,9 @@
     "torso",
     "hands"
   ],
-  "description": "Your skin has gone thin and clear enough to see the works. You always know exactly how you are doing. So does everyone else.",
+  "description": "Your skin has gone thin and clear enough to see the works. You always know exactly how you're doing. So does everyone else.",
   "drawbacks": [
-    "People cannot look at you for long"
+    "People can't look at you for long"
   ],
   "effects": {
     "social_penalty": 0.3

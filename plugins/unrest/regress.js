@@ -132,7 +132,7 @@ export default async function regress({ check, getPlayer }) {
     // The invariant is the one the name states: it did not exceed 100. The lower bound
     // is what still proves the CLAMP happened rather than the raw 600 being stored.
     const clamped = ledger.read(key).grip;
-    check('a scalar cannot exceed 100', clamped <= 100 && clamped > 99, String(clamped));
+    check("a scalar can't exceed 100", clamped <= 100 && clamped > 99, String(clamped));
     ledger.bump(key, 'grip', -9999);
     // ⚠ SAME RACE, and it was left here when the upper bound above was fixed. Grip
     // decays toward a baseline of 10, so a value clamped to 0 starts climbing back
@@ -180,15 +180,104 @@ export default async function regress({ check, getPlayer }) {
     // cell being squeezed accumulates something the fast pair cannot decay away.
     check('pressure integrates grip over the run', after.pressure > before.pressure,
       `${before.pressure} -> ${after.pressure}`);
-    check('the insurgency answers grip with heat', after.heat > before.heat,
-      `${before.heat} -> ${after.heat}`);
+
+    // ── Ignition, and why the loop needs a negative term ─────────────────────
+    // ⚠ THESE ARE THE CASES THAT WOULD HAVE CAUGHT THE ORIGINAL BUG. The first
+    // model had no negative term anywhere: grip drove pressure, pressure drove
+    // heat, heat drove grip. Three positive couplings and a single fixed point, so
+    // the tick could only ever converge to it — and it converged at band 10.7,
+    // permanently quiet, in every cell, for ever. No value of any rate changed
+    // that; turning them up slid the fixed point straight past every band to a
+    // pinned flashpoint instead, with nothing in between. Ten of the fourteen
+    // authored incidents were unreachable the whole time.
+    //
+    // A sim that cannot leave quiet and a sim that cannot return to it are both
+    // green against every assertion that only ever looks at one step, which is why
+    // the last pair below runs the clock.
+    const { IGNITE_HI, IGNITE_LO, DRIFT_AT, RATE, HALF_LIFE_MIN, BASELINE: BASE } = ledger._test;
+    const decayPerTick = (k) => 1 - Math.pow(0.5, 30 / HALF_LIFE_MIN[k]);
+
+    check("a cell below the trigger doesn't ignite", after.heat === before.heat,
+      `heat ${before.heat} -> ${after.heat} at pressure ${after.pressure.toFixed(1)}`);
+
+    ledger.force(key, { grip: 40, heat: BASE.heat, pressure: IGNITE_HI + 1 });
+    ledger.step(roster);
+    const lit = ledger.read(key);
+    check('crossing the trigger ignites the block', lit.heat > BASE.heat, `${lit.heat}`);
+
+    // ⚠ The vent reads the heat the tick STARTED with, and the block was still
+    // quiet when this one began — so the igniting tick charges like any other and
+    // venting only starts on the next. Asserting the drop on the ignition tick
+    // fails on correct behaviour, which is what the first draft of this did.
+    ledger.step(roster);
+    const venting = ledger.read(key);
+    check('…and the burn then spends the grievance that caused it',
+      venting.pressure < lit.pressure,
+      `${lit.pressure.toFixed(1)} -> ${venting.pressure.toFixed(1)}`);
+
+    // Hysteresis, not a bare threshold. A bare threshold self-limits AT the
+    // trigger and settles there, which is the fixed point again wearing a fuse.
+    // Just under the trigger: a bare threshold would go out here, hysteresis does
+    // not. ⚠ Not the midpoint — one tick of venting from there lands within 0.05
+    // of IGNITE_LO, so the case would pass or fail on rounding rather than on the
+    // behaviour it names.
+    ledger.force(key, { grip: 40, heat: 50, pressure: IGNITE_HI - 1 });
+    ledger.step(roster);
+    check('a lit block keeps burning between the two thresholds',
+      ledger.read(key).heat > 50, `${ledger.read(key).heat}`);
+
+    ledger.force(key, { grip: 40, heat: 50, pressure: IGNITE_LO - 1 });
+    ledger.step(roster);
+    check('…and goes out once the grievance is spent', ledger.read(key).heat === 50,
+      `${ledger.read(key).heat}`);
+
+    // ⚠ THE SILENT-DEATH INVARIANT. Pressure approaches
+    // `restingGrip * RATE.pressure / decayPerTick`, and the resting grip is
+    // baseline plus what baseline heat keeps pushing into it — NOT baseline. Put
+    // the trigger above that ceiling and no cell ignites, the city is dead, and
+    // every other case on this page still passes. Derived from the rates rather
+    // than hardcoded, so retuning either knob re-checks it.
+    const restingGrip = BASE.grip + (BASE.heat * RATE.authority * 0.1) / decayPerTick('grip');
+    const ceiling = restingGrip * RATE.pressure / decayPerTick('pressure');
+    check('the trigger sits below the grievance ceiling it waits on',
+      IGNITE_HI < ceiling, `IGNITE_HI ${IGNITE_HI} vs ceiling ${ceiling.toFixed(1)}`);
+
+    // The same shape one level down: a drift threshold above the heat a burn
+    // actually reaches is a branch nothing can ever enter.
+    const burnHeat = BASE.heat + RATE.burn / decayPerTick('heat');
+    check('a burn gets hot enough to reach the drift threshold', DRIFT_AT < burnHeat,
+      `DRIFT_AT ${DRIFT_AT} vs sustained burn ${burnHeat.toFixed(1)}`);
+
+    // ── The cycle itself, with the clock running ─────────────────────────────
+    // ⚠ Every other case here steps in a tight loop, where no wall-clock time
+    // passes and so nothing decays. Decay is half of this sim, so the cycle can
+    // only be tested by advancing time. Date.now is stubbed for the length of one
+    // synchronous run and restored in a finally; nothing inside it awaits.
+    const realNow = Date.now;
+    let rose = false, returned = false, ticks = 0;
+    try {
+      let clock = realNow();
+      Date.now = () => clock;
+      for (const k of allBlocks()) ledger.force(k, { ...BASE });
+      for (; ticks < 48 * 30 && !returned; ticks++) {
+        clock += 30 * 60000;
+        ledger.step(roster);
+        const b = ledger.bandOf(key);
+        if (b === 'tense' || b === 'flashpoint') rose = true;
+        else if (rose && b === 'quiet') returned = true;
+      }
+    } finally { Date.now = realNow; }
+    check('the sim leaves quiet on its own', rose,
+      `still quiet after ${ticks} ticks (${(ticks / 48).toFixed(1)} days)`);
+    check('…and comes back down on its own', returned,
+      `never returned to quiet within ${(ticks / 48).toFixed(1)} days`);
 
     // A withdrawn order writes nothing at all — "not in this fight" as data.
     for (const k of allBlocks()) ledger.force(k, { grip: 30, heat: 30, pressure: 0 });
     const quiet = ledger.read(key);
     ledger.step([{ id: 'x_withdrawn', writes: 'none', drift: null }]);
     const stillQuiet = ledger.read(key);
-    check('a withdrawn order moves no scalar it does not own',
+    check("a withdrawn order moves no scalar it doesn't own",
       stillQuiet.grip === quiet.grip && stillQuiet.heat === quiet.heat,
       `${JSON.stringify(quiet)} -> ${JSON.stringify(stillQuiet)}`);
 
@@ -297,7 +386,7 @@ export default async function regress({ check, getPlayer }) {
     for (let i = 0; i < 400; i++) if (signals.describeAmbient(zoneObj) !== undefined) spokeAtBaseline = true;
     check('the ambient hook abstains at baseline', !spokeAtBaseline, ledger.bandOf(aCell));
 
-    check('…and abstains on a zone the sim does not cover',
+    check("…and abstains on a zone the sim doesn't cover",
       signals.describeAmbient({ id: 'zone_does_not_exist' }) === undefined);
 
     ledger.force(aCell, { grip: 100, heat: 100, pressure: 0 });
@@ -351,7 +440,7 @@ export default async function regress({ check, getPlayer }) {
     // tick. Per CROSSING it fires when the mood changes, which is the thing a
     // player could notice.
     ledger.force(aCell, { grip: 2, heat: 2, pressure: 0 });
-    check('a scalar move inside one band is not a crossing',
+    check("a scalar move inside one band isn't a crossing",
       (await signals.sweep()).length === 0);
 
     // ── The two voices, and the cap ─────────────────────────────────────────
@@ -462,7 +551,7 @@ export default async function regress({ check, getPlayer }) {
     // ── RULE 1: signal before effect ────────────────────────────────────────
     for (const k of allBlocks()) ledger.force(k, { grip: 100, heat: 100, pressure: 0 });
     signals._reset();
-    check('an incident cannot stage with no signal in the cell',
+    check("an incident can't stage with no signal in the cell",
       incidents.eligible(def, cell) === 'signal', String(incidents.eligible(def, cell)));
     // ⚠ SAME ORDER. A cell whose mood belongs to the authority may not host an
     // insurgency incident, which is what makes every staging attributable to
@@ -700,7 +789,7 @@ export default async function regress({ check, getPlayer }) {
         (await evalCondition({ unrest_incident: 'here' }, p, {})) === true);
       check('favour: …and content can name the order that staged it',
         (await evalCondition({ unrest_incident: 'here', writes: 'ideology_ascendants' }, p, {})) === true);
-      check('favour: …and a different order does not match',
+      check("favour: …and a different order doesn't match",
         (await evalCondition({ unrest_incident: 'here', writes: 'ideology_long_watch' }, p, {})) === false);
 
       // A typo must hide the favour, never offer it everywhere — the same direction
@@ -807,7 +896,7 @@ export default async function regress({ check, getPlayer }) {
     // ⚠ 'none' is a truthy string, so an order that opted out sails through every
     // filter that merely tests for a role at all. The Exodus are not in this
     // fight and nothing attributed to them may ever appear on a street.
-    check('withdrawn: an order that is not in the fight stages nothing',
+    check("withdrawn: an order that isn't in the fight stages nothing",
       eligible(withdrawn, cell) === 'withdrawn', String(eligible(withdrawn, cell)));
     const exodus = roleMod.roles().find(r => r.id === 'ideology_exodus');
     check('withdrawn: …and the Exodus are authored that way', exodus?.writes === 'none', JSON.stringify(exodus));
@@ -831,7 +920,7 @@ export default async function regress({ check, getPlayer }) {
     // voice and want none, so the signal they answer is the AUTHORITY'S. Asking
     // for a signal from 'assets' would make them announce themselves first.
     signals.noteSignal(cell, 'heat');
-    check('vendetta: …and the insurgency talking is not the signal it answers',
+    check("vendetta: …and the insurgency talking isn't the signal it answers",
       eligible(vendetta, cell) === 'signal', String(eligible(vendetta, cell)));
     signals.noteSignal(cell, 'grip');
     check('vendetta: a quiet cell under a visible hand IS the target',
@@ -842,7 +931,7 @@ export default async function regress({ check, getPlayer }) {
     ledger.force(cell, { grip: 5, heat: 100, pressure: 0 });
     check('vendetta: …while a loud cell nobody is holding is not',
       eligible(vendetta, cell) === 'grip', String(eligible(vendetta, cell)));
-    check('vendetta: …even though it is at flashpoint',
+    check("vendetta: …even though it's at flashpoint",
       ledger.bandOf(cell) === 'flashpoint', ledger.bandOf(cell));
 
     // ⚠ The Null are not fighting over the ground the ledger measures, so a
@@ -883,7 +972,7 @@ export default async function regress({ check, getPlayer }) {
       eligible(incursion, target, Date.now(), day) === 'clock',
       String(eligible(incursion, target, Date.now(), day)));
     const other = cells.find(k => k !== target);
-    check('incursion: …and there is one way in per night, not ten',
+    check("incursion: …and there's one way in per night, not ten",
       eligible(incursion, other, Date.now(), night) === 'elsewhere',
       String(eligible(incursion, other, Date.now(), night)));
 
@@ -893,7 +982,7 @@ export default async function regress({ check, getPlayer }) {
     // whose entire promise is that it came from somewhere.
     check('incursion: the small hours belong to the night before',
       roleMod.nightOf({ date: '2087-03-06', minutes: 60 }) === roleMod.nightOf(night));
-    check('incursion: …so the way in does not move during a night',
+    check("incursion: …so the way in doesn't move during a night",
       roleMod.nightTarget({ date: '2087-03-06', minutes: 60 }) === target);
     check('incursion: …and tomorrow night is a different night',
       roleMod.nightOf({ date: '2087-03-06', minutes: 23 * 60 }) !== roleMod.nightOf(night));

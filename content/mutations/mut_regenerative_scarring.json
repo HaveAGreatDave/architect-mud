@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "They are armoured in their own scar tissue, overlapping ridges of it from jaw to knuckle. Nothing on them has healed flat.",
+    "extreme": "They're armoured in their own scar tissue, overlapping ridges of it from jaw to knuckle. Nothing on them has healed flat.",
     "obvious": "Thick ropes of scar tissue cross their forearms and throat, every one of them raised and pale.",
     "subtle": "Old cuts on their hands have healed into raised white cord."
   },
@@ -15,7 +15,7 @@
     "torso",
     "hands"
   ],
-  "description": "You heal fast, and you heal wrong. Every wound closes into thick ropey tissue that never fades, so you are a written record of everything that has happened to you.",
+  "description": "You heal fast, and you heal wrong. Every wound closes into thick ropey tissue that never fades, so you're a written record of everything that has happened to you.",
   "drawbacks": [
     "The scarring accumulates and never fades"
   ],

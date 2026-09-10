@@ -80,7 +80,7 @@
   "butcher_difficulty": 4,
   "butcher_table": [],
   "death_message": "The stilt-legged mutant folds up in three places at once and comes down in a heap of angles.",
-  "description": "Something that used to be a person, drawn out. Its legs are half again too long and fold the wrong way at the knee, and it moves in fast silent scissoring steps that carry it out of reach before you have finished swinging. Everything above the hips is unchanged, which is the part that stays with you.",
+  "description": "Something that used to be a person, drawn out. Its legs are half again too long and fold the wrong way at the knee, and it moves in fast silent scissoring steps that carry it out of reach before you have finished swinging. Everything above the hips is unchanged.",
   "dodge": 4,
   "faction": null,
   "flags": {

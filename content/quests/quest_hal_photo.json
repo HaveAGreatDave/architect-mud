@@ -1,6 +1,6 @@
 {
   "category": "Halcyon",
-  "description": "A vehicle down the Dray Lane side is the subject of a claim, and the claim says one thing while the vehicle probably says another. Photograph it from four sides. Do not speak to the owner.",
+  "description": "A vehicle down the Dray Lane side is the subject of a claim, and the claim says one thing while the vehicle probably says another. Photograph it from four sides. Don't speak to the owner.",
   "fail_on": [],
   "id": "quest_hal_photo",
   "meta": {},
@@ -13,7 +13,7 @@
       "taskSeconds": 12,
       "desc": "Photograph the vehicle from four sides.",
       "emotes": [
-        "{who} works around the wreck, and it is a lot more wrecked from the far side.",
+        "{who} works around the wreck, and it's a lot more wrecked from the far side.",
         "{who} photographs a repair that was done in a hurry by somebody who knew what they were doing."
       ]
     },

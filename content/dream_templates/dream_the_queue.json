@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "The queue advances by one person. You do not move.",
+    "The queue advances by one person. You don't move.",
     "Somewhere near the front a stamp comes down, and everyone relaxes slightly.",
     "Someone joins the line behind you and sighs the sigh of a person settling in for years."
   ],
   "cause": "dream",
-  "description": "A line of people, patient and enormous, going out of the door and around a corner that the building does not have. Nobody is talking. Everyone has brought a form. You have not brought a form, and you understand with total certainty that this will be dealt with when you reach the front. The front is not visible.",
+  "description": "A line of people, patient and enormous, going out of the door and around a corner that the building doesn't have. Nobody is talking. Everyone has brought a form. You haven't brought a form, and you understand with total certainty that this will be dealt with when you reach the front. The front isn't visible.",
   "drug_id": null,
   "fx": "fog",
   "fx_intensity": 0.45,
@@ -15,8 +15,8 @@
     {
       "looks": [
         "Everyone else’s is filled in. The boxes are in a language of boxes.",
-        "You are holding one after all. It has your handwriting on it and none of your words.",
-        "It asks the same question forty times, and the fortieth time it is a different question."
+        "You're holding one after all. It has your handwriting on it and none of your words.",
+        "It asks the same question forty times, and the fortieth time it's a different question."
       ],
       "name": "the form"
     },
@@ -29,5 +29,5 @@
       "name": "the person ahead of you"
     }
   ],
-  "weather": "It is the temperature of a corridor. There is no weather here and there never was, and nobody has remarked on it."
+  "weather": "It's the temperature of a corridor. There's no weather here and there never was, and nobody has remarked on it."
 }

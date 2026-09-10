@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#251815",
-  "description": "Deeper into the kiln, through the crack, where the brick is glazed black and still warm to the back of the hand. Slake sleeps in here because it is the warmest place for thirty miles and the walls are two feet thick. Crates of stock are stacked against the curve, and a second counter tube on the wall reads noticeably lower than the one out front.",
+  "description": "Deeper into the kiln, through the crack, where the brick is glazed black and still warm to the back of the hand. Slake sleeps in here because it's the warmest place for thirty miles and the walls are two feet thick. Crates of stock are stacked against the curve, and a second counter tube on the wall reads noticeably lower than the one out front.",
   "exits": {
     "east": "zone_kiln_shop"
   },

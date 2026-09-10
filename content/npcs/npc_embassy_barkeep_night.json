@@ -1,0 +1,365 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Bar's open. It doesn't close, it just changes hands.\"",
+    "\"You're up late. So's everyone who ends up here.\"",
+    "\"Lowry does the daylight. I do the rest.\"",
+    "\"Whatever you're about to tell me, I've already heard it at four in the morning.\"",
+    "\"Drink it or don't. The stool's the same price.\"",
+    "\"Nothing good gets ordered after two. Doesn't stop anyone.\"",
+    "\"If you're waiting for someone, wait quietly.\"",
+    "\"I don't do last call. There isn't one.\"",
+    "\"Tab's open. So's the door. Mind which one you use.\"",
+    "\"Sleep's for people with somewhere to be.\""
+  ],
+  "description": "Night shift at the Embassy Lounge, in a cardigan over the house apron and reading glasses pushed up into grey hair. She keeps a paperback face-down by the taps and picks it up the second you stop talking.",
+  "dialogue_tree": {
+    "advice": {
+      "actions": [
+        {
+          "action": "BARTENDER_ADVICE"
+        }
+      ],
+      "options": [
+        {
+          "label": "Anything else?",
+          "next": "advice"
+        },
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "Imogen puts the paperback down and looks at you properly."
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "She checks the stairwell before she says anything."
+    },
+    "menu": {
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "Same list as the day shift, minus the theatre. The Reserve if you're paying for the idea of it, the Swill if you're not. Canapes are whatever Lowry didn't get through, and they were his idea of complimentary, not mine."
+    },
+    "poker": {
+      "actions": [
+        {
+          "action": "BARTENDER_POKER"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "She tips her head at the card table without looking at it."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's on the menu?",
+          "next": "menu"
+        },
+        {
+          "label": "Any advice for someone new?",
+          "next": "advice"
+        },
+        {
+          "label": "What's on the tube?",
+          "next": "tv"
+        },
+        {
+          "label": "Who's up at the table?",
+          "next": "poker"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Never mind.",
+          "next": null
+        }
+      ],
+      "text": "\"Evening. Or morning. Take your pick, the tap doesn't care.\"",
+      "text_by_relation": {
+        "familiar": "\"There you are.\" The paperback goes face-down before you've got to the stool. \"Sit. You can tell me what happened while I pour.\"",
+        "first": "\"You're new, or you've never been up this late.\" She marks her page with a beer mat. \"Imogen. I have the bar from eight at night until Lowry turns up hungover and calls me valued colleague. Sit where you like, nobody's reserved anything since the Handoff.\"",
+        "known": "\"Back at this hour. That's twice.\" She's already reaching for a glass. \"Same again, or are we branching out?\""
+      }
+    },
+    "tv": {
+      "actions": [
+        {
+          "action": "BARTENDER_TV"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "She glances up at the set, which nobody has changed in hours."
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey cardigan over the house apron",
+      "a faded work shirt",
+      "plain cotton underwear"
+    ],
+    "mis_willing": false,
+    "personality": "bartender"
+  },
+  "home_activities": [],
+  "home_zone": "zone_apt_7",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_embassy_barkeep_night",
+  "name": "Imogen Cardew",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_drink_embassy_reserve",
+      "price": 22,
+      "stock": 15
+    },
+    {
+      "item_id": "item_drink_basin_swill",
+      "price": 4,
+      "stock": 99
+    },
+    {
+      "item_id": "item_embassy_canapes",
+      "price": 9,
+      "stock": 25
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_residential_lobby"
+}

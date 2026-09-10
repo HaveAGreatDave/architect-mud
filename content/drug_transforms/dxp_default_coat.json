@@ -4,12 +4,12 @@
     "Have you seen me before tonight?",
     "Would you say this fits?"
   ],
-  "description": "Somebody is standing there in a long coat, and the coat is doing all of the work. There is a collar and there are cuffs and there is a person-shaped amount of dark between them, and it is standing the way a person stands.",
+  "description": "Somebody is standing there in a long coat, and the coat is doing all of the work. There's a collar and there are cuffs and there's a person-shaped amount of dark between them, and it's standing the way a person stands.",
   "drug_id": null,
   "emotes": [
     "{it} shifts its weight, and the coat resettles a half-second after it.",
     "{it} puts its hands in its pockets, which takes longer than it should.",
-    "{it} turns the collar up against a draught you cannot feel."
+    "{it} turns the collar up against a draught you can't feel."
   ],
   "fx": null,
   "fx_intensity": 0.5,
@@ -20,10 +20,10 @@
     "You can see the wall through the gap at the front, and the wall is behaving normally."
   ],
   "matches": null,
-  "name": "a person who is mostly a coat",
+  "name": "a person who's mostly a coat",
   "says": [
-    "It is colder than it looks out there.",
-    "I would take this off but I am not sure what happens then.",
+    "It's colder than it looks out there.",
+    "I would take this off but I'm not sure what happens then.",
     "You keep looking at the sleeves."
   ],
   "scope": "person"

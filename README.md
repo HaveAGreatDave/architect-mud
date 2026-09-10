@@ -30,34 +30,140 @@ The world runs a live environmental simulation around the clock: a 30-minute day
 
 ## What's Built
 
-**Core systems — all working in production:**
+Refreshed 2026-09-03 against the tree. The list below is grouped by what a player
+touches, not by how the code is arranged. Everything here runs in production
+unless the entry says otherwise; a few systems are partly shipped and say so.
 
-- Real-time WebSocket server — all output streams live, no polling
-- Player auth, reconnect handling, and cold-start UX (free hosting spins down; the client notices and reconnects automatically)
-- Movement, radiation exposure, clickable room text (exits, NPCs, enemies, items — type or click)
-- Combat with cooldowns, crits, and miss rolls — HellMOO-paced (~3.5s cooldown), not a button-masher
-- Enemy AI with targeting and spawn timers, confined to badlands
-- Status effects: bleeding, burning, irradiated
-- Survival meters: HP, Sanity, Hunger, Thirst, Radiation — balanced for multi-hour real-time depletion, genuinely lethal if neglected
-- Full-loot PvP — corpses are lootable by anyone for 10 minutes
-- Death & respawn via cloning vat — all skills retained, body reset
-- Crafting — skill checks, station requirements, crit crafts
-- Mutation system — radiation triggers permanent mutations with buffs and drawbacks
-- Drug system — timed effects, addiction rolls, overdose/withdrawal
-- Quest system — START/ADVANCE/COMPLETE/TURN_IN lifecycle, kill/give/visit objectives, repeatable quests, credit/item/flag rewards
-- Apartments & property — rent, lock, pick (Security skill check), upgrade lock, timed sleep with recovery rates scaled by safety
-- Inventory & equipment — stackable items, 7-slot body equipment with a drag/click visual panel
-- Containers — items that hold other items (`stow`/`pull`/`look in`), contents travel with the container
-- Faction reputation — 6 tiers, trade discounts, hostile NPC behavior
-- Vendor system — buy/sell with faction discounts; Sully the barkeep at the Basin Swill
-- Economy — dual carried/banked credit pools, ATMs, player-to-player theft (Deception skill check, zone broadcasts on failure)
-- Skill system — 25 skills, XP-by-use, rank 0–10
-- Environmental simulation — day/night cycle, weather, seasons, 7-day forecast, visibility effects
-- Power grid & lighting — generators, simulated blackouts/overloads, switchable indoor lights, auto streetlights at dusk
-- Furniture & scenery — examinable room dressing (bars, beds, corkboards, light fixtures)
-- NPC dialogue trees
-- ASCII minimap — colorized by danger level, BFS-rendered from the live zone graph
-- Settings — dark/light/high-contrast theme, font size, display density, saved to localStorage
+Scale, for orientation: **137 plugins, 621 player verbs, 17,263 zones across 5
+regions, 150 tables.** Per-system detail lives in [docs/](docs/) — most systems
+have an "as built" doc that outranks this summary.
+
+### The core loop
+
+- **Real-time WebSocket server** — all output streams live, no polling
+- **Auth, reconnect and cold-start UX** — free hosting spins down; the client notices and reconnects
+- **Movement and clickable room text** — exits, NPCs, enemies and items are all typed or clicked
+- **Combat** — to-hit rolls, body-part targeting, typed soak, crits, misses and HellMOO-paced cooldowns (~3.5s)
+- **Injuries** — wounds hang off real damage, with `aim` to target a part
+- **Enemy AI** — VINE behaviour trees, targeting, pathfinding, spawn timers
+- **Full-loot PvP** — corpses are lootable by anyone for 10 minutes
+- **Death and respawn** via cloning vat; skills retained, body reset
+- **Stealth** — sneaking with a per-observer notice roll, and knockouts that are always somebody's choice
+- **Sanity and hallucinations** — a tripping player's room description is rewritten under them
+
+### Survival and the body
+
+- **Meters** — HP, Sanity, Hunger, Thirst, Radiation, Stamina, tuned for multi-hour real-time depletion
+- **Status effects** — bleeding, burning, irradiated, and a general framework behind them
+- **Body temperature** — warmth, wetness, frostbite, hypothermia
+- **Fatigue and sleep**, with recovery scaled by how safe the place is
+- **Dreams** — per-sleep dreamscapes and drug dreamzones, instanced per player and dissolved after
+- **Hygiene** — filth on a body, a contaminant/smell table, sweat and grime
+- **Bodily functions** — the unglamorous half, with washing to undo it
+- **Swimming, climbing and sprinting**, each with its own gate and cost
+
+### Character, chrome and the flesh
+
+- **29 skills** — XP by use, rank 0–10
+- **Mutations** — both halves shipped. Radiation mutations and the Wildblood mutagen, each with a 1–100 expression rolled once, natural weapons, active organs, flight, three medical tiers, and a social ladder that is hostile long before it is violent
+- **Augments** — chrome as a machine you own: an authored catalog row, an ordinary inventory item, then an installed record. Surgery by a real NPC roll, calibration, overclocking, heat, and dead-but-recoverable hardware
+- **Mastery** *(Long Watch)* — the discipline that grants no passive at all: Read and Exploit, a purity cap that chrome and mutation lower, and a decaying stain when you remove them
+- **Psionics** *(Exodus)* — psychometry, telekinesis, aegis and ergokinesis, with strain that lands on tissue and a hard rule that low ranks may never name a mechanism. *Phases 1–2; telepathy, precognition and dreamwalking are design*
+- **Nullcraft** *(Null)* — jamming, spoofing and hijacking somebody else's machine, with trace that decays at read
+- **Durability** — gear wears on use, five bands, field repair vs bench repair, and destruction at zero
+- **Wardrobe** — layered clothing, saved outfits, dress/undress
+
+### Economy and work
+
+- **Credits** — carried and banked pools, ATMs with networks, fees, limits and hacking
+- **Vendors and shops** — buy/sell, faction discounts, stock that sections itself by what's on the shelf
+- **Player storefronts** — buy a deed, stock it, hire staff, work the till, set the shutters
+- **Crafting** — skill checks, station requirements, crit crafts
+- **Cooking** — a 62-dish catalog plus improvised dishes, boiling, player-authored recipes identified by signature, and a shopping list that stores what you want rather than what you have
+- **Drinks** — mixology on the vessel, profiles rather than grams, alcohol derived from ABV and pours
+- **Synthesis** — chem bench, the splice minigame, sealed product
+- **Drugs** — timed effects, addiction rolls, overdose and withdrawal, dealing, NPC dosing
+- **Jobs** — a rotating job board, steady shift work, escort and courier runs
+- **Trade** — a two-sided trade window, direct pay, and theft with a Deception check
+- **Bounties** — money on a head, where the head is a physical item in the corpse
+- **Trading cards** — mint yourself at a terminal, buy sleeves from a machine, open them in a reveal
+- **Insurance** — policies, binding, claims
+- **Housing** — rent, lock, pick, upgrade; one pool shared with NPC residents
+- **Corps** — faction, owner, treasury, members and territory, with an influence tug-of-war and five power levers. *Espionage and NPC corp AI are design*
+
+### Crime and law
+
+- **SPECTER surveillance** — player spy networks, cameras, feeds, recording and replay
+- **The wanted system** — witnessed crime, stars, police who take you alive at 4★+, bribery and evidence scrubbing
+- **Jail** — Holding, gear confiscation, an evidence locker, a hackable cell door
+- **Burglary** — hololocks, alarms, safecracking
+- **Demolition** — breaching charges wired to a thing rather than thrown at a person, with a public fuse anyone can defuse
+- **Graffiti** — tagging with a spraycan
+
+### Factions and story
+
+- **Four orders** on a stance axis plus path, with six reputation tiers, trade effects and authored hostility between them
+- **Faction arcs** — a 40-slot ladder per order. *Long Watch and Ascendants are complete through slot 10; the other two are design*
+- **The Turning** — the Ascendant defection arc, the first questline where a player changes side, ending in a claimed death at the Uplink
+- **Unrest** — the conflict between orders made observable: derived cells, three scalars, staged incidents and checkpoints, deliberately with no player-facing readout
+- **Quests** — START/ADVANCE/COMPLETE/TURN_IN, kill/give/visit/demolish objectives, repeatable quests, credit/item/flag rewards
+- **VINE** — one graph editor behind dialogue trees, script graphs, enemy behaviour, broadcast scripts and quests
+- **Relationships** — what an NPC remembers about you: familiarity and warmth over six tiers, authorable from dialogue
+- **CODEX** — a 30-second cold open before the prologue speaks, and a tablet app holding the backstory, unlocked a chapter at a time
+
+### The world
+
+- **5 regions, 17,263 zones** — Coldwater, Deadwater, Terminus, The Reach and the Scarletwastes, plus 136 interior maps
+- **Environmental simulation** — day/night cycle, weather, seasons, a 7-day forecast, visibility
+- **Extreme weather** — a severity scalar, gear-gated lethal channels, no indoor safe haven, acid rain, EMP and ion storms, and named hero events
+- **Power grid and lighting** — generators, simulated blackouts and overloads, switchable fixtures, streetlights at dusk
+- **Terrain** — a ground-surface source of truth driving minimap, tablet and pacing, with a dev-panel painter
+- **Senses** — smell, hearing and sight as an engine substrate, with per-observer acuity and overload
+- **Procedural audio** — sound generated from action plus material plus intensity rather than per-thing assets, down to footsteps voiced by the ground you just stepped on
+- **Ambience and sound propagation**, zone spawning, and an ASCII minimap BFS-rendered from the live graph
+- **Overland void travel** — transient waste rooms off a region's rim, with encounters and traces
+- **Cleaning** — zone filth on two clocks: unowned space swept nightly, a room you own keeps its mess
+- **Scavenging, fishing and mining** — posture-based perpetual work with per-zone tables
+- **Ambient life** — NPC routines, posture and sleep, clothing, banter threads, gossip that spreads
+- **Cathode** — a stray cat with a bionic paw who hides in a real off-map den, and the `search` verb that came with her
+
+### Travel and vehicles
+
+- **Flight** — 10 aircraft, airfields, hazards, cargo contracts, air-to-air and air-to-ground combat, hangars, liveries, tuning, salvage, a checkride and licence, insurance, charter and auto-land. A continuous client-sim/server-reconcile loop, not a minigame
+- **Trucking** — the road between regions as something you drive: a synthesised corridor, real bends with a minimum turn radius, a verge that slows rather than blocks, road signs in miles, junctions you can see, and CB radio. *Phase 1, bobtail; the gearbox, trailer articulation and weigh station are design*
+- **Yachts** — sailing, docking, invites
+- **The Echelon helm** — a chase view and deck cam
+- **Getting around** — GPS, run/walk toggle, elevators, speedwalk
+
+### Media and entertainment
+
+- **Broadcast** — channels, playlists, VINE scripts, NPC hosts, camera feeds, and five live-assembled show modes
+- **Two sports** — Deadball baseball and Cluster Puck hockey, each with a league, standings, a season and a rink sub-screen
+- **Television** — tune and watch, a formant voice for hosts, piracy, an emergency channel
+- **Betting** — wagers on live sport
+- **The library** — nine public-domain books and four comics, a tablet reader, RP narration, and a tap-to-gloss vocabulary layer over prose that is never rewritten
+- **Instruments** — furniture you sit at and play key by key on your own keyboard, and the room hears it
+- **Games** — a casino with slots and poker, and full legal chess on an isometric board
+- **The video store** — rentals, returns, late fees
+
+### Client and interface
+
+- **The tablet** — an OS with map, gear, chat, bank, crafting, CODEX, TV guide, calendar, arcade and settings apps
+- **Smartbar macros** — `;`-chained scripts, expressions, if/else, macros calling macros with arguments, per-macro key bindings, synced to the account
+- **Client automation** — triggers (including state, channel and multi-line), timers, aliases, variables, `wait for`, groups, gagging, output routing to panes, and speedwalk
+- **Display Mode** — one ordered preference across every system that has both a graphical and a written presentation
+- **Accessibility** — an options table rendered by both a tablet page and a verb, voice input with a game-specific normalizer, Read Aloud, and a single ARIA live region
+- **Presentation** — 32 themes, font size, density, layout, saved per account
+- **The flight sim renderer** — a windshield with 172 building models on a four-level LOD path, cockpits, and a truck cab view, all with no build step
+- **Authoring tools** — the dev panel, the VINE graph editor, and the Studio map editor that edits files with no DB in the process
+
+### Platform and operations
+
+- **THOMAS** — the client and engine are a platform; Architect is one game built on it
+- **The CODEX pipeline** — world content is one JSON file per entity in git, and a push to `main` is the deploy, regress-gated and backed up first
+- **150 tables, no ORM** — every query goes through one helper
+- **26 pre-push gates** — parse, imports, content, queries, docs, shapes, accessibility and ops smokes, ahead of a regression suite of ~8,988 assertions and 125 per-plugin suites
+- **Usage watch** — a daily measurement of the free-tier budget that grades on pace rather than total
 
 ---
 
@@ -66,7 +172,7 @@ The world runs a live environmental simulation around the clock: a 30-minute day
 Refreshed 2026-08-31 against the tree. Three entries that sat here for months had
 shipped in the meantime — sanity effects (`plugins/sanity`, and `getRoomTransform`
 rewrites the room for a tripping viewer), crews and guilds (`plugins/corps`), and
-"more world", which is now four regions and ~17,000 zones.
+"more world", which is now five regions and ~17,000 zones.
 
 - **Apartment storage and decor** — still sleep + lock only. No placement verb exists.
 - **Zone node graph view** — a graph of how zones connect, for authoring.

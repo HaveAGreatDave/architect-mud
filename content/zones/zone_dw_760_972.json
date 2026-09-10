@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The west shoulder of the dam, where the overflow goes when there is overflow: a broad stone chute stepped down the outside face, dry today, swept, with a scour line up both walls showing how high it has run and a date cut into the stone beside the highest one. There is a handrail. It has been repainted.",
+  "description": "The west shoulder of the dam, where the overflow goes when there's overflow: a broad stone chute stepped down the outside face, dry today, swept, with a scour line up both walls showing how high it has run and a date cut into the stone beside the highest one. There's a handrail. It has been repainted.",
   "exits": {
     "north": "zone_dw_760_971",
     "south": "zone_dw_760_973",

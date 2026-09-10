@@ -154,7 +154,7 @@ export const MORE_QUESTIONS = [
     react: {
       yes: [`is quiet for a second, then {say} it — just once, quietly, and doesn't repeat it. "There. Now you've got both."`],
       no: [`"No." {They} {nod}, and something closes very neatly. "Fine. It wasn't much of a name anyway."`],
-      dodge: [`"That's not a yes." {They} {let} the subject go and it does not come back.`],
+      dodge: [`"That's not a yes." {They} {let} the subject go and it doesn't come back.`],
       timeout: [`waits a long time, and then puts the question away somewhere it won't be found again soon.`],
     },
   },
@@ -217,7 +217,7 @@ export const MORE_QUESTIONS = [
   },
   {
     key: 'nickname',
-    ask: `"You've got a name for me you use when you're not talking to me. Everyone does. What is it?"`,
+    ask: `"You've got a name for me you use when you're not talking to me. Everyone does. What's it?"`,
     answers: [
       ['sweet', /\b(love|darling|sweetheart|dear|beautiful|angel|sunshine|treasure|pet)\b/],
       ['rude',  /\b(trouble|menace|nightmare|monster|brat|the problem|disaster|handful)\b/],

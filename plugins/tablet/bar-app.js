@@ -111,7 +111,7 @@ async function buildScreen(player, screenId, params) {
         label: hidden ? `Show everything (${hidden} more)` : 'Show everything',
         sub: readyCount
           ? 'What you could pour if you went shopping.'
-          : 'You are not carrying the makings of anything. That is its own kind of clarity.',
+          : "You aren't carrying the makings of anything. That's its own kind of clarity.",
         badge: 'missing',
       });
 

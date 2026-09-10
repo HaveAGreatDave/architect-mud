@@ -1,6 +1,11 @@
 {
-  "description": "A gleaming chrome espresso rig, all pressure gauges and hissing wands, that does most of Jitter's actual labour. It's the cleanest object for a block in any direction and it knows it.",
-  "flags": {},
+  "description": "A gleaming chrome espresso rig, all pressure gauges and hissing wands, that does most of Jitter's actual labour. A cup dispenser is bolted to one end of it, cups stacked nose to tail like shell casings. It's the cleanest object for a block in any direction and it knows it.",
+  "flags": {
+    "aliases": "rig,espresso,espresso machine,coffee machine,cup dispenser,cups",
+    "brew_tier": "barista",
+    "vends": "item_paper_cup",
+    "vend_line": "The dispenser thumps once and a paper cup drops out, seam-side up."
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_espresso_jitter",

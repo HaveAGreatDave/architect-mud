@@ -44,7 +44,7 @@ async function publishAll() {
 }
 
 async function rejectAll() {
-  if (!(await dpConfirm(`Discard all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''}? This cannot be undone.`, { danger: true }))) return;
+  if (!(await dpConfirm(`Discard all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''}? This can't be undone.`, { danger: true }))) return;
   const result = await API('/staging/reject', 'POST', { all: true });
   if (result.error) { toast(result.error, true); return; }
   _mapPendingOverrides.clear();

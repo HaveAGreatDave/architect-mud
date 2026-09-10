@@ -1,0 +1,66 @@
+{
+  "id": "gunship",
+  "kind": "fw",
+  "params": {
+    "bodyTube": 0.15,
+    "boxy": 0.22,
+    "canopy": {
+      "arc": 5,
+      "art": "reaper",
+      "f0": 0.6,
+      "f1": 0.16,
+      "front": 0.16,
+      "h": 0.112,
+      "segs": 8,
+      "sink": 0.01,
+      "tail": 0.06,
+      "w": 0.078
+    },
+    "dih": 0.02,
+    "engines": [],
+    "finF0": -0.82,
+    "finF1": -1.02,
+    "finF2": -1.08,
+    "finH": 0.44,
+    "fins": [
+      -0.34,
+      0.34
+    ],
+    "fr": 0.115,
+    "fv": 0.14,
+    "gear": true,
+    "gearPods": true,
+    "hB": -1.02,
+    "hF": -0.8,
+    "hSpan": 0.36,
+    "hTipB": -1.04,
+    "hTipF": -0.86,
+    "nacF": -0.02,
+    "nacH": -0.02,
+    "noseBlunt": 2.5,
+    "noseF": 1,
+    "podEngines": [
+      [
+        -0.4,
+        0.27,
+        0.15
+      ],
+      [
+        -0.4,
+        -0.27,
+        0.15
+      ]
+    ],
+    "podPylon": true,
+    "span": 0.86,
+    "tailF": -1,
+    "tailUp": 0.04,
+    "wRootB": -0.3,
+    "wRootF": 0.22,
+    "wTipB": -0.26,
+    "wTipF": 0.16,
+    "wingGuns": true,
+    "wingH": -0.03
+  }
+}
+

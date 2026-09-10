@@ -40,9 +40,9 @@
       "stages": {
         "easing": "You get twenty minutes of something adjacent to sleep and come out of it less rested than you went in.",
         "onset": "The edges lull was filing come back on, all at once, at the same time.",
-        "peak": "Your hands will not sit still on a table and your jaw aches from a night of doing something you were not awake for.",
+        "peak": "Your hands won't sit still on a table and your jaw aches from a night of doing something you weren't awake for.",
         "rising": "Sounds arrive at full volume with nothing in front of them. A door two rooms away is an event.",
-        "tail": "You can be in a room with people again. You are still counting the exits, and you were not before."
+        "tail": "You can be in a room with people again. You're still counting the exits, and you weren't before."
       }
     }
   },

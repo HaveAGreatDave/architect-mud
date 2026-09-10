@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b2620",
   "color": "#d6c39c",
-  "description": "A small room off the hall that has been one man's office for longer than most of this district has been standing. A desk with a blotter, a kettle, a shelf of ledgers in a careful hand, and a rail of worn vestments whose colours meant something to somebody. There is a photograph on the wall of a street that is still there and a skyline that is not. On the desk, squared to the edge, is a printed Compliance of Worship certificate with the Architect's eye at its head, and it is the only thing in the room that is not slightly worn, because it is the only thing in the room he does not touch.",
+  "description": "A small room off the hall that has been one man's office for longer than most of this district has been standing. A desk with a blotter, a kettle, a shelf of ledgers in a careful hand, and a rail of worn vestments whose colours meant something to somebody. There's a photograph on the wall of a street that's still there and a skyline that's not. On the desk, squared to the edge, is a printed Compliance of Worship certificate with the Architect's eye at its head, and it's the only thing in the room that isn't slightly worn, because it's the only thing in the room he doesn't touch.",
   "exits": {
     "west": "zone_stgarneau_nave"
   },

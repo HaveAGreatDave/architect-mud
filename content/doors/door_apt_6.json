@@ -16,7 +16,7 @@
       "canHack": true,
       "difficulty": 5,
       "messages": {
-        "denied": "The hololock does not recognize your credentials.",
+        "denied": "The hololock doesn't recognize your credentials.",
         "hackFail": "The hololock resists your intrusion.",
         "hackSuccess": "You bypass the hololock's security matrix.",
         "lock": "The hololock hums as it engages.",

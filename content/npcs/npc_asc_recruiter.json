@@ -89,7 +89,7 @@
           "next": "bye"
         }
       ],
-      "text": "Maresh smiles the way a man smiles at a parked car.\n\n\"Ives wrote you up. I read it. It was — \" he searches for it, finds it, enjoys it \" — *warm*, actually. She liked you. She has never liked me.\"\n\nHe goes back to the queue.\n\n\"No, there is nothing for you here. Not out of spite; there is genuinely nothing. The Gate does not scan people who have already answered. Go well.\""
+      "text": "Maresh smiles the way a man smiles at a parked car.\n\n\"Ives wrote you up. I read it. It was — \" he searches for it, finds it, enjoys it \" — *warm*, actually. She liked you. She has never liked me.\"\n\nThe queue moves up one and he moves with it.\n\n\"No, there is nothing for you here. Not out of spite; there is genuinely nothing. The Gate does not scan people who have already answered. Go well.\""
     },
     "hand_approve": {
       "_vine": {
@@ -218,7 +218,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I would not.\"\n\nHe says it without any defence at all, which is worse than a defence.\n\n\"And he will be seen today. In the Yards they would not have let him in off the step.\"\n\nA small pause, and it is the only unpolished second in the conversation.\n\n\"You want one of those to make the other one all right. It will not, and I am not going to pretend it does.\""
+      "text": "\"I would not.\"\n\nHe lets it stand.\n\n\"And he will be seen today. In the Yards they would not have let him in off the step.\"\n\nA small pause, and it is the only unpolished second in the conversation.\n\n\"You want one of those to make the other one all right. It will not, and I am not going to pretend it does.\""
     },
     "hand_object_hard": {
       "_vine": {
@@ -242,7 +242,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Good.\"\n\nHe means it, and that is the difficulty with him.\n\n\"Come back and tell me in a year. I keep a list of people who said that and I have never once had to cross a name off it in under two.\""
+      "text": "\"Good.\"\n\nHe means it, and that is the difficulty with him.\n\n\"Come back and tell me in a year. I keep a list of people who said that and I have never had to cross a name off it in under two.\""
     },
     "hand_recover": {
       "_vine": {
@@ -1090,7 +1090,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Is it not?\"\n\nHe is genuinely puzzled for about a second, and then he has it, and he is sorry.\n\n\"Ah. You are worrying about him.\"\n\nHe turns his chair slightly towards you, and he is being kind, and he does not know he is answering a different question.\n\n\"You are class four. You could not be sent there if you tried.\""
+      "text": "\"Is it not?\"\n\nHe is puzzled for about a second, and then he has it, and he is sorry.\n\n\"Ah. You are worrying about him.\"\n\nHe turns his chair slightly towards you, and he is being kind, and he does not know he is answering a different question.\n\n\"You are class four. You could not be sent there if you tried.\""
     },
     "the_words": {
       "_vine": {
@@ -1203,7 +1203,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because what we do to you is chosen, and it is repeatable.\"\n\n\"Every piece is designed, tested, licensed and written down. If it fails we know whose bench it came off. If you want it out, it comes out. Fit the same unit to a thousand people and you get a thousand of the same result, which is the entire achievement.\""
+      "text": "\"Because what we do to you is chosen, and it is repeatable.\"\n\n\"Every piece is designed, tested, licensed and written down. If it fails we know whose bench it came off. If you want it out, it comes out. Fit the same unit to a thousand people and you get a thousand of the same result. We were not aiming at anything else.\""
     },
     "why_us_flask": {
       "_vine": {
@@ -1258,7 +1258,7 @@
           "next": "bye"
         }
       ],
-      "text": "The smile comes back, and he is genuinely enjoying himself for the first time.\n\n\"We do. And the bench that built it has a name, and the man at the bench has a name, and the record has a date on it.\"\n\n\"You are welcome to think that is worse. Nobody has ever explained to me why.\""
+      "text": "The smile comes back, and he is enjoying himself for the first time.\n\n\"We do. And the bench that built it has a name, and the man at the bench has a name, and the record has a date on it.\"\n\n\"You are welcome to think that is worse. Nobody has ever explained to me why.\""
     },
     "why_us_flask_chose": {
       "_vine": {

@@ -6,7 +6,7 @@
     "A towel is taken off its hook and a different one is put in its place."
   ],
   "ambient_theme": "indoors",
-  "description": "Duckboards, a long trough, and a copper at the end with a fire under it. Everything wooden in here has gone silver with steam. There are hooks, and on the hooks are towels, and each towel is a different colour and has clearly been that person's towel for years.\n\nWater is not wasted here. That is not a sign on the wall, it is just a thing that visibly does not happen.",
+  "description": "Duckboards, a long trough, and a copper at the end with a fire under it. Everything wooden in here has gone silver with steam. There are hooks, and on the hooks are towels, and each towel is a different colour and has clearly been that person's towel for years.\n\nWater isn't wasted here. That isn't a sign on the wall, it's just a thing that visibly doesn't happen.",
   "exits": {
     "down": "zone_util_zone_exo_wash",
     "west": "zone_terminus_1213_935"

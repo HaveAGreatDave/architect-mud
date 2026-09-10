@@ -58,7 +58,7 @@ export function openVoidwalkStaging(msg) {
   const inv = msg.inventory || [];
   const invRows = inv.length
     ? inv.map(it => `<li><span class="vwstage-item">${esc(it.name)}</span>${it.qty > 1 ? `<span class="vwstage-qty">×${it.qty}</span>` : ''}</li>`).join('')
-    : '<li class="vwstage-empty">You carry nothing. That is a decision.</li>';
+    : '<li class="vwstage-empty">You carry nothing. That\'s a decision.</li>';
 
   const party = msg.party || [];
   const partyRows = party.map(p => `

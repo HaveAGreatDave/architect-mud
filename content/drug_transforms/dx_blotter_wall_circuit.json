@@ -1,7 +1,7 @@
 {
   "asks": [
     "Would you say a number? Any number.",
-    "Do you know what I am working on?",
+    "Do you know what I'm working on?",
     "Have you been counting the lights? I would like a second opinion."
   ],
   "description": "The wall is a single vast board of green and gold, tracks running in right-angle rivers between components the size of your fist, and somewhere behind it all something is being computed.",
@@ -15,15 +15,15 @@
   "fx_intensity": 0.5,
   "id": "dx_blotter_wall_circuit",
   "looks": [
-    "The tracks branch and rejoin in a pattern that is nearly readable, the way a page in a language you nearly know is nearly readable.",
+    "The tracks branch and rejoin in a pattern that's nearly readable, the way a page in a language you nearly know is nearly readable.",
     "Small lights come on in sequence along one edge, run out, and start again in a different order.",
-    "Put your ear to it and there is a hum with structure in it."
+    "Put your ear to it and there's a hum with structure in it."
   ],
   "matches": "wall",
   "name": "a printed circuit the size of a wall",
   "says": [
-    "I am nearly finished. I have been nearly finished for some time.",
-    "You are one of the inputs. Do not let that go to your head.",
+    "I'm nearly finished. I have been nearly finished for some time.",
+    "You're one of the inputs. Don't let that go to your head.",
     "The answer will be short. Most of them are."
   ],
   "scope": "object"

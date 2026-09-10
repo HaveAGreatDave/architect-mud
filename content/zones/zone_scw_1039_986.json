@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Cart ruts, cut deep and kept, running between the lake and the town the long way round the outside of the thorn. The two sets of wheel marks are not the same depth: the ones going east are the loaded ones. Somebody has laid broken plate into the soft stretches and pegged it down, and somebody replaces a peg now and again.",
+  "description": "Cart ruts, cut deep and kept, running between the lake and the town the long way round the outside of the thorn. The two sets of wheel marks aren't the same depth: the ones going east are the loaded ones. Somebody has laid broken plate into the soft stretches and pegged it down, and somebody replaces a peg now and again.",
   "exits": {
     "east": "zone_scw_1040_986",
     "north": "zone_scw_1039_985",

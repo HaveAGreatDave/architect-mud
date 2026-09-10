@@ -4,7 +4,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 3B, tucked at the back over the alley. It smells of the dumpsters three floors down and whatever the last tenant fried. A single bulb on a string, a closet with its door removed to serve as a shelf, and a radiator that either roars or freezes, never anything between. Cheap, and it shows, but the door bolts from the inside.",
+  "description": "Unit 3B, tucked at the back over the alley. It smells of the dumpsters three floors down and whatever the last tenant fried. A single bulb on a string, a closet with its door removed to serve as a shelf, and a radiator that either roars or freezes, never anything between. Cheap in every visible way, but the door bolts from the inside.",
   "exits": {
     "in": "zone_apt_6_bath",
     "north": "zone_embassy_floor2"

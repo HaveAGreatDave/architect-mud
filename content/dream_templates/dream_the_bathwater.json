@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "The tap runs and the level does not change.",
+    "The tap runs and the level doesn't change.",
     "An extractor fan starts up in a bathroom that has never had one.",
     "Steam moves aside briefly, as if for someone."
   ],
   "cause": "dream",
-  "description": "A bathroom, running, steam on everything, the mirror gone white with it. The water is exactly the right temperature and there is far too much of it. It has been running a while. It is not overflowing, and that is the part that is wrong.",
+  "description": "A bathroom, running, steam on everything, the mirror gone white with it. The water is exactly the right temperature and there's far too much of it. It has been running a while. It isn't overflowing, and that's the part that's wrong.",
   "drug_id": null,
   "fx": "fog",
   "fx_intensity": 0.9,
@@ -14,9 +14,9 @@
   "objects": [
     {
       "looks": [
-        "Fogged. There is a handprint on it from this side.",
-        "Someone has written in it, and it faded, and it is coming back.",
-        "You wipe it clear. The room in it is dry."
+        "Fogged. There's a handprint on it from this side.",
+        "Someone has written in it, and it faded, and it's coming back.",
+        "You wipe it clear. The room in it's dry."
       ],
       "name": "the mirror"
     },
@@ -29,5 +29,5 @@
       "name": "the water"
     }
   ],
-  "weather": "The steam does not rise. It stands, at chest height, and waits."
+  "weather": "The steam doesn't rise. It stands, at chest height, and waits."
 }

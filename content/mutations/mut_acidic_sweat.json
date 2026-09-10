@@ -1,8 +1,8 @@
 {
   "appearance": {
     "extreme": "Their clothing is holed and yellowed wherever it touches them. The smell is eye-watering, and the floor where they stood is tacky.",
-    "obvious": "Their clothes are eaten thin at the collar and armpits, and there is a sharp chemical smell about them.",
-    "subtle": "Their collar is stained through in a way that does not look like ordinary sweat."
+    "obvious": "Their clothes are eaten thin at the collar and armpits, and there's a sharp chemical smell about them.",
+    "subtle": "Their collar is stained through in a way that doesn't look like ordinary sweat."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -12,10 +12,10 @@
   "conceal_slots": [
     "torso"
   ],
-  "description": "What comes off you is not quite sweat any more. Nobody wants to hold onto you. Neither does your shirt.",
+  "description": "What comes off you isn't quite sweat any more. Nobody wants to hold onto you. Neither does your shirt.",
   "drawbacks": [
     "Your clothes rot off you",
-    "People do not want to touch you"
+    "People don't want to touch you"
   ],
   "effects": {
     "social_penalty": 0.2,

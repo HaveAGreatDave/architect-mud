@@ -4,7 +4,7 @@
   "npc_type": "medic",
   "relation": null,
   "room_line": "{npc} tips {player}’s chin up, checks their eyes, and says nothing.",
-  "self_line": "{npc} checks your eyes without asking and does not comment.",
+  "self_line": "{npc} checks your eyes without asking and doesn't comment.",
   "source": "npc",
   "tone": "normal"
 }

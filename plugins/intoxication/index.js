@@ -50,7 +50,7 @@ const BANDS = [
 const BAND_RISE = {
   tipsy:  "A pleasant warmth spreads through you. The edges go soft.",
   drunk:  "The floor has opinions now. You are, it must be said, drunk.",
-  wasted: "<span class=\"withdrawal-warning\">You are absolutely hammered. Standing is a project.</span>",
+  wasted: "<span class=\"withdrawal-warning\">You're absolutely hammered. Standing is a project.</span>",
 };
 const BAND_FALL = {
   drunk:  "The worst of the spins eases off. Still drunk, though.",

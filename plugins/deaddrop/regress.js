@@ -83,7 +83,7 @@ export default async function regress({ check, getPlayer }) {
       check('…and reports it under strays, over concealment', hit?.priority === 60, String(hit?.priority));
       // The provider reveals the CACHE, never the contents — the item comes out
       // through `open`, because it is a thing somebody paid for and put there.
-      check('…and never names what is inside it',
+      check("…and never names what's inside it",
         !!hit?.message && !/inside it|contains|holding/i.test(hit.message), hit?.message);
 
       // ⚠ NEVER CREATES A CACHE. One that springs into existence on a good roll is a
@@ -247,7 +247,7 @@ export default async function regress({ check, getPlayer }) {
       try {
         check('courier: a bystander makes the room unclear',
           courier.roomIsClear(decoyZone, 'somebody_else') === false);
-        check('courier: …but the person it is for does not',
+        check("courier: …but the person it's for does not",
           courier.roomIsClear(decoyZone, decoyId) === true);
       } finally {
         removePlayerFromZone(decoyId, decoyZone);

@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "description": "A nave of humming server-racks under cold light, the Curtain a wall of white fire beyond the west glass. A celebrant tends the machines the way a priest tends an altar. He loves the Architect. As far as anyone can tell, he is the only one who does.",
+  "description": "A nave of humming server-racks under cold light, the Curtain a wall of white fire beyond the west glass. A celebrant tends the machines the way a priest tends an altar. He loves the Architect. As far as anyone can tell, he's the only one who does.",
   "exits": {
     "in": "zone_asc_shrine_uplink",
     "south": "zone_district_892_907"
@@ -14,7 +14,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

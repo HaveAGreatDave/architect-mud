@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#251815",
-  "description": "Inside the kiln itself, which is round, and which holds the day's heat long after dark. The stock is the point and it is arranged like it: rad-bands on a hook rail at eye level, pills behind the counter, and a working counter tube on the wall that clicks over the conversation the entire time you are in here. Slake does not turn it off for customers.",
+  "description": "Inside the kiln itself, which is round, and which holds the day's heat long after dark. The stock is arranged for people who came in already knowing what they wanted: rad-bands on a hook rail at eye level, pills behind the counter, and a working counter tube on the wall that clicks over the conversation the entire time you're in here. Slake doesn't turn it off for customers.",
   "exits": {
     "down": "zone_util_zone_kiln_shop",
     "east": "zone_district_895_903",
@@ -15,7 +15,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that is more information than you want.",
+      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that's more information than you want.",
       "light": 0.7,
       "name": "the high window",
       "visibility": 0.75

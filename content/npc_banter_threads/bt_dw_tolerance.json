@@ -2,11 +2,11 @@
   "enabled": true,
   "id": "bt_dw_tolerance",
   "lines": [
-    "\"That is not a thou. That is three.\"",
-    "\"It is a thou.\"",
+    "\"That isn't a thou. That's three.\"",
+    "\"It's a thou.\"",
     "\"Put it back in the gauge and say that again.\"",
     "a pause, and the sound of a gauge.",
-    "\"...it is three.\""
+    "\"...it's three.\""
   ],
   "personality": "labourer",
   "sort_order": 300

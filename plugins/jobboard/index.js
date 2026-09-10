@@ -24,6 +24,9 @@ import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { getZone } from '../../server/engine/world.js';
 import { on } from '../../server/engine/events.js';
+// The one definition of a quest finish line — a local copy said NOT finished for a
+// quest whose only outstanding objective was optional.
+import { isComplete, isQuestAvailable } from '../quests/index.js';
 
 const DEFAULT_PERIOD = 21600; // 6h
 
@@ -132,9 +135,6 @@ export async function isJobBoardQuest(questId) {
 }
 function invalidateBoardQuestCache() { _boardQuestIds = null; }
 
-function isComplete(quest, progress) {
-  return (quest.objectives || []).every((o, i) => (progress[i] || 0) >= (o.count || 1));
-}
 
 // Shuffle a copy (Fisher–Yates) and take up to n — the rotation's random subset.
 function sample(pool, n) {
@@ -161,7 +161,15 @@ export async function activeJobIds(board) {
     const stillOffered = snap.jobs.filter((id) => pool.includes(id));
     if (stillOffered.length) return stillOffered;
   }
-  const rolled = sample(pool, size);
+  // Only roll what is actually on offer. A quest whose `available` window has
+  // closed must not take one of the board's few slots and sit there unclickable,
+  // which is what filtering at the ROLL rather than at the render buys.
+  // One query for the whole pool, never one per id — and only on a rotation,
+  // which is a handful of times a day rather than per board read.
+  const { rows: pooled } = await query('SELECT id, available FROM quests WHERE id = ANY($1)', [pool]);
+  const offered = [];
+  for (const q of pooled) if (await isQuestAvailable(q, null)) offered.push(q.id);
+  const rolled = sample(offered.length ? offered : pool, size);
   await setFlag('world', key, JSON.stringify({ jobs: rolled, at: nowSec() }));
   return rolled;
 }

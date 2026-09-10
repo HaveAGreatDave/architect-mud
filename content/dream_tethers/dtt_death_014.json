@@ -1,5 +1,5 @@
 {
   "id": "dtt_death_014",
   "kind": "death",
-  "line": "The door will not open. It opened for {value}."
+  "line": "The door won't open. It opened for {value}."
 }

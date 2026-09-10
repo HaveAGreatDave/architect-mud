@@ -56,7 +56,7 @@ export async function draw(player, targetStr, broadcast) {
       WHERE zi.zone_id = $1`,
     [player.current_zone],
   );
-  if (!rows.length) return { type: 'error', message: 'There is nothing loose in here.' };
+  if (!rows.length) return { type: 'error', message: "There's nothing loose in here." };
 
   const match = siftResolve(targetStr, rows, { verb: 'draw' });
   if (!match || match === 'ambiguous') {
@@ -73,7 +73,7 @@ export async function draw(player, targetStr, broadcast) {
     await resolveStrain(player, broadcast);
     return { type: 'output', message: voice(player, {
       low:  `The ${match.name} shifts a little, and stops.`,
-      high: `The ${match.name} lifts, wobbles, and drops back down. You did not have it.`,
+      high: `The ${match.name} lifts, wobbles, and drops back down. You didn't have it.`,
     }) };
   }
 
@@ -115,7 +115,7 @@ export async function reach(player, args, broadcast) {
   if (!args) return { type: 'error', message: 'Reach for what?' };
 
   const furniture = getZoneFurniture(player.current_zone) || [];
-  if (!furniture.length) return { type: 'error', message: 'There is nothing in here worth working.' };
+  if (!furniture.length) return { type: 'error', message: "There's nothing in here worth working." };
 
   // "reach the lever" / "reach lever pull" — the trailing token is an optional
   // verb. Resolve the noun first, then ask the furniture what it affords.
@@ -137,8 +137,8 @@ export async function reach(player, args, broadcast) {
   const affords = availableActions(target, player) || [];
   if (!affords.length) {
     return { type: 'error', message: voice(player, {
-      low:  `The ${target.name} does not do anything, however hard you look at it.`,
-      high: `There is nothing in the ${target.name} that wants to move.`,
+      low:  `The ${target.name} doesn't do anything, however hard you look at it.`,
+      high: `There's nothing in the ${target.name} that wants to move.`,
     }) };
   }
   if (!verb) verb = affords[0];
@@ -153,7 +153,7 @@ export async function reach(player, args, broadcast) {
     await resolveStrain(player, broadcast);
     return { type: 'output', message: voice(player, {
       low:  `Nothing happens.`,
-      high: `The ${target.name} resists you. It is only a mechanism, and it still wins.`,
+      high: `The ${target.name} resists you. It's only a mechanism, and it still wins.`,
     }) };
   }
 
@@ -167,7 +167,7 @@ export async function reach(player, args, broadcast) {
       type: 'zone_event', refresh: true,
       message: voice(player, {
         low:  `The ${target.name} moves. ${player.handle} is nowhere near it.`,
-        high: `${player.handle} does not move, and the ${target.name} works itself anyway.`,
+        high: `${player.handle} doesn't move, and the ${target.name} works itself anyway.`,
       }),
     }, player.id);
   }
@@ -195,7 +195,7 @@ export async function press(player, args, broadcast) {
   if (refusal) return { type: 'error', message: refusal };
 
   const enemies = (getZoneEnemies(player.current_zone) || []).filter(e => e.hp > 0);
-  if (!enemies.length) return { type: 'error', message: 'There is nothing here to push against.' };
+  if (!enemies.length) return { type: 'error', message: "There's nothing here to push against." };
 
   const parts = String(args || '').trim().split(/\s+/).filter(Boolean);
   // A trailing token naming a body part is a called shot.
@@ -232,7 +232,7 @@ export async function press(player, args, broadcast) {
   });
   if (!hit) {
     await resolveStrain(player, broadcast);
-    return { type: 'combat', message: 'It is already down.' };
+    return { type: 'combat', message: "It's already down." };
   }
 
   // The brief's `restrain` and `trip`, as an effect rather than as two more verbs.

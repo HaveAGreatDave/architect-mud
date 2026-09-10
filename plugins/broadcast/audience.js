@@ -175,7 +175,7 @@ export function installAudienceGate({
     if (stale) {
       const cd = typeof stale.custom_data === 'string' ? JSON.parse(stale.custom_data) : stale.custom_data;
       const p = cd.show_pass;
-      return { block: true, message: `${doorman.name} tilts your pass to the light and hands it straight back. "${p.date} ${p.time}. That show's been and gone." He does not sound sorry. "Box office is right there."` };
+      return { block: true, message: `${doorman.name} tilts your pass to the light and hands it straight back. "${p.date} ${p.time}. That show's been and gone." He doesn't sound sorry. "Box office is right there."` };
     }
     const name = showing.broadcastName || 'the taping';
     return { block: true, message: `${doorman.name} fills the doorway without appearing to move into it. "Pass." A beat. "${name}, house is open, and you haven't got one. Window's twenty-five and it's four steps that way."` };

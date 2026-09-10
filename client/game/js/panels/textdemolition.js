@@ -175,7 +175,7 @@ function open(kind, opts) {
   _reported = false;
   _status = kind === 'rig'
     ? '<span class="dim">Set the fuse, then catch the needle.</span>'
-    : '<span class="dim">Probe costs time you do not have.</span>';
+    : '<span class="dim">Probe costs time you don\'t have.</span>';
   setDemoSkin(SKIN);
   const st = kind === 'rig' ? startRig(_opts) : startDefuse(_opts);
   // FALL BACK UP, NEVER TO NOTHING: a null state here means the graphical board

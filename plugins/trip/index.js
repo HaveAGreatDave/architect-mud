@@ -478,7 +478,7 @@ const DEFAULT_PHANTOMS = [
       'The gaunt man tilts his head, studying you like a puzzle.',
     ],
     talk: "The gaunt man doesn't answer. He only watches, and smiles a little.",
-    look: 'He stands too still, gown stained grey at the hem. When you meet his eyes he does not blink, and his smile does not reach them.',
+    look: "He stands too still, gown stained grey at the hem. When you meet his eyes he doesn't blink, and his smile doesn't reach them.",
     depart: 'You glance away for a second, and when you look back the gaunt man is simply gone.',
     stay_frac: 0.7,
   },
@@ -490,7 +490,7 @@ const DEFAULT_PHANTOMS = [
       'The black dog circles, never taking its eyes off you.',
     ],
     look: 'Its ribs show through matted fur and its jaw hangs slightly wrong. It watches you the way a thing watches food.',
-    depart: 'The black dog slinks into a shadow that is too shallow to hold it, and is gone.',
+    depart: "The black dog slinks into a shadow that's too shallow to hold it, and is gone.",
     stay_frac: 0.5,
   },
 ];
@@ -722,7 +722,7 @@ async function advanceConversation(player, choice) {
   const still = hallucinationsHere(player).find(t => convKeyOf(t) === conv.key);
   if (!still) {
     conversations.delete(player.id);
-    return { type: 'dialogue_end', message: '<span class="msg-ambient">You are talking to a chair. It is a chair.</span>' };
+    return { type: 'dialogue_end', message: '<span class="msg-ambient">You\'re talking to a chair. It\'s a chair.</span>' };
   }
   if (choice === '__end__') {
     conversations.delete(player.id);

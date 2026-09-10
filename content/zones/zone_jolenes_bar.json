@@ -24,7 +24,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A wide pane onto Meltwater Row with a neon boot hung in it, kicking on a two-second cycle. Whatever the weather is doing out there, it is doing it in plain view of everyone at the bar.",
+      "description": "A wide pane onto Meltwater Row with a neon boot hung in it, kicking on a two-second cycle. Whatever the weather is doing out there, it's doing it in plain view of everyone at the bar.",
       "light": 0.8,
       "name": "the front window",
       "visibility": 0.9

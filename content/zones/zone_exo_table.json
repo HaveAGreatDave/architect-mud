@@ -7,7 +7,7 @@
     "The slate is wiped and the same word is written on it again."
   ],
   "ambient_theme": "indoors",
-  "description": "One table, forty feet of it, and benches down both sides worn to a shine. Three pots on the hearth, a stack of bowls, and a slate by the door with the day on it in one word: BARLEY. The floor has been swept so many times the stone has gone soft at the edges.\n\nPeople come in, eat, wash their own bowl, and go. Nobody sits at the head, because there is not one.",
+  "description": "One table, forty feet of it, and benches down both sides worn to a shine. Three pots on the hearth, a stack of bowls, and a slate by the door with the day on it in one word: BARLEY. The floor has been swept so many times the stone has gone soft at the edges.\n\nPeople come in, eat, wash their own bowl, and go. Nobody sits at the head, because there isn't one.",
   "exits": {
     "down": "zone_util_zone_exo_table",
     "south": "zone_terminus_1224_939"

@@ -218,8 +218,10 @@ export async function stage(def, key, now = nowMs()) {
 
   // The driver's own mark on the world, after its steps and before it is live.
   // ⚠ Only the incursion has one, and it is a heat BURST and never pressure:
-  // pressure raises heat's baseline over days, and a raid that raised a baseline
-  // would make the Wildblood a permanent tenant of a city they do not want. A
+  // pressure is the grievance a block accumulates over days and eventually ignites
+  // from, so a raid that added to it would put the city's next flashpoint on the
+  // Wildblood's account and make them a permanent tenant of a place they do not
+  // want. Heat is spent in an hour and leaves nothing behind, which is correct. A
   // vendetta has none at all, because the Null are not fighting for the ground
   // the ledger measures.
   const driver = driverFor(def);

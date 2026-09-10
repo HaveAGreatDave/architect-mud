@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "That is not where that goes.",
+  "self_line": "That isn't where that goes.",
   "source": "object",
   "tone": "normal"
 }

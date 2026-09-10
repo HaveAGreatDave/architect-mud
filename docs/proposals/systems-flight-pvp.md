@@ -6,9 +6,9 @@ Blueprint for player-vs-player air combat on the continuous flight sim. Companio
 > **Status: Phases A–C BUILT** (A contacts 2026-07-05 · B guns 2026-07-05 · C missiles
 > 2026-07-11) — regress green, client modules parse clean, **browser-unverified** (standing
 > caveat: needs a live tuning pass). Server restart + client hard-refresh to go live.
-> **Phase D is three-quarters built** (restamped 2026-09-01 against the code, not against the
-> plan): the kill feed and the ⚙ sliders ship, the XP is awarded but wants a balance pass, and
-> only the *optional* airspace heat is genuinely absent. See the Phasing section.
+> **Phase D is three of four built** (restamped 2026-09-01 against the code, not against the
+> plan; the XP balance pass landed 2026-09-03): the kill feed, the ⚙ sliders and the `piloting`
+> XP all ship, and only the *optional* airspace heat is genuinely absent. See the Phasing section.
 
 ## Locked design decisions
 
@@ -211,19 +211,31 @@ under lag. The generous gate + guaranteed defender roll keep it from feeling bro
   plugin.json. regress 799/800 (the 1 fail is a pre-existing elevator/content issue, present
   without these changes). Browser-unverified — needs the standing live tuning pass.
 - **Phase D — Polish: three of four BUILT.** Checked against the code 2026-09-01, because this
-  bullet had read as four open items since July while most of it was shipping.
+  bullet had read as four open items since July while most of it was shipping; the third was
+  finished 2026-09-03.
   - **Kill feed — ✅ BUILT.** `#fsim-killfeed` in the cockpit (cockpit.js), fed by the server's
     `flight_kill` push from both kill paths: `crash()`'s ★ SPLASH ONE for an air-to-air kill
     (state.js) and `announceKill` for a strafing kill (combat.js).
   - **In-cockpit ⚙ balance sliders — ✅ BUILT.** `#fsim-tunebtn` opens `RENDER_TUNE`, ~60 live
     knobs in collapsible sections on a draggable panel, shared with windshield.js so a change
     lands on the next frame.
-  - **`piloting` XP — awarded, but ⚠ the balance is inverted.** The award is live on every combat
-    path, but the third argument to `awardSkillUse` is a **margin**, and `chance = base / (1 +
-    |margin| × scale)` — so a *bigger* number pays *less*. Today a gun hit passes 1 (≈33%/roll)
-    while a missile impact passes 2 (≈20%), and a gun burst rolls repeatedly across a pass. The
-    scarce, ammo-limited weapon therefore trains piloting more slowly than the free one, which is
-    backwards. Fixing it is the balance pass this item was always about; nothing needs building.
+  - **`piloting` XP — ✅ BUILT.** The balance pass landed 2026-09-03, and the inversion it fixed
+    was worse than this bullet had recorded. The third argument to `awardSkillUse` is a **margin**,
+    and `chance = base / (1 + |margin| × scale)` — so a *bigger* number pays *less*, and **0 is a
+    guaranteed point**. Every combat site was ranked backwards (`bombKillAA` passed 3, the lowest
+    rate in the plugin, directly under a comment promising it "pays out generously: this is the
+    hardest way in the game to kill one"), and — the part nobody had spotted — takeoff, landing,
+    `startup`, `climb` and `scan` all passed **0**. `startup` and `scan` are repeatable on the
+    apron at will, so the fastest way to train piloting was to sit parked and restart the engine,
+    and combat trained it slower than routine flying did.
+    The eleven sites now read from one named `PILOT_IP` table in `state.js`, whose comment carries
+    the inverted semantics so the next author can't re-make the mistake; the two sites that already
+    ran a real `skillCheck` (`climb`, `extinguish`) pass **their own `chk.margin`**, which is what
+    the parameter is actually for. Nothing is 0 — a silenced AA site comes back when its engineer
+    repairs it (`plugins/aa-sites`), so every award is farmable given patience and a guaranteed
+    point would be a faucet. Ordering is now dive-bomb kill ~50% › missile / AA kill ~33% ›
+    landing ~25% › guns / takeoff ~20% › `startup`/`scan` ~11%. Still browser-unverified, in the
+    same sense as the rest of Phases A–D: the rates are arithmetic off `ip.js`, not a live sample.
   - **Wanted / interceptor heat for kills over civil airspace — ✗ NOT BUILT**, and still
     *optional*, never a gate. The scaffolding it would hook is all standing: `WANTED_RAISE` fires
     for aircraft theft and for violating `airspace_restricted` (index.js), and a *ground strafe*

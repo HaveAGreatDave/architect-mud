@@ -1,9 +1,10 @@
 {
-  "description": "A waxy white-orange resin. Fifteen minutes, and you will be told something you cannot bring back.",
+  "description": null,
   "flags": {},
   "id": "item_dmt",
   "name": "DMT",
   "tags": {
+    "description": "A waxy white-orange resin. Fifteen minutes, and you'll be told something you can't bring back.",
     "drug": true
   },
   "type": "consumable",

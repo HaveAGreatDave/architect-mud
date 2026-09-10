@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "That is what I would say if I were you and you were me.",
+  "self_line": "That's what I would say if I were you and you were me.",
   "source": "object_reply_denial",
   "tone": "surreal"
 }

@@ -120,7 +120,7 @@ function pickMachine(zoneId, nameStr) {
 const CYCLE_BEATS = [
   `You feed the slot, thumb the dial, and the drum lurches into motion.`,
   `The machine fills, sloshes, and settles into a rhythm. Somebody has scratched a phone number into the lid.`,
-  `Suds climb the porthole and slide back down. There is nothing to do but stand here.`,
+  `Suds climb the porthole and slide back down. There's nothing to do but stand here.`,
   `A long spin, loud enough to feel through the floor, and then quiet.`,
 ];
 

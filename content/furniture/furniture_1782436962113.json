@@ -1,5 +1,5 @@
 {
-  "description": "A dented metal waste bin bolted to the wall. Anything you put in it is gone. That's the point.",
+  "description": "A dented metal waste bin bolted to the wall. Anything you put in it's gone. That's the point.",
   "flags": {
     "interactions": [],
     "trash_bin": true

@@ -1,10 +1,11 @@
 {
-  "description": "Plain cotton underwear.",
+  "description": null,
   "flags": {},
   "id": "item_underwear_female_bottom",
   "name": "panties",
   "tags": {
     "bulkiness": 1,
+    "description": "Plain cotton underwear.",
     "insulation": 0,
     "layer": "underwear",
     "slot": "legs"

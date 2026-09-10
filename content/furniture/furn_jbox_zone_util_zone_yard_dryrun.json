@@ -1,5 +1,5 @@
 {
-  "description": "A single-cylinder diesel bolted to a slab, married to a copper-wound alternator the size of a beer keg. No board, no display, no sensor — there is nothing in it that a pulse could find to stop. A starting handle hangs on a nail beside it, worn bright where a hand goes.",
+  "description": "A single-cylinder diesel bolted to a slab, married to a copper-wound alternator the size of a beer keg. No board, no display, no sensor — there's nothing in it that a pulse could find to stop. A starting handle hangs on a nail beside it, worn bright where a hand goes.",
   "flags": {
     "destructible": true,
     "generator_id": "gen_zone_util_zone_yard_dryrun"

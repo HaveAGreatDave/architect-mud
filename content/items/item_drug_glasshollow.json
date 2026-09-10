@@ -1,12 +1,19 @@
 {
-  "description": "Architect-adjacent. Nobody's sure what it actually is. People take it anyway.",
-  "flags": {},
+  "description": null,
+  "flags": {
+    "prefill": {
+      "drug_id": "drug_glasshollow",
+      "fluid_amount": 12,
+      "fluid_type": "drug"
+    }
+  },
   "id": "item_drug_glasshollow",
   "name": "Glasshollow",
   "tags": {
     "description": "Architect-adjacent. Nobody's sure what it actually is. People take it anyway.",
     "drug": true,
-    "stackable": true
+    "fillable": 12,
+    "unique": true
   },
   "type": "drug",
   "value": 40,

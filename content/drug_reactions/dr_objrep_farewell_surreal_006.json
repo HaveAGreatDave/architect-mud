@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "I will not say anything about this.",
+  "self_line": "I won't say anything about this.",
   "source": "object_reply_farewell",
   "tone": "surreal"
 }

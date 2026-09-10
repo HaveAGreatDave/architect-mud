@@ -3,9 +3,9 @@
   "id": "bt_amb_vendor_001",
   "lines": [
     "\"Shutters down?\"",
-    "\"Shutters down. Two hours ago, and I am still counting it in my head.\"",
+    "\"Shutters down. Two hours ago, and I'm still counting it in my head.\"",
     "\"You always are.\"",
-    "\"That is the job. The shop shuts. The arithmetic does not.\""
+    "\"That's the job. The shop shuts. The arithmetic does not.\""
   ],
   "personality": "vendor",
   "sort_order": 400

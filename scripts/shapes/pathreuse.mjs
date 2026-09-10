@@ -81,9 +81,15 @@ for (const p of PASSES) {
   TUNE.wallLodPx = p.wallLodPx; TUNE.fog = p.fog;
   const views = ws.viewRenderSmoke('__path-ws');
   const paths = T.counts.get('beginPath') || 0;
+  // ⚠ A CLIP PATH IS NOT A PAINT PATH. texTri lays a triangle and clips to it before every
+  // textured blit, so a perspective-corrected surface emits one beginPath per cell with no fill
+  // or stroke behind it. That is the blit doing its job, not a wall forgetting to reuse its
+  // polygon, and the paths-per-paint bound below is about the latter — so the clips come off
+  // first. Without this, subdividing a roof more finely reads as the one-path rule breaking.
+  const clips = T.counts.get('clip') || 0;
   const build = ['beginPath', 'moveTo', 'lineTo', 'closePath'].reduce((s, k) => s + (T.counts.get(k) || 0), 0);
   const total = [...T.counts.values()].reduce((s, n) => s + n, 0);
-  results.push({ ...p, paths, fills: T.fills, strokes: T.strokes, reused: T.reused, build, total, ran: views.ran });
+  results.push({ ...p, paths, clips, fills: T.fills, strokes: T.strokes, reused: T.reused, build, total, ran: views.ran });
 
   check(T.empty.length === 0, `${p.name}: ${T.empty.length} fill/stroke call(s) reached an empty path — a blit clobbered a path something later reused:\n      ${T.empty.join('\n      ')}`);
   check(T.fills > 0 && views.ran > 0, `${p.name}: the suite painted nothing — the harness is not reaching the renderer`);
@@ -92,7 +98,7 @@ for (const p of PASSES) {
 TUNE.wallLodPx = SAVED.wallLodPx; TUNE.fog = SAVED.fog;
 
 for (const r of results) {
-  console.log(`  · ${r.name.padEnd(18)} ${String(r.paths).padStart(6)} paths / ${String(r.fills).padStart(6)} fills + ${String(r.strokes).padStart(5)} strokes  →  ${(r.paths / (r.fills + r.strokes)).toFixed(3)} paths per paint · ${(r.build / r.total * 100).toFixed(0)}% of calls describe paths`);
+  console.log(`  · ${r.name.padEnd(18)} ${String(r.paths).padStart(6)} paths / ${String(r.fills).padStart(6)} fills + ${String(r.strokes).padStart(5)} strokes  →  ${((r.paths - r.clips) / (r.fills + r.strokes)).toFixed(3)} paint paths per paint (+${r.clips} clips) · ${(r.build / r.total * 100).toFixed(0)}% of calls describe paths`);
 }
 
 // ── The assertion the old code could not have satisfied ──────────────────────
@@ -101,8 +107,8 @@ for (const r of results) {
 // once and fills three times, which is the only way this ratio can drop below one. It is a bound
 // rather than a golden number: nothing here depends on how many walls the scene happens to have.
 const fogged = results.find((r) => r.name === 'flat-fill + fog');
-check(fogged.paths < fogged.fills + fogged.strokes,
-  `flat-fill + fog still describes a path for every paint (${fogged.paths} paths for ${fogged.fills + fogged.strokes} paints) — the reuse is gone`);
+check(fogged.paths - fogged.clips < fogged.fills + fogged.strokes,
+  `flat-fill + fog still describes a path for every paint (${fogged.paths - fogged.clips} paint paths for ${fogged.fills + fogged.strokes} paints, ${fogged.clips} clips excluded) — the reuse is gone`);
 
 // …and turning fog ON must cost fewer paths than it costs fills. Under the old code that was an
 // equality by construction — every fog overlay laid its own four points down — so any margin at all

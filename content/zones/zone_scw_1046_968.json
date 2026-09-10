@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The thorn parts at a frame of welded rail, and the gap is filled by two leaves of plate hung on truck springs. They stand open. A rack beside them holds the masks: bone, horn, welded plate, one of them a drone's faceplate turned inside out, and every single one lined with quilted rag and stitched down at the edges so it will not chafe on a long shift. A tally board hangs under the rack with names against hours in four different hands. Past the gate there is washing on a line.",
+  "description": "The thorn parts at a frame of welded rail, and the gap is filled by two leaves of plate hung on truck springs. They stand open. A rack beside them holds the masks: bone, horn, welded plate, one of them a drone's faceplate turned inside out, and every single one lined with quilted rag and stitched down at the edges so it won't chafe on a long shift. A tally board hangs under the rack with names against hours in four different hands. Past the gate there's washing on a line.",
   "exits": {
     "north": "zone_scw_1046_967",
     "south": "zone_scw_1046_969"

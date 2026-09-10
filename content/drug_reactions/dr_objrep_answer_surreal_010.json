@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Then we are talking about the same evening after all.",
+  "self_line": "Then we're talking about the same evening after all.",
   "source": "object_reply_answer",
   "tone": "surreal"
 }

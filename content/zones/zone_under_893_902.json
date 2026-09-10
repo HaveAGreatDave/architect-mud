@@ -1,0 +1,26 @@
+{
+  "ambient_events": [
+    "The kettle reaches a rolling boil, clicks off, and begins to cool again.",
+    "Chalk dust drifts off the rota where a shift has just been rubbed out and rewritten."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#141b19",
+  "color": "#8fae9a",
+  "description": "A tiled alcove off the records hall with a bench, a kettle on a hotplate wired into something it shouldn't be, and a duty rota chalked on the wall in a grid that covers every hour of every day. Mops stand in a bucket rank by the door, handles worn pale. Above the bench, in letters cut into the tile by hand rather than printed, someone has recorded the date the water came in and the number of people who did not get out. The number is corrected in a second hand, downward, with a source cited.",
+  "exits": {
+    "south": "zone_under_893_903"
+  },
+  "flags": {
+    "district": "sewer",
+    "floor": "stone",
+    "is_interior": true,
+    "terrain": "sewer"
+  },
+  "grid_x": 893,
+  "grid_y": 902,
+  "grid_z": -1,
+  "id": "zone_under_893_902",
+  "map_id": "map_world",
+  "name": "The Custodians' Station",
+  "parent_zone": null
+}

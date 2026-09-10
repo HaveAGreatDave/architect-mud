@@ -1,5 +1,5 @@
 {
-  "description": "A mint press on a low plinth at the end of the counter, kept under a dust cover between customers, with a strip of carpet in front of it worn down to the weave. This is the good one. The civic presses were decommissioned and this is where they went, one at a time, bought at auction and rebuilt on a bench in the back room by a man who has strong opinions about registration error. A brass plate on the housing has been engraved, by hand, and reads: IT IS A RECORD OF YOU. STAND UP STRAIGHT.",
+  "description": "A mint press on a low plinth at the end of the counter, kept under a dust cover, the carpet in front worn to the weave. This is the good one: a decommissioned civic press, bought at auction and rebuilt by a man with strong opinions about registration error. Engraved by hand: IT IS A RECORD OF YOU.",
   "flags": {
     "card_mint": true,
     "click_cmd": "mint",

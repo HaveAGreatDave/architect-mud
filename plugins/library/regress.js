@@ -36,7 +36,7 @@ export default async function regress({ run, check, getPlayer }) {
   // characters, so it skipped the `includes` length guard and went straight into
   // the PREFIX branch, where it happily matched "The Machine Stops" — `read the`
   // in a jail cell would have opened a novel instead of the charge sheet.
-  check('a bare article does not fuzzy-match', matchBook(BOOKS, 'the') === undefined,
+  check("a bare article doesn't fuzzy-match", matchBook(BOOKS, 'the') === undefined,
     JSON.stringify(matchBook(BOOKS, 'the')?.id));
   check('...nor any sub-4-character fragment', matchBook(BOOKS, 'fra') === undefined);
   // …while a real short TITLE still opens, because exact matches skip the floor.
@@ -65,7 +65,7 @@ export default async function regress({ run, check, getPlayer }) {
   // the block order is the reading order, because the narration highlight is
   // numbered off exactly this walk.
   const CX = [
-    '> I do not go away.',
+    "> I don't go away.",
     'He stays where he is.',
     'CLERK: The form has been superseded.\nMAN: Then I will wait.',
     '~CLACK~',
@@ -76,7 +76,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('comicBlocks keeps reading order',
     blocks.map(b => b.kind).join(',') === 'caption,panel,balloons,sfx,turn,panel',
     blocks.map(b => b.kind).join(','));
-  check('...a caption loses its marker', blocks[0].text === 'I do not go away.', blocks[0].text);
+  check('...a caption loses its marker', blocks[0].text === "I don't go away.", blocks[0].text);
   check('...an exchange is ONE block with two lines', blocks[2].lines?.length === 2);
   check('...and keeps who is speaking',
     blocks[2].lines[0].speaker === 'CLERK' && blocks[2].lines[1].speaker === 'MAN',
@@ -90,7 +90,7 @@ export default async function regress({ run, check, getPlayer }) {
     !plain.split('\n').some(l => /^[>~]|^-{3,}/.test(l)), JSON.stringify(plain).slice(0, 160));
   check('...but keeps the speaker, which is dialogue and not markup',
     /CLERK: The form/.test(plain), plain.slice(0, 120));
-  check('...and keeps every word of the captions', /I do not go away\./.test(plain));
+  check('...and keeps every word of the captions', /I don't go away\./.test(plain));
   // A prose book must be untouched by any of this — comicBlocks is only ever
   // reached through kind='comic', and a plain paragraph is a panel, not a caption.
   const prose = comicBlocks('It was a bright cold day in April.');
@@ -121,7 +121,7 @@ export default async function regress({ run, check, getPlayer }) {
   // `read <something that is not a book>` must not be answered by this plugin at
   // all — the dispatcher should carry on to the built-in reader and report an
   // ordinary "you don't see that", never a library error.
-  r = await run('read some object that is definitely not a book');
+  r = await run("read some object that's definitely not a book");
   check('read falls through for a non-book rather than erroring as the library',
     !/shelf|hall of records|scan/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 160));
 

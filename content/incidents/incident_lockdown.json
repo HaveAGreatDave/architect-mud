@@ -20,14 +20,14 @@
     {
       "do": "ambient",
       "lines": [
-        "The siren is the only thing on this street that is not hiding.",
+        "The siren is the only thing on this street that isn't hiding.",
         "Every door on the row is shut and the red light goes over them, and over again.",
         "Nothing is moving out here except the light."
       ]
     },
     {
       "do": "gossip",
-      "text": "They put the whole Basin under protocol over {place}. Whatever happened up there, they are not calling it a fight."
+      "text": "They put the whole Basin under protocol over {place}. Whatever happened up there, they aren't calling it a fight."
     }
   ],
   "updated_at": "1787702400",

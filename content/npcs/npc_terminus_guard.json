@@ -2,13 +2,13 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "You cannot be here. Well. You can be there. Not here.",
-    "I am not meant to talk to you much.",
+    "You can't be here. Well. You can be there. Not here.",
+    "I'm not meant to talk to you much.",
     "Ambler does the talking. I do the standing.",
-    "It is nothing personal. It is really genuinely nothing personal.",
-    "Do not go round the back. There is nothing round the back. Just do not."
+    "It's nothing personal. It's really genuinely nothing personal.",
+    "Don't go round the back. There's nothing round the back. Just do not."
   ],
-  "description": "A big young man standing where the road shoulder gives out, holding a long-handled shovel he is not using for anything. He watches you the entire way in, and when you get close he looks at your hands, and then at your face, and then decidedly at the horizon.\n\nHe has clearly been told what to say. You can see him going and getting it.",
+  "description": "A big young man standing where the road shoulder gives out, holding a long-handled shovel he isn't using for anything. He watches you the entire way in, and when you get close he looks at your hands, and then at your face, and then decidedly at the horizon.\n\nHe has clearly been told what to say. You can see him going and getting it.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
@@ -26,7 +26,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\" He turns the shovel over in his hands. \"I am not good at it. Ambler is good at it. She can say no to somebody and they go away feeling like they were given something.\"\n\n\"I came here myself, you know. Off the road. Fourteen years old with nothing.\" He stops dead, hearing himself. \"And that is also not something I am meant to say, so.\"\n\nHe puts the shovel down, blade first, and stands on the shoulder of the road looking at the salt in the south, and does not say anything else for a while."
+      "text": "\"No.\" He turns the shovel over in his hands. \"I'm not good at it. Ambler is good at it. She can say no to somebody and they go away feeling like they were given something.\"\n\n\"I came here myself, you know. Off the road. Fourteen years old with nothing.\" He stops dead, hearing himself. \"And that's also not something I'm meant to say, so.\"\n\nHe puts the shovel down, blade first, and stands on the shoulder of the road looking at the salt in the south, and doesn't say anything else for a while."
     },
     "like": {
       "actions": [],
@@ -35,7 +35,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You do not seem to enjoy this.",
+          "label": "You don't seem to enjoy this.",
           "next": "enjoy"
         },
         {
@@ -46,24 +46,24 @@
           "next": "bye"
         }
       ],
-      "text": "\"It is good,\" he says, and then his face does something complicated, \"no, I am not, I am not meant to say what it is like, I am meant to say that you do not belong here.\"\n\nA pause.\n\n\"You do not belong here.\"\n\nHe looks unhappy about having said the first bit and unhappier about the second, and does not take either of them back."
+      "text": "\"It's good,\" he says, and then his face does something complicated, \"no, I'm not, I'm not meant to say what it's like, I'm meant to say that you don't belong here.\"\n\nA pause.\n\n\"You don't belong here.\"\n\nHe looks unhappy about having said the first bit and unhappier about the second, and doesn't take either of them back."
     },
     "root": {
       "actions": [],
-      "first": "\"You cannot come in.\" He gets it out fast, the way you say a thing you have practised. \"That is, ah. That is all of it, really. That is the whole of what I have got.\"",
+      "first": "\"You can't come in.\" He gets it out fast, and it has plainly been practised. \"That is, ah. That's all of it, really. That's the whole of what I have got.\"",
       "options": [
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is it like in there?",
+          "label": "What's it like in there?",
           "next": "like"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You do not seem to enjoy this.",
+          "label": "You don't seem to enjoy this.",
           "next": "enjoy"
         },
         {
@@ -74,10 +74,10 @@
           "next": "bye"
         }
       ],
-      "text": "\"Still cannot come in.\"",
+      "text": "\"Still can't come in.\"",
       "text_by_relation": {
-        "close": "\"Oh. It is you.\" He relaxes about four inches and then remembers and puts them back. \"Still cannot come in. Sorry.\"",
-        "familiar": "\"You.\" He nods, once, too much. \"Still cannot come in.\"",
+        "close": "\"Oh. It's you.\" He relaxes about four inches and then remembers and puts them back. \"Still can't come in. Sorry.\"",
+        "familiar": "\"You.\" He nods, once, too much. \"Still can't come in.\"",
         "known": "\"Right. Yes. Still no.\""
       }
     }

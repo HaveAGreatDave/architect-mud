@@ -130,7 +130,7 @@ export default async function regress({ check, getPlayer }) {
     player.mob_kills = 5;
     readyToSwing(npc);
     const orphanKill = await npcAttackEnemy(npc, orphan);
-    check('an uncredited ally kill scores for nobody and does not throw',
+    check("an uncredited ally kill scores for nobody and doesn't throw",
       orphanKill?.killed === true && player.mob_kills === 5, String(player.mob_kills));
 
     // ── 7. Quest credit survives an ally kill ───────────────────────────────

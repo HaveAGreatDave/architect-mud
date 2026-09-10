@@ -1,5 +1,5 @@
 {
-  "description": "A brick forge with a cracked throat, banked and breathing. The coals move when the door opens. There is a steel bucket beside it that you should not look into.",
+  "description": "A brick forge with a cracked throat, banked and breathing. The coals move when the door opens. There's a steel bucket beside it that you shouldn't look into.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

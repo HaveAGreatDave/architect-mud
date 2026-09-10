@@ -605,10 +605,10 @@ async function cmdDoorAnswer(player, pay) {
 // handle whether or not the witness roll ever charges you.
 const SHOPLIFT_YELLS = [
   (h) => `Hey! HEY! ${h}! Put that back!`,
-  (h) => `${h}, you little rat, that is MY stock!`,
+  (h) => `${h}, you little rat, that's MY stock!`,
   (h) => `Thief! Somebody stop ${h}!`,
   (h) => `I know your name, ${h}! ${h}!`,
-  (h) => `That is coming out of my till, ${h}, you piece of filth!`,
+  (h) => `That's coming out of my till, ${h}, you piece of filth!`,
   (h) => `Don't you ever come back in here, ${h}!`,
   (h) => `Somebody grab ${h}! They just walked out with my stock!`,
 ];

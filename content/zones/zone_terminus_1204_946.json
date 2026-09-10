@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A crust of salt so white the light comes off it upward. Nothing grows on it, nothing crosses it that does not have to, and it can be seen from the wall at any hour.",
+  "description": "A crust of salt so white the light comes off it upward. Nothing grows on it, nothing crosses it that doesn't have to, and it can be seen from the wall at any hour.",
   "exits": {
     "east": "zone_terminus_1205_946",
     "north": "zone_terminus_1204_945",

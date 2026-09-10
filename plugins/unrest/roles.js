@@ -231,8 +231,9 @@ registerDriver('vendetta', {
 // is a consequence of what the city has been doing. That is the whole difference
 // between a fifth participant and something happening TO the participants.
 //
-// A BURST THAT LEAVES NO BASELINE. `onStage` puts heat in and nothing else —
-// never pressure, which is the scalar that raises heat's own baseline over days.
+// A BURST THAT LEAVES NOTHING BEHIND. `onStage` puts heat in and nothing else —
+// never pressure, which is the grievance a block accumulates over days and finally
+// ignites from, so adding to it would put the city's next flashpoint on their tab.
 // Heat's half-life is twenty minutes, so the block is loud by morning and back to
 // exactly what it was by lunchtime, with nothing in the ledger to say they were
 // ever there. An incursion that moved pressure would make the Wildblood a

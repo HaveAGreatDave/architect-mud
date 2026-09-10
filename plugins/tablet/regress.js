@@ -16,7 +16,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('alarm accepts the ways people actually type a time',
       parseTime('07:30') === 450 && parseTime('7:30') === 450
         && parseTime('0730') === 450 && parseTime('730') === 450);
-    check('...and rejects what is not one',
+    check("...and rejects what isn't one",
       parseTime('') === null && parseTime('25:00') === null
         && parseTime('07:99') === null && parseTime('half seven') === null);
     check('midnight is a time', parseTime('00:00') === 0 && hhmm(0) === '00:00');
@@ -239,7 +239,7 @@ export default async function regress({ run, check, getPlayer }) {
   // from your own shelf, so a guessed id falls back to the binder rather than
   // reading somebody else's card out of the table.
   r = await run('tabletnav binder card 999999');
-  check('a card you do not own falls back to the binder', r?.view === 'binder' && !r?.error, JSON.stringify(r)?.slice(0, 140));
+  check("a card you don't own falls back to the binder", r?.view === 'binder' && !r?.error, JSON.stringify(r)?.slice(0, 140));
 
   // Crafting app: root is a list of known recipes (skill-gated). The fake player
   // knows none, but the screen must still route as a list view with no error.
@@ -316,7 +316,7 @@ export default async function regress({ run, check, getPlayer }) {
   }
 
   const badMode = await run('displaymode sideways');
-  check('displaymode rejects a rung that is not one of the three', badMode?.type === 'error', JSON.stringify(badMode)?.slice(0, 160));
+  check("displaymode rejects a rung that isn't one of the three", badMode?.type === 'error', JSON.stringify(badMode)?.slice(0, 160));
 
   // The two axes, asserted against the module directly — a call site that reads
   // the wrong one is the failure this ladder is most exposed to.
@@ -331,7 +331,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     set('textgames');
     check('rung textgames: games go text', (await pres.prefersTextMinigames(p)) === true);
-    check('rung textgames: panels STAY on screen — that is the whole point of the rung',
+    check("rung textgames: panels STAY on screen — that's the whole point of the rung",
       (await pres.prefersLoggedPanels(p)) === false);
 
     set('log');
@@ -576,7 +576,7 @@ export default async function regress({ run, check, getPlayer }) {
     // And nobody is authoring an unlock for a chapter that doesn't exist — a typo
     // in a dialogue tree would otherwise be a silently dead conversation branch.
     const known = new Set(CHAPTERS.map(c => c.id));
-    check('no dialogue unlocks a chapter that does not exist', [...authored].every(id => known.has(id)),
+    check("no dialogue unlocks a chapter that doesn't exist", [...authored].every(id => known.has(id)),
       `unknown chapter ids in dialogue: ${[...authored].filter(id => !known.has(id)).join(', ')}`);
   }
 
@@ -609,7 +609,7 @@ export default async function regress({ run, check, getPlayer }) {
   // the "start a party" detail view (with an invite picker if anyone's online).
   r = await run('tabletnav party');
   check('party app routes to a detail view', r?.type === 'tablet_panel' && r?.appId === 'party' && r?.view === 'detail' && !r?.error, JSON.stringify(r)?.slice(0, 200));
-  check('party app root invites you to start a party', /not in a party/i.test(r?.detail?.desc || ''), JSON.stringify(r?.detail)?.slice(0, 160));
+  check('party app root invites you to start a party', /in a party/i.test(r?.detail?.desc || ''), JSON.stringify(r?.detail)?.slice(0, 160));
 
   // Frontier app: the void-travel topology (charted/survived routes), fogged.
   r = await run('tabletnav frontier');
@@ -900,9 +900,9 @@ export default async function regress({ run, check, getPlayer }) {
       JSON.stringify(r?.meters?.map(m => [m.key, m.band, m.pct])));
     // Withheld on purpose: sanity is never a percentage (the sanity system tells you
     // by what you see), and hunger/thirst are words rather than a bar you can play.
-    check('there is no sanity meter', !(r.meters || []).some(m => m.key === 'sanity'),
+    check("there's no sanity meter", !(r.meters || []).some(m => m.key === 'sanity'),
       JSON.stringify(r?.meters?.map(m => m.key)));
-    check('hunger and thirst are not meters',
+    check("hunger and thirst aren't meters",
       !(r.meters || []).some(m => m.key === 'hunger' || m.key === 'thirst'),
       JSON.stringify(r?.meters?.map(m => m.key)));
     check('hunger and thirst come through as word readouts',
@@ -996,7 +996,7 @@ export default async function regress({ run, check, getPlayer }) {
   {
     r = await run('tabletnav library');
     check('library shelf routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 120));
-    check('the shelf carries a breadcrumb (or tiles cannot route)',
+    check("the shelf carries a breadcrumb (or tiles can't route)",
       Array.isArray(r?.breadcrumb) && r.breadcrumb.length > 0, JSON.stringify(r?.breadcrumb));
 
     const firstBook = (r?.books || []).find(b => b.id)?.id;

@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "Something incomplete does a thing it will do properly later, and the room approves.",
+    "Something incomplete does a thing it'll do properly later, and the room approves.",
     "A finished section is carried away by several at once.",
-    "One of the small ones follows you as far as it is allowed."
+    "One of the small ones follows you as far as it's allowed."
   ],
   "cause": "drug",
-  "description": "A wing of the structure given over to things that are not finished. They are being worked on with enormous care and they are going to be enormous. One of them notices you, which it was not supposed to be able to do yet, and this is treated as very good news.",
+  "description": "A wing of the structure given over to things that aren't finished. They're being worked on with enormous care and they're going to be enormous. One of them notices you, which it wasn't supposed to be able to do yet, and this is treated as very good news.",
   "drug_id": "drug_dmt",
   "fx": "bloom",
   "fx_intensity": 0.8,
@@ -23,7 +23,7 @@
     {
       "looks": [
         "Being made to a standard. You can see the standard from here.",
-        "It is going to do something that this room is too small for.",
+        "It's going to do something that this room is too small for.",
         "It stops when you look at it, out of manners, and resumes when you stop."
       ],
       "name": "the work in progress"

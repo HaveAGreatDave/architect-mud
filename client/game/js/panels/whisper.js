@@ -1214,7 +1214,7 @@ async function _openWhisperByHandle(handle) {
 		if (log) {
 			const err = document.createElement("div");
 			err.style.cssText = "padding:6px 0;color:var(--red);font-size:0.6875rem";
-			err.textContent = `"${handle}" is not online.`;
+			err.textContent = `"${handle}" isn't online.`;
 			log.appendChild(err);
 			log.scrollTop = log.scrollHeight;
 		}

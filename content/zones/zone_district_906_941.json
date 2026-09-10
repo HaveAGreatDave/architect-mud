@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "A low fen of silt and sedge, the water beneath it black and slow. Something crossed it recently enough that the reeds are still bent, and the mud has not yet closed.",
+  "description": "A low fen of silt and sedge, the water beneath it black and slow. Something crossed it recently enough that the reeds are still bent, and the mud hasn't yet closed.",
   "exits": {
     "east": "zone_district_907_941",
     "north": "zone_district_906_940",

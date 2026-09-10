@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "The grass moves in a wind that is not on your face.",
-    "A bird goes over and does not arrive anywhere.",
+    "The grass moves in a wind that isn't on your face.",
+    "A bird goes over and doesn't arrive anywhere.",
     "The light changes to a different hour without passing through the ones between."
   ],
   "cause": "dream",
-  "description": "Grass to the knee, grey-green, going on to a horizon nearer than a horizon should be. Behind you is the city, correctly, in every detail, including the parts you have never seen. Ahead is the edge. It is not a cliff. It is where the description stops.",
+  "description": "Grass to the knee, grey-green, going on to a horizon nearer than a horizon should be. Behind you is the city, correctly, in every detail, including the parts you have never seen. Ahead is the edge. It isn't a cliff. It's where the description stops.",
   "drug_id": null,
   "fx": "wind",
   "fx_intensity": 0.6,
@@ -16,14 +16,14 @@
       "looks": [
         "Not a drop. The grass simply stops being described.",
         "You walk toward it a while. It keeps its distance, courteously.",
-        "There is something on the other side of it, doing something patient."
+        "There's something on the other side of it, doing something patient."
       ],
       "name": "the edge"
     },
     {
       "looks": [
         "Every window lit, and rendered, and correct.",
-        "It is nearer than it was, and it has not moved.",
+        "It's nearer than it was, and it hasn't moved.",
         "You know the inside of a building you have never entered. All of them."
       ],
       "name": "the city behind you"

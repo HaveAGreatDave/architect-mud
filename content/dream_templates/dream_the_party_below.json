@@ -5,7 +5,7 @@
     "Glasses go down on a table all at once, the way they do for a toast."
   ],
   "cause": "dream",
-  "description": "One floor down, everybody you know, and the sound of it coming up the stairwell with the door open. You are on the stairs and you have been going down them for a while. The sound is the same distance below you as it was, and it is a good party, and they are waiting on you to arrive before the thing happens.",
+  "description": "One floor down, everybody you know, and the sound of it coming up the stairwell with the door open. You're on the stairs and you have been going down them for a while. The sound is the same distance below you as it was, and it's a good party, and they're waiting on you to arrive before the thing happens.",
   "drug_id": null,
   "fx": "fog",
   "fx_intensity": 0.55,
@@ -23,7 +23,7 @@
     {
       "looks": [
         "Thirty people. You could name eleven from the voices.",
-        "They are at the part of the evening where nobody is going home.",
+        "They're at the part of the evening where nobody is going home.",
         "It quiets, briefly, the way a room quiets when somebody is about to speak."
       ],
       "name": "the sound of them"

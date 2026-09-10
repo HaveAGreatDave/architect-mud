@@ -138,7 +138,7 @@ async function respawnAllZoneEnemies(zoneId) {
   await refreshEnemiesSection(zoneId);
 }
 async function deleteAllZoneSpawns(zoneId) {
-  if (!(await dpConfirm('Delete all enemy spawns from this zone? This cannot be undone.', { danger: true }))) return;
+  if (!(await dpConfirm("Delete all enemy spawns from this zone? This can't be undone.", { danger: true }))) return;
   const [spawnsData, liveData] = await Promise.all([
     directAPI(`/zones/${encodeURIComponent(zoneId)}/spawns`),
     directAPI(`/zones/${encodeURIComponent(zoneId)}/live-enemies`),
@@ -222,21 +222,17 @@ function _spawnMapDraw() {
 }
 
 // --- Data shaping ------------------------------------------------------------
-
-// Every spawn keyed by the *tile* it should paint: its own zone if that zone sits
-// on the grid, otherwise the facade of the building whose interior map holds it.
-// Walks up through nested interior maps so a 4th-floor room still lands on the door.
-function _spawnTileZone(zone, zoneById) {
-  const seen = new Set();
-  let z = zone;
-  while (z && !seen.has(z.id)) {
-    if (z.grid_x != null && z.grid_y != null) return z;
-    seen.add(z.id);
-    const parentId = _spawnMapData.mapParents.get(z.map_id);
-    z = parentId ? zoneById.get(parentId) : null;
-  }
-  return null;
-}
+// The monochrome plan base, the region buckets and the interior-room-to-facade
+// walk are shared with the Power panel's regional grid — see maps.js.
+const _spawnTileZone = (zone, zoneById) => planTileZoneFor(zone, zoneById, _spawnMapData.mapParents);
+const _spawnRegionOf = planRegionOf;
+const _spawnRegionName = rid => planRegionName(_spawnMapData.regions, rid);
+const SPAWN_MAP_INK = PLAN_MAP_INK;
+const SPAWN_TERRAIN_TONE = PLAN_TERRAIN_TONE;
+const SPAWN_TILE_DEFAULT = PLAN_TILE_DEFAULT;
+const SPAWN_TILE_BUILDING = PLAN_TILE_BUILDING;
+const _spawnTileIsBuilding = planTileIsBuilding;
+const _spawnTileTone = planTileTone;
 
 // { byTile: Map(tileZoneId -> [{zone, spawns}]), orphans: [{zone, spawns}] }
 // honouring the search box (matches enemy name).
@@ -264,16 +260,6 @@ function _spawnMapIndex() {
   return { byTile, orphans, zoneById };
 }
 
-// The Under carries no region_id (it's a district, not a region) but it's a whole
-// map's worth of danger, so it gets its own bucket instead of drowning in the
-// unassigned pile beside stray basin tiles.
-const _spawnRegionOf = z =>
-  z.flags?.region_id || (z.flags?.district === 'sewer' ? '__under' : '__unassigned');
-const _spawnRegionName = rid =>
-  rid === '__under' ? 'The Under (sewers)'
-  : rid === '__unassigned' ? 'Unassigned tiles'
-  : (_spawnMapData.regions.get(rid) || rid);
-
 // --- Threat ------------------------------------------------------------------
 // Rough power score for one enemy definition — HP + average swing + accuracy.
 function enemyThreat(enemyId) {
@@ -292,42 +278,13 @@ function tileThreat(entries) {
   return (entries || []).reduce((n, e) => n + zoneThreat(e.spawns), 0);
 }
 
-// --- Monochrome terrain base -------------------------------------------------
-// One accent hue, four tones. Enough to read coastline, roads and blocks at a
-// glance; never enough to compete with the red on top.
-const SPAWN_MAP_INK = '150,190,210';
-const SPAWN_TERRAIN_TONE = {
-  water: 0.10, marsh: 0.13,
-  grass: 0.19, park: 0.19, scrub: 0.19,
-  sand: 0.24, dirt: 0.24, dirt_road: 0.26, gravel: 0.26, redrock: 0.24, ash: 0.22,
-  road: 0.34, asphalt: 0.34, concrete: 0.38, dock: 0.30,
-};
-const SPAWN_TILE_DEFAULT = 0.16;   // placed tile with no authored terrain
-const SPAWN_TILE_BUILDING = 0.62;  // facades read as solid mass
-
-function _spawnTileIsBuilding(z) {
-  return !!(z.flags?.building_type || z.flags?.is_building);
-}
-function _spawnTileTone(z) {
-  if (_spawnTileIsBuilding(z)) return SPAWN_TILE_BUILDING;
-  if (z.flags?.runway) return 0.42;
-  const t = z.flags?.terrain;
-  return (t && SPAWN_TERRAIN_TONE[t] != null) ? SPAWN_TERRAIN_TONE[t] : SPAWN_TILE_DEFAULT;
-}
-
 // --- Render ------------------------------------------------------------------
 
 function spawnMapBodyHtml() {
   const { byTile, orphans, zoneById } = _spawnMapIndex();
 
   // Regions that actually have placed tiles, ordered by how much threat they hold.
-  const regionTiles = new Map();   // rid -> tile zones
-  for (const z of _spawnMapData.zones) {
-    if (z.grid_x == null || z.grid_y == null) continue;
-    const rid = _spawnRegionOf(z);
-    if (!regionTiles.has(rid)) regionTiles.set(rid, []);
-    regionTiles.get(rid).push(z);
-  }
+  const regionTiles = planRegionBuckets(_spawnMapData.zones);
   const regions = [...regionTiles.entries()].map(([rid, tiles]) => ({
     rid, tiles,
     name: _spawnRegionName(rid),
@@ -406,8 +363,7 @@ function spawnMapSetZ(z) {
 
 // Step to the next floor that actually has tiles, so ▾/▴ never lands on a gap.
 function spawnMapStepZ(delta) {
-  const tiles = (_spawnMapData?.zones || []).filter(z =>
-    z.grid_x != null && z.grid_y != null && _spawnRegionOf(z) === _spawnMapRegion);
+  const tiles = planPlacedTiles(_spawnMapData?.zones || []).filter(z => _spawnRegionOf(z) === _spawnMapRegion);
   const floors = [...new Set(tiles.map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
   const next = delta > 0 ? floors.find(z => z > _spawnMapZ)
                          : floors.slice().reverse().find(z => z < _spawnMapZ);
@@ -446,12 +402,9 @@ function spawnRegionMapHtml(tiles, byTile) {
     if (t > peak) peak = t;
   }
 
-  let html = `<div style="display:grid;grid-template-columns:repeat(${cols},${cell}px);grid-auto-rows:${cell}px;gap:1px;width:max-content">`;
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const key = `${x},${y}`;
-      const z = byCoord.get(key);
-      if (!z) { html += '<div></div>'; continue; }
+  let html = planGridOpen(cols, cell);
+  for (const [key, z] of byCoord) {
+      const [x, y] = key.split(',').map(Number);
       const tone = _spawnTileTone(z);
       const threat = threatByCoord.get(key) || 0;
       // sqrt ramp so a lone weak spawn still reads, without washing out the peak.
@@ -463,10 +416,9 @@ function spawnRegionMapHtml(tiles, byTile) {
         ? `\n${entries.flatMap(e => e.spawns.map(s => `${s.enemy_name} ×${s.max_count}${e.zone.id === z.id ? '' : ` (${e.zone.name || e.zone.id})`}`)).join('\n')}\nthreat ${Math.round(threat)}`
         : '';
       const isSel = (stack.get(key) || []).some(zz => zz.id === _spawnMapZone);
-      html += `<div class="spawn-heat-tile${isSel ? ' spawn-heat-sel' : ''}" style="position:relative;background:rgba(${SPAWN_MAP_INK},${tone})${border}"
+      html += `<div class="plan-tile${isSel ? ' plan-tile-sel' : ''}" style="${planCellPos(x, y, minX, minY)};position:relative;background:rgba(${SPAWN_MAP_INK},${tone})${border}"
         title="${(z.name || z.id).replace(/"/g, '&quot;')}${detail}"
         onclick='spawnTileSelect(${JSON.stringify(z.id)})'>${heat}</div>`;
-    }
   }
   return html + '</div>';
 }

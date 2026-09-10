@@ -123,7 +123,7 @@ async function cmdScreech(args, raw, player, broadcast) {
 
   broadcast?.(player.current_zone, {
     type: 'zone_event',
-    message: `${player.handle} opens their mouth and something comes out of it that is not a sound so much as a pressure. Your ears ring.`,
+    message: `${player.handle} opens their mouth and something comes out of it that isn't a sound so much as a pressure. Your ears ring.`,
     refresh: true,
   }, player.id);
 
@@ -132,7 +132,7 @@ async function cmdScreech(args, raw, player, broadcast) {
   }
   const killed = hits.filter(h => h.killed).map(h => h.name);
   let msg = `<span class="hit-part">You let it out.</span> ${hits.filter(h => !h.killed).map(h => `${h.name} reels`).join(', ') || 'The room shakes'}.`;
-  if (killed.length) msg += ` <span class="msg-error">${killed.join(' and ')} goes down and does not get up.</span>`;
+  if (killed.length) msg += ` <span class="msg-error">${killed.join(' and ')} goes down and doesn't get up.</span>`;
   return { type: 'combat', message: msg };
 }
 
@@ -160,7 +160,7 @@ const MORPH_FORMS = {
   },
   legs: {
     label: 'Long-Limbed',
-    blurb: 'Your legs lengthen at the knee, adding a joint that was not there.',
+    blurb: "Your legs lengthen at the knee, adding a joint that wasn't there.",
     stats: { stat_reflexes: 2 },
   },
 };
@@ -199,7 +199,7 @@ async function cmdMorph(args, raw, player) {
 
   return {
     type: 'info',
-    message: `<span class="hit-part">You decide, and your body agrees.</span> ${MORPH_FORMS[want].blurb} It will not hold forever.`,
+    message: `<span class="hit-part">You decide, and your body agrees.</span> ${MORPH_FORMS[want].blurb} It won't hold forever.`,
   };
 }
 
@@ -229,7 +229,7 @@ async function cmdSwoop(args, raw, player, broadcast) {
     return { type: 'error', message: `Your wings are still shaking. ${secs}s.` };
   }
   if ((player.stamina ?? 100) < SWOOP_STAMINA) {
-    return { type: 'error', message: 'You do not have the wind in you to get up, let alone come back down like that.' };
+    return { type: 'error', message: "You don't have the wind in you to get up, let alone come back down like that." };
   }
 
   const enemies = getZoneEnemies(player.current_zone).filter(e => e.hp > 0);
@@ -266,11 +266,11 @@ async function cmdSwoop(args, raw, player, broadcast) {
 
   if (!res) return { type: 'error', message: 'You come down on nothing. It moved.' };
   if (res.killed) {
-    return { type: 'combat', message: `<span class="hit-part">You drop out of the air onto ${target.name}</span> and it does not get up. <span class="msg-error">Nothing does, after that.</span>` };
+    return { type: 'combat', message: `<span class="hit-part">You drop out of the air onto ${target.name}</span> and it doesn't get up. <span class="msg-error">Nothing does, after that.</span>` };
   }
   return {
     type: 'combat',
-    message: `<span class="hit-part">You drop out of the air onto ${target.name}</span>, ${res.damage} to the ${res.partLabel}. It reels. You are on the ground now, in the middle of them, and that was the trade.`,
+    message: `<span class="hit-part">You drop out of the air onto ${target.name}</span>, ${res.damage} to the ${res.partLabel}. It reels. You're on the ground now, in the middle of them, and that was the trade.`,
   };
 }
 
@@ -286,7 +286,7 @@ function tooRawToUse(player) {
   if (!isTurning(player)) return null;
   return {
     type: 'error',
-    message: 'Not while you are like this. Whatever is being built in you is not finished, and it does not take instruction yet.',
+    message: "Not while you're like this. Whatever is being built in you isn't finished, and it doesn't take instruction yet.",
   };
 }
 

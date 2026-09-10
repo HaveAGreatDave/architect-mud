@@ -1,10 +1,11 @@
 {
-  "description": "A magnetic stir plate that holds a perfect RPM band. Automates the STIR stage of a splice.",
+  "description": null,
   "flags": {},
   "id": "item_auto_stir",
   "name": "auto-stirrer",
   "tags": {
     "automates": "stir",
+    "description": "A magnetic stir plate that holds a perfect RPM band. Automates the STIR stage of a splice.",
     "lab_upgrade": true
   },
   "type": "device",

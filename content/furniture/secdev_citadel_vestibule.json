@@ -1,5 +1,5 @@
 {
-  "description": "A camera behind the ballistic glass, looking at the arch rather than the doors. It is not interested in who leaves.",
+  "description": "A camera behind the ballistic glass, looking at the arch rather than the doors. It isn't interested in who leaves.",
   "flags": {
     "concealed": false,
     "device_id": "secdev_citadel_vestibule",

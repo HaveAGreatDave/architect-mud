@@ -1,5 +1,5 @@
 {
   "id": "dtt_npc_036",
   "kind": "npc",
-  "line": "The chair is warm. {value} was sitting in it. That is not possible and it is true."
+  "line": "The chair is warm. {value} was sitting in it. That isn't possible and it's true."
 }

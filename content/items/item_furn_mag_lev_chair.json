@@ -1,5 +1,5 @@
 {
-  "description": "A glossy white chair with no legs, held half a metre off the floor by a repulsion field embedded in the base plate.",
+  "description": null,
   "flags": {
     "interactions": [
       "sit"

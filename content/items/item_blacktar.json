@@ -1,10 +1,19 @@
 {
-  "description": "Heavy tar opioid, cut with whatever was nearby. The deepest nod there is.",
-  "flags": {},
+  "description": null,
+  "flags": {
+    "prefill": {
+      "drug_id": "drug_blacktar",
+      "fluid_amount": 12,
+      "fluid_type": "drug"
+    }
+  },
   "id": "item_blacktar",
   "name": "blacktar",
   "tags": {
-    "drug": true
+    "description": "Heavy tar opioid, cut with whatever was nearby. The deepest nod there is.",
+    "drug": true,
+    "fillable": 12,
+    "unique": true
   },
   "type": "consumable",
   "value": 210,

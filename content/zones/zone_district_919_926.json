@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b79ad0",
-  "description": "Hides that were hung here have gone to strips and come down. The chimes have not: finger-bone on gut cord, a dozen of them, still turning in the draught off the trail. Somebody cut them down to shoulder height before they left, so they would not tangle. A narrow trail slips south.",
+  "description": "Hides that were hung here have gone to strips and come down. The chimes have not: finger-bone on gut cord, a dozen of them, still turning in the draught off the trail. Somebody cut them down to shoulder height before they left, so they wouldn't tangle. A narrow trail slips south.",
   "exits": {
     "east": "zone_district_920_926",
     "north": "zone_district_919_925",

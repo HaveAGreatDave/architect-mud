@@ -60,7 +60,7 @@ export async function thresholdGate({ player, from, to }) {
     if (rushes < 2) {
       return {
         block: true,
-        message: `You break into a run at the line — and the turret housings pivot as one, laying targeting light across your chest. A warden's voice, unhurried: "Do not test the Threshold, baseline." You pull up short. <span class="text-dim">(Force it again and they fire. You need Ascendant clearance.)</span>`,
+        message: `You break into a run at the line — and the turret housings pivot as one, laying targeting light across your chest. A warden's voice, unhurried: "Don't test the Threshold, baseline." You pull up short. <span class="text-dim">(Force it again and they fire. You need Ascendant clearance.)</span>`,
       };
     }
     // You forced it. The turrets fire — energy weapons, soak-reduced, escalating
@@ -79,12 +79,12 @@ export async function thresholdGate({ player, from, to }) {
     sendToPlayer(player.id, { type: 'player_update', hp: player.hp });
     return {
       block: true,
-      message: `<span class="turret-warning">⚠ The Threshold FIRES.</span> Energy cannon lash your ${part} (-${totalDmg} HP). The warden does not raise their voice: "Withdraw, or the next burst finishes it."`,
+      message: `<span class="turret-warning">⚠ The Threshold FIRES.</span> Energy cannon lash your ${part} (-${totalDmg} HP). The warden doesn't raise their voice: "Withdraw, or the next burst finishes it."`,
     };
   }
   return {
     block: true,
-    message: `The Ascension Gate reads you head to foot and finds only meat. A warden turns you back without heat and without interest: "This is not for you. Withdraw." <span class="text-dim">(You need Ascendant clearance to pass.)</span>`,
+    message: `The Ascension Gate reads you head to foot and finds only meat. A warden turns you back without heat and without interest: "This isn't for you. Withdraw." <span class="text-dim">(You need Ascendant clearance to pass.)</span>`,
   };
 }
 registerMoveGate(thresholdGate, 'ascendant:threshold');

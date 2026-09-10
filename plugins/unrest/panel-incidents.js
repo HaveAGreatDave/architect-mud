@@ -47,8 +47,8 @@ async function incidentEditForm(rec, isNew) {
         ['grip', 'grip — the authority (the Ascendants)'],
       ])}</select>
       <div style="font-size:11px;color:var(--text-dim);margin-top:4px">
-        Nothing may stage in a cell that has not carried a perceivable signal <b>from this same
-        order</b> in the last six hours. That is what makes a checkpoint read as the reply to
+        Nothing may stage in a cell that hasn't carried a perceivable signal <b>from this same
+        order</b> in the last six hours. That's what makes a checkpoint read as the reply to
         yesterday's graffiti rather than as spawn noise.
       </div>
     </div>
@@ -98,7 +98,7 @@ async function saveIncident(existing) {
   const bad = stage.find(s => !s || typeof s.do !== 'string');
   if (bad) { toast('Every stage step needs a "do"', true); return null; }
   const unknown = stage.map(s => s.do).filter(d => !(d in INCIDENT_STEP_HELP));
-  if (unknown.length && !confirm(`These steps are not in the known vocabulary: ${unknown.join(', ')}. Save anyway?`)) return null;
+  if (unknown.length && !confirm(`These steps aren't in the known vocabulary: ${unknown.join(', ')}. Save anyway?`)) return null;
 
   const body = {
     name: document.getElementById('f-name').value || 'Untitled Incident',

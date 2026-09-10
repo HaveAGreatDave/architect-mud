@@ -1,11 +1,11 @@
 {
   "ambient_events": [
     "The stove is fed one stick and the door shut quietly.",
-    "A curtain is pulled round a bed by somebody who does not look in first.",
+    "A curtain is pulled round a bed by somebody who doesn't look in first.",
     "Somebody very small is being talked to, at length, about nothing."
   ],
   "ambient_theme": "wasteland",
-  "description": "A low warm building with the thickest walls in the town and a stove going in it year round. There is a bell outside the door, and a chalked list of who is on call, and the list has nine names on it and covers every hour of the week.",
+  "description": "A low warm building with the thickest walls in the town and a stove going in it year round. There's a bell outside the door, and a chalked list of who's on call, and the list has nine names on it and covers every hour of the week.",
   "exits": {
     "north": "zone_thorn_whelp",
     "south": "zone_scw_1049_976"

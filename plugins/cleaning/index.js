@@ -75,7 +75,7 @@ function fixtureTool(zoneId) {
 // like mopping mud. Falls through to a generic line for anything unlisted.
 const CLEAN_LINES = {
   blood:     `You work the blood off the floor. It goes brown before it goes away.`,
-  feces:     `You deal with it. There is no dignified way to write this sentence and there wasn't a dignified way to do it either.`,
+  feces:     `You deal with it. There's no dignified way to write this sentence and there wasn't a dignified way to do it either.`,
   urine:     `You mop up the puddle and try not to think about whose it was.`,
   vomit:     `You scrape up the sick. The smell outlasts the stain by a wide margin.`,
   ejaculate: `You clean the floor and resolve, privately, to have a word with somebody.`,

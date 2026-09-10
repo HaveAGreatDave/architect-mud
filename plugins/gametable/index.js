@@ -165,7 +165,7 @@ function noTableMsg(zoneId) {
 
 async function cmdJoin(args, raw, player) {
   const existing = tableForPlayer(player);
-  if (existing) return { type: 'error', message: 'You are already at a table. Type `leave` first.' };
+  if (existing) return { type: 'error', message: "You're already at a table. Type `leave` first." };
 
   const t = tableInZone(player.current_zone, args.join(' ') || null);
   if (!t) return { type: 'error', message: 'No game table here. Try a different zone.' };
@@ -227,7 +227,7 @@ async function cmdSeat(args, raw, player) {
 
 async function cmdLeave(args, raw, player) {
   const t = tableForPlayer(player);
-  if (!t) return { type: 'error', message: 'You are not at any table.', closePoker: true };
+  if (!t) return { type: 'error', message: "You aren't at any table.", closePoker: true };
   await t.leaveTable(player.id);
   // Revert this player's area pane from the table view back to the room.
   const { describeZone } = await import('../../server/engine/commands/index.js');
@@ -239,7 +239,7 @@ async function cmdLeave(args, raw, player) {
 async function cmdWatch(args, raw, player) {
   const existing = tableForPlayer(player);
   if (existing) {
-    if (existing.seatedIndex(player.id) >= 0) return { type: 'error', message: 'You are seated. Type `leave` to just watch.' };
+    if (existing.seatedIndex(player.id) >= 0) return { type: 'error', message: "You're seated. Type `leave` to just watch." };
     return paneOrLook(existing, player);
   }
   const t = tableInZone(player.current_zone, args.join(' ') || null);
@@ -276,7 +276,7 @@ async function watchTV(args, raw, player, broadcast) {
 
   const bc = await import('../broadcast/index.js').catch(() => null);
   if (bc?.commands?.watch) return bc.commands.watch(args, raw, player, broadcast);
-  return { type: 'error', message: 'There is nothing here to watch.' };
+  return { type: 'error', message: "There's nothing here to watch." };
 }
 
 // Plain rooms (no table, no TV): the interactions plugin's furniture-flavor
@@ -284,7 +284,7 @@ async function watchTV(args, raw, player, broadcast) {
 async function watchFurniture(args, raw, player, broadcast) {
   const ia = await import('../interactions/index.js').catch(() => null);
   if (ia?.commands?.watch) return ia.commands.watch(args, raw, player, broadcast);
-  return { type: 'error', message: 'There is nothing here to watch.' };
+  return { type: 'error', message: "There's nothing here to watch." };
 }
 
 async function cmdWatchRouter(args, raw, player, broadcast) {
@@ -368,7 +368,7 @@ async function cmdLook(args, raw, player) {
 function makeActionCmd(action) {
   return async function(args, raw, player) {
     const t = tableForPlayer(player);
-    if (!t || t.seatedIndex(player.id) < 0) return { type: 'error', message: 'You are not seated at a table.' };
+    if (!t || t.seatedIndex(player.id) < 0) return { type: 'error', message: "You aren't seated at a table." };
     if (t.phase !== 'InProgress') return { type: 'error', message: 'No hand in progress.' };
     const amount = args.length ? parseInt(args[0], 10) : 0;
     const result = t.processAction(player.id, action, amount);
@@ -394,7 +394,7 @@ async function cmdCall(args, raw, player) {
     return cmdSummon(args, raw, player);
   }
 
-  if (!t || t.seatedIndex(player.id) < 0) return { type: 'error', message: 'You are not seated at a table.' };
+  if (!t || t.seatedIndex(player.id) < 0) return { type: 'error', message: "You aren't seated at a table." };
   if (t.phase !== 'InProgress') return { type: 'error', message: 'No hand in progress.' };
   const result = t.processAction(player.id, 'call', 0);
   if (!result.ok) return { type: 'error', message: result.error };
@@ -565,7 +565,7 @@ async function maybeAutoInvite(table) {
 
 async function cmdBet(args, raw, player) {
   const t = tableForPlayer(player);
-  if (!t || t.seatedIndex(player.id) < 0) return { type: 'error', message: 'You are not seated.' };
+  if (!t || t.seatedIndex(player.id) < 0) return { type: 'error', message: "You aren't seated." };
   const amount = parseInt(args[0], 10);
   if (!amount) return { type: 'error', message: 'Usage: bet <amount>' };
   const result = t.processAction(player.id, 'bet', amount);
@@ -596,8 +596,8 @@ function chessTableFor(player) {
 // `chessmove e2e4` / `chessmove Nf3` — play a move.
 async function cmdChessMove(args, raw, player) {
   const t = chessTableFor(player);
-  if (!t) return { type: 'error', message: 'You are not at a chessboard.' };
-  if (t.seatedIndex(player.id) < 0) return { type: 'error', message: 'You are watching, not playing.' };
+  if (!t) return { type: 'error', message: "You aren't at a chessboard." };
+  if (t.seatedIndex(player.id) < 0) return { type: 'error', message: "You're watching, not playing." };
   const input = args.join(' ').trim();
   if (!input) return { type: 'error', message: 'Usage: chessmove e2e4   (or chessmove Nf3)' };
 
@@ -628,7 +628,7 @@ async function cmdMoveRouter(args, raw, player) {
 // never needs it.
 async function cmdChessPick(args, raw, player) {
   const t = chessTableFor(player);
-  if (!t) return { type: 'error', message: 'You are not at a chessboard.' };
+  if (!t) return { type: 'error', message: "You aren't at a chessboard." };
   const sq = (args[0] || '').toLowerCase();
   const result = t.pickSquare(player.id, sq);
   if (!result.ok) return { type: 'error', message: result.error };
@@ -647,7 +647,7 @@ async function cmdThreats(args, raw, player) {
   const t = chessTableFor(player);
   if (!t || !t.game) return { type: 'error', message: 'No game in progress.' };
   const color = t.game.seatByPlayer(player.id)?.color;
-  if (!color) return { type: 'error', message: 'You are watching, not playing.' };
+  if (!color) return { type: 'error', message: "You're watching, not playing." };
   return { type: 'output', message: threatLines(t.game, color) };
 }
 
@@ -661,7 +661,7 @@ async function cmdResign(args, raw, player) {
 
 async function cmdOfferDraw(args, raw, player) {
   const t = chessTableFor(player);
-  if (!t) return { type: 'error', message: 'You are not at a chessboard.' };
+  if (!t) return { type: 'error', message: "You aren't at a chessboard." };
   const result = t.offerDraw(player.id);
   if (!result.ok) return { type: 'error', message: result.error };
   return { type: 'output', message: `You offer ${result.offeredTo} a draw.` };
@@ -840,7 +840,7 @@ async function cmdShowHand(args, raw, player) {
   const t = tableForPlayer(player);
   if (!t || !t.game) return { type: 'error', message: 'No active hand.' };
   const gs = t.game.getActiveSeat(player.id);
-  if (!gs) return { type: 'error', message: 'You are not in this hand.' };
+  if (!gs) return { type: 'error', message: "You aren't in this hand." };
   return { type: 'output', message: `Your hand:\n<pre>${renderHandASCII(gs.hand)}</pre>` };
 }
 

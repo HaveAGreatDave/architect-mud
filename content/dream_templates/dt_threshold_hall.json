@@ -1,11 +1,11 @@
 {
   "ambient": [
     "A door somewhere in the sequence closes, and the number of yous drops by one.",
-    "The corridor lengthens by one frame while you are looking at the other end.",
+    "The corridor lengthens by one frame while you're looking at the other end.",
     "Every version of you turns their head at once, and not toward you."
   ],
   "cause": "drug",
-  "description": "A corridor lined on both sides with doorways, all of them open, all of them showing this corridor. You can see yourself getting smaller in both directions and you are not certain which of them is looking back. The carpet is the same carpet forever.",
+  "description": "A corridor lined on both sides with doorways, all of them open, all of them showing this corridor. You can see yourself getting smaller in both directions and you aren't certain which of them is looking back. The carpet is the same carpet forever.",
   "drug_id": "drug_threshold",
   "fx": "tunnel",
   "fx_intensity": 0.5,
@@ -16,7 +16,7 @@
       "looks": [
         "Each one shows this corridor, with one fewer of you in it.",
         "You wave. The waves arrive out of order.",
-        "One of them shows the corridor empty, and it is the nearest."
+        "One of them shows the corridor empty, and it's the nearest."
       ],
       "name": "the openings"
     },
@@ -29,5 +29,5 @@
       "name": "the carpet"
     }
   ],
-  "weather": "The air in here has been breathed a great many times and is not stale."
+  "weather": "The air in here has been breathed a great many times and isn't stale."
 }

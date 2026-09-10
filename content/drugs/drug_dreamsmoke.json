@@ -9,7 +9,7 @@
       "events": [
         {
           "atSec": 25,
-          "text": "[trip]Time slows to a comfortable crawl. There is nowhere you need to be.[/trip]"
+          "text": "[trip]Time slows to a comfortable crawl. There's nowhere you need to be.[/trip]"
         },
         {
           "atSec": 90,
@@ -38,7 +38,7 @@
       "comedown_seconds": 80,
       "comeup_scale": 0.5,
       "comeup_seconds": 20,
-      "end_message": "<span class=\"msg-system\">The mellow lifts. You are mostly just hungry now.</span>",
+      "end_message": "<span class=\"msg-system\">The mellow lifts. You're mostly just hungry now.</span>",
       "peak_message": "<span class=\"msg-system\">A soft heaviness settles over you. The edges of the room go plush.</span>",
       "peak_mods": {
         "stat_cool": 2,
@@ -52,17 +52,17 @@
       "max_reduction": 0.7
     },
     "withdrawal": {
-      "message": "You cannot get to sleep, and the sleep you do get is loud and detailed and full of people.",
+      "message": "You can't get to sleep, and the sleep you do get is loud and detailed and full of people.",
       "mods": {
         "stamina_max": -5,
         "stat_cool": -2
       },
       "onset_seconds": 3600,
       "stages": {
-        "easing": "Four hours in one piece. You come out of it sour, and rested enough to notice you are sour.",
+        "easing": "Four hours in one piece. You come out of it sour, and rested enough to notice you're sour.",
         "onset": "The plush comes off the room. Every surface is exactly as hard as it actually is.",
         "peak": "Three in the morning, awake, sweating through a shirt, and the ninety minutes you got were in colour and full of people you owe things to.",
-        "rising": "You are not hungry at a time you are normally extremely hungry, and food smells like a job.",
+        "rising": "You aren't hungry at a time you're normally extremely hungry, and food smells like a job.",
         "tail": "Sleeping through. Eating properly. The dreams are still busier than they were before you started."
       }
     }

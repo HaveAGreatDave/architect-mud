@@ -1,0 +1,186 @@
+{
+  "adorn": [
+    {
+      "cx": 0.1,
+      "cy": 0.1,
+      "kind": "blinkLight",
+      "r": 1.7,
+      "rgb": "255,86,64",
+      "z": 1.97
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.13,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "255,86,64",
+      "z": 1.56
+    },
+    {
+      "cx": -0.16,
+      "cy": 0.06,
+      "kind": "glowPool",
+      "rgb": "255,132,42",
+      "s": 46,
+      "z": 0.08
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.08,
+      "kind": "mast",
+      "z0": 1.02,
+      "z1": 1.42
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "foundry"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.4,
+      "hh": 0.05,
+      "kind": "parapet",
+      "pal": "ty_foundry_stack",
+      "z": 0.62
+    },
+    {
+      "cx": 0.14,
+      "cy": -0.1,
+      "d": 0.05,
+      "hh": 0.05,
+      "kind": "acUnit",
+      "pal": "ty_foundry_stack",
+      "w": 0.07,
+      "z": 0.62
+    },
+    {
+      "cx": -0.02,
+      "cy": 0.08,
+      "d": 0.04,
+      "hh": 0.04,
+      "kind": "acUnit",
+      "pal": "ty_foundry_stack",
+      "w": 0.05,
+      "z": 0.62
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.3,
+      "kind": "pipe",
+      "pal": "ty_foundry_stack",
+      "r": 0.018,
+      "z0": 0,
+      "z1": 0.6
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.3,
+      "hh": 0.06,
+      "kind": "vent",
+      "pal": "ty_foundry_stack",
+      "w": 0.07,
+      "z": 0.34
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "cx": -0.26,
+        "cy": 0.3,
+        "hh": 0.03,
+        "kind": "vent",
+        "pal": "ty_foundry_stack",
+        "w": 0.04,
+        "z": 0.5
+      },
+      "step": {
+        "cx": 0.13
+      }
+    },
+    {
+      "color": "#e8b06a",
+      "cx": 0,
+      "cy": 0.3,
+      "half": 0.16,
+      "hh": 0.045,
+      "kind": "signBoard",
+      "label": "$name",
+      "z": 0.52
+    }
+  ],
+  "id": "foundry",
+  "note": "The worked example for the authored-model format. NOT REACHED BY ANY TILE TODAY, deliberately and unavoidably: modelFor prefers a building_name over a building_type, and all three foundry tiles are named (The Forge, The Foundry x2) with hand-written arms of their own. 408 of the 416 building tiles in Coldwater carry a name, so a type bind draws on almost nothing - the authored format is for buildings that do not exist yet. shapes:smoke reports the unreached binding on every push so this stays visible rather than looking healthy. The model itself: a long low melt hall, a taller charging bay, two stacks and the furnace glow under them, using ty_foundry and ty_foundry_stack, two palettes that were authored for a building nobody ever built. It now also carries the DETAIL layer: a parapet, rooftop plant, a downpipe, louvred vents (one of them a repeat) and a painted board — none of which is mass, so none of it reaches collision, the shadows or the cold open.",
+  "pal": "ty_foundry",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.3,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_foundry",
+      "roof": true,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.62
+    },
+    {
+      "cx": -0.16,
+      "cy": 0.06,
+      "fd": 0.22,
+      "hw": 0.2,
+      "kind": "box",
+      "pal": "ty_foundry",
+      "roof": true,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 1.02
+    },
+    {
+      "cx": 0.28,
+      "cy": -0.12,
+      "fd": 0.1,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_slag",
+      "roof": true,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.34
+    },
+    {
+      "cap": false,
+      "cx": 0.1,
+      "cy": 0.1,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_foundry_stack",
+      "rb": 0.062,
+      "rt": 0.046,
+      "z0": 0.5,
+      "z1": 1.95
+    },
+    {
+      "cap": false,
+      "cx": 0.22,
+      "cy": 0.13,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_foundry_stack",
+      "rb": 0.05,
+      "rt": 0.038,
+      "z0": 0.5,
+      "z1": 1.54
+    }
+  ]
+}
+

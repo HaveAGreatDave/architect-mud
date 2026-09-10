@@ -174,7 +174,7 @@ async function saveDreamTemplate(existing) {
   const badObj = body.objects.find(o => !o || typeof o.name !== 'string' || !Array.isArray(o.looks));
   if (badObj) return { error: `Each object needs a string "name" and an array "looks". Bad entry: ${JSON.stringify(badObj).slice(0, 80)}` };
   if (!body.name) return { error: 'A room needs a name.' };
-  if (!body.description.trim()) return { error: 'A room needs a description — it is the first thing the player reads.' };
+  if (!body.description.trim()) return { error: "A room needs a description — it's the first thing the player reads." };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/dream-templates', 'POST', body); }
   return API(`/dream-templates/${encodeURIComponent(existing.id)}`, 'PUT', body);
 }
@@ -283,7 +283,7 @@ window.dreamRollPreview = async function () {
     <div style="border:1px solid var(--border);padding:10px;margin-bottom:10px">
       <strong>${esc(r.name)}</strong> ${r.id === res.entry ? '<span class="badge badge-safe-zone">entry</span>' : ''}
       <div style="margin:6px 0">${esc(r.description)}</div>
-      <div class="text-dim">Exits: ${Object.keys(r.exits || {}).join(', ') || '<em>none</em>'} — these deliberately do not reciprocate.</div>
+      <div class="text-dim">Exits: ${Object.keys(r.exits || {}).join(', ') || '<em>none</em>'} — these deliberately don't reciprocate.</div>
       <div class="text-dim">Objects: ${(r.objects || []).map(o => `${esc(o.name)} — “${esc(o.look)}”`).join(' · ') || '<em>none</em>'}</div>
     </div>`).join('');
 };

@@ -150,7 +150,7 @@ export const WRANGLE_POOLS = {
   // The one that ends it. Always the last beat, always a return to the running order.
   recover: [
     "Right. Top ten. You were on the top ten.",
-    'We are going to the break. We are going to the break now.',
+    "We're going to the break. We're going to the break now.",
     "Read the next one. Just read the next one and we're square.",
     "Back on it. From the top of that page.",
   ],

@@ -121,7 +121,7 @@ function doAccept(player, fromHandle) {
     chosen = party; break;
   }
   if (!chosen) return { type: 'emote', message: fromHandle ? `You have no pending invite from ${fromHandle}.` : 'You have no pending party invites.' };
-  if (partyOf(player.id)) return { type: 'emote', message: 'You are already in a party — leave it first.' };
+  if (partyOf(player.id)) return { type: 'emote', message: "You're already in a party — leave it first." };
 
   chosen.invites.delete(player.id);
   chosen.members.add(player.id);
@@ -141,7 +141,7 @@ function doDecline(player) {
 
 function doLeave(player) {
   const party = partyOf(player.id);
-  if (!party) return { type: 'emote', message: 'You are not in a party.' };
+  if (!party) return { type: 'emote', message: "You aren't in a party." };
   if (party.leaderId === player.id) { disband(party, `${player.handle} disbands the party.`); return { type: 'emote', message: 'You disband the party.' }; }
   removeMember(party, player.id, 'You leave the party.');
   return null;
@@ -149,7 +149,7 @@ function doLeave(player) {
 
 function doKick(player, targetHandle) {
   const party = partyOf(player.id);
-  if (!party) return { type: 'emote', message: 'You are not in a party.' };
+  if (!party) return { type: 'emote', message: "You aren't in a party." };
   if (party.leaderId !== player.id) return { type: 'emote', message: 'Only the party leader can remove members.' };
   if (!targetHandle) return { type: 'error', message: 'Remove whom? (party kick <player>)' };
   const target = [...party.members].map(getLivePlayer).find(p => p && p.handle?.toLowerCase() === targetHandle.toLowerCase() && p.id !== player.id);
@@ -160,7 +160,7 @@ function doKick(player, targetHandle) {
 
 function doStatus(player) {
   const view = getPartyView(player.id);
-  if (!view) return { type: 'output', message: 'You are not in a party. Invite someone with: party invite <player>' };
+  if (!view) return { type: 'output', message: "You aren't in a party. Invite someone with: party invite <player>" };
   const roster = view.members.map(m => `  ${m.leader ? '★' : '·'} ${m.handle}${m.id === player.id ? ' (you)' : ''}`).join('\n');
   const pending = view.invites.length ? `\nPending invites: ${view.invites.map(i => i.handle).join(', ')}` : '';
   return { type: 'output', message: `<b>Your party</b> (led by ${view.leader}):\n${roster}${pending}` };

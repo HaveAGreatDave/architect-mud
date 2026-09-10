@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "You are the third one today. Nobody stays.",
+  "self_line": "You're the third one today. Nobody stays.",
   "source": "object",
   "tone": "surreal"
 }

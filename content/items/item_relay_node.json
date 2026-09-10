@@ -1,11 +1,12 @@
 {
-  "description": "A ruggedized signal repeater. Powered up, it punches your feeds through interference. Deploy one where somebody likes to run a jammer.",
+  "description": null,
   "flags": {},
   "id": "item_relay_node",
   "name": "Relay Node",
   "tags": {
     "battery_max": 576,
     "concealment_base": 3,
+    "description": "A ruggedized signal repeater. Powered up, it punches your feeds through interference. Deploy one where somebody likes to run a jammer.",
     "device_kind": "relay",
     "device_tier": 2,
     "hack_difficulty": 5,

@@ -85,7 +85,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Make me something. I do not much care what. I care that it came out of your hands.\""
+      "text": "\"Make me something. I don't much care what. I care that it came out of your hands.\""
     },
     "bench_offer": {
       "options": [
@@ -98,7 +98,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I do not need the help.\" He says it while clearing a space at the bench, and then says it again, and keeps clearing.\n\n\"The Watch run on things that were made rather than bought. That is not a philosophy. It is a supply problem. Nobody sells to us, and the ones who would want paying in a currency we do not keep. So the making gets done by whoever is standing there.\"\n\nHe pushes a stool out with his foot without turning round.\n\n\"Today that is you.\""
+      "text": "\"I don't need the help.\" He says it while clearing a space at the bench, and then says it again, and keeps clearing.\n\n\"The Watch run on things that were made rather than bought. That isn't a philosophy. It's a supply problem. Nobody sells to us, and the ones who would want paying in a currency we don't keep. So the making gets done by whoever is standing there.\"\n\nHe pushes a stool out with his foot without turning round.\n\n\"Today that's you.\""
     },
     "bench_report": {
       "actions": [
@@ -147,7 +147,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The housing pops if you know where to press. Green line will take you.\" He holds your eye. \"Do not be seen doing it. The whole point is that nobody ever knows it went dark on purpose.\""
+      "text": "\"The housing pops if you know where to press. Green line will take you.\" He holds your eye. \"Don't be seen doing it. The whole point is that nobody ever knows it went dark on purpose.\""
     },
     "lw_accept_3": {
       "actions": [
@@ -158,25 +158,25 @@
       ],
       "options": [
         {
-          "label": "It is already scrap.",
+          "label": "It's already scrap.",
           "next": "bye"
         }
       ],
-      "text": "\"It is deep, and it is mean, and the tunnels between here and it are worse. Go lit. Go careful.\" He grips your shoulder once, hard. \"Come back and I will open the real door for you.\""
+      "text": "\"It's deep, and it's mean, and the tunnels between here and it are worse. Go lit. Go careful.\" He grips your shoulder once, hard. \"Come back and I'll open the real door for you.\""
     },
     "lw_member": {
       "options": [
         {
-          "label": "I will go down.",
+          "label": "I'll go down.",
           "next": "bye"
         }
       ],
-      "text": "\"One of ours. Took your time, but they all do.\"\n\nHe nods toward the back of the shop.\n\n\"Two ways home now. The long crawl from the old drain, or straight down through my back room and you are on the doorstep. The Quartermaster will see you kitted. Cyrelle runs operations and she will have work for you.\"\n\nA dry look.\n\n\"Keep the lights on. Take back the switch.\""
+      "text": "\"One of ours. Took your time, but they all do.\"\n\nHe nods toward the back of the shop.\n\n\"Two ways home now. The long crawl from the old drain, or straight down through my back room and you're on the doorstep. The Quartermaster will see you kitted. Cyrelle runs operations and she'll have work for you.\"\n\nA dry look.\n\n\"Keep the lights on. Take back the switch.\""
     },
     "lw_offer_1": {
       "options": [
         {
-          "label": "I will carry it.",
+          "label": "I'll carry it.",
           "next": "lw_accept_1"
         },
         {
@@ -184,7 +184,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Simple thing. There is a package waiting at a drop by the Hall of Records. You go, you collect it, you bring it back here. You do not open it, you do not let anybody see it, and you are not seen doing any of it.\"\n\nA thin smile that does not last.\n\n\"It is not what is in the parcel that matters. It is whether your hands can be trusted holding it. That is the only question this shop has ever asked anybody.\""
+      "text": "\"Simple thing. There's a package waiting at a drop by the Hall of Records. You go, you collect it, you bring it back here. You don't open it, you don't let anybody see it, and you aren't seen doing any of it.\"\n\nA thin smile that doesn't last.\n\n\"It isn't what's in the parcel that matters. It's whether your hands can be trusted holding it. That's the only question this shop has ever asked anybody.\""
     },
     "lw_offer_2": {
       "options": [
@@ -197,7 +197,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Now we find out whether you will put your hands on the machine itself.\"\n\nHe unrolls a scrap of paper, a street corner sketched from memory and corrected twice.\n\n\"There is a camera on the Precinct 9 approach the Watch have wanted dark for months. I do not want it smashed. Smashed gets noticed, and replaced, and somebody writes a report about vandals. I want the memory core pulled, clean, so that it simply stops seeing and everybody spends a month arguing about why.\"\n\n\"Bring me the eye.\""
+      "text": "\"Now we find out whether you'll put your hands on the machine itself.\"\n\nHe unrolls a scrap of paper, a street corner sketched from memory and corrected twice.\n\n\"There's a camera on the Precinct 9 approach the Watch have wanted dark for months. I don't want it smashed. Smashed gets noticed, and replaced, and somebody writes a report about vandals. I want the memory core pulled, clean, so that it simply stops seeing and everybody spends a month arguing about why.\"\n\n\"Bring me the eye.\""
     },
     "lw_offer_3": {
       "options": [
@@ -210,7 +210,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The Architect runs a maintenance drone through the deep east tunnels. Eleven years it has run the same loop and nobody minded it. Lately it has started logging things it did not use to log. Our marks. Our door.\"\n\nHis voice drops, not for effect. It is just where his voice goes.\n\n\"Nobody is coming for us tomorrow. That is not the worry. The worry is the record sitting there being patient, and somebody reading it in five years who does mean it.\"\n\n\"Go down into the deep, all the way down, and put it in the water for good. Do that and you are not a stranger who knew the words. You are one of ours.\""
+      "text": "\"The Architect runs a maintenance drone through the deep east tunnels. Eleven years it has run the same loop and nobody minded it. Lately it has started logging things it didn't use to log. Our marks. Our door.\"\n\nHis voice drops, not for effect. It's just where his voice goes.\n\n\"Nobody is coming for us tomorrow. That isn't the worry. The worry is the record sitting there being patient, and somebody reading it in five years who does mean it.\"\n\n\"Go down into the deep, all the way down, and put it in the water for good. Do that and you aren't a stranger who knew the words. You're one of ours.\""
     },
     "lw_report_1": {
       "actions": [
@@ -231,11 +231,11 @@
       ],
       "options": [
         {
-          "label": "What is next?",
+          "label": "What's next?",
           "next": "bye"
         }
       ],
-      "text": "He takes the package, feels its weight without looking at it, and nods once.\n\n\"Clean. No tail, no fuss. That is rarer than you would think.\"\n\nHe tucks it away under the bench, where it will sit until somebody else takes it somewhere else.\n\n\"You will do. There is realer work when you want it. Ask me.\""
+      "text": "He takes the package, feels its weight without looking at it, and nods once.\n\n\"Clean. No tail, no fuss. That's rarer than you would think.\"\n\nHe tucks it away under the bench, where it'll sit until somebody else takes it somewhere else.\n\n\"You'll do. There's realer work when you want it. Ask me.\""
     },
     "lw_report_2": {
       "actions": [
@@ -256,11 +256,11 @@
       ],
       "options": [
         {
-          "label": "There is more, is there not.",
+          "label": "There's more, is there not.",
           "next": "bye"
         }
       ],
-      "text": "He turns the dead core over in his fingers, and for the first time he actually smiles.\n\n\"One less eye. You have no idea how good that feels.\"\n\nHe puts it in his pocket rather than on the bench.\n\n\"One more, and it is the real thing. When you are ready, ask.\""
+      "text": "He turns the dead core over in his fingers, and for the first time he actually smiles.\n\n\"One less eye. You have no idea how good that feels.\"\n\nHe puts it in his pocket rather than on the bench.\n\n\"One more, and it's the real thing. When you're ready, ask.\""
     },
     "lw_report_3": {
       "actions": [
@@ -290,12 +290,12 @@
           "next": "lw_member"
         }
       ],
-      "text": "\"It is done, then.\" He says it quietly, and once.\n\n\"The machine is down an eye and a hand, and the Watch are up a good one.\"\n\nHe wipes his hands on the cloth and offers you one.\n\n\"The blast door in the deep knows you now. Walk in whenever you like. Welcome to the Long Watch.\""
+      "text": "\"It's done, then.\" He says it quietly, and once.\n\n\"The machine is down an eye and a hand, and the Watch are up a good one.\"\n\nHe wipes his hands on the cloth and offers you one.\n\n\"The blast door in the deep knows you now. Walk in whenever you like. Welcome to the Long Watch.\""
     },
     "lw_reveal": {
       "options": [
         {
-          "label": "I am listening.",
+          "label": "I'm listening.",
           "next": "lw_offer_1"
         },
         {
@@ -303,7 +303,7 @@
           "next": "bye"
         }
       ],
-      "text": "The easy craftsman's manner goes out of him like a switch thrown. For a long moment he looks at your hands, and then at your eyes.\n\n\"Somebody sent you. And you lean the right way, or you would never have got hold of the words.\"\n\nHe sets down the iron.\n\n\"This shop is a door and you have knocked on it. The Watch do not open a door on a stranger's say so. You want in, you earn it. Small first. Then real.\"\n\n\"Still listening?\""
+      "text": "The easy craftsman's manner goes out of him like a switch thrown. For a long moment he looks at your hands, and then at your eyes.\n\n\"Somebody sent you. And you lean the right way, or you would never have got hold of the words.\"\n\nHe sets down the iron.\n\n\"This shop is a door and you have knocked on it. The Watch don't open a door on a stranger's say so. You want in, you earn it. Small first. Then real.\"\n\n\"Still listening?\""
     },
     "meet_accept": {
       "_vine": {
@@ -354,7 +354,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Did she.\" He nods slowly, and goes back to the bench, and does not ask you what she looked like, which you notice about four seconds too late.\n\n\"Right you are.\"\n\nThe vice turns. He does not look up again, and the conversation is over, and nothing whatsoever appears to have gone wrong."
+      "text": "\"Did she.\" He nods slowly, and goes back to the bench, and doesn't ask you what she looked like, which you notice about four seconds too late.\n\n\"Right you are.\"\n\nThe vice turns. He doesn't look up again, and the conversation is over, and nothing whatsoever appears to have gone wrong."
     },
     "meet_offer": {
       "_vine": {
@@ -364,7 +364,7 @@
       "actions": [],
       "options": [
         {
-          "label": "I will sit it.",
+          "label": "I'll sit it.",
           "next": "meet_accept"
         },
         {
@@ -372,7 +372,7 @@
           "next": "bye"
         }
       ],
-      "text": "He does not look up from the bench.\n\n\"There is a runner coming in from the east with something I would rather have in my hand than on a wire. Sit in the Den and take it off her.\"\n\n\"She will know you. You will not know her, and you are not to ask, and if she is not alone you are a man waiting for a bus.\"\n\nHe turns the thing in the vice a quarter turn.\n\n\"Wait for her. That is the job. Wait for her.\""
+      "text": "He doesn't look up from the bench.\n\n\"There's a runner coming in from the east with something I would rather have in my hand than on a wire. Sit in the Den and take it off her.\"\n\n\"She'll know you. You won't know her, and you aren't to ask, and if she isn't alone you're a man waiting for a bus.\"\n\nHe turns the thing in the vice a quarter turn.\n\n\"Wait for her. That's the job. Wait for her.\""
     },
     "meet_report": {
       "_vine": {
@@ -390,7 +390,7 @@
           "next": "meet_lie"
         }
       ],
-      "text": "Halloran puts down what he is holding, which he did not do for either of the other two jobs.\n\n\"Go on, then.\""
+      "text": "Halloran puts down what he's holding, which he didn't do for either of the other two jobs.\n\n\"Go on, then.\""
     },
     "meet_truth": {
       "_vine": {
@@ -422,7 +422,7 @@
           "next": "meet_truth2"
         }
       ],
-      "text": "\"Right,\" he says, and goes back to the bench, and that is all he says for a while.\n\nThen: \"How long did you give her?\"\n\nYou tell him. He does something with his mouth that is not quite a smile.\n\n\"That is longer than I would have.\""
+      "text": "\"Right,\" he says, and goes back to the bench, and that's all he says for a while.\n\nThen: \"How long did you give her?\"\n\nYou tell him. He does something with his mouth that isn't quite a smile.\n\n\"That's longer than I would have.\""
     },
     "meet_truth2": {
       "_vine": {
@@ -436,7 +436,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\"\n\nHe does not dress it up and he does not apologise for it.\n\n\"Everybody who comes through that door can carry a box. What I cannot see from here is what a man does with two hours and nobody watching him, and there is no way to ask that turns up a true answer. So I do not ask.\"\n\nHe picks the thing back up.\n\n\"You will be asked to hold a room one day with something in it that matters. I know what you are now. Go and eat.\""
+      "text": "\"No.\"\n\nHe doesn't dress it up and he doesn't apologise for it.\n\n\"Everybody who comes through that door can carry a box. What I can't see from here is what a man does with two hours and nobody watching him, and there's no way to ask that turns up a true answer. So I don't ask.\"\n\nHe picks the thing back up.\n\n\"You'll be asked to hold a room one day with something in it that matters. I know what you're now. Go and eat.\""
     },
     "repair_talk": {
       "options": [
@@ -445,7 +445,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Bring it here.\" He clears a space on the bench with his forearm.\n\n\"I fix what the city has given up on. Radios, motors, pumps, the honest machines that do not need the grid holding their hand. Costs less than a new one and it will outlive you.\"\n\nHe sets the iron down.\n\n\"That is not nostalgia. That is engineering.\""
+      "text": "\"Bring it here.\" He clears a space on the bench with his forearm.\n\n\"I fix what the city has given up on. Radios, motors, pumps, the honest machines that don't need the grid holding their hand. Costs less than a new one and it'll outlive you.\"\n\nHe sets the iron down.\n\n\"That isn't nostalgia. That's engineering.\""
     },
     "root": {
       "options": [
@@ -548,7 +548,7 @@
               "scope": "player"
             }
           ],
-          "label": "What is the next job?",
+          "label": "What's the next job?",
           "next": "lw_offer_2"
         },
         {
@@ -651,7 +651,7 @@
           "next": "bye"
         }
       ],
-      "text": "A bell rattles as you come in. The lean man looks up from a gutted motor, and his eyes go to your hands before your face.\n\n\"If it is broken, set it on the bench. If it is not,\" and he tips his head at the racked tools, \"I have likely got what you need anyway. Halloran.\""
+      "text": "A bell rattles as you come in. The lean man looks up from a gutted motor, and his eyes go to your hands before your face.\n\n\"If it's broken, set it on the bench. If it's not,\" and he tips his head at the racked tools, \"I have likely got what you need anyway. Halloran.\""
     },
     "why_drift_papers": {
       "_vine": {
@@ -668,7 +668,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Permits. Ration books. Transit papers. A residence card with a real number on it.\"\n\nHe sets the iron down.\n\n\"If the Architect has got no record of you, you cannot buy food and you cannot cross a checkpoint. There are people in this city who have been alive for nine years on paper that came out of that corridor.\"\n\n\"That is the most useful thing we do and it is the least exciting. Bear that in mind before you go asking for the interesting work.\""
+      "text": "\"Permits. Ration books. Transit papers. A residence card with a real number on it.\"\n\nHe sets the iron down.\n\n\"If the Architect has got no record of you, you can't buy food and you can't cross a checkpoint. There are people in this city who have been alive for nine years on paper that came out of that corridor.\"\n\n\"That's the most useful thing we do and it's the least exciting. Bear that in mind before you go asking for the interesting work.\""
     },
     "why_vice": {
       "_vine": {
@@ -692,7 +692,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because there is one on every bench in here and because it is what the room does.\"\n\nHe works while he talks.\n\n\"A vice holds a thing still so you can make it. Nobody sells us anything, so we make it. That is not a philosophy, it is a supply problem, and this is the room where the supply problem gets solved.\"\n\n\"The corridor through the back is the Drift. Mining word. A drift is the tunnel you cut sideways to get at the work. Papers get made down there, and you do not go and look.\""
+      "text": "\"Because there's one on every bench in here and because it's what the room does.\"\n\nHe works while he talks.\n\n\"A vice holds a thing still so you can make it. Nobody sells us anything, so we make it. That isn't a philosophy, it's a supply problem, and this is the room where the supply problem gets solved.\"\n\n\"The corridor through the back is the Drift. Mining word. A drift is the tunnel you cut sideways to get at the work. Papers get made down there, and you don't go and look.\""
     }
   },
   "faction": null,

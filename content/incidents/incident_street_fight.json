@@ -1,6 +1,6 @@
 {
   "cooldown_min": 720,
-  "description": "The insurgency half of the danger: bodies in the road, and they will swing at you. Warned before it lands, always, and by construction rather than by an authored line.",
+  "description": "The insurgency half of the danger: bodies in the road, and they'll swing at you. Warned before it lands, always, and by construction rather than by an authored line.",
   "duration_min": 45,
   "enabled": 1,
   "flags": {},
@@ -17,14 +17,14 @@
     {
       "do": "ambient",
       "lines": [
-        "There is a fight going on at the far end and it is not stopping.",
-        "Somebody runs past you holding a length of pipe and does not look at you.",
+        "There's a fight going on at the far end and it isn't stopping.",
+        "Somebody runs past you holding a length of pipe and doesn't look at you.",
         "Two people are being kept apart by four people who are also fighting."
       ]
     },
     {
       "do": "gossip",
-      "text": "It has kicked off properly in {place}. Half of them do not even know who started it."
+      "text": "It has kicked off properly in {place}. Half of them don't even know who started it."
     }
   ],
   "updated_at": "1787702400",

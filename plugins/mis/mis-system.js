@@ -173,7 +173,7 @@ export async function triggerGroundClimax(player) {
   // It went on the floor: that's a stain, and stains are how the world finds out.
   stainZone(player.current_zone, 'ejaculate');
 
-  return pick(GROUND_CLIMAX_MESSAGES).map(m => volume >= 0.85 ? `${m} <span class="text-dim">There is a lot of it.</span>` : m);
+  return pick(GROUND_CLIMAX_MESSAGES).map(m => volume >= 0.85 ? `${m} <span class="text-dim">There's a lot of it.</span>` : m);
 }
 
 function pick(arr) { return Array.isArray(arr[0]) ? arr[Math.floor(Math.random() * arr.length)] : [arr[Math.floor(Math.random() * arr.length)]]; }
@@ -205,7 +205,7 @@ const RECEIVED_INSIDE = {
   },
   ass: {
     heavy: [`It floods into you, more than you can hold, and you feel exactly how much is going to come back out.`,
-            `The heat of it spreads through you in waves. There is a great deal of it.`],
+            `The heat of it spreads through you in waves. There's a great deal of it.`],
     normal: [`You feel him finish inside you.`],
   },
   throat: {
@@ -218,7 +218,7 @@ const RECEIVED_INSIDE = {
     normal: [`He finishes across your tongue.`],
   },
   body: {
-    heavy: [`It lands on you in far more quantity than you expected, and it is going to need washing off.`],
+    heavy: [`It lands on you in far more quantity than you expected, and it's going to need washing off.`],
     normal: [`You feel it land warm across your skin.`],
   },
 };
@@ -366,7 +366,7 @@ const HORNY_TIERS = [
     ['Every nerve feels lit up. You could go any second.'],
     [`You're teetering. One more push and you're gone.`],
     [`Your whole body is drawn tight as a wire.`],
-    [`You're so close it aches. Do not stop now.`],
+    [`You're so close it aches. Don't stop now.`],
   ]},
 ];
 
@@ -530,10 +530,10 @@ export const NPC_WITNESS_DISGUST = [
   `{npc} shoots a horrified look their way.`,
   `{npc} wrinkles their nose and turns away.`,
   `{npc} gags audibly and steps back.`,
-  `{npc} says "what is WRONG with you" to no one in particular.`,
+  `{npc} says "what's WRONG with you" to no one in particular.`,
   `{npc} covers their eyes like a scandalized aunt.`,
   `{npc} makes a note to burn this whole zone down later.`,
-  `{npc} loudly announces they are calling someone about this.`,
+  `{npc} loudly announces they're calling someone about this.`,
   `{npc} whispers a prayer to whatever's listening.`,
 ];
 
@@ -738,14 +738,14 @@ export const EJACULATE_ZONE_MSGS = {
   // on where you are standing.
   overflow: {
     pussy:  [`It runs back out of {target} and down their thigh before {name} has even pulled away.`,
-             `There is too much of it; the excess spills out of {target} and onto the floor.`],
+             `There's too much of it; the excess spills out of {target} and onto the floor.`],
     ass:    [`{target} can't hold it. Most of it runs straight back out of them.`,
              `It leaks out of {target} the moment {name} withdraws, and keeps leaking.`],
     mouth:  [`{target} can't swallow fast enough — it spills past their lips and down their chin.`,
              `More than {target} bargained for. They choke, cough, and wear the rest of it.`],
     throat: [`{target} gags on the volume of it and loses half down their own front.`,
              `It's too much for {target}'s throat; the overflow goes down their chin.`],
-    body:   [`There is far more of it than {target} expected, and it goes everywhere.`],
+    body:   [`There's far more of it than {target} expected, and it goes everywhere.`],
   },
   furniture: [
     `{name} finishes against the {target}, leaving it marked.`,
@@ -957,12 +957,12 @@ You've unlocked biological realism mode. This system simulates the body honestly
 
 <span style="color:var(--text-dim)">WITH OTHERS — CONSENT FIRST:</span>
   Nobody can aim any of the verbs below at you until you say so, and this
-  switch you've just flipped does not say so. It opts you into the system,
+  switch you've just flipped doesn't say so. It opts you into the system,
   not into anyone in particular.
   consent &lt;player&gt;       — let them act on you. One-way: they need their own.
   revoke &lt;player&gt; / all  — take it back. Instant, stops anything in progress.
   consent                — who you've let in, and who has let you in
-  consent ask &lt;player&gt;   — ask once. Ignoring it is a complete answer.
+  consent ask &lt;player&gt;   — ask once. Ignoring it's a complete answer.
 
   touch / squeeze / fondle / lick &lt;target&gt;'s &lt;body part&gt;
   kiss &lt;target&gt;

@@ -1,10 +1,19 @@
 {
-  "description": "A designer dissociative that drops you into the static between channels.",
-  "flags": {},
+  "description": null,
+  "flags": {
+    "prefill": {
+      "drug_id": "drug_deadair",
+      "fluid_amount": 12,
+      "fluid_type": "drug"
+    }
+  },
   "id": "item_deadair",
   "name": "dead air",
   "tags": {
-    "drug": true
+    "description": "A designer dissociative that drops you into the static between channels.",
+    "drug": true,
+    "fillable": 12,
+    "unique": true
   },
   "type": "consumable",
   "value": 300,

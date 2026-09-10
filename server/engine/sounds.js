@@ -160,29 +160,50 @@ const DOOR_MUFFLE_GAIN = 1 / 9;
 // gains. Two plays of one sound a beat apart is heard as an echo, not as a
 // louder sound. So the walk only resolves gains; the sending happens once it is
 // finished, exactly as `propagateSound` already does with its reach map.
+// Which way a listener hears it FROM. The walk already knows — it crossed a
+// named exit to get there — and threw it away, so every distant sound arrived
+// dead centre at full bandwidth, which is the one thing a wall never does.
+//
+// Reversed, because the walk runs outward from the source: if A --north--> B,
+// then somebody standing in B hears it through their SOUTH door.
+const BACK = { north: 'south', south: 'north', east: 'west', west: 'east',
+  northeast: 'southwest', southwest: 'northeast', northwest: 'southeast', southeast: 'northwest',
+  up: 'down', down: 'up' };
+
 export function propagateAudio(originZoneId, sfxDef, loudness, broadcastFn) {
-  const visited = new Map([[originZoneId, loudness]]);
+  // gain, plus how many rooms it crossed and through which of the listener's own
+  // exits it arrived. `hops` is the wall count, which is what muffles it; `gain`
+  // alone cannot say, because a closed door costs gain without adding distance.
+  const visited = new Map([[originZoneId, { gain: loudness, hops: 0, from: null }]]);
   const queue = [[originZoneId, loudness]];
   while (queue.length) {
     const [zoneId, gain] = queue.shift();
-    if (gain < visited.get(zoneId)) continue;      // stale entry superseded by a louder path
+    if (gain < visited.get(zoneId).gain) continue;  // stale entry superseded by a louder path
     const hopGain = gain / 3;
     if (hopGain < AUDIO_STOP_THRESHOLD) continue;
     const zone = world.zones.get(zoneId);
     if (!zone) continue;
+    const hops = visited.get(zoneId).hops;
     for (const { dir, target: neighborId } of allExits(zone)) {
       // A closed door on this edge muffles the crossing further; relax on a
       // louder path so an open route is still preferred over a doored one.
       const nextGain = edgeMuffle(zoneId, dir, neighborId) ? hopGain * DOOR_MUFFLE_GAIN : hopGain;
       if (nextGain < AUDIO_STOP_THRESHOLD) continue;
-      if (!visited.has(neighborId) || nextGain > visited.get(neighborId)) {
-        visited.set(neighborId, nextGain);
+      if (!visited.has(neighborId) || nextGain > visited.get(neighborId).gain) {
+        // The direction is the LAST hop's, which is right: whatever route it
+        // took to get near, it entered this room through one doorway.
+        visited.set(neighborId, { gain: nextGain, hops: hops + 1, from: BACK[dir] || null });
         queue.push([neighborId, nextGain]);
       }
     }
   }
-  for (const [zoneId, gain] of visited) {
-    broadcastFn(zoneId, { type: 'audio_sfx', def: sfxDef, gain: Math.min(1, gain) });
+  for (const [zoneId, v] of visited) {
+    broadcastFn(zoneId, {
+      type: 'audio_sfx', def: sfxDef, gain: Math.min(1, v.gain),
+      // Omitted entirely at the origin, so a cue in your own room is byte-for-byte
+      // the message that shipped before any of this.
+      ...(v.hops ? { hops: v.hops, from: v.from } : {}),
+    });
   }
 }
 

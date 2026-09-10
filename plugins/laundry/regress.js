@@ -39,7 +39,7 @@ export default async function regress({ run, check, getPlayer }) {
     // coin flip on CI and always won locally. The clock is the thing under test anyway.
     const before = lastLaunderedAt(p);
     p._flags.set(WASH_FLAG, String(Date.now()));
-    check('showering does not launder your clothes', lastLaunderedAt(p) === before,
+    check("showering doesn't launder your clothes", lastLaunderedAt(p) === before,
       `${lastLaunderedAt(p)} vs ${before}`);
     check('showering does still wash the body', lastWashedAt(p) > before);
   }
@@ -75,7 +75,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('an NPC washes on arriving home', npcWashAtHome(npc) === true);
     check('washing clears what was on them',
       !npc.covered_in_blood && !Object.keys(npc.clothing_contamination).length && !npc._sweat);
-    check('and does not re-wash every tick', npcWashAtHome(npc) === false);
+    check("and doesn't re-wash every tick", npcWashAtHome(npc) === false);
   }
 
   // Laundering with no id is a no-op rather than a throw (defensive: the flag
@@ -123,7 +123,7 @@ export default async function regress({ run, check, getPlayer }) {
         generic.kind === 'ok' && generic.machine.id !== one.id, `${generic.kind} ${generic.machine?.name}`);
       check('an unnamed pick skips the busy one too',
         pickMachine('zone_the_wash').machine?.id !== one.id);
-      check('a name that is nothing here is refused, not silently substituted',
+      check("a name that's nothing here is refused, not silently substituted",
         pickMachine('zone_the_wash', 'tumble dryer').kind === 'unknown');
       // The machines are named with digits so the room pane sorts them 1-2-3-4,
       // but nobody types a machine that way.

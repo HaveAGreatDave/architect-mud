@@ -1,11 +1,12 @@
 {
-  "description": "A sleek relay that whispers a clean, empty-room loop into nearby cameras. The owner watches nothing happen while you work.",
+  "description": null,
   "flags": {},
   "id": "item_feed_spoofer",
   "name": "Feed Spoofer",
   "tags": {
     "battery_max": 288,
     "concealment_base": 4,
+    "description": "A sleek relay that whispers a clean, empty-room loop into nearby cameras. The owner watches nothing happen while you work.",
     "device_kind": "spoofer",
     "device_tier": 3,
     "hack_difficulty": 7,

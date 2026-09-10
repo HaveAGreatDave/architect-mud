@@ -51,7 +51,7 @@ import { getZone } from '../../server/engine/world.js';
 // tell an empty room from an unlucky one.
 
 const FAILURES = [
-  'You turn over what there is to turn over. Grit, a dead battery, and the strong sense of being watched by nothing.',
+  "You turn over what there's to turn over. Grit, a dead battery, and the strong sense of being watched by nothing.",
   'You go through it properly. Wrappers, rust, a bottle cap. Whatever else is here is better at this than you are.',
   'Nothing. The kind of nothing that has clearly been nothing for a while.',
   'You check the corners, the gaps, the places things end up. The city has already been through here.',
@@ -77,7 +77,7 @@ async function cmdSearch(args, raw, player, broadcast) {
   const targetStr = args.join(' ').trim();
   const zoneId = player.current_zone;
   const zone = getZone(zoneId);
-  if (!zone) return { type: 'error', message: 'There is nothing here to search.' };
+  if (!zone) return { type: 'error', message: "There's nothing here to search." };
 
   const key = `${player.id}:${zoneId}`;
   if (Date.now() - (lastSearch.get(key) || 0) < COOLDOWN_MS) {

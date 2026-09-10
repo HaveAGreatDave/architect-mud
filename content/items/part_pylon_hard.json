@@ -4,7 +4,7 @@
   "id": "part_pylon_hard",
   "name": "military-surplus hardpoints",
   "tags": {
-    "description": "Stressed mounts off something the army wrote off and then wrote off the paperwork for. Rated for ordnance the airframe underneath was never rated for, which is a problem for the airframe and not for the mounts."
+    "description": "Stressed mounts off something the army wrote off and then wrote off the paperwork for. Rated for ordnance the airframe underneath was never rated for."
   },
   "type": "misc",
   "value": 6500,

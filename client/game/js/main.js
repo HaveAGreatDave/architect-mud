@@ -66,7 +66,7 @@ import { mountCustomPanels } from "./panels/custom/manager.js";
 import { initCustomPanelButton } from "./panels/custom/builder.js";
 import { refreshTempDisplay } from "./panels/environment.js";
 import { initWeatherFx, setWeatherFxEnabled } from "./panels/weather-fx.js";
-import { setMapOverlay, setMinimapRender } from "./panels/minimap.js";
+import { setMapOverlay, setMapColor, setMinimapRender } from "./panels/minimap.js";
 import { initAtmPanel } from "./panels/atm.js";
 import { initInsurancePanel } from "./panels/insurance.js";
 import { initWantedHud } from "./panels/wanted.js";
@@ -141,6 +141,7 @@ window._applyWeatherFx = setWeatherFxEnabled;
 // Minimap tile-overlay mode (Settings → Layout → Map Labels). Same deal: hook
 // registered before the first applySettings() so the saved mode is honoured.
 window._applyMapOverlay = setMapOverlay;
+window._applyMapColor = setMapColor;
 // Which renderer draws the minimap (Settings → Layout → Minimap). Same deal again.
 window._applyMinimapRender = setMinimapRender;
 // Voice input (Settings → Accessibility → Voice Input). Same deal once more —
@@ -234,6 +235,15 @@ function setupMobilePane() {
 	// Start collapsed
 	_setAreaPane(false);
 
+	// An app that MOUNTS INTO THE PANE opens it. The pane starts collapsed and, before this,
+	// only a tap ever opened it — so a player who arrived already inside one of these (logging
+	// in aboard an aircraft is how this was found) got the app rendered into a pane they could
+	// not see: no cockpit, no controls, just the log pane and a d-pad offering directions.
+	// The apps announce themselves rather than being listed here, so a new one is covered by
+	// dispatching the same event.
+	window.addEventListener("pane:claimed", () => _setAreaPane(true));
+	window.addEventListener("pane:released", () => _setAreaPane(false));
+
 	// Clicking anywhere on the handle bar toggles the pane.
 	// Guard: ignore if the touch/click was part of a drag (moved more than 4px).
 	let _handleDragged = false;
@@ -254,7 +264,13 @@ function setupMobilePane() {
 
 		window.visualViewport.addEventListener("resize", () => {
 			const vh = window.visualViewport.height;
-			const keyboardUp = vh < _fullVH * 0.75;
+			// ⚠ A SHRINKING VIEWPORT IS ONLY A KEYBOARD ON A DEVICE THAT HAS ONE. Docking devtools to
+			// the bottom of a desktop window shrinks the visual viewport by exactly the same shape as a
+			// soft keyboard opening, so this closed the area pane on a machine with no keyboard to open
+			// — and it only reopens if the pane happened to be open at that moment. The pane holds the
+			// flight sim, whose canvas is then 0×0, and paintWindshield returns on its first line, so
+			// the whole renderer silently stops. That reads as "the 3-D view will not load".
+			const keyboardUp = _isTouch && vh < _fullVH * 0.75;
 			if (keyboardUp) {
 				document.body.style.height = vh + "px";
 				window.scrollTo(0, window.visualViewport.offsetTop);
@@ -270,6 +286,18 @@ function setupMobilePane() {
 	}
 }
 if (_isMobile()) setupMobilePane();
+// ⚠ `_isMobile()` IS READ ONCE, AT LOAD, and `mob-pane-hidden` is `display:none !important`
+// with no media query behind it — so a window that STARTS under 720px collapses the area pane
+// and keeps it collapsed at every width afterwards, because only a tap on the handle clears it.
+// Opening devtools side-docked is how a desktop hits that: the page reloads narrow, boots into
+// the mobile layout, and the pane never comes back however wide the window gets. Restore it when
+// the viewport crosses back over the breakpoint. Non-touch only, and it only ever UN-hides — a
+// real handset keeps every bit of its behaviour, and a deliberate tap-to-close still closes.
+if (!_isTouch) {
+	window.addEventListener("resize", () => {
+		if (window.innerWidth >= 720) document.getElementById("area-pane")?.classList.remove("mob-pane-hidden");
+	});
+}
 
 listenForSettingsChanges((s) => {
 	applySettings(s);
@@ -662,7 +690,7 @@ document.getElementById("signout-btn").addEventListener("click", () => {
 	}
 	showDangerDialog({
 		title: "Sign Out",
-		prompt: "Your body stays asleep exactly where you log out — it will remain in the world, vulnerable to anyone who finds it, until you return. Get somewhere safe (your apartment, locked) before signing out here.",
+		prompt: "Your body stays asleep exactly where you log out — it'll remain in the world, vulnerable to anyone who finds it, until you return. Get somewhere safe (your apartment, locked) before signing out here.",
 		confirmLabel: "Sign Out Anyway",
 	}, doSignout);
 });

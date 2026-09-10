@@ -129,8 +129,8 @@ async function searchForCaches({ player, zoneId, margin }) {
         found: true,
         priority: 40,
         message: cache.flags?.dead_drop_disturbed
-          ? `You know what you are looking for, and it is where you left it. ${cache.name} is not sitting quite as you left it.`
-          : `You know what you are looking for, and it is where you left it. ${cache.name} looks untouched.`,
+          ? `You know what you're looking for, and it's where you left it. ${cache.name} isn't sitting quite as you left it.`
+          : `You know what you're looking for, and it's where you left it. ${cache.name} looks untouched.`,
       };
     }
   }
@@ -151,7 +151,7 @@ async function searchForCaches({ player, zoneId, margin }) {
   return {
     found: true,
     priority: 60,
-    message: `Something about the ${cache.name} is wrong — it sits a little proud of the wall, and it is not fixed to anything. There is a cavity behind it.`,
+    message: `Something about the ${cache.name} is wrong — it sits a little proud of the wall, and it isn't fixed to anything. There's a cavity behind it.`,
   };
 }
 
@@ -242,7 +242,7 @@ registerAction({
       name: params.name || undefined,
       lock: params.lock !== false,
     });
-    if (!booking) return { type: 'error', message: 'Nobody free to run it, or there is already something there.' };
+    if (!booking) return { type: 'error', message: "Nobody free to run it, or there's already something there." };
     // The CODE is what being told is worth, and it is cleanly separate from being
     // told WHERE — two NPCs, two halves, and losing either leaves a real but
     // harder problem. Handed back so the authoring can put it in the advisor's

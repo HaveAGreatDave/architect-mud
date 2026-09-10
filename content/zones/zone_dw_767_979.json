@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A narrow way between the rows with a drain down the middle of it and washing strung overhead. A cat has the warm end and is not sharing it.",
+  "description": "A narrow way between the rows with a drain down the middle of it and washing strung overhead. A cat has the warm end and isn't sharing it.",
   "exits": {
     "east": "zone_dw_768_979",
     "north": "zone_dw_767_978",

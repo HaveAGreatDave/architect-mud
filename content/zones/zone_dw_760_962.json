@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The pale shelf the water has been laying down around itself for a very long time: mineral crust in flat terraces, off-white and faintly yellow, ringed and lipped like something poured. It is hollow in places and it says so underfoot, so you keep to the trodden line.",
+  "description": "The pale shelf the water has been laying down around itself for a very long time: mineral crust in flat terraces, off-white and faintly yellow, ringed and lipped like something poured. It's hollow in places and it says so underfoot, so you keep to the trodden line.",
   "exits": {
     "east": "zone_dw_761_962",
     "north": "zone_dw_760_961",

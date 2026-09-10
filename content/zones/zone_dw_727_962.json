@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Lava rock, gone matt and grey-black with age, standing a foot or two proud of the ash flat it stopped on. The edge of it is as clean as a tide line: this far, and then it cooled.",
+  "description": "Lava rock, gone matt and grey-black with age, standing a foot or two proud of the ash flat it stopped on. The edge of it's as clean as a tide line: this far, and then it cooled.",
   "exits": {
     "east": "zone_dw_728_962",
     "north": "zone_dw_727_961",

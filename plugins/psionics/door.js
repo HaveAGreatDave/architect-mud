@@ -48,8 +48,8 @@ const WALKED_INTO_IT = 'psi_walked_into_door';
 const GUIDE_LINE =
   '<span class="ambient">You walk into the door.</span><br>' +
   '<span class="ambient">Your guide waits for you to finish being surprised, then says: ' +
-  '"It is not automatic. None of them are." A pause. "You will get it. Doors are ' +
-  'the easy part, and you will be doing a great deal more than doors."</span>';
+  '"It isn\'t automatic. None of them are." A pause. "You\'ll get it. Doors are ' +
+  'the easy part, and you\'ll be doing a great deal more than doors."</span>';
 
 export function registerPsiDoor() {
   registerLockType('psi', {
@@ -65,7 +65,7 @@ export function registerPsiDoor() {
         unlock: 'The door opens for you.',
         // Deliberately flat and unexplained. After the first time, a refusal
         // should feel like the building declining to notice you.
-        denied: 'The door does not open.',
+        denied: "The door doesn't open.",
       },
     },
 
@@ -146,11 +146,11 @@ const GATE_TOLD = 'terminus_gate_told';
  * what they are and does not have to have been told its name.
  */
 const WARDEN_LINE =
-  '<span class="ambient">The gate does not open.</span><br>' +
-  '<span class="ambient">Verity Strand does not look at it, or at you. "She said you could come in," ' +
+  '<span class="ambient">The gate doesn\'t open.</span><br>' +
+  '<span class="ambient">Verity Strand doesn\'t look at it, or at you. "She said you could come in," ' +
   'she says, "and she was right, and it still will not." A pause, without any unkindness in it at ' +
-  'all. "You have already given this to somebody. I do not need to know who and I am not going to ' +
-  'ask. It is only that a person can hold one of these, and yours is full."</span>';
+  'all. "You have already given this to somebody. I don\'t need to know who and I\'m not going to ' +
+  'ask. It\'s only that a person can hold one of these, and yours is full."</span>';
 
 const pathFlag = (player, name) => Number(player?._flags?.get(`path_${name}`)) || 0;
 
@@ -166,7 +166,7 @@ export function registerTerminusGate() {
       messages: {
         lock: 'The leaves come together without a sound.',
         unlock: 'The gate opens. Nobody touches it.',
-        denied: 'The gate does not open.',
+        denied: "The gate doesn't open.",
       },
     },
 

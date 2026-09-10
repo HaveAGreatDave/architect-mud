@@ -1,10 +1,19 @@
 {
-  "description": "A combat stim that turns fear into fuel. Frontline mercs swear by it, and at it.",
-  "flags": {},
+  "description": null,
+  "flags": {
+    "prefill": {
+      "drug_id": "drug_coldfire",
+      "fluid_amount": 12,
+      "fluid_type": "drug"
+    }
+  },
   "id": "item_coldfire",
   "name": "Coldfire",
   "tags": {
-    "drug": true
+    "description": "A combat stim that turns fear into fuel. Frontline mercs swear by it, and at it.",
+    "drug": true,
+    "fillable": 12,
+    "unique": true
   },
   "type": "consumable",
   "value": 260,

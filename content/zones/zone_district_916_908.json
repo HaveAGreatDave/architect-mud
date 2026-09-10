@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#20292a",
   "color": "#8ba36a",
-  "description": "A barber's pole turns in a bracket over a doorway breathing steam into the street. The window is tiled halfway up in green and lettered LATHER & LYE · CUT, SHAVE, HOT WATER, with HOT WATER twice the size of the rest, because it is the part that sells. Condensation runs down the inside of the glass in slow, patient lines.",
+  "description": "A barber's pole turns in a bracket over a doorway breathing steam into the street. The window is tiled halfway up in green and lettered LATHER & LYE · CUT, SHAVE, HOT WATER, with HOT WATER twice the size of the rest, because it's the part that sells. Condensation runs down the inside of the glass in slow, patient lines.",
   "exits": {
     "north": "zone_soak_front",
     "south": "zone_district_916_909"

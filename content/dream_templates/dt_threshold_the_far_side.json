@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "Somebody through there laughs at something you did not hear.",
+    "Somebody through there laughs at something you didn't hear.",
     "The light in there changes slightly, the way light does when people move.",
-    "Somebody crosses the doorway from one side to the other and does not glance out."
+    "Somebody crosses the doorway from one side to the other and doesn't glance out."
   ],
   "cause": "drug",
-  "description": "A door standing open onto the place this whole building is the entrance to. It is bright and it is occupied and it is going well. Nobody in it is looking this way. The doorway is the width of a doorway and you are on this side of it.",
+  "description": "A door standing open onto the place this whole building is the entrance to. It's bright and it's occupied and it's going well. Nobody in it's looking this way. The doorway is the width of a doorway and you're on this side of it.",
   "drug_id": "drug_threshold",
   "fx": "bloom",
   "fx_intensity": 0.75,

@@ -173,7 +173,7 @@ async function buildScreen(player, screenId, params) {
   const id = (params || '').trim();
 
   if (!shops.length) {
-    return { view: 'error', message: 'You do not own a shop. Find a vacant unit and BUYSHOP it.' };
+    return { view: 'error', message: "You don't own a shop. Find a vacant unit and BUYSHOP it." };
   }
 
   if (screen === 'stock' && id) {

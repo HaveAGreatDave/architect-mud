@@ -1,5 +1,5 @@
 {
-  "description": "A squat brass lending terminal, pre-Collapse municipal issue, kept running by somebody who plainly enjoys the work. A tablet dock sits in the top, worn bright by use. The screen offers one instruction, PLACE TABLET. TAKE WHAT YOU LIKE., and below it, in smaller type that somebody has gone to the trouble of editing into the firmware: NOTHING HERE IS ANYONE'S PROPERTY ANY MORE. THAT IS THE ONLY GOOD THING THAT HAPPENED.\n\nDock your tablet and the terminal installs the LIBRARY app on it, then fills it with the entire catalogue: whole books, not extracts, readable anywhere you go. The physical copies stay on the shelf. The librarian would rather you read one badly than not read it at all.",
+  "description": "A squat brass lending terminal, pre-Collapse municipal issue, kept running by somebody who enjoys the work. A tablet dock sits in the top, worn bright. The screen reads PLACE TABLET. TAKE WHAT YOU LIKE. Dock yours and it installs the LIBRARY app and the whole catalogue, readable anywhere you go.",
   "flags": {
     "lending_terminal": true
   },

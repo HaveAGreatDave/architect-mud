@@ -19,7 +19,7 @@
     }
   },
   "chitchat": [],
-  "description": "A wiry man in a coat that was expensive a long time ago, holding a small brown paper bag like it is a business. He has the loose, delighted look of somebody who has not been early for anything in fifteen years, and the particular energy of a man four minutes into something.",
+  "description": "A wiry man in a coat that was expensive a long time ago, holding a small brown paper bag like it's a business. He has the loose, delighted look of somebody who hasn't been early for anything in fifteen years, and the particular energy of a man four minutes into something.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
@@ -56,7 +56,7 @@
           "Hold it up. Hold it up to the lens, they can see it."
         ],
         "late": [
-          "Available via PayPal. That is the whole ad, man, you did the ad."
+          "Available via PayPal. That's the whole ad, man, you did the ad."
         ],
         "recover": [
           "That's the ad. That's it. Back to your thing."

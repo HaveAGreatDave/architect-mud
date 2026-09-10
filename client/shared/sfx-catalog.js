@@ -635,7 +635,7 @@
     // The PLAYER sting — layered ON TOP of whatever rarity flip just fired, never
     // instead of it. A card with somebody's real handle on it is the rarest thing
     // the system can hand you regardless of rank, so it gets its own signal.
-    { id: 'cards-player-sting', name: 'Cards — it is a PLAYER card', group: 'cards', category: 'sfx', priority: 9,
+    { id: 'cards-player-sting', name: "Cards — it's a PLAYER card", group: 'cards', category: 'sfx', priority: 9,
       config: { duration: 0.9, layers: [
         { waveform: 'sine', freq: 1319, delay: 0.06, adsr: { a: 0.003, d: 0.5, s: 0, r: 0.24 }, gain: 0.055 },
         { waveform: 'sine', freq: 1976, delay: 0.14, adsr: { a: 0.003, d: 0.6, s: 0, r: 0.28 }, gain: 0.045 },

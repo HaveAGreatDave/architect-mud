@@ -165,10 +165,10 @@ export function sweepStaleFights(player, now = Date.now()) {
 /** What a tier actually says, out loud. The prose IS the reward. */
 export function tierLine(tier, name) {
   switch (tier) {
-    case 'watching': return `<span class="text-dim">You are starting to see how ${name} carries itself.</span>`;
-    case 'pattern':  return `<span class="text-dim">There is a pattern in it. You have not got it yet, but it is there.</span>`;
+    case 'watching': return `<span class="text-dim">You're starting to see how ${name} carries itself.</span>`;
+    case 'pattern':  return `<span class="text-dim">There's a pattern in it. You haven't got it yet, but it's there.</span>`;
     case 'read':     return `<span class="crit-tag">You have its rhythm.</span>`;
-    case 'solved':   return `<span class="crit-tag">You know what it is going to do before it does.</span>`;
+    case 'solved':   return `<span class="crit-tag">You know what it's going to do before it does.</span>`;
     default: return '';
   }
 }

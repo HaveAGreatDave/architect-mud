@@ -152,7 +152,7 @@ export class ChessTable extends TableBase {
   pickSquare(playerId, algebraic) {
     if (!this.game || this.game.isOver()) return { ok: false, error: 'No game in progress.' };
     const seat = this.game.seatByPlayer(playerId);
-    if (!seat) return { ok: false, error: 'You are not playing this game.' };
+    if (!seat) return { ok: false, error: "You aren't playing this game." };
     if (seat.color !== this.game.turn) return { ok: false, error: "It isn't your move." };
 
     if (!algebraic || algebraic === 'none') {
@@ -288,9 +288,9 @@ export class ChessTable extends TableBase {
   offerDraw(playerId) {
     if (!this.game || this.game.isOver()) return { ok: false, error: 'No game in progress.' };
     const seat = this.game.seatByPlayer(playerId);
-    if (!seat) return { ok: false, error: 'You are not playing this game.' };
+    if (!seat) return { ok: false, error: "You aren't playing this game." };
     const other = this.game.seats.find(s => s.playerId !== playerId);
-    if (!other) return { ok: false, error: 'There is nobody to offer a draw to.' };
+    if (!other) return { ok: false, error: "There's nobody to offer a draw to." };
     if (this._drawOffer?.byPlayerId === playerId) return { ok: false, error: 'You already offered a draw.' };
 
     this._drawOffer = { byPlayerId: playerId, toPlayerId: other.playerId };

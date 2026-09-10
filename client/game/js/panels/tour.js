@@ -35,7 +35,7 @@ const STEPS = [
   {
     sel: ['#area-pane'],
     title: 'The room',
-    body: `This top pane is <b>where you are</b> — the room's description, who and what is standing in it, and the ways out. It redraws every time the room changes. Names in it are clickable: tapping one is the same as typing the command.`,
+    body: `This top pane is <b>where you are</b> — the room's description, who and what's standing in it, and the ways out. It redraws every time the room changes. Names in it are clickable: tapping one is the same as typing the command.`,
   },
   {
     // Phone-only, and the single most useful thing to know about the small
@@ -100,7 +100,7 @@ const STEPS = [
     on: 'desktop',
     sel: ['#minimap-section'],
     title: 'The map',
-    body: `The world is a grid, and this is the piece of it around you. You're the marker in the middle. Click a tile to plot a route; the footprints button walks it for you, and <b>+</b>/<b>−</b> zoom.`,
+    body: `The world is a grid, and this is the piece of it around you. You're the marker in the middle. Click a tile to plot a route; the footprints button walks it for you, and <b>+</b>/<b>−</b> zoom. <b>Double-click the map</b> for the full-screen version.`,
   },
   {
     on: 'mobile',

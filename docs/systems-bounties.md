@@ -83,11 +83,49 @@ where players stand at the wrong one). **Posting and redeeming both require a bo
 which is what makes a board a place people meet, and what stops the tablet app from
 turning every board in the city into decoration.
 
-Three ship as content: the Grind House, the Cherry Pit, and — the joke — a cork board
-in Bishop's Blend, between a lost cat and a guitar for sale.
+Three ship as content, in the Grind House, the Cherry Pit and Bishop's Blend.
 
 The board's `furniture.describe` hook says how much paper is on it before you read it,
 so a player who never types `bounty` still finds out the system exists by walking past.
+
+### The board is a machine
+
+A `wanted_board` is a **Severance 400**: a steel cabinet bolted to the wall, a coin slot
+and a thermal printer on top, an amber screen listing the open contracts, and a gasketed
+stainless port down by your knees with a scale behind it. **All three shipped units are
+the same product. Only the upkeep differs** (the Grind House's has been hit, the Cherry
+Pit's is serviced, Bishop's has been left). A machine you recognise in one bar and can
+operate in another is a machine; three pieces of furniture that happen to share a verb
+are three tutorials.
+
+⚠ **A `bulletin` board is still cork and staples**, and both tags reach the same
+`furniture.describe` hook, which is why it branches on `wanted_board` rather than
+describing stapled paper on a machine that holds none.
+
+**The receptacle is authored prose, not a switch on a zone id.** `flags.receptacle` on
+the furniture row carries `noun`, `empty`, `accept`, `room`, `dark` and `darkPost`, and
+[receptacle.js](../plugins/bounty/receptacle.js) merges whatever is there over a complete
+generic set. A new board is a content file: author one line and inherit the rest, author
+nothing and it still works. The `noun` reaches the refusal, the acceptance, the room
+broadcast and the board's own description, so it is one field rather than four sentences
+that have to agree by hand. Every unit calls the hole "the port"; what the authored lines
+carry is how *that* unit's port behaves.
+
+Room descriptions are read on every walk past, so all three are kept to four short
+sentences, and none of them uses an em dash (that is the Ascendant voice tell, and this
+is a machine in a dive bar).
+
+The furniture is named `bounty terminal`, so `boardHere` treats a short list of generic
+nouns (board, terminal, machine, kiosk) as "the thing in this room that does bounties"
+rather than as a name to match. `read board` off a system message and `read terminal`
+off the wall must land in the same place.
+
+**Being a machine, it needs power.** `redeem` and posting both check the zone's power
+status, the same reading `plugins/atm` uses: a zone with no generator assigned is absent
+from the map and treated as powered. A dark terminal answers in its own voice, not with a
+system error. **Reading is never gated**, because paper does not need electricity. Each
+unit draws 0.02 kW, and all three sit in zones that are on the power map, so the gate
+actually bites.
 
 ## Verbs
 

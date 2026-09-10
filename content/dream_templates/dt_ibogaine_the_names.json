@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "A name is read and there is a pause the length of that person.",
+    "A name is read and there's a pause the length of that person.",
     "The reading continues at the same pace.",
     "A name you had lost arrives, correctly placed, between two you had not."
   ],
   "cause": "drug",
-  "description": "A list, being read at the pace a list is read at, of the people you have had. Everyone. In the order they arrived. It is accurate and it is longer than you would have said, and nothing is added after any of them.",
+  "description": "A list, being read at the pace a list is read at, of the people you have had. Everyone. In the order they arrived. It's accurate and it's longer than you would have said, and nothing is added after any of them.",
   "drug_id": "drug_ibogaine",
   "fx": "static",
   "fx_intensity": 0.45,
@@ -15,16 +15,16 @@
     {
       "looks": [
         "Everyone. In order. Nothing beside the names.",
-        "It is written in one hand and the hand does not tire.",
-        "You are on it, once, in the correct position."
+        "It's written in one hand and the hand doesn't tire.",
+        "You're on it, once, in the correct position."
       ],
       "name": "the list"
     },
     {
       "looks": [
         "Reading. Not slowly, and not fast.",
-        "They do not look up between names and they get every pronunciation right.",
-        "They will finish. That is the arrangement."
+        "They don't look up between names and they get every pronunciation right.",
+        "They'll finish. That's the arrangement."
       ],
       "name": "the reader"
     }

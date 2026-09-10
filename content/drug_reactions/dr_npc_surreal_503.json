@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": "stranger",
   "room_line": "{npc} looks straight through {player} as though there were nothing there.",
-  "self_line": "{npc} looks straight through you, and you are not certain they are wrong to.",
+  "self_line": "{npc} looks straight through you, and you aren't certain they're wrong to.",
   "source": "npc",
   "tone": "surreal"
 }

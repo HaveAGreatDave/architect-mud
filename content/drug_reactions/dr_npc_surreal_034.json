@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "{npc} clocks {player}, takes in the eyes, and looks pointedly at something else.",
-  "self_line": "{npc} watches you for a moment too long, then decides it is not their business.",
+  "self_line": "{npc} watches you for a moment too long, then decides it isn't their business.",
   "source": "npc",
   "tone": "surreal"
 }

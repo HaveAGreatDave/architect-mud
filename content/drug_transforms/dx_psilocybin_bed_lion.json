@@ -5,7 +5,7 @@
     "Do you know what was here before I was?",
     "Would you scratch behind the ear? Only the left one."
   ],
-  "description": "A lion lies where the far side of the room is, front paws crossed, ribs going slowly up and down. It takes up the space a bed would take up and it is very warm.",
+  "description": "A lion lies where the far side of the room is, front paws crossed, ribs going slowly up and down. It takes up the space a bed would take up and it's very warm.",
   "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} yawns enormously, jaw cracking, and resettles with a sound like sand pouring.",
@@ -18,15 +18,15 @@
   "fx_intensity": 0.5,
   "id": "dx_psilocybin_bed_lion",
   "looks": [
-    "The fur is dust-coloured and thick with old scars, and there is grit worked deep into it. One ear turns toward you without the rest of the head bothering.",
-    "It is breathing at about a third of your rate. Watching it for any length of time makes your own breath slow down to match, which you notice too late.",
+    "The fur is dust-coloured and thick with old scars, and there's grit worked deep into it. One ear turns toward you without the rest of the head bothering.",
+    "It's breathing at about a third of your rate. Watching it for any length of time makes your own breath slow down to match, which you notice too late.",
     "Its eyes are open a slit. They have been open a slit the whole time."
   ],
   "matches": "bed",
   "name": "a sleeping lion",
   "says": [
-    "Lie down if you are going to. I am not going to be up for hours.",
-    "You are standing in a draught. I can feel it from here.",
+    "Lie down if you're going to. I'm not going to be up for hours.",
+    "You're standing in a draught. I can feel it from here.",
     "I have slept in worse rooms than this one. Not many."
   ],
   "scope": "object"

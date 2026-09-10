@@ -16,7 +16,7 @@
       "canHack": true,
       "difficulty": 8,
       "messages": {
-        "denied": "The gallery lock flashes amber. Box holders only, and you are not one.",
+        "denied": "The gallery lock flashes amber. Box holders only, and you aren't one.",
         "hackFail": "The gallery lock closes its logic against you and goes quiet.",
         "hackSuccess": "The gallery lock gives up its matrix and the brass row opens to you.",
         "lock": "The gallery door draws shut and the dry air seals behind it.",

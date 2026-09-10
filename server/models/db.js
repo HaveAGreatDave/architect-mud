@@ -67,7 +67,81 @@ pool.on('error', (err) => {
 // pooler rejects that outright with "unsupported startup parameter in options".
 pool.on('connect', (client) => {
   client.query('SET search_path TO public').catch(() => { /* surfaces on the caller's own query */ });
+  watchEgress(client);
 });
+
+// ── Egress meter (remote targets only) ───────────────────────────────────────
+//
+// Neon bills transfer OUT, on a 5 GB/month free budget the game runs on, and the
+// documented one-shot pattern — `node --env-file=.env.prod scripts/x.mjs` — comes
+// through this pool. So a hand-run script could read the world ten times over and
+// say nothing about it. On 2026-09-07 egress went 89 MB one day to ~600 MB the
+// next; the only surviving evidence was a seq-scan counter on `zones`, because
+// the script that did it had already been deleted. This is the line that would
+// have named it. See docs/ops-usage-watch.md §4b.
+//
+// EXACT WIRE BYTES, not an estimate: `socket.bytesRead` is what the kernel handed
+// us, which is the thing Neon meters. Summing row sizes would be a guess that
+// disagrees with the bill.
+//
+// ⚠ It sums across the POOL, not one connection. A pooled client is destroyed and
+// replaced on idle timeout, and its socket's counter dies with it — so a closed
+// connection banks its total on the way out. Reading only the live sockets would
+// silently under-report every long run, which is the wrong direction for a budget
+// alarm.
+//
+// Local targets are skipped entirely: there is no budget, and every developer and
+// every regress run would otherwise pay for a counter nobody reads.
+const meterEgress = needsSsl(process.env.DATABASE_URL);
+const liveSockets = new Set();
+let closedBytes = 0;
+
+function watchEgress(client) {
+  if (!meterEgress) return;
+  const socket = client.connection?.stream;
+  if (typeof socket?.bytesRead !== 'number') return;  // pg internals moved; report nothing rather than a wrong number
+  liveSockets.add(socket);
+  socket.once('close', () => {
+    closedBytes += socket.bytesRead;
+    liveSockets.delete(socket);
+  });
+}
+
+/** Bytes read from the remote DB by this process, or null when the target is local. */
+export function getEgressBytes() {
+  if (!meterEgress) return null;
+  let live = 0;
+  for (const s of liveSockets) live += s.bytesRead;
+  return closedBytes + live;
+}
+
+function formatBytes(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
+  return `${(n / 1024 ** 3).toFixed(2)} GB`;
+}
+
+// Loud above this. A cold start legitimately reads ~13.5 MB, so the threshold has
+// to clear a boot by a wide margin or the game server would cry wolf at every
+// shutdown — and it still sits far below the 600 MB day that prompted it.
+// DB_EGRESS_WARN_MB overrides, which is also how the loud path gets exercised
+// without spending 100 MB to see it.
+const EGRESS_WARN_BYTES = (Number(process.env.DB_EGRESS_WARN_MB) || 100) * 1024 * 1024;
+
+if (meterEgress) {
+  process.on('exit', () => {
+    const bytes = getEgressBytes();
+    if (!bytes) return;  // nothing read — don't add a line to every process that merely imported this
+    const host = (() => { try { return new URL(process.env.DATABASE_URL).hostname; } catch { return 'remote'; } })();
+    const line = `prod egress: ${formatBytes(bytes)} over ${meterTotal} quer${meterTotal === 1 ? 'y' : 'ies'} — ${host}`;
+    if (bytes >= EGRESS_WARN_BYTES) {
+      console.warn(`\n⚠ ${line}\n  That is a material slice of Neon's 5 GB/month transfer budget — see docs/ops-usage-watch.md.`);
+    } else {
+      console.log(line);
+    }
+  });
+}
 
 // ── Round-trip meter ─────────────────────────────────────────────────────────
 //

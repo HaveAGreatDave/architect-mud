@@ -1,7 +1,7 @@
 {
   "ambient_theme": "indoors",
   "bg_color": "#5a5450",
-  "description": "One room. A steel-frame bed with a mattress that has seen things, a hot plate on an upturned crate, a sink that drips on its own schedule, and a window painted shut over a view of the container stacks. The radiator is cold and the lock is cheap, but the door closes, and in the Yards that is the whole of what a home has to do.",
+  "description": "One room. A steel-frame bed with a mattress that has seen things, a hot plate on an upturned crate, a sink that drips on its own schedule, and a window painted shut over a view of the container stacks. The radiator is cold and the lock is cheap, but the door closes, and in the Yards that's the whole of what a home has to do.",
   "exits": {
     "south": "zone_yards_tenement_f7"
   },

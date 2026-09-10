@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "The moment continues, and is not shorter for having continued.",
-    "Something is decided somewhere and does not concern you.",
+    "The moment continues, and isn't shorter for having continued.",
+    "Something is decided somewhere and doesn't concern you.",
     "The floor becomes slightly more certain of itself."
   ],
   "cause": "drug",
-  "description": "You have arrived somewhere in the middle of it and it has been going on. There is a floor, or the strong impression of one. Time here is being handled by somebody else and they are doing it generously. Nothing needs you.",
+  "description": "You have arrived somewhere in the middle of it and it has been going on. There's a floor, or the strong impression of one. Time here is being handled by somebody else and they're doing it generously. Nothing needs you.",
   "drug_id": null,
   "fx": null,
   "fx_intensity": 0.5,
@@ -16,7 +16,7 @@
       "looks": [
         "Present, on the whole.",
         "You test it. It agrees to be a floor and continues.",
-        "It goes down a long way and every bit of it is this bit."
+        "It goes down a long way and every bit of it's this bit."
       ],
       "name": "the floor"
     },
@@ -24,7 +24,7 @@
       "looks": [
         "Still going. It has been very generous so far.",
         "You look for the edge of it and find more of the middle.",
-        "It is thinning at one end, but not yet, and not soon."
+        "It's thinning at one end, but not yet, and not soon."
       ],
       "name": "the moment"
     }

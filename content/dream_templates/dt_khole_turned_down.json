@@ -5,7 +5,7 @@
     "The level holds, evenly, for a long time."
   ],
   "cause": "drug",
-  "description": "Everything is arriving at a level somebody has chosen, and the level is low, and the choosing was not done by you. Sensation is still being delivered. It has simply been brought down until it can be handled comfortably by whatever is handling it now.",
+  "description": "Everything is arriving at a level somebody has chosen, and the level is low, and the choosing wasn't done by you. Sensation is still being delivered. It has simply been brought down until it can be handled comfortably by whatever is handling it now.",
   "drug_id": "drug_khole",
   "fx": "tunnel",
   "fx_intensity": 0.8,
@@ -16,7 +16,7 @@
       "looks": [
         "Low, even, and set with care.",
         "You look for the thing that sets it and find the setting instead.",
-        "It comes down another step while you are looking at it, and that is fine."
+        "It comes down another step while you're looking at it, and that's fine."
       ],
       "name": "the level"
     },
@@ -26,8 +26,8 @@
         "Cold, weight, the fact of the floor. All of it at a fraction.",
         "Enough to know by. Not enough to act on."
       ],
-      "name": "what is still coming through"
+      "name": "what's still coming through"
     }
   ],
-  "weather": "There is weather, and it has been attenuated until it is only information."
+  "weather": "There's weather, and it has been attenuated until it's only information."
 }

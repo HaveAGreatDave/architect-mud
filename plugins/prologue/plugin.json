@@ -6,5 +6,5 @@
   "commands": ["tutorial", "intro", "introdone", "tabletdone"],
   "hooks": [],
   "specializedActions": ["use", "read"],
-  "events": { "consumes": ["appearance.changed", "posture.changed", "zone.entered", "enemy.killed", "player.login"], "emits": [] }
+  "events": { "consumes": ["appearance.changed", "posture.changed", "zone.entered", "enemy.killed", "player.login", "player.command", "player.logout"], "emits": [] }
 }

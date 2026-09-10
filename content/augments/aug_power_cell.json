@@ -1,6 +1,6 @@
 {
   "cost": 2200,
-  "description": "A sealed isotope cell that sits under the sternum and does nothing you can feel. Without one, chrome runs on whatever the body can spare, which is not much and was never meant to be. With one, you stop thinking about it — until the day you do.",
+  "description": "A sealed isotope cell that sits under the sternum and does nothing you can feel. Without one, chrome runs on whatever the body can spare, which isn't much and was never meant to be. With one, you stop thinking about it — until the day you do.",
   "failure_messages": {},
   "heat_rate": 0.2,
   "id": "aug_power_cell",

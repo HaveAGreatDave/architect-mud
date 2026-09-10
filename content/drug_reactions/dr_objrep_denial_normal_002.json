@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "That is a bit rude, but I have had worse.",
+  "self_line": "That's a bit rude, but I have had worse.",
   "source": "object_reply_denial",
   "tone": "normal"
 }

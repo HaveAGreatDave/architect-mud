@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Modelshop — GLASS building models</title>
+<link rel="stylesheet" href="/shared/themes.css">
+<style>
+  :root { color-scheme: dark; --ms-bg: #0d0f12; --ms-panel: #14181d; --ms-line: #262c34; --ms-ink: #d6dde6; --ms-dim: #8b97a5; --ms-accent: #6fd3ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ms-bg); color: var(--ms-ink); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow: hidden; }
+
+  /* Two columns, not three. The model list moved into a dialog so the viewport gets
+     the width — a browser you open once a minute should not hold a quarter of the
+     screen while you are editing. */
+  #wrap { display: grid; grid-template-columns: 1fr 320px; height: 100vh; }
+  #stage { display: flex; flex-direction: column; min-width: 0; position: relative; }
+  #rail { overflow: auto; border-left: 1px solid var(--ms-line); }
+
+  #view { flex: 1; min-height: 0; background: #000; display: block; width: 100%; cursor: default; }
+  #view.grabbing { cursor: grabbing; }
+
+  /* The toolbar sits OVER the viewport rather than stealing height from it. */
+  #tools { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; pointer-events: none; }
+  #tools > * { pointer-events: auto; }
+  .spacer { flex: 1; }
+  #hud { position: absolute; left: 10px; bottom: 46px; color: var(--ms-dim); font-size: 11px; pointer-events: none; text-shadow: 0 1px 3px #000; }
+  #modelname { color: var(--ms-accent); font-size: 12px; padding: 0 4px; text-shadow: 0 1px 3px #000; }
+
+  /* THE TOOL PALETTE. A floating panel rather than a dialog, because a dialog is modal and a
+     tool palette is the one surface you want open WHILE you work. Dragged by its head, closed
+     with the x, brought back with the toolbar button or T. Its position and whether it is open
+     are remembered per browser, so it stays where you put it. */
+  #toolbox { position: absolute; z-index: 40; width: 168px; background: var(--ms-panel); border: 1px solid var(--ms-line); border-radius: 4px; box-shadow: 0 6px 22px #0009; user-select: none; }
+  #toolbox[hidden] { display: none; }
+  #tbhead { display: flex; align-items: center; gap: 6px; padding: 4px 4px 4px 8px; cursor: move; border-bottom: 1px solid var(--ms-line); font-size: 11px; color: var(--ms-dim); }
+  #tbhead b { flex: 1; font-weight: normal; letter-spacing: .08em; text-transform: uppercase; font-size: 10px; }
+  #tbbody { padding: 6px; }
+  #tbbody .grp { font-size: 9px; letter-spacing: .09em; text-transform: uppercase; color: var(--ms-dim); margin: 4px 0 3px; }
+  #tbbody .icons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
+  .ic { display: flex; align-items: center; justify-content: center; padding: 0; height: 27px; background: #1b2129; border: 1px solid var(--ms-line); border-radius: 3px; cursor: pointer; color: var(--ms-ink); }
+  .ic:hover { border-color: #3d4b5a; }
+  .ic.on { border-color: var(--ms-accent); color: var(--ms-accent); background: #16222b; }
+  .ic.off { opacity: .35; cursor: not-allowed; }
+  .ic svg { display: block; }
+
+  #bar { padding: 6px 10px; border-top: 1px solid var(--ms-line); background: var(--ms-panel); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 11px; }
+  label { color: var(--ms-dim); display: inline-flex; gap: 5px; align-items: center; }
+  input[type=range] { width: 96px; }
+  button { background: #1b2129; color: var(--ms-ink); border: 1px solid var(--ms-line); padding: 4px 9px; font: inherit; cursor: pointer; border-radius: 3px; }
+  button:hover { border-color: #3d4b5a; }
+  button.on { border-color: var(--ms-accent); color: var(--ms-accent); background: #16222b; }
+  button.mini { padding: 0 5px; font-size: 11px; line-height: 16px; }
+  kbd { background: #10141a; border: 1px solid var(--ms-line); border-radius: 2px; padding: 0 3px; font-size: 10px; color: var(--ms-dim); }
+
+  section { padding: 9px 11px; border-bottom: 1px solid var(--ms-line); }
+  section h2 { font-size: 10px; margin: 0 0 7px; color: var(--ms-dim); letter-spacing: .1em; text-transform: uppercase; }
+  #rail h3 { font-size: 10px; margin: 10px 0 4px; color: var(--ms-dim); letter-spacing: .1em; text-transform: uppercase; }
+
+  #scales { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  #scales figure, #diffimgs figure { margin: 0; }
+  #scales canvas, #diffimgs canvas { width: 100%; background: #000; display: block; border: 1px solid var(--ms-line); }
+  #scales figcaption, #diffimgs figcaption { color: var(--ms-dim); font-size: 10px; padding-top: 2px; text-align: center; }
+  select { width: 100%; background: #1b2129; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; padding: 3px; margin-bottom: 5px; }
+  #diffimgs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+  #diffnum { padding-top: 5px; }
+
+  .row { display: flex; justify-content: space-between; gap: 8px; }
+  .row b { font-weight: normal; color: var(--ms-dim); }
+  .warn { color: #ffbe6f; }
+  .err { color: #ff7b72; white-space: pre-wrap; }
+  .dim { color: var(--ms-dim); }
+  ol { margin: 0; padding-left: 19px; }
+  ol li { color: var(--ms-dim); }
+
+  .etop { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .part { border: 1px solid var(--ms-line); border-radius: 3px; margin-bottom: 4px; }
+  .part.sel { border-color: var(--ms-accent); }
+  .phead { display: flex; gap: 3px; align-items: center; padding: 3px 5px; background: #171c22; cursor: pointer; }
+  .phead b { flex: 1; font-weight: normal; color: var(--ms-accent); font-size: 11px; }
+  .pbody { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; padding: 5px; }
+  .fld { display: flex; gap: 4px; align-items: center; }
+  .fld label { flex: 0 0 32px; font-size: 10px; }
+  .fld input { flex: 1; min-width: 0; background: #10141a; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; font-size: 11px; padding: 1px 3px; }
+  .fld input.warn { color: #ffbe6f; border-color: #ffbe6f; }
+  .fld select.tag { flex: 0 0 40px; font-size: 10px; padding: 0; margin: 0; width: auto; }
+  .fld select.tag.warn { color: #ffbe6f; border-color: #ffbe6f; }
+  .addrow { display: flex; gap: 4px; margin: 4px 0 9px; }
+  .bindrow { display: flex; gap: 4px; align-items: center; margin-top: 4px; }
+  .bindrow select { flex: 0 0 62px; margin: 0; font-size: 11px; }
+  .bindrow input { flex: 1; min-width: 0; background: #10141a; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; font-size: 11px; padding: 1px 3px; }
+  .bindrow + div { font-size: 10px; padding: 1px 0 4px 66px; }
+  .addrow select, .addrow input { flex: 1; margin: 0; min-width: 0; background: #10141a; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; font-size: 11px; }
+  .msgs { margin-top: 6px; font-size: 11px; }
+  #esave { font-size: 11px; padding-top: 6px; word-break: break-word; }
+  #esave.ok { color: #7ee787; }
+  #esave.err { color: #ff7b72; }
+
+  /* ── the model browser, as a dialog ── */
+  dialog { background: var(--ms-panel); color: var(--ms-ink); border: 1px solid var(--ms-line); border-radius: 5px; padding: 0; width: min(780px, 92vw); height: min(680px, 88vh); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  #browser { display: flex; flex-direction: column; height: 100%; }
+  #bhead { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--ms-line); }
+  #search { flex: 1; background: #10141a; border: 1px solid var(--ms-line); color: var(--ms-ink); font: inherit; padding: 5px 8px; }
+  #blist { flex: 1; overflow: auto; padding: 4px 0; }
+  #blist .grp { padding: 9px 12px 3px; color: var(--ms-dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; position: sticky; top: 0; background: var(--ms-panel); border-bottom: 1px solid var(--ms-line); }
+  #blist .item { padding: 4px 12px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+  #blist .item:hover { background: #1d2732; }
+  #blist .item.on { background: #1d2732; color: var(--ms-accent); }
+  #blist .item .k { color: var(--ms-dim); font-size: 10px; margin-left: auto; }
+  #blist .item .badge { color: #7ee787; font-size: 10px; }
+
+  /* the texture (palette) picker */
+  .sw { width: 13px; height: 13px; border: 1px solid #000; border-radius: 2px; flex: 0 0 auto; cursor: pointer; }
+  #palgrid { flex: 1; overflow: auto; padding: 4px 0; }
+  #palgrid .grp { padding: 9px 12px 3px; color: var(--ms-dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; position: sticky; top: 0; background: var(--ms-panel); border-bottom: 1px solid var(--ms-line); }
+  #palgrid .wrapg { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 3px; padding: 5px 12px; }
+  #palgrid .pk { display: flex; gap: 6px; align-items: center; padding: 3px 5px; cursor: pointer; border: 1px solid transparent; border-radius: 3px; font-size: 11px; }
+  #palgrid .pk:hover { background: #1d2732; border-color: var(--ms-line); }
+  #palgrid .pk.on { border-color: var(--ms-accent); color: var(--ms-accent); }
+  #palgrid .pk i { width: 15px; height: 15px; border: 1px solid #000; border-radius: 2px; flex: 0 0 auto; }
+  #palgrid .pk span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* the tool picker */
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div id="tools">
+      <button id="open">📂 Open… <kbd>O</kbd></button>
+      <span id="modelname"></span>
+      <span class="spacer"></span>
+      <button id="mode-move" class="on" title="Move the selected piece — drag on the ground, Shift+drag for height">Move <kbd>G</kbd></button>
+      <button id="mode-scale" title="Scale the selected piece — drag for width, Shift+drag for height">Scale <kbd>S</kbd></button>
+      <button id="mode-rotate" title="Rotate the selected piece about its own axis">Rotate <kbd>R</kbd></button>
+      <button id="tools-open" title="Every mode and every primitive, with what each one is for">Tools <kbd>T</kbd></button>
+      <button id="frame" title="Frame the model again">Frame <kbd>F</kbd></button>
+    </div>
+    <div id="hud"></div>
+<div id="toolbox">
+  <div id="tbhead"><b>Tools</b><span class="dim" title="T toggles this panel">T</span><button id="tbclose" class="mini" title="Close — the Tools button brings it back">x</button></div>
+  <div id="tbbody"></div>
+</div>
+    <div id="bar">
+      <button id="preset-cockpit" class="on">Cockpit</button>
+      <button id="preset-cab">Cab</button>
+      <label title="Storeys — fh and h are DERIVED from this the way the sim derives them, so the preview is a building the game could actually draw">floors <input id="floors" type="range" min="1" max="40" step="1" value="6"></label>
+      <span id="scaleread" class="dim"></span>
+      <label>seed <input id="seed" type="range" min="0" max="12" step="1" value="3"></label>
+      <label>night <input id="night" type="range" min="0" max="1" step="0.05" value="0"></label>
+      <label>facing
+        <select id="facing" style="width:auto;margin:0">
+          <option value="0,1">N</option><option value="0,-1">S</option>
+          <option value="1,0">E</option><option value="-1,0">W</option>
+        </select>
+      </label>
+      <button id="wire">Cage</button>
+      <button id="spin">Spin</button>
+      <button id="gl" title="Draw the same model through the WebGL2 spike (G)">GL</button>
+    </div>
+  </div>
+
+  <div id="rail">
+    <section>
+      <h2>Edit</h2>
+      <div id="editor"></div>
+      <div id="esave"></div>
+    </section>
+    <section>
+      <h2>Model</h2>
+      <div id="meta"></div>
+    </section>
+    <section>
+      <h2>At other scales</h2>
+      <div id="scales"></div>
+    </section>
+    <section>
+      <h2>Cage — what the cold open gets</h2>
+      <div id="bake"></div>
+    </section>
+    <section>
+      <h2>Difference</h2>
+      <select id="cmp"><option value="">— compare with —</option></select>
+      <div id="diffimgs"></div>
+      <div id="diffnum"></div>
+    </section>
+    <section>
+      <h2>Checks</h2>
+      <div id="checks"></div>
+    </section>
+  </div>
+</div>
+
+<dialog id="paldlg">
+  <div id="browser">
+    <div id="bhead">
+      <input id="palsearch" placeholder="filter textures…" autocomplete="off">
+      <span id="palcount" class="dim"></span>
+      <button id="palclose">Close</button>
+    </div>
+    <div id="palgrid"></div>
+  </div>
+</dialog>
+
+<dialog id="browserdlg">
+  <div id="browser">
+    <div id="bhead">
+      <input id="search" placeholder="filter models…" autocomplete="off">
+      <span id="count" class="dim"></span>
+      <button id="bclose">Close</button>
+    </div>
+    <div id="blist"></div>
+  </div>
+</dialog>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>

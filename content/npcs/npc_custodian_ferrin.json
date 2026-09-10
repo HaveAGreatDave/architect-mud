@@ -1,12 +1,107 @@
 {
   "banter": [],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "check_work"
+      },
+      "check_work": {
+        "type": "action",
+        "action_type": "CHECK_VENDOR_WORK",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "endShift": "post_shift",
+        "offWork": "off_home_check"
+      },
+      "go_to_work": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait"
+      },
+      "work_wait": {
+        "type": "wait",
+        "seconds": 60,
+        "jitter": 30,
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "work_say",
+        "ifFalse": "check_work"
+      },
+      "work_say": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work"
+      },
+      "have_life": {
+        "type": "action",
+        "action_type": "HAVE_LIFE",
+        "next": "check_work"
+      },
+      "post_shift": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps"
+      },
+      "go_home_ps": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "home_life_ps"
+      },
+      "home_life_ps": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work"
+      },
+      "off_home_check": {
+        "type": "condition",
+        "condition_type": "AT_HOME",
+        "ifTrue": "home_idle",
+        "ifFalse": "off_random"
+      },
+      "off_random": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "branch_0": "have_life",
+        "branch_1": "go_home_off"
+      },
+      "go_home_off": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "check_work"
+      },
+      "home_idle": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work"
+      }
+    }
+  },
   "chitchat": [
     "runs a white glove along a broken rail and studies the dust with quiet disappointment.",
     "\"The Architect maintains. We merely file the paperwork.\"",
-    "\"This district is under Custodial care. Kindly do not deface the ruins.\""
+    "\"This district is under Custodial care. Kindly don't deface the ruins.\""
   ],
-  "description": "Deacon Ferrin tends the ruins of Old Coldwater the way a verger tends a cathedral: reverently, and with a clipboard. He believes the Architect maintains all things and that a Custodian's only duty is to keep an honest record of what it maintained, so that somebody will know what was here. He will explain this to you at length, whether or not you asked.",
+  "description": "Deacon Ferrin tends the ruins of Old Coldwater the way a verger tends a cathedral: reverently, and with a clipboard. He believes the Architect maintains all things and that a Custodian's only duty is to keep an honest record of what it maintained, so that somebody will know what was here. He'll explain this to you at length, whether or not you asked.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
@@ -28,10 +123,53 @@
   "studio_zone_id": null,
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
-  "vendor_schedule": {},
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "fri": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sun": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ]
+  },
   "vendor_shop_name": null,
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_under_893_903"
 }

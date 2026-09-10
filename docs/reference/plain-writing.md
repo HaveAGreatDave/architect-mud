@@ -83,6 +83,31 @@ Same for noun stacks: `X-backed`, `X-side`, `X-level`, `X-first`, `X-safe`,
 `X-matched`, `X-layer`, `X-surface`, `X-path`, `X-boundary`. Recover the actual
 relationship and prefer a verb.
 
+## Use contractions
+
+Added 2026-09-04. Contractions are the default, everywhere — docs, comments,
+READMEs, guides, dev-panel copy, and every line of in-world prose. "Don't",
+"it's", "you're", "isn't", "won't", "can't", "there's", "that's". Writing them
+out is what makes prose sound dictated rather than spoken, and sounding like a
+person talking is the whole point of this spec.
+
+Expand a contraction only when the uncontracted form IS the emphasis:
+
+| Contracted | Expanded, for emphasis |
+|---|---|
+| It isn't a slogan, it's an inventory. | It is not a slogan. It is an inventory. |
+| I'm not going. | I am **not** going. |
+| That won't happen. | That will not happen. Ever. |
+
+The test: read it aloud. If the stress lands on the negative or on the verb,
+expand it. If it doesn't, contract it. A page of expanded forms means none of
+them reads as emphatic any more.
+
+Two exceptions. **Formal and archaic voices** — the Architect, Ascendant wire
+copy, official notices — write out on purpose, and that's a voice tell in the
+same way em dashes are. And **fixed strings** keep their exact wording: verb
+names, parsed command output, error text, quotations.
+
 ## Simplify over-formal research language
 
 frontier, horizon, floor, surface, exchange rate, regime, trajectory, slice,
@@ -119,6 +144,11 @@ Updated 2026-08-25. This section previously exempted the fiction. It no longer
 does: NPC dialogue, room descriptions, item text, quest text, emotes, broadcast
 copy and death messages follow this spec as well as
 [docs/story.md](../story.md). Where the two disagree about voice, story.md wins.
+
+**The specific habits to check against are catalogued in
+[ai-fiction-tells.md](ai-fiction-tells.md)** (adopted 2026-09-06) — 171 of them,
+from "not X, but Y" and adjective triplets through to narrators who explain the
+reader's own reaction. This doc stays the rule; that one is the checklist.
 
 The rule that decides most cases is already above: scaffolding goes **when it
 adds no meaning**. In fiction that line falls between two things that look alike.
@@ -747,6 +777,43 @@ walking in for the third time in a minute.
 [scripts/content/prose-audit-pass.mjs](../../scripts/content/prose-audit-pass.mjs)
 holds the twelve that went and the reasons the rest stayed.
 
+### Three more: the negation-contrast, the emphatic tautology, the appended verdict
+
+Flagged 2026-09-05. All three get past the five moves above, and all three go on
+sight.
+
+**"Not because X. Because Y."** The speaker heads off a reading nobody offered,
+then supplies the right one. It's the antithesis with a full stop in the middle,
+and it had become the house accent by sheer weight: ten speakers had it across
+every order — Ives, Kesh, Teague, Rennick, the Terminus warden, the Exodus elder,
+the Oracle twice, a prefect, and a chat-show guest. Give the reason once.
+
+> "Quietly," he says. "Not because it's shameful. Because it's BORING, and
+> boring things become scandals purely by being written down."
+
+> "Quietly," he says. "It's boring, and boring things become scandals purely by
+> being written down."
+
+**The emphatic tautology.** "a ledger that's a real ledger with real names in
+it." Insisting a thing is what it is, which is the writer nudging the reader
+rather than the thing being described. Say what's in the ledger, or let it be a
+ledger.
+
+**"which is worse."** The narrator marks its own picture out of ten — the same
+fault as "which is how you know it had landed", and it carries its own tell: the
+sentence has finished, and the clause is the writer worrying that the reader
+missed the point. 43 across the tree, 39 of them outside the public-domain
+books, and one of those copied across fifteen Reach tiles.
+
+> ...the one that came back has stopped talking about it, which is worse than if
+> he hadn't.
+
+> ...the one that came back hasn't said a word about it since.
+
+Unlike the five closing moves, the character's-mouth exemption doesn't rescue
+these. Ma Cinder said hers out loud and it still reads as authored, because the
+judgement is the writer's and she's only holding it.
+
 ### NPCs ask things
 
 59 of the 140 NPCs with a real speaking part have never asked the player a
@@ -1233,9 +1300,59 @@ onion smell into the street "which is the entire advertising budget"), **spoken
 dialogue** (people talk in this construction constantly, and several NPCs are
 characterised by it), and **clauses stating a cause** rather than a meaning.
 
+**Widened 2026-09-04, and the gap was the interesting part.** The first version
+read fifteen content surfaces. It never read mutations, augments, ambient
+routines, global ambient events, banter threads, districts, regions, incidents,
+orgs, crimes or MIS fit lines — and, far more importantly, it never read a line
+of **code**. Hunger, thirst, cold, exhaustion, injury, drug and refusal messages
+are string literals in `server/` and `plugins/`, not rows in `content/`, so the
+prose a player sees most often was the prose nothing had ever audited. The
+`code` surface strips comments, then takes literals over 24 characters that
+start a sentence. It covers 371 files and it is noisy on purpose: the audit is
+still a reporter.
+
+Two scoping decisions came out of that run. `code` is a **narration** surface —
+a hunger message is narration that happens to live in a `.js` file — but
+`server/engine/npc-personality.js` and `plugins/gossip/templates.js` are full of
+speech, so `player-mind` hits there are false positives and stay. And **a status
+message reporting the player's own body is not a filter word.** "You feel
+dangerously cold" is the whole content of the message; there is no scene for the
+verb to stand between the reader and. The same goes for a mutation describing a
+new sense ("You can see who is alive through a wall"), and for ambient sound
+cues, where `You hear` is what marks the line as something heard rather than
+seen. Those three families are the bulk of `filter-word` on the new surfaces and
+none of them is a defect.
+
 The first pass cut 44 distinct phrasings across 78 files and left 18 on purpose.
 [scripts/content/prose-trim-asides.mjs](../../scripts/content/prose-trim-asides.mjs)
 is the record of which was which, and is idempotent so it stays readable as one.
+
+**Swept again 2026-09-04, and this time the clause was not the whole problem.**
+`explaining-aside` only ever matched the tell written as a TRAILING CLAUSE — it
+needs a comma and an "and"/"which" — so the identical move written as its own
+sentence had never been read. "That is the whole argument for it." after a full
+stop was invisible to the audit for as long as the audit existed. Three rules
+closed that: `aphoristic-closer` (the sentence form), `stock-simile` ("the way
+you look at a clock", "and it shows" — each fine once and a tic by the eleventh),
+and `absence-list` ("No range, no hob, just a convection unit"). Four surfaces
+were added at the same time and were where most of it lived: `media_broadcasts`,
+`drug_transforms`, `drug_reactions` and `aircraft_types`, none of which had ever
+been scanned.
+
+The sweep found 134 strings across 96 files and rewrote all but five. **Two
+earlier "left alone" decisions were reversed on instruction**: the steam-hood
+joke ("which is the entire advertising budget") and the snow-boot liners now
+read without the construction, because the standing rule is now that no two
+pieces of prose should share a shape, jokes included. What stayed: Auggie
+Prine's "That is the real reason" (a callback to the line before it, which is
+the sentence doing work rather than explaining), Molly's "the only review I have
+ever wanted", and two similes kept as the one permitted use each.
+
+It also caught a template problem no per-file read could: **"The quiet is not the
+absence of noise. It is the absence of anything that would make one." was on 1,900
+ash tiles**, and "reads as exactly what it is" on 180. One authored line, one
+find-and-replace, 2,080 files. A repeated sentence is one job with a blast radius,
+and the corpus is the only place the repetition is visible.
 
 ## Architect carve-outs
 

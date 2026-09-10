@@ -17,13 +17,13 @@
       "do": "ambient",
       "lines": [
         "The street is full of uniforms. Anyone with somewhere else to be has gone there.",
-        "There is tape across the road and a person standing at each end of it.",
-        "A marshal is telling a queue of people that this will not take long."
+        "There's tape across the road and a person standing at each end of it.",
+        "A marshal is telling a queue of people that this won't take long."
       ]
     },
     {
       "do": "gossip",
-      "text": "They have shut {place} off at both ends. Whatever that is about, it is not a search for a bicycle."
+      "text": "They have shut {place} off at both ends. Whatever that's about, it isn't a search for a bicycle."
     },
     {
       "do": "news",

@@ -31,12 +31,12 @@ export default async function regress({ run, check, getPlayer }) {
   derive(UW,     { liquid: true,  swimmable: true,  underwater: true,  routable: false, buildable: false });
   try {
     check('isSwimZone: a tile the build resolved swimmable', isSwimZone({ id: SWIM, flags: { terrain: 'water' } }) === true);
-    check('isSwimZone: dry land is not swim water', isSwimZone({ id: DRY, flags: { terrain: 'road' } }) === false);
+    check("isSwimZone: dry land isn't swim water", isSwimZone({ id: DRY, flags: { terrain: 'road' } }) === false);
     // The frozen bay: still terrain water, still blue on the map, NOT swimmable
     // because the tile overrode the preset. This is the case the tristate shape
     // exists for — if the override rung ever collapses back to presence-only,
     // this is what fails.
-    check('isSwimZone: a frozen bay is water you do not swim in',
+    check("isSwimZone: a frozen bay is water you don't swim in",
       isSwimZone({ id: FROZEN, flags: { terrain: 'water', swimmable: false } }) === false);
     // The legacy `flags.water` marker was DELETED 2026-07-30 (it sat on no tile, which had
     // quietly turned every water check in GPS/pathfinding into a no-op). Assert it stays inert
@@ -76,7 +76,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('a water tile exists under her hull to close off', !!underHull, `${deck?.grid_x},${deck?.grid_y}`);
   check('open water alongside her exists to board from', !!alongside);
   check('her own tile reads as occupied by her', vesselAt(underHull)?.id === deck.id);
-  check('a tile alongside is not occupied by her', vesselAt(alongside) === null);
+  check("a tile alongside isn't occupied by her", vesselAt(alongside) === null);
   check('embarking is offered from alongside', vesselNear(alongside)?.id === deck.id);
   check('embarking is NOT offered from under her keel (you never get there)', vesselNear(underHull) === null);
   check('going over the side lands you alongside, never under the hull', waterUnder(deck)?.id !== underHull?.id && !!waterUnder(deck));

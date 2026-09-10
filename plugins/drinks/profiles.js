@@ -37,7 +37,7 @@ export const DRINK_PROFILES = {
   wine: {
     label: 'wine',
     raw: 'good',
-    blurb: 'Drunk as it is far more often than it is mixed.',
+    blurb: "Drunk as it's far more often than it's mixed.",
   },
   beer_base: {
     label: 'beer',
@@ -100,7 +100,7 @@ export const DRINK_PROFILES = {
     raw: 'good',
     dilutes: true,
     medium: true,
-    blurb: 'Chills, dilutes, and is the only thing in the glass that leaves while you drink.',
+    blurb: "Chills, dilutes, and leaves the glass while you're still drinking.",
   },
 
   // ── Modifiers ──────────────────────────────────────────────────────────────
@@ -166,9 +166,9 @@ export function validateDrinkProfiles(profiles = DRINK_PROFILES) {
   const errors = [];
   for (const [key, p] of Object.entries(profiles)) {
     if (!p.label) errors.push(`${key}.label is missing`);
-    if (!QUALITY_BANDS.includes(p.raw)) errors.push(`${key}.raw is not a quality band — got ${p.raw}`);
+    if (!QUALITY_BANDS.includes(p.raw)) errors.push(`${key}.raw isn't a quality band — got ${p.raw}`);
     if (p.modifier && p.medium) errors.push(`${key} is both a modifier and a medium — pick one`);
-    if (p.modifier && p.dilutes) errors.push(`${key} is both a modifier and a diluter — a dash of bitters does not lengthen a drink`);
+    if (p.modifier && p.dilutes) errors.push(`${key} is both a modifier and a diluter — a dash of bitters doesn't lengthen a drink`);
   }
   return { ok: errors.length === 0, errors };
 }

@@ -166,7 +166,7 @@ async function runCabCheck(player, rig, zone) {
   await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'harbouring' } }).catch(() => {});
   sendToPlayer(player.id, { type: 'emote', message:
     `<span class="text-red">An officer walks the length of the rig at ${cfg.name}, puts a hand on the passenger door and opens it.</span>\n\n`
-    + `There is nowhere in a cab to not be. They do not ask you anything — they are already talking to somebody on a radio, and your passenger is out of the seat and face down on the plates before you have finished stopping.\n\n`
+    + `There's nowhere in a cab to not be. They don't ask you anything — they're already talking to somebody on a radio, and your passenger is out of the seat and face down on the plates before you have finished stopping.\n\n`
     + `<span class="text-dim">Nobody says what they were wanted for. Nobody says it to you at all.</span>` });
   return { taken: true };
 }
@@ -175,7 +175,7 @@ function scaleText(i) {
   const lines = [
     `<span class="text-amber">The board over the booth stops on <b>${Math.round(i.actual)} kg</b>. Your paper says <b>${Math.round(i.declared)} kg</b>.</span>`,
     '',
-    'The barrier stays down. Somebody comes out of the booth with a slate and does not hurry.',
+    "The barrier stays down. Somebody comes out of the booth with a slate and doesn't hurry.",
   ];
   if (i.over > SLACK_KG) {
     lines.push('', `"That's <b>${Math.round(i.over)} kilos</b> I can't see on this. I don't know what it is. I don't have to."`);
@@ -217,7 +217,7 @@ export async function customsAnswer(player, rig, what) {
         ? `<span class="text-amber">They take ${seized === 1 ? 'it' : 'all of it'} off the deck and log it. Nobody says the word out loud.</span>\n\n`
         : '')
       + (fined ? `<span class="text-amber">A fine for ${fined}₵ goes through before the barrier lifts.</span>\n\n` : '')
-      + `<span class="text-dim">No charge. You are a man with a bad load, not a man with a record — and that distinction is worth what it just cost you.</span>` };
+      + `<span class="text-dim">No charge. You're a man with a bad load, not a man with a record — and that distinction is worth what it just cost you.</span>` };
   }
 
   if (what === 'bribe') {
@@ -225,7 +225,7 @@ export async function customsAnswer(player, rig, what) {
     // Priced off the lie, so the big run is the expensive one to buy out of.
     const ask = Math.max(200, Math.round(Math.max(i.over, i.overRated) * 2.2));
     if ((player.credits || 0) < ask) {
-      return { type: 'emote', message: `You reach for it and there is not enough there. It would take about ${ask}₵ to make this go away, and you do not have it. <span class="text-dim">customs open · customs bolt</span>` };
+      return { type: 'emote', message: `You reach for it and there isn't enough there. It would take about ${ask}₵ to make this go away, and you don't have it. <span class="text-dim">customs open · customs bolt</span>` };
     }
     const ok = (await skillCheck(player, 'deception', 6)).success;
     player.credits -= ask;
@@ -256,14 +256,14 @@ export async function customsAnswer(player, rig, what) {
     if (ok) {
       return { type: 'emote', message:
         `<span class="text-amber">You let the clutch out while the officer is still looking at the slate.</span>\n\n`
-        + `The barrier takes the mirror off the passenger side and you are through, wide open, watching the booth shrink. Somebody is on a radio behind you.\n\n`
-        + `<span class="text-dim">That is on your record now, and this road has one way off it.</span>` };
+        + `The barrier takes the mirror off the passenger side and you're through, wide open, watching the booth shrink. Somebody is on a radio behind you.\n\n`
+        + `<span class="text-dim">That's on your record now, and this road has one way off it.</span>` };
     }
     await dispatchAction({ type: 'APPREHEND', actor: player, params: { officer: 'the scale-house officers' } }).catch(() => {});
     const fee = await impound(rig, i);
     return { type: 'emote', message:
       `<span class="text-red">You go for it and the spikes come up out of the deck before the barrier even moves.</span>\n\n`
-      + `The rig sits down on its rims in fifty feet, and they are at the door before it stops rocking.\n\n`
+      + `The rig sits down on its rims in fifty feet, and they're at the door before it stops rocking.\n\n`
       + (fee ? `<span class="text-amber">They tow it to the lot at ${i.name}. Getting it back will cost ${fee}₵.</span>` : '') };
   }
   return null;
@@ -294,7 +294,7 @@ export async function releaseImpound(player, truckRow) {
   const fee = truckRow?.impound_fee || 0;
   if (!fee) return null;
   if ((player.credits || 0) < fee) {
-    return { released: false, type: 'emote', message: `The lot wants <b>${fee}₵</b> to release it and you have ${player.credits || 0}₵. It is not going anywhere until that changes.` };
+    return { released: false, type: 'emote', message: `The lot wants <b>${fee}₵</b> to release it and you have ${player.credits || 0}₵. It isn't going anywhere until that changes.` };
   }
   player.credits -= fee;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});

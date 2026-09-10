@@ -136,7 +136,7 @@
     "\"Smoke's not a flavour, it's a preservative that got lucky.\"",
     "\"No, I won't cut it thinner. It falls apart and then you blame me.\""
   ],
-  "description": "A wide, unhurried woman with forearms like mooring rope and a butcher's way of looking at you slightly too long, as though pricing the cut. Her apron is rust-brown from the waist down and has been washed enough times that the colour is now the fabric. She talks while she works and never once looks at the blade.",
+  "description": "A wide, unhurried woman with forearms like mooring rope and a butcher's way of looking at you slightly too long, as though pricing the cut. Her apron is rust-brown from the waist down and has been washed enough times that the colour is now the fabric. She talks while she works and never looks at the blade.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -155,9 +155,9 @@
       ],
       "text": "\"Case is cold, cabinet's smoked. Ask if you want it cut different.\"",
       "text_by_relation": {
-        "familiar": "\"There you are.\" She sets something aside on the block without being asked. \"Kept you the end cut. Don't tell the queue.\"",
+        "familiar": "\"Knew it was you.\" She sets something aside on the block without being asked. \"Kept you the end cut. Don't tell the queue.\"",
         "first": "\"Haven't seen you.\" The cleaver comes down twice while she looks at you. \"Vesna. This is mine, all of it, since before the sign was funny. Case is cold, cabinet's smoked, and I cut to order if you know what you want.\"",
-        "known": "\"You again.\" She is already reaching for the paper. \"Same as last time, or are we being adventurous?\""
+        "known": "\"You again.\" She's already reaching for the paper. \"Same as last time, or are we being adventurous?\""
       }
     },
     "shop": {
@@ -186,7 +186,7 @@
           "next": "shop"
         }
       ],
-      "text": "\"Everything that would've gone off before Friday.\" She says it without any shame at all. \"Twelve hours of applewood and a thing stops being a problem and starts being expensive.\""
+      "text": "\"Everything that would've gone off before Friday.\" She is not embarrassed. \"Twelve hours of applewood and a thing stops being a problem and starts being expensive.\""
     },
     "smoke_deeper": {
       "options": [

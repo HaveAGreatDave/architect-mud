@@ -39,7 +39,7 @@ export default async function ({ run, check, getPlayer }) {
     born.y === 2076 - DECANT_AGE && born.mo === 6 && born.d === 13, JSON.stringify(born));
   check('…and that reads as an age of 25',
     ageOn(born, { y: 2076, mo: 6, d: 13 }) === DECANT_AGE, `${ageOn(born, { y: 2076, mo: 6, d: 13 })}`);
-  check('age has not ticked over the day before',
+  check("age hasn't ticked over the day before",
     ageOn(born, { y: 2076, mo: 6, d: 12 }) === DECANT_AGE - 1, `${ageOn(born, { y: 2076, mo: 6, d: 12 })}`);
   check('and is 26 a year later',
     ageOn(born, { y: 2077, mo: 6, d: 13 }) === DECANT_AGE + 1, '');
@@ -76,7 +76,7 @@ export default async function ({ run, check, getPlayer }) {
   // null, not zero: "registered today" and "we do not know" get stamped differently.
   check('a missing timestamp is null rather than zero',
     gameDaysSince(null, now, 3) === null && gameDaysSince(0, now, 3) === null, '');
-  check('a nonsense scale does not throw the date into the void',
+  check("a nonsense scale doesn't throw the date into the void",
     gameDaysSince(now / 1000 - 86400, now, 0) === 1, `${gameDaysSince(now / 1000 - 86400, now, 0)}`);
 
   // Counting forward.
@@ -131,7 +131,7 @@ export default async function ({ run, check, getPlayer }) {
     // A claim stamped for LAST game year must not block this one.
     await setFlags(PID, { birthday_gift_year: String(today.y - 1) });
     await run('birthday');
-    check("last year's claim does not block this year", await pouches() === 2, '');
+    check("last year's claim doesn't block this year", await pouches() === 2, '');
 
     // ── The latch ────────────────────────────────────────────────────────────
     //
@@ -155,7 +155,7 @@ export default async function ({ run, check, getPlayer }) {
     check('…extrapolated from the account rather than from today',
       latched && fmtGameDate(latched) === fmtGameDate(expected),
       `${latched && fmtGameDate(latched)} vs ${fmtGameDate(expected)}`);
-    check('…which at 3× is not today', !latched || scale <= 1 || fmtGameDate(latched) !== fmtGameDate({ ...today, y: today.y - DECANT_AGE }),
+    check("…which at 3× isn't today", !latched || scale <= 1 || fmtGameDate(latched) !== fmtGameDate({ ...today, y: today.y - DECANT_AGE }),
       `scale ${scale}`);
     check('…and still reads as twenty-five, a fortnight being no age at all',
       latched && ageOn(latched, today) === DECANT_AGE, latched ? `${ageOn(latched, today)}` : 'none');
@@ -164,7 +164,7 @@ export default async function ({ run, check, getPlayer }) {
     // Latched means LATCHED: asking again must not move it.
     const first = await stamped('birth_date');
     await run('birthday');
-    check('a second ask does not re-latch it', await stamped('birth_date') === first,
+    check("a second ask doesn't re-latch it", await stamped('birth_date') === first,
       `${first} -> ${await stamped('birth_date')}`);
 
     // THE ONE-TIME RE-LATCH. A stored date with no basis against it is a row from

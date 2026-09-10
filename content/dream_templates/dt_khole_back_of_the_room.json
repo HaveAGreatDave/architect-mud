@@ -5,7 +5,7 @@
     "You almost put a hand up. The intention arrives at the back of the room and stops there."
   ],
   "cause": "drug",
-  "description": "You have been moved to the back of your own life, and it is carrying on very competently without you. Your body is up at the front doing the necessary things. From here you can see that it is good at them, and that it does not need watching.",
+  "description": "You have been moved to the back of your own life, and it's carrying on very competently without you. Your body is up at the front doing the necessary things. From here you can see that it's good at them, and that it doesn't need watching.",
   "drug_id": "drug_khole",
   "fx": "tunnel",
   "fx_intensity": 0.75,
@@ -15,19 +15,19 @@
     {
       "looks": [
         "Getting on with it. Its posture is better than you would have guessed.",
-        "It does something with its hands that you did not authorise and that was correct.",
-        "It has not looked back once, and there is no reason it should."
+        "It does something with its hands that you didn't authorise and that was correct.",
+        "It hasn't looked back once, and there's no reason it should."
       ],
       "name": "your body, up at the front"
     },
     {
       "looks": [
         "Not far. Not crossable. Those are different things and you have time to consider it.",
-        "It is the length of a room and it is the length of an afternoon.",
-        "It does not increase, which is a kindness."
+        "It's the length of a room and it's the length of an afternoon.",
+        "It doesn't increase, which is a kindness."
       ],
       "name": "the distance to the front"
     }
   ],
-  "weather": "The air at the back is cooler and does not circulate, the way it is at the back of any long room."
+  "weather": "The air at the back is cooler and doesn't circulate, the way it's at the back of any long room."
 }

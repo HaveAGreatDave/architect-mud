@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Graded hardpan running south toward the strip, kept passable because the Reach eats when the strip works and does not when it does not. The surface is bladed smooth twice a season and rutted again within a week. Poles carry a single fat cable down the east side, back toward the Dynamo.",
+  "description": "Graded hardpan running south toward the strip, kept passable because the Reach eats when the strip works and doesn't when it does not. The surface is bladed smooth twice a season and rutted again within a week. Poles carry a single fat cable down the east side, back toward the Dynamo.",
   "exits": {
     "east": "zone_the_reach_872_1956",
     "north": "zone_the_reach_871_1955",

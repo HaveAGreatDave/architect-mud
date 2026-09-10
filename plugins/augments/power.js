@@ -166,11 +166,11 @@ export function zoneCanCharge(zoneId) {
 export async function cmdCharge(args, raw, player) {
   const cap = capacityOf(player);
   if (drawOf(player) <= 0 && !cellOf(player)) {
-    return { type: 'error', message: 'Nothing in you is drawing power. There is nothing to charge.' };
+    return { type: 'error', message: "Nothing in you is drawing power. There's nothing to charge." };
   }
   const now = Math.round(chargeOf(player));
   if (now >= cap) {
-    return { type: 'output', message: `You are at ${now}% and holding. Nothing to take on.` };
+    return { type: 'output', message: `You're at ${now}% and holding. Nothing to take on.` };
   }
   if (!zoneCanCharge(player.current_zone)) {
     return { type: 'error', message: 'Nothing here is carrying current. You need mains power — or a generator somebody has bothered to fuel.' };

@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#0a1211",
   "color": "#c3e2da",
-  "description": "The cargo hold: a cavern of ribbed aluminium big enough to swallow a house, floored in roller-track and gridded with tie-down rings. Cargo netting hangs in green curtains from the frames, and the ceiling climbs away into a dark the cabin lights never quite reach. Whatever the Leviathan is really for, it is for this. The galley lies forward to the NORTH.",
+  "description": "The cargo hold: a cavern of ribbed aluminium big enough to swallow a house, floored in roller-track and gridded with tie-down rings. Cargo netting hangs in green curtains from the frames, and the ceiling climbs away into a dark the cabin lights never quite reach. Whatever the Leviathan is really for, it's for this. The galley lies forward to the NORTH.",
   "exits": {
     "north": "zone_leviathan_galley"
   },

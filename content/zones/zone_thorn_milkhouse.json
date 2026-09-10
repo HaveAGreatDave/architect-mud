@@ -6,7 +6,7 @@
     "It is so quiet in here that you can hear the felt."
   ],
   "ambient_theme": "indoors",
-  "description": "Cold. Properly cold, and the cold is not machinery, it is depth and thick walls and a woman whose hands run twenty degrees under yours and who spends her shift with them flat on the racks.\n\nThe stock. Two hundred and eleven flasks in cut felt, in numbered racks, each one drawn and settled and tested and logged. This is every Quickening the Thornwarren will be able to perform for the next nine years, and there is no second source anywhere, and the Basin would pay a fortune for a single flask and has never been offered one.\n\nThe log by the door records every flask in and every flask out, with a name against each. There are gaps in the numbering. Every gap has a note beside it and every note is a person.",
+  "description": "Cold. Properly cold, and the cold isn't machinery, it's depth and thick walls and a woman whose hands run twenty degrees under yours and who spends her shift with them flat on the racks.\n\nThe stock. Two hundred and eleven flasks in cut felt, in numbered racks, each one drawn and settled and tested and logged. This is every Quickening the Thornwarren will be able to perform for the next nine years, and there's no second source anywhere, and the Basin would pay a fortune for a single flask and has never been offered one.\n\nThe log by the door records every flask in and every flask out, with a name against each. There are gaps in the numbering. Every gap has a note beside it and every note is a person.",
   "exits": {
     "down": "zone_util_zone_thorn_milkhouse",
     "east": "zone_scw_1045_980"

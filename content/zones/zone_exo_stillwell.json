@@ -6,7 +6,7 @@
     "You become aware that you have been standing still for longer than you meant to."
   ],
   "ambient_theme": "indoors",
-  "description": "A room with nothing in it but a basin sunk into the floor, four feet across, cut from one piece of stone and filled to the brim with water. The water is absolutely still. The walls are bare and the ceiling is low and there is no lamp.\n\nThere are marks on the floor around the basin where people have stood, worn into the stone, and there are eleven of them, and they are not evenly spaced.",
+  "description": "A room with nothing in it but a basin sunk into the floor, four feet across, cut from one piece of stone and filled to the brim with water. The water is absolutely still. The walls are bare and the ceiling is low and there's no lamp.\n\nThere are marks on the floor around the basin where people have stood, worn into the stone, and there are eleven of them, and they aren't evenly spaced.",
   "exits": {
     "west": "zone_exo_stillhouse"
   },

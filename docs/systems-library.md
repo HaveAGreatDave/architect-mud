@@ -675,7 +675,7 @@ its own `r` twice. Both had been shipping silently.
 
 ### The voice lab — tuning by ear
 
-[`client/devpanel/voice-lab.html`](../client/devpanel/voice-lab.html). Every number
+the dev panel's **Voice Lab** tab. Every number
 in the synth was reached by measurement plus a guess at how the guess would *sound*,
 and measurement cannot settle the second half. The tunables are gathered in one live
 object (`TUNING`, exported as `AudioEngine.voiceTuning`) and read at `speak()` time,
@@ -701,7 +701,7 @@ regenerates `client/shared/formant-cmudict.js` from upstream CMUdict. Same rule 
 and the derivation stays reproducible.
 
 - **The word list is preserved exactly.** Upstream is ~126k base entries; the
-  shipped subset is 25,787 curated words, and the whole file goes to every client
+  shipped subset is 27,421 curated words, and the whole file goes to every client
   on load. The script re-looks-up the *same* words rather than re-choosing them,
   and refuses to write if it kept under 98 % of them. The one deliberate addition is an explicit **contractions** list: the original subset had almost none, so every one of them fell through to the letter-guesser, which has no idea what an apostrophe means.
 - Vowel tokens carry their stress digit, so the token set grew 39 → 69 while the
@@ -810,8 +810,8 @@ The whole catalogue opens at once — Marrowby is not a man who rations.
 | `scripts/content/fetch-books.mjs` | Text acquisition (Gutenberg/Wikisource) + lexicons |
 | `scripts/content/build-glossary.mjs` | Glossary term authoring |
 | `scripts/content/build-formant-dict.mjs` | Regenerates the stressed CMUdict subset |
-| `client/devpanel/voice-lab.html` | Voice lab — live tuning + phoneme readout |
+| [`client/devpanel/js/panels/voicelab.js`](../client/devpanel/js/panels/voicelab.js) | Voice Lab tab — live tuning, per-voice character, phoneme readout |
 | `scripts/voice/smoke.mjs` | Voice smoke test — runs in pretest:regress |
-| `client/shared/formant-cmudict.js` | GENERATED — 25,787 words with stress, one char per phone |
+| `client/shared/formant-cmudict.js` | GENERATED — 27,421 words with stress, one char per phone |
 | `client/shared/audio-engine.js` | `applyAccent`, `ERR` phoneme, `lexLook` |
 | `client/game/js/panels/tablet-os.js` | Narration, highlighting, minimize pill, gloss render |

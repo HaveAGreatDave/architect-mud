@@ -104,7 +104,7 @@ export function cbTransmit(player, rig, text) {
   }
   const now = Date.now();
   if (now - (rig.cbSentAt || 0) < SEND_GAP_MS) {
-    return { type: 'error', message: '<span class="text-dim">You are still keyed down. Let go of the mic for a second.</span>' };
+    return { type: 'error', message: '<span class="text-dim">You\'re still keyed down. Let go of the mic for a second.</span>' };
   }
   rig.cbSentAt = now;
 
@@ -132,11 +132,11 @@ export function cbTune(player, rig, n) {
     ? 'Nothing on it but the hiss.'
     : others === 1 ? 'One other set is up here.' : `${others} other sets are up here.`;
   const note = chan === CB_EMERGENCY
-    ? ' <span class="text-amber">Nine is the one people shout for help on. Try not to be the reason it is busy.</span>'
+    ? ' <span class="text-amber">Nine is the one people shout for help on. Try not to be the reason it\'s busy.</span>'
     : '';
   return {
     type: 'output',
-    message: `<span class="text-dim">${same ? 'You are already on' : 'The dial clicks round to'} `
+    message: `<span class="text-dim">${same ? "You're already on" : 'The dial clicks round to'} `
       + `<b>channel ${chan}</b>. ${room}</span>${note}`,
     cb: cbState(rig),
   };

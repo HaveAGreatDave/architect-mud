@@ -5,7 +5,7 @@
     "You become aware of your own face and where it is."
   ],
   "cause": "drug",
-  "description": "A room. An ordinary one, with the last of the beat going out of it. You are standing up holding a balloon and the enormous thing you understood forty seconds ago has left no forwarding address. It was going to change everything.",
+  "description": "A room. An ordinary one, with the last of the beat going out of it. You're standing up holding a balloon and the enormous thing you understood forty seconds ago has left no forwarding address. It was going to change everything.",
   "drug_id": "drug_nitrous",
   "fx": "tunnel",
   "fx_intensity": 0.35,
@@ -15,16 +15,16 @@
     {
       "looks": [
         "Slack. In your hand. You look a bit of a fool.",
-        "There is a little left in it and there is no point.",
-        "It is a balloon. You had been thinking of it as a doorway."
+        "There's a little left in it and there's no point.",
+        "It's a balloon. You had been thinking of it as a doorway."
       ],
       "name": "the balloon"
     },
     {
       "looks": [
-        "Nothing. There is a shape where it was.",
+        "Nothing. There's a shape where it was.",
         "It was about everything and it was completely clear.",
-        "You could get it back for another one of those. That is the trick of it."
+        "You could get it back for another one of those. That's the trick of it."
       ],
       "name": "what you understood"
     }

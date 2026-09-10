@@ -40,7 +40,7 @@ import {
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
   RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, listRegions, worldTerrainMap, craftIsVtol, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
-  airfieldOf, fieldName,
+  airfieldOf, fieldName, PILOT_IP,
 } from './state.js';
 import './hvac.js';   // registers a running cockpit as a climate-controlled cabin — see the file header
 import { boardCompanions } from './companions.js';
@@ -53,6 +53,7 @@ import { commands as contractCommands, checkContractDelivery, checkCargoDropDeli
 import { commands as hangarCommands, pushHangarBay } from './hangars.js';
 import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters, chaseCont, stepToward, CRUISE_TILES } from './charter.js';
 import { isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride } from './checkride.js';
+import './onboard.js';   // the once-ever "this is an airfield, and the licence is free" briefing
 import { prefersTextTravel, boardingLine, textTravelTick } from './textmode.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
 import {
@@ -703,7 +704,7 @@ async function cmdStartup(args, raw, player, broadcast) {
   live.engines.forEach((e, i) => { e.spoolAt = i * 1.2; e.t = 0; });  // stagger multi-engine starts
   await persist(live);
   pushHud(live);
-  await awardSkillUse(player.id, 'piloting', 0);
+  await awardSkillUse(player.id, 'piloting', PILOT_IP.ROUTINE);
   // A text pilot's `startup` IS the engine-master switch, so it's what advances the
   // checkride out of its STARTUP stage (the 3D cockpit reports `flightevent engineon`).
   if (live.textPilot && live.checkride) await checkrideEvent(live, 'engineon', [], player);
@@ -740,7 +741,13 @@ schedule('1s', () => runupTick().catch(e => console.error('[flight] runup error:
 
 async function cmdShutdown(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
-  if (live.row.airborne) return { type: 'emote', message: 'You are NOT shutting the engine down up here.' };
+  // Mirror of cmdStartup's refusal, and it's here for the same reason: in the 3D cockpit the
+  // ENGINE switch IS the master, and `updateCockpit` returns early while the continuous sim owns
+  // the pane — so a pushed HUD never reaches it. Without this guard the verb wrote engine_on=0 on
+  // a craft whose sim was still running: the prop kept turning and the lights stayed lit, and the
+  // row disagreed with the aeroplane until the panel sent its next flightevent.
+  if (isContinuous(live) && !live.textPilot) return { type: 'emote', message: 'Flip the <b>ENGINE</b> switch on the cockpit panel.' };
+  if (live.row.airborne) return { type: 'emote', message: "You're NOT shutting the engine down up here." };
   if (!live.row.engine_on) return { type: 'emote', message: "The engine's already cold." };
   live.row.engine_on = 0; live.row.throttle = 0;
   await persist(live); pushHud(live);
@@ -783,7 +790,9 @@ async function cmdClimb(args, raw, player) {
   live.row.fuel = Math.max(0, live.row.fuel - 0.5);
   if (!chk.success) return { type: 'emote', message: 'You haul back on the stick but the climb mushes out — try again.' };
   live.row.altitude_band = BANDS[cur + 1];
-  await awardSkillUse(player.id, 'piloting', 0); pushHud(live);
+  // A real check just ran, so pass its own margin: a climb scraped by the
+  // handling ceiling teaches, a comfortable one barely does. See PILOT_IP.
+  await awardSkillUse(player.id, 'piloting', chk.margin); pushHud(live);
   return { type: 'emote', message: `<span class="text-cyan">You climb to ${BAND_LABEL[live.row.altitude_band]}.</span>` };
 }
 
@@ -998,7 +1007,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     }
     await persist(live);
     if (zone) broadcast(zone.id, { type: 'zone_event', message: `The ${live.type.name} lifts off and climbs away.` }, player.id);
-    await awardSkillUse(player.id, 'piloting', 0);
+    await awardSkillUse(player.id, 'piloting', PILOT_IP.TAKEOFF);
     out(player.id, '<span class="text-green">Wheels up — you claw into the sky.</span>');
     if (live.checkride) await checkrideEvent(live, 'takeoff', args, player);
     return { type: 'noop' };
@@ -1073,7 +1082,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
         crDone = await checkrideEvent(live, 'land', [grade, fpm, field.id], player);
       }
       await parkAt(live, field.id);
-      await awardSkillUse(player.id, 'piloting', 0);
+      await awardSkillUse(player.id, 'piloting', PILOT_IP.LANDING);
       await checkContractDelivery(player, live, field.id);
       await checkCargoDropDelivery(player, live, field.id);
       // Everyone climbs out onto the tile where she settled (parkAt set their zone to it).
@@ -1161,11 +1170,11 @@ async function checkAirspace(live) {
   if (!pilot) return;
   live.noflyStage = (live.noflyStage || 0) + 1;
   if (live.noflyStage === 1) {
-    out(pilot.id, '<span class="text-amber">⚠ TOWER: You are entering RESTRICTED AIRSPACE. Come about and leave now.</span>');
+    out(pilot.id, '<span class="text-amber">⚠ TOWER: You\'re entering RESTRICTED AIRSPACE. Come about and leave now.</span>');
   } else if (live.noflyStage === 2 && !live.noflyRaised) {
     live.noflyRaised = true;
     await dispatchAction({ type: 'WANTED_RAISE', actor: pilot, params: { amount: 2, reason: 'violating restricted airspace' } });
-    out(pilot.id, '<span class="text-red">TOWER: You are now a hostile contact. Interceptors are being vectored to you.</span>');
+    out(pilot.id, '<span class="text-red">TOWER: You\'re now a hostile contact. Interceptors are being vectored to you.</span>');
     sendToZone(below.id, { type: 'zone_event', message: 'Police interceptors scramble skyward with a rising howl.' });
   }
 }
@@ -1320,7 +1329,7 @@ export function checkDiveSiren(live) {
       ? `<span class="text-red">Something up there tips over and starts to <b>scream</b> — a rising mechanical wail, getting louder, coming down at you.</span>`
       : dist <= 3
         ? `<span class="text-amber">A wail starts up somewhere above, climbing in pitch — a ${name}, going down after something.</span>`
-        : `A thin rising note somewhere off to the ${degToCardinal(bearingDeg(a.grid_x + dx, a.grid_y + dy, a.grid_x, a.grid_y)).toUpperCase()}, high up. It is getting higher.`;
+        : `A thin rising note somewhere off to the ${degToCardinal(bearingDeg(a.grid_x + dx, a.grid_y + dy, a.grid_x, a.grid_y)).toUpperCase()}, high up. It's getting higher.`;
     emitSky(live, cell.id, line);
   }
   // The sound itself, propagated from the tile she is diving at — so it fades through walls
@@ -1919,7 +1928,7 @@ async function cmdFlightWaypoint(args, raw, player) {
   player.flightWaypoint = { x: cx, y: cy };
   if (live && isContinuous(live)) pushContext(live);
   // No aircraft is a success, not an error — the designation simply waits for one.
-  const tail = live ? '' : ' It will be waiting when you board.';
+  const tail = live ? '' : " It'll be waiting when you board.";
   return { type: 'emote', message: `<span class="text-cyan">✜ Target designated — tile ${cx}, ${cy}.</span>${tail}` };
 }
 
@@ -2140,7 +2149,7 @@ async function cmdDeadhead(args, raw, player) {
   if (aboard) {
     return {
       type: 'output',
-      message: 'You are aboard her. Fly her yourself: '
+      message: "You're aboard her. Fly her yourself: "
         + '<span class="action-link" data-action="cmd" data-cmd="takecontrols">takecontrols</span> · '
         + '<span class="action-link" data-action="cmd" data-cmd="nav">nav</span> · '
         + '<span class="action-link" data-action="cmd" data-cmd="landat">landat</span>',

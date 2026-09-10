@@ -148,7 +148,7 @@ export function describeGenitals(player, isSelf) {
       average:  [`${sub} ass is average — a solid, dependable rear with no outstanding grievances.`, `${sub} ass occupies exactly the expected amount of space. Respectable.`],
       round:    [`${sub} ass is round and full, the kind you notice leaving before you notice arriving.`, `${sub} rear is notably round — geometrically satisfying.`],
       large:    [`${sub} ass is large and pronounced, a presence unto itself.`, `${sub} backside is generous — substantial enough to have its own agenda.`],
-      enormous: [`${sub} ass is enormous. It is doing a lot. It is, arguably, doing too much.`, `${sub} rear end is massive — a geographical feature more than a body part.`],
+      enormous: [`${sub} ass is enormous. It's doing a lot. It is, arguably, doing too much.`, `${sub} rear end is massive — a geographical feature more than a body part.`],
     };
     const assLine = (ASS_DESC[assSize] || ASS_DESC.average)[Math.floor(Math.random() * 2)];
     // Breasts + nipples are described by the MIS chest note (single source of
@@ -253,7 +253,7 @@ const ASSHOLE_DETAIL = [
 const GENERIC_NPC_PART = {
   penis:   [`It's a cock. Attached to {name}. You've seen one before.`, `{name} is packing the standard equipment.`],
   balls:   [`{name} has balls. They hang there, doing balls things.`],
-  pussy:   [`{name} has a pussy. It exists. It is right there.`],
+  pussy:   [`{name} has a pussy. It exists. It's right there.`],
   breasts: [`{name} has a chest. It's doing fine.`],
   nipples: [`{name} has nipples. Two of them, by the look of it.`],
   ass:     [`{name} has an ass. It's an ass.`],

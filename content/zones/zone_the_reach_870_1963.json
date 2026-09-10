@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The rock is undercut at the base where the wind has been working on it for longer than there have been people to watch. There is room under there for a person who did not want to be found.",
+  "description": "The rock is undercut at the base where the wind has been working on it for longer than there have been people to watch. There's room under there for a person who didn't want to be found.",
   "exits": {
     "east": "zone_the_reach_871_1963",
     "north": "zone_the_reach_870_1962",

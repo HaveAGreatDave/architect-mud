@@ -1,10 +1,12 @@
 {
-  "description": "A single square of high-powered blotter acid, printed with a grinning sun.",
+  "description": null,
   "flags": {},
   "id": "item_blotter",
   "name": "blotter",
   "tags": {
-    "drug": true
+    "description": "A single square of high-powered blotter acid, printed with a grinning sun.",
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 130,

@@ -36,13 +36,13 @@
       "announce_host": [
         "Ladies and gentlemen, the man who can price your grandmother, {host}!",
         "He has sold everything in this building including, on one occasion, this building, {host}!",
-        "Here he is. He is always here. {host}!"
+        "Here he is. He's always here. {host}!"
       ],
       "applause": [
         "Applause: the real kind, brief and startled.",
         "The floor manager waves both arms and the applause arrives on cue.",
         "Applause, and the plinth begins to turn.",
-        "Sustained applause. The APPLAUSE sign was not lit. Nobody has mentioned this."
+        "Sustained applause. The APPLAUSE sign wasn't lit. Nobody has mentioned this."
       ],
       "audience": [
         "The audience makes a noise that could be either thing.",
@@ -61,9 +61,9 @@
         "The rules are: I show you a thing, you {verb} what it costs, and we all find out something about you."
       ],
       "commercial": [
-        "THE LAST LOT is brought to you by Coldwater Municipal Storage. Your things, kept, until they are ours.",
+        "THE LAST LOT is brought to you by Coldwater Municipal Storage. Your things, kept, until they're ours.",
         "This programme is sponsored by ACID COLA. Thirteen flavours. One of them is cola.",
-        "Brought to you by the Basin Estates Office. If you have been contacted about a relative, you have not been contacted about a relative."
+        "Brought to you by the Basin Estates Office. If you have been contacted about a relative, you haven't been contacted about a relative."
       ],
       "no_payout": [
         "Network policy, friend: one purse a day. You keep the glory. We keep the glory's cash value.",
@@ -78,7 +78,7 @@
       "prize_copy": [
         "Tonight's lot: {prize}. Sold as seen. Provenance available on request and then declined.",
         "On the plinth: {prize}. One owner. We think.",
-        "Up next: {prize}. Municipal surplus. Post-forfeiture. Cannot be reclaimed by prior holders or their estates.",
+        "Up next: {prize}. Municipal surplus. Post-forfeiture. Can't be reclaimed by prior holders or their estates.",
         "{prize}. It was somebody's. Now it's inventory.",
         "{prize}, up on the plinth, turning slowly under the good lights so you can't see the repair."
       ],
@@ -111,7 +111,7 @@
       "reveal": [
         "Bids are in: {guesses}. And the actual retail price of {prize}… {price} credits.",
         "Let's have it. {guesses}. The card says {price}.",
-        "The floor said {guesses}. The card says {price} credits. The card does not negotiate.",
+        "The floor said {guesses}. The card says {price} credits. The card doesn't negotiate.",
         "{guesses}. And it's {price}."
       ],
       "reveal.lot": [
@@ -128,7 +128,7 @@
       ],
       "round_intro.lot": [
         "Three lots. Put them in order, cheapest first. Say three numbers. This is where the confident ones die.",
-        "Round three: THE LOT. Three items, one order, cheapest to dearest. Two of you will get this backwards.",
+        "Round three: THE LOT. Three items, one order, cheapest to dearest. Two of you'll get this backwards.",
         "Three things. Rank them. I have watched people rank a corpse's boots above a working kidney."
       ],
       "round_intro.overunder": [
@@ -142,7 +142,7 @@
         "Here's the game the network built this stage for. Closest to the price without exceeding it."
       ],
       "showcase_intro": [
-        "And now the money. This is THE SHOWCASE, and the man who ordered it is not in a position to collect it.",
+        "And now the money. This is THE SHOWCASE, and the man who ordered it isn't in a position to collect it.",
         "Our final lot. Get within a fifth of the price either way and you take it home. The actual object. Today.",
         "The Showcase. Big lot, big purse, and the estate has stopped returning our calls."
       ],
@@ -157,20 +157,20 @@
         "From all of us on the floor: no returns, no provenance, no questions that help. Goodnight."
       ],
       "stall": [
-        "Take your time. The previous owner did not have this luxury.",
-        "I can hear you doing arithmetic and I want you to know it will not help.",
-        "Yolanda has the sealed card. Yolanda will not blink. I have tried.",
+        "Take your time. The previous owner didn't have this luxury.",
+        "I can hear you doing arithmetic and I want you to know it won't help.",
+        "Yolanda has the sealed card. Yolanda won't blink. I have tried.",
         "Somebody bid. The lights cost money and the lights are the only thing here that does, reliably.",
         "Look at the stitching. Everybody looks at the damage. Look at the STITCHING.",
         "Still time. Barely. Not really."
       ],
       "ticker": [
-        "THE LAST LOT · All lots sold as seen · No returns, no exchanges, no provenance provided or implied · Municipal surplus is sold post-forfeiture and cannot be reclaimed by prior holders or their estates · Restored persons may not claim property forfeited by a previous body · Contestant winnings are capped by network policy at one purse per person per day · Studio guests appear on air by standing in the studio and are deemed to have consented by breathing · Items marked HAUNTED are sold under the same terms as items that are not · The management does not know what is in the pallets"
+        "THE LAST LOT · All lots sold as seen · No returns, no exchanges, no provenance provided or implied · Municipal surplus is sold post-forfeiture and can't be reclaimed by prior holders or their estates · Restored persons may not claim property forfeited by a previous body · Contestant winnings are capped by network policy at one purse per person per day · Studio guests appear on air by standing in the studio and are deemed to have consented by breathing · Items marked HAUNTED are sold under the same terms as items that are not · The management doesn't know what's in the pallets"
       ],
       "verdict_read": [
-        "{verdict} That's {purse} credits and a handshake I will not be providing.",
+        "{verdict} That's {purse} credits and a handshake I won't be providing.",
         "{verdict} Take the money. Take it before somebody upstairs reads the paperwork.",
-        "{verdict} And that is the business we are in.",
+        "{verdict} And that's the business we're in.",
         "{verdict} Yolanda, mark the ledger. Mark it in pencil.",
         "{verdict} The Basin thanks you for your service to price discovery."
       ],

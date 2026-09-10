@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "Six chitinous limbs arch from their back, each taller than they are. They are standing on four of them and using the others to hold three separate things.",
+    "extreme": "Six chitinous limbs arch from their back, each taller than they are. They're standing on four of them and using the others to hold three separate things.",
     "obvious": "Two thin jointed limbs unfold from beneath their shoulder blades and fold back again.",
     "subtle": "Something shifts under the back of their coat."
   },
@@ -12,7 +12,7 @@
   ],
   "clone_inheritance": "all",
   "conceal_slots": [],
-  "description": "Additional jointed limbs have unfolded from beneath your shoulder blades. They are not arms. They are better at some things than arms are.",
+  "description": "Additional jointed limbs have unfolded from beneath your shoulder blades. They aren't arms. They're better at some things than arms are.",
   "drawbacks": [
     "Nothing goes over your back any more"
   ],

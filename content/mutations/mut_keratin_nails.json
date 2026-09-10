@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "Their hands end in claws. Dark, ridged, and long enough that they hold a cup with their fingertips because the nails will not clear it.",
+    "extreme": "Their hands end in claws. Dark, ridged, and long enough that they hold a cup with their fingertips because the nails won't clear it.",
     "obvious": "Their fingernails are horn, curved and thick, and they have stopped pretending to trim them.",
     "subtle": "Their nails are thick and yellowed, filed to blunt points."
   },
@@ -15,7 +15,7 @@
   "conceal_slots": [
     "hands"
   ],
-  "description": "Your fingernails have kept growing and kept hardening. They are closer to claws now, and they do not file down.",
+  "description": "Your fingernails have kept growing and kept hardening. They're closer to claws now, and they don't file down.",
   "drawbacks": [
     "Gloves are a problem"
   ],

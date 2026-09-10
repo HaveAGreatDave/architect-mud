@@ -15,7 +15,7 @@
     "lock:terminusgate": {
       "canHack": false,
       "messages": {
-        "denied": "The gate does not open.",
+        "denied": "The gate doesn't open.",
         "lock": "The leaves come together without a sound and stand as though they had never been apart.",
         "unlock": "The gate opens. Nobody touches it."
       }

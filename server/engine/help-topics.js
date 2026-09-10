@@ -34,22 +34,22 @@ registerHelpTopic({
   build: () => [
     dim('Nothing here is a puzzle you solve once. Every attempt can be seen, and being seen is the real cost.'),
     cat('MACHINES', [
-      line('jack', 'break into a cash machine you are standing at'),
+      line('jack', "break into a cash machine you're standing at"),
       line('hack <door>', 'work a lock you have no key for'),
-      dim('  Both are skill checks against the thing you are working on, not a fixed difficulty.'),
+      dim("  Both are skill checks against the thing you're working on, not a fixed difficulty."),
       dim('  Failure is rarely quiet.'),
     ].join('\n')),
     cat('SURVEILLANCE', [
       line('plant <device>', 'leave a camera or a bug somewhere useful'),
       line('retrieve <device>', 'take it back, with what it recorded'),
       line('sweep', 'find what somebody else planted here'),
-      line('hijack <camera>', 'take over a camera that is not yours'),
+      line('hijack <camera>', "take over a camera that isn't yours"),
       dim('  Your own devices feed a hub you can review later. So do everyone else\'s.'),
     ].join('\n')),
     cat('YOUR RECORD', [
       line('wanted', 'what the police think you have done'),
       line('scrub', 'at a police terminal — make some of it go away'),
-      line('conceal <item>', 'hide something before you are searched'),
+      line('conceal <item>', "hide something before you're searched"),
       dim('  Crimes are witnessed, not detected. Nobody watching means nobody charged.'),
     ].join('\n')),
     cat('SEE ALSO', dim('  help crime')),
@@ -70,16 +70,16 @@ registerHelpTopic({
       line('join / seat', 'sit down at a table'),
       line('check  call  bet <n>', 'the usual'),
       line('raise <n>  fold  allin', ''),
-      line('board  pot  players', 'what is on the table, and who is still in it'),
+      line('board  pot  players', "what's on the table, and who is still in it"),
       line('spectate / watch', 'sit out and see how it goes for everyone else'),
       line('text / visual', 'switch how the table is drawn — your choice, per player'),
-      dim('  Real people, real credits. The table does not care that you are new.'),
+      dim("  Real people, real credits. The table doesn't care that you're new."),
     ].join('\n')),
     cat('THE BALL GAME', [
       line('standings', 'who is winning the league'),
       line('wager <player> <amt> <team>', 'offer a bet to another player on a live game'),
       line('takewager / cancelwager', 'accept one, or withdraw yours'),
-      dim('  Bets are player-to-player. There is no bookmaker to blame.'),
+      dim("  Bets are player-to-player. There's no bookmaker to blame."),
     ].join('\n')),
   ].join('\n'),
 });
@@ -89,7 +89,7 @@ registerHelpTopic({
   summary: 'Being seen, being wanted, being caught, and getting out.',
   aliases: ['police', 'wanted', 'jail'],
   build: () => [
-    dim('You are not wanted for what you did. You are wanted for what somebody saw you do.'),
+    dim("You aren't wanted for what you did. You're wanted for what somebody saw you do."),
     cat('HEAT', [
       line('wanted', 'your current standing with the police'),
       line('bribe <officer>', 'if you have the credits and they have the inclination'),
@@ -99,7 +99,7 @@ registerHelpTopic({
     cat('WORK', [
       line('steal <player>', 'lift something from someone in the room'),
       line('pick <lock>', 'get through a door the slow honest-thief way'),
-      line('conceal <item>', 'so a search does not find it'),
+      line('conceal <item>', "so a search doesn't find it"),
     ].join('\n')),
     cat('GETTING CAUGHT', [
       line('sentence / time', 'how long you have left'),
@@ -136,20 +136,20 @@ registerHelpTopic({
   summary: 'Hunger, thirst, temperature, sleep and the things that wear you down.',
   aliases: ['hunger', 'health'],
   build: () => [
-    dim('The city does not need to kill you. It only has to wait.'),
+    dim("The city doesn't need to kill you. It only has to wait."),
     cat('THE BASICS', [
       line('eat <food>  drink <thing>', 'the two that never stop mattering'),
-      line('sleep', 'somewhere you are allowed to. Restores more than hit points'),
+      line('sleep', "somewhere you're allowed to. Restores more than hit points"),
       line('stats', 'everything the body is currently doing to you'),
     ].join('\n')),
     cat('WHAT WEARS YOU DOWN', [
-      dim('  Hunger and thirst fall on their own. Cold and heat depend on what you are wearing'),
-      dim('  and where you are standing. Radiation accumulates and does not leave on its own.'),
+      dim("  Hunger and thirst fall on their own. Cold and heat depend on what you're wearing"),
+      dim("  and where you're standing. Radiation accumulates and doesn't leave on its own."),
       dim('  Raw food, spoiled food and food you deliberately undercooked will each make you ill.'),
     ].join('\n')),
     cat('GETTING BETTER', [
       line('skills / raise <stat>', 'spend what you have earned'),
-      line('habits', 'what you have been taking, and what it is costing'),
+      line('habits', "what you have been taking, and what it's costing"),
       dim('  Well-cooked food restores more than the same food cooked badly. Considerably more.'),
     ].join('\n')),
     cat('SEE ALSO', dim('  help cooking  |  help foraging')),

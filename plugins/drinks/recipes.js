@@ -227,7 +227,7 @@ export const DRINKS = {
     optional: [],
     nameSlots: ['beer_base'],
     ceiling: 'excellent', difficulty: 2,
-    blurb: 'Poured badly it is foam; poured well it is the point of the evening.',
+    blurb: "Poured badly it's foam; poured well it carries the evening.",
   },
 };
 
@@ -256,7 +256,7 @@ export const UNKNOWN_DRINK = {
   nameSlots: [],
   ceiling: SLOP_CEILING,
   difficulty: 2,
-  blurb: 'Wet. Drinkable in the sense that it will go down.',
+  blurb: "Wet. Drinkable in the sense that it'll go down.",
 };
 
 // ---------------------------------------------------------------------------
@@ -520,7 +520,7 @@ export function describeRecipe(key, template, pourMl = 25) {
   lines.push(`<span class="text-dim">Method:</span> ${methodOf(t)}`);
   lines.push(`<span class="text-dim">Serve in:</span> ${glass}`);
   if (t.hot) lines.push(`<span class="text-dim">Needs:</span> a kettle or better`);
-  if (t.keyItems?.length) lines.push(`<span class="text-dim">Will not work without:</span> the right bottle`);
+  if (t.keyItems?.length) lines.push(`<span class="text-dim">Won't work without:</span> the right bottle`);
   lines.push(`<span class="text-dim">Difficulty:</span> ${t.difficulty}/10 · <span class="text-dim">best possible:</span> ${bestPossibleBand(t) || '—'}`);
   return lines.join('\n');
 }
@@ -536,7 +536,7 @@ export function validateDrinks(drinks = DRINKS) {
   for (const [key, t] of Object.entries(drinks)) {
     const at = f => `${key}.${f}`;
     if (!t.noun) errors.push(`${at('noun')} is missing`);
-    if (!QUALITY_BANDS.includes(t.ceiling)) errors.push(`${at('ceiling')} is not a quality band — got ${t.ceiling}`);
+    if (!QUALITY_BANDS.includes(t.ceiling)) errors.push(`${at('ceiling')} isn't a quality band — got ${t.ceiling}`);
     if (!Number.isFinite(t.difficulty) || t.difficulty < 1) errors.push(`${at('difficulty')} must be >= 1 — got ${t.difficulty}`);
     if (!t.blurb) errors.push(`${at('blurb')} is missing — every drink says something about itself`);
 
@@ -549,7 +549,7 @@ export function validateDrinks(drinks = DRINKS) {
     // A shaken template that can't be built in a shaker rewards a bonus nobody
     // can ever earn.
     if (t.shaken && Array.isArray(t.vessels) && !t.vessels.includes('shaker')) {
-      errors.push(`${at('shaken')} is set but 'shaker' is not among its vessels — the bonus would be unreachable`);
+      errors.push(`${at('shaken')} is set but 'shaker' isn't among its vessels — the bonus would be unreachable`);
     }
 
     for (const [profile, need] of Object.entries(t.needs || {})) {

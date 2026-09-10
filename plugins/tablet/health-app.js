@@ -148,11 +148,11 @@ function describeBand(v, ladder) {
   return { text: last[1], band: last[2] };
 }
 const HUNGER_LADDER = [
-  [85, 'full — could not eat another thing', 'good'],
+  [85, "full — couldn't eat another thing", 'good'],
   [60, 'fed', 'good'],
   [40, 'starting to think about food', 'good'],
   [22, 'hungry', 'warn'],
-  [8, 'very hungry — it is getting hard to ignore', 'bad'],
+  [8, "very hungry — it's getting hard to ignore", 'bad'],
   [1, 'starving', 'crit'],
   [0, 'starving to death — this is costing you HP', 'crit'],
 ];
@@ -219,7 +219,7 @@ function buildAfflictions(player, drugStatus) {
     if (d.withdrawalSeverity > 0) {
       add(`${d.name} withdrawal`, d.substituted
         ? `Biting at ${Math.round(d.withdrawalSeverity * 100)}% — something similar is taking the edge off.`
-        : `Biting at ${Math.round(d.withdrawalSeverity * 100)}%. It will not improve on its own.`, 'bad');
+        : `Biting at ${Math.round(d.withdrawalSeverity * 100)}%. It won't improve on its own.`, 'bad');
     } else if (d.withdrawalIn > 0) {
       add(`${d.name} dependency`, `Starts asking in about ${fmtDuration(d.withdrawalIn)}.`, 'warn');
     }

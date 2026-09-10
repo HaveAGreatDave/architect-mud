@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Barely a face at all — a steep red mess of ledges and false ledges leaning back just far enough to be argued with. It would be an easy walk lying down and it is hard work standing up.",
+  "description": "Barely a face at all — a steep red mess of ledges and false ledges leaning back just far enough to be argued with. It would be an easy walk lying down and it's hard work standing up.",
   "exits": {
     "east": "zone_scw_1041_966",
     "north": "zone_scw_1040_965",

@@ -256,7 +256,7 @@ export async function buildDreamscape(playerId, {
       // between experiences. An object that reads identically twice is furniture.
       dreamObjects: asList(t.objects).map(o => ({
         name: o.name,
-        look: pick(asList(o.looks)) || 'You cannot afterwards say what it was.',
+        look: pick(asList(o.looks)) || "You can't afterwards say what it was.",
       })),
     });
   });
@@ -311,7 +311,7 @@ function beat(inst) {
     const was = inst.presenceRoom;
     inst.presenceRoom = pick(inst.roomIds);
     if (inst.presenceRoom === was) return;
-    if (was === player.current_zone) send(pick(asList(inst.presence.departures)) || 'You are alone again.');
+    if (was === player.current_zone) send(pick(asList(inst.presence.departures)) || "You're alone again.");
     else if (inst.presenceRoom === player.current_zone) send(pick(asList(inst.presence.arrivals)) || 'Somebody is here.');
   }
 }
@@ -603,8 +603,8 @@ export async function beginDissociation(player, { broadcast = null, size = 2 } =
   if (broadcast) {
     // The room sees the body stop being tenanted. No name for what happened — the onlookers
     // do not know either.
-    broadcast(body, { type: 'zone_event', message: `<span class="text-dim"><em>${player.handle} stops. Their face goes completely slack, and whatever was behind it is not there any more.</em></span>` }, player.id);
-    broadcast(null, { type: 'output', message: '<span style="color:var(--cyan)">You are not here. You have not moved, and you are not here.</span>\n<span class="text-dim">(You can walk. You cannot do much else. It will pass, or it will not.)</span>' }, null, player.id);
+    broadcast(body, { type: 'zone_event', message: `<span class="text-dim"><em>${player.handle} stops. Their face goes completely slack, and whatever was behind it isn't there any more.</em></span>` }, player.id);
+    broadcast(null, { type: 'output', message: '<span style="color:var(--cyan)">You aren\'t here. You haven\'t moved, and you aren\'t here.</span>\n<span class="text-dim">(You can walk. You can\'t do much else. It\'ll pass, or it\'ll not.)</span>' }, null, player.id);
     broadcast(null, { type: 'force_look' }, null, player.id);
   }
   return true;
@@ -628,7 +628,7 @@ export function endDissociation(player, { broadcast = null, reason = 'time' } = 
   dissolveDreamscape(player.id);
   if (broadcast && reason !== 'silent') {
     broadcast(body, { type: 'zone_event', message: `<span class="text-dim"><em>${player.handle} blinks, and is behind their own eyes again.</em></span>` }, player.id);
-    broadcast(null, { type: 'output', message: '<span style="color:var(--cyan)">You come back to yourself. You are exactly where you were, and you have no idea how long you were gone.</span>' }, null, player.id);
+    broadcast(null, { type: 'output', message: '<span style="color:var(--cyan)">You come back to yourself. You\'re exactly where you were, and you have no idea how long you were gone.</span>' }, null, player.id);
     broadcast(null, { type: 'force_look' }, null, player.id);
   }
   return true;

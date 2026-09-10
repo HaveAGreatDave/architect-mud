@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#5e8a8f",
-  "description": "A boat shed a quarter-mile from any water, which is the joke and also the tragedy. The doors are tall enough to walk a mast through and haven't been fully opened in living memory. HULLS ANGELS is cut into a plank above them in letters that took someone a whole winter. Through the gap you can see the ribs of something big and unfinished.",
+  "description": "A boat shed a quarter-mile from any water, and nobody on this street laughs about it any more. The doors are tall enough to walk a mast through and haven't been fully opened in living memory. HULLS ANGELS is cut into a plank above them in letters that took someone a whole winter. Through the gap you can see the ribs of something big and unfinished.",
   "exits": {
     "east": "zone_district_917_905",
     "west": "zone_hulls_shop"

@@ -134,7 +134,7 @@
     "\"Highball, sir? On the house.\"",
     "\"Winner winner, another round?\""
   ],
-  "description": "A runner threading the tables with a tray of free drinks, keeping the marks watered and seated. Her name tag says ROZ, and the house has never once spelled Vance right on a payslip.",
+  "description": "A runner threading the tables with a tray of free drinks, keeping the marks watered and seated. Her name tag says ROZ, and the house has never spelled Vance right on a payslip.",
   "dialogue_tree": {
     "bye": {
       "options": [],

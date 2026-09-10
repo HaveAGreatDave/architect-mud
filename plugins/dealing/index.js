@@ -97,7 +97,7 @@ async function cmdAcceptDeal(args, raw, player) {
   const offer = pendingDeal.get(player.id);
   if (!offer) return { type: 'error', message: "Nobody's dealing you anything." };
   const seller = getLivePlayer(offer.sellerId);
-  if (!seller) { clearOffer(player.id); return { type: 'error', message: 'Whoever offered that is gone.' }; }
+  if (!seller) { clearOffer(player.id); return { type: 'error', message: "Whoever offered that's gone." }; }
   if ((player.credits || 0) < offer.price) return { type: 'error', message: `You can't cover ₵${offer.price}.` };
   clearOffer(player.id);
 

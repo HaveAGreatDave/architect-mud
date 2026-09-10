@@ -145,7 +145,7 @@ export function ownsShop(player, deed) {
 async function here(player, { needOwner = false, needSold = false } = {}) {
   await loadDeeds();
   const zone = getZone(player.current_zone);
-  if (!isStorefrontZone(zone)) return { error: 'There is no shop unit here.' };
+  if (!isStorefrontZone(zone)) return { error: "There's no shop unit here." };
   const deed = getDeed(zone.id);
   if (needSold && !deed?.owner_id) return { error: "Nobody owns this unit yet. Try DEED to see the asking price." };
   if (needOwner && !ownsShop(player, deed)) {
@@ -261,7 +261,7 @@ async function cmdBuyShop(player) {
 
   return { type: 'output', player_update: { credits: player.credits }, message:
     `<span style="color:var(--accent)">◈ DEED TRANSFERRED — ${zone.name}</span>\n\n` +
-    `The agent thumbs a slate, the lock re-keys to you, and that is the whole ceremony.\n\n` +
+    `The agent thumbs a slate, the lock re-keys to you. Nobody shakes your hand.\n\n` +
     `<span class="text-dim">Paid down:</span> ${t.weekly}₵\n` +
     `<span class="text-dim">Remaining:</span> ${t.term - 1} × ${t.weekly}₵ per ${RENT_PERIOD_DAYS}-day cycle\n` +
     `<span class="text-dim">Next due:</span> ${formatGameDate(due)}\n\n` +
@@ -340,7 +340,7 @@ async function cmdStock(args, player) {
 
   const chilled = cooler ? ` in the ${cooler.name}` : '';
   const warning = !cooler && row.tags?.perishable
-    ? `\n<span class="text-dim">It's out in the open. It will go off.</span>` : '';
+    ? `\n<span class="text-dim">It's out in the open. It'll go off.</span>` : '';
   const qty = row.quantity > 1 ? ` (x${row.quantity})` : '';
   const bc = getBroadcast();
   if (bc) bc(h.zone.id, { type: 'zone_event', message: `${player.handle} sets ${row.name}${qty} out on the display.` }, player.id);
@@ -650,7 +650,7 @@ async function cmdHackVault(args, raw, player, broadcast) {
   const guard = (await staffFor(zone.id)).find(m => m.role === 'guard') || (await staffFor(zone.id))[0];
   if (guard) {
     if (broadcast) broadcast(player.current_zone, { type: 'zone_event', message:
-      `<span class="msg-danger">${guard.name} sees ${player.handle} jack a deck into the ${vault.name} and does not hesitate: "OI! Hands. HANDS!"</span>` });
+      `<span class="msg-danger">${guard.name} sees ${player.handle} jack a deck into the ${vault.name} and doesn't hesitate: "OI! Hands. HANDS!"</span>` });
     // Staff on the floor are a GUARANTEED witness — the same dedicated-event
     // convention vendor.safeHackWitnessed / burglary.reported use, rather than a
     // flag on the generic event (surveillance's raiseCrime takes `forced` only
@@ -1053,7 +1053,7 @@ async function carriedUnpaid(playerId, zoneId = null) {
 async function cmdPocket(args, player) {
   const h = await here(player);
   if (h.error) return { type: 'error', message: h.error };
-  if (!h.deed?.owner_id) return { type: 'error', message: 'The unit is vacant. There is nothing on the shelf.' };
+  if (!h.deed?.owner_id) return { type: 'error', message: "The unit is vacant. There's nothing on the shelf." };
   if (ownsShop(player, h.deed)) return { type: 'error', message: "It's your own stock. UNSTOCK it." };
 
   const name = args.join(' ').trim();
@@ -1105,7 +1105,7 @@ async function pocketListing(listing, player) {
   return { type: 'output', message:
     `You lift <b>${listing.name}</b> off the display.\n` +
     `<span class="text-dim">It isn't yours yet — <b>buyware ${listing.name}</b> settles up at ${listing.price}₵. ` +
-    `Walking out with it is another matter.</span>` };
+    `Walking out with it's another matter.</span>` };
 }
 
 // The door asks first, exactly as a vendor's does — one prompt, one pair of
@@ -1204,7 +1204,7 @@ const FOOTFALL_MAX_MARKUP = 1.8;   // above this multiple of base value, nobody 
 
 const PASSERSBY = [
   'a courier with time to kill', 'someone in a wet coat', 'a shift worker on their way home',
-  'a kid with somebody else\'s credits', 'a rig mechanic still in overalls', 'a woman who does not browse',
+  'a kid with somebody else\'s credits', 'a rig mechanic still in overalls', "a woman who doesn't browse",
   'a man who has clearly been sent for it', 'somebody who came in to get out of the weather',
 ];
 

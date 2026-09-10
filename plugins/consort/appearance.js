@@ -93,7 +93,7 @@ export const BUILDS = {
     },
     sculpted: {
       label: 'Sculpted', tier: 2,
-      desc: 'symmetrical to a degree that is faintly unsettling, every proportion sitting exactly where an expensive clinic decided it should',
+      desc: "symmetrical to a degree that's faintly unsettling, every proportion sitting exactly where an expensive clinic decided it should",
       layers: ['a structured coat', 'a bodysuit', 'engineered lingerie'],
     },
   },
@@ -135,7 +135,7 @@ export const BUILDS = {
     },
     sculpted: {
       label: 'Sculpted', tier: 2,
-      desc: 'symmetrical to a degree that is faintly unsettling, every proportion sitting exactly where an expensive clinic decided it should',
+      desc: "symmetrical to a degree that's faintly unsettling, every proportion sitting exactly where an expensive clinic decided it should",
       layers: ['a structured coat', 'a mesh top', 'engineered briefs'],
     },
   },
@@ -182,7 +182,7 @@ const SKIN = [
 ];
 
 const MOUTHS = [
-  'a wide, easy mouth', 'a small serious mouth', 'a mouth that is always about to say something',
+  'a wide, easy mouth', 'a small serious mouth', "a mouth that's always about to say something",
   'a crooked smile', 'a mouth held very carefully still', 'full lips and a habit of biting them',
   'a mouth that turns down at rest and looks like an opinion',
 ];

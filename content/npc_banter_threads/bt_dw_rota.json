@@ -4,9 +4,9 @@
   "lines": [
     "\"It says your name.\"",
     "\"It says my name in your handwriting.\"",
-    "\"It says your name because you were not here to write it yourself.\"",
-    "\"That is not how the board works.\"",
-    "\"It is exactly how the board works.\""
+    "\"It says your name because you weren't here to write it yourself.\"",
+    "\"That isn't how the board works.\"",
+    "\"It's exactly how the board works.\""
   ],
   "personality": "labourer",
   "sort_order": 301

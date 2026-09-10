@@ -95,7 +95,7 @@ async function cmdLetThereBeLight(args, raw, player, broadcast) {
   }
   const zoneId = player.current_zone;
   const zone = getZone(zoneId);
-  if (!zone) return { type: 'error', message: 'You are nowhere the grid can reach.' };
+  if (!zone) return { type: 'error', message: "You're nowhere the grid can reach." };
 
   // 1. Ensure the room has a lit overhead fixture.
   const { rows: existing } = await query(
@@ -143,13 +143,13 @@ async function cmdLetThereBeLight(args, raw, player, broadcast) {
   return { type: 'look', message: await describeZone(zone, player), notify, zone: zoneId, minimap: getMinimapData(zoneId, 8, player) };
 }
 
-// .makeitrain — the Architect blesses you with a fat stack of credits. Admin
-// wish-fulfilment: bumps your own balance by 100k, persists it, and pushes the
-// new number to the HUD via player_update. Amusing by design.
+// .makeitrain — the Architect blesses you with a fat stack of credits. Open to
+// everyone during testing: bumps your own balance by 100k, persists it, and
+// pushes the new number to the HUD via player_update. Amusing by design.
 async function cmdMakeItRain(args, raw, player, broadcast) {
-  if (!['admin', 'dev'].includes(player.role)) {
-    return { type: 'error', message: 'Unknown command: ".makeitrain".' };
-  }
+  // Open to every role for the testing phase, so playtesters can reach the parts
+  // of the economy that need a balance to see at all. Put the ['admin', 'dev']
+  // role check back before launch.
   const GRANT = 100000;
   player.credits = (player.credits || 0) + GRANT;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
@@ -248,7 +248,7 @@ async function cmdWeatherEvent(args, raw, player) {
   const type = (args?.[0] || '').trim().toLowerCase();
   if (!type) return { type: 'error', message: 'Usage: <span class="text-dim">weatherevent &lt;type&gt;</span> — e.g. <span class="text-dim">weatherevent ion_storm</span>.' };
   const res = devTriggerWeatherEvent(type);
-  if (!res?.ok) return { type: 'error', message: res?.error || 'Could not start that event.' };
+  if (!res?.ok) return { type: 'error', message: res?.error || "Couldn't start that event." };
   return { type: 'output', message: `<span class="msg-system">Forced weather event: ${res.label}. It begins to approach.</span>` };
 }
 

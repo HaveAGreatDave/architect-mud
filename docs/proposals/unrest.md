@@ -139,6 +139,22 @@ pulls both toward baseline, incidents gate on high heat, so a low-heat cell can 
 generate the events that would raise its heat and **dead cells stay dead forever**.
 Fast pair + slow integrator is the minimal system that limit-cycles with no driver.
 
+> ⚠ **Corrected 2026-09-03 — that last sentence is false, and it shipped.** A fast pair
+> plus a slow integrator does *not* limit-cycle, because as specified above every
+> coupling is positive: grip drives pressure, pressure drives heat, heat drives grip.
+> Three positive couplings give one fixed point and a tick that can only converge to it.
+> It converged at band 10.7 — permanently quiet, in every cell — and no value of any rate
+> changed that; scaling the insurgency rate up by 10 pinned the city at watchful and by
+> 50 pinned it at flashpoint, with nothing in between. **Ten of the fourteen authored
+> incidents were unreachable** for as long as this was live, and the only thing that ever
+> moved a band was the Wildblood's nightly burst, which is a driver from outside.
+>
+> A cycle needs a **negative** term, and pressure raising heat's *baseline* is not one.
+> As built, unrest now **vents** the grievance that produced it, and heat **ignites**
+> past a threshold on pressure rather than rising proportionally — heat's half-life is
+> shorter than the tick, so heat cannot integrate and the threshold cannot live on it.
+> See [systems-unrest.md](../systems-unrest.md#three-scalars) for the as-built model.
+
 **State the period or it isn't designed.** Heat in tens of minutes, grip in hours, pressure
 over days, a full cycle legible across roughly a week with a visible swing inside a 1–2
 hour session. A cycle longer than a play session is invisible.

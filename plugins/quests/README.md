@@ -76,13 +76,18 @@ None.
 ## Data schema
 
 - `quests` — `id, name, description, objectives JSONB, rewards JSONB, repeatable, updated_at`.
-  - `objectives`: `[{ type, target?, item_id?, zone?, count?, desc, requires?[], emotes?[], taskSeconds? }]`
+  - `objectives`: `[{ type, target?, item_id?, zone?, count?, desc, requires?[], emotes?[], taskSeconds?, optional?, rewards? }]`
+  - `available`: when the quest is on offer — see [Offer windows](#offer-windows--available)
+  - `blocks`: quest ids this one closes for good when taken — see [Exclusivity](#exclusivity--blocks)
+  - `resolutions`: alternate endings — see [Branching resolutions](#branching-resolutions)
+  - `on_fail` / `on_turn_in`: `{ start_quest }` or null — see [What happens next](#what-happens-next--on_fail--on_turn_in)
   - `fail_on`: the same shapes, but each blows the quest — see [Failure](#failure)
   - `penalties`: what failing costs — `{ credits?, rep?:[{ideology,delta}], flags?:[…] }`
 - `player_quests` also carries `progress_keys` (the objective ids `progress` was built against, so a
-  quest can be edited without corrupting live progress) and `spawned` (row ids of auto-spawned
-  `retrieve` items, so they can be taken back out of the world).
-  - `rewards`: `{ credits?, xp?, items?:[{item_id,quantity}], flags?:[{scope,flag,value}], rep?:[{ideology,delta}] }`
+  quest can be edited without corrupting live progress), `spawned` (row ids of auto-spawned
+  `retrieve` items, so they can be taken back out of the world) and `targets`
+  ([rolled targets](#rolled-targets), frozen at start).
+  - `rewards`: `{ credits?, xp?, advance?, items?:[{item_id,quantity}], flags?:[{scope,flag,value}], rep?:[{ideology,delta}] }`
 - `player_quests` — `player_id, quest_id, status ('active'|'completed'|'turned_in'|'abandoned'|'failed'), progress JSONB (index-aligned counters), started_at, updated_at`.
 
 Dev CRUD lives under `/api/quests` (GET/POST, PUT/DELETE by id) for devpanel authoring.
@@ -112,6 +117,7 @@ whose predicate matches it. The systems that fire those events do not know quest
 | `install` | `augment.installed` | `target` (augment id, optional) | chrome fitted in a theatre. **The one Event this plugin caused to exist** |
 | `mutate` | `mutation.gained` | `target` (mutation id, optional) | one Event covers every grant path — radiation, flask, authored `GRANT_MUTATION` |
 | `subdue` | `knockout.landed` | `target` (npc id, or name substring) | names a **person**, like `assassinate`. ⚠ Credits the hand that swung, never the body on the floor |
+| `state` | — (polled) | `when` (a condition) | met by the WORLD, not by you — see [World-state objectives](#world-state-objectives--state--avert) |
 | `restore` | `player.death` (`claimed`) | — | a death somebody arranged for in advance: the only kind that skips augment corruption |
 
 `buy`/`sell`/`craft`/`hack`/`spend`/`survive`/`install`/`mutate` treat a blank target as "anything
@@ -131,6 +137,182 @@ four constraint conditions below cost a predicate each and no change to the syst
 a **number**, which is the amount to add. That is what makes an objective measured in credits
 (`spend`) or in output quantity (`craft`) expressible at all, rather than only ones measured in
 repetitions.
+
+## Optional objectives
+
+`optional: true` on an objective takes it out of the finish line. It is still tracked, still listed
+(marked `(optional)`), still gateable with `requires` — but `isComplete` ignores it, so the quest can
+be handed in without it. That is the whole difference between a quest being done and being done
+well, which is most of what makes a repeatable worth doing properly the fifth time.
+
+An optional objective may carry `rewards` of its own, in the quest's `rewards` shape. Each one that
+was actually met is paid at turn-in, after the quest's own rewards and through the same
+`grantRewards` path (ledger reason `quest:bonus`, so a bonus is distinguishable from the fee).
+
+Mandatory work is offered before optional work in every "Next:" hint — a bonus suggested ahead of
+the thing that finishes the quest reads as the game misdirecting you.
+
+⚠ **An optional objective must never be named in a MANDATORY objective's `requires`.** The
+completion check ignores optional objectives, `requires` does not, so the mandatory one stays locked
+forever and the quest is unfinishable for anyone who skipped the bonus. `content:lint` refuses that
+shape; without the lint it is a defect that reads as the quest system being broken rather than as a
+content bug.
+
+## Branching resolutions
+
+`quests.resolutions` is a list of endings. `TURN_IN` pays the **first** whose `when` passes;
+`quests.rewards` is the fallback when none matches or none is authored, so an ordinary quest is
+unaffected.
+
+```jsonc
+resolutions: [
+  { id: 'told',  when: { flag: 'told_maresh', op: 'eq', value: 'true' }, rewards: { … },
+    on_turn_in: { start_quest: 'quest_the_spire_calls' } },
+  { id: 'kept',  when: { relation: 'trusted', target: 'npc_vale' },      rewards: { … } },
+  { id: 'plain', rewards: { … } },        // no `when` — an unconditional catch-all, last
+]
+```
+
+`when` goes through `evalCondition` ([server/engine/flags.js](../../server/engine/flags.js)) — the
+same evaluator dialogue options and quest gating use — so every condition shape in the game (flags,
+relations, `ideology_rep`, `mastery`) works here on day one and new ones arrive for free. A
+resolution may name its own `on_turn_in`, which is what makes two endings two stories rather than
+two payouts.
+
+Until this existed a quest could only end one way, so "you can finish this two ways" had to be built
+as two quests joined by hand-written flags — the crossover at slot 7 of
+[the faction arc ladder](../../docs/systems-faction-arcs.md) is exactly this shape.
+
+⚠ **Which ending paid is RECORDED, not re-derived**: on `player_quests.resolution`, and mirrored to
+the player flag `<quest_id>_resolution`. Later content gates on that flag through the ordinary Flag
+mechanism, with no new condition shape. Re-evaluating the `when` afterwards answers a different
+question — the flag it read may have changed since.
+
+## Rolled targets
+
+Any of an objective's three target fields — `target`, `item_id`, `zone` — may hold a **selector**
+instead of a fixed id. It is resolved once, when the quest is taken, and the answer is frozen onto
+`player_quests.targets` (index-aligned to the objectives, `[{}, {target:'…'}]`).
+
+```jsonc
+{ type: 'kill',     target: '@enemy_in:coldwater', count: 3 }
+{ type: 'retrieve', item_id: '@any_of:[item_a,item_b]', zone: '@zone_with:flags.terrain=marsh' }
+```
+
+| selector | resolves to |
+|---|---|
+| `@any_of:[a,b,c]` | one of the listed ids |
+| `@zone_with:<key>=<value>` | a zone id — `key` is a column (`map_id`, `marker`) or `flags.<x>`. Reads the live world Maps, so it costs nothing and cannot disagree with what the player walks into |
+| `@enemy_in:<map_id>` | the NAME of a species that actually spawns somewhere on that map, which is what a `kill` objective matches on |
+
+`registerQuestSelector(name, fn)` adds more; `fn` may be async and may query, because resolution
+happens once per quest taken and never on an event path. A plugin that owns a domain can teach
+quests to roll over it without this file importing that domain.
+
+Everything downstream reads the frozen value through `applyRolled`, so predicates, GPS routing,
+`retrieve` auto-spawning, the quest log and the tablet needed no change. A quest that rolls nothing
+stores `[]` and `applyRolled` returns the authored array unchanged, which is why this is free on
+every read path.
+
+This is what [the job board](../jobboard/README.md) had been waiting for: it rolls *which* quest is
+posted and has never rolled anything inside one, so the same gig was byte-identical every rotation.
+
+⚠ **A selector that matches nothing REFUSES the quest**, at `START_QUEST`, before the row is
+written. Starting it anyway gives the player an objective nothing can satisfy — which presents as a
+content bug for weeks rather than as the missing spawn table it is. The refusal to the player is
+vague on purpose; the reason (naming the selector) goes to the console, because the author is the
+only one who can act on it.
+
+⚠ **Retaking a quest re-rolls it.** A second attempt at a rolling gig is a new gig.
+
+## World-state objectives — `state` / `avert`
+
+Every other objective type is driven by something the **player** did. `state` is the one driven by
+the world: met when a condition holds. Its `fail_on` mirror `avert` blows the quest when one becomes
+true. That is what lets a quest be about the city — the power staying on, a storm passing — rather
+than only about you.
+
+```jsonc
+objectives: [{ type: 'state', when: { scope: 'world', flag: 'grid_stable', op: 'eq', value: 'true' },
+               desc: 'The grid comes back' }]
+fail_on:    [{ type: 'avert', when: { scope: 'world', flag: 'block_burned' }, desc: 'The block burned.' }]
+```
+
+`when` is an ordinary condition object, so a **world flag** needs nothing built — world flags are
+already a cached in-memory map, which is what makes polling them affordable. Any registered
+condition shape works too.
+
+⚠ **These are POLLED, never subscribed.** There is no event to hang them on, so they settle at the
+three points a quest is already being looked at: an event that touched this player, opening the
+quest log, and hand-in. Same argument as [the lazy clock](#the-clock-is-lazy-and-thats-the-safe-choice),
+and the same guarantee — a condition can be *noticed* late, but `TURN_IN` polls **before** it decides
+whether the quest is finished, so it can never be missed at the moment it matters. A quest carrying
+neither kind returns on the first line of the poll without evaluating anything.
+
+## Offer windows — `available`
+
+`available: { when, hours }` decides whether a quest is on offer at all. `hours` is an in-world
+window and **may wrap midnight** (`[22, 4]`), which is the case a naive `from <= h <= to` gets wrong;
+`withinHours` is a pure function for exactly that reason. `START_QUEST` refuses a closed window in
+the world's voice, and [the job board](../jobboard/README.md) filters at the **roll**, so a lapsed
+quest never takes one of the board's few slots and sits there unclickable.
+
+A per-posting expiry is deliberately **not** built here: the board already rotates its postings on a
+clock, and a second expiry beside it would be two answers to when a job stops being offered.
+
+## The advance — `rewards.advance`
+
+Money that moves when the job is **taken** rather than when it is finished, and **kept when the
+quest is failed**. Before it, taking a job cost nothing and failing one lost nothing you were
+holding, which is why `penalties` had to invent a debt out of nothing; with it, failing a job you
+took an advance on is theft and `penalties` has something real to charge for.
+
+⚠ **A retake of a FAILED or ABANDONED attempt pays nothing.** Paying it again makes take-fail-repeat
+a faucet. A repeatable quest taken again after being turned in *is* a new job and pays. The rule is
+`advanceFor(quest, existingStatus)`, a pure function, so it can be tested without a bank account.
+
+⚠ **The advance and the penalty are stated separately, never netted.** An advance of 200 and a fine
+of 200 reported as one number reads to a player as nothing having happened.
+
+## Exclusivity — `blocks`
+
+`blocks: [quest_id…]` on a quest permanently closes the named quests for that player the moment this
+one is **taken**: the Null contract shuts the Watch's. Applied as a player flag per blocked id
+(`quest_blocked_<id>`), so dialogue can gate on it through the ordinary Flag mechanism and no new
+`player_quests` status was needed. `START_QUEST` refuses a blocked quest before writing anything.
+
+⚠ **A closed quest stays closed even if the quest that closed it is failed.** A door that reopens
+when you fumble the thing that shut it is not a decision.
+
+⚠ **Blocking is permanent by construction and must be authored deliberately** — the same argument
+`meta.failPermanent` already makes. Default to blocking nothing.
+
+## What happens next — `on_fail` / `on_turn_in`
+
+Two nullable columns, both `{ start_quest: <quest_id> }`, dispatched through the ordinary
+`START_QUEST` action once the ending's own event has fired. The interesting answer to a failure is
+rarely a fine — it is the cleanup job, or the person who now wants a word — and stating that as a
+field retires the hand-written flag chains that used to link a quest to its sequel.
+
+⚠ **A follow-up already live on that player is refused**, as is a quest naming itself. Two quests
+each naming the other on failure is an authoring mistake, and without the guard it costs a loop at
+runtime rather than a red in review. A follow-up that is *failed* or *abandoned* does restart —
+`START_QUEST`'s own retry rule, unchanged.
+
+## Where these are used
+
+The first quests authored against the fields above, as worked examples:
+
+| | quest |
+|---|---|
+| `resolutions` | `quest_asc_cross` — the Ascendant crossover, where lapsing at the press is one ending and carrying the address back is the other |
+| `blocks` | `quest_asc_rite` and `quest_lw_rite` close each other. The Rite is a fitting and `chromed_ever` burns the flesh path on its own; the vigil needs the field to say the same thing back, because nothing in the engine stops a man who kept nothing back from going and buying a spine |
+| `available.hours` | `quest_fs_wake` (4–8), `quest_fs_seatfill` (19–2, wrapping), `quest_fs_pigeon` (6–18) |
+| `optional` + a rolled `zone` | `quest_fs_pigeon`'s fourth stop — a bonus street, somewhere different every time |
+| `rewards.advance` | `quest_hal_escort` (Halcyon pays retainers), `quest_under_apex` and `quest_under_salvage` (money to go in fed, lit and armed) |
+
+Three of eighteen board gigs carry an hour window on purpose. A board whose whole
+list is conditional is a board nobody can plan around.
 
 ## Extension points
 

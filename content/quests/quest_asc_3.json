@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Vess will show you the building. She is very good at this and she has done it several thousand times.\n\nThe Gallery first, because it is beautiful. Then the Vats, because that is the promise — the room where a body is kept against the day you need another one, warm, indexed, and paid up. Vess talks about it the way a good manager talks about a well-run store room, and every word of it is accurate. Then the Sanctum, which is small, and quiet, and where the actual signing happens.\n\n\"People think we sell chrome,\" she says on the stairs. \"We sell the sentence *and then*. Everything else is delivery.\"",
+  "description": "Vess will show you the building. She's very good at this and she has done it several thousand times.\n\nThe Gallery first, because it's beautiful. Then the Vats, because that's the promise — the room where a body is kept against the day you need another one, warm, indexed, and paid up. Vess talks about it the way a good manager talks about a well-run store room, and every word of it's accurate. Then the Sanctum, which is small, and quiet, and where the actual signing happens.\n\n\"People think we sell chrome,\" she says on the stairs. \"We sell the sentence *and then*. Everything else is delivery.\"",
   "fail_on": [],
   "id": "quest_asc_3",
   "meta": {},
@@ -37,7 +37,7 @@
       "desc": "Finish the tour in the Sanctum.",
       "emotes": [
         "{who} is shown into a small room with two chairs and no window.",
-        "{who} is told this is where it is signed, and that it takes less time than the tour did."
+        "{who} is told this is where it's signed, and that it takes less time than the tour did."
       ],
       "id": "o2",
       "requires": [

@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "It is not a good story and it is not a short one.",
+  "self_line": "It isn't a good story and it isn't a short one.",
   "source": "object_reply_identity",
   "tone": "normal"
 }

@@ -197,19 +197,19 @@ const MELLOW_MUTTER = [
   (n) => `${n} laughs at something that finished a while ago.`,
   (n) => `${n} considers the ceiling with enormous patience.`,
   (n) => `${n} starts a sentence, forgets it, and doesn't mind at all.`,
-  (n) => `${n} announces they are starving, and does nothing whatsoever about it.`,
+  (n) => `${n} announces they're starving, and does nothing whatsoever about it.`,
 ];
 const TRIPPING_MUTTER = [
   (n) => `${n} runs a hand along the wall, watching where their fingers have been.`,
-  (n) => `${n} says something to the room that the room does not answer.`,
-  (n) => `${n} watches the floor breathe, entirely unbothered that it is doing so.`,
+  (n) => `${n} says something to the room that the room doesn't answer.`,
+  (n) => `${n} watches the floor breathe, entirely unbothered that it's doing so.`,
   (n) => `${n} tries to explain something enormous, gets three words in, and gives up laughing.`,
 ];
 const DISSOCIATED_MUTTER = [
   (n) => `${n} is looking at you, but from somewhere considerably further away than this room.`,
   (n) => `${n} moves one arm slowly, as though it belongs to somebody they used to know.`,
   (n) => `${n} answers a question nobody asked, about four seconds late.`,
-  (n) => `${n} blinks once, very slowly, and does not seem to arrive at the end of it.`,
+  (n) => `${n} blinks once, very slowly, and doesn't seem to arrive at the end of it.`,
 ];
 const LUCID_MUTTER = [
   (n) => `${n} finishes a thought out loud with unnerving precision.`,
@@ -555,7 +555,7 @@ const PRESHOW_RITUALS = [
   [`checks the countdown feed — "...live in ten" — and goes very still for a moment.`,
    `taps out a neat line of {drug} along the back of a hand mirror, with the ease of long habit.`,
    `takes it in one, blinks twice as the room sharpens to a razor's edge, and grins at their own reflection.`],
-  [`digs a tin out from somewhere it was not supposed to be, and weighs it in one hand.`,
+  [`digs a tin out from somewhere it wasn't supposed to be, and weighs it in one hand.`,
    `dabs a little {drug} onto their gums and works their jaw, waiting for it.`,
    `rolls their shoulders as it lands, and the pre-show nerves go out of them all at once.`],
   [`"Nobody tunes in for flat," they tell the empty room, entirely reasonably.`,
@@ -705,7 +705,7 @@ const POUR_AGAIN = [
   `tops the glass up. There was no gap between the last one and this one.`,
   `refills, drinks half of it standing, and sits back down heavier.`,
   `holds the bottle up to the light, finds it emptier than expected, and pours anyway.`,
-  `does not bother with the glass this time.`,
+  `doesn't bother with the glass this time.`,
 ];
 
 function keepPouring(npc, drinkName, extra, opts) {
@@ -730,7 +730,7 @@ const BOOZE_RITUALS = [
   [`reaches for the {drug} without looking, which tells you where it lives.`,
    `pours a measure with the steadiness of someone who has never once considered that it might be a problem.`,
    `drinks it off, breathes out, and pours the next one before the first has landed.`],
-  [`finds a mug that has not held coffee in some years.`,
+  [`finds a mug that hasn't held coffee in some years.`,
    `fills it most of the way with {drug} and drinks off half in one go.`],
   [`cracks the seal on a fresh bottle of {drug}, glances at the door, and pours anyway.`,
    `settles back with the glass and the particular calm of a problem deferred.`],

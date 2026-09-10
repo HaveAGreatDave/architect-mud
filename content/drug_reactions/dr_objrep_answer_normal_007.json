@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "That is not as bad as you are making it sound.",
+  "self_line": "That isn't as bad as you're making it sound.",
   "source": "object_reply_answer",
   "tone": "normal"
 }

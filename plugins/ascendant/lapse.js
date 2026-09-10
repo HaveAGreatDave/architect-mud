@@ -129,11 +129,11 @@ registerAction({
     const q = await lapseQuote(actor);
     const bits = [];
     if (q.augments.length) bits.push(`they would take back: <b>${q.augments.map(a => a.name).join(', ')}</b>`);
-    else bits.push('they have fitted you with nothing, so there is nothing to take back');
+    else bits.push("they have fitted you with nothing, so there's nothing to take back");
     if (q.restores) bits.push(`<b>${q.restores}</b> prepaid restore${q.restores === 1 ? '' : 's'} would be written off`);
     sendToPlayer(actor.id, {
       type: 'output',
-      message: `<span class="msg-system">You do the sum he is not doing for you: ${bits.join('; ')}.</span>`,
+      message: `<span class="msg-system">You do the sum he isn't doing for you: ${bits.join('; ')}.</span>`,
     });
     return { quoted: true, ...q };
   },

@@ -1,5 +1,5 @@
 {
-  "description": "A single bare bulb over the counter and a string of scavenged LED rope tacked along the shelves: just enough light to appraise the goods, not enough to see how you are being appraised back.",
+  "description": "A single bare bulb over the counter and a string of scavenged LED rope tacked along the shelves: just enough light to appraise the goods, not enough to see how you're being appraised back.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

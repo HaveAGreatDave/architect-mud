@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A field of machine wreckage worked over methodically from one end: cores pulled, casings stacked by alloy, the picked-over frames dragged aside in rows. A crew is here now, four of them, in grey, working without much talk. They do not look up. They are not stripping this for scrap value. Everything they have kept is the part that used to do the thinking.",
+  "description": "A field of machine wreckage worked over methodically from one end: cores pulled, casings stacked by alloy, the picked-over frames dragged aside in rows. A crew is here now, four of them, in grey, working without much talk. They don't look up. They aren't stripping this for scrap value. Everything they have kept is the part that used to do the thinking.",
   "exits": {
     "east": "zone_scw_1069_990",
     "north": "zone_scw_1068_989",

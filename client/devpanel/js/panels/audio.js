@@ -452,10 +452,10 @@ function _isPlainConfig(c) { return c && typeof c === 'object' && !Array.isArray
 // Returns a short problem string, or null if it looks well-formed.
 function _configProblem(cfg) {
   if (cfg == null) return null; // empty config is legal (pure defaults)
-  if (!_isPlainConfig(cfg)) return 'config is not an object';
-  if (cfg.adsr != null && !_isPlainConfig(cfg.adsr)) return 'adsr is not an object';
-  if (cfg.filter != null && !_isPlainConfig(cfg.filter)) return 'filter is not an object';
-  if (cfg.layers != null && !Array.isArray(cfg.layers)) return 'layers is not an array';
+  if (!_isPlainConfig(cfg)) return "config isn't an object";
+  if (cfg.adsr != null && !_isPlainConfig(cfg.adsr)) return "adsr isn't an object";
+  if (cfg.filter != null && !_isPlainConfig(cfg.filter)) return "filter isn't an object";
+  if (cfg.layers != null && !Array.isArray(cfg.layers)) return "layers isn't an array";
   return null;
 }
 
@@ -1204,6 +1204,7 @@ function instrumentLikeConfigFields(cfg, prefix) {
   const vibrato = cfg.vibrato || {};
   const tremolo = cfg.tremolo || {};
   const fm = cfg.fm || {};
+  const op2 = fm.op2 || {};
   const echo = cfg.echo || {};
   return `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
@@ -1231,21 +1232,77 @@ function instrumentLikeConfigFields(cfg, prefix) {
       <div class="field"><label>Tremolo Depth${_help('Volume-wobble amount (0–1) applied at the tremolo rate.')}</label><input id="${prefix}-tremdepth" type="number" step="0.05" min="0" max="1" value="${tremolo.depth ?? 0}"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
-      <div class="field"><label>FM Rate (Hz)${_help('Modulator oscillator frequency for FM synthesis. 0 = off.')}</label><input id="${prefix}-fmrate" type="number" step="1" min="0" value="${fm.rate ?? 0}"></div>
-      <div class="field"><label>FM Depth (Hz)${_help('Frequency deviation in Hz. Modulation index = depth ÷ carrier freq.')}</label><input id="${prefix}-fmdepth" type="number" step="1" min="0" value="${fm.depth ?? 0}"></div>
-      <div class="field"><label>Echo Mix${_help('Wet/dry blend of the echo (0 = dry, 1 = full echo).')}</label><input id="${prefix}-echomix" type="number" step="0.01" min="0" max="1" value="${echo.mix ?? 0}"></div>
-      <div class="field"><label>Echo Delay (s)${_help('Time between echo repeats, in seconds.')}</label><input id="${prefix}-echodelay" type="number" step="0.01" min="0" value="${echo.delay ?? 0.18}"></div>
+      <div class="field"><label>FM Ratio (× note)${_help('Modulator frequency as a MULTIPLE of the note — 1 = harmonic, 3.5 = bell, 14 = Rhodes. Use this for anything played at more than one pitch: it keeps the timbre the same across the keyboard. Overrides FM Rate. 0 = off.')}</label><input id="${prefix}-fmratio" type="number" step="0.01" min="0" value="${fm.ratio ?? 0}"></div>
+      <div class="field"><label>FM Rate (Hz)${_help('Modulator frequency in absolute Hz — right for a fixed-pitch impact, wrong for an instrument. Ignored when FM Ratio is set. 0 = off.')}</label><input id="${prefix}-fmrate" type="number" step="1" min="0" value="${fm.rate ?? 0}"></div>
+      <div class="field"><label>FM Depth (Hz)${_help('Frequency deviation in Hz. Ignored when FM Index is set.')}</label><input id="${prefix}-fmdepth" type="number" step="1" min="0" value="${fm.depth ?? 0}"></div>
+      <div class="field"><label>FM Wave${_help("The modulator's own waveform. Sine is classic FM; square and sawtooth are far grittier sideband families.")}</label><select id="${prefix}-fmwave">
+        ${['sine', 'square', 'sawtooth', 'triangle'].map(t => `<option value="${t}" ${(fm.wave || 'sine') === t ? 'selected' : ''}>${t}</option>`).join('')}
+      </select></div>
+      <div class="field"><label>FM Brightness (velocity)${_help('How far a note’s velocity opens the index. This is what makes playing HARDER change the timbre rather than only the volume — the difference between a piano and a keyboard. 0 = velocity only moves the level. Try 1.5.')}</label><input id="${prefix}-fmbright" type="number" step="0.1" min="0" value="${fm.bright ?? 0}"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>FM Index${_help('Modulation index — deviation ÷ modulator freq. Scale-free, so it survives a change of pitch where Depth does not. Overrides FM Depth. 0 = use Depth.')}</label><input id="${prefix}-fmindex" type="number" step="0.05" min="0" value="${fm.index ?? 0}"></div>
+      <div class="field"><label>FM Index End${_help('Where the index travels to over Sweep Time. An index COLLAPSING from high to low is what turns a tone into a STRUCK object — the single most expressive control here. Leave blank for a static index.')}</label><input id="${prefix}-fmindexend" type="number" step="0.05" min="0" value="${fm.indexEnd ?? ''}"></div>
+      <div class="field"><label>FM Depth Sweep To (Hz)${_help('The same sweep expressed in raw Hz, for a layer authored with Depth rather than Index. Ignored when Index End is set. Leave blank for a static index.')}</label><input id="${prefix}-fmdepthto" type="number" step="1" min="0" value="${fm.depthTo ?? ''}"></div>
+      <div class="field"><label>FM Rate Sweep To (Hz)${_help('Modulator pitch travels here over Sweep Time. Falling modulator pitch is what makes an impact read as inharmonic rather than musical. 0 = static. Ignored when FM Ratio drives a pitch bend.')}</label><input id="${prefix}-fmrateto" type="number" step="1" min="0" value="${fm.rateTo ?? 0}"></div>
+      <div class="field"><label>FM Sweep Time (s)${_help('Seconds for the index and modulator pitch to reach (most of the way to) their targets.')}</label><input id="${prefix}-fmtime" type="number" step="0.01" min="0" value="${fm.time ?? 0}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>FM Ratio Sweep To (× note)${_help('The modulator-pitch sweep expressed as a multiple of the note rather than in Hz, so it tracks pitch the way FM Ratio does. Overrides Rate Sweep To. 0 = off.')}</label><input id="${prefix}-fmratioto" type="number" step="0.01" min="0" value="${fm.ratioTo ?? 0}"></div>
+      <div class="field"><label>Op2 Ratio (× note)${_help('SECOND OPERATOR, in series: it modulates the modulator, not the carrier. This is where FM stops sounding like oscillators and starts sounding like a material. Ratio is against the NOTE, same as FM Ratio. 0 = no second operator.')}</label><input id="${prefix}-op2ratio" type="number" step="0.01" min="0" value="${op2.ratio ?? 0}"></div>
+      <div class="field"><label>Op2 Index${_help("Second operator's modulation index. Small numbers go a long way — this compounds through the first operator.")}</label><input id="${prefix}-op2index" type="number" step="0.05" min="0" value="${op2.index ?? 0}"></div>
+      <div class="field"><label>Op2 Index End${_help("Where the second operator's index travels to, over FM Sweep Time. Blank for static.")}</label><input id="${prefix}-op2indexend" type="number" step="0.05" min="0" value="${op2.indexEnd ?? ''}"></div>
+      <div class="field"><label>Echo Mix${_help('Wet/dry blend of the echo (0 = dry, 1 = full echo).')}</label><input id="${prefix}-echomix" type="number" step="0.01" min="0" max="1" value="${echo.mix ?? 0}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>Echo Delay (s)${_help('Time between echo repeats, in seconds.')}</label><input id="${prefix}-echodelay" type="number" step="0.01" min="0" value="${echo.delay ?? 0.18}"></div>
       <div class="field"><label>Echo Feedback${_help('How much of each echo feeds back into the next (higher = more repeats).')}</label><input id="${prefix}-echofb" type="number" step="0.05" min="0" max="0.95" value="${echo.feedback ?? 0.35}"></div>
+      <div class="field"><label>Drive (0-1)${_help('Soft-clip distortion. Sits after the envelope and before the filter, so it behaves like an amplifier: a hard attack comes out dirtier than the tail. Normalised, so raising it adds harmonics without adding level. 0 = clean.')}</label><input id="${prefix}-drive" type="number" step="0.05" min="0" max="1" value="${cfg.drive ?? 0}"></div>
       <div class="field"><label>Noise Mix (0-1)${_help('Blends in white noise alongside the waveform — good for percussion and texture.')}</label><input id="${prefix}-noisemix" type="number" step="0.05" min="0" max="1" value="${cfg.noiseMix ?? 0}"></div>
       <div class="field"><label>Gain (0-1)${_help('Overall output level of this sound.')}</label><input id="${prefix}-gain" type="number" step="0.05" min="0" max="1" value="${cfg.gain ?? 1}"></div>
     </div>`;
 }
 
+// The FM block, read once. Both editors below render it from the SAME
+// instrumentLikeConfigFields, so reading it in two places is two chances for the
+// instrument form and the SFX-layer form to disagree about what a field means —
+// which is the drift this repo keeps paying for elsewhere. One reader.
+//
+// Every key is omitted when it is off, exactly like the filter sweep above: a
+// cue authored before ratio/index existed round-trips through this editor byte
+// for byte, rather than picking up a drift of `ratio: 0, wave: 'sine'` noise.
+function _readFmBlock(prefix) {
+  const el = (k) => document.getElementById(`${prefix}-${k}`);
+  const num = (k, fb = 0) => { const e = el(k); if (!e) return fb; const v = parseFloat(e.value); return isNaN(v) ? fb : v; };
+  // Blank ≠ zero for the sweep targets: an index that collapses to 0 is a real
+  // and useful voice, so "no sweep" has to be the empty field, not the number.
+  const opt = (k) => { const e = el(k); if (!e || e.value.trim() === '') return null; const v = parseFloat(e.value); return isNaN(v) ? null : v; };
+  const ratio = num('fmratio'), rate = num('fmrate');
+  if (ratio <= 0 && rate <= 0) return null;
+  const index = num('fmindex'), indexEnd = opt('fmindexend'), depthTo = opt('fmdepthto');
+  const ratioTo = num('fmratioto'), rateTo = num('fmrateto'), time = num('fmtime'), wave = el('fmwave')?.value, bright = num('fmbright');
+  const o2ratio = num('op2ratio'), o2index = num('op2index'), o2indexEnd = opt('op2indexend');
+  return {
+    ...(ratio > 0 ? { ratio } : { rate }),
+    ...(index > 0 ? { index } : { depth: num('fmdepth', 100) }),
+    // Both spellings of the sweep are kept, and BOTH have to be readable here.
+    // Exposing only the index form silently dropped `depthTo` on save — which is
+    // 57 of the 102 hockey layers, every one of them devpanel-editable through
+    // HockeySfx.BUILTINS, and the parameter whose loss turns a struck impact into
+    // a steady buzz. A form that cannot read a field it can overwrite is a
+    // deletion tool.
+    ...(indexEnd != null ? { indexEnd } : depthTo != null ? { depthTo } : {}),
+    ...(ratioTo > 0 ? { ratioTo } : rateTo > 0 ? { rateTo } : {}),
+    ...(time > 0 ? { time } : {}),
+    ...(wave && wave !== 'sine' ? { wave } : {}),
+    ...(bright > 0 ? { bright } : {}),
+    ...(o2ratio > 0 ? { op2: { ratio: o2ratio, index: o2index, ...(o2indexEnd != null ? { indexEnd: o2indexEnd } : {}) } } : {}),
+  };
+}
+
 function readInstrumentLikeConfig(prefix, extra) {
   const num = (id, fallback) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? fallback : v; };
-  const fmRate = num(`${prefix}-fmrate`, 0);
+  const fm = _readFmBlock(prefix);
   const echoMix = num(`${prefix}-echomix`, 0);
   return {
     adsr: { a: num(`${prefix}-a`, 0.01), d: num(`${prefix}-d`, 0.05), s: num(`${prefix}-s`, 0.7), r: num(`${prefix}-r`, 0.15) },
@@ -1255,8 +1312,9 @@ function readInstrumentLikeConfig(prefix, extra) {
       ...(num(`${prefix}-filterto`, 0) > 0 ? { to: num(`${prefix}-filterto`, 0), time: num(`${prefix}-filtertime`, 0.2) } : {}) },
     vibrato: { rate: num(`${prefix}-vibrate`, 0), depth: num(`${prefix}-vibdepth`, 0) },
     tremolo: { rate: num(`${prefix}-tremrate`, 0), depth: num(`${prefix}-tremdepth`, 0) },
-    ...(fmRate > 0 ? { fm: { rate: fmRate, depth: num(`${prefix}-fmdepth`, 100) } } : {}),
+    ...(fm ? { fm } : {}),
     ...(echoMix > 0 ? { echo: { mix: echoMix, delay: num(`${prefix}-echodelay`, 0.18), feedback: num(`${prefix}-echofb`, 0.35) } } : {}),
+    ...(num(`${prefix}-drive`, 0) > 0 ? { drive: num(`${prefix}-drive`, 0) } : {}),
     noiseMix: num(`${prefix}-noisemix`, 0),
     gain: num(`${prefix}-gain`, 1),
     ...extra,
@@ -1358,16 +1416,18 @@ function _sfxSaveOpenLayers() {
     layer.waveform = document.getElementById(`${p}-wave`)?.value || 'square';
     layer.freq = num(`${p}-freq`, 440);
     layer.delay = num(`${p}-delay`, 0);
-    const fmRate = num(`${p}-fmrate`, 0);
+    const fm = _readFmBlock(p);
     const echoMix = num(`${p}-echomix`, 0);
     layer.adsr = { a: num(`${p}-a`, 0.01), d: num(`${p}-d`, 0.05), s: num(`${p}-s`, 0.7), r: num(`${p}-r`, 0.15) };
     layer.filter = { type: document.getElementById(`${p}-filtertype`)?.value || 'lowpass', freq: num(`${p}-filterfreq`, 4000), q: num(`${p}-filterq`, 1),
       ...(num(`${p}-filterto`, 0) > 0 ? { to: num(`${p}-filterto`, 0), time: num(`${p}-filtertime`, 0.2) } : {}) };
     layer.vibrato = { rate: num(`${p}-vibrate`, 0), depth: num(`${p}-vibdepth`, 0) };
     layer.tremolo = { rate: num(`${p}-tremrate`, 0), depth: num(`${p}-tremdepth`, 0) };
+    const drv = num(`${p}-drive`, 0);
+    if (drv > 0) layer.drive = drv; else delete layer.drive;
     layer.noiseMix = num(`${p}-noisemix`, 0);
     layer.gain = num(`${p}-gain`, 1);
-    if (fmRate > 0) layer.fm = { rate: fmRate, depth: num(`${p}-fmdepth`, 100) }; else delete layer.fm;
+    if (fm) layer.fm = fm; else delete layer.fm;
     if (echoMix > 0) layer.echo = { mix: echoMix, delay: num(`${p}-echodelay`, 0.18), feedback: num(`${p}-echofb`, 0.35) }; else delete layer.echo;
   });
 }

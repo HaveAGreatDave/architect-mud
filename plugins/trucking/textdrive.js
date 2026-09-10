@@ -32,6 +32,7 @@ import { TILES_PER_ROOM, nodeAt } from './corridor.js';
 import { afterDrive } from './scale.js';
 import { hitcherAt } from './hitchers.js';
 import { wearFor, breakdownRoll } from './rig.js';
+import { roadTestTick } from './roadtest.js';
 import { createTruckState, step, truckReadout, truckShift, truckSplit } from '../../client/game/js/panels/flight-model.js';
 
 // One tile of city road, or one slice of corridor, per tick. 2s is deliberately unhurried: the
@@ -138,7 +139,7 @@ const ROAD_LINES = [
   'The engine settles into its note and holds it.',
   'Heat-shimmer stands on the hardtop ahead and never gets closer.',
   'A wind comes across the flat and leans on the trailer for a while.',
-  'Mile markers, if that is what they are. Nobody has repainted them.',
+  "Mile markers, if that's what they are. Nobody has repainted them.",
 ];
 const CITY_LINES = [
   'A junction, a dead signal, nobody coming the other way.',
@@ -212,6 +213,10 @@ async function tick() {
 }
 
 async function stepRun(player, rig, run) {
+  // THE LESSON, on this rung too, through the identical evaluator — its milestones are distances
+  // from the yard, which this tick maintains a tile at a time exactly as the cab maintains them
+  // four times a second. One law, both rungs (docs/systems-display-mode.md).
+  roadTestTick(player, rig);
   // A fight stops the truck. You cannot drive away from something that is already on you, and a
   // text player who is mid-combat must not have the road narrating over the top of it.
   if (player.inCombat || player.combatTarget) return;

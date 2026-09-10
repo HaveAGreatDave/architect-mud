@@ -113,7 +113,7 @@ export async function cmdBench(args, raw, player) {
 
   const { rows } = await query(`SELECT DISTINCT flags->>'crafting_station' AS station FROM furniture WHERE flags ? 'crafting_station'`);
   const stations = rows.map(r => r.station).filter(Boolean).sort();
-  if (!stations.length) return { type: 'output', message: 'There are no workbenches anywhere. That cannot be right.' };
+  if (!stations.length) return { type: 'output', message: "There are no workbenches anywhere. That can't be right." };
 
   if (!want) {
     // No argument: nearest bench of ANY kind, and say what else is out there.
@@ -241,7 +241,7 @@ async function recipeDetail(player, recipe, levels) {
     { label: 'Output', value: `${recipe.base_output?.quantity || 1}× ${names[recipe.base_output?.item_id] || recipe.base_output?.item_id || '?'}` },
     { label: 'Method', value: isCook ? 'Cook (minigame)' : 'Craft' },
     { label: 'Bench', value: station
-        ? `${station.replace(/_/g, ' ')}${atBench ? ' — you are here ✓' : ' — travel required'}`
+        ? `${station.replace(/_/g, ' ')}${atBench ? " — you're here ✓" : ' — travel required'}`
         : 'No bench — craft anywhere' },
   ];
   for (const ing of (recipe.ingredients || [])) {
@@ -300,7 +300,7 @@ async function spliceDetail(player) {
   const rows = [
     { label: 'Skill', value: `chemistry (${SPLICE_MIN_SKILL}+)` },
     { label: 'Method', value: 'Splice designer (minigame)' },
-    { label: 'Bench', value: `chem lab${atBench ? ' — you are here ✓' : ' — travel required'}` },
+    { label: 'Bench', value: `chem lab${atBench ? " — you're here ✓" : ' — travel required'}` },
     { label: 'Needs', value: 'Two or more different processed drugs on hand' },
   ];
   const actions = [];

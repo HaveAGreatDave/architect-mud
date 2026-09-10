@@ -1,8 +1,10 @@
 {
-  "description": "A slab of black glass and machined aluminium that grinds, tamps, brews and steams without ever being asked twice. It has a screen. The screen has a personality setting.",
+  "description": "A slab of black glass and machined aluminium that grinds, tamps, brews and steams without ever being asked twice. It warms its own cups. It has a screen, and the screen has a personality setting.",
   "flags": {
-    "aliases": "coffee machine,bean-to-cup,machine",
-    "brew_tier": "machine"
+    "aliases": "coffee machine,bean-to-cup,machine,cup,cups",
+    "brew_tier": "machine",
+    "vends": "item_porcelain_cup",
+    "vend_line": "A warmed porcelain cup rises out of the top of the machine on a little platform, because of course it does."
   },
   "hp": null,
   "hp_max": null,

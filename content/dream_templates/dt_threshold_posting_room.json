@@ -2,10 +2,10 @@
   "ambient": [
     "Something is folded, checked and set aside.",
     "The queue moves up by one.",
-    "A crease is pressed flat with a thumb that is not a thumb."
+    "A crease is pressed flat with a thumb that isn't a thumb."
   ],
   "cause": "drug",
-  "description": "A long counter, and something behind it is folding you down along creases that were already there, competently, into a shape that will fit inside an ordinary day. It is not unkind and it is not rushed. There is a queue behind you and everything in it has been somewhere enormous.",
+  "description": "A long counter, and something behind it's folding you down along creases that were already there, competently, into a shape that'll fit inside an ordinary day. It isn't unkind and it isn't rushed. There's a queue behind you and everything in it has been somewhere enormous.",
   "drug_id": "drug_threshold",
   "fx": "static",
   "fx_intensity": 0.45,
@@ -15,16 +15,16 @@
     {
       "looks": [
         "Already there. You have been folded along them before.",
-        "They run through parts of you that did not appear to be separate.",
-        "You go down small very neatly, and it does not hurt at all."
+        "They run through parts of you that didn't appear to be separate.",
+        "You go down small very neatly, and it doesn't hurt at all."
       ],
       "name": "the creases"
     },
     {
       "looks": [
-        "Patient. All of it has been somewhere it cannot describe.",
+        "Patient. All of it has been somewhere it can't describe.",
         "None of them look at each other, which appears to be the etiquette.",
-        "It is not getting shorter, and it is moving."
+        "It isn't getting shorter, and it's moving."
       ],
       "name": "the queue behind you"
     }

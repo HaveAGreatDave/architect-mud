@@ -36,7 +36,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('craftSeconds: harder recipes always take longer than easier ones',
     craftSeconds(mk(12, { chemistry: 8 })) > craftSeconds(mk(2)),
     `${craftSeconds(mk(12, { chemistry: 8 }))} vs ${craftSeconds(mk(2))}`);
-  check('craftSeconds: never zero or negative, whatever it is handed',
+  check("craftSeconds: never zero or negative, whatever it's handed",
     craftSeconds(mk(-99)) >= 1 && craftSeconds(null) === 0 && craftSeconds({}) === 3);
 
   // Every real recipe must land somewhere a player would accept — a 0-second
@@ -46,7 +46,7 @@ export default async function regress({ run, check, getPlayer }) {
   check(`craftSeconds: all ${times.length} live recipes land in a sane band`,
     times.length > 0 && times.every(t => t >= 1 && t <= 120),
     `min=${Math.min(...times)} max=${Math.max(...times)}`);
-  check('craftSeconds: the live recipes are not all the same duration (the craft_time failure mode)',
+  check("craftSeconds: the live recipes aren't all the same duration (the craft_time failure mode)",
     new Set(times).size > 1, `${new Set(times).size} distinct durations`);
 
   // ── The timed craft ─────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ export default async function regress({ run, check, getPlayer }) {
   // else and the catalogue had no live door at all.
   r = await run('craft');
   check('craft: bare craft lists the catalogue', r?.type === 'recipes' || r?.type === 'output', JSON.stringify(r)?.slice(0, 120));
-  check('craft: …and no longer points at a verb it does not own', !/RECIPES/i.test(r?.message || ''), r?.message);
+  check("craft: …and no longer points at a verb it doesn't own", !/RECIPES/i.test(r?.message || ''), r?.message);
 
   // Drive the activity contract directly with a synthetic craft state, so the
   // test doesn't depend on the fake player being able to afford any recipe.

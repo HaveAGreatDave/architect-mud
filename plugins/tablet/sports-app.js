@@ -49,7 +49,7 @@ const CODES = {
   },
   hockey: {
     id: 'hockey', tab: 'Cluster Puck', league: 'CPhL', icon: '🏒',
-    empty: 'The CPhL has not dropped a puck yet.',
+    empty: "The CPhL hasn't dropped a puck yet.",
     cols: ['W', 'L', 'OTL', 'PTS', 'GD'],
     row: (r) => {
       const gd = (r.goals_for || 0) - (r.goals_against || 0);
@@ -166,7 +166,7 @@ async function teamScreen(player, code, teamParam) {
     out.push({ label: 'Position', value: `${idx + 1} of ${rows.length}` });
     code.cols.forEach((c, k) => out.push({ label: c, value: code.row(rec)[k] }));
   } else {
-    out.push({ label: 'Record', value: 'Has not played yet this season.' });
+    out.push({ label: 'Record', value: "Hasn't played yet this season." });
   }
 
   if (card?.streak > 1) {

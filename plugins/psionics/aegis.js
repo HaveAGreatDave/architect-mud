@@ -115,8 +115,8 @@ export async function ward(player, broadcast) {
   if (!check.success) {
     await resolveStrain(player, broadcast);
     return { type: 'output', message: voice(player, {
-      low:  'Nothing settles. You are just standing there with your hands open.',
-      high: 'The shape will not hold. It comes apart faster than you can put it up.',
+      low:  "Nothing settles. You're just standing there with your hands open.",
+      high: "The shape won't hold. It comes apart faster than you can put it up.",
     }) };
   }
 
@@ -124,7 +124,7 @@ export async function ward(player, broadcast) {
   refreshWard(player);
   await resolveStrain(player, broadcast);
   return { type: 'output', message: voice(player, {
-    low:  'You set yourself. The air in front of you feels like it is paying attention.',
+    low:  "You set yourself. The air in front of you feels like it's paying attention.",
     high: 'The air a handspan off your skin goes hard and stays there.',
   }) };
 }
@@ -136,7 +136,7 @@ export async function bulwark(player, targetStr, broadcast) {
   if (refusal) return { type: 'error', message: refusal };
 
   const others = (getZonePlayers(player.current_zone) || []).filter(p => p.id !== player.id);
-  if (!others.length) return { type: 'error', message: 'There is nobody here to cover.' };
+  if (!others.length) return { type: 'error', message: "There's nobody here to cover." };
   const target = targetStr
     ? siftResolve(targetStr, others, { verb: 'bulwark' })
     : others[0];
@@ -150,7 +150,7 @@ export async function bulwark(player, targetStr, broadcast) {
 
   if (!check.success) {
     await resolveStrain(player, broadcast);
-    return { type: 'output', message: 'It will not reach that far.' };
+    return { type: 'output', message: "It won't reach that far." };
   }
 
   applyEffect(target, 'psi_ward', WARD_TICKS);
@@ -205,7 +205,7 @@ export async function redoubt(player, broadcast) {
   await resolveStrain(player, broadcast);
   return { type: 'output', message: voice(player, {
     low:  'You take hold of the whole room and the whole room lets you.',
-    high: 'You put a shape over everyone here at once, and you will not be doing anything else while it stands.',
+    high: "You put a shape over everyone here at once, and you won't be doing anything else while it stands.",
   }) };
 }
 
@@ -221,7 +221,7 @@ export function wardUpkeep(player) {
   if (resonanceOf(player) < 2) {
     clearEffect(player, 'psi_ward');
     refreshWard(player);
-    return 'The shape goes out of the air. There is nothing left to hold it up with.';
+    return "The shape goes out of the air. There's nothing left to hold it up with.";
   }
   spend(player, 2, 1);
   return null;
@@ -244,7 +244,7 @@ async function discharge(player, abilityId, args, broadcast, { min, max, sigStre
   if (refusal) return { type: 'error', message: refusal };
 
   const enemies = (getZoneEnemies(player.current_zone) || []).filter(e => e.hp > 0);
-  if (!enemies.length) return { type: 'error', message: 'There is nothing here to burn.' };
+  if (!enemies.length) return { type: 'error', message: "There's nothing here to burn." };
 
   const parts = String(args || '').trim().split(/\s+/).filter(Boolean);
   let calledPart = null;
@@ -271,7 +271,7 @@ async function discharge(player, abilityId, args, broadcast, { min, max, sigStre
   });
   if (!hit) {
     await resolveStrain(player, broadcast);
-    return { type: 'combat', message: 'It is already down.' };
+    return { type: 'combat', message: "It's already down." };
   }
 
   if (broadcast) {
@@ -301,7 +301,7 @@ export async function cascade(player, broadcast) {
   if (refusal) return { type: 'error', message: refusal };
 
   const enemies = (getZoneEnemies(player.current_zone) || []).filter(e => e.hp > 0);
-  if (!enemies.length) return { type: 'error', message: 'There is nothing here worth it.' };
+  if (!enemies.length) return { type: 'error', message: "There's nothing here worth it." };
 
   const cost = abilityCost(player, 'cascade');
   const check = await psiCheck(player, 'cascade');

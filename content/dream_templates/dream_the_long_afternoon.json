@@ -1,6 +1,6 @@
 {
   "ambient": [
-    "Dust turns over in the light and does not settle.",
+    "Dust turns over in the light and doesn't settle.",
     "Outside, somebody goes past on the road, at four.",
     "The room is exactly as warm as it was."
   ],
@@ -16,14 +16,14 @@
       "looks": [
         "Across the boards, at four, where it has been.",
         "It has moved the width of a floorboard since you were young here.",
-        "Your hand in it is your hand at every age you have had."
+        "Your hand in it's your hand at every age you have had."
       ],
       "name": "the light"
     },
     {
       "looks": [
         "Worn where you wear a chair.",
-        "You have sat in it for a long time and it is not tired of you.",
+        "You have sat in it for a long time and it isn't tired of you.",
         "From it, the whole room, and no reason at all to get up."
       ],
       "name": "the chair"

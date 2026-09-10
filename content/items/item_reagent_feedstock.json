@@ -1,9 +1,10 @@
 {
-  "description": "A small pressurised fuel-gas cylinder, the kind that feeds a camp stove or a backup generator through a cold night. Gauge on the collar, dent in the skirt, a refill sticker from four vendors ago.",
+  "description": null,
   "flags": {},
   "id": "item_reagent_feedstock",
   "name": "fuel cylinder",
   "tags": {
+    "description": "A small pressurised fuel-gas cylinder, the kind that feeds a camp stove or a backup generator through a cold night. Gauge on the collar, dent in the skirt, a refill sticker from four vendors ago.",
     "reagent": true
   },
   "type": "chemical",

@@ -73,12 +73,12 @@ async function buildScreen(player) {
     untilMins: until,
     untilLabel: alarm == null ? null : `${until} game min · about ${prettyWait(until)} real`,
     subtitle: alarm == null
-      ? 'No alarm set. You will sleep until your body is done.'
+      ? "No alarm set. You'll sleep until your body is done."
       : `Alarm set for ${hhmm(alarm)}.`,
     rows,
     body: [
       'Set it before you sleep — anywhere, not just at a bed.',
-      'It wakes you at that time even if you are not finished resting,',
+      "It wakes you at that time even if you aren't finished resting,",
       'so a short nap is a choice you can actually make.',
     ].join('\n'),
     actions,
@@ -93,7 +93,7 @@ async function handleAction(player, actionId, params) {
   if (actionId === 'set') {
     const mins = parseTime(params);
     if (mins == null) {
-      return { view: 'error', message: 'That is not a time. Try 07:30, 730 or 0730 (24-hour).' };
+      return { view: 'error', message: "That isn't a time. Try 07:30, 730 or 0730 (24-hour)." };
     }
     await setAlarm(player, mins);
     return buildScreen(player);

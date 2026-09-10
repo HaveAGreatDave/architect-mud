@@ -48,8 +48,8 @@ export default async function regress({ check }) {
 
   // The applicability rules are the reason ops and subsystems are separate
   // tables. If these collapse, six operations have become one with six skins.
-  check('you cannot jam a hydraulic ram', !operationApplies('jam', 'actuation'));
-  check('you cannot lock a telemetry stream', !operationApplies('lock', 'telemetry'));
+  check("you can't jam a hydraulic ram", !operationApplies('jam', 'actuation'));
+  check("you can't lock a telemetry stream", !operationApplies('lock', 'telemetry'));
   check('you can jam a sensor', operationApplies('jam', 'sensor'));
   check('sabotage reaches power', operationApplies('sabotage', 'power'));
 
@@ -89,7 +89,7 @@ export default async function regress({ check }) {
   try {
     Date.now = () => realNow() + TRACE_HALFLIFE_MS;
     addTrace(P, 10, 0);
-    check('a fresh delta does not resurrect decayed trace',
+    check("a fresh delta doesn't resurrect decayed trace",
       traceOf(P) < 31, `got ${traceOf(P)}`);
   } finally {
     Date.now = realNow;
@@ -109,7 +109,7 @@ export default async function regress({ check }) {
   // Refresh must take the LATER expiry — the applyEffect Math.max rule. A second
   // jam landing on a running one must never cut it short.
   suppressSubsystem(K, 'optics', 'jam', 1);
-  check('a shorter refresh does not shorten a running suppression',
+  check("a shorter refresh doesn't shorten a running suppression",
     subsystemDown(K, 'optics') === 'jam');
 
   try {
@@ -128,7 +128,7 @@ export default async function regress({ check }) {
   // exists. If this goes red, the wanted system and the feed will disagree.
 
   const DEV = 'regress-null-cam';
-  check('an untouched camera is not suppressed', nullSuppressed(DEV) === null);
+  check("an untouched camera isn't suppressed", nullSuppressed(DEV) === null);
 
   suppressSubsystem(deviceKey(DEV), 'optics', 'jam', 5000);
   check('a Null-jammed camera reads exactly "jammed"',
@@ -145,7 +145,7 @@ export default async function regress({ check }) {
   // ── Augments: the same funnel, via getAugments ────────────────────────────
 
   const AUG = 'aug_test_arm';
-  check('untouched chrome is not down', nullAugmentDown(P, AUG) === false);
+  check("untouched chrome isn't down", nullAugmentDown(P, AUG) === false);
 
   suppressSubsystem(augmentKey(P, AUG), 'actuation', 'lock', 5000);
   check('a locked actuator takes the augment offline', nullAugmentDown(P, AUG) === true);
@@ -157,7 +157,7 @@ export default async function regress({ check }) {
   check('a spoofed telemetry stream does NOT disable the augment',
     nullAugmentDown(P, AUG) === false);
   releaseSubsystem(augmentKey(P, AUG), 'telemetry');
-  check('telemetry is not in the vital set', !VITAL.has('telemetry'));
+  check("telemetry isn't in the vital set", !VITAL.has('telemetry'));
 
   // ── Difficulty composition ────────────────────────────────────────────────
 
@@ -239,7 +239,7 @@ export default async function regress({ check }) {
     });
     const r2 = await _test.cmdNullResolve(['wrong', '1'], '', fake, () => {});
     check('a resolve with the WRONG nonce is a no-op', r2?.type === 'noop', JSON.stringify(r2));
-    check('...and does not consume the armed operation', _test.pending.has(P));
+    check("...and doesn't consume the armed operation", _test.pending.has(P));
 
     // An expired arm is dropped rather than honoured — a board left open for an
     // hour is not a licence to cash it in later.
@@ -255,7 +255,7 @@ export default async function regress({ check }) {
 
   check('an untagged item cancels no security', nullIntrusion({ tags: {} }) === 0);
   check('intrusion strength is read off the tag', nullIntrusion({ tags: { null_intrusion: 6 } }) === 6);
-  check('a junk tag cannot hand out free wins', nullIntrusion({ tags: { null_intrusion: -5 } }) === 0);
+  check("a junk tag can't hand out free wins", nullIntrusion({ tags: { null_intrusion: -5 } }) === 0);
 
   check('stealth is a fraction, not a percentage', nullStealth({ tags: { null_stealth: 50 } }) === 0.5);
   // Gear may buy TIME inside a system, never unlimited time.
@@ -305,7 +305,7 @@ export default async function regress({ check }) {
     operationApplies('powerspike', 'power')
       && !operationApplies('powerspike', 'sensor')
       && !operationApplies('powerspike', 'telemetry'));
-  check('powerspike is durable — you cannot wait it out',
+  check("powerspike is durable — you can't wait it out",
     getNullOperation('powerspike').kind === 'durable');
   check('powerspike costs real skill to reach',
     getNullOperation('powerspike').minSkill >= 5);
@@ -328,7 +328,7 @@ export default async function regress({ check }) {
 
   const outsider = { id: '00000000-0000-0000-0000-0000000000ff' };
   const refused = await wrapped([], '', outsider);
-  check('an outsider is refused, and is not told the surface exists',
+  check("an outsider is refused, and isn't told the surface exists",
     refused?.message === 'Unknown command.' && gatedCalls.length === 0, refused?.message);
 
   check('the refusal reveals nothing about the Null, the skill or the standing',

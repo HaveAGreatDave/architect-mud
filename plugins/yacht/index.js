@@ -155,7 +155,7 @@ registerLockType('yachtlock', {
     messages: {
       lock:   'The Echelon seals the hatch with a whisper of hydraulics.',
       unlock: 'The hatch releases, recognising you.',
-      denied: 'The hatch does not acknowledge you. You are not welcome here.',
+      denied: "The hatch doesn't acknowledge you. You aren't welcome here.",
     },
   },
   authFn: async (lockTag, door, player) => {
@@ -180,7 +180,7 @@ registerMoveGate(async ({ player, from, to }) => {
   if (!to?.flags?.yacht) return;                        // not boarding the yacht
   if (from?.flags?.yacht && !isOpenDeck(from)) return;  // already aboard — internal move
   if (await isInvited(player)) return;
-  return { block: true, message: 'An unseen checkpoint holds you at the gangway. The Echelon does not know you.' };
+  return { block: true, message: "An unseen checkpoint holds you at the gangway. The Echelon doesn't know you." };
 }, 'yacht:board');
 
 // ── Smite backstop ──────────────────────────────────────────────────────────────
@@ -198,7 +198,7 @@ on('zone.entered', async ({ actor, zone }) => {
   if (await isInvited(actor)) return;
   const bc = getBroadcast();
   bc?.(zone, { type: 'zone_event', message: `${actor.handle} sets foot aboard the Echelon — and is gone in a flash of white light.` }, actor.id);
-  sendToPlayer(actor.id, { type: 'output', message: 'The deck recognises an intruder. There is a flash of white, and then nothing at all.' });
+  sendToPlayer(actor.id, { type: 'output', message: "The deck recognises an intruder. There's a flash of white, and then nothing at all." });
   await handlePlayerDeath(actor, null, { type: 'admin', label: SMITE_LABEL }).catch(e => console.error('[yacht] smite:', e.message));
 });
 
@@ -225,7 +225,7 @@ async function cmdUninvite(args, raw, player) {
   if (!nameStr) return { type: 'error', message: 'Usage: uninvite <player> — removes them from the Echelon invite list.' };
   const target = await resolveHandle(nameStr);
   if (!target) return { type: 'error', message: `No player named "${nameStr}" found.` };
-  if (!(await isInvitedById(target.id))) return { type: 'system', message: `${target.handle} is not on the Echelon invite list.` };
+  if (!(await isInvitedById(target.id))) return { type: 'system', message: `${target.handle} isn't on the Echelon invite list.` };
   await removeInvite(target.id);
   return { type: 'system', message: `${target.handle} removed from the Echelon invite list.` };
 }
@@ -599,7 +599,7 @@ async function startPassage(ext, path, cruise, msPerTile, player, broadcast) {
 async function cmdSail(args, raw, player, broadcast) {
   if (player.role !== 'admin') return ADMIN_ONLY;
   const ext = getZone(EXTERIOR);
-  if (!ext) return { type: 'error', message: 'The Echelon is not on the water right now.' };
+  if (!ext) return { type: 'error', message: "The Echelon isn't on the water right now." };
   if (!getZone(player.current_zone)?.flags?.echelon_bridge) {
     return { type: 'error', message: 'You can only steer the Echelon from her bridge.' };
   }
@@ -635,7 +635,7 @@ async function cmdSail(args, raw, player, broadcast) {
     // Land dead ahead — she can't answer the order. If this came from an open helm console, cancel its
     // optimistic local glide so the chase view snaps her back to her real tile (she never moved).
     if (helmViewers.has(player.id)) sendToPlayer(player.id, { type: 'helm_hold', gx: ext.grid_x, gy: ext.grid_y });
-    return { type: 'error', message: 'The Echelon moves only over open water. There is no channel that way.' };
+    return { type: 'error', message: "The Echelon moves only over open water. There's no channel that way." };
   }
 
   const { tx, ty, passageMs } = await startPassage(ext, path, cruise, msPerTile, player, broadcast);
@@ -649,7 +649,7 @@ async function cmdSail(args, raw, player, broadcast) {
 async function cmdSailTo(args, raw, player, broadcast) {
   if (player.role !== 'admin') return ADMIN_ONLY;
   const ext = getZone(EXTERIOR);
-  if (!ext) return { type: 'error', message: 'The Echelon is not on the water right now.' };
+  if (!ext) return { type: 'error', message: "The Echelon isn't on the water right now." };
   if (!getZone(player.current_zone)?.flags?.echelon_bridge) {
     return { type: 'error', message: 'You can only steer the Echelon from her bridge.' };
   }
@@ -665,7 +665,7 @@ async function cmdSailTo(args, raw, player, broadcast) {
   const path = chartCourse(ext.grid_x, ext.grid_y, tx, ty);
   if (!path) {
     if (helmViewers.has(player.id)) sendToPlayer(player.id, { type: 'helm_hold', gx: ext.grid_x, gy: ext.grid_y });
-    return { type: 'error', message: 'There is no navigable channel to that tile — the Echelon can only make way over open water.' };
+    return { type: 'error', message: "There's no navigable channel to that tile — the Echelon can only make way over open water." };
   }
 
   const { tx: ax, ty: ay, passageMs } = await startPassage(ext, path, cruise, SAIL_MS_PER_TILE_COURSE, player, broadcast);
@@ -675,13 +675,13 @@ async function cmdSailTo(args, raw, player, broadcast) {
 async function cmdDock(args, raw, player) {
   if (player.role !== 'admin') return ADMIN_ONLY;
   const ext = getZone(EXTERIOR);
-  if (!ext) return { type: 'error', message: 'The Echelon is not on the water right now.' };
+  if (!ext) return { type: 'error', message: "The Echelon isn't on the water right now." };
   if (await isDocked()) {
     await undockAll();
     return { type: 'system', message: 'The gangway retracts. The Echelon is free to move.' };
   }
   const pier = adjacentPier(ext.grid_x, ext.grid_y);
-  if (!pier) return { type: 'error', message: 'There is no pier alongside. Bring her beside one first.' };
+  if (!pier) return { type: 'error', message: "There's no pier alongside. Bring her beside one first." };
   await dockTo(pier.pier.id, pier.dir);
   return { type: 'system', message: `The gangway lowers to ${pier.pier.name}. Invited guests may now board or step ashore.` };
 }
@@ -742,7 +742,7 @@ async function cmdHelmConsole(args, raw, player) {
   }
   if (player.role !== 'admin') return ADMIN_ONLY;
   const ext = getZone(EXTERIOR);
-  if (!ext) return { type: 'error', message: 'The Echelon is not on the water right now.' };
+  if (!ext) return { type: 'error', message: "The Echelon isn't on the water right now." };
   if (!getZone(player.current_zone)?.flags?.echelon_bridge) {
     return { type: 'error', message: 'You can only take the helm from her bridge.' };
   }

@@ -6,7 +6,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#26221d",
   "color": "#c2b394",
-  "description": "A storage room with a hand-lettered sign on the door: ST GARNEAU'S FOOD PANTRY FOR THE POOR. Wire shelving, mostly tins, sorted by somebody who cared enough to face all the labels the same way. A clipboard hangs on a nail by the door with a sheet on it headed TAKEN, and a pen on a string, and the honour system written across the top in the same hand as every note upstairs. The most recent entries are not in that hand and are not entries.",
+  "description": "A storage room with a hand-lettered sign on the door: ST GARNEAU'S FOOD PANTRY FOR THE POOR. Wire shelving, mostly tins, sorted by somebody who cared enough to face all the labels the same way. A clipboard hangs on a nail by the door with a sheet on it headed TAKEN, and a pen on a string, and the honour system written across the top in the same hand as every note upstairs. The most recent entries aren't in that hand and aren't entries.",
   "exits": {
     "south": "zone_stgarneau_basement"
   },

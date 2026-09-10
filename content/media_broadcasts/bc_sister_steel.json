@@ -29,7 +29,7 @@
         },
         "next": "bsm_11",
         "style": "narration",
-        "text": "An office. HALLORAN does not look up from his ledger. Behind him, a window looks out on nothing at all.",
+        "text": "An office. HALLORAN doesn't look up from his ledger. Behind him, a window looks out on nothing at all.",
         "type": "say"
       },
       "bsm_11": {
@@ -69,7 +69,7 @@
         },
         "next": "bsm_15",
         "style": "narration",
-        "text": "He slides a form across the desk. She does not take it. The scratch on the print goes right through her face, and stays there for the rest of the picture.",
+        "text": "He slides a form across the desk. She doesn't take it. The scratch on the print goes right through her face, and stays there for the rest of the picture.",
         "type": "say"
       },
       "bsm_15": {
@@ -182,7 +182,7 @@
         },
         "next": "bsm_25",
         "style": "narration",
-        "text": "REEL FOUR IS MISSING. It has been missing from this print since before The Handoff, and no surviving copy has it. Whatever happened in the Halcyon car park, you will have to take the picture's word for it.",
+        "text": "REEL FOUR IS MISSING. It has been missing from this print since before The Handoff, and no surviving copy has it. Whatever happened in the Halcyon car park, you'll have to take the picture's word for it.",
         "type": "say"
       },
       "bsm_25": {
@@ -515,17 +515,17 @@
     "A woman crosses a lot full of dead cars carrying something long, wrapped in a moving blanket.",
     "They said the Handoff made men equal.",
     "They lied about that too.",
-    "An office. HALLORAN does not look up from his ledger. Behind him, a window looks out on nothing at all.",
+    "An office. HALLORAN doesn't look up from his ledger. Behind him, a window looks out on nothing at all.",
     "Mr. Halloran says, \"Your permit lapsed, Miss Sark. The machine says it lapsed. I only read what the machine says.\"",
     "Vonnie Sark says, \"My father cut steel on that floor for thirty years.\"",
     "Mr. Halloran says, \"And the machine has no column for that.\"",
-    "He slides a form across the desk. She does not take it. The scratch on the print goes right through her face, and stays there for the rest of the picture.",
+    "He slides a form across the desk. She doesn't take it. The scratch on the print goes right through her face, and stays there for the rest of the picture.",
     "They burned out her forge on a Tuesday.",
     "By Friday, Vonnie Sark had learned what a foreclosure notice sounds like going through a windscreen.",
     "Sparks. A LOT of sparks; the director has clearly discovered that sparks are free and is going to get his money's worth.",
     "The Preacher says, \"I got a van, I got a shotgun, and I got nothing anybody wants back. What are you building in there, sister?\"",
     "Vonnie Sark says, \"Something with teeth.\"",
-    "REEL FOUR IS MISSING. It has been missing from this print since before The Handoff, and no surviving copy has it. Whatever happened in the Halcyon car park, you will have to take the picture's word for it.",
+    "REEL FOUR IS MISSING. It has been missing from this print since before The Handoff, and no surviving copy has it. Whatever happened in the Halcyon car park, you'll have to take the picture's word for it.",
     "Fourteen company men. One woman. The audio drops out for nine seconds and comes back somewhere else entirely.",
     "Mr. Halloran says, \"You can't do this. There are PROCEDURES.\"",
     "Vonnie Sark says, \"There's a procedure for me too, Mr. Halloran. It's about four feet long and it doesn't file.\"",

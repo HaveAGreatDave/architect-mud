@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Somebody is teaching somebody else to braze, patiently, for what is clearly not the first time.",
+  "description": "Somebody is teaching somebody else to braze, patiently, for what's clearly not the first time.",
   "exits": {
     "north": "zone_scw_1053_972",
     "south": "zone_scw_1053_974",

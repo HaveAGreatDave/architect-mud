@@ -2,10 +2,10 @@
   "enabled": true,
   "id": "bt_thorn_pump",
   "lines": [
-    "\"It is your week on the pump.\"",
-    "\"It is not my week on the pump.\"",
-    "\"It is written down. In chalk. In your handwriting.\"",
-    "\"...it is my week on the pump.\""
+    "\"It's your week on the pump.\"",
+    "\"It isn't my week on the pump.\"",
+    "\"It's written down. In chalk. In your handwriting.\"",
+    "\"...it's my week on the pump.\""
   ],
   "personality": null,
   "sort_order": 100

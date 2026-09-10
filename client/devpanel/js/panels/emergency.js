@@ -387,7 +387,7 @@ async function espDeactivate() {
 
 async function espSaveMessage() {
   const message = document.getElementById('esp-msg')?.value?.trim();
-  if (!message) { toast('Message cannot be empty', true); return; }
+  if (!message) { toast("Message can't be empty", true); return; }
   const r = await directAPI('/emergency/message', 'PUT', { message });
   if (r.error) { toast(r.error, true); return; }
   toast('Warning message updated' + (r.message ? ' and broadcast live' : ''));

@@ -1,10 +1,11 @@
 {
-  "description": "A media cassette labeled \"Hard Wired 4: The Ductwork\". The sleeve art is a wrench, a bathrobe and a wall of steam, airbrushed by somebody who had all three described to them over the phone. A previous owner has written HA on the spine in pen and then thought better of it.",
+  "description": null,
   "flags": {},
   "id": "item_cassette_hard_wired_4_the_ductwork",
   "name": "Cassette: Hard Wired 4: The Ductwork",
   "tags": {
     "broadcast_id": "bc_hard_wired_4",
+    "description": "A media cassette labeled \"Hard Wired 4: The Ductwork\". The sleeve art is a wrench, a bathrobe and a wall of steam, airbrushed by somebody who had all three described to them over the phone. A previous owner has written HA on the spine in pen and then thought better of it.",
     "media_cassette": true,
     "unique": true
   },

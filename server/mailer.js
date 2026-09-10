@@ -33,7 +33,7 @@ export function mailerConfigProblem() {
   // `Name <addr>` display form, stray whitespace.
   const from = senderEmail();
   if (!/^[^\s@<>",]+@[^\s@<>",]+\.[^\s@<>",]+$/.test(from)) {
-    return `SMTP_FROM_EMAIL is not a bare email address (got "${process.env.SMTP_FROM_EMAIL}")`;
+    return `SMTP_FROM_EMAIL isn't a bare email address (got "${process.env.SMTP_FROM_EMAIL}")`;
   }
   return null;
 }
@@ -63,7 +63,7 @@ async function send({ label, toEmail, subject, textTemplate, htmlTemplate, vars,
   if (problem) {
     // Loud, and still print the link so a dev can complete the flow by hand.
     console.error(`[mailer] NOT CONFIGURED (${problem}) — ${label} to ${toEmail} was NOT sent. Link: ${link}`);
-    throw new Error(`Email delivery is not configured on this server (${problem}).`);
+    throw new Error(`Email delivery isn't configured on this server (${problem}).`);
   }
   // Rendered *outside* the try: a missing/unreadable template is a filesystem
   // problem on this server, and blaming the mail provider for it sends whoever
@@ -74,7 +74,7 @@ async function send({ label, toEmail, subject, textTemplate, htmlTemplate, vars,
     htmlContent = render(htmlTemplate, vars);
   } catch (e) {
     console.error(`[mailer] ${label} to ${toEmail} FAILED to render (${textTemplate}/${htmlTemplate}): ${e.message}. Link: ${link}`);
-    throw new Error(`Email template could not be loaded on this server.`);
+    throw new Error(`Email template couldn't be loaded on this server.`);
   }
   const client = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
   try {

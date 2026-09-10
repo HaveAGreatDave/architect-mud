@@ -1,11 +1,11 @@
 {
   "ambient": [
     "The note holds.",
-    "Something happens inside the note and does not disturb it.",
-    "It is joined by itself, at the same pitch, and stays one note."
+    "Something happens inside the note and doesn't disturb it.",
+    "It's joined by itself, at the same pitch, and stays one note."
   ],
   "cause": "drug",
-  "description": "One note, held, that everything else is happening inside. It has been going since before this and it is not building to anything. The rest of the world is arranged around it and is quieter than it, and it is not loud.",
+  "description": "One note, held, that everything else is happening inside. It has been going since before this and it isn't building to anything. The rest of the world is arranged around it and is quieter than it, and it isn't loud.",
   "drug_id": "drug_khole",
   "fx": "static",
   "fx_intensity": 0.7,
@@ -15,7 +15,7 @@
     {
       "looks": [
         "One pitch. No change in it anywhere.",
-        "It is not coming from a direction. You have checked all of them.",
+        "It isn't coming from a direction. You have checked all of them.",
         "It has been going long enough that stopping would be the event."
       ],
       "name": "the note"
@@ -24,7 +24,7 @@
       "looks": [
         "Arranged inside it, and getting on.",
         "Smaller than the note and going about its business.",
-        "It defers to the note and does not know that it is doing so."
+        "It defers to the note and doesn't know that it's doing so."
       ],
       "name": "everything else"
     }

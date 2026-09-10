@@ -83,7 +83,7 @@ export async function loadAugments() {
     // that can be pushed past spec must be able to say what happens when it
     // lets go. A generic "malfunction" line is the failure this guards against.
     if (Number(a.overclock_max) > 0 && !Object.keys(a.failure_messages || {}).length) {
-      console.warn(`[augments] ${a.id} is overclockable but authors no failure_messages — it will fail silently.`);
+      console.warn(`[augments] ${a.id} is overclockable but authors no failure_messages — it'll fail silently.`);
     }
   }
   AUGMENT_CACHE = cache;

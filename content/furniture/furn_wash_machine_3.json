@@ -1,5 +1,5 @@
 {
-  "description": "Painted 3, and it walks. Half a step to the left on every spin cycle, which is why there is a wooden wedge under the front foot and a note above it asking you, politely, to put the wedge back.",
+  "description": "Painted 3, and it walks. Half a step to the left on every spin cycle, which is why there's a wooden wedge under the front foot and a note above it asking you, politely, to put the wedge back.",
   "flags": {
     "interactions": [
       "launder"

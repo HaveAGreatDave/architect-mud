@@ -4,7 +4,7 @@
     "What was here before all this?",
     "Will you light it again?"
   ],
-  "description": "A head cut from the same stone as the wall, set up near the ceiling where it can see the whole floor, worn nearly featureless by weather that has not reached in here for a very long time.",
+  "description": "A head cut from the same stone as the wall, set up near the ceiling where it can see the whole floor, worn nearly featureless by weather that hasn't reached in here for a very long time.",
   "drug_id": "drug_mescaline",
   "emotes": [
     "{it} regards the room, as it has been doing.",
@@ -16,14 +16,14 @@
   "id": "dx_mescaline_camera_watcher",
   "looks": [
     "The features are worn almost flat, and the eyes are the part that survived best.",
-    "It is set at the one angle that takes in the whole room including the doorway.",
-    "There is old soot on the wall beneath it, in a fan, from something that used to burn there."
+    "It's set at the one angle that takes in the whole room including the doorway.",
+    "There's old soot on the wall beneath it, in a fan, from something that used to burn there."
   ],
   "matches": "camera",
   "name": "a carved head high on the wall",
   "says": [
     "I have watched better rooms than this one.",
-    "It is not you in particular.",
+    "It isn't you in particular.",
     "They stopped lighting the fire a long time ago."
   ],
   "scope": "object"

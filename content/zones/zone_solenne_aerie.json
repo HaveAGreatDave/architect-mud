@@ -1,0 +1,27 @@
+{
+  "ambient_events": [
+    "The bay changes colour by a shade as something moves under it, and changes back.",
+    "A steward crosses the room, takes a glass that is not empty, and replaces it with one that is fuller.",
+    "The glass hums, very faintly, in a gust nobody in the room can feel."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1b2733",
+  "color": "#e8ddc6",
+  "description": "A members' room walled entirely in glass on the water side, forty-one floors up, with the Coldwater bay laid out flat and grey below and the weather happening at eye level. Low leather chairs face outward in ones and twos, angled so that no member need look at another. There is a bar along the back wall with no prices on it and a brass telescope on a stand by the north pane, kept polished, pointed at the deep water. Step <b>in</b> to the elevator.",
+  "exits": {
+    "in": "zone_solenne_elevator"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "floor": "boards",
+    "is_interior": true,
+    "sanctuary": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 8,
+  "id": "zone_solenne_aerie",
+  "map_id": "map_int_solenne",
+  "name": "The Aerie",
+  "parent_zone": "zone_district_914_908"
+}

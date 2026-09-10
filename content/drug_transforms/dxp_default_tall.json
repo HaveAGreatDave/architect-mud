@@ -4,7 +4,7 @@
     "Am I doing this properly?",
     "Would you say the hands are the problem?"
   ],
-  "description": "A person stands here a full head taller than they should be, proportioned by somebody working from a description rather than a memory. It is a good try and it is not right.",
+  "description": "A person stands here a full head taller than they should be, proportioned by somebody working from a description rather than a memory. It's a good try and it isn't right.",
   "drug_id": null,
   "emotes": [
     "{it} lowers itself slightly, as though trying to be less tall, and gives up.",
@@ -16,15 +16,15 @@
   "id": "dxp_default_tall",
   "looks": [
     "The arms are a joint too long, and the hands hang lower than hands hang.",
-    "The face is assembled correctly. It is simply assembled.",
-    "It stands the way somebody stands when they are waiting to be told where to stand."
+    "The face is assembled correctly. It's simply assembled.",
+    "It stands the way somebody stands when they're waiting to be told where to stand."
   ],
   "matches": null,
-  "name": "a very tall person who is nearly right",
+  "name": "a very tall person who's nearly right",
   "says": [
     "I got most of it right.",
-    "You are the first person to look properly.",
-    "Do not worry about it. Nobody else has."
+    "You're the first person to look properly.",
+    "Don't worry about it. Nobody else has."
   ],
   "scope": "person"
 }

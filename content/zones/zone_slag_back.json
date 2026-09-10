@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#231713",
-  "description": "In under the cart, where the good stuff sleeps and so does he. Sacking, a bedroll, and the heavy grades stacked as ballast so the whole thing cannot be tipped by anything that has tried so far. Scratches on the underside of the boards count something. He will not say what.",
+  "description": "In under the cart, where the good stuff sleeps and so does he. Sacking, a bedroll, and the heavy grades stacked as ballast so the whole thing can't be tipped by anything that has tried so far. Scratches on the underside of the boards count something. He won't say what.",
   "exits": {
     "south": "zone_slag_shop"
   },

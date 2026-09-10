@@ -1111,14 +1111,14 @@ export function passSign(player, rig) {
 // which is enough truck-stopping room. The feature never depends on the radio; the LEAD does.
 const HITCH_CALLS = [
   { tiles: 60, cb: true, say: (who, mi) =>
-    `<span class="text-dim">CB: “Anybody running this stretch — there is somebody thumbing it about ${mi} miles ahead of me. `
+    `<span class="text-dim">CB: “Anybody running this stretch — there's somebody thumbing it about ${mi} miles ahead of me. `
     + `Been out there a while by the look of it.”</span>` },
   { tiles: 18, cb: false, say: (who, mi) =>
     `<span class="text-amber">A shape resolves out of the haze on the right-hand verge, a long way off and not moving.</span>`
-    + ` <span class="text-dim">About ${mi} miles. Come off the throttle now if you are going to stop for them.</span>` },
+    + ` <span class="text-dim">About ${mi} miles. Come off the throttle now if you're going to stop for them.</span>` },
   { tiles: 6, cb: false, say: (who, mi) =>
     `<span class="text-amber">Close enough to see now: ${who.look}. A hand comes up as you close.</span>`
-    + ` <span class="text-dim">${mi} mile${mi === 1 ? '' : 's'} — ${teachVerb('pickup', 'pickup')} if you are stopping.</span>` },
+    + ` <span class="text-dim">${mi} mile${mi === 1 ? '' : 's'} — ${teachVerb('pickup', 'pickup')} if you're stopping.</span>` },
 ];
 // The farthest mark, which is also how far ahead the lookahead has to reach.
 const HITCH_LOOK = Math.max(...HITCH_CALLS.map((c) => c.tiles));
@@ -1157,8 +1157,8 @@ export function passHitcher(player, rig) {
 // that said different things in the cab and in the text run would be two radios.
 const CB_CHATTER = [
   'Somebody two hundred miles back is describing his divorce to nobody in particular.',
-  '“…and I told him, that is not a load, that is an insult with a tarp over it.”',
-  'A woman counts something out, slowly, in a language the radio is not helping with.',
+  "“…and I told him, that isn't a load, that's an insult with a tarp over it.”",
+  "A woman counts something out, slowly, in a language the radio isn't helping with.",
   'Static, and under the static something that has been repeating for a long time.',
   '“Anybody running east tonight? Anybody at all.” Nobody answers her.',
   '“Watch the third node, the graders have been through and left it worse.”',
@@ -1688,11 +1688,11 @@ export function doorBoardLine(who) {
   return [
     '<span class="text-amber">The passenger door opens.</span>',
     '',
-    'You did not do that. ' + look + ', already up on the step with a hand on the grab rail, already sitting down.',
+    "You didn't do that. " + look + ', already up on the step with a hand on the grab rail, already sitting down.',
     '',
     who.line,
     '',
-    '<span class="text-dim">The latch on your side is a button, and it was not down.</span>',
+    '<span class="text-dim">The latch on your side is a button, and it wasn\'t down.</span>',
   ].join('\n');
 }
 

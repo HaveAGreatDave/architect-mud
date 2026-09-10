@@ -75,7 +75,7 @@ const BY_PERSONALITY = {
     ['"You freelance, or you signed with somebody?"', '"I keep my options open."', '"Options close fast out here. Pick a paymaster before one picks you."'],
   ],
   cult_member: [
-    ['"He is coming. He is always coming. Can you feel it?"', '"I feel a draft, mostly."', '"That is how it begins. The cold. The certainty."', 'smiles with unsettling patience.'],
+    ['"He is coming. He is always coming. Can you feel it?"', '"I feel a draft, mostly."', '"That\'s how it begins. The cold. The certainty."', 'smiles with unsettling patience.'],
   ],
   politician: [
     ['"We\'re making real progress. The data supports our approach."', '"The data says people are starving."', '"...We\'re exploring all options. Except, apparently, that one."'],

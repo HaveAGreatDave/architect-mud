@@ -135,7 +135,7 @@
     "\"Don't go west. That's all. Don't.\"",
     "\"I went west once. I came back less. Ask me nothing else.\""
   ],
-  "description": "A wretch who lives deep in the culvert's mouth, wrapped in everything she owns, guarding a small fire and a smaller hope. She has been west, once, and it is the only thing she will talk about and the last thing she wants to. She answers to Dessa, when anyone bothers to ask, which happens perhaps twice a year.",
+  "description": "A wretch who lives deep in the culvert's mouth, wrapped in everything she owns, guarding a small fire and a smaller hope. She has been west, once, and it's the only thing she'll talk about and the last thing she wants to. She answers to Dessa, when anyone bothers to ask, which happens perhaps twice a year.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -169,7 +169,7 @@
     "clothing_layers": [
       "a bundle of stolen coats worn all at once",
       "rags bound at the wrist and ankle against the wind",
-      "a blanket that is more hole than blanket"
+      "a blanket that's more hole than blanket"
     ],
     "personality": "lowlife"
   },

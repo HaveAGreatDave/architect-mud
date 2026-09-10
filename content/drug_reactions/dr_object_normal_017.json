@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "There is a bit left in the pot if you want it.",
+  "self_line": "There's a bit left in the pot if you want it.",
   "source": "object",
   "tone": "normal"
 }

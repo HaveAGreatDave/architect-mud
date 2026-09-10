@@ -1,5 +1,5 @@
 {
   "id": "dtt_npc_040",
   "kind": "npc",
-  "line": "{value} is not here, and the room is arranged as though they were about to be."
+  "line": "{value} isn't here, and the room is arranged as though they were about to be."
 }

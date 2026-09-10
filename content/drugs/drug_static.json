@@ -9,7 +9,7 @@
     },
     "overdose": {
       "lethal": true,
-      "message": "Too much signal, no more silence. Your mind whites out and does not come back."
+      "message": "Too much signal, no more silence. Your mind whites out and doesn't come back."
     },
     "phases": {
       "comedown_scale": 0.5,
@@ -37,11 +37,11 @@
       },
       "onset_seconds": 900,
       "stages": {
-        "easing": "You can follow one thing at a time. One is not many but it is a number.",
-        "onset": "The clarity goes off like a light, and you are left holding what you were doing.",
+        "easing": "You can follow one thing at a time. One isn't many but it's a number.",
+        "onset": "The clarity goes off like a light, and you're left holding what you were doing.",
         "peak": "The clean straight line the mist put through your head is gone and the room is putting out about four hundred things a second, all of them equally important.",
-        "rising": "You read a page and it does not stick, and you read it again and it does not stick.",
-        "tail": "Ordinary attention, doing ordinary work. You are aware of how much of it there used to be."
+        "rising": "You read a page and it doesn't stick, and you read it again and it doesn't stick.",
+        "tail": "Ordinary attention, doing ordinary work. You're aware of how much of it there used to be."
       }
     }
   },

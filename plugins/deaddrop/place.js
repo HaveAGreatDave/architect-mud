@@ -64,7 +64,7 @@ export async function deployCache(args, raw, player, broadcast) {
   // `search` provider can only ever report the first, so the second is invisible
   // forever — and stacking them would be the obvious way to defeat a sweeper.
   if (getZoneFurniture(player.current_zone).some(isPlacedCache)) {
-    return { type: 'error', message: 'There is already a stash box tucked away in this room. Two would only draw the eye.' };
+    return { type: 'error', message: "There's already a stash box tucked away in this room. Two would only draw the eye." };
   }
 
   const cfg = tagValue(row, 'stash_box', {}) || {};
@@ -98,7 +98,7 @@ export async function deployCache(args, raw, player, broadcast) {
   });
 
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} crouches, does something brief and unremarkable, and stands up again.`, refresh: true }, player.id);
-  return { type: 'use', message: `You tuck the ${row.name} out of sight. Nothing about the room says it is there.` };
+  return { type: 'use', message: `You tuck the ${row.name} out of sight. Nothing about the room says it's there.` };
 }
 
 // ── recover ──────────────────────────────────────────────────────────────────

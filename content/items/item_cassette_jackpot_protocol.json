@@ -1,10 +1,11 @@
 {
-  "description": "A media cassette labeled \"Jackpot Protocol\".",
+  "description": null,
   "flags": {},
   "id": "item_cassette_jackpot_protocol",
   "name": "Cassette: Jackpot Protocol",
   "tags": {
     "broadcast_id": "bc_1783114654023",
+    "description": "A media cassette labeled \"Jackpot Protocol\".",
     "media_cassette": true
   },
   "type": "media",

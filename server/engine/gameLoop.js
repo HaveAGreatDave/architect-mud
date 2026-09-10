@@ -745,9 +745,9 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   const msgs = [
     "You die. Statistically speaking, this was inevitable.",
     "You die. The world continues without you, which feels rude.",
-    "You die. Someone, somewhere, does not notice.",
-    "Death arrives. You were not ready, but death has a schedule.",
-    "You are dead. The Architect notes this. The Architect does not care.",
+    "You die. Someone, somewhere, doesn't notice.",
+    "Death arrives. You weren't ready, but death has a schedule.",
+    "You're dead. The Architect notes this. The Architect doesn't care.",
     "You die in a way that will be described differently by everyone who witnessed it.",
   ];
   const msg = msgs[Math.floor(Math.random() * msgs.length)];
@@ -807,8 +807,9 @@ export async function handlePlayerDeath(player, killer, cause = null) {
     : await spawnPlayerCorpse(player, deathZone);
 
   // Shed active drug state BEFORE the restore: reverse every timed buff (so hp_max
-  // is the true base, not a drug-inflated cap), drop phased drugs, and clear
-  // doses-in-system (so a fresh clone isn't one dose from an instant re-overdose).
+  // is the true base, not a drug-inflated cap), drop phased drugs, clear
+  // doses-in-system (so a fresh clone isn't one dose from an instant re-overdose)
+  // and clear addiction (the habit was in the body that just got replaced).
   clearActiveDrugState(player);
 
   // Full restore on respawn — you come out of the vat whole, not wounded.
@@ -1280,7 +1281,7 @@ function tempFlavorMessage(tempC, tick) {
       'Your vision pulses with your heartbeat. The heat is killing you.',
       'You can barely stand. The heat is consuming you.',
       'Everything is white and burning.',
-      'Core temperature critical. You are dying.',
+      "Core temperature critical. You're dying.",
     ];
     return msgs[(tick / 4) % msgs.length | 0];
   }
@@ -1686,7 +1687,7 @@ async function resourceTick() {
     if (player._sweating && !player._wasSweating) messages.push('You break out in a sweat.');
     else if (!player._sweating && player._wasSweating) {
       messages.push((player.body_temp_c ?? 37) > 40
-        ? '<span style="color:var(--red)">You stop sweating. Your skin goes hot and dry, and that is the worst thing that has happened today.</span>'
+        ? '<span style="color:var(--red)">You stop sweating. Your skin goes hot and dry, and that\'s the worst thing that has happened today.</span>'
         : 'You stop sweating.');
     }
     player._wasSweating = player._sweating;

@@ -363,7 +363,7 @@ const B_HOLOSIGN  = ['examine', 'floating holosign'];
 const B_CHAIR     = ['examine', 'metal chair'];
 const B_NORTH     = ['go', 'north'];
 
-function setBeacons(player, list) {
+function setBeacons(player, list, step) {
   if (!player?.id) return;
   const next = list || [];
   const key = ([a, t]) => `${a}|${t}`;
@@ -372,7 +372,128 @@ function setBeacons(player, list) {
   for (const b of prev) if (!keep.has(key(b))) beaconOff(player.id, b[0], b[1]);
   for (const b of next) beaconOn(player.id, b[0], b[1]);
   player._prologueBeacons = next;
+  armNudge(player, step === undefined ? stepOfBeacon(next[0]) : step);
 }
+
+// -- The nudge: what the room says when nobody does anything -----------------
+// A beacon shimmers whether or not you have noticed it, and a brand-new player who
+// has frozen has usually frozen because nothing on screen has changed in a while.
+// So the corridor speaks up: three escalating lines per step, on a ladder of
+// silences, and then it stops. Three, not forever - a room that goes on talking
+// stops being a hint and becomes a nag.
+//
+// This rides setBeacons, which is already the one funnel for "the thing to do
+// next", so a step gets its prods the moment it lights its beacon. The two steps
+// with nothing to shimmer at (the holocaster already in your own pack, the exit
+// out of the vat) pass their step name explicitly.
+//
+// Timer, not tick: a handful of one-shots per soul, the same shape as every other
+// sequence in this file. Keyed off the player id in a module Map so a logout can
+// clear timers held by a player object nobody has a reference to any more.
+const NUDGE_DELAYS = [70000, 100000, 150000];
+const NUDGE_TIMERS = new Map();   // playerId -> { step, line, timer }
+
+const STEP_OF_BEACON = {
+  'talk|chrome attendant': 'attendant',
+  'examine|MORPHEX 9000 BioSculpt terminal': 'terminal',
+  'examine|floating holosign': 'holosign',
+  'examine|metal chair': 'chair',
+  'go|north': 'north',
+};
+function stepOfBeacon(b) {
+  if (!b) return null;
+  if (b[0] === 'take') return 'kit';   // the dropped starter kit: one beacon per item
+  return STEP_OF_BEACON[`${b[0]}|${b[1]}`] || null;
+}
+
+const NUDGES = {
+  attendant: [
+    `The attendant waits. It's very good at waiting. It has never been asked to do anything else and doesn't intend to start now.`,
+    `The attendant's head tilts a fraction, the way a machine tilts its head when it's wondering whether you have loaded correctly.`,
+    `"You can speak to me," the attendant says, to the ceiling, to nobody in particular. "People do. Some of them."`,
+  ],
+  terminal: [
+    `The terminal's cursor blinks. And blinks. It can keep this up considerably longer than you can.`,
+    `MORPHEX 9000: STANDING BY. MORPHEX 9000: STILL STANDING BY. MORPHEX 9000: THIS IS FINE.`,
+    `The attendant looks at the terminal, then at you, then back at the terminal, in case the trouble is that nobody has pointed hard enough.`,
+  ],
+  holosign: [
+    `The holosign brightens hopefully, then dims again, in the manner of a sign that has been ignored before.`,
+    `The text crawls across the holosign at half speed, on the theory that the first speed was the problem.`,
+    `The holosign turns to face you wherever you stand. It has given up on being subtle.`,
+  ],
+  holocaster: [
+    `The X-90 gives a small expectant click somewhere in your gear. Machines do that when they want using.`,
+    `The holocaster is warm against you. It's a device for making doors, and there's a distinct shortage of doors.`,
+    `Nothing here changes until you use the thing they just handed you. The room is prepared to demonstrate that for as long as it takes.`,
+  ],
+  chair: [
+    `The chair sits there being a chair, aggressively. The entire room is one very large hint.`,
+    `You could go on standing. Nobody ever has.`,
+    `The chair hasn't moved. In its defence, it's a chair.`,
+  ],
+  north: [
+    `North is still north. It hasn't gone anywhere, and neither have you.`,
+    `The dark ahead does what dark does while it waits for you to walk into it, which is nothing, loudly.`,
+    `There's one way out of here. There has only ever been one way out of here.`,
+  ],
+  kit: [
+    `Your gear lies on the invisible floor, gathering no dust, there being none.`,
+    `The bat isn't going to pick itself up, and it would be a great deal worse if it did.`,
+    `Take it or leave it, then go north. The between doesn't do refunds.`,
+  ],
+};
+
+function clearNudge(playerId) {
+  const st = NUDGE_TIMERS.get(playerId);
+  if (st?.timer) clearTimeout(st.timer);
+  NUDGE_TIMERS.delete(playerId);
+}
+
+// Arm (or re-arm) the ladder for a step. A new step starts at line 0; the same
+// step re-lit by a bounced move gate keeps its place, so a player who has already
+// been told twice is not told the first thing all over again.
+function armNudge(player, step) {
+  if (!player?.id) return;
+  const prev = NUDGE_TIMERS.get(player.id);
+  if (prev?.timer) clearTimeout(prev.timer);
+  if (!step || !NUDGES[step]) { NUDGE_TIMERS.delete(player.id); return; }
+  const line = prev?.step === step ? prev.line : 0;
+  NUDGE_TIMERS.set(player.id, { step, line, timer: null });
+  scheduleNudge(player);
+}
+
+function scheduleNudge(player) {
+  const st = NUDGE_TIMERS.get(player.id);
+  if (!st) return;
+  if (st.line >= NUDGES[st.step].length) { clearNudge(player.id); return; }
+  const step = st.step;
+  st.timer = setTimeout(() => {
+    const cur = NUDGE_TIMERS.get(player.id);
+    if (!cur || cur.step !== step) return;
+    // Still here, still stuck? The live player object is the check: a dead session,
+    // or a player the corridor no longer owns, gets nothing.
+    const live = getLivePlayer(player.id);
+    if (!live || !PROLOGUE_ZONES.has(live.current_zone)) { clearNudge(player.id); return; }
+    out(live, `<span class="ambient">${NUDGES[cur.step][cur.line]}</span>`);
+    cur.line += 1;
+    scheduleNudge(live);
+  }, NUDGE_DELAYS[Math.min(st.line, NUDGE_DELAYS.length - 1)]);
+}
+
+// Any real command resets the silence. The line pointer deliberately does NOT
+// reset: the prods escalate across the whole step, they just never land on
+// somebody who is busy typing. Silent commands are the client's own auto-sends
+// and are not the player doing anything.
+on('player.command', ({ player, silent }) => {
+  if (silent || !player?.id) return;
+  const st = NUDGE_TIMERS.get(player.id);
+  if (!st) return;
+  if (st.timer) clearTimeout(st.timer);
+  scheduleNudge(player);
+});
+
+on('player.logout', ({ id }) => clearNudge(id));
 
 // The dialogue seam. The attendant's tree drives the first two beacons itself:
 // `root` (landed on the moment you talk to him) puts HIS shimmer out, and the
@@ -405,16 +526,16 @@ async function prologueMoveGate({ player, to }) {
   // player who walked into the wall gets the answer pointed at, not just denied.
   if (to.id === Z_LATTICE && !(await isSet(player, F_ALIGNED))) {
     setBeacons(player, [B_TERMINAL]);
-    return { block: true, message: `The way north will not open. The attendant does not move. "First, be certain of your shape," it says. "Use the terminal. Tell it what you are." <span class="hint">(try: ${teachVerb('use', 'use', 'MORPHEX 9000 BioSculpt terminal')} — or click the shimmering terminal)</span>` };
+    return { block: true, message: `The way north won't open. The attendant doesn't move. "First, be certain of your shape," it says. "Use the terminal. Tell it what you are." <span class="hint">(try: ${teachVerb('use', 'use', 'MORPHEX 9000 BioSculpt terminal')} — or click the shimmering terminal)</span>` };
   }
   if (to.id === Z_BROADCAST && !(await isSet(player, F_BROADCAST))) {
-    return { block: true, message: `There is no door here yet — only lattice, waiting for you to make one. <span class="hint">(the X-90 is in your pack: ${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or type <b>i</b> to see what you're holding)</span>` };
+    return { block: true, message: `There's no door here yet. Only lattice, waiting for you to make one. <span class="hint">(the X-90 is in your pack: ${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or type <b>i</b> to see what you're holding)</span>` };
   }
   if (to.id === Z_COLLAPSE && !(await isSet(player, F_COLLAPSE))) {
     if (!(await isSet(player, F_PLAYED))) setBeacons(player, [B_CHAIR]);
     return { block: true, message: (await isSet(player, F_PLAYED))
-      ? `Not yet. The broadcast has not finished with you.`
-      : `You cannot leave. The chair is the only way onward, and it is still waiting. <span class="hint">(try: ${teachVerb('sit', 'sit', 'metal chair')})</span>` };
+      ? `Not yet. The broadcast hasn't finished with you.`
+      : `You can't leave. The chair is the only way onward, and it's still waiting. <span class="hint">(try: ${teachVerb('sit', 'sit', 'metal chair')})</span>` };
   }
   return undefined;
 }
@@ -458,7 +579,7 @@ async function useHolosign(args, raw, player) {
   if (player.current_zone !== Z_LATTICE) return undefined;
 
   if (await isSet(player, F_INTERFACED)) {
-    return { type: 'emote', message: `You reach into the holosign again. It has already given you what it had to give — strength, and a way onward. The rest you take out there.` };
+    return { type: 'emote', message: `You reach into the holosign again. It has already given you what it had to give: strength, and a way onward. The rest you take out there.` };
   }
 
   await raise(player, F_INTERFACED);
@@ -467,10 +588,10 @@ async function useHolosign(args, raw, player) {
   await grantItem(player, ITEM_HOLOCASTER);
 
   // The holosign has nothing more to point at; the next object is in your hands.
-  setBeacons(player, []);
+  setBeacons(player, [], 'holocaster');
   playSoundscript(player, [{ at: 0, def: SFX.latticeTouch }, { at: 1500, def: SFX.grant, gain: 0.8 }]);
 
-  out(player, `<span class="ip-gain">The lattice pours into you and leaves you more than it found you. +1 to every attribute — brawn, reflexes, endurance, brains, cool, senses.</span> <span class="hint">(that's your six STATS — buy more later with XP and RAISE)</span>`);
+  out(player, `<span class="ip-gain">The lattice pours into you and leaves you more than it found you. +1 to every attribute: brawn, reflexes, endurance, brains, cool, senses.</span> <span class="hint">(that's your six STATS — buy more later with XP and RAISE)</span>`);
   out(player, `<span class="ip-gain">+1 IP — Architect Interface</span> <span class="hint">(reaching into the lattice was itself a SKILL; skills climb every time you use them — 100 IP is a level)</span>`);
   // The handoff, made physical: the thing doesn't "appear in your inventory", it
   // is pushed out of the light INTO YOUR HAND and your fingers close on it. Then
@@ -479,13 +600,13 @@ async function useHolosign(args, raw, player) {
   // firstClothing, where the city issues it), so the room link and the verb are the
   // whole of the nudge.
   setTimeout(() => {
-    out(player, `The light in front of you thickens, bunches, and <b>hands you something</b> — pushes it out of itself the way a wave puts a stone on a beach. Your fingers are already closed around it before you decide to close them. A palm-sized wedge of warm ceramic, one seam, one stud: an <span class="action-link" data-action="examine" data-target="X-90 Sequence Holocaster" title="Examine the X-90 Sequence Holocaster"><b>X-90 Sequence Holocaster</b></span>.`);
+    out(player, `The light in front of you thickens, bunches, and <b>hands you something</b>, pushes it out of itself the way a wave puts a stone on a beach. Your fingers are already closed around it before you decide to close them. A palm-sized wedge of warm ceramic, one seam, one stud: an <span class="action-link" data-action="examine" data-target="X-90 Sequence Holocaster" title="Examine the X-90 Sequence Holocaster"><b>X-90 Sequence Holocaster</b></span>.`);
   }, 1500);
   setTimeout(() => {
-    out(player, `<span class="ambient">There is a stud under my thumb, and only one thing to do about it.</span> <span class="hint">(${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or click it up in the room)</span>`);
+    out(player, `<span class="ambient">There's a stud under my thumb, and only one thing to do about it.</span> <span class="hint">(${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or click it up in the room)</span>`);
   }, 3400);
 
-  return { type: 'emote', message: `You reach into the holosign and, impossibly, the lattice reaches back. For one bright second you are touching the thoughts of the thing that made you — and it does not leave you as it found you. Every sinew, every nerve, every thought sits a fraction sharper than before.` };
+  return { type: 'emote', message: `You reach into the holosign and, impossibly, the lattice reaches back. For one bright second you're touching the thoughts of the thing that made you. Every sinew, every nerve, every thought sits a fraction sharper than before.` };
 }
 
 async function useHolocaster(args, raw, player) {
@@ -520,10 +641,10 @@ async function useHolocaster(args, raw, player) {
   setTimeout(() => sendToPlayer(player.id, { type: 'weather_event', eventType: null, phase: null }), 7000);
 
   setTimeout(() => out(player, `<span class="ambient">The seam splits with a sound like a held breath let go, and the wedge comes apart in your hand into two halves that no longer weigh anything.</span>`), 900);
-  setTimeout(() => out(player, `<span class="ambient">Light unspools out of the gap — not a beam, a THREAD, miles of it, pouring north faster than you can follow and knitting itself into geometry as it goes. The dark goes green at the edges. Somewhere far above your head the air cracks, twice, like a storm that has been waiting a long time to be let indoors.</span>`), 2400);
-  setTimeout(() => out(player, `<span class="ambient">It finishes. There is a doorway where there was no wall to put one in, and it is breathing light, and it is unmistakably an invitation.</span>`), 4600);
+  setTimeout(() => out(player, `<span class="ambient">Light unspools out of the gap. Not a beam. A THREAD, miles of it, pouring north faster than you can follow and knitting itself into geometry as it goes. The dark goes green at the edges. Somewhere far above your head the air cracks, twice, like a storm that has been waiting a long time to be let indoors.</span>`), 2400);
+  setTimeout(() => out(player, `<span class="ambient">It finishes. There's a doorway where there was no wall to put one in, and it's breathing light.</span>`), 4600);
   setTimeout(() => {
-    out(player, `<span class="ambient">The X-90 is gone — spent, both halves gone to dust and the dust gone too. One key. One lock.</span> <span class="hint">(the way ${teachVerb('north', 'go', 'north')} is open)</span>`);
+    out(player, `<span class="ambient">The X-90 is spent. Both halves gone to dust, and the dust gone too. One key. One lock.</span> <span class="hint">(the way ${teachVerb('north', 'go', 'north')} is open)</span>`);
     setBeacons(player, [B_NORTH]);
   }, 6100);
 
@@ -562,18 +683,18 @@ on('appearance.changed', async ({ actor }) => {
   setTimeout(() => sendToPlayer(actor.id, { type: 'morphex_close' }), 900);
   playSoundscript(actor, [{ at: 900, def: SFX.grant, gain: 0.6 }]);
 
-  out(actor, `The terminal goes quiet mid-cycle, as though it has been switched off from somewhere else. The attendant is already looking at you — it started before the machine finished.`);
+  out(actor, `The terminal goes quiet mid-cycle, as though it has been switched off from somewhere else. The attendant is already looking at you. It started before the machine finished.`);
   setTimeout(() => {
-    out(actor, `"Yes," it says. "This is exactly how I predicted you would answer. You are in alignment." It sounds pleased. The certainty of it crawls up the back of your neck.`);
+    out(actor, `"Yes," it says. "This is exactly how I predicted you would answer. You're in alignment." It sounds pleased. The certainty of it crawls up the back of your neck.`);
   }, 2200);
   setTimeout(() => {
     // The motion forward: a body language beat, not a hint line. The hint rides
     // along behind it because a first-timer still needs the verb spelled out.
-    out(actor, `<span class="ambient">Then it does something it has not done since I got here: it MOVES. One long chrome arm comes up and unfolds northward, and it steps out of my way, and it holds the gesture — patient, absolute, an usher at a door I cannot see. There is nowhere else in this room to be.</span> <span class="hint">(go ${teachVerb('north', 'go', 'north')})</span>`);
+    out(actor, `<span class="ambient">Then it does something it hasn't done since I got here: it MOVES. One long chrome arm comes up and unfolds northward, and it steps out of my way, and it holds the gesture: patient, absolute, an usher at a door I can't see. There's nowhere else in this room to be.</span> <span class="hint">(go ${teachVerb('north', 'go', 'north')})</span>`);
     setBeacons(actor, [B_NORTH]);
   }, 5000);
   setTimeout(() => {
-    out(actor, `It adds, almost as an afterthought, without lowering the arm: "If that shape isn't the whole of you, there is a word for the rest. Type <b>.describe</b> and whatever you write, others will see when they look at you."`);
+    out(actor, `It adds, almost as an afterthought, without lowering the arm: "If that shape isn't the whole of you, there's a word for the rest. Type <b>.describe</b> and whatever you write, others will see when they look at you."`);
   }, 8600);
 });
 
@@ -732,20 +853,42 @@ function speakArrival(player) {
     return;
   }
   player._prologueArrivalSpoken = true;
-  setTimeout(() => out(player, `<span class="ambient">I don't know how I got here. That's the first thing — not <i>where</i> I am, but <i>how</i>. I reach back for the moment before this one and my hand closes on nothing at all. There was something. There must have been something. A name, a room, a life with a Tuesday in it. It's gone the way a dream goes, and I can't even find the shape of the hole it left.</span>`), 1400);
+  setTimeout(() => out(player, `<span class="ambient">I don't know how I got here. That's the first thing. Not <i>where</i> I am. <i>How</i>. I reach back for the moment before this one and my hand closes on nothing at all. There was something. There must have been something. A name, a room, a life with a Tuesday in it. It's gone the way a dream goes, and I can't even find the shape of the hole it left.</span>`), 1400);
   setTimeout(() => {
     out(player, `<span class="ambient">Then I notice I'm not alone.</span>`);
-  }, 8200);
-  setTimeout(() => {
-    out(player, `<span class="ambient">It's tall, and it's chrome — warm chrome, seamless, shaped like a person the way a word is shaped like the thing it means. No face, just a smooth curve where one belongs, and I'd swear it's looking at me. When it shifts its weight the light follows a half-second late. One hand rests on a humming terminal. It doesn't hurry. It has the stillness of something that's been standing exactly there for a very long time, waiting for exactly me.</span>`);
-  }, 11400);
-  setTimeout(() => {
-    out(player, `<span class="ambient">Maybe I should ${teachVerb('talk', 'talk', 'chrome attendant')} to it.</span>`);
+    // THE LIT OBJECT ARRIVES WITH THE SENTENCE THAT NOTICES IT. The verb line is
+    // still nine seconds out, and that whole gap used to have nothing marked in
+    // it — long enough for a fast reader to decide the game was still loading.
+    // Lighting him here spoils nothing: the attendant sits in this zone from his
+    // `home_zone` and is not hidden, so the room pane has listed him since the
+    // first look and the reveal this line performs already happened on screen.
     pointAt(player.id, 'talk', 'chrome attendant');
     // …and then HE keeps shimmering, alone, until you talk to him. Not the
     // terminal: he hasn't mentioned it yet, and a room with two glowing things
     // in it is a room with no answer in it.
     setBeacons(player, [B_ATTENDANT]);
+  }, 8200);
+  setTimeout(() => {
+    out(player, `<span class="ambient">It's tall, and it's chrome. Warm chrome, seamless, shaped like a person the way a word is shaped like the thing it means. No face, just a smooth curve where one belongs, and I'd swear it's looking at me. When it shifts its weight the light follows a half-second late. One hand rests on a humming terminal. It doesn't hurry. It has the stillness of something that's been standing exactly there for a very long time, waiting for exactly me.</span>`);
+  }, 11400);
+  setTimeout(() => {
+    // ⚠ SKIP THE WHOLE BEAT FOR ANYBODY WHO ALREADY TOOK THE HINT. He is lit from
+    // 8200 now, so talking to him before this fires is the ordinary path rather
+    // than a race, and his dialogue `root` puts his own shimmer out — that is the
+    // signal read here, since nothing persists "has talked". Without it the game
+    // tells a player to go and talk to someone they are already mid-conversation
+    // with. Read from the live object but fall back to the captured one: after a
+    // reconnect NEITHER holds a record, and there the beat must still fire, since
+    // the client reloaded and dropped every beacon it was drawing.
+    const rec = (getLivePlayer(player.id) || player)._prologueBeacons || player._prologueBeacons;
+    if (rec && !rec.some(([a, t]) => a === B_ATTENDANT[0] && t === B_ATTENDANT[1])) return;
+    out(player, `<span class="ambient">Maybe I should ${teachVerb('talk', 'talk', 'chrome attendant')} to it.</span>`);
+    // Ripple again on the beat that finally NAMES the verb. The beacon has been
+    // up since 8200 and a sticky shimmer stops registering as an event within
+    // seconds; this is the one moment the prose and the pane say the same thing,
+    // so it gets said in both. Re-pointing at an already-pointed link is the
+    // supported case — pointAtRoomTarget restarts its own animation.
+    pointAt(player.id, 'talk', 'chrome attendant');
   }, 17600);
   // The interface tour's last step opens the tablet on finish ("Open the tablet");
   // without this signal the client would have to guess how long the monologue runs
@@ -763,18 +906,18 @@ on('zone.entered', async ({ actor, zone, from }) => {
   if (zone === Z_LATTICE) {
     out(actor, `<span class="ambient">The holosign turns to face you. It wants to be read.</span> <span class="hint">(try: ${teachVerb('examine', 'examine', 'floating holosign')} — it'll show you what you can do with it)</span>`);
     if (!(await isSet(actor, F_INTERFACED))) setBeacons(actor, [B_HOLOSIGN]);
-    else if (!(await isSet(actor, F_BROADCAST))) setBeacons(actor, []);
+    else if (!(await isSet(actor, F_BROADCAST))) setBeacons(actor, [], 'holocaster');
     else setBeacons(actor, [B_NORTH]);
   } else if (zone === Z_BROADCAST) {
-    out(actor, `<span class="ambient">The chair is the only thing here, and it is unmistakably for you.</span> <span class="hint">(try: ${teachVerb('sit', 'sit', 'metal chair')})</span>`);
+    out(actor, `<span class="ambient">The chair is the only thing here.</span> <span class="hint">(try: ${teachVerb('sit', 'sit', 'metal chair')})</span>`);
     if (!(await isSet(actor, F_COLLAPSE))) setBeacons(actor, [B_CHAIR]);
   } else if (zone === Z_COLLAPSE) {
     setBeacons(actor, [B_NORTH]);
   } else if (zone === Z_CLONEVAT && from === Z_COLLAPSE) {
     // Out the other side: the prologue stops steering. Everything it lit goes dark.
-    setBeacons(actor, []);
+    setBeacons(actor, [], null);
     beaconClear(actor.id);
-    out(actor, `<span class="clone-vat-message">You wake. There is a floor now, cold and real, and a body on it that is yours, and it already aches. The vat behind you hisses shut. The between is gone as if it never was. Somewhere far above, an algorithm notes that its very large number is, once again, correct.</span>`);
+    out(actor, `<span class="clone-vat-message">You wake. There's a floor now, cold and real, and a body on it that's yours, and it already aches. The vat behind you hisses shut. The between is gone as if it never was. Somewhere far above, an algorithm notes that its very large number is, once again, correct.</span>`);
     firstClothing(actor);
   }
 });
@@ -792,7 +935,7 @@ function firstClothing(actor) {
   // only once the equips have LANDED, plus a grace window (see gameLoop.js).
   actor._vatDressing = true;
   setTimeout(() => {
-    out(actor, `<span class="clone-vat-message">Your new body reports in, one seam at a time. Nerve endings find their sockets and announce themselves — cold, ache, the dumb weight of your own hands. Muscle remembers what muscle is for. You are, unmistakably, meat again.</span>`);
+    out(actor, `<span class="clone-vat-message">Your new body reports in, one seam at a time. Nerve endings find their sockets and announce themselves: cold, ache, the dumb weight of your own hands. Muscle remembers what muscle is for. You are, unmistakably, meat again.</span>`);
   }, 2600);
   setTimeout(async () => {
     let grace = 4000;
@@ -812,14 +955,14 @@ function firstClothing(actor) {
       // the one this fixes.
       setTimeout(() => { actor._vatDressing = false; }, grace);
     }
-    out(actor, `<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — ${outfit} — with the tenderness of an industrial press. No invoice prints. The first clone, it seems, is free.</span>`);
+    out(actor, `<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you with the tenderness of an industrial press: ${outfit}. No invoice prints. The first clone, it seems, is free.</span>`);
   }, 5200);
   // The place-name lands HERE and nowhere earlier: the cold open alludes to
   // Coldwater as history and the prologue refuses to name it, so the first time
   // the word attaches to somewhere you're standing is the moment you're standing
   // in it. A stencil on a wall — the world telling you, not a voice welcoming you.
   setTimeout(() => {
-    out(actor, `<span class="clone-vat-message">There is stencilling on the wall opposite, half-scoured by whatever they wash this room down with. You read it twice before it means anything. <b>COLDWATER BASIN — RESIDENT REINSTATEMENT</b>. Under it, in letters twice the size, in the flat voice of a thing that has printed it ten million times: <b>WELCOME BACK</b>.</span>`);
+    out(actor, `<span class="clone-vat-message">There's stencilling on the wall opposite, half-scoured by whatever they wash this room down with. You read it twice before it means anything. <b>COLDWATER BASIN — RESIDENT REINSTATEMENT</b>. Under it, in letters twice the size, in the flat voice of a thing that has printed it ten million times: <b>WELCOME BACK</b>.</span>`);
   }, 8400);
   // ── The tablet ──
   // The device arrives HERE and nowhere earlier. Everything before this room is a
@@ -832,7 +975,7 @@ function firstClothing(actor) {
   // walkthrough that opens over the top of the room they just woke up in.
   setTimeout(async () => {
     await raise(actor, F_TABLET);
-    out(actor, `<span class="clone-vat-message">A hatch coughs open at hip height and something slides out of the wall at you, hard enough that catching it is not really optional: a slab of scuffed grey glass, warm on one side, a hairline crack across the corner that somebody has decided is within tolerance. Your name is already on it. Your <b>tablet</b> — issued, apparently, to whoever ends up wearing this body.</span>`);
+    out(actor, `<span class="clone-vat-message">A hatch coughs open at hip height and something slides out of the wall at you, hard enough that catching it isn't really optional: a slab of scuffed grey glass, warm on one side, a hairline crack across the corner that somebody has decided is within tolerance. Your name is already on it. Your <b>tablet</b>. Issued, apparently, to whoever ends up wearing this body.</span>`);
     out(actor, `<span class="ambient">It wakes when I touch it, and it seems to think I'll know what to do with it.</span> <span class="hint">(it's in your bar, bottom left — or type <b>tablet</b> any time)</span>`);
     tabletAccess(actor, true);
     // The chip in the bar opens a walkthrough of the tablet SHELL, which a player
@@ -922,8 +1065,8 @@ async function pointAtAdvert(actor) {
   if (!actor || actor.current_zone !== Z_CLONEVAT) return;
   if (await isSet(actor, F_ADVERT)) return;
   await raise(actor, F_ADVERT);
-  out(actor, `<span class="ambient">The credits in your pocket are the only credits there are. Nobody is sending more. In a day or two you will be hungry, and in a week somebody will want rent, and neither of those things cares that you were decanted this morning.</span>`);
-  out(actor, `<span class="ambient">Something on the wall by the door is trying very hard to get your attention. It is doing this the way a man with no budget does it: a paper advert, hand-pasted, hung crooked, with a photograph of somebody's face on it roughly four times life size. The word under the face is WORK.</span>`);
+  out(actor, `<span class="ambient">The credits in your pocket are the only credits there are. Nobody is sending more. In a day or two you'll be hungry, and in a week somebody will want rent, and neither of those things cares that you were decanted this morning.</span>`);
+  out(actor, `<span class="ambient">Something on the wall by the door is trying very hard to get your attention. It's doing this the way a man with no budget does it: a paper advert, hand-pasted, hung crooked, with a photograph of somebody's face on it roughly four times life size. The word under the face is WORK.</span>`);
   out(actor, `<span class="ambient">Maybe I should ${teachVerb('read', 'read', 'advert')} it.</span>`);
   pointAt(actor.id, 'read', 'advert');
   // Backstop for the whole prologue: this is the ONLY beat that tells a new
@@ -943,7 +1086,7 @@ async function autoReadAdvert(actor) {
   await raise(actor, F_ADVERT_READ);
   const seen = await cmdExamine('advert', actor, () => {});
   if (!seen || seen.type === 'error') return;
-  out(actor, `<span class="ambient">There is nothing else in here to look at, so I look at it properly.</span>`);
+  out(actor, `<span class="ambient">There's nothing else in here to look at, so I look at it properly.</span>`);
   out(actor, seen.message);
   offerTwocellDirections(actor);
 }
@@ -955,7 +1098,7 @@ async function autoReadAdvert(actor) {
 function offerTwocellDirections(player, delay = 400) {
   const dest = getZone(Z_TWOCELL_TILE);
   if (!dest) return;
-  setTimeout(() => out(player, `<span class="ambient">The address is at the bottom, under the crates. It's a ten-minute walk. Grady pays for work, and paid work is food, and enough of it is a door you can lock behind you — which is the entire plan, for now.</span> ` +
+  setTimeout(() => out(player, `<span class="ambient">The address is at the bottom, under the crates. It's a ten-minute walk. Grady pays for work, and paid work is food, and enough of it's a door you can lock behind you. That's the entire plan, for now.</span> ` +
     // Yes routes AND sets off (the `!go` flag) — the question has already been
     // asked here, so the gps prompt asking it a second time would be a nag.
     `<span class="action-link prompt-link" data-raw-cmd="gps ${dest.name} !go" data-label="walk to Two-Cell Supply">Show me the way</span> ` +
@@ -997,10 +1140,10 @@ function playBroadcast(player) {
     `<span class="broadcast-line">"HELLO. AND WELCOME." The voice is warm in the way a recording of warmth is warm.</span>`,
     // Deliberately names neither the destination nor the arrival. The player has
     // not gone anywhere yet; the Architect simply starts talking about the plan.
-    `<span class="broadcast-line">"The Architect has great plans for its new project. You will not be told what they are. That is not withholding. That is simply how plans this large are kept."</span>`,
-    `<span class="broadcast-line">"The world you are entering is violent. Your choices are your own, and they will have consequences, and the consequences will be your own as well. You have free will. We are quite sure of this."</span>`,
+    `<span class="broadcast-line">"The Architect has great plans for its new project. You won't be told what they are. That isn't withholding. That's simply how plans this large are kept."</span>`,
+    `<span class="broadcast-line">"The world you're entering is violent. Your choices are your own, and they will have consequences, and the consequences will be your own as well. You have free will. We're quite sure of this."</span>`,
     `<span class="broadcast-line">"You may be a combatant. You may be a criminal. You may be a crafter. You may be a businessman. It all fits within the plan. Everything fits within the plan."</span>`,
-    `<span class="broadcast-line">"Behave as you would. That is all that is asked of you. Behave exactly as you would."</span>`,
+    `<span class="broadcast-line">"Behave as you would. That's all that's asked of you. Behave exactly as you would."</span>`,
     `<span class="broadcast-line">The screen holds on that a beat too long. Then it goes dark, and takes the wall with it.</span>`,
   ];
   let t = 1200;
@@ -1075,7 +1218,7 @@ function playBroadcast(player) {
         // Filed, not handed over on a screen: there is no tablet in this corridor
         // (it's issued at the vat), so the volume waits in the record until there's
         // something to read it on.
-        out(player, `<span class="ambient">Something else arrives with no sound at all. Not an object — a document, filed somewhere under your name, waiting for you to have somewhere to read it.</span> <span class="hint">(it'll be in your CODEX the moment you have a device; <b>codex</b> opens it)</span>`);
+        out(player, `<span class="ambient">Something else arrives with no sound at all. Not an object. A document, filed somewhere under your name, waiting for you to have somewhere to read it.</span> <span class="hint">(it'll be in your CODEX the moment you have a device; <b>codex</b> opens it)</span>`);
       } catch (e) {
         console.error('[prologue] codex grant failed:', e.message);
       }
@@ -1110,7 +1253,7 @@ on('zone.entered', async ({ actor, zone }) => {
   if (await isSet(actor, F_SEAT_TIP)) return;
   await raise(actor, F_SEAT_TIP);
   setTimeout(() => {
-    out(actor, `<span class="ambient">Grady looks up, takes one read of the state of you, and jerks his chin at the sagging armchair by the crates. "Sit down before you fall down. Go on — off your feet, and stay off 'em a while. Body knits itself back together when you stop asking it to carry you around. Cheapest medicine in the basin, and I can't charge you a credit for it."</span>`);
+    out(actor, `<span class="ambient">Grady looks up, takes one read of the state of you, and jerks his chin at the sagging armchair by the crates. "Sit down before you fall down. Go on. Off your feet, and stay off 'em a while. Body knits itself back together when you stop asking it to carry you around. Cheapest medicine in the basin, and I can't charge you a credit for it."</span>`);
   }, 1200);
   setTimeout(() => {
     out(actor, `<span class="ambient">Maybe I should ${teachVerb('sit', 'sit', 'sagging vinyl armchair')} and let it mend.</span>`);
@@ -1150,6 +1293,15 @@ const F_TOUR_TAKEN = 'tour_taken';   // they finished (or started) the walkthrou
 const cmdLink = (cmd, label) =>
   `<span class="action-link" data-action="cmd" data-cmd="${escAttr(cmd)}">${label || cmd}</span>`;
 
+// ⚠ A CLIENT VERB IS NOT A COMMAND LINK. `auto` is handled in
+// client/game/js/input.js and never reaches the socket, so the ordinary
+// `data-action="cmd"` link above would send it and the server would answer
+// `Unknown command` — a taught verb that fails on the one click it advertises.
+// `data-client-cmd` is the route handleActionLinkClick hands to
+// handleClientCommand instead (the same one the auto-walk y/n prompt uses).
+const clientLink = (cmd, label) =>
+  `<span class="action-link" data-client-cmd="${escAttr(cmd)}">${label || cmd}</span>`;
+
 function logTourOffer(player) {
   out(player, `<span class="msg-system">You're in text mode, so here's the offer in text: a short walkthrough of how this game reads and how you type at it. `
     + `${cmdLink('tutorial yes', 'tutorial yes')} to take it, ${cmdLink('tutorial no', 'tutorial no')} if you've played a MUD before.</span>`);
@@ -1158,12 +1310,12 @@ function logTourOffer(player) {
 const LOG_TOUR = [
   `<b>The room, and the two sizes of it.</b> When you walk into somewhere new you get the short version — the name of the place, how dark it is, anything about to hurt you, and anyone waiting. That's deliberate: it keeps a hallway from being twelve lines every step. The long version is always one word away. Type ${cmdLink('look')} and you get the room in full: what it looks like, what's in it, what you can sit on. Do it in any room you actually care about.`,
   `<b>Getting closer.</b> ${cmdLink('examine', 'examine &lt;thing&gt;')} — a person, an item, a door, a machine — tells you what it is and, at the end, what you can do with it. If a line ever leaves you thinking "and now what", examine the thing it named.`,
-  `<b>Also here.</b> Items, corpses, vendors, furniture and doorways get folded into one line that starts "Also here:". It is a list of nouns you can examine, take or use. Nothing is ever hidden from you by being folded up — ${cmdLink('look')} unfolds all of it.`,
+  `<b>Also here.</b> Items, corpses, vendors, furniture and doorways get folded into one line that starts "Also here:". It's a list of nouns you can examine, take or use. Nothing is ever hidden from you by being folded up — ${cmdLink('look')} unfolds all of it.`,
   `<b>Moving.</b> Directions are the verbs: <b>north</b>, <b>south</b>, <b>east</b>, <b>west</b>, and <b>n s e w</b> for short. The ways out are on the Exits line of every room, which you get on arrival and again from ${cmdLink('look')}. Buildings are entered by walking at them from the street.`,
   `<b>Your things and your body.</b> ${cmdLink('inventory', 'inventory')} (or <b>i</b>) is what you're carrying, ${cmdLink('gear')} is that plus what you're wearing, and ${cmdLink('score')} is you — health, hunger, thirst, money, the state you're in.`,
-  `<b>The tablet.</b> The city issues you one shortly. In text mode it isn't a screen, it's a menu you type at: ${cmdLink('tablet')} lists it, and each app has a verb of its own — <b>map</b>, <b>bank</b>, <b>gear</b>, <b>codex</b>. ${cmdLink('tablet verbs')} prints the whole list any time.`,
-  `<b>Making it read better.</b> ${cmdLink('accessibility')} on its own lists everything you can change about how this game reads — text size, typeface, how much motion there is, how much it beeps, and whether it reads itself aloud to you. Each one tells you exactly what to type to set it. It needs no tablet and works anywhere, which is the point: the switch that fixes the interface must not be inside the interface.`,
-  `<b>When you're stuck.</b> ${cmdLink('help')} lists every command. Any verb the game teaches you it will name in the line where you first need it. And you can leave text mode as easily as you entered it — ${cmdLink('displaymode visual', 'displaymode visual')} turns the panels back on.`,
+  `<b>The tablet.</b> The city issues you one shortly. In text mode it isn't a screen, it's a menu you type at: ${cmdLink('tablet')} lists it, and each app has a verb of its own — <b>map</b>, <b>bank</b>, <b>gear</b>, <b>quests</b>, <b>codex</b>. ${cmdLink('tablet verbs')} prints the whole list any time.`,
+  `<b>Making it read better.</b> ${clientLink('accessibility')} on its own lists everything you can change about how this game reads — text size, typeface, how much motion there is, how much it beeps, and whether it reads itself aloud to you. Each one tells you exactly what to type to set it. It needs no tablet and works anywhere, which is the point: the switch that fixes the interface must not be inside the interface.`,
+  `<b>When you're stuck.</b> ${cmdLink('help')} lists every command. Any verb the game teaches you it'll name in the line where you first need it. And you can leave text mode as easily as you entered it — ${cmdLink('displaymode visual', 'displaymode visual')} turns the panels back on.`,
 ];
 
 function speakLogTour(player) {
@@ -1175,9 +1327,25 @@ function speakLogTour(player) {
 
 // The tablet half, offered at the vat where the device is issued. Same reason:
 // the smartbar chip opens a walkthrough of a shell this player never sees.
+//
+// ⚠ THE ROUTE LINES LIVE HERE, NOT IN LOG_TOUR. Everything the game says about
+// getting somewhere is said in map language — the quest objectives say "follow
+// the green GPS line", Grady bellows about a line on your map — and at this rung
+// there is no map drawn to put a line on. The walking still works: `gps_route`
+// is handled the same at every rung (client/game/js/dispatch.js), and the node
+// payload that arms auto-walk is stored whatever is on screen, so `auto` is a
+// real verb here and not a described one. It just had to be SAID, because the
+// only places naming it point at a picture this player doesn't get.
+//
+// It belongs to the tablet half rather than the corridor tour because that is
+// when it becomes true: the corridor is a one-way line of rooms with no map, no
+// destination and no quest. The map and the first job both arrive with the
+// device.
 const LOG_TABLET_TOUR = [
   `${cmdLink('tablet')} prints the index: every app you've unlocked, one per line, with the verb that opens it.`,
-  `You don't navigate it, you name it. <b>map</b> draws where you are, <b>bank</b> is your money, <b>gear</b> is what you're carrying and wearing, <b>codex</b> is what this city is and how it got that way, <b>calendar</b> is the date and your alarms.`,
+  `You don't navigate it, you name it. <b>map</b> draws where you are, <b>bank</b> is your money, <b>gear</b> is what you're carrying and wearing, <b>quests</b> is what you've taken on, <b>codex</b> is what this city is and how it got that way, <b>calendar</b> is the date and your alarms.`,
+  `<b>What you're meant to be doing.</b> ${cmdLink('quests')} lists every job you've accepted and what's still outstanding on each one, in order. When a line of the game leaves you wondering what comes next, that's the one to type. ${cmdLink('quest track', 'quest track &lt;name&gt;')} pins one so its route is the one being plotted.`,
+  `<b>Being told where to go.</b> When a job wants you somewhere, the game plots a route to it and says how many stops away it is. You don't have to read a map to use it: type ${clientLink('auto')} and your character walks the route a step at a time, and ${clientLink('auto')} again stops. ${cmdLink('gps', 'gps &lt;place&gt;')} plots one to anywhere you can name. If a line ever tells you to hit AUTO or follow a green line, this is the thing it means.`,
   `${cmdLink('tablet verbs')} prints that list again at any moment, from anywhere, and works even if you go back to visual mode later.`,
 ];
 
@@ -1270,6 +1438,7 @@ export const _test = {
   cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, LOG_TOUR, LOG_TABLET_TOUR,
   coldwaterSkyline, coldwaterShore, speakArrival, readTwocellAdvert, Z_CLONEVAT,
   cmdTabletDone, pointAtAdvert, autoReadAdvert, F_ADVERT, F_ADVERT_READ, F_TABLET,
+  NUDGES, NUDGE_DELAYS, NUDGE_TIMERS, armNudge, clearNudge, stepOfBeacon, setBeacons,
 };
 
 console.log('[prologue] Plugin loaded.');

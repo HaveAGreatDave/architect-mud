@@ -1,10 +1,11 @@
 {
-  "description": "A metering pump that hits each pour level dead-on, every time. Automates the POUR stage of a splice.",
+  "description": null,
   "flags": {},
   "id": "item_auto_pour",
   "name": "auto-pour rig",
   "tags": {
     "automates": "pour",
+    "description": "A metering pump that hits each pour level dead-on, every time. Automates the POUR stage of a splice.",
     "lab_upgrade": true
   },
   "type": "device",

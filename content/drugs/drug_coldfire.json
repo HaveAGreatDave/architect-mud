@@ -9,11 +9,11 @@
       "hunger": -12,
       "sanity": 6
     },
-    "onset_message": "<span class=\"msg-system\">The fear goes out like a snuffed match. What is left is very calm and very willing.</span>",
+    "onset_message": "<span class=\"msg-system\">The fear goes out like a snuffed match. What's left is very calm and very willing.</span>",
     "onset_seconds": 12,
     "overdose": {
       "lethal": true,
-      "message": "Your body cannot tell it is dying. It sprints straight past the edge."
+      "message": "Your body can't tell it's dying. It sprints straight past the edge."
     },
     "phases": {
       "comedown_scale": 0.6,
@@ -47,8 +47,8 @@
         "easing": "It burns down into ordinary nerves, and ordinary nerves are survivable.",
         "onset": "The fear you were converting into fuel arrives unconverted.",
         "peak": "Everything is a threat and you have no procedure for any of it, and this is what everybody else has been doing all along without help.",
-        "rising": "Your hands go before your head does. You notice them going and cannot make them stop.",
-        "tail": "You are frightened of things at roughly the correct size again. It is an unfamiliar amount."
+        "rising": "Your hands go before your head does. You notice them going and can't make them stop.",
+        "tail": "You're frightened of things at roughly the correct size again. It's an unfamiliar amount."
       }
     }
   },

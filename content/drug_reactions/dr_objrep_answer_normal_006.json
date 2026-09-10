@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "I did not mean anything by asking.",
+  "self_line": "I didn't mean anything by asking.",
   "source": "object_reply_answer",
   "tone": "normal"
 }

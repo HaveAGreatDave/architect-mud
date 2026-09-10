@@ -22,7 +22,7 @@ export function openForecast() {
   // environment.js. Answering in fiction rather than opening a panel full of
   // Coldwater's forecast at someone standing in the prologue's corridor.
   if (isEnvUnreal()) {
-    appendMsg('There is no sky here to read, and no tomorrow to read it for.', 'ambient');
+    appendMsg("There's no sky here to read, and no tomorrow to read it for.", 'ambient');
     return;
   }
   renderForecastToday();
@@ -30,7 +30,7 @@ export function openForecast() {
   fetch('/api/environment/forecast')
     .then(r => r.json())
     .then(renderForecastDays)
-    .catch(() => appendMsg('Could not reach the forecast feed.', 'error'));
+    .catch(() => appendMsg("Couldn't reach the forecast feed.", 'error'));
 }
 
 export function updateForecast(forecast) {

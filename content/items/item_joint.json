@@ -1,9 +1,10 @@
 {
-  "description": "A hand-rolled joint, a little crooked, twisted off at the end. Smells like a greenhouse and bad decisions.",
+  "description": null,
   "flags": {},
   "id": "item_joint",
   "name": "joint",
   "tags": {
+    "description": "A hand-rolled joint, a little crooked, twisted off at the end. Smells like a greenhouse and bad decisions.",
     "drug": true
   },
   "type": "consumable",

@@ -20,8 +20,8 @@
       "comeup_message": "<span class=\"msg-system\">You spark it up and draw slow. The room exhales with you; the edges go soft and warm.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 8,
-      "end_message": "<span class=\"msg-system\">The high tapers off. The colours go back to normal and you are suddenly, urgently thinking about a sandwich.</span>",
-      "peak_message": "<span class=\"msg-system\">You are extremely stoned. Everything is faintly hilarious and the music is <em>unbelievable</em>.</span>",
+      "end_message": "<span class=\"msg-system\">The high tapers off. The colours go back to normal and you're suddenly, urgently thinking about a sandwich.</span>",
+      "peak_message": "<span class=\"msg-system\">You're extremely stoned. Everything is faintly hilarious and the music is <em>unbelievable</em>.</span>",
       "peak_mods": {
         "stat_reflexes": -1
       },

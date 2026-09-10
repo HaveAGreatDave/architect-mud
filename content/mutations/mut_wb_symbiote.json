@@ -2,7 +2,7 @@
   "appearance": {
     "extreme": "The symbiote has taken most of them. It sheathes their body in wet ribbed grey, sends runners down every limb, and its own eyes open somewhere near their collarbone to look at you.",
     "obvious": "A pale ribbed organism is wrapped around their torso and up over one shoulder, pulsing slowly, fused into them at the edges.",
-    "subtle": "There is something under their collar that shifts when they breathe."
+    "subtle": "There's something under their collar that shifts when they breathe."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -12,7 +12,7 @@
   "conceal_slots": [
     "torso"
   ],
-  "description": "Something else is living on you now, and it has decided the arrangement suits it. It feeds you. It keeps you warm. It is awake when you are not.",
+  "description": "Something else is living on you now, and it has decided the arrangement suits it. It feeds you. It keeps you warm. It's awake when you're not.",
   "drawbacks": [
     "It has its own opinions"
   ],

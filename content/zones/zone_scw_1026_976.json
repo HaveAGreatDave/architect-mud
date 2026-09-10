@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Open water, a red-brown sheet of it lying in the bottom of the basin with the rock going up all round in steps. It is not clean and it does not pretend to be: a scum of pale crust rings the whole margin and the deep of it is the colour of stewed tea. It is also the only standing water for sixty miles that has anything alive in it, which is why there are ruts coming down to it from the east.",
+  "description": "Open water, a red-brown sheet of it lying in the bottom of the basin with the rock going up all round in steps. It isn't clean and it doesn't pretend to be: a scum of pale crust rings the whole margin and the deep of it's the colour of stewed tea. It's also the only standing water for sixty miles that has anything alive in it, which is why there are ruts coming down to it from the east.",
   "exits": {
     "east": "zone_scw_1027_976",
     "north": "zone_scw_1026_975",

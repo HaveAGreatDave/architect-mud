@@ -70,17 +70,17 @@ function soon(sec) {
 function bite(sev) {
   if (sev >= 0.9) return 'This is the worst of it.';
   if (sev >= 0.6) return 'It has both hands on you now.';
-  if (sev >= 0.35) return 'It is settling in properly.';
+  if (sev >= 0.35) return "It's settling in properly.";
   return 'The itch has started.';
 }
 
 async function habits(args, raw, player) {
   const rows = await getDrugStatus(player);
   if (!rows.length) {
-    return { type: 'output', message: sys("Nothing has its hooks in you. That is worth more than you think.") };
+    return { type: 'output', message: sys("Nothing has its hooks in you. That's worth more than you think.") };
   }
 
-  const lines = [sys('<b>What you are carrying, and what is carrying you.</b>')];
+  const lines = [sys("<b>What you're carrying, and what's carrying you.</b>")];
   for (const d of rows) {
     // Pad the plain text BEFORE wrapping it in markup — the client renders these
     // in a monospace log, so the columns only line up if the padding is on the
@@ -102,7 +102,7 @@ async function habits(args, raw, player) {
     // a thing you'd notice about yourself, and never stated at all until the gap is
     // wide enough to matter — a warning that prints from the first dose is noise.
     if (d.toleranceGap >= 0.5) {
-      lines.push(`      <span class="overdose-warning">You need far more than you used to, and you are not sure your body has kept up.</span>`);
+      lines.push(`      <span class="overdose-warning">You need far more than you used to, and you aren't sure your body has kept up.</span>`);
     } else if (d.toleranceGap >= 0.25) {
       lines.push(dim(`      It takes more than it did. Whether you can take more is another question.`));
     }
@@ -132,8 +132,8 @@ const SELF_LINES = {
     "Your clothes are breathing. You decide not to hold that against them.",
   ],
   stimulant: [
-    "You look sharp. Wired and lean and a size too awake. You look, you are fairly sure, incredible.",
-    "Your jaw has been busy for a while now. Your face feels like a face you are operating.",
+    "You look sharp. Wired and lean and a size too awake. You look, you're fairly sure, incredible.",
+    "Your jaw has been busy for a while now. Your face feels like a face you're operating.",
     "Everything about you is at the front of you. You could be seen from orbit.",
   ],
   depressant: [
@@ -142,8 +142,8 @@ const SELF_LINES = {
     "You take stock of yourself and lose your place partway through.",
   ],
   other: [
-    "You are not holding it together as well as you think.",
-    "You look like somebody who would say they are fine.",
+    "You aren't holding it together as well as you think.",
+    "You look like somebody who would say they're fine.",
     "You seem, on inspection, to be mostly present.",
   ],
 };

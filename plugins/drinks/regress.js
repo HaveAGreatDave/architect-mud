@@ -95,7 +95,7 @@ export default async function regress({ run, check, getPlayer }) {
         .filter(([, t]) => !t.hot && (!t.vessels || t.vessels.includes('glass')))
         .map(([k, t]) => [k, matchScore(sig, t)]).filter(([, s]) => s >= 0)
         .sort((a, b) => b[1] - a[1]);
-      check('drinks: the winning match is not a tie',
+      check("drinks: the winning match isn't a tie",
         scores.length < 2 || scores[0][1] !== scores[1][1], JSON.stringify(scores.slice(0, 3)));
     }
   }
@@ -211,7 +211,7 @@ export default async function regress({ run, check, getPlayer }) {
     const pool = CONSUME_CONFIG?.vessel;
     check('drinks: consume carries a vessel line pool',
       !!pool && pool.start?.length > 0 && pool.mid?.length > 0 && pool.finish?.length > 0);
-    check('drinks: the vessel pool is not bottle-shaped',
+    check("drinks: the vessel pool isn't bottle-shaped",
       !!pool && !pool.start.some(l => /cap|crack|fizz/i.test(l)),
       pool?.start?.join(' | '));
   }

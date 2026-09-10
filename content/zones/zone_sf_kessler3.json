@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#2b2b33",
-  "description": "A neighbourhood shop with the plumbing of a laundrette and the fittings of nothing. Six capped stubs stand proud of the back wall in a neat row where the machines were, and the floor is tiled in a hardwearing grey that has outlasted three businesses. There is a counter by the door and a cashbox under it. The window looks straight out at the flats opposite, and the flats opposite look straight back.",
+  "description": "A neighbourhood shop with the plumbing of a laundrette and the fittings of nothing. Six capped stubs stand proud of the back wall in a neat row where the machines were, and the floor is tiled in a hardwearing grey that has outlasted three businesses. There's a counter by the door and a cashbox under it. The window looks straight out at the flats opposite, and the flats opposite look straight back.",
   "exits": {
     "east": "zone_district_922_914"
   },

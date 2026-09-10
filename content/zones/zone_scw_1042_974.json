@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Homes built into and onto each other over a long time, so it is not clear where one stops. Numbers have been painted on the doors by somebody with strong opinions about numbers.",
+  "description": "Homes built into and onto each other over a long time, so it isn't clear where one stops. Numbers have been painted on the doors by somebody with strong opinions about numbers.",
   "exits": {
     "east": "zone_scw_1043_974",
     "north": "zone_scw_1042_973",

@@ -1,9 +1,10 @@
 {
-  "description": "A vial of butylated hydroxytoluene: BHT, the radical scavenger printed in small type on the back of every packet of anything. Dose a fat with it and rot has to queue. Food grade, dear as hell, and never quite in stock.",
+  "description": null,
   "flags": {},
   "id": "item_stabilizer",
   "name": "vial of butylated hydroxytoluene",
   "tags": {
+    "description": "A vial of butylated hydroxytoluene: BHT, the radical scavenger printed in small type on the back of every packet of anything. Dose a fat with it and rot has to queue. Food grade, dear as hell, and never quite in stock.",
     "preservative": true,
     "reagent": true
   },

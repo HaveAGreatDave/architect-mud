@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Thorn and hardpan and a wind that never fully commits. The town is somewhere behind you and does not look any closer when you turn around.",
+  "description": "Thorn and hardpan and a wind that never fully commits. The town is somewhere behind you and doesn't look any closer when you turn around.",
   "exits": {
     "east": "zone_the_reach_877_1958",
     "north": "zone_the_reach_876_1957",

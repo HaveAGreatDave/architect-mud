@@ -418,10 +418,10 @@ export const commands = {
     const { parseTime, setAlarm, clearAlarm, hhmm } = await import('./alarm-app.js');
     if (/^(off|clear|none|cancel)$/i.test(arg)) {
       await clearAlarm(player);
-      return { type: 'output', message: 'Alarm cleared. You will sleep until your body is done.' };
+      return { type: 'output', message: "Alarm cleared. You'll sleep until your body is done." };
     }
     const mins = parseTime(arg);
-    if (mins == null) return { type: 'error', message: 'That is not a time. Try "alarm 07:30", "alarm 730", or "alarm off".' };
+    if (mins == null) return { type: 'error', message: 'That isn\'t a time. Try "alarm 07:30", "alarm 730", or "alarm off".' };
     await setAlarm(player, mins);
     return { type: 'output', message: `Alarm set for ${hhmm(mins)}.` };
   },

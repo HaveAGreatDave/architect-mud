@@ -1,10 +1,11 @@
 {
-  "description": "A scavenged transceiver board, traces green with corrosion but still humming. The brains and the voice.",
+  "description": null,
   "flags": {},
   "id": "item_signal_board",
   "name": "Signal Board",
   "tags": {
-    "component": true
+    "component": true,
+    "description": "A scavenged transceiver board, traces green with corrosion but still humming. The brains and the voice."
   },
   "type": "component",
   "value": 45,

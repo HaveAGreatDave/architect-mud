@@ -179,7 +179,7 @@ const PANELS = {
   },
   dream_presences: {
     title: 'Dream Presences',
-    description: 'The wandering figure that moves between the rooms of an instance. It is announced arriving and leaving, and never resolves into anything.',
+    description: "The wandering figure that moves between the rooms of an instance. It's announced arriving and leaving, and never resolves into anything.",
     idPrefix: 'dp',
     fetch: () => dreamSuiteFetch('dream_presences'),
     columns: [
@@ -235,6 +235,15 @@ const PANELS = {
     fetch: () => API('/command-aliases'),
     noEdit: true,
     render: renderAliasesPanel,
+  },
+  voicelab: {
+    title: 'Voice Lab',
+    description: "Hear and tune the formant voice. Character is hashed from a NAME, so the NPC list is the actual set of voices the game speaks in.",
+    // The NPC list is not decoration: tv.js seeds a voice on the speaker's name,
+    // so these ARE the voices, and picking one plays what a player hears.
+    fetch: () => API('/npcs').then(npcs => ({ npcs })),
+    noEdit: true,
+    render: renderVoiceLabPanel,
   },
   sounds: {
     title: 'SoundScript',

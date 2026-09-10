@@ -1,9 +1,10 @@
 {
-  "description": "A soft pack of cheap cigarettes. Each one shaves a little off your lungs and hands it to your image.",
+  "description": null,
   "flags": {},
   "id": "item_cigarettes",
   "name": "cigarettes",
   "tags": {
+    "description": "A soft pack of cheap cigarettes. Each one shaves a little off your lungs and hands it to your image.",
     "drug": true
   },
   "type": "consumable",

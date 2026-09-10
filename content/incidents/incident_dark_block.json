@@ -1,6 +1,6 @@
 {
   "cooldown_min": 720,
-  "description": "Null vendetta. Every camera on the block stops at once, which is not a thing that happens by accident and is not a thing anybody will admit happened. Gated on GRIP, not on the band: the target is a street the authority has already finished pacifying, because that is the street with the most of their hardware on it and the fewest people left outside to notice it go quiet.",
+  "description": "Null vendetta. Every camera on the block stops at once, which isn't a thing that happens by accident and isn't a thing anybody will admit happened. Gated on GRIP, not on the band: the target is a street the authority has already finished pacifying, because that's the street with the most of their hardware on it and the fewest people left outside to notice it go quiet.",
   "duration_min": 120,
   "enabled": 1,
   "flags": {
@@ -20,7 +20,7 @@
     },
     {
       "do": "gossip",
-      "text": "Every eye on {place} has been out since last night. Nobody official is saying so, and that is how you know it was not weather."
+      "text": "Every eye on {place} has been out since last night. Nobody official is saying so, and that's how you know it wasn't weather."
     },
     {
       "do": "news",

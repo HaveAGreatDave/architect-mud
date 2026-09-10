@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3b2a1c",
   "color": "#f0dcc0",
-  "description": "A low room under the roof with a bed, a chair, and a rail of stage clothes sleeved in dry-cleaning plastic gone yellow at the shoulders. Four wig blocks stand along the dresser in a row, like a jury. There is a window the size of a hand and a fire door that has been propped since the fire door was installed. When the room below fills up you can feel the bass come through the boards and into your teeth.",
+  "description": "A low room under the roof with a bed, a chair, and a rail of stage clothes sleeved in dry-cleaning plastic gone yellow at the shoulders. Four wig blocks stand along the dresser in a row, like a jury. There's a window the size of a hand and a fire door that has been propped since the fire door was installed. When the room below fills up you can feel the bass come through the boards and into your teeth.",
   "exits": {
     "down": "zone_jolenes_bar"
   },

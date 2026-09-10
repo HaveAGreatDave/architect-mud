@@ -3,12 +3,12 @@
 // they're the one canonical mutation path dialogue/scripts/jobboard/flight all use.
 import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
-import { setFlag } from '../../server/engine/flags.js';
+import { setFlag, clearFlag, evalCondition } from '../../server/engine/flags.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { emit } from '../../server/engine/events.js';
 import { clearEffect } from '../../server/engine/effects.js';
 import { world } from '../../server/engine/world.js';
-import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest } from './index.js';
+import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest, applyRolled, advanceFor, withinHours, isQuestAvailable } from './index.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -103,7 +103,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // Never accepted → the turn-in option is hidden entirely.
   let rendered = await renderDialogueNode(npc, 'root', player, {});
-  check('turn-in option is hidden while the quest is not accepted', !rendered.options.some(o => o.next === 'reported'), JSON.stringify(rendered.options));
+  check("turn-in option is hidden while the quest isn't accepted", !rendered.options.some(o => o.next === 'reported'), JSON.stringify(rendered.options));
 
   // Accepted but not yet complete → the option is SHOWN but disabled (the client
   // routes a click to the Tablet quest screen), carrying the quest id to route to.
@@ -169,7 +169,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   await trackEvent(player, (obj) => obj.type === 'visit' && obj.zone === 'zone_regress_timed_spot');
   ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]));
-  check('timed objective does not complete instantly', rows[0]?.status === 'active' && (rows[0]?.progress?.[0] || 0) === 0, JSON.stringify(rows[0]));
+  check("timed objective doesn't complete instantly", rows[0]?.status === 'active' && (rows[0]?.progress?.[0] || 0) === 0, JSON.stringify(rows[0]));
 
   await sleep(400);
   ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]));
@@ -325,13 +325,13 @@ export default async function regress({ run, check, getPlayer }) {
     await mkQuest([{ id: 'o0', type: 'assassinate', target: 'npc_regress_mark', count: 1, desc: 'Do it' }]);
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_bystander', name: 'Someone Else' } });
     await settle();
-    check('assassinate does not fire for a different NPC', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("assassinate doesn't fire for a different NPC", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
 
     // escort — needs BOTH the right NPC and the destination zone.
     await mkQuest([{ id: 'o0', type: 'escort', target: 'npc_regress_ward', zone: 'zone_regress_dest', count: 1, desc: 'Walk them' }]);
     emit('escort.arrived', { actor: player, npc: { id: 'npc_regress_ward', name: 'Ward' }, zone: 'zone_regress_wrong' });
     await settle();
-    check('escort does not advance at the wrong destination', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("escort doesn't advance at the wrong destination", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('escort.arrived', { actor: player, npc: { id: 'npc_regress_ward', name: 'Ward' }, zone: 'zone_regress_dest' });
     await settle();
     check('escort advances when the escortee arrives at the destination', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -377,7 +377,7 @@ export default async function regress({ run, check, getPlayer }) {
     await mkQuest([{ id: 'o0', type: 'hack', zone: 'zone_regress_till', count: 1, desc: 'Crack it' }]);
     emit('hack.success', { player, zoneId: 'zone_regress_elsewhere' });
     await settle();
-    check('hack does not advance for the wrong site', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("hack doesn't advance for the wrong site", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('hack.success', { player, zoneId: 'zone_regress_till' });
     await settle();
     check('hack advances at the named site', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -396,7 +396,7 @@ export default async function regress({ run, check, getPlayer }) {
     await settle();
     check('spend accumulates the AMOUNT, not a count', (await settled(900))[0] === 900, JSON.stringify(await progressOf()));
     let { rows: st } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TYPES_QUEST]);
-    check('spend is not complete below the credit target', st[0]?.status === 'active', JSON.stringify(st[0]));
+    check("spend isn't complete below the credit target", st[0]?.status === 'active', JSON.stringify(st[0]));
     emit('credits.changed', { actor: player, delta: -200, reason: 'vendor:buy' });
     await settle();
     ({ rows: st } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TYPES_QUEST]));
@@ -441,7 +441,7 @@ export default async function regress({ run, check, getPlayer }) {
     await mkQuest([{ id: 'o0', type: 'install', target: 'aug_regress_arm', count: 1, desc: 'Get fitted' }]);
     emit('augment.installed', { actor: player, augment_id: 'aug_regress_other' });
     await settle();
-    check('install does not advance for a different augment', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("install doesn't advance for a different augment", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('augment.installed', { actor: player, augment_id: 'aug_regress_arm' });
     await settle();
     check('install advances on augment.installed', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -469,7 +469,7 @@ export default async function regress({ run, check, getPlayer }) {
       await mkQuest([{ id: 'o0', type: 'mutate', target: 'mut_regress_gills', count: 1, desc: 'Change' }]);
       emit('mutation.gained', { player, id: 'mut_regress_spurs', expression: 40, source: 'radiation' });
       await settle();
-      check('mutate does not advance for a different mutation', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+      check("mutate doesn't advance for a different mutation", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
       emit('mutation.gained', { player, id: 'mut_regress_gills', expression: 40, source: 'mutagen' });
       await settle();
       check('mutate advances on mutation.gained', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -486,10 +486,10 @@ export default async function regress({ run, check, getPlayer }) {
     await mkQuest([{ id: 'o0', type: 'subdue', target: 'npc_regress_mark', count: 1, desc: 'Cosh them' }]);
     emit('knockout.landed', { player: { id: 'player_regress_stranger' }, target: player, kind: 'player', zoneId: player.current_zone });
     await settle();
-    check('subdue does not credit the player who was knocked out', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("subdue doesn't credit the player who was knocked out", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('knockout.landed', { player, target: { id: 'npc_regress_bystander', name: 'Someone Else' }, kind: 'npc', zoneId: player.current_zone });
     await settle();
-    check('subdue does not fire for a different person', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("subdue doesn't fire for a different person", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('knockout.landed', { player, target: { id: 'npc_regress_mark', name: 'The Mark' }, kind: 'npc', zoneId: player.current_zone });
     await settle();
     check('subdue advances on knockout.landed by the player', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -501,7 +501,7 @@ export default async function regress({ run, check, getPlayer }) {
     await mkQuest([{ id: 'o0', type: 'restore', count: 1, desc: 'Die on a policy' }]);
     emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Ordinary' }, deathZone: player.current_zone, claimed: false });
     await settle();
-    check('restore does not advance on an ordinary death', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("restore doesn't advance on an ordinary death", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Claimed' }, deathZone: player.current_zone, claimed: true });
     await settle();
     check('restore advances on a claimed death', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -566,7 +566,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('a quest with fail_on starts normally', (await statusOf()) === 'active', await statusOf());
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_other', name: 'Nobody' } });
     await settle();
-    check('an unrelated event does not fail the quest', (await statusOf()) === 'active', await statusOf());
+    check("an unrelated event doesn't fail the quest", (await statusOf()) === 'active', await statusOf());
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_witness', name: 'The Witness' } });
     await settle();
     check('a fail_on condition fails the quest', (await failed('failed')) === 'failed', await statusOf());
@@ -582,7 +582,7 @@ export default async function regress({ run, check, getPlayer }) {
     );
     emit('enemy.killed', { actor: player, enemy: { name: 'Gutter Hound' } });
     await settle();
-    check('killing something else does not trip a kill prohibition', (await statusOf()) === 'active', await statusOf());
+    check("killing something else doesn't trip a kill prohibition", (await statusOf()) === 'active', await statusOf());
     emit('enemy.killed', { actor: player, enemy: { name: 'Supervisor, Halcyon Compliance' } });
     await settle();
     check('a kill fail_on matches the enemy name by substring', (await failed('failed')) === 'failed', await statusOf());
@@ -602,7 +602,7 @@ export default async function regress({ run, check, getPlayer }) {
     );
     emit('stealth.noticed', { sneaker: { id: 'player_regress_stranger' }, observer: { id: 'npc_regress_guard' }, zoneId: player.current_zone });
     await settle();
-    check('spotted does not fail on somebody ELSE being seen', (await statusOf()) === 'active', await statusOf());
+    check("spotted doesn't fail on somebody ELSE being seen", (await statusOf()) === 'active', await statusOf());
     emit('stealth.noticed', { sneaker: player, observer: { id: 'npc_regress_guard' }, zoneId: player.current_zone });
     await settle();
     check('spotted fails the quest when the player is noticed', (await failed('failed')) === 'failed', await statusOf());
@@ -617,7 +617,7 @@ export default async function regress({ run, check, getPlayer }) {
     );
     emit('crime.witnessed', { player: { id: player.id, handle: player.handle }, key: 'loitering', zoneId: player.current_zone, label: 'Loitering' });
     await settle();
-    check('witnessed does not fail for a different crime key', (await statusOf()) === 'active', await statusOf());
+    check("witnessed doesn't fail for a different crime key", (await statusOf()) === 'active', await statusOf());
     emit('crime.witnessed', { player: { id: player.id, handle: player.handle }, key: 'burglary', zoneId: player.current_zone, label: 'Burglary' });
     await settle();
     check('witnessed fails on the named crime, resolving the flattened payload', (await failed('failed')) === 'failed', await statusOf());
@@ -639,11 +639,11 @@ export default async function regress({ run, check, getPlayer }) {
     // it was meant to succeed.
     await mkFail(
       [{ id: 'o0', type: 'visit', zone: 'zone_regress_nowhere', taskSeconds: 0, count: 1, desc: 'Come back' }],
-      [{ type: 'died', desc: 'You did not come back.' }]
+      [{ type: 'died', desc: "You didn't come back." }]
     );
     emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Claimed' }, deathZone: player.current_zone, claimed: true });
     await settle();
-    check('died does not fail on a claimed death', (await statusOf()) === 'active', await statusOf());
+    check("died doesn't fail on a claimed death", (await statusOf()) === 'active', await statusOf());
     emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Ordinary' }, deathZone: player.current_zone, claimed: false });
     await settle();
     check('died fails the quest on an ordinary death', (await failed('failed')) === 'failed', await statusOf());
@@ -657,7 +657,7 @@ export default async function regress({ run, check, getPlayer }) {
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_witness', name: 'The Witness' } });
     await failed('failed');
     let r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: FAIL_QUEST_ID } });
-    check('a failed quest cannot be turned in', r?.type === 'error' && r?.turned_in !== true, JSON.stringify(r));
+    check("a failed quest can't be turned in", r?.type === 'error' && r?.turned_in !== true, JSON.stringify(r));
     check('…and it stays failed after the attempt', (await statusOf()) === 'failed', await statusOf());
 
     // Retry is the default — a permanent dead end has to be asked for.
@@ -714,7 +714,7 @@ export default async function regress({ run, check, getPlayer }) {
     await backdate();
     const creditsBefore = Number(player.credits) || 0;
     r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: FAIL_QUEST_ID } });
-    check('a completed quest that expired en route cannot be turned in', r?.turned_in !== true, JSON.stringify(r));
+    check("a completed quest that expired en route can't be turned in", r?.turned_in !== true, JSON.stringify(r));
     check('…and it pays out nothing', (Number(player.credits) || 0) === creditsBefore, `${creditsBefore} → ${player.credits}`);
     check('…and it reads as failed, not completed', (await statusOf()) === 'failed', await statusOf());
 
@@ -937,7 +937,7 @@ export default async function regress({ run, check, getPlayer }) {
     await mk({ rewards: { credits: 0, xp: 3, rep: [{ ideology: null, delta: 10 }, { ideology: REP_ORDER, delta: 5 }] } });
     await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: AUDIT, index: 0 } });
     const repR = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: AUDIT } });
-    check('a malformed rewards.rep entry does not blow the turn-in', repR?.turned_in === true, JSON.stringify(repR)?.slice(0, 120));
+    check("a malformed rewards.rep entry doesn't blow the turn-in", repR?.turned_in === true, JSON.stringify(repR)?.slice(0, 120));
     check('…and the well-formed entries beside it still pay', (await repOf()) === 30, String(await repOf()));
 
     await query('DELETE FROM player_ideology_rep WHERE player_id=$1', [player.id]);
@@ -964,7 +964,7 @@ export default async function regress({ run, check, getPlayer }) {
     let r = await run('quest');
     check('bare quest is still the log, not a usage error', r?.type !== 'error', JSON.stringify(r)?.slice(0, 120));
 
-    r = await run('quest track something that is not a quest');
+    r = await run("quest track something that isn't a quest");
     check('quest track on an unheld quest is refused by name',
       r?.type === 'error' || /no active quests/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 140));
 
@@ -980,5 +980,374 @@ export default async function regress({ run, check, getPlayer }) {
     r = await run('drop');
     check('the engine drop verb is untouched by quest abandon',
       !/abandon/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 120));
+  }
+
+  // ── Optional objectives ────────────────────────────────────────────────────
+  //
+  // The property that matters is the finish line: an optional objective is
+  // tracked and paid, but a quest whose only outstanding work is optional must be
+  // turn-in-able. Getting that backwards yields a quest nobody can hand in, which
+  // in play reads as the quest system being broken rather than as a content bug.
+  {
+    const QID = 'quest_regress_optional';
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Optional','',$2,$3,0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2, rewards=$3`,
+      [QID, JSON.stringify([
+        { id: 'main', type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'The job' },
+        { id: 'bonus', type: 'visit', zone: 'zone_nowhere_else', count: 1, desc: 'The favour', optional: true, rewards: { xp: 11 } },
+      ]), JSON.stringify({ xp: 5 })]
+    );
+    invalidateQuestCache(QID);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: QID, index: 0 } });
+    let pq = await loadPlayerQuest(player.id, QID);
+    check('a quest completes with an optional objective outstanding',
+      pq?.status === 'completed', JSON.stringify(pq?.status));
+
+    // Paid in XP rather than credits on purpose: the harness player is in-memory
+    // and has no players row, so adjustCredits legitimately writes nothing, while
+    // the XP mirror on the live object moves. Same payment path either way.
+    const before = Number(player.total_xp) || 0;
+    const netBefore = Number(player.xp) || 0;
+    let r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('TURN_IN pays out with the optional objective skipped', r?.turned_in === true, JSON.stringify(r));
+    check('a SKIPPED optional objective pays no bonus',
+      (Number(player.total_xp) || 0) - before === 5, `${before} → ${player.total_xp}`);
+
+    // And the other way round: the bonus is paid when the optional work was done.
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: QID, index: 1 } });
+    pq = await loadPlayerQuest(player.id, QID);
+    check('an optional objective alone does NOT complete the quest',
+      pq?.status === 'active', JSON.stringify(pq?.status));
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: QID, index: 0 } });
+    const before2 = Number(player.total_xp) || 0;
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('a MET optional objective pays its own bonus on top',
+      (Number(player.total_xp) || 0) - before2 === 16, `${before2} → ${player.total_xp}`);
+    // The XP mirror is shared state for the whole suite — put it back.
+    player.total_xp = before; player.xp = netBefore;
+
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    await query('DELETE FROM quests WHERE id=$1', [QID]);
+    invalidateQuestCache(QID);
+  }
+
+  // ── World-state objectives, and offer windows ──────────────────────────────
+  //
+  // A `state` objective is met by the WORLD rather than by the player, and there
+  // is no event to subscribe to — so what is asserted is that the poll happens at
+  // the moments a quest is looked at, and above all that TURN_IN polls BEFORE it
+  // decides whether the quest is finished.
+  {
+    const QID = 'quest_regress_worldstate';
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,fail_on,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress World State','',$2,'{}',$3,1,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2, fail_on=$3, repeatable=1`,
+      [QID,
+       JSON.stringify([{ id: 'wait', type: 'state', when: { scope: 'world', flag: 'regress_grid_up', op: 'eq', value: 'true' }, count: 1, desc: 'The grid comes back' }]),
+       JSON.stringify([{ type: 'avert', when: { scope: 'world', flag: 'regress_block_burned', op: 'eq', value: 'true' }, desc: 'The block burned.' }])]
+    );
+    invalidateQuestCache(QID);
+    for (const f of ['regress_grid_up', 'regress_block_burned']) await clearFlag('world', f);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+    let r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check("a state objective whose condition doesn't hold isn't met", r?.turned_in !== true, JSON.stringify(r));
+
+    // The world changes with the player standing still — no event, no command.
+    await setFlag('world', 'regress_grid_up', 'true');
+    r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('TURN_IN polls the world before deciding, so a met state objective pays',
+      r?.turned_in === true, JSON.stringify(r));
+
+    // The mirror: an `avert` condition blows the quest at the same poll points.
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    await clearFlag('world', 'regress_grid_up');
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+    await setFlag('world', 'regress_block_burned', 'true');
+    r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('an avert condition fails the quest at the same poll point', r?.type === 'error', JSON.stringify(r));
+    const pq = await loadPlayerQuest(player.id, QID);
+    check('…and the quest is really failed, not merely refused', pq?.status === 'failed', String(pq?.status));
+
+    for (const f of ['regress_grid_up', 'regress_block_burned']) await clearFlag('world', f);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    await query('DELETE FROM quests WHERE id=$1', [QID]);
+    invalidateQuestCache(QID);
+  }
+
+  // Offer windows. The hour arithmetic is a pure function because the wrapping
+  // case is the one that is wrong in every naive version, and because regress
+  // never boots the environment, so there is no in-world clock to lean on.
+  {
+    check('an hour inside a plain window is on offer', withinHours([9, 17], 12) === true, 'no');
+    check('an hour outside a plain window is not', withinHours([9, 17], 3) === false, 'yes');
+    check('the closing hour is exclusive', withinHours([9, 17], 17) === false, 'yes');
+    check('a window that WRAPS MIDNIGHT holds after midnight', withinHours([22, 4], 2) === true, 'no');
+    check('…and before it', withinHours([22, 4], 23) === true, 'no');
+    check('…and not in the afternoon', withinHours([22, 4], 15) === false, 'yes');
+    check('a quest with no window is always on offer', await isQuestAvailable({}, player) === true, 'no');
+    check('a condition that fails takes the quest off offer',
+      await isQuestAvailable({ available: { when: { flag: 'regress_never_set', op: 'set' } } }, player) === false, 'yes');
+  }
+
+  // ── The advance, and exclusivity ───────────────────────────────────────────
+  //
+  // The advance is money that moves when the job is TAKEN and is kept when it is
+  // failed. The case that matters is the retake: paying it again on a retry makes
+  // take-fail-repeat a faucet, which is the exploit this feature would otherwise
+  // have shipped with.
+  {
+    const PAID = 'quest_regress_advance';
+    const CLOSED = 'quest_regress_closed';
+    const obj = JSON.stringify([{ id: 'go', type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'Go' }]);
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,blocks,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Advance','',$2,$3,$4,0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2, rewards=$3, blocks=$4`,
+      [PAID, obj, JSON.stringify({ advance: 25, xp: 3 }), JSON.stringify([CLOSED])]
+    );
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Closed','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+      [CLOSED, obj]
+    );
+    invalidateQuestCache(PAID); invalidateQuestCache(CLOSED);
+    for (const id of [PAID, CLOSED]) {
+      await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, id]);
+      await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [player.id, `quest_blocked_${id}`]);
+    }
+
+    // The rule itself is a pure function, so it is tested as one — the harness
+    // player has no players row and cannot bank credits.
+    const withAdvance = { rewards: { advance: 25 } };
+    check('a fresh take is paid the advance', advanceFor(withAdvance, undefined) === 25, String(advanceFor(withAdvance, undefined)));
+    check('retaking a FAILED attempt pays no second advance',
+      advanceFor(withAdvance, 'failed') === 0, String(advanceFor(withAdvance, 'failed')));
+    check('retaking an ABANDONED attempt pays no second advance',
+      advanceFor(withAdvance, 'abandoned') === 0, String(advanceFor(withAdvance, 'abandoned')));
+    check('a repeatable taken again after turn-in is a new job, and pays',
+      advanceFor(withAdvance, 'turned_in') === 25, String(advanceFor(withAdvance, 'turned_in')));
+    check('a quest with no advance authored pays nothing',
+      advanceFor({ rewards: { credits: 100 } }, undefined) === 0, 'paid something');
+
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: PAID } });
+    const pq = await loadPlayerQuest(player.id, PAID);
+    check('a quest with an advance still starts', pq?.status === 'active', String(pq?.status));
+
+    // Exclusivity: taking it closed the rival, permanently.
+    const blocked = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: CLOSED } });
+    check("a quest closed by another can't be started", blocked?.blocked === true, JSON.stringify(blocked));
+    check('…and no row is written for it', !(await loadPlayerQuest(player.id, CLOSED)), 'row exists');
+
+    // …and it stays closed after the quest that closed it is failed. A door that
+    // reopens when you fumble the thing that shut it is not a decision.
+    await dispatchAction({ type: 'FAIL_QUEST', actor: player, params: { quest_id: PAID, reason: 'testing' } });
+    const stillBlocked = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: CLOSED } });
+    check('a closed quest stays closed even after the quest that closed it fails',
+      stillBlocked?.blocked === true, JSON.stringify(stillBlocked));
+
+    // The retake pays no second advance.
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: PAID } });
+    const retaken = await loadPlayerQuest(player.id, PAID);
+    check('a failed quest with an advance can still be retaken', retaken?.status === 'active', String(retaken?.status));
+
+    for (const id of [PAID, CLOSED]) {
+      await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, id]);
+      await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [player.id, `quest_blocked_${id}`]);
+      await query('DELETE FROM quests WHERE id=$1', [id]);
+      invalidateQuestCache(id);
+    }
+  }
+
+  // ── Branching resolutions ──────────────────────────────────────────────────
+  //
+  // Order is the whole contract: FIRST match wins, the authored `rewards` is the
+  // fallback, and which ending was paid is RECORDED rather than re-derived — a
+  // later re-evaluation asks a different question, because the flag it read may
+  // have changed since.
+  {
+    const QID = 'quest_regress_endings';
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,resolutions,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Endings','',$2,$3,$4,1,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2, rewards=$3, resolutions=$4, repeatable=1`,
+      [QID,
+       JSON.stringify([{ id: 'go', type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'Go' }]),
+       JSON.stringify({ xp: 1 }),                       // the fallback ending
+       JSON.stringify([
+         { id: 'told', when: { flag: 'regress_told_them', op: 'eq', value: 'true' }, rewards: { xp: 40 } },
+         { id: 'kept', when: { flag: 'regress_kept_quiet', op: 'eq', value: 'true' }, rewards: { xp: 20 } },
+       ])]
+    );
+    invalidateQuestCache(QID);
+    const reset = async () => {
+      await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+      await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+      await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: QID, index: 0 } });
+    };
+    const xpBefore = Number(player.total_xp) || 0;
+    const netBefore = Number(player.xp) || 0;
+
+    // No condition matches: the ordinary rewards are paid, and nothing is recorded.
+    await reset();
+    let mark = Number(player.total_xp) || 0;
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('with no resolution matching, the quest pays its ordinary rewards',
+      (Number(player.total_xp) || 0) - mark === 1, `${mark} → ${player.total_xp}`);
+    let pq = await loadPlayerQuest(player.id, QID);
+    check('…and records no resolution', !pq?.resolution, String(pq?.resolution));
+
+    // The second condition alone: order is by match, not by position.
+    await setFlag('player', 'regress_kept_quiet', 'true', player);
+    await reset();
+    mark = Number(player.total_xp) || 0;
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('a matching resolution is paid instead of the ordinary rewards',
+      (Number(player.total_xp) || 0) - mark === 20, `${mark} → ${player.total_xp}`);
+    pq = await loadPlayerQuest(player.id, QID);
+    check('the resolution that paid is recorded on the row', pq?.resolution === 'kept', String(pq?.resolution));
+
+    // Both match: the FIRST authored one wins, which is how an author states
+    // precedence between two endings a player has qualified for.
+    await setFlag('player', 'regress_told_them', 'true', player);
+    await reset();
+    mark = Number(player.total_xp) || 0;
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('when two resolutions match, the first authored one wins',
+      (Number(player.total_xp) || 0) - mark === 40, `${mark} → ${player.total_xp}`);
+    pq = await loadPlayerQuest(player.id, QID);
+    check("…and it's the one recorded", pq?.resolution === 'told', String(pq?.resolution));
+
+    // The flag mirror is the authoring route: dialogue gates on which way you went
+    // through the ordinary Flag mechanism, with no new condition shape.
+    const viaFlag = await evalCondition({ flag: `${QID}_resolution`, op: 'eq', value: 'told' }, player);
+    check('the resolution is readable as a player flag for later dialogue', viaFlag === true, String(viaFlag));
+
+    player.total_xp = xpBefore; player.xp = netBefore;
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    await query('DELETE FROM quests WHERE id=$1', [QID]);
+    invalidateQuestCache(QID);
+  }
+
+  // ── Rolled targets ─────────────────────────────────────────────────────────
+  //
+  // What is asserted is the FREEZING, not the randomness: a selector resolved
+  // once at START and read back identically thereafter. A target re-rolled on
+  // every read would send the player somewhere new each time they opened the log.
+  {
+    const QID = 'quest_regress_rolled';
+    const CHOICES = ['item_scrap_metal', 'item_ration_bar', 'item_water'];
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Rolled','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+      [QID, JSON.stringify([
+        { id: 'fetch', type: 'give', item_id: `@any_of:[${CHOICES.join(',')}]`, count: 1, desc: 'Hand it over' },
+      ])]
+    );
+    invalidateQuestCache(QID);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+
+    const r = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+    check('a quest with a selector still starts', r?.started === true, JSON.stringify(r));
+
+    const { rows } = await query('SELECT targets FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    const rolled = rows[0]?.targets?.[0]?.item_id;
+    check('the selector resolved to one of its choices', CHOICES.includes(rolled), String(rolled));
+
+    // Frozen, not re-rolled: the same answer through the player-facing read path.
+    const pq = await loadPlayerQuest(player.id, QID);
+    check('the rolled target is frozen on the row, not re-derived',
+      pq?.targets?.[0]?.item_id === rolled, `${rolled} vs ${pq?.targets?.[0]?.item_id}`);
+
+    // …and the objective the rest of the game sees carries it, rather than the
+    // selector string an author wrote.
+    const seen = applyRolled([{ id: 'fetch', type: 'give', item_id: '@any_of:[a,b]' }], pq.targets);
+    check('applyRolled folds the frozen target over the authored objective',
+      seen[0].item_id === rolled, JSON.stringify(seen[0]));
+
+    // An unresolvable selector REFUSES the quest. Starting one anyway hands the
+    // player an objective nothing can satisfy, which reads as a broken quest.
+    const BAD = 'quest_regress_rolled_bad';
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Rolled Bad','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+      [BAD, JSON.stringify([{ id: 'x', type: 'visit', zone: '@zone_with:map_id=no_such_map', count: 1, desc: 'Nowhere' }])]
+    );
+    invalidateQuestCache(BAD);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, BAD]);
+    const bad = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: BAD } });
+    check('a selector that matches nothing refuses the quest', bad?.type === 'error', JSON.stringify(bad));
+    const after = await loadPlayerQuest(player.id, BAD);
+    check('…and leaves no started row behind', !after, JSON.stringify(after?.status));
+
+    for (const id of [QID, BAD]) {
+      await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, id]);
+      await query('DELETE FROM quests WHERE id=$1', [id]);
+      invalidateQuestCache(id);
+    }
+  }
+
+  // ── on_fail / on_turn_in — a quest hands you the next one ──────────────────
+  //
+  // Both go through the ordinary START_QUEST action, so what is tested here is
+  // the wiring and the loop guard, not the starting. The guard is the part that
+  // matters: a pair of quests each naming the other would otherwise spin.
+  {
+    const A = 'quest_regress_chain_a';
+    const B = 'quest_regress_chain_b';
+    const mk = (id, name, objectives, extra = {}) => query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,on_fail,on_turn_in,updated_at)
+       VALUES ($1,$2,'',$3,'{}',0,'standard','{}',$4,$5,$6,EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$3, fail_on=$4, on_fail=$5, on_turn_in=$6`,
+      [id, name, JSON.stringify(objectives), JSON.stringify(extra.fail_on || []),
+       JSON.stringify(extra.on_fail || null), JSON.stringify(extra.on_turn_in || null)]
+    );
+    const obj = [{ id: 'go', type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'Go' }];
+
+    await mk(A, 'Regress Chain A', obj, { on_turn_in: { start_quest: B }, on_fail: { start_quest: B } });
+    await mk(B, 'Regress Chain B', obj, { on_fail: { start_quest: A } });
+    invalidateQuestCache(A); invalidateQuestCache(B);
+    for (const id of [A, B]) await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, id]);
+
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: A } });
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: A, index: 0 } });
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: A } });
+    let pqB = await loadPlayerQuest(player.id, B);
+    check('on_turn_in starts the follow-up quest', pqB?.status === 'active', JSON.stringify(pqB?.status));
+
+    // B is live and names A on failure; A is turned_in and not repeatable, so the
+    // follow-up must be refused rather than resurrecting a finished quest.
+    await dispatchAction({ type: 'FAIL_QUEST', actor: player, params: { quest_id: B, reason: 'testing' } });
+    const pqA = await loadPlayerQuest(player.id, A);
+    check("a follow-up never re-opens a quest that's already finished",
+      pqA?.status === 'turned_in', JSON.stringify(pqA?.status));
+
+    // And the live-quest guard: failing A again would try to start B, which is
+    // itself failed and therefore retryable — the guard only blocks LIVE ones, so
+    // this asserts the shape rather than a blanket refusal.
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, A]);
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: A } });
+    await dispatchAction({ type: 'FAIL_QUEST', actor: player, params: { quest_id: A, reason: 'testing' } });
+    pqB = await loadPlayerQuest(player.id, B);
+    check("on_fail restarts a follow-up that isn't currently live",
+      pqB?.status === 'active', JSON.stringify(pqB?.status));
+
+    for (const id of [A, B]) {
+      await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, id]);
+      await query('DELETE FROM quests WHERE id=$1', [id]);
+      invalidateQuestCache(id);
+    }
   }
 }

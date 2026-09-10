@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "You said that quite carefully. You did not have to.",
+  "self_line": "You said that quite carefully. You didn't have to.",
   "source": "object_reply_answer",
   "tone": "surreal"
 }

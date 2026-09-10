@@ -183,7 +183,7 @@
           "next": "root"
         }
       ],
-      "text": "The Reserve is our signature pour. Don't ask what's left to age it in. The Swill is also available, for guests with simpler tastes, or none. Canapés are complimentary with a drink. They are not actually complimentary."
+      "text": "The Reserve is our signature pour. Don't ask what's left to age it in. The Swill is also available, for guests with simpler tastes, or none. Canapés are complimentary with a drink. They aren't actually complimentary."
     },
     "poker": {
       "actions": [
@@ -283,72 +283,44 @@
   "vendor_schedule": {
     "fri": [
       {
-        "from": 0,
-        "to": 4
-      },
-      {
         "from": 8,
-        "to": 24
+        "to": 21
       }
     ],
     "mon": [
       {
-        "from": 0,
-        "to": 4
-      },
-      {
         "from": 8,
-        "to": 24
+        "to": 21
       }
     ],
     "sat": [
       {
-        "from": 0,
-        "to": 4
-      },
-      {
         "from": 8,
-        "to": 24
+        "to": 21
       }
     ],
     "sun": [
       {
-        "from": 0,
-        "to": 4
-      },
-      {
         "from": 8,
-        "to": 24
+        "to": 21
       }
     ],
     "thu": [
       {
-        "from": 0,
-        "to": 4
-      },
-      {
         "from": 8,
-        "to": 24
+        "to": 21
       }
     ],
     "tue": [
       {
-        "from": 0,
-        "to": 4
-      },
-      {
         "from": 8,
-        "to": 24
+        "to": 21
       }
     ],
     "wed": [
       {
-        "from": 0,
-        "to": 4
-      },
-      {
         "from": 8,
-        "to": 24
+        "to": 21
       }
     ]
   },

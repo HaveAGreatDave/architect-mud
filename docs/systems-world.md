@@ -339,6 +339,44 @@ grid. `cmdMap` returns the full same-`map_id`/same-`grid_z` tile set (a `MAP_WIN
 [movement.js](../server/engine/commands/movement.js)) for the full-screen map popup and the tablet
 bigmap.
 
+### Landmark colour (as built)
+
+Every tile carries a landmark category — `poi`, one of ~20 keys — derived by `poiOf()` in
+[world.js](../server/engine/world.js) from the tile's own flags plus the building types it opens onto.
+Both map surfaces draw a **building's footprint in that landmark's ink** instead of the palette's text
+colour, so an airfield, a freight depot, a clinic and a shop are four colours on the map rather than
+four grey rooftops you have to open the tablet to tell apart. The colours live once, beside the glyphs,
+in `POI_LEGEND` ([minimap.js](../client/game/js/panels/minimap.js)); `poiInk(node)` is the one function
+both renderers and the tablet ask.
+
+**Labels mode carries the colour too, as a plate.** The two-letter code was white-on-black in both
+renderers; the tile's label box now takes the landmark colour and the letters stay white on top of it.
+A filled swatch reads as a colour at a glance, where two coloured letterforms read as text you have to
+stop and look at. The DOM path passes the colour as an inline `--poi-ink` custom property that
+`.map-bld-label` and the tablet's `.mt-code` fall back to transparent (and to their own dark plate)
+without, so every tile that has no landmark is unchanged; the canvas fills the same full-tile rect
+before lettering. The black stroke survived the change — the palest inks (bathhouse, diner, home) are
+what it is for.
+**The classes are coarse, and the tile's own type wins.** Twelve rows, not the sixty-four
+`building_type` values the world holds: a legend is read at a glance, so a player looking for the
+same *kind* of thing gets one colour — every shop that isn't food is `shops`, every bar and club is
+`nightlife`. The pairs that are near in kind are near in hue (restaurant/grocery, airfield/depot).
+And a tile's OWN building type is not ranked against its neighbours at all — it wins outright, which
+is the whole of the mixed-use rule: the Embassy is a hotel with a bar in it and the Solenne is flats
+with a bar in it, and neither may read as a nightclub because of what is on the ground floor. Only a
+tile with no building of its own inherits, which is what still lets a street corner say there is a
+clinic here.
+
+Three things it deliberately does not do. **It never touches the fill.** The ground colour is what
+derive.mjs resolved from the terrain palette, and a renderer repainting it would be inventing a colour
+no author chose; the tint reaches the ICON layer only. **It never reaches a street.** A tile's POI is
+derived from its neighbours too — that is what makes the tablet's Landmark row useful on a corner —
+so `poiInk` requires the tile to be a facade or an enterable door, or a road beside a shop would have
+its lane markings repainted gold. And **the category is derived once**: `mapPoi` in movement.js is now
+the glyph lookup over the same answer, so the tablet and the sidebar cannot disagree about what a tile
+is. The static half (flags + adjacent building types) is memoized per zone and cleared with the render
+cache; only the vendor-NPC clause is live, and it runs only when nothing outranked it.
+
 ### The renderer: canvas, with a camera (as built)
 
 The sidebar/HUD/mobile minimaps are drawn on a **canvas**, by

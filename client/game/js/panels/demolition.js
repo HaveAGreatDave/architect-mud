@@ -173,7 +173,7 @@ function open(kind, opts) {
   const st = kind === 'rig' ? startRig(_opts) : startDefuse(_opts);
   SKIN.status(kind === 'rig'
     ? 'Set the fuse, then catch the needle in the band. Three leads.'
-    : 'Probe costs time you do not have. Cut the shunt.');
+    : "Probe costs time you don't have. Cut the shunt.");
   return !!st;
 }
 

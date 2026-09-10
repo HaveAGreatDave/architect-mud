@@ -1,5 +1,5 @@
 {
-  "description": "A single caged bulb on a hook, swung out over the block when there is work on it and left to hang when there is not.",
+  "description": "A single caged bulb on a hook, swung out over the block when there's work on it and left to hang when there's not.",
   "flags": {
     "interactions": [
       "switch"

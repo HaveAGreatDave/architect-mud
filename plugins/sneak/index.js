@@ -73,7 +73,7 @@ async function cmdSneak(args, raw, player, broadcast) {
   // front of somebody is itself the conspicuous act.
   const caught = await sweepRoom(player, broadcast);
   const line = caught.length
-    ? 'You drop low and move carefully. It does not go unnoticed.'
+    ? "You drop low and move carefully. It doesn't go unnoticed."
     : 'You drop low and move carefully. Nobody looks up.';
   return { type: 'output', message: `<span class="text-dim">${line}</span>` };
 }
@@ -112,7 +112,7 @@ async function sweepRoom(player, broadcast) {
     } else {
       // A person doesn't attack — they get uneasy about the fact that you are
       // creeping, which is a far stranger thing to be caught doing.
-      sendToPlayer(player.id, { type: 'output', message: `<span class="text-dim">${b.name} watches you moving like that, and does not like it.</span>` });
+      sendToPlayer(player.id, { type: 'output', message: `<span class="text-dim">${b.name} watches you moving like that, and doesn't like it.</span>` });
       broadcast(zoneId, { type: 'zone_event', message: `${b.name} watches ${player.handle} skulking about, plainly unsettled.` }, player.id);
     }
   }
@@ -190,7 +190,7 @@ function witnessKnockout(player, victim, zoneId, broadcast) {
   for (const p of others.filter(awake)) {
     sendToPlayer(p.id, {
       type: 'zone_event',
-      message: `<span class="msg-combat">${player.handle} drops ${victim.name} with a blow to the back of the head. ${victim.name} is not getting up.</span>`,
+      message: `<span class="msg-combat">${player.handle} drops ${victim.name} with a blow to the back of the head. ${victim.name} isn't getting up.</span>`,
       refresh: true,
     });
   }
@@ -199,7 +199,7 @@ function witnessKnockout(player, victim, zoneId, broadcast) {
   if ([...enemies, ...npcs, ...others].some(awake)) {
     forceStand(player, 'knockout-witnessed');
     clearNotices(player.id);
-    sendToPlayer(player.id, { type: 'output', message: `<span class="text-dim">You are not the only one in here. There is no creeping away from this.</span>` });
+    sendToPlayer(player.id, { type: 'output', message: `<span class="text-dim">You aren't the only one in here. There's no creeping away from this.</span>` });
   }
 }
 
@@ -265,7 +265,7 @@ async function cmdKnockout(args, raw, player, broadcast) {
     // meant the victim never saw it — everyone else in the room watched a person
     // fold up, and they react to that whatever the dice said about your creeping.
     witnessKnockout(player, ref, zoneId, broadcast);
-    return { type: 'combat', message: `You put ${target.name} down quietly. They will not be up for a while.` };
+    return { type: 'combat', message: `You put ${target.name} down quietly. They won't be up for a while.` };
   }
 
   // ── Failure, which differs by what you swung at ───────────────────────────
@@ -276,7 +276,7 @@ async function cmdKnockout(args, raw, player, broadcast) {
     ref.targetId = player.id;
     ref.aggroedAt = Date.now();
     broadcast(zoneId, { type: 'zone_event', message: `${player.handle} swings at ${target.name} and misses. ${target.name} turns on them.` }, player.id);
-    return { type: 'combat', message: `The blow glances off. ${target.name} turns round, and it is a fight now.` };
+    return { type: 'combat', message: `The blow glances off. ${target.name} turns round, and it's a fight now.` };
   }
 
   if (target._kind === 'npc') {
@@ -284,7 +284,7 @@ async function cmdKnockout(args, raw, player, broadcast) {
     // directly (as this used to) suspends the graph with nobody to resume it.
     panicNpc(ref, { reason: 'assault', threat: player });
     broadcast(zoneId, { type: 'zone_event', message: `${target.name} ducks the blow, sees who it was, and bolts — shouting.`, refresh: true }, player.id);
-    return { type: 'error', message: `${target.name} feels it coming and twists away. They are running, and they are shouting your description as they go.` };
+    return { type: 'error', message: `${target.name} feels it coming and twists away. They're running, and they're shouting your description as they go.` };
   }
 
   broadcast(zoneId, { type: 'zone_event', message: `${player.handle} takes a swing at ${target.name} and misses.` }, player.id);

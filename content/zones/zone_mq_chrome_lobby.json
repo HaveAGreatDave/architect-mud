@@ -8,7 +8,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1b232c",
   "color": "#cfe9ff",
-  "description": "The plinth, inside: a ten-sided atrium of mirror steel where every facet holds a slightly different, slightly better version of you. A cyan cove band runs the whole decagon at shoulder height, cool as a held breath. The concierge counter is a single wet-looking slab with nobody behind it and a screen that already knows your name. Two express cars wait behind bronze glass, and the stair, a mirrored helix wrapped around the core, climbs into the shaft for residents who prefer their own legs. It is quiet the way expensive rooms are quiet: not empty, just insulated.",
+  "description": "The plinth, inside: a ten-sided atrium of mirror steel where every facet holds a slightly different, slightly better version of you. A cyan cove band runs the whole decagon at shoulder height, cool as a held breath. The concierge counter is a single wet-looking slab with nobody behind it and a screen that already knows your name. Two express cars wait behind bronze glass, and the stair, a mirrored helix wrapped around the core, climbs into the shaft for residents who prefer their own legs. It's quiet the way expensive rooms are quiet: not empty, just insulated.",
   "exits": {
     "down": "zone_mq_chrome_util",
     "up": "zone_mq_chrome_f1",
@@ -21,7 +21,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

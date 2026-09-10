@@ -29,7 +29,7 @@ export default async function regress({ run, check, getPlayer }) {
     emit('npc.aggressed', { npc: { id: 'npc_regress_thug' }, target: p });
     check('NPC throwing the first punch makes the player a defender',
       __isSelfDefence(p.id, 'npc:npc_regress_thug'));
-    check('the pass is per-foe — it does not cover a bystander',
+    check("the pass is per-foe — it doesn't cover a bystander",
       !__isSelfDefence(p.id, 'npc:npc_regress_bystander'));
     emit('player.attacked', { attacker: { id: 'attacker_regress', handle: 'Regress', current_zone: null }, target: p });
     check('being attacked by a player makes the victim a defender against them',
@@ -56,7 +56,7 @@ export default async function regress({ run, check, getPlayer }) {
   const hjNone = await run('hijack');
   check('hijack with no args asks what', hjNone?.type === 'error' && /hijack what/i.test(hjNone?.message || ''), hjNone?.message);
   const hjGhost = await run('hijack ghostcam_xyz');
-  check('hijack of a device that is not here says so, not "you need a device"',
+  check('hijack of a device that isn\'t here says so, not "you need a device"',
     hjGhost?.type === 'error' && /no "ghostcam_xyz" here/i.test(hjGhost?.message || '') && !/hacking device/i.test(hjGhost?.message || ''),
     hjGhost?.message);
 
@@ -207,7 +207,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('wipe reports the discard', wipeRes?.type === 'output' && /wipe/i.test(wipeRes?.message || ''), JSON.stringify(wipeRes)?.slice(0, 160));
   check('wipe clears the buffer without saving a reel', __cameraFrames(CAM_ID).length === 0, `len=${__cameraFrames(CAM_ID).length}`);
   const reelsAfterWipe = await microreelList(p);
-  check('wipe did not add a reel', reelsAfterWipe.length === reels.length, `before=${reels.length} after=${reelsAfterWipe.length}`);
+  check("wipe didn't add a reel", reelsAfterWipe.length === reels.length, `before=${reels.length} after=${reelsAfterWipe.length}`);
 
   // deleteMicroreel: a bogus / non-owned id is refused; a real one is destroyed for good.
   const bogusDel = await deleteMicroreel(p, 'clip_does_not_exist');
@@ -291,7 +291,7 @@ export default async function regress({ run, check, getPlayer }) {
     x = await run('crush');
     check('crush with no chip is refused', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
     x = await run('crush nothing_of_that_name');
-    check('crush on a chip you do not carry is refused', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
+    check("crush on a chip you don't carry is refused", x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
     check('...and never claims to have destroyed it', !/isn't anywhere/i.test(x?.message || ''), x?.message);
 
     x = await run('cast');
@@ -321,12 +321,12 @@ export default async function regress({ run, check, getPlayer }) {
     check('hub text: lists every device', /stairwell cam/.test(t) && /alley cam/.test(t));
     check('hub text: carries status and battery', /OK/.test(t) && /82%/.test(t), t);
     check('hub text: a jammed device reads as jammed, not merely absent', /JAMMED/.test(t), t);
-    check('hub text: shows what is recording and how much is on tape',
+    check("hub text: shows what's recording and how much is on tape",
       /REC/.test(t) && /4 on tape/.test(t), t);
     // THE FRAME IS THE FEED. Without it this is an inventory list, not surveillance.
-    check('hub text: includes the live frame — otherwise it is not a feed at all',
+    check("hub text: includes the live frame — otherwise it isn't a feed at all",
       /A figure crosses left to right/.test(t), t);
-    check('hub text: offers the way to refresh, since there is no live stream',
+    check("hub text: offers the way to refresh, since there's no live stream",
       /hub to refresh/.test(t), t);
 
     const empty = surv.renderHubText({ net: { name: 'SPECTER' }, alerts: [], tiles: [] });

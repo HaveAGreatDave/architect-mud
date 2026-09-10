@@ -47,8 +47,16 @@ const out = join(dir, `architect-prod-FULL-backup_${stamp}.sql`);
 try {
   execFileSync(resolvePgDump(), [url, '--no-owner', '--no-privileges', '-n', 'public', '-f', out],
     { stdio: ['ignore', 'inherit', 'inherit'] });
-  const kb = (statSync(out).size / 1024).toFixed(0);
-  console.log(`✓ Backed up production → ${out} (${kb} KB)`);
+  // The file size doubles as the egress figure — a plain-format dump is the data
+  // as text, so what landed on disk is close to what came over the wire. Said in
+  // MB beside the budget because this is the one command here that spends a
+  // measurable slice of it in a single run, and nothing else would mention it:
+  // pg_dump is a child process, so the pool meter in server/models/db.js never
+  // sees these bytes. Approximate on purpose — ±TLS framing, not ±10×.
+  const bytes = statSync(out).size;
+  const mb = (bytes / 1024 ** 2).toFixed(1);
+  console.log(`✓ Backed up production → ${out} (${mb} MB)`);
+  console.log(`  ~${mb} MB of Neon egress — ${((bytes / (5 * 1024 ** 3)) * 100).toFixed(1)}% of the 5 GB monthly budget.`);
 
   // Retention: keep the 10 newest backups, delete the rest.
   const KEEP = 10;

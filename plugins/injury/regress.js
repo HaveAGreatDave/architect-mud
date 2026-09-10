@@ -39,7 +39,7 @@ export default async function regress({ run, check, getPlayer }) {
   // ── Thresholds: armour that worked prevents the wound ──────────────────────
   check('a soaked-to-nothing hit never injures',
     severityFor(0, 100, 'kinetic') === 0 && severityFor(0, 100, 'edged') === 0);
-  check('chip damage does not injure',
+  check("chip damage doesn't injure",
     severityFor(3, 100, 'kinetic') === 0, `got ${severityFor(3, 100, 'kinetic')}`);
 
   // ── Type character: the whole point of the design ──────────────────────────
@@ -70,7 +70,7 @@ export default async function regress({ run, check, getPlayer }) {
   // cheap that every mid-tier weapon reaches Maimed on a routine hit.
   check('an absurd blow still only Maims',
     severityFor(500, 100, 'kinetic') === MAIMED && severityFor(5000, 100, 'edged') === MAIMED);
-  check('a routine mid-tier blow does not Maim',
+  check("a routine mid-tier blow doesn't Maim",
     severityFor(30, 100, 'kinetic') < MAIMED && severityFor(30, 100, 'edged') < MAIMED,
     `kinetic=${severityFor(30, 100, 'kinetic')} edged=${severityFor(30, 100, 'edged')}`);
 
@@ -90,7 +90,7 @@ export default async function regress({ run, check, getPlayer }) {
   const oneStep = typeRules('kinetic').healMins;
 
   const fresh = body({ left_leg: [MAIMED, 'kinetic', 0] });
-  check('a fresh wound does not decay', severityOf(fresh, 'left_leg') === MAIMED);
+  check("a fresh wound doesn't decay", severityOf(fresh, 'left_leg') === MAIMED);
 
   const aged = body({ left_leg: [MAIMED, 'kinetic', oneStep + 1] });
   check('one heal period sheds exactly one rung',
@@ -139,7 +139,7 @@ export default async function regress({ run, check, getPlayer }) {
   // The provider must stay OFF for an uninjured player: it sits on the per-swing,
   // per-move and per-15s-tick paths, and a non-null answer there is pure cost.
   const well = body();
-  check('an uninjured body is not impaired', impairmentOf(well) === impairmentOf(body()),
+  check("an uninjured body isn't impaired", impairmentOf(well) === impairmentOf(body()),
     'expected the shared EMPTY object');
   check('an uninjured body has no stat penalty', impairmentOf(well).statPenalties.stat_brains === undefined);
 
@@ -209,7 +209,7 @@ export default async function regress({ run, check, getPlayer }) {
   // engine no longer runs.
   const worstCase = (raw) => severityFor(raw, 100, 'kinetic', { critical: true, existing: HURT, head: true });
 
-  check('a light blunt head crit on a wounded skull still does not maim',
+  check("a light blunt head crit on a wounded skull still doesn't maim",
     worstCase(10) < MAIMED, `got ${worstCase(10)}`);
   check('a solid blunt head crit DOES maim (the payoff is real)',
     worstCase(35) === MAIMED, `got ${worstCase(35)}`);
@@ -289,7 +289,7 @@ export default async function regress({ run, check, getPlayer }) {
     `unskilled=${aimHitPenalty(headAimer, 0)} skilled=${aimHitPenalty(headAimer, 12)}`);
   check('but aiming is NEVER free, however good you get',
     aimHitPenalty(headAimer, 999) < 0, `got ${aimHitPenalty(headAimer, 999)}`);
-  check('centre mass is free — it is what the roll already favoured',
+  check("centre mass is free — it's what the roll already favoured",
     (() => { const p = body(); p._aimPart = 'torso'; return aimHitPenalty(p, 0) === 0; })());
 
   // The lesson is Grady's now, and its whole point is that it tells the truth
@@ -318,7 +318,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('aiming heavily biases the roll toward that part', w.head / wTotal > 0.6,
     `head share ${(100 * w.head / wTotal).toFixed(0)}%`);
   check('but a missed aim can still land elsewhere', w.torso > 0 && w.left_leg > 0);
-  check('aiming at a part the creature does not have falls back cleanly',
+  check("aiming at a part the creature doesn't have falls back cleanly",
     (() => { const p = body(); p._aimPart = 'head';
              const drone = { power_cell: 30, rotor: 20 };
              return aimedWeightsFor(p, drone) === drone; })());
@@ -358,7 +358,7 @@ export default async function regress({ run, check, getPlayer }) {
   const sparked = { name: 'a sparked thug', hp: 10, hp_max: 40, hit: 5 };
   knockOut(sparked);
   check('a knocked-out enemy is out', isOut(sparked) === true);
-  check('...and does not swing while it is out',
+  check("...and doesn't swing while it's out",
     (await enemyAttackPlayer(sparked, body())) === null);
   wakeUp(sparked);
   check('and swings again once it comes round', isOut(sparked) === false);
@@ -372,9 +372,9 @@ export default async function regress({ run, check, getPlayer }) {
     exec(sniper, { part: 'left_leg', damage: 20, critical: true, targetHpMax: 40 }) === null);
 
   // The floor: this is what stops "one hit" meaning "one hit on anything".
-  check('a light called crit cannot kill, but ruins the skull',
+  check("a light called crit can't kill, but ruins the skull",
     exec(sniper, { part: 'head', damage: 4, critical: true, targetHpMax: 40 }) === 'maim');
-  check('a boss cannot be one-shot by a called head crit',
+  check("a boss can't be one-shot by a called head crit",
     exec(sniper, { part: 'head', damage: 30, critical: true, targetHpMax: 600 }) === 'maim');
   check('a helmet that soaks enough demotes a kill to a maim',
     exec(sniper, { part: 'head', damage: 20, critical: true, targetHpMax: 40 }) === 'kill' &&
@@ -441,7 +441,7 @@ export default async function regress({ run, check, getPlayer }) {
   fireEnemy(many, { part: 'left_leg', damage: 30, baseDamage: 30, type: 'kinetic' });
   const oneLeg = many._injuryFleeMod;
   fireEnemy(many, { part: 'right_leg', damage: 30, baseDamage: 30, type: 'kinetic' });
-  check('crippling a second leg does not double the penalty', many._injuryFleeMod === oneLeg,
+  check("crippling a second leg doesn't double the penalty", many._injuryFleeMod === oneLeg,
     `one=${oneLeg} two=${many._injuryFleeMod}`);
 
   // ── Wielding something above your grade ────────────────────────────────────
@@ -458,7 +458,7 @@ export default async function regress({ run, check, getPlayer }) {
   const raw = underskilledPenalty(chain, 1);
   check('a novice with a top-tier blade swings wide', raw.hitMod < 0, `${raw.hitMod}`);
   check('...and lands soft', raw.damageScale < 0.5, `${raw.damageScale}`);
-  check('but it is never reduced to nothing', raw.damageScale >= 0.25);
+  check("but it's never reduced to nothing", raw.damageScale >= 0.25);
   check('the shortfall scales — one level short beats five short',
     underskilledPenalty(chain, 5).damageScale > underskilledPenalty(chain, 1).damageScale);
   check('the requirement is readable for the vendor gate',
@@ -467,11 +467,11 @@ export default async function regress({ run, check, getPlayer }) {
   // ── Fighting in water ──────────────────────────────────────────────────────
   const dry = { id: 'z_dry', flags: {} };
   const wet = { id: 'z_wet', flags: { water: true } };
-  check('on dry land water rules do not apply',
+  check("on dry land water rules don't apply",
     waterCombatPenalty(dry, { weapon_skill: 'clubs' }, 1) === null);
-  check('a firearm does not fire in water',
+  check("a firearm doesn't fire in water",
     waterCombatPenalty(wet, { weapon_skill: 'firearms' }, 20)?.blocked === true);
-  check('...not even for a master — wet powder does not care about skill',
+  check("...not even for a master — wet powder doesn't care about skill",
     waterCombatPenalty(wet, { weapon_skill: 'firearms' }, 99)?.blocked === true);
   check('a weapon built for water is exempt',
     waterCombatPenalty(wet, { weapon_skill: 'firearms', waterproof: true }, 1) === null);
@@ -531,7 +531,7 @@ export default async function regress({ run, check, getPlayer }) {
      { part: 'right_tendril', weight: 50, grants: { component: 0 } }],
     [{ type: 'kinetic', min: 3, max: 5 }]);
   ruin(pair, 'left_tendril');
-  check('one of a pair does not silence the shared component', liveTypes(pair).length === 1);
+  check("one of a pair doesn't silence the shared component", liveTypes(pair).length === 1);
 
   // The floor that stops a wrecked creature becoming a statue that cannot fight
   // back and cannot be finished cleanly.
@@ -580,9 +580,9 @@ export default async function regress({ run, check, getPlayer }) {
      { part: 'mass', weight: 60 }],
     [{ type: 'kinetic', min: 4, max: 8 }]);
   ruin(twoHanded, 'left_tendril');
-  check('one ruined tendril does not break a two-handed grab',
+  check("one ruined tendril doesn't break a two-handed grab",
     enemyHasCapability(twoHanded, 'grab'));
-  check('...and it has not lost its weapon component either',
+  check("...and it hasn't lost its weapon component either",
     !twoHanded._lostComponents?.has(0));
   ruin(twoHanded, 'right_tendril');
   check('ruining the second tendril finally breaks the grab',
@@ -627,7 +627,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('nothing in the room means nothing is holding you', grabberOn(player) === null);
 
     const idle = mk({ targetId: 'somebody_else' });
-    check('a creature that is not fighting you has no hold on you',
+    check("a creature that isn't fighting you has no hold on you",
       grabberOn(player) === null);
     drop(idle);
 
@@ -637,7 +637,7 @@ export default async function regress({ run, check, getPlayer }) {
     drop(stunned);
 
     const dead = mk({ _dead: true });
-    check('a dead creature is not holding anyone', grabberOn(player) === null);
+    check("a dead creature isn't holding anyone", grabberOn(player) === null);
     drop(dead);
 
     const live = mk();
@@ -647,9 +647,9 @@ export default async function regress({ run, check, getPlayer }) {
       /holding on/.test(enemyCapabilityNote(live) || ''), enemyCapabilityNote(live));
 
     // System moves are exempt: an elevator ride is not you wrestling free.
-    check('a system move is not contested',
+    check("a system move isn't contested",
       (await grabGate({ player, opts: { bypassEncumbrance: true } })) === undefined);
-    check("weapon's own flee retry is not contested twice",
+    check("weapon's own flee retry isn't contested twice",
       (await grabGate({ player, opts: { fleeing: true } })) === undefined);
 
     // THE headline case: maim what holds you and the hold is simply gone. Note
@@ -687,9 +687,9 @@ export default async function regress({ run, check, getPlayer }) {
   // reuses the cooldown lock `dodge` already proved rather than inventing a
   // turn-skip mechanic, so the assertions are about READINESS, not a new tick.
   const thug = { instanceId: 'regress-mob', name: 'a thug', hp_max: 40, hit: 5 };
-  check('a fresh mob is not stunned', isStunned(thug) === false);
+  check("a fresh mob isn't stunned", isStunned(thug) === false);
   check('stunning a mob takes', applyStun(thug, 2000) && isStunned(thug));
-  check('...and a stunned mob does not swing',
+  check("...and a stunned mob doesn't swing",
     (await enemyAttackPlayer(thug, body())) === null);
 
   const victim = { id: 'regress-stun-player', hp_max: 40, statuses: [] };
@@ -734,7 +734,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // A blow far too small to matter must not create state.
   fireEnemy(mob, { part: 'left_arm', damage: 1, baseDamage: 1, type: 'kinetic' });
-  check('chip damage does not wound an enemy', !mob._injuries?.size);
+  check("chip damage doesn't wound an enemy", !mob._injuries?.size);
 
   // A real blow to the arm degrades its swing — the tactic half of the system.
   fireEnemy(mob, { part: 'right_arm', damage: 30, baseDamage: 30, type: 'kinetic' });

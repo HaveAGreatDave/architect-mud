@@ -17,6 +17,7 @@ export default async function regress({ check }) {
     coldwaterSkyline, coldwaterShore, readTwocellAdvert, Z_CLONEVAT,
     cmdTabletDone, pointAtAdvert, autoReadAdvert, F_ADVERT, F_ADVERT_READ,
     LOG_TOUR, LOG_TABLET_TOUR,
+    NUDGES, NUDGE_DELAYS, NUDGE_TIMERS, armNudge, clearNudge, stepOfBeacon,
   } = _test;
 
   // ── The cold open's skyline manifest ───────────────────────────────────────
@@ -128,7 +129,7 @@ export default async function regress({ check }) {
     const t2 = await tabletCmds.tabletnav(['codex'], 'codex', inCorridor);
     check('tabletnav refused in the prologue corridor too', t2?.type === 'system' && /no tablet/i.test(t2.message || ''), JSON.stringify(t2)?.slice(0, 80));
     const t3 = await tabletCmds.tablet([], 'tablet', { ...p, current_zone: Z_CLONEVAT });
-    check('…and opens normally the moment you are out of it', t3?.type === 'tablet_panel', JSON.stringify(t3)?.slice(0, 60));
+    check("…and opens normally the moment you're out of it", t3?.type === 'tablet_panel', JSON.stringify(t3)?.slice(0, 60));
   }
 
   // ── Gate 1: north out of The Inbetween (→ The Lattice) needs alignment ──────
@@ -149,12 +150,12 @@ export default async function regress({ check }) {
   const readIt = await readHolosign(['holosign'], 'read holosign', { ...p, current_zone: Z_LATTICE });
   check('read holosign answers like examine', readIt !== undefined && readIt?.type !== 'error', readIt?.type);
   const readCaster = await readHolosign(['holocaster'], 'read holocaster', { ...p, current_zone: Z_LATTICE });
-  check('read holocaster is not swallowed by the holosign', readCaster === undefined);
+  check("read holocaster isn't swallowed by the holosign", readCaster === undefined);
   // …but it must NOT advertise itself. `read` is registered ungated precisely so
   // the reverse lookup can't offer it on the sign's room link as a second door —
   // examine is the one door, and USE is what you click from there.
   const signActions = availableActions({ flags: { prologue_holosign: true } });
-  check('read is not advertised on the holosign', !signActions.includes('read'), signActions.join(','));
+  check("read isn't advertised on the holosign", !signActions.includes('read'), signActions.join(','));
   check('use IS advertised on the holosign', signActions.includes('use'), signActions.join(','));
 
   // ── The attendant's dialogue drives the first two beacons ──────────────────
@@ -213,7 +214,7 @@ export default async function regress({ check }) {
   const again = await useHolosign(['holosign'], 'use holosign', lp);
   check('second holosign touch is a flavour no-op', again?.type === 'emote');
   const g2 = await query('SELECT stat_brawn, gifted_stat_points FROM players WHERE id=$1', [p.id]);
-  check('holosign does not re-gift stats', g2.rows[0].stat_brawn === 1 && g2.rows[0].gifted_stat_points === 6, JSON.stringify(g2.rows[0]));
+  check("holosign doesn't re-gift stats", g2.rows[0].stat_brawn === 1 && g2.rows[0].gifted_stat_points === 6, JSON.stringify(g2.rows[0]));
 
   // ── Broadcast door was shut; the holocaster opens it and is consumed ───────
   const g2blocked = await prologueMoveGate({ player: { ...p, current_zone: Z_LATTICE }, to: { id: Z_BROADCAST } });
@@ -248,7 +249,7 @@ export default async function regress({ check }) {
   const declined = await cmdTutorial(['no'], 'tutorial no', p);
   check('tutorial no answers with a hint', declined?.type === 'system');
   check('tutorial no marks the question asked', await isSet(p, F_TOUR_ASKED));
-  check('tutorial no does not mark the tour taken', !(await isSet(p, F_TOUR_TAKEN)));
+  check("tutorial no doesn't mark the tour taken", !(await isSet(p, F_TOUR_TAKEN)));
   const accepted = await cmdTutorial(['yes'], 'tutorial yes', p);
   check('tutorial yes is silent (the client is already touring)', accepted === null);
   const replay = await cmdTutorial([], 'tutorial', p);
@@ -271,18 +272,42 @@ export default async function regress({ check }) {
   const { getRegisteredCommands } = await import('../../server/engine/plugins.js');
   const { builtinCommandNames } = await import('../../server/engine/commands/index.js');
   const verbs = new Set([...getRegisteredCommands(), ...builtinCommandNames()]);
-  // Client verbs (client/game/js/input.js `handleClientCommand`) never reach
-  // dispatch and so appear in neither registry, but are typeable and do something.
-  const CLIENT_VERBS = new Set(['accessibility']);
   const offered = [...tourText.matchAll(/data-cmd="([^"]+)"/g)].map(m => m[1].split(' ')[0]);
-  const dead = offered.filter(v => !verbs.has(v) && !CLIENT_VERBS.has(v));
+  const dead = offered.filter(v => !verbs.has(v));
   check('every verb the spoken tour offers is registered', dead.length === 0, dead.join(', '));
+
+  // ⚠ THE EXEMPTION WAS THE BUG. The sweep above used to carry a CLIENT_VERBS
+  // allow-list holding `accessibility`, which let a card offer it as an ordinary
+  // `data-cmd` link and pass — but a `data-cmd` click goes to `sendCmd`, which
+  // puts it straight on the socket (client/game/js/main.js handleActionLinkClick
+  // → net.js sendCmd), and NOTHING server-side registers `accessibility`. So the
+  // one clickable route to the settings that make this rung usable answered
+  // `Unknown command`, for exactly the player who has no panel to reach them by
+  // instead. Typing it always worked, which is why it went unnoticed.
+  //
+  // A client verb belongs in a `data-client-cmd` link — the route
+  // handleActionLinkClick hands to handleClientCommand before the socket. So
+  // instead of exempting them from the sweep, assert they are not in it: a
+  // client verb appearing as `data-cmd` is now a failure, not a special case.
+  const CLIENT_VERBS = ['accessibility', 'auto'];
+  const miscast = CLIENT_VERBS.filter(v => new RegExp(`data-cmd="${v}\\b`).test(tourText));
+  check('client verbs are client links, not command links', miscast.length === 0, miscast.join(', '));
 
   // The settings surface is the reason this rung is usable at all, and it was
   // absent from the tour for months: the player was told how to LEAVE text mode
   // and never how to make text mode work. That omission read to a blind player as
   // "settings doesn't work at all", so its presence is now an assertion.
-  check('the spoken tour names the accessibility verb', /data-cmd="accessibility"/.test(tourText));
+  check('the spoken tour names the accessibility verb', /data-client-cmd="accessibility"/.test(tourText));
+
+  // The two gaps the log rung had that the visual tour never did. Everything
+  // pointing a player at a destination speaks in map language ("the green GPS
+  // line", Grady's "line on your map"), and there is no map drawn at this rung —
+  // so the route verbs have to be said. `auto` is the load-bearing one: the
+  // walking works here (gps_route is handled identically at every rung), it was
+  // simply never named anywhere this player would hear it.
+  check('the spoken tour teaches the quest log', /data-cmd="quests"/.test(tourText));
+  check('the spoken tour teaches auto-walk', /data-client-cmd="auto"/.test(tourText));
+  check('the spoken tour teaches plotting a route', /data-cmd="gps/.test(tourText));
 
   // At the bottom rung the tour is OURS to speak: `tutorial` must not hand off to
   // a client walkthrough that spotlights panels this player never receives.
@@ -291,6 +316,52 @@ export default async function regress({ check }) {
   check('tutorial tablet at the log rung stays silent', (await cmdTutorial(['tablet'], 'tutorial tablet', p)) === null);
   p.displayRung = undefined;
 
+
+  // -- The idle nudge -------------------------------------------------------
+  // The prods exist for the player who has frozen, so the thing to protect is
+  // that they STOP. Three lines per step and then silence; a fourth would be a
+  // nag, and an unbounded ladder would be one forever.
+  check('every nudge step has exactly three lines',
+    Object.values(NUDGES).every(v => Array.isArray(v) && v.length === 3),
+    Object.entries(NUDGES).map(([k, v]) => `${k}=${v.length}`).join(' '));
+  check('the delay ladder only ever grows',
+    NUDGE_DELAYS.every((d, i) => i === 0 || d > NUDGE_DELAYS[i - 1]));
+  check("the first prod isn't instant", NUDGE_DELAYS[0] >= 60000);
+
+  // Every beacon the prologue lights must resolve to a step that has lines, or
+  // a step ships its shimmer with nothing to say when the player stalls on it.
+  for (const [beacon, step] of [
+    [['talk', 'chrome attendant'], 'attendant'],
+    [['examine', 'MORPHEX 9000 BioSculpt terminal'], 'terminal'],
+    [['examine', 'floating holosign'], 'holosign'],
+    [['examine', 'metal chair'], 'chair'],
+    [['go', 'north'], 'north'],
+    [['take', 'aluminium bat'], 'kit'],
+  ]) {
+    const got = stepOfBeacon(beacon);
+    check(`beacon ${beacon.join(' ')} maps to the ${step} nudges`, got === step && !!NUDGES[got], `got=${got}`);
+  }
+  check('an unknown beacon nudges nothing', stepOfBeacon(['examine', 'a rock']) === null);
+
+  // Arming: a new step restarts at line 0, the SAME step re-armed keeps its
+  // place (a bounced move gate re-lights a beacon, and being told the first
+  // thing again is how a hint stops reading as an answer), and a null step
+  // leaves no timer behind at all.
+  clearNudge(p.id);
+  armNudge(p, 'chair');
+  check('arming a step registers it', NUDGE_TIMERS.get(p.id)?.step === 'chair');
+  NUDGE_TIMERS.get(p.id).line = 2;
+  armNudge(p, 'chair');
+  check('re-arming the same step keeps its place', NUDGE_TIMERS.get(p.id)?.line === 2);
+  armNudge(p, 'north');
+  check('a new step starts over', NUDGE_TIMERS.get(p.id)?.line === 0);
+  armNudge(p, null);
+  check('a null step leaves nothing armed', !NUDGE_TIMERS.has(p.id));
+  armNudge(p, 'chair');
+  NUDGE_TIMERS.get(p.id).line = 3;
+  armNudge(p, 'chair');   // re-arm past the end of the ladder
+  check('the ladder retires itself at the end', !NUDGE_TIMERS.has(p.id));
+  clearNudge(p.id);
   // ── Cleanup ────────────────────────────────────────────────────────────────
   for (const f of flags) await clearFlag('player', f, p).catch(() => {});
   await cleanup();

@@ -1,5 +1,5 @@
 {
   "id": "dtt_npc_035",
   "kind": "npc",
-  "line": "You are about to tell {value} something. You have been about to for a while."
+  "line": "You're about to tell {value} something. You have been about to for a while."
 }

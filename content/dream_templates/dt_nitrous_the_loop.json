@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "Round again. It is funnier.",
+    "Round again. It's funnier.",
     "The loop shortens by a beat.",
     "You arrive at the splice, and go over it, and arrive at the splice."
   ],
   "cause": "drug",
-  "description": "This has happened before. It is happening. It has happened before. The room is a short piece of tape spliced end to end and you are somewhere in the middle of the splice, going round, finding it funnier each time.",
+  "description": "This has happened before. It's happening. It has happened before. The room is a short piece of tape spliced end to end and you're somewhere in the middle of the splice, going round, finding it funnier each time.",
   "drug_id": "drug_nitrous",
   "fx": "swim",
   "fx_intensity": 0.85,
@@ -16,15 +16,15 @@
       "looks": [
         "The join is right there. You go over it every few seconds.",
         "You have looked at this exactly this many times before.",
-        "It is a short loop and getting shorter."
+        "It's a short loop and getting shorter."
       ],
       "name": "the splice"
     },
     {
       "looks": [
-        "It is funnier on each pass, which cannot go on.",
+        "It's funnier on each pass, which can't go on.",
         "You have got the joke. You had it last time too.",
-        "Underneath it there is something ordinary and enormous."
+        "Underneath it there's something ordinary and enormous."
       ],
       "name": "the joke"
     }

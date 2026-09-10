@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The scrub is taking this one back and is most of the way done. Brush has come up through the fill, and the only thing left standing is a pipe with a tap on it, dry, turned off at a main that nobody can find. People still try the tap on their way past. It is that kind of town.",
+  "description": "The scrub is taking this one back and is most of the way done. Brush has come up through the fill, and the only thing left standing is a pipe with a tap on it, dry, turned off at a main that nobody can find. People still try the tap on their way past. It's that kind of town.",
   "exits": {
     "east": "zone_the_reach_869_1958",
     "north": "zone_the_reach_868_1957",

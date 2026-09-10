@@ -74,14 +74,14 @@ import { spawnOnGround } from '../../server/engine/inventory.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { setFlag, clearFlag } from '../../server/engine/flags.js';
+import { setFlag, clearFlag, getFlag, evalCondition } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { grantXp } from '../../server/engine/ip.js';
 import { adjustReputation } from '../../server/engine/ideologies.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { world } from '../../server/engine/world.js';
 import { getZone, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
-import { isIndoorZone } from '../../server/engine/environment.js';
+import { isIndoorZone, getEnvironmentState } from '../../server/engine/environment.js';
 
 // Mirror a quest's status into a player Flag so Dialogue/Script Conditions can gate
 // options on quest state through the existing Flag mechanism — e.g. hide "Accept"
@@ -275,6 +275,126 @@ function freshProgress(quest) {
   return (quest.objectives || []).map(() => 0);
 }
 
+/**
+ * How much this player is paid UP FRONT for taking the quest — `rewards.advance`,
+ * money that moves when the job is taken rather than when it is finished. Without
+ * it, taking a job cost nothing and failing one lost nothing you were holding,
+ * which is why `penalties` had to invent a debt out of nothing. The advance is
+ * KEPT on failure; that is the whole point of it.
+ *
+ * ⚠ Nothing is paid when a failed or abandoned attempt is retaken, or
+ * take-fail-repeat is a faucet. A repeatable quest taken again after being turned
+ * in IS a new job and pays again.
+ *
+ * A pure function so the rule can be tested without a bank account.
+ */
+export function advanceFor(quest, existingStatus) {
+  if (existingStatus === 'failed' || existingStatus === 'abandoned') return 0;
+  return Math.max(0, Number(quest?.rewards?.advance) || 0);
+}
+
+// ── Rolled targets ──────────────────────────────────────────────────────────
+//
+// An objective may author a SELECTOR — '@any_of:[item_a,item_b]' — where it would
+// otherwise author a fixed id. Selectors are resolved ONCE, when the quest is
+// taken, and the answers are frozen onto player_quests.targets. Everything
+// downstream reads the frozen value, so predicates, GPS routing, retrieve
+// auto-spawning and the log needed no change at all.
+//
+// This is what the job board has been waiting for: it rolls WHICH quest is posted
+// and has never rolled anything inside one, so the same gig is byte-identical
+// every rotation.
+//
+// Resolution is a cold path (once per quest taken), which is why a selector may
+// run a query while a predicate never could.
+
+const SELECTOR_RE = /^@([a-z_]+):(.+)$/i;
+const questSelectors = new Map();
+
+/**
+ * Register a selector. `fn(arg, { quest, actor })` returns the resolved id, or
+ * null/undefined when nothing matches — which REFUSES the quest rather than
+ * starting an unfinishable one. Exposed so a plugin that owns a domain can teach
+ * quests to roll over it without this file importing that domain.
+ */
+export function registerQuestSelector(name, fn) { questSelectors.set(name, fn); }
+
+registerQuestSelector('any_of', (arg) => {
+  const list = String(arg).replace(/^\[|\]$/g, '').split(',').map((s) => s.trim()).filter(Boolean);
+  return list.length ? list[Math.floor(Math.random() * list.length)] : null;
+});
+
+// '@zone_with:map_id=coldwater' / '@zone_with:flags.terrain=marsh'. Reads the live
+// world Maps rather than the DB — zones are boot-loaded, so this costs nothing and
+// cannot disagree with what the player will actually walk into.
+registerQuestSelector('zone_with', (arg) => {
+  const [key, want] = String(arg).split('=').map((s) => s?.trim());
+  if (!key || want === undefined) return null;
+  const read = (z) => (key.startsWith('flags.') ? z?.flags?.[key.slice(6)] : z?.[key]);
+  const hits = [...world.zones.values()].filter((z) => String(read(z) ?? '') === want);
+  return hits.length ? hits[Math.floor(Math.random() * hits.length)].id : null;
+});
+
+// '@enemy_in:coldwater' — a species that actually spawns somewhere on that map.
+// Named by NAME, because that is what a `kill` objective matches on.
+registerQuestSelector('enemy_in', async (arg) => {
+  const { rows } = await query(
+    `SELECT DISTINCT e.name FROM zone_spawns zs
+       JOIN enemies e ON e.id = zs.enemy_id
+       JOIN zones z ON z.id = zs.zone_id
+      WHERE z.map_id = $1`,
+    [String(arg).trim()]
+  );
+  return rows.length ? rows[Math.floor(Math.random() * rows.length)].name : null;
+});
+
+const TARGET_FIELDS = ['target', 'item_id', 'zone'];
+
+/**
+ * Resolve every selector on a quest's objectives. Returns an index-aligned array
+ * of overrides ([{}, { target: 'rat' }]), or throws with the selector that could
+ * not be resolved.
+ *
+ * ⚠ An unresolvable selector must REFUSE the quest, loudly. Starting one anyway
+ * gives the player an objective nothing can ever satisfy, and it presents as a
+ * content bug for weeks rather than as the missing spawn table it is.
+ */
+async function rollTargets(quest, actor) {
+  const objectives = quest.objectives || [];
+  const out = objectives.map(() => ({}));
+  let rolled = false;
+  for (const [i, obj] of objectives.entries()) {
+    for (const field of TARGET_FIELDS) {
+      const m = SELECTOR_RE.exec(String(obj?.[field] || ''));
+      if (!m) continue;
+      const fn = questSelectors.get(m[1].toLowerCase());
+      if (!fn) throw new Error(`unknown selector "@${m[1]}"`);
+      const value = await fn(m[2], { quest, actor });
+      if (!value) throw new Error(`"${obj[field]}" matched nothing`);
+      out[i][field] = value;
+      rolled = true;
+    }
+  }
+  return rolled ? out : [];
+}
+
+// Fold frozen targets back over the authored objectives. Returns the SAME array
+// when a quest rolled nothing, which is the overwhelmingly common case and the
+// reason this is free to call on every read path.
+export function applyRolled(objectives, targets) {
+  const objs = Array.isArray(objectives) ? objectives : [];
+  if (!Array.isArray(targets) || !targets.length) return objs;
+  return objs.map((o, i) => (targets[i] && Object.keys(targets[i]).length ? { ...o, ...targets[i] } : o));
+}
+
+// A quest definition seen through one player's rolls. Never mutates the cached
+// row — loadQuest hands out one shared object per quest id, and writing a
+// player's rolled target onto it would hand that target to everybody.
+function withRolled(quest, pq) {
+  if (!quest || !Array.isArray(pq?.targets) || !pq.targets.length) return quest;
+  return { ...quest, objectives: applyRolled(quest.objectives, pq.targets) };
+}
+
 // Auto-spawn: drop a fresh copy of each 'retrieve' objective's item onto its zone's
 // ground when the quest starts, unless the objective opts out (spawn===false, i.e.
 // the item is already placed in the world). A bad item_id/zone is logged, never
@@ -321,8 +441,34 @@ async function despawnQuestItems(playerId, questId) {
   return del.rowCount || 0;
 }
 
-function isComplete(quest, progress) {
-  return (quest.objectives || []).every((obj, i) => (progress[i] || 0) >= (obj.count || 1));
+// An objective marked `optional: true` is tracked, shown and paid like any other,
+// but it is not part of the finish line — which is what lets a quest distinguish
+// "done" from "done well" instead of being binary. Everything else about it is
+// unchanged, `requires` included.
+//
+// ⚠ An optional objective must never be named in a MANDATORY objective's
+// `requires`, or the quest cannot be finished by a player who skipped it.
+// content:lint refuses that shape rather than leaving it to be found live.
+function isOptional(obj) { return obj?.optional === true; }
+
+function objectiveMet(obj, have) { return (have || 0) >= (obj.count || 1); }
+
+// Exported because two other plugins used to carry their own copy of this line —
+// the tablet's Quests app and the job board both answered "is it finished" for
+// themselves, and both said NO for a quest whose only outstanding work was
+// optional. One definition of the finish line, or the surfaces disagree with the
+// hand-in they are offering a button for.
+export function isComplete(quest, progress) {
+  return (quest.objectives || []).every((obj, i) => isOptional(obj) || objectiveMet(obj, progress[i]));
+}
+
+// The objective to point the player at next. Mandatory work is offered before
+// optional work — a bonus objective suggested ahead of the thing that actually
+// finishes the quest reads as the game misdirecting you.
+function nextObjective(objectives, progress) {
+  const open = (obj, i) => !objectiveMet(obj, progress[i]) && requiresMet(objectives, obj, progress);
+  return objectives.find((o, i) => open(o, i) && !isOptional(o))
+      || objectives.find((o, i) => open(o, i));
 }
 
 // Gating: an objective is unlocked only once every objective it `requires` (by id)
@@ -425,8 +571,9 @@ function objectiveLine(obj, done, locked) {
   const label = obj.desc || `${obj.type} ${obj.target || obj.item_id || obj.zone || ''}`.trim();
   const need = obj.count || 1;
   const have = Math.min(done, need);
-  if (locked) return `  [-] ${label} (locked)`;
-  return `  [${have >= need ? 'X' : ' '}] ${label}${need > 1 ? ` (${have}/${need})` : ''}`;
+  const bonus = isOptional(obj) ? ' <span class="text-dim">(optional)</span>' : '';
+  if (locked) return `  [-] ${label}${bonus} (locked)`;
+  return `  [${have >= need ? 'X' : ' '}] ${label}${need > 1 ? ` (${have}/${need})` : ''}${bonus}`;
 }
 
 function objectiveDesc(obj) {
@@ -637,6 +784,128 @@ async function applyPenalties(actor, quest) {
 }
 
 /**
+ * Grant one reward bundle through the canonical Action/service paths, and return
+ * the short strings the caller shows the player (" (+200₵, +5 XP)").
+ *
+ * The mirror of applyPenalties, and extracted from TURN_IN's body because it is no
+ * longer paid in one place: an OPTIONAL objective may carry `rewards` of its own,
+ * and each met one is paid alongside the quest's at hand-in. Two copies of the
+ * grant order would be two chances for a bonus to pay XP the wrong way.
+ *
+ * `reason` reaches the credit ledger, so a bonus is distinguishable from the fee.
+ */
+async function grantRewards(actor, rewards, context, reason = 'quest:reward') {
+  const r = (rewards && typeof rewards === 'object') ? rewards : {};
+  const gains = [];
+
+  if (r.credits) {
+    await adjustCredits(actor, r.credits, undefined, reason);
+    gains.push(`+${r.credits}₵`);
+  }
+  // XP. Until 2026-07-21 quests awarded none at all — `grantXp` existed with zero
+  // callers, so lifetime XP came only from probabilistic per-use skill rolls and
+  // the entire quest economy fed no progression whatsoever. A stat point is a flat
+  // 100 XP (statCost), so these numbers are deliberately small.
+  if (r.xp) {
+    await grantXp(actor.id, r.xp);
+    // total_xp/xp aren't columns — they're computed (skill_ip + bonus_xp) and
+    // mirrored onto the live player at login only (server/index.js). Bump the
+    // mirror so anything reading them mid-session sees the grant.
+    actor.total_xp = (Number(actor.total_xp) || 0) + r.xp;
+    actor.xp = (Number(actor.xp) || 0) + r.xp;
+    gains.push(`+${r.xp} XP`);
+  }
+  for (const it of (r.items || [])) {
+    await dispatchAction({
+      type: 'GRANT_ITEM',
+      actor,
+      params: { item_id: it.item_id, quantity: it.quantity || 1, once: false },
+      context,
+    });
+  }
+  for (const f of (r.flags || [])) {
+    await dispatchAction({
+      type: 'SET_FLAG',
+      actor,
+      params: { scope: f.scope || 'player', flag: f.flag, value: f.value },
+    });
+  }
+
+  // Standing. The exact mirror of `penalties.rep`, down to the guard and the
+  // swallowed failure, and deliberately a DIRECT call rather than a dispatched
+  // ADJUST_REPUTATION: the "canonical Action paths" rule is about not
+  // re-implementing a service, and this is the same service the ideologies
+  // plugin's Action calls. Dispatching would make the quests plugin refuse to pay
+  // standing whenever that plugin is absent, for no behaviour the direct call does
+  // not already have.
+  for (const rep of (Array.isArray(r.rep) ? r.rep : [])) {
+    const delta = Number(rep?.delta) || 0;
+    if (!rep?.ideology || !delta) continue;
+    try {
+      const res = await adjustReputation(actor.id, rep.ideology, delta, reason);
+      // A CROSSING is worth saying; a number is not. Raw standing is shown by
+      // `rep`/`ideologies` and deliberately nowhere else, so a reward that moves
+      // you within a tier passes without comment — which is also what keeps a
+      // repeatable from printing a line every single hand-in.
+      if (res?.tiered_up) gains.push(res.new_tier_label);
+    } catch (e) {
+      // A reward naming an ideology that no longer exists must not swallow the
+      // turn-in — the objectives were met and the player is owed the rest.
+      console.error('[quests] reward rep adjust failed:', rep.ideology, e.message);
+    }
+  }
+  return gains;
+}
+
+/**
+ * Which ending is this player getting? `quests.resolutions` is a list of
+ * [{ id?, when, rewards }] and the first whose `when` passes is the one paid;
+ * `quests.rewards` is the fallback when none matches or none is authored.
+ *
+ * A quest could only ever end one way before this, so "you can finish this two
+ * ways" had to be built as two quests joined by hand-written flags — every author
+ * inventing their own naming, and the two halves free to drift.
+ *
+ * `when` goes through evalCondition, the same evaluator dialogue options and quest
+ * gating already use, so every condition shape in the game (flags, relations,
+ * ideology_rep, mastery) works here on day one and new ones arrive for free.
+ *
+ * Returns { id, rewards } — id is null for the fallback.
+ */
+async function pickResolution(actor, quest) {
+  const list = Array.isArray(quest?.resolutions) ? quest.resolutions : [];
+  for (const [i, res] of list.entries()) {
+    if (!res || typeof res !== 'object') continue;
+    // A resolution with no `when` is an unconditional catch-all, so an author can
+    // end the list with "and otherwise, this".
+    if (res.when && !(await evalCondition(res.when, actor))) continue;
+    return { id: String(res.id || `#${i}`), rewards: res.rewards || {}, spec: res };
+  }
+  return { id: null, rewards: quest?.rewards || {}, spec: null };
+}
+
+/**
+ * A quest ending may hand the player the next one. `on_fail.start_quest` and
+ * `on_turn_in.start_quest` are both dispatched through the ordinary START_QUEST
+ * action, which is why this is ten lines rather than a mechanism: the interesting
+ * answer to a failure is rarely a fine, it is the cleanup job — and stating that
+ * as a field retires the hand-written flag chains that used to link a quest to its
+ * sequel.
+ *
+ * ⚠ The follow-up is refused when it is already live on this player. A quest whose
+ * on_fail starts a quest whose on_fail starts the first is an authoring mistake,
+ * and without this guard it costs a loop at runtime rather than a red in review.
+ */
+async function startFollowUp(actor, quest, spec) {
+  const nextId = spec?.start_quest;
+  if (!nextId || nextId === quest.id) return false;
+  const live = await loadPlayerQuest(actor.id, nextId);
+  if (live && ['active', 'completed'].includes(live.status)) return false;
+  const res = await dispatchAction({ type: 'START_QUEST', actor, params: { quest_id: nextId } });
+  return res?.started === true;
+}
+
+/**
  * Flip an active quest to 'failed'. Single writer for the status, the flag, the
  * message and the event — every failure path (predicate match, timeout sweep, the
  * FAIL_QUEST action) comes through here so none of them can half-fail a quest.
@@ -657,9 +926,15 @@ async function failQuest(actor, quest, cond) {
   await despawnQuestItems(actor.id, quest.id);   // don't leave its props on the floor
   const cost = await applyPenalties(actor, quest);
   const why = failReasonLine(quest, cond);
-  msg(actor.id, `<span class="msg-system">Quest failed: ${quest.name}. ${why}${cost}</span>`);
+  // The advance is stated separately from the penalty, never netted against it:
+  // an advance of 200 and a fine of 200 reported as one number reads to a player
+  // as nothing having happened.
+  const kept = Number(quest.rewards?.advance) > 0 ? ' You keep the advance.' : '';
+  msg(actor.id, `<span class="msg-system">Quest failed: ${quest.name}. ${why}${cost}${kept}</span>`);
   questLogLine(actor, quest.id, 'failed', `${quest.name} — ${why}`);
   emit('quest.failed', { actor, quest_id: quest.id, reason: cond?.type || 'unknown' });
+  // "You told them, didn't you" is more interesting as the next job than as a fine.
+  await startFollowUp(actor, quest, quest.on_fail);
   return true;
 }
 
@@ -683,12 +958,96 @@ async function expireIfTimedOut(actor, quest, pq) {
   return failQuest(actor, quest, failConditions(quest).find((c) => c.type === 'timeout'));
 }
 
+// ── World-state objectives, and offer windows ───────────────────────────────
+//
+// Every other objective type is driven by something the PLAYER did. `state` is
+// the one driven by the world: it is met when a condition holds, and its fail_on
+// mirror `avert` blows the quest when one becomes true. That is what lets a quest
+// be about the city — the power staying on, a storm passing, a block going quiet
+// — rather than only about you.
+//
+// ⚠ There is no event to subscribe to, so these are POLLED, at the points a quest
+// is already being looked at (an event that touched this player, opening the log,
+// handing in) and never on a tick or a subscriber of their own. Same argument as
+// the lazy timeout, and the same guarantee: a condition can be noticed late, but
+// `TURN_IN` polls before it pays, so it can never be missed at the moment it
+// matters.
+//
+// The condition is an ordinary condition object, so a WORLD flag
+// (`{ scope:'world', flag:'weather_current', op:'eq', value:'acid_rain' }`) needs
+// nothing built — world flags are already a cached in-memory map, which is what
+// makes polling them affordable.
+
+function hasWorldConditions(quest) {
+  return (quest?.objectives || []).some((o) => o?.type === 'state')
+      || failConditions(quest).some((c) => c?.type === 'avert');
+}
+
+/**
+ * Settle any world-driven condition on this quest. Returns true if the quest was
+ * FAILED, so callers can stop exactly as they do for a timeout.
+ *
+ * Cheap by construction: a quest carrying neither kind — which is nearly all of
+ * them — returns on the first line without evaluating anything.
+ */
+async function pollWorldState(actor, quest, pq) {
+  if (!hasWorldConditions(quest)) return false;
+
+  // Failure first, both ways round, for the same reason the event path judges
+  // fail_on before progress: one poll must not both blow a quest and advance it.
+  for (const cond of failConditions(quest)) {
+    if (cond?.type !== 'avert' || !cond.when) continue;
+    if (await evalCondition(cond.when, actor)) return failQuest(actor, quest, cond);
+  }
+
+  const objectives = quest.objectives || [];
+  const progress = Array.isArray(pq?.progress) ? pq.progress : [];
+  for (const [i, obj] of objectives.entries()) {
+    if (obj?.type !== 'state' || !obj.when) continue;
+    if (objectiveMet(obj, progress[i])) continue;
+    if (!requiresMet(objectives, obj, progress)) continue;
+    if (!(await evalCondition(obj.when, actor))) continue;
+    // Through the ordinary tick, so completion, messaging, the log line and the
+    // GPS route are the same ones every other objective type gets.
+    await finishObjectiveTick(actor, quest, i);
+  }
+  return false;
+}
+
+/**
+ * Is this quest on offer at all? `available.when` is an ordinary condition, and
+ * `available.hours` is an in-world window — [22, 4] wraps midnight, which is the
+ * case that makes a naive from<=h<=to comparison wrong.
+ *
+ * A board posting that LAPSES is deliberately not built here: the job board
+ * already rotates its own postings on a clock, and a second expiry beside it
+ * would be two answers to when a job stops being offered.
+ */
+export function withinHours(window, hour) {
+  if (!Array.isArray(window) || window.length !== 2) return true;
+  const [from, to] = window.map((n) => Number(n));
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return true;
+  return from <= to ? (hour >= from && hour < to) : (hour >= from || hour < to);
+}
+
+export async function isQuestAvailable(quest, player) {
+  const av = quest?.available;
+  if (!av || typeof av !== 'object') return true;
+  if (av.hours && !withinHours(av.hours, getEnvironmentState().hour)) return false;
+  if (av.when && !(await evalCondition(av.when, player))) return false;
+  return true;
+}
+
 // Advances exactly ONE objective and runs the completion messaging — reloads
 // player_quests fresh so a task finishing seconds later never clobbers progress
 // made elsewhere meanwhile (or fires against a quest since abandoned/turned in).
-async function finishObjectiveTick(actor, quest, objIndex) {
-  const pq = await loadPlayerQuest(actor.id, quest.id);
+async function finishObjectiveTick(actor, questIn, objIndex) {
+  const pq = await loadPlayerQuest(actor.id, questIn.id);
   if (!pq || pq.status !== 'active') return;
+  // Re-fold this player's rolled targets over the fresh row: the caller's copy was
+  // rolled too, but a task that has been sitting on a timer is the one place the
+  // two could have been taken from different reads.
+  const quest = withRolled(questIn, pq);
   // A timed task can outlive the quest's own clock — the 15s of tile work you
   // started with 5s left must not land.
   if (await expireIfTimedOut(actor, quest, pq)) return;
@@ -720,7 +1079,7 @@ async function finishObjectiveTick(actor, quest, objIndex) {
     await routeToTurnIn(actor, quest.id);
     emit('quest.completed', { actor, quest_id: quest.id });
   } else {
-    const next = objectives.find((o, i) => (progress[i] || 0) < (o.count || 1) && requiresMet(objectives, o, progress));
+    const next = nextObjective(objectives, progress);
     taskMsg(actor.id, `✔ Finished: ${objectiveDesc(obj)}.${next ? ` Next: ${objectiveDesc(next)}.` : ` Quest updated: ${quest.name}.`}`);
     routeToObjective(actor, quest, progress);
   }
@@ -780,7 +1139,7 @@ async function trackEventLocked(actor, predicate) {
   // direct DB write, a plugin bypassing the Actions) converges on the next event.
   actor._activeQuests = new Set(rows.map((r) => r.quest_id));
   for (const pq of rows) {
-    const quest = await loadQuest(pq.quest_id);
+    const quest = withRolled(await loadQuest(pq.quest_id), pq);
     if (!quest) continue;
 
     // Failure is judged BEFORE progress, both ways round, and the order matters.
@@ -789,6 +1148,9 @@ async function trackEventLocked(actor, predicate) {
     // predicate the objectives are about to be judged by — one event cannot both
     // blow a quest and advance it.
     if (await expireIfTimedOut(actor, quest, pq)) continue;
+    // The world's own conditions, settled at the same moment the clock is — this
+    // is the "something happened to this player" poll point.
+    if (await pollWorldState(actor, quest, pq)) continue;
     const tripped = failConditions(quest).find((c) => c && c.type !== 'timeout' && predicate(c));
     if (tripped) { await failQuest(actor, quest, tripped); continue; }
 
@@ -859,7 +1221,7 @@ async function trackEventLocked(actor, predicate) {
       // Names the objective(s) that just finished and reads out whatever's next,
       // instead of a bare "quest updated" — the bottom-pane progress line the
       // player actually wants mid-quest.
-      const next = objectives.find((obj, i) => (progress[i] || 0) < (obj.count || 1) && requiresMet(objectives, obj, progress));
+      const next = nextObjective(objectives, progress);
       const parts = [];
       if (justFinished.length) parts.push(`Done: ${justFinished.map(objectiveDesc).join(', ')}.`);
       parts.push(next ? `Next: ${objectiveDesc(next)}.` : `Quest updated: ${quest.name}.`);
@@ -1197,6 +1559,33 @@ registerAction({
     const quest = await loadQuest(quest_id);
     if (!quest) return { type: 'error', message: `Unknown quest: ${quest_id}` };
 
+    // Not on offer right now? A window that has closed reads as the world having
+    // moved on, so it is refused in the world's voice rather than as an error.
+    if (!(await isQuestAvailable(quest, actor))) {
+      msg(actor.id, `<span class="msg-system">Nobody is asking for that right now.</span>`);
+      return { type: 'quest', quest_id, started: false, unavailable: true };
+    }
+
+    // Closed for good by a rival quest? Checked before anything else, because a
+    // block is the one refusal that is permanent and the player should not see a
+    // quest half-start.
+    if (await getFlag('player', `quest_blocked_${quest_id}`, actor) !== undefined) {
+      msg(actor.id, `<span class="msg-system">That door closed a while ago.</span>`);
+      return { type: 'quest', quest_id, started: false, blocked: true };
+    }
+
+    // Roll any selectors BEFORE touching the row — an unresolvable one refuses the
+    // quest, and refusing after the INSERT would leave a started quest nobody can
+    // finish. The refusal names the selector, because the author is the only one
+    // who can fix it.
+    let targets = [];
+    try {
+      targets = await rollTargets(quest, actor);
+    } catch (e) {
+      console.error('[quests] selector failed for', quest_id, '—', e.message);
+      return { type: 'error', message: `${quest.name} can't be offered right now.` };
+    }
+
     const existing = await loadPlayerQuest(actor.id, quest_id);
     if (existing) {
       // A failed or ABANDONED quest can be taken again, and the counters (and the
@@ -1220,25 +1609,51 @@ registerAction({
         await despawnQuestItems(actor.id, quest_id);
         await query(
           `UPDATE player_quests SET status='active', progress=$1, progress_keys=$2, spawned='[]',
-           started_at=EXTRACT(EPOCH FROM NOW()), updated_at=EXTRACT(EPOCH FROM NOW())
-           WHERE player_id=$3 AND quest_id=$4`,
-          [JSON.stringify(freshProgress(quest)), JSON.stringify(objectiveKeys(quest)), actor.id, quest_id]
+           targets=$3, started_at=EXTRACT(EPOCH FROM NOW()), updated_at=EXTRACT(EPOCH FROM NOW())
+           WHERE player_id=$4 AND quest_id=$5`,
+          // Re-rolled on a retake, deliberately: a second attempt at a rolling gig
+          // is a new gig, not the same one again.
+          [JSON.stringify(freshProgress(quest)), JSON.stringify(objectiveKeys(quest)),
+           JSON.stringify(targets), actor.id, quest_id]
         );
       } else {
         return { type: 'quest', quest_id, started: false };
       }
     } else {
       await query(
-        'INSERT INTO player_quests (player_id,quest_id,status,progress,progress_keys) VALUES ($1,$2,$3,$4,$5)',
-        [actor.id, quest_id, 'active', JSON.stringify(freshProgress(quest)), JSON.stringify(objectiveKeys(quest))]
+        'INSERT INTO player_quests (player_id,quest_id,status,progress,progress_keys,targets) VALUES ($1,$2,$3,$4,$5,$6)',
+        [actor.id, quest_id, 'active', JSON.stringify(freshProgress(quest)), JSON.stringify(objectiveKeys(quest)),
+         JSON.stringify(targets)]
       );
     }
     await setQuestFlag(actor, quest_id, 'active');
-    await spawnRetrieveItems(actor, quest);
+
+    // Doors this one shuts. Permanent, and only ever what an author asked for:
+    // "taking the Null contract closes the Watch's" was expressible before this
+    // only as a web of flags maintained by hand across two quests.
+    for (const blockedId of (Array.isArray(quest.blocks) ? quest.blocks : [])) {
+      if (!blockedId || blockedId === quest_id) continue;
+      await setFlag('player', `quest_blocked_${blockedId}`, quest_id, actor);
+    }
+
+    // The advance: money that moves when the job is TAKEN. Without it, taking a
+    // job cost nothing and failing one lost nothing you were holding, which is why
+    // penalties had to invent a debt out of thin air. Kept on failure — that is
+    // the whole point of it, and what gives `penalties` something real to charge.
+    const advance = advanceFor(quest, existing?.status);
+    if (advance > 0) {
+      await adjustCredits(actor, advance, undefined, 'quest:advance');
+      msg(actor.id, `<span class="msg-system">Paid up front: +${advance}₵.</span>`);
+    }
+
+    // Everything from here on sees the ROLLED quest: the item that gets spawned and
+    // the zone the GPS plots to must be the ones this player was actually given.
+    const rolledQuest = withRolled(quest, { targets });
+    await spawnRetrieveItems(actor, rolledQuest);
     msg(actor.id, `<span class="msg-system">New quest: ${quest.name}.</span>\n${quest.description || ''}`);
     questLogLine(actor, quest_id, 'start', quest.name);
     emit('quest.started', { actor, quest_id });
-    routeToObjective(actor, quest, freshProgress(quest));
+    routeToObjective(actor, rolledQuest, freshProgress(quest));
     return { type: 'quest', quest_id, started: true, name: quest.name };
   },
 });
@@ -1249,8 +1664,9 @@ registerAction({
   handler: async ({ actor, params }) => {
     const { quest_id, index = 0, amount = 1 } = params;
     if (!quest_id) return { type: 'error', message: 'ADVANCE requires quest_id.' };
-    const quest = await loadQuest(quest_id);
-    const pq = quest && await loadPlayerQuest(actor.id, quest_id);
+    const base = await loadQuest(quest_id);
+    const pq = base && await loadPlayerQuest(actor.id, quest_id);
+    const quest = withRolled(base, pq);   // this player's rolled targets, if any
     if (!pq || pq.status !== 'active') return { type: 'error', message: 'No active quest to advance.' };
     if (await expireIfTimedOut(actor, quest, pq)) return { type: 'error', message: 'That quest has run out of time.' };
 
@@ -1280,8 +1696,9 @@ registerAction({
   handler: async ({ actor, params }) => {
     const { quest_id } = params;
     if (!quest_id) return { type: 'error', message: 'COMPLETE requires quest_id.' };
-    const quest = await loadQuest(quest_id);
-    const pq = quest && await loadPlayerQuest(actor.id, quest_id);
+    const base = await loadQuest(quest_id);
+    const pq = base && await loadPlayerQuest(actor.id, quest_id);
+    const quest = withRolled(base, pq);   // this player's rolled targets, if any
     if (!pq) return { type: 'error', message: 'Quest not started.' };
     if (pq.status === 'failed') return { type: 'error', message: 'That quest was failed.' };
     if (await expireIfTimedOut(actor, quest, pq)) return { type: 'error', message: 'That quest has run out of time.' };
@@ -1304,15 +1721,16 @@ registerAction({
     // Tablet OS's turn-in routing). Per-quest TURN_IN nodes still pass it in params.
     const quest_id = params.quest_id || context?.quest_id || await completedJobBoardQuest(actor.id);
     if (!quest_id) return { type: 'error', message: 'TURN_IN requires quest_id.' };
-    const quest = await loadQuest(quest_id);
-    const pq = quest && await loadPlayerQuest(actor.id, quest_id);
-    if (!pq) return { type: 'error', message: 'You have not started that quest.' };
+    const base = await loadQuest(quest_id);
+    const pq = base && await loadPlayerQuest(actor.id, quest_id);
+    const quest = withRolled(base, pq);   // this player's rolled targets, if any
+    if (!pq) return { type: 'error', message: "You haven't started that quest." };
     if (pq.status === 'turned_in') {
       msg(actor.id, `<span class="msg-system">You have already turned in ${quest.name}.</span>`);
       return { type: 'error', message: 'Already turned in.' };
     }
     if (pq.status === 'failed') {
-      msg(actor.id, `<span class="msg-system">You failed ${quest.name}. There is nothing to hand in.</span>`);
+      msg(actor.id, `<span class="msg-system">You failed ${quest.name}. There's nothing to hand in.</span>`);
       return { type: 'error', message: 'That quest was failed.' };
     }
     // The clock is checked at the counter too, not only in the field: a quest whose
@@ -1320,9 +1738,16 @@ registerAction({
     if (await expireIfTimedOut(actor, quest, pq)) {
       return { type: 'error', message: 'That quest has run out of time.' };
     }
-    if (pq.status !== 'completed' && !isComplete(quest, pq.progress || [])) {
-      msg(actor.id, `<span class="msg-system">You have not finished ${quest.name} yet.</span>`);
-      return { type: 'error', message: 'You have not finished that quest yet.' };
+    // Poll BEFORE the completeness check, never after: a `state` objective met
+    // while the player walked back to the counter must count, and an `avert`
+    // tripped on the way must not pay.
+    if (await pollWorldState(actor, quest, pq)) {
+      return { type: 'error', message: `You failed ${quest.name}.` };
+    }
+    const settled = await loadPlayerQuest(actor.id, quest_id) || pq;
+    if (settled.status !== 'completed' && !isComplete(quest, settled.progress || [])) {
+      msg(actor.id, `<span class="msg-system">You haven't finished ${quest.name} yet.</span>`);
+      return { type: 'error', message: "You haven't finished that quest yet." };
     }
 
     // CLAIM THE ROW BEFORE PAYING OUT. This used to be the other way round — every
@@ -1347,70 +1772,37 @@ registerAction({
       return { type: 'error', message: 'Already turned in.' };
     }
 
-    // Grant rewards through the canonical Action/service paths.
-    const rewards = quest.rewards || {};
-    if (rewards.credits) await adjustCredits(actor, rewards.credits, undefined, 'quest:reward');
-    // XP. Until 2026-07-21 quests awarded none at all — `grantXp` existed with zero
-    // callers, so lifetime XP came only from probabilistic per-use skill rolls and
-    // the entire quest economy fed no progression whatsoever. A stat point is a flat
-    // 100 XP (statCost), so these numbers are deliberately small.
-    if (rewards.xp) {
-      await grantXp(actor.id, rewards.xp);
-      // total_xp/xp aren't columns — they're computed (skill_ip + bonus_xp) and
-      // mirrored onto the live player at login only (server/index.js). Bump the
-      // mirror so anything reading them mid-session sees the grant.
-      actor.total_xp = (Number(actor.total_xp) || 0) + rewards.xp;
-      actor.xp = (Number(actor.xp) || 0) + rewards.xp;
+    // Rewards, plus a bonus for each OPTIONAL objective actually met — the whole
+    // point of an optional objective being that finishing one is worth something.
+    // Both go through the same grantRewards path, in that order, so a bonus can
+    // never pay by a route the quest's own reward does not.
+    const ending = await pickResolution(actor, quest);
+    const gains = await grantRewards(actor, ending.rewards, context);
+    const finalProgress = Array.isArray(settled.progress) ? settled.progress : [];
+    for (const [i, obj] of (quest.objectives || []).entries()) {
+      if (!isOptional(obj) || !objectiveMet(obj, finalProgress[i]) || !obj.rewards) continue;
+      gains.push(...await grantRewards(actor, obj.rewards, context, 'quest:bonus'));
     }
-    for (const it of (rewards.items || [])) {
-      await dispatchAction({
-        type: 'GRANT_ITEM',
-        actor,
-        params: { item_id: it.item_id, quantity: it.quantity || 1, once: false },
-        context,
-      });
-    }
-    for (const f of (rewards.flags || [])) {
-      await dispatchAction({
-        type: 'SET_FLAG',
-        actor,
-        params: { scope: f.scope || 'player', flag: f.flag, value: f.value },
-      });
-    }
-
-    // Standing. The exact mirror of `penalties.rep` below, down to the guard and
-    // the swallowed failure, and deliberately a DIRECT call rather than a
-    // dispatched ADJUST_REPUTATION: the surrounding block's "canonical Action
-    // paths" rule is about not re-implementing a service, and this is the same
-    // service the ideologies plugin's Action calls. Dispatching would make the
-    // quests plugin refuse to pay standing whenever that plugin is absent, for no
-    // behaviour the direct call does not already have.
-    const tiered = [];
-    for (const r of (Array.isArray(rewards.rep) ? rewards.rep : [])) {
-      const delta = Number(r?.delta) || 0;
-      if (!r?.ideology || !delta) continue;
-      try {
-        const res = await adjustReputation(actor.id, r.ideology, delta, 'quest:reward');
-        // A CROSSING is worth saying; a number is not. Raw standing is shown by
-        // `rep`/`ideologies` and deliberately nowhere else, so a reward that moves
-        // you within a tier passes without comment — which is also what keeps a
-        // repeatable from printing a line every single hand-in.
-        if (res?.tiered_up) tiered.push(res.new_tier_label);
-      } catch (e) {
-        // A reward naming an ideology that no longer exists must not swallow the
-        // turn-in — the objectives were met and the player is owed the rest.
-        console.error('[quests] reward rep adjust failed:', r.ideology, e.message);
-      }
-    }
-
     await setQuestFlag(actor, quest_id, 'turned_in');   // status itself was claimed above
+    // Record WHICH ending was paid, both on the row and as a player flag named
+    // `<quest_id>_resolution`. The flag is the authoring route: later dialogue
+    // gates on which way you went through the ordinary Flag mechanism, with no new
+    // condition shape and nothing for an author to keep in sync.
+    if (ending.id) {
+      await query('UPDATE player_quests SET resolution=$1 WHERE player_id=$2 AND quest_id=$3',
+        [ending.id, actor.id, quest_id]);
+      await setFlag('player', `${quest_id}_resolution`, ending.id, actor);
+    }
     // Any spare copies the auto-spawn left unclaimed go with it — the quest is over,
     // and a second relic on the sewer floor helps nobody.
     await despawnQuestItems(actor.id, quest_id);
-    const gains = [rewards.credits ? `+${rewards.credits}₵` : null, rewards.xp ? `+${rewards.xp} XP` : null, ...tiered].filter(Boolean);
     const creditLine = gains.length ? ` (${gains.join(', ')})` : '';
     msg(actor.id, `<span class="msg-system">Quest turned in: ${quest.name}.${creditLine}</span>`);
     emit('quest.turned_in', { actor, quest_id });
+    // The sequel, if this quest names one. After the event, so anything listening
+    // for the hand-in has already seen it happen. A resolution may name its own,
+    // which is what makes two endings two stories rather than two payouts.
+    await startFollowUp(actor, quest, ending.spec?.on_turn_in || quest.on_turn_in);
     // Clear/keep the "finished gig ready" flag now this one's handed back, so Marta's
     // conversational hand-in option disappears once the last completed gig is gone.
     await refreshGigReadyFlag(actor);
@@ -1431,8 +1823,9 @@ registerAction({
   handler: async ({ actor, params }) => {
     const { quest_id, reason } = params;
     if (!quest_id) return { type: 'error', message: 'FAIL_QUEST requires quest_id.' };
-    const quest = await loadQuest(quest_id);
-    const pq = quest && await loadPlayerQuest(actor.id, quest_id);
+    const base = await loadQuest(quest_id);
+    const pq = base && await loadPlayerQuest(actor.id, quest_id);
+    const quest = withRolled(base, pq);   // this player's rolled targets, if any
     if (!pq || !['active', 'completed'].includes(pq.status)) {
       return { type: 'error', message: 'No live quest to fail.' };
     }
@@ -1476,14 +1869,14 @@ registerAction({
   type: 'QUEST_OBJECTIVE_ZONES',
   handler: async ({ actor }) => {
     const { rows } = await query(
-      `SELECT q.id, q.name, q.objectives, pq.progress
+      `SELECT q.id, q.name, q.objectives, pq.progress, pq.targets
          FROM player_quests pq JOIN quests q ON q.id = pq.quest_id
         WHERE pq.player_id=$1 AND pq.status NOT IN ('turned_in','abandoned')`,
       [actor.id]
     );
     const out = [];
     for (const r of rows) {
-      const objectives = Array.isArray(r.objectives) ? r.objectives : [];
+      const objectives = applyRolled(r.objectives, r.targets);
       const progress = Array.isArray(r.progress) ? r.progress : [];
       objectives.forEach((o, i) => {
         if (!o?.zone) return;
@@ -1583,14 +1976,20 @@ async function questLog(args, raw, player) {
   // is still live. Failures drop out of the listing below.
   for (const pq of rows) {
     if (pq.status !== 'active') continue;
-    if (await expireIfTimedOut(player, { id: pq.quest_id, name: pq.name, fail_on: pq.fail_on }, pq)) pq.status = 'failed';
+    // The world's conditions settle here too — reading the log is one of the
+    // three moments a quest is looked at, and a `state` objective the world met
+    // an hour ago should be ticked when the player next looks rather than when
+    // they next walk. The full row is needed for that, not the log's own columns.
+    const quest = await loadQuest(pq.quest_id);
+    if (await expireIfTimedOut(player, quest || { id: pq.quest_id, name: pq.name, fail_on: pq.fail_on }, pq)) { pq.status = 'failed'; continue; }
+    if (quest && await pollWorldState(player, withRolled(quest, pq), pq)) pq.status = 'failed';
   }
   const live = rows.filter((pq) => pq.status !== 'failed');
   if (!live.length) return { type: 'output', message: 'You have no active quests.' };
 
   const lines = ['<span class="msg-system">— Quests —</span>'];
   for (const pq of live) {
-    const objectives = pq.objectives || [];
+    const objectives = applyRolled(pq.objectives, pq.targets);
     const progress = Array.isArray(pq.progress) ? pq.progress : [];
     const tag = pq.status === 'completed' ? ' (ready to turn in)' : timeLeftTag(pq);
     // The tracked one is called out here because this log is the only place a
@@ -1630,7 +2029,7 @@ function matchQuest(rows, raw) {
 
 async function openQuests(playerId) {
   const { rows } = await query(
-    `SELECT pq.quest_id, pq.status, pq.progress, q.name, q.objectives FROM player_quests pq
+    `SELECT pq.quest_id, pq.status, pq.progress, pq.targets, q.name, q.objectives FROM player_quests pq
      JOIN quests q ON q.id = pq.quest_id
      WHERE pq.player_id=$1 AND pq.status NOT IN ('turned_in', 'abandoned', 'failed')
      ORDER BY pq.started_at`,
@@ -1646,7 +2045,7 @@ async function questTrack(rest, player) {
   if (!rows.length) return { type: 'output', message: 'You have no active quests.' };
 
   if (!rest) {
-    if (!player.tracked_quest_id) return { type: 'output', message: 'You are not tracking a quest.' };
+    if (!player.tracked_quest_id) return { type: 'output', message: "You aren't tracking a quest." };
     const cur = rows.find(r => r.quest_id === player.tracked_quest_id);
     return { type: 'output', message: `Tracking <b>${cur?.name || player.tracked_quest_id}</b>.` };
   }
@@ -1661,7 +2060,7 @@ async function questTrack(rest, player) {
 
   // Plot the route to the next unmet objective with a zone, same as the app.
   const progress = Array.isArray(m.row.progress) ? m.row.progress : [];
-  const next = (m.row.objectives || []).find((obj, i) => obj.zone && (progress[i] || 0) < (obj.count || 1));
+  const next = applyRolled(m.row.objectives, m.row.targets).find((obj, i) => obj.zone && (progress[i] || 0) < (obj.count || 1));
   if (next && next.zone !== player.current_zone) {
     const destZone = getZone(next.zone);
     const path = destZone ? findPath(player.current_zone, next.zone) : null;
@@ -1739,12 +2138,16 @@ export const routeHandler = async (path, method, body, auth) => {
     if (path === '/quests' && method === 'POST') {
       const qid = body.id || `quest_${Date.now()}`;
       await query(
-        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,EXTRACT(EPOCH FROM NOW()))`,
+        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,on_fail,on_turn_in,resolutions,blocks,available,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,EXTRACT(EPOCH FROM NOW()))`,
         [qid, body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
-         JSON.stringify(body.penalties || {})]
+         JSON.stringify(body.penalties || {}),
+         body.on_fail ? JSON.stringify(body.on_fail) : null,
+         body.on_turn_in ? JSON.stringify(body.on_turn_in) : null,
+         JSON.stringify(body.resolutions || []), JSON.stringify(body.blocks || []),
+         body.available ? JSON.stringify(body.available) : null]
       );
       invalidateQuestCache(qid);
       return { status: 201, body: { id: qid } };
@@ -1752,11 +2155,16 @@ export const routeHandler = async (path, method, body, auth) => {
     if (id && method === 'PUT') {
       await query(
         `UPDATE quests SET name=$1,description=$2,objectives=$3,rewards=$4,repeatable=$5,quest_type=$6,meta=$7,
-         fail_on=$8, penalties=$9, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$10`,
+         fail_on=$8, penalties=$9, on_fail=$10, on_turn_in=$11, resolutions=$12, blocks=$13, available=$14,
+         updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$15`,
         [body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
-         JSON.stringify(body.penalties || {}), id]
+         JSON.stringify(body.penalties || {}),
+         body.on_fail ? JSON.stringify(body.on_fail) : null,
+         body.on_turn_in ? JSON.stringify(body.on_turn_in) : null,
+         JSON.stringify(body.resolutions || []), JSON.stringify(body.blocks || []),
+         body.available ? JSON.stringify(body.available) : null, id]
       );
       invalidateQuestCache(id);
       return { status: 200, body: { id } };

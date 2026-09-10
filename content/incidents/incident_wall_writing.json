@@ -1,6 +1,6 @@
 {
   "cooldown_min": 300,
-  "description": "The cheapest thing an insurgency does and the one that scales: paint, at night, on somebody else's property. Watchful band, so it is usually the first thing a player sees a cell do.",
+  "description": "The cheapest thing an insurgency does and the one that scales: paint, at night, on somebody else's property. Watchful band, so it's usually the first thing a player sees a cell do.",
   "duration_min": 90,
   "enabled": 1,
   "flags": {},

@@ -71,8 +71,8 @@ export const CONFIG = {
       'You finish the {name} in one last swallow and wipe your mouth.',
     ],
     interrupt: 'You lower the {name} mid-swig, the drink left unfinished.',
-    examineSelf: 'You are nursing a drink.',
-    examineOther: 'They are nursing a drink.',
+    examineSelf: "You're nursing a drink.",
+    examineOther: "They're nursing a drink.",
   },
   // A drink you POURED, in a vessel you own and keep. Its own pool because the
   // `drink` lines above are bottle-shaped — "you crack the cap off with a hiss"
@@ -99,8 +99,8 @@ export const CONFIG = {
       'You drain that measure and rest the {name} against your knee.',
     ],
     interrupt: 'You lower the {name}, the mouthful unfinished.',
-    examineSelf: 'You are nursing a drink.',
-    examineOther: 'They are nursing a drink.',
+    examineSelf: "You're nursing a drink.",
+    examineOther: "They're nursing a drink.",
   },
   smoke: {
     seconds: 15,
@@ -123,8 +123,8 @@ export const CONFIG = {
       'You finish the cigarette, crush it out, and blow the last of the smoke.',
     ],
     interrupt: 'You take the cigarette from your lips, the moment broken.',
-    examineSelf: 'You are working on a cigarette.',
-    examineOther: 'They are smoking a cigarette.',
+    examineSelf: "You're working on a cigarette.",
+    examineOther: "They're smoking a cigarette.",
   },
   joint: {
     seconds: 18,
@@ -147,8 +147,8 @@ export const CONFIG = {
       'You burn the joint down to nothing and flick the roach away.',
     ],
     interrupt: 'You lower the joint, the moment gone, and let it smoulder.',
-    examineSelf: 'You are working on a joint, eyes going soft.',
-    examineOther: 'They are smoking a joint.',
+    examineSelf: "You're working on a joint, eyes going soft.",
+    examineOther: "They're smoking a joint.",
   },
 };
 
@@ -276,7 +276,7 @@ async function finish(player, broadcast) {
     // thirst was credited above for the message — take it back, or a drink that
     // never happened still hydrates.
     revokeThirst(player, finishThirst);
-    sendToPlayer(player.id, { type: 'output', message: sys('You reach for it — but it is gone.') });
+    sendToPlayer(player.id, { type: 'output', message: sys("You reach for it — but it's gone.") });
     return;
   }
   if (result.message) sendToPlayer(player.id, { type: 'output', message: result.message });

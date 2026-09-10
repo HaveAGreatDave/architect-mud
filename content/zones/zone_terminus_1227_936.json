@@ -5,7 +5,7 @@
     "A tool goes back on the board, into its own outline, without anybody looking at the board."
   ],
   "ambient_theme": "outdoors",
-  "description": "An open-fronted workshop with the tools hung on a board, each on its own painted outline, and not one outline empty. Whatever is being made in there is being made by hand and is being made slowly.",
+  "description": "An open-fronted workshop with the tools hung on a board, each on its own painted outline, and not one outline empty. Whatever is being made in there's being made by hand and is being made slowly.",
   "exits": {
     "east": "zone_terminus_1228_936",
     "west": "zone_exo_bench"

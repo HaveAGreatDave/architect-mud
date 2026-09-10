@@ -52,15 +52,15 @@
         "type": "condition"
       },
       "r0": {
-        "text": "The bartender points at you across the floor, then at a bottle, eyebrows up. That is the whole conversation and it works.",
+        "text": "The bartender points at you across the floor, then at a bottle, eyebrows up. That's the whole conversation and it works.",
         "type": "say"
       },
       "r1": {
-        "text": "Someone shouts a greeting you cannot hear and you both nod as though you could.",
+        "text": "Someone shouts a greeting you can't hear and you both nod as though you could.",
         "type": "say"
       },
       "r2": {
-        "text": "A gap opens at the rail that was not there a second ago, and closes behind you.",
+        "text": "A gap opens at the rail that wasn't there a second ago, and closes behind you.",
         "type": "say"
       },
       "reg": {

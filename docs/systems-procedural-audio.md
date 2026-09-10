@@ -21,12 +21,16 @@ they're the same machinery with nothing culinary about them.
 | [`client/shared/procedural-sfx.js`](../client/shared/procedural-sfx.js) | **everything acoustic** — tables, generators, the seeded RNG. Dual-mode (window + ESM import) |
 | [`plugins/audio/index.js`](../plugins/audio/index.js) | the routing: semantic event → parameters + seed → the wire |
 | [`client/game/js/dispatch.js`](../client/game/js/dispatch.js) | `audio_sfx_proc` — rebuilds the cue from the seed and plays it |
-| [`client/shared/audio-engine.js`](../client/shared/audio-engine.js) | the synth. **Not touched by this system** |
+| [`client/shared/audio-engine.js`](../client/shared/audio-engine.js) | **SIREN**, the synth — and **ORACLE**, the voice, further down the same file |
 
-**No new synthesis was written.** `AudioEngine.buildLayer` already did audio-rate FM
-(`fm: { rate, depth }`, so index = depth / carrier), filtered noise, pitch bends, tremolo and ADSR.
-This system only decides the numbers, and emits the same `{ config: { duration, layers } }` def shape
-every other cue in the game uses.
+**Almost no new synthesis.** `AudioEngine.buildLayer` already did audio-rate FM, filtered noise,
+pitch bends, tremolo and ADSR; this system mostly just decides the numbers, and emits the same
+`{ config: { duration, layers } }` def shape every other cue in the game uses.
+
+The exceptions are worth naming rather than glossing, because "it is all reuse" stopped being true:
+**`whiff`** and **`gunshot`** are genuinely new generators (a miss and a shock front are neither a
+chop nor an impact), and the engine itself gained **drive** and a **reverb send** — see
+[the room, the wall and the drive](#the-room-the-wall-and-the-drive) below.
 
 ## The contract
 
@@ -84,14 +88,349 @@ cue in that tab deterministic.
 | `footstep` | one step, per tile entered | footing class, intensity, **wet**, **foot** |
 | `door` | a door leaf opening or closing | `door_type`, open/close, powered |
 | `lock` | the mechanism, not the leaf | lock family, lock/unlock/**denied** |
+| `whiff` | a swing that hits nothing | **weight**, intensity |
+| `gunshot` | a firearm discharging | **calibre**, intensity, suppressed |
 
 One generator is not like the others: **`note`** makes a *musical* sound rather than noise made by an
 object, and it is the only one here with **no `vary()` in it at all**. Everything above jitters itself
 so the ninth chop doesn't sound machine-stamped; a note must not, because two people standing in the
 same room build the performance independently and have to arrive at the same sound. There is no seed
 on its wire format for the same reason — there is nothing random to reproduce. Its table is
-`INSTRUMENTS`, and the parameter the whole thing rests on is `fm.depthTo`: a modulation index that
+`INSTRUMENTS`, and the parameter the whole thing rests on is `fm.indexEnd`: a modulation index that
 **collapses across the note** is what reads as *struck*. See [systems-instruments.md](systems-instruments.md).
+
+## The room, the wall and the drive
+
+Three things the engine could not do at all, added together because they are one
+idea: a sound should carry where it happened, not just what happened.
+
+**Reverb.** There was none. A stone church, a storm drain, a shipping container and
+the open waste all sounded identical, because `echo` is a delay line — a repeat,
+not a space. There are now seven rooms, chosen per zone and crossfaded on entry.
+
+The impulse responses are **generated, not sampled**: decaying noise through a
+one-pole damping filter, per channel, which is a crude reverb and an entirely
+convincing one at this scale. It keeps the promise the rest of the engine makes —
+no assets, nothing to download. It is a **send**, so the dry path is untouched. Music
+stays out of it — a song is not in the room with you — and **UI speech has its own dry
+bus**, because Read Aloud is the one voice whose entire job is to be understood, and room
+ambience on a screen reader is damage rather than texture.
+
+⚠ **A television is a speaker standing in your room**, and this doc said the opposite for
+one afternoon. The reasoning was that a broadcast's own room reverb is already baked into
+what it plays — half right, and the wrong half to act on: the studio ambience is baked in,
+and then the speaker is still in a room with you. The TV bus feeds the send at a reduced
+level, because it is one box against a wall rather than a sound filling the room, and
+because doubling the baked-in half reads as a cathedral.
+
+Nothing new is authored. `flags.floor` was already seeded for all 591 interiors for
+footsteps, and outdoors is whatever `zoneTerrain` already answers; two regexes cover
+the shapes a floor cannot tell you (a church, a sewer). Seven spaces, not one per
+room — no player can hear the difference between two rooms that disagree by 200ms of
+tail, and it is the same argument that keeps 85 food items on ten material classes.
+
+**The wall.** `propagateAudio` walks the exits, so it always knew which doorway a
+sound came through and how many walls were in the way; it threw both away, and every
+distant sound arrived dead centre at full bandwidth, which is the one thing a wall
+never does. It now carries `from` and `hops`, and the client pans and lowpasses.
+
+⚠ Both are omitted entirely at the origin, so a cue in your own room is byte-for-byte
+the message that shipped before any of this. And **pan/muffle are send options, not
+layer keys** — they are a property of the listener's position, not of the sound, and
+the same cue is muffled for one player and not for another.
+
+North and south pan **dead centre**, deliberately: this is a headphone pan, it carries
+left/right and cannot carry front/back, so a sound from ahead and one from behind are
+honestly the same thing here.
+
+**Drive.** Soft-clipping distortion per layer. Nothing in a game built out of failing
+hardware could sound *broken* before. It sits after the envelope and before the
+filter, which is what makes it behave like an amplifier rather than an effect: the
+ADSR drives the clipper, so a hard attack is dirtier than the tail by itself. The
+curve is normalised through tanh's own output, because a distortion control that is
+also a volume control is one nobody can use.
+
+⚠ The filter branch used to connect from `gain` **by name**. Left that way it routes
+straight past the shaper and a driven layer sounds exactly like an undriven one; the
+smoke asserts the filter is fed *by* the shaper.
+
+## The voice, driven
+
+The formant synth got two things out of the same work, both per-narrator and both seeded
+from the name like every other voice parameter.
+
+**Drive** is transmission grit, and it sits **after** the compressor — the order a real
+transmitter has, where level is controlled first and then the stage that cannot pass more
+than it can pass clips what is left. Driving before the compressor would let the
+compressor pull the distortion back down and mostly undo it. It reuses the same normalised
+tanh curve `buildLayer` uses, so a driven voice and a driven cue distort identically
+rather than being two people's idea of overdrive, and the level is trimmed back so a
+gritty narrator is not also a louder one.
+
+**Growl** is audio-rate FM on the glottal source at half F0 — period doubling, which is the
+actual mechanism behind creak and vocal fry. It costs one oscillator, because the
+modulation path into `glot.frequency` already existed for jitter; this is that same wire at
+a thousand times the rate. Deliberately *not* the same axis as jitter: jitter is aperiodic
+roughness a few Hz wide, this is a second pitch an octave down inside the source. Scaled by
+F0, so a low voice and a high one growl by the same musical interval.
+
+Both are minority traits (about a third, and about a seventh), for the same reason two
+thirds of the cast get no breath: a trait everybody has marks nobody out.
+
+### The synth was doubling consonants
+
+English has no geminate inside a word, and the voice produced one wherever two phoneme
+sequences were **joined** — a compound's two halves, or a stem and its suffix.
+
+| said | was | is |
+|---|---|---|
+| `tableland` **287×** | "table-**l**-and" | `T EY B AX L AE N D` |
+| `rubbly` **157×** | "rub-**b**-ly" | `R AH B L AY` |
+
+Those two are terrain words in hundreds of room descriptions, so Read Aloud said them
+wrong in most of the map. **126 words** in the game's own vocabulary carried the fault —
+`flattest`, `funnelled`, `stencilled`, `panelling`, `whippet`, `hand-drawn`, and every
+invented name with a written double letter (`marrick`, `sarraf`). The `merrin` entry in
+`DICT` is the same bug, found by ear and patched one word at a time.
+
+⚠ **The fix belongs at pronounceWord's EXIT, not in the letter rules.** A first attempt
+put it in `g2p` and changed nothing whatsoever, which is the useful part: none of these
+words reach the letter rules. `tableland` is the dictionary's `table` plus its `land`;
+`funnelled` is `funnel` plus a suffix rule. A word can arrive by a dictionary hit, a
+compound, a suffix rule or a guess, and **only the exit is common to all four**.
+
+⚠ **Consonants only.** An adjacent identical vowel pair has a different cause (the -ia/-ya
+spellings) and collapsing it here would hide that family rather than fix it. Note that only
+*some* vowel runs even reach this filter — `fascia`, `cassius`, `aurelia` are produced
+downstream of `pronounceWord` and are unaffected either way, so a guard written on one of
+those passes regardless of what the filter does. The smoke uses `priya`, which does reach it.
+
+#### Finding the rest
+
+`npm run voice:suspects` ranks the words the synth is most likely saying wrong. It cannot
+tell whether a pronunciation is *right* — that needs an ear — so it looks for output that is
+wrong on its face, using the signatures the `DICT` comments already describe: doubled
+consonants, a reduced vowel butted against another vowel ("pure noise", per the `kiyo`
+entry), a polysyllable with no stress, and syllable counts far off the spelling.
+
+Ranked by how often the word is actually spoken, because that is what made `auggie` — 236
+occurrences — matter and a name in one room's description not. It went 126 → 73 with the
+degemination fix. The remainder is a shortlist for the voice lab; a confirmed bad one gets
+a line in `DICT`.
+
+### The dictionary did not contain the game
+
+32% of the words in the game's own names and descriptions — **663 of 2,041**, including
+essentially every character and place name — were absent from the shipped CMUdict subset
+and fell through to the letter-to-sound guesser.
+
+The cause is in the generator's own header, and it was not a mistake at the time: the
+subset was curated as common English minus junk, "upstream is ~134k entries, **most of
+them proper nouns** the narrator will never say". True for a generic narrator, false for
+one who says *Delacroix* and *Coldwater* all day.
+
+Sweeping the whole content tree against upstream splits the gap cleanly:
+
+| | |
+|---|---|
+| **1,634** | real words upstream carries — simply curated out |
+| 1,722 | true coinages (*marrick*, *kesh*, *slagworks*) that no dictionary can help |
+
+The 1,634 are now added by `gameWords()` in the build script, alongside the existing
+`EXTRA` contractions list and for the same stated reason. **Names *and* descriptions**,
+because Read Aloud speaks the whole log — the words most likely to be mispronounced are in
+room prose, to the player who most depends on the voice working.
+
+The guesser was decent and still plainly wrong on a good share of them: `waders` came out
+"wadders", `odell` as "oddle", `canteen` stressed on the first syllable, `vestibule`
+without its /j/. Five are pinned in the smoke, and all five fail against the old file.
+
+⚠ **The curation is never re-derived, only added to**, and the regeneration is verified as
+additive: 0 words removed and **0 existing pronunciations changed**. Cost is 410 → 436 KB,
+which is **+13 KB on the wire** after gzip, against a file every client loads once.
+
+### Glottal FM, and being able to hear it
+
+⚠ **The FM work went into `buildLayer`, and the voice does not use it.** The formant synth
+builds its own oscillator graph; the only thing genuinely shared is `driveCurve`. What
+transferred was the technique, not the code, and it transferred once: `growl` was a single
+hardcoded modulator at F0/2.
+
+`growlRatio`, `growlWave` and a second parallel modulator turn that into a family:
+
+| ratio | what it is |
+|---|---|
+| 0.5 | sub-harmonic — creak, fry (the original, still the default) |
+| 1 | harmonic — brightens rather than roughens |
+| 1.414, 2.41 | **inharmonic** — machine, wrong, not-a-person |
+
+**This is not the ring modulator already present**, and the difference is where it sits.
+`ring` is amplitude modulation on the **output**, after the formant bank — it modulates a
+finished voice and reads as a voice with a box on it. Glottal FM is on the **source**,
+before the tract, so the formants still shape it correctly: it reads as a throat producing
+something a throat should not.
+
+⚠ **The second modulator is PARALLEL where `buildLayer`'s `op2` is series**, and that is
+the goal rather than an inconsistency. Series compounds into one richer spectrum; parallel
+puts two competing periodicities into the source, which is what diplophonia — two pitches
+from one throat — actually is.
+
+#### You could not hear any of this
+
+Character is hashed from a **name**, so before the override existed the only way to hear
+what `drive` or `growl` sounded like was to type seeds until one rolled them. That is
+fishing, not tuning — and two character parameters had already shipped that way.
+
+`speak(text, { voice: {…} })` overrides individual parameters on top of the seed. Nothing
+in the game passes it; it exists for the dev panel's **voice lab**, which now carries a
+per-voice panel beside the global tuning knobs and prints only what differs from the seed,
+in the shape a `NAMED_VOICES` entry takes. Ranges there are deliberately wider than the
+roll, because the point is to hear the edges.
+
+### RP grew a linking-r and a GOAT
+
+Non-rhotic RP drops the /r/ of "far" — but not in "far away", where the next word begins
+with a vowel and the /r/ comes back to bridge them. That was a named deferral in the code
+and is now built, along with the RP GOAT diphthong (central onset, /əʊ/ against GA's
+back-rounded /oʊ/) via the same phoneme-substitution route `ER` → `ERR` already used.
+
+⚠ **Linking-r looks past a WORD GAP, never past a pause** — which is why it cannot use
+`isGap`, that being every pause there is. "far. Away" and "far, away" have no link across
+them; the juncture kills the bridge, not the silence.
+
+⚠ **That distinction is only observable on UNSPACED punctuation**, and a first set of tests
+missed it entirely. Spaced punctuation emits its pause *and* a word gap — "far. Away" is
+`AA R __ _ AX` — so a buggy `isGap` check lands on the second gap rather than a vowel and
+refuses the link by luck. Unspaced punctuation emits the pause alone: "far—away" is
+`AA R _D AX`, vowel directly after, and a rule that skipped any pause would link straight
+across a dash. The mutation passes clean without those two cases.
+
+⚠ **This gives linking-r and cannot give intrusive-r** ("lawr and order"), because it only
+ever KEEPS an /r/ the dictionary supplied. That is the right side to err on — intrusive-r
+is variable and stigmatised in exactly the register this voice reads in — and it is
+asserted, so that an "improvement" that inserts rather than preserves fails.
+
+**LOT/CLOTH is blocked, not skipped.** RP wants /ɒ/ in "lot" where GA has /ɑː/, but CMU
+gives `AA` for *lot*, *father* and *palm* alike, so LOT cannot be told from PALM without a
+lexical word list — which would have to be invented rather than derived. CLOTH words are
+already `AO` in both accents. Accent support is therefore three rules deep: rhoticity
+(with linking), flapping, BATH, plus GOAT.
+
+### Creak was erasing the terminal contour
+
+A line ending in an ellipsis is supposed to sag rather than land, and the terminal target
+carried a `trail ? 0.88 : 0.94` factor to say so. It was scheduled at `end − 0.18` — and
+then **creak overwrote `glot.frequency` 110 ms later at a flat `F0 × cf`**, lower than
+either branch. So the distinction was computed, was briefly audible, and was wiped on
+every statement. Nothing failed; a trailing line simply ended exactly like a full stop.
+
+Creak now carries the factor through. Not by rebasing creak on the terminal target, which
+would be more physically honest — fry falls from wherever the pitch *is*, not from F0 —
+but would drop a full stop from `F0 × 0.70` to about `F0 × 0.57`, past the floor that
+keeps it from becoming a growl. Retuning that needs an ear. **A full stop is left exactly
+where it was (98.3 Hz on the probe voice, unchanged); only the case that was being erased
+moves** (to 92.4).
+
+The distinction is only testable *because* of the fix, which is the tell that it was dead:
+the smoke asserts a trailing line ends below a landing one, and reverting the fix goes red.
+
+### The burst had a frequency but no shape
+
+Every stop was released through one fixed band — Q 2, 20ms, one level — with only the
+centre frequency moving. Shape is most of what the classical place features actually
+describe, so three columns were added to the phoneme table:
+
+| | | |
+|---|---|---|
+| `bq` | burst Q | low = **diffuse** (energy spread), high = **compact** (one sharp mid peak) |
+| `bd` | burst duration, ms | a velar release is genuinely the longest; an alveolar is a tap |
+| `bg` | burst level | a labial burst is weak — no cavity in front of the lips to resonate it |
+
+Velars are the compact ones and that is their most identifiable property; labials are the
+diffuse, weak, short ones. The defaults reproduce the old fixed values exactly, so the flap
+(which declares no shape) releases precisely as it did before.
+
+⚠ Testing this means finding the **noise** bandpass, not just "the first filter with a
+scheduled Q" — the voiced formant path schedules Q as well, and a first cut read 7.89 off a
+vowel for all three places and cheerfully reported no difference where there was one. Follow
+the noise buffer source to its filter.
+
+⚠ **Everything new goes at the BOTTOM of `voiceFromName`.** Every parameter draws from one
+seeded sequence, so a field inserted above an existing one shifts every draw after it and
+silently recasts every narrator in the game — no error, no failing test, and no way to
+notice except recognising that somebody sounds wrong. The file has carried a comment saying
+so for a long time and nothing enforced it. The smoke now pins an **unnamed** voice at the
+**end** of the sequence, and both halves of that matter: a first cut pinned `architect`,
+which is in `NAMED_VOICES` and has most of its draws overwritten, so a mutation inserting a
+draw mid-table sailed straight through it.
+
+⚠ **A source built by hand is a source nobody can stop.** Growl is created where `glot` is
+in scope but started with everything else, from the `src` array — that array is what starts
+the voice on one clock and what `cancel()` stops. Starting it inline would leave a tone
+running past a cancelled line with no reference left to reach it.
+
+## The voice pool
+
+⚠ **The pool and the tracker's channel count were the same number, and that is a bug,
+not a budget.** A tracker step allocates a voice per channel, so a 16-channel song
+could hold every slot in a 16-slot pool — and since songs and SFX both default to
+priority 5, and stealing is allowed at equal priority, a dense song and a fight spent
+the whole time evicting each other. Nothing reported it, because a stolen voice is not
+an error: it is a sound that did not happen.
+
+The pool is 32. That is not an aesthetic choice — 16 was, borrowed from a console whose
+voices were hardware, and this is a pool of Web Audio node graphs whose real constraint
+is CPU. `_voiceStats()` now counts played/stolen/dropped/peak, because "is the pool big
+enough?" was not a question anybody could answer from outside a system whose failure
+mode is silence.
+
+## Combat
+
+Combat was the largest silent surface in the game. `combat_hit` fired **on crits only** and
+`combat_death` on kills, so the thing a player spends most of their time doing made no sound at all
+between one lucky roll and a corpse.
+
+Almost all of it is reuse. A blade in a body **is** `chop` on wet meat — the generator was written for
+a kitchen and the physics didn't change on the way out. A club is `impact` on the soft surface; an
+energy weapon on flesh is `sizzle`, which is grim and also right.
+
+**Two axes, both already authored.** `weapon_skill` and `damage_type` are on every weapon and enemy in
+`tagCatalog.js`, so nothing new is written down anywhere and a weapon added tomorrow is audible the
+day it's tagged.
+
+Both are needed. `damage_type` can't tell a pistol from a baseball bat — they're both `kinetic` — so
+the **outgoing** side keys on the weapon's skill class, which is exactly the acoustic distinction. The
+**incoming** side has no weapon to read (an enemy's attack is a damage roll, not an item), so it keys
+on the type.
+
+| | outgoing (`weapon_skill`) | incoming (`damage_type`) |
+|---|---|---|
+| edge | `blades` → chop / wet meat | `edged` → chop / wet meat |
+| blunt | `clubs`, `fists` → impact / none | `kinetic` → impact / none |
+| gun | `firearms` → gunshot | — |
+| burning | `science` → sizzle | `energy`, `fire`, `chemical` → sizzle |
+| — | — | `radiation` → **silent, on purpose** |
+
+`radiation` maps to `null` rather than being absent, and regress checks membership with `in` rather
+than truthiness: silence there is a decision somebody recorded, and a *new* damage type must fail the
+build rather than inherit it.
+
+Two things genuinely had no generator and are new rather than faked. **`whiff`** is a miss — the most
+common event in any fight, and what made the layer feel broken when it was silent; it is not a quiet
+impact, because nothing was struck, so there's no body and no ring, only moving air falling in pitch.
+**`gunshot`** is a shock front rather than a struck object: a crack with no attack, a body that falls
+hard, and one delayed slap of street.
+
+⚠ **A combat cue is not a kitchen cue.** `sizzle` at its own default is a pan of frying food — 1.5
+seconds and two dozen randomised burst layers — and a fight lands a hit every couple of seconds. Every
+combat row that routes through a continuous generator states its own duration, and regress caps both
+the length and the layer count.
+
+Two smaller decisions: a crit keeps its authored flourish **on top of** the material sound rather than
+instead of it (the swing still landed on the same body), and the incoming side is filtered to
+`enemy`/`npc`/`pvp` — `strike` is excluded because it's the shared `applyStrikeToPlayer` path that
+demolition, psionics and mutation organs all route through, and each of those already makes its own
+noise.
 
 Deliberately **not** separate generators: `fry_crackle` is `sizzle` at high heat; `whisk` is `stir`
 with high-frequency movement; metal/ceramic/wood resonance are `impact` with a surface. Reuse over

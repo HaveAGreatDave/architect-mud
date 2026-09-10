@@ -629,7 +629,7 @@ function listOrManage(rest, { load, save, noun, extra }) {
 export function runTriggerCommand(rest) {
   listOrManage(rest, {
     load: loadTriggers, save: saveTriggers, noun: 'trigger',
-    extra: 'Try:  trigger you are bleeding = bandage   ·   trigger #combat once /(\w+) hits you/ = flee',
+    extra: "Try:  trigger you're bleeding = bandage   ·   trigger #combat once /(\w+) hits you/ = flee",
   });
 }
 
@@ -676,7 +676,7 @@ export function runTimerCommand(rest) {
   const everyMs = unit === 'ms' ? n : unit === 'm' ? n * 60000 : n * 1000;
   if (everyMs < MIN_INTERVAL_MS) {
     appendMsg(`The shortest timer is ${MIN_INTERVAL_MS / 1000}s — anything faster is a command every `
-      + `tick, forever, which is not something you want running by accident.`, 'system');
+      + `tick, forever, which isn't something you want running by accident.`, 'system');
     return;
   }
   list.push({ id: genId('t'), label: `${n}${unit}`, everyMs, once, cmds: m[3].trim(), enabled: true });

@@ -1,8 +1,14 @@
 {
   "name": "fillable",
   "version": "1.0.0",
-  "description": "Fillable fluid containers: FILL at a water source, DRINK to restore thirst, EMPTY to discard. Gated on the fillable capacity tag.",
+  "description": "Fillable fluid containers: FILL at a water, fuel or drug source, DRINK to restore thirst or take a dose, POUR between containers, DISSOLVE a soluble drug into water, EMPTY to discard. Gated on the fillable capacity tag (and soluble, for dissolve). A container holds a CARRIER (fluid_type) and, optionally, a CARGO (drug_id) dissolved in it.",
   "hooks": [],
   "commands": [],
-  "specializedActions": ["fill", "empty", "drink"]
+  "specializedActions": [
+    "fill",
+    "empty",
+    "drink",
+    "pour",
+    "dissolve"
+  ]
 }

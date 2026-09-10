@@ -36,8 +36,8 @@ export const DREAM_VERBS = new Set([
 // simply not being there.
 const DREAM_REFUSALS = [
   'You go to do it and find you have no hands for it. The thought slides off.',
-  'You mean to. You are quite sure you mean to. Nothing happens, and it does not seem strange.',
-  'Whatever you reach for is not here, and was not, and you knew that.',
+  "You mean to. You're quite sure you mean to. Nothing happens, and it doesn't seem strange.",
+  "Whatever you reach for isn't here, and was not, and you knew that.",
   'The intention arrives without a body attached to it. Nothing moves.',
   'You try. Somewhere very far away, your real arm twitches under a blanket.',
 ];
@@ -122,7 +122,7 @@ const INSANE_REFUSALS = [
   'The letters of your own command melt and run together. Nothing happens.',
   'Something screams the instant you try, and you forget what you were doing.',
   "You try, but the room tilts and the intent slides off it like water. Nonsense. All of it.",
-  'Your body refuses to be told. It has other ideas now, and it will not share them.',
+  "Your body refuses to be told. It has other ideas now, and it won't share them.",
 ];
 
 // `opts.silent` is the client's own `sendCmdSilent` flag, forwarded from the socket. It says the
@@ -217,7 +217,7 @@ export async function handleCommand(input, player, broadcast, opts = {}) {
   // else decided this and only time undoes it. Checked before the sleep gate
   // because a sleeper who gets knocked out is out cold, not asleep.
   if (player._koUntil > Date.now()) {
-    return { type: 'error', message: 'You are not conscious. Nothing you decide reaches your hands.' };
+    return { type: 'error', message: "You aren't conscious. Nothing you decide reaches your hands." };
   }
 
   // ── Inside a dreamscape, your own commands do NOT wake you ─────────────────

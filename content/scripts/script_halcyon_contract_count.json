@@ -23,7 +23,7 @@
       },
       "word": {
         "type": "say",
-        "text": "The clerk at the underwriting desk takes the docket off you, checks something on a screen you cannot see, and says — as though it were on the form — \"Mr Broch has asked to be told when you were next in. Whenever suits.\"",
+        "text": "The clerk at the underwriting desk takes the docket off you, checks something on a screen you can't see, and says — as though it were on the form — \"Mr Broch has asked to be told when you were next in. Whenever suits.\"",
         "next": null
       }
     }

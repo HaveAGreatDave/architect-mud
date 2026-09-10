@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Graded dirt, wide enough for something with a trailer on it, running east toward a wall that does not appear to have a way through. Tyre ruts, and the marks where heavy things have been dragged off the road and left.",
+  "description": "Graded dirt, wide enough for something with a trailer on it, running east toward a wall that doesn't appear to have a way through. Tyre ruts, and the marks where heavy things have been dragged off the road and left.",
   "exits": {
     "east": "zone_terminus_1203_940",
     "north": "zone_terminus_1202_939",

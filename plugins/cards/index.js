@@ -125,15 +125,15 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 function quoteProblem(text) {
   const q = String(text || '').trim().replace(/\s+/g, ' ');
   if (!q) return 'Say something, or clear it with <span class="cmd">mintquote clear</span>.';
-  if (q.length > BUDGET.quote) return `That is ${q.length} characters. The line on a card is ${BUDGET.quote}, and the press does not shrink type to make room.`;
-  if (/[${]/.test(q)) return 'Substitution tokens ($enemy, {name}) print as themselves on a card that is never re-rendered. Write it out.';
+  if (q.length > BUDGET.quote) return `That is ${q.length} characters. The line on a card is ${BUDGET.quote}, and the press doesn't shrink type to make room.`;
+  if (/[${]/.test(q)) return "Substitution tokens ($enemy, {name}) print as themselves on a card that's never re-rendered. Write it out.";
   if (/^[./@;]/.test(q)) return 'That reads as a command, not as something you said.';
   // Held to the same gate as an overheard line, as an AUTHORED candidate — see
   // pickQuote. Every rule that can refuse a written line now has its own sentence
   // above explaining itself, so this last one should be unreachable; it stays as
   // the backstop that keeps the two ends honest, because the refusal a player can
   // do nothing about is the one that must never fire silently at mint time.
-  if (pickQuote([{ text: q, authored: true }]) === SILENCE) return 'The press will not take that line.';
+  if (pickQuote([{ text: q, authored: true }]) === SILENCE) return "The press won't take that line.";
   return null;
 }
 
@@ -632,7 +632,7 @@ async function cmdBuyPack(args, raw, player, broadcast) {
 // nobody, including its owner, knows what is in it until it is torn.
 async function cmdOpenPack(args, raw, player, broadcast) {
   const catalogue = await getPool();
-  if (!catalogue.length) return { type: 'error', message: 'The pool is empty. There is nothing in the sleeve to be.' };
+  if (!catalogue.length) return { type: 'error', message: "The pool is empty. There's nothing in the sleeve to be." };
   const sleeve = await consumeSleeve(player.id);
   if (!sleeve) {
     return { type: 'error', message: `You have no unopened sleeves. They come out of a card machine — ₵${PACK_PRICE} a go.` };

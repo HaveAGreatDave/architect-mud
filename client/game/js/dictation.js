@@ -105,10 +105,10 @@ function ensureRecognizer() {
   recog.addEventListener('error', (e) => {
     const msg = {
       'not-allowed': 'Microphone blocked. Allow microphone access for this site in your browser settings, then try again.',
-      'service-not-allowed': 'Speech recognition is not available in this browser session.',
-      'no-speech': 'Did not hear anything.',
+      'service-not-allowed': "Speech recognition isn't available in this browser session.",
+      'no-speech': "Didn't hear anything.",
       'audio-capture': 'No microphone found.',
-      network: 'Speech recognition could not reach its network service.',
+      network: "Speech recognition couldn't reach its network service.",
       aborted: null,   // we stopped it on purpose
     }[e.error];
     if (msg) appendMsg(msg, 'system');

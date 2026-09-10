@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Bracken Hale walks the road out past the wall twice a week and checks what is on it, and the hounds go with him. He is short a pair of hands this week.\n\nIt is a long walk in bad ground and the dogs do most of the work.",
+  "description": "Bracken Hale walks the road out past the wall twice a week and checks what's on it, and the hounds go with him. He's short a pair of hands this week.\n\nIt is a long walk in bad ground and the dogs do most of the work.",
   "fail_on": [],
   "id": "quest_wild_proving",
   "meta": {},
@@ -20,10 +20,10 @@
       "zone": "zone_scw_1048_974"
     },
     {
-      "desc": "Walk the road out past the wall and check what is on it",
+      "desc": "Walk the road out past the wall and check what's on it",
       "emotes": [
         "{who} walks the line of poles, checking the fixings, straightening what has gone crooked in the wind.",
-        "{who} keeps the wall on one side for as long as there is wall, and then there is not.",
+        "{who} keeps the wall on one side for as long as there's wall, and then there's not.",
         "{who} lets the dogs get out in front, because they know the ground and the ground is the difficulty."
       ],
       "id": "o1",

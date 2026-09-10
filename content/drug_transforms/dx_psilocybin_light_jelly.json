@@ -1,14 +1,14 @@
 {
   "asks": [
-    "Is it night out? I cannot ever tell in here.",
+    "Is it night out? I can't ever tell in here.",
     "Do you want it brighter? I can go brighter for a while.",
     "How far down are we?"
   ],
-  "description": "A pale jellyfish hangs where the light fitting was, bell pulsing gently, trailing a metre of threads that drift on a current the room does not have.",
+  "description": "A pale jellyfish hangs where the light fitting was, bell pulsing gently, trailing a metre of threads that drift on a current the room doesn't have.",
   "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} pulses once, and the shadows in the room all lean and come back.",
-    "{it} drifts a hand-span to the left on a current that is not there.",
+    "{it} drifts a hand-span to the left on a current that isn't there.",
     "{it} dims for a moment, and everything in the room goes the colour of deep water.",
     "The threads under {it} coil up slowly and let themselves down again."
   ],
@@ -18,14 +18,14 @@
   "looks": [
     "The bell opens and closes with a slow, regular deliberation. The light comes from inside it in soft pushes, brighter at the top of each stroke.",
     "The trailing threads are hair-fine and faintly luminous, and they turn towards you when you get near, without hurrying.",
-    "There is a dark ring of something inside the bell, going round, that you decide not to think about too hard."
+    "There's a dark ring of something inside the bell, going round, that you decide not to think about too hard."
   ],
   "matches": "light",
   "name": "a jellyfish hanging in the air",
   "says": [
-    "I am very slightly poisonous. It is nothing personal.",
+    "I'm very slightly poisonous. It's nothing personal.",
     "This is the deepest room I have been in.",
-    "Stand under me. I do not mind."
+    "Stand under me. I don't mind."
   ],
   "scope": "object"
 }

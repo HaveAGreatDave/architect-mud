@@ -7,22 +7,22 @@
   "drug_id": null,
   "emotes": [
     "{it} shakes itself from nose to tail and sits back down exactly as it was.",
-    "{it} follows something across the room with its eyes that is not there any more.",
+    "{it} follows something across the room with its eyes that isn't there any more.",
     "{it} rests its chin on the floor and sighs through its nose."
   ],
   "fx": null,
   "fx_intensity": 0.5,
   "id": "dxs_default_dog",
   "looks": [
-    "It has the patient, faintly disappointed face of an animal that has waited for people who did not come back.",
+    "It has the patient, faintly disappointed face of an animal that has waited for people who didn't come back.",
     "Its tail moves once against the floor and thinks better of it.",
-    "It is sitting on something. You will not find out what."
+    "It's sitting on something. You won't find out what."
   ],
   "matches": null,
   "name": "a large grey dog sitting in the doorway",
   "says": [
-    "I will move. I always move.",
-    "You smell like outside. I am not complaining."
+    "I'll move. I always move.",
+    "You smell like outside. I'm not complaining."
   ],
   "scope": "spawn"
 }

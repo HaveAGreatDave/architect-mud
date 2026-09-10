@@ -1,0 +1,20 @@
+{
+  "id": "hauler",
+  "kind": "truck",
+  "params": {
+    "aero": 0.35,
+    "axles": 1,
+    "cab": 0.24,
+    "deck": 0.44,
+    "hi": 0.248,
+    "lamps": 0.55,
+    "nose": 0.04,
+    "rig": "rack",
+    "skirt": 0,
+    "sleeper": 0,
+    "stacks": 1,
+    "trim": 0.4,
+    "w": 0.15
+  }
+}
+

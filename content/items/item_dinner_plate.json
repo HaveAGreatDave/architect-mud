@@ -1,11 +1,11 @@
 {
-  "description": "Thick white ceramic, crazed all over with fine cracks. Rings when you set it down and has never once broken when you wanted it to.",
+  "description": null,
   "flags": {},
   "id": "item_dinner_plate",
   "name": "dinner plate",
   "tags": {
     "container": 1200,
-    "description": "Thick white ceramic, crazed all over with fine cracks. Rings when you set it down and has never once broken when you wanted it to.",
+    "description": "Thick white ceramic, crazed all over with fine cracks. Rings when you set it down.",
     "dishware": true,
     "dishware_kind": "plate",
     "unique": true

@@ -135,7 +135,7 @@
     "\"Cold doesn't negotiate. Neither do I, but I'm cheaper.\"",
     "She re-hangs a parka someone has put back on the wrong rail, slowly, so you can see her do it."
   ],
-  "description": "A small, sharp woman with a tape measure round her neck and a habit of sizing you before you've finished the doorway. She spent a long time working outside and is entirely unsentimental about what that does to a person. She will sell you the cheap coat if you insist. She will also tell you, precisely, what month you will regret it.",
+  "description": "A small, sharp woman with a tape measure round her neck and a habit of sizing you before you've finished the doorway. She spent a long time working outside and is entirely unsentimental about what that does to a person. She'll sell you the cheap coat if you insist. She'll also tell you, precisely, what month you'll regret it.",
   "dialogue_tree": {
     "bye": {
       "options": [],

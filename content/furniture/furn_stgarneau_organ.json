@@ -1,0 +1,20 @@
+{
+  "description": "A foot-pumped reed organ against the north wall, two ranks and a row of stops worn down to guesses. The bellows still hold air if you work the pedals steadily. Nobody has tuned it in a long time, and it hardly matters: it was never quite in tune with anything else in here.",
+  "flags": {
+    "instrument": "organ",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stgarneau_organ",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Reed Organ",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 1400,
+  "zone_id": "zone_district_925_912"
+}

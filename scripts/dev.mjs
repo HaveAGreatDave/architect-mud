@@ -1,8 +1,9 @@
-// One command, two processes: the game server and the Studio.
+// One command, three processes: the game server, the Studio and the Modelshop.
 //
-//   npm run dev                  → server on :3000 (+ /dev) and Studio on :5180
-//   npm run dev -- --no-studio   → server only
-//   npm run dev -- --studio-port 5200
+//   npm run dev                     → server on :3000 (+ /dev), Studio on :5180, Modelshop on :5181
+//   npm run dev -- --no-studio      → drop the Studio
+//   npm run dev -- --no-modelshop   → drop the Modelshop
+//   npm run dev -- --studio-port 5200 --modelshop-port 5201
 //
 // They stay SEPARATE processes on purpose, and this wrapper is the whole of the
 // integration — it spawns, it reports, it takes the other one down. It does not
@@ -21,9 +22,13 @@ import { dirname, join } from 'node:path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const argv = process.argv.slice(2);
+const flagValue = (name) => { const i = argv.indexOf(name); return i !== -1 ? argv[i + 1] : null; };
 const withStudio = !argv.includes('--no-studio');
-const portIdx = argv.indexOf('--studio-port');
-const studioPort = portIdx !== -1 ? argv[portIdx + 1] : null;
+const studioPort = flagValue('--studio-port');
+// The Modelshop is its own process for the same two reasons the Studio is: no database
+// in it, and a synchronous validate-before-land on the request path. See its header.
+const withModelshop = !argv.includes('--no-modelshop');
+const modelshopPort = flagValue('--modelshop-port');
 
 const children = [];
 let shuttingDown = false;
@@ -74,4 +79,9 @@ if (withStudio) {
   const args = [join('tools', 'studio', 'serve.mjs')];
   if (studioPort) args.push(studioPort);
   start('studio', args);
+}
+if (withModelshop) {
+  const args = [join('tools', 'modelshop', 'serve.mjs')];
+  if (modelshopPort) args.push(modelshopPort);
+  start('modelshop', args);
 }

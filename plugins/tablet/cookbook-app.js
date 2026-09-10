@@ -251,7 +251,7 @@ async function ingredientDetail(player, token) {
     return {
       view: 'detail',
       breadcrumb: ['Cookbook', 'Shopping List', item.name],
-      detail: { id: `${ING_PREFIX}i:${key}`, name: item.name, desc: item.description || '', rows: out },
+      detail: { id: `${ING_PREFIX}i:${key}`, name: item.name, desc: item.tags?.description ?? item.description ?? '', rows: out },
     };
   }
 
@@ -392,7 +392,7 @@ async function buildScreen(player, screenId, params) {
           child: true, label: partLabel,
           sub: short
             ? `${members.length} thing${members.length === 1 ? '' : 's'} make it — you need all of them`
-            : 'all of it is in hand',
+            : "all of it's in hand",
           badge: short ? 'missing' : 'ready',
         });
         for (const e of members) {
@@ -475,7 +475,7 @@ async function buildScreen(player, screenId, params) {
       id: '__shop',
       label: `🛒 Shopping List${rows.length ? ` (${outstanding})` : ''}`,
       sub: rows.length
-        ? (outstanding ? `${outstanding} still to buy` : 'everything on it is in hand')
+        ? (outstanding ? `${outstanding} still to buy` : "everything on it's in hand")
         : 'nothing on it yet',
       badge: rows.length && !outstanding ? 'ready' : 'missing',
       _sort: -1,

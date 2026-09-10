@@ -1,8 +1,8 @@
 {
   "appearance": {
     "extreme": "A thick tail hangs to the back of their knees, cut through the seat of trousers that have been altered for it.",
-    "obvious": "There is a short tail at the base of their spine, pushing their coat out of shape.",
-    "subtle": "They are sitting oddly, forward on the chair."
+    "obvious": "There's a short tail at the base of their spine, pushing their coat out of shape.",
+    "subtle": "They're sitting oddly, forward on the chair."
   },
   "blocks_slots": [
     "legs"
@@ -14,9 +14,9 @@
   "conceal_slots": [
     "legs"
   ],
-  "description": "A short tail at the base of your spine. It does almost nothing, and it does not fit in trousers.",
+  "description": "A short tail at the base of your spine. It does almost nothing, and it doesn't fit in trousers.",
   "drawbacks": [
-    "Ordinary trousers do not work any more"
+    "Ordinary trousers don't work any more"
   ],
   "effects": {},
   "expression_band": "radiation",

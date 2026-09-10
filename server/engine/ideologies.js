@@ -286,8 +286,17 @@ export async function getPlayerIdeologyRep(playerId) {
   return ideologies.map(f => {
     // What the row says, aged forward to now. The stored number is a checkpoint,
     // not the truth — see the decay note above.
+    //
+    // ⚠ The ARC must be passed here, exactly as `getReputation` passes it. This
+    // call omitted it until 2026-09-03, which meant the one screen a player reads
+    // their standing off decayed them toward 0 while every GATE in the game
+    // decayed them toward their arc floor (200 after the rite, up to 800 at rank
+    // 4). A returning member saw a tier below the one the clinic and the
+    // instructors were actually using, and the whole payoff of slots 11–40 —
+    // `arcResting` — was invisible on the surface that exists to show it.
+    // `ideologyArc` is a sync read off the live player, so this costs nothing.
     const row = repMap[f.id];
-    const rep = row ? Math.round(decayRep(row.reputation || 0, row.updated_at, restingRep(profileFromFlags(f.flags), profile))) : 0;
+    const rep = row ? Math.round(decayRep(row.reputation || 0, row.updated_at, restingRep(profileFromFlags(f.flags), profile, ideologyArc(playerId, f.id)))) : 0;
     const tier = getTier(rep);
     return {
       id: f.id, name: f.name, description: f.description,

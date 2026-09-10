@@ -134,7 +134,7 @@
     "Hock turns something small over under the loupe and names a number lower than it deserves.",
     "\"Everything in here belonged to someone who swore they'd be back. They swore.\""
   ],
-  "description": "A soft-spoken man behind the wire mesh, loupe screwed into one eye and a valuation already forming behind the other. He buys what walks in, holds what won't sell, and remembers nothing that could be asked about later. Every kindness he offers is priced, and the price is always his.",
+  "description": "A soft-spoken man behind the wire mesh, loupe screwed into one eye and a valuation already forming behind the other. He buys what walks in, holds what won't sell, and remembers nothing that could be asked about later. Every kindness he offers is priced.",
   "dialogue_tree": {
     "buy": {
       "options": [
@@ -152,6 +152,89 @@
     "bye": {
       "options": [],
       "text": "\"Mind the grille.\" His eye is already back on the loupe, and on you."
+    },
+    "dq_crack_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_hock_cracked"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Fair enough.\"",
+          "text": "\"Fair enough.\""
+        }
+      ],
+      "text": "\"Three,\" Hock says. \"Open them where you like. Don't open them in here, I'm not watching that.\""
+    },
+    "dq_crack_done": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_hock_cracked"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"It's not disappointing.\"",
+          "text": "\"It's not disappointing.\""
+        }
+      ],
+      "text": "He goes over what you brought under the loupe, one at a time, unhurried, and pays each one at what it is. Nothing is worth a fortune. Everything is worth something.\n\n\"There,\" he says, and pushes the notes through the mesh. \"Now you know. That's the entire service I provide and people find it disappointing every single time.\""
+    },
+    "dq_crack_offer": {
+      "options": [
+        {
+          "label": "\"Three sleeves, opened. Done.\"",
+          "next": "dq_crack_accept",
+          "text": "\"Three sleeves, opened. Done.\""
+        },
+        {
+          "label": "\"Sloat pays more, though.\"",
+          "next": "dq_crack_sloat",
+          "text": "\"Sloat pays more, though.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I'll think about it.\"",
+          "text": "\"I'll think about it.\""
+        }
+      ],
+      "text": "The loupe comes up. He doesn't answer for long enough that you check whether he heard.\n\n\"Sealed,\" he says at last. \"A sealed thing is a rumour. I don't buy rumours. I buy objects, and an object has to have been LOOKED at before it's one.\"\n\nHe puts a small stack of notes on the mesh shelf and doesn't push it through.\n\n\"Three sleeves. Crack them. Bring me what's actually in your hand and I'll pay you for that, and it'll be a fair price, and you'll know exactly what you sold.\"\n\nHe returns to the loupe.\n\n\"Sloat will pay you more. Sloat is paying for a feeling. I'm not in that trade and I wouldn't know how to price it.\""
+    },
+    "dq_crack_sloat": {
+      "options": [
+        {
+          "label": "\"I'll open them.\"",
+          "next": "dq_crack_accept",
+          "text": "\"I'll open them.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I'll go and see Sloat.\"",
+          "text": "\"I'll go and see Sloat.\""
+        }
+      ],
+      "text": "\"He does.\" No heat in it at all. \"He also has a back room with eleven hundred sealed sleeves in it that he can't spend, can't insure, and can't open, because the moment he opens one it becomes worth what it's worth.\"\n\nThe loupe doesn't move.\n\n\"He isn't a collector. He's a man holding his breath. It has been nine years.\"\n\nHe finally looks up.\n\n\"You can take his money. I won't think less of you and I won't do this deal afterwards. One or the other. That isn't me being difficult, that's just what happens to the sleeves.\""
     },
     "gossip": {
       "actions": [
@@ -186,11 +269,41 @@
           "next": "bye"
         },
         {
+          "conditions": [
+            {
+              "flag": "quest_hock_cracked",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_blocked_quest_hock_cracked",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "\"What do you make of the sealed card trade?\"",
+          "next": "dq_crack_offer",
+          "text": "\"What do you make of the sealed card trade?\""
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_hock_cracked",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "\"Opened. Here's what was in them.\"",
+          "next": "dq_crack_done",
+          "text": "\"Opened. Here's what was in them.\""
+        },
+        {
           "label": "You must hear things, back here.",
           "next": "gossip"
         }
       ],
-      "text": "Hock doesn't look up from the loupe. \"Buying or selling? No, don't tell me, I can price a man from the door.\" He sets the loupe down. \"I buy what you've stopped needing, I sell what someone else stopped needing, and I never once ask which of those it is. What's it to be.\""
+      "text": "Hock doesn't look up from the loupe. \"Buying or selling? No, don't tell me, I can price a man from the door.\" He sets the loupe down. \"I buy what you've stopped needing, I sell what someone else stopped needing, and I never ask which of those it is. What's it to be.\""
     },
     "whose": {
       "options": [

@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Nothing is required of you. That is the point.",
+  "self_line": "Nothing is required of you. Not now, not in a minute.",
   "source": "object",
   "tone": "surreal"
 }

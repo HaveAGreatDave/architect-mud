@@ -370,7 +370,7 @@ export default async function regress({ run, check, getPlayer }) {
       p.current_zone = entryId;
       r = await run(`gps ${facade.id}`);
       check(
-        'gps to a building while already inside it says you are already there',
+        "gps to a building while already inside it says you're already there",
         r?.type === 'output' && /already at/i.test(r?.message || ''),
         `type=${r?.type} msg="${r?.message}"`,
       );

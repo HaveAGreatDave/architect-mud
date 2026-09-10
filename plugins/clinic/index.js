@@ -125,7 +125,7 @@ registerAction({
 
     const bleedLine = bleeding ? ' She packs the bleed first, hard enough to hurt, and it stops.' : '';
     const frostLine = thawed
-      ? ` She takes your hands in hers, turns them over, and does not say anything for a moment. What she does next is slow, and expensive, and you get to keep your fingers.`
+      ? ` She takes your hands in hers, turns them over, and doesn't say anything for a moment. What she does next is slow, and expensive, and you get to keep your fingers.`
       : '';
     const woundLine = mended.length
       ? ` She sets and closes ${mended.map(m => m.partLabel).join(', ')} — unhurried, and it hurts more than the wound did.`
@@ -308,7 +308,7 @@ registerAction({
       type: 'dialogue_line',
       text: `The injection goes in slow and cold and it hurts going up your arm. `
         + `Within a minute the ${res.mutation.name} has gone quiet, held down to ${res.effective}% of itself. `
-        + `<span class="text-dim">It will come back in about ${hours} hours, and she tells you so.</span>`
+        + `<span class="text-dim">It'll come back in about ${hours} hours, and she tells you so.</span>`
         + ` <span class="credits">−${cost}₵</span>`,
     };
   },
@@ -346,17 +346,17 @@ registerAction({
 
     const priceLine = quote.cost > 0
       ? ` <span class="credits">−${quote.cost}₵</span>`
-      : ' She waves the money away and does not explain why.';
+      : " She waves the money away and doesn't explain why.";
 
     if (result.removed) {
       return {
         type: 'dialogue_line',
-        text: `It takes hours. When she is finished there is nothing left of the ${name} but a dressing and a great deal of soreness, and in a week there will not be that. You are exactly what you were.${priceLine}`,
+        text: `It takes hours. When she is finished there's nothing left of the ${name} but a dressing and a great deal of soreness, and in a week there won't be that. You're exactly what you were.${priceLine}`,
       };
     }
     return {
       type: 'dialogue_line',
-      text: `She works on the ${name} until she has taken back as much as one session safely can. It is still there, quieter, at ${result.expression}%. She tells you to come back.${priceLine}`,
+      text: `She works on the ${name} until she has taken back as much as one session safely can. It's still there, quieter, at ${result.expression}%. She tells you to come back.${priceLine}`,
     };
   },
 });

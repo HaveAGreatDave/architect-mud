@@ -1,5 +1,5 @@
 {
-  "description": "Long tubes under a milky diffuser, running the length of the ceiling. They are the reason the window reads as a lit rectangle from halfway up Ironside, and they do not get switched off.",
+  "description": "Long tubes under a milky diffuser, running the length of the ceiling. They're the reason the window reads as a lit rectangle from halfway up Ironside, and they don't get switched off.",
   "flags": {
     "interactions": [
       "switch"

@@ -1,11 +1,11 @@
 {
-  "description": "Wine that has been fortified, spiced and left to think about what it did. Goes off faster than anyone respects.",
+  "description": null,
   "flags": {},
   "id": "item_vermouth_sweet",
   "name": "sweet vermouth",
   "tags": {
     "abv": 16,
-    "description": "Wine that has been fortified, spiced and left to think about what it did. Goes off faster than anyone respects.",
+    "description": "Wine that has been fortified, spiced and left to think about what it did. Goes off fast.",
     "drink_noun": "vermouth",
     "drink_profile": "fortified",
     "pour_units": 12,

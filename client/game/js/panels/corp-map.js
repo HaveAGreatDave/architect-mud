@@ -190,7 +190,7 @@ function renderDetail() {
     ? `<div class="cm-stat"><span class="dim">Income</span><span class="v up">+${c.income}/day</span></div>
        <div class="cm-stat"><span class="dim">Upkeep</span><span class="v down">−${c.upkeep}/day</span></div>` : '';
   const artery = Array.isArray(t.artery) && t.artery.length ? `<div class="cm-stat"><span class="dim">On</span><span class="v">${t.artery.map(esc).join(' · ')}</span></div>` : '';
-  return `<h3>${esc(t.name)}</h3><div class="cm-ctrl">${t.isCurrent ? '◉ you are here · ' : ''}${controller}${home}</div>${tug}${econ}${assets}${artery}${acts}`;
+  return `<h3>${esc(t.name)}</h3><div class="cm-ctrl">${t.isCurrent ? "◉ you're here · " : ''}${controller}${home}</div>${tug}${econ}${assets}${artery}${acts}`;
 }
 
 function renderBody() {

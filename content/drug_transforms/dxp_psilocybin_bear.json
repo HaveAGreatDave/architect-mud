@@ -1,10 +1,10 @@
 {
   "asks": [
     "Have you come far?",
-    "Do you know if it is still cold out?",
+    "Do you know if it's still cold out?",
     "Would you say I look all right in this?"
   ],
-  "description": "A brown bear sits back on its haunches in a heavy, well-cut coat, taking up more of the room than anything in the room ought to, and it is being extremely polite about it.",
+  "description": "A brown bear sits back on its haunches in a heavy, well-cut coat, taking up more of the room than anything in the room ought to, and it's being extremely polite about it.",
   "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} adjusts the coat at the shoulder with a hooked claw and settles again.",
@@ -23,8 +23,8 @@
   "name": "a bear in a good coat",
   "says": [
     "Take your time. I have nowhere else.",
-    "It is warmer in here. That is the whole reason.",
-    "I would shake hands but you would not enjoy it."
+    "It's warmer in here. Stay as long as you need.",
+    "I would shake hands but you wouldn't enjoy it."
   ],
   "scope": "person"
 }

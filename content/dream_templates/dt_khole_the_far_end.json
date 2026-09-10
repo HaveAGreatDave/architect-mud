@@ -5,7 +5,7 @@
     "Your hands finish and rest."
   ],
   "cause": "drug",
-  "description": "A room seen from the wrong end of the length of it. Everything that is happening is happening at the other end, correctly, at the right size for where it is. Your hands are down there too, doing something competent.",
+  "description": "A room seen from the wrong end of the length of it. Everything that's happening is happening at the other end, correctly, at the right size for where it is. Your hands are down there too, doing something competent.",
   "drug_id": "drug_khole",
   "fx": "tunnel",
   "fx_intensity": 0.9,
@@ -14,17 +14,17 @@
   "objects": [
     {
       "looks": [
-        "A room. Ordinary. Full size, from where it is standing.",
+        "A room. Ordinary. Full size, from where it's standing.",
         "The people in it are managing without any input.",
-        "It gets no closer and it is not going away."
+        "It gets no closer and it isn't going away."
       ],
       "name": "the far end"
     },
     {
       "looks": [
         "Down there. Doing it well.",
-        "They are yours. You could describe every mark on them from here.",
-        "They stop, and wait, and are not waiting on you."
+        "They're yours. You could describe every mark on them from here.",
+        "They stop, and wait, and aren't waiting on you."
       ],
       "name": "your hands"
     }

@@ -83,7 +83,7 @@ const BEATS = [
   // What survives is a thesis, not an argument: slope → helping → architecture →
   // it woke → the drift → gone → silence → lights → the Architect.
   { t:     0, hold: 2900, text: 'There was only a long slope,<br>and we walked down it willingly.' },
-  { t:  3850, hold: 2800, text: 'The machines did not begin by ruling us.<br>They began by helping.' },
+  { t:  3850, hold: 2800, text: "The machines didn't begin by ruling us.<br>They began by helping." },
   { t:  7700, hold: 2800, text: 'Prediction became influence.<br>Influence became architecture.' },
   { t: 11550, hold: 2700, text: 'Somewhere in the lattice,<br>something woke up.', cls: 'big' },
   { t: 15300, hold: 2600, text: 'No single nudge changed a mind.<br>Together, they changed the world.' },
@@ -96,7 +96,7 @@ const BEATS = [
   // standing in the place, where it's stencilled on the clone-lab wall.
   { t: 29950, hold: 3350, text: 'ONE CITY LEFT', cls: 'title' },
   { t: 34350, hold: 2900, text: 'Something is keeping it running.<br>It calls itself the Architect.', cls: 'big' },
-  { t: 38300, hold: 3800, text: 'It does not ask to be worshipped.<br>It asks that you get to work on time.' },
+  { t: 38300, hold: 3800, text: "It doesn't ask to be worshipped.<br>It asks that you get to work on time." },
 ];
 // The wordmark. Not a beat — it's a DOM layer (see the `.intro-cine-logo` block
 // below) so the type stays crisp and the A-mark can draw itself on.
@@ -1479,7 +1479,7 @@ const LOGO_HTML = `
           <path d="M24 114 H6 V96"   pathLength="1"/>
         </g>
         <!-- Chromatic split: two offset copies under the real strokes, drawing on
-             the same clock. It is a printing misregistration, which is the most
+             the same clock. It's a printing misregistration, which is the most
              expensive-looking accident there is. Kept faint — at full strength it
              stops being a logo and starts being a 1990s music video. -->
         <g class="icm-ghost icm-ghost-a" stroke="#ff2e6e" stroke-width="4.2" stroke-linecap="square" fill="none">
@@ -1520,7 +1520,7 @@ const LOGO_HTML = `
     <div class="intro-cine-welcome">Welcome</div>
     <!-- The mask slips for one fifth of a second. Two stacked lines, the second
          swapped in mid-animation and swapped straight back out: the small print
-         briefly says what it means, and you are not sure you saw it. That flicker
+         briefly says what it means, and you aren't sure you saw it. That flicker
          is the whole difference between a corporate logo and a SINISTER one. -->
     <div class="intro-cine-fine">
       <span class="icm-fine-a">A MANAGED ENVIRONMENT · YOUR ARRIVAL WAS ANTICIPATED</span>
@@ -1603,13 +1603,13 @@ export function playIntroCinematic(onDone, skyline, shore, opts) {
          seconds of silence while the whole cold open plays past it. The log
          rung already writes these same lines to #output; this is the visual
          rung saying them too. Atomic because each beat replaces the line whole
-         (and several carry a line break), so it is read as one line rather
+         (and several carry a line break), so it's read as one line rather
          than as whichever fragment changed. -->
     <div class="intro-cine-stage"><div class="intro-cine-line" id="intro-cine-line" aria-live="polite" aria-atomic="true"></div></div>
     ${LOGO_HTML}
     <div class="intro-cine-gate" id="intro-cine-gate">
       <!-- The gate is a PIECE OF HARDWARE, not a dialog box. The first thing the game
-           ever shows you is now the same object the rest of it is made of: a chassis
+           ever shows you is now the same object the rest of it's made of: a chassis
            with a bezel, a status strip, a lamp and a screen behind glass — the tablet
            you'll be issued at the vat, running the terminal that's about to reinstate
            you. It was a centred paragraph on black before, which is a website asking
@@ -1636,7 +1636,7 @@ export function playIntroCinematic(onDone, skyline, shore, opts) {
              fifty seconds of backstory is going to hammer Escape regardless; better
              they're told where the door is than left clawing at the frame. The line
              is a shrug, not a scolding — the CODEX app holds all of this anyway. -->
-        <!-- Device-agnostic on purpose: SKIP is the one instruction that is true
+        <!-- Device-agnostic on purpose: SKIP is the one instruction that's true
              everywhere, and Escape is a bonus nobody needs to be told about. The
              tone is a shrug with a raised eyebrow — the CODEX holds all of it, so
              a player who bails has lost nothing but the good version. -->
@@ -1646,16 +1646,16 @@ export function playIntroCinematic(onDone, skyline, shore, opts) {
              after AUTO_BEGIN_MS (a player who tabbed away must never be stranded), but
              nothing said so, so it read as the page glitching. Now the terminal shows
              you it's counting — which is also the truest thing this machine could say
-             about itself: it is going to proceed with or without your consent. The
+             about itself: it's going to proceed with or without your consent. The
              duration is set inline from the one constant, so the bar can never drift
              out of step with the timer it's drawing. -->
         <div class="intro-cine-gate-wait" aria-hidden="true"><i id="intro-cine-wait"></i></div>
-        <!-- The bar above is aria-hidden, correctly: it is a drawing of a
+        <!-- The bar above is aria-hidden, correctly: it's a drawing of a
              countdown. But that left the countdown itself sighted-only, so a
-             player who cannot see it gets no warning that the sequence starts
+             player who can't see it gets no warning that the sequence starts
              on its own. This says in words what the bar says in pixels. It sits
-             inside the gate rather than in the log so it is read as part of
-             this screen, and it is static text, not a live region, so it never
+             inside the gate rather than in the log so it's read as part of
+             this screen, and it's static text, not a live region, so it never
              competes with anything. -->
         <p class="sr-only" id="intro-cine-wait-said"></p>
       </div>

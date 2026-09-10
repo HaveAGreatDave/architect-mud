@@ -1,6 +1,6 @@
 {
   "addiction_chance": 0.08,
-  "description": "A steel bulb of nitrous oxide. Forty seconds, and then you are just a person in a room again.",
+  "description": "A steel bulb of nitrous oxide. Forty seconds, and then you're just a person in a room again.",
   "duration_seconds": 50,
   "effects": {
     "comeon_message": "<span class=\"msg-system\">Cold on the teeth, sweet at the back of the throat.</span>",
@@ -13,7 +13,7 @@
         },
         {
           "atSec": 14,
-          "text": "[trip]You are laughing and the laugh arrives in slices.[/trip]"
+          "text": "[trip]You're laughing and the laugh arrives in slices.[/trip]"
         },
         {
           "atSec": 26,
@@ -21,7 +21,7 @@
         },
         {
           "atSec": 38,
-          "text": "[trip]Gone. You are standing in a room holding a balloon, and it is a bit embarrassing.[/trip]"
+          "text": "[trip]Gone. You're standing in a room holding a balloon, and it's a bit embarrassing.[/trip]"
         }
       ],
       "intensity": 0.85,
@@ -43,17 +43,17 @@
       "max_reduction": 0.3
     },
     "withdrawal": {
-      "message": "Your hands and feet are buzzing and have been for days. It is not the good buzzing.",
+      "message": "Your hands and feet are buzzing and have been for days. It isn't the good buzzing.",
       "mods": {
         "stat_reflexes": -2
       },
       "onset_seconds": 1800,
       "stages": {
         "easing": "It backs off to your fingertips and stays there.",
-        "onset": "Your hands and feet start buzzing, and there is no bulb, and the buzzing goes on anyway.",
-        "peak": "The buzzing has not stopped once, and it stopped being funny somewhere in the first hour, and it is still going.",
-        "rising": "It is in your fingers and it is in your feet and it is not the good buzzing.",
-        "tail": "Mostly gone. Something in your feet has not entirely agreed to that."
+        "onset": "Your hands and feet start buzzing, and there's no bulb, and the buzzing goes on anyway.",
+        "peak": "The buzzing hasn't stopped once, and it stopped being funny somewhere in the first hour, and it's still going.",
+        "rising": "It's in your fingers and it's in your feet and it isn't the good buzzing.",
+        "tail": "Mostly gone. Something in your feet hasn't entirely agreed to that."
       }
     }
   },

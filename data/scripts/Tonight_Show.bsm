@@ -79,7 +79,7 @@ Yuki Tanaka-Reyes | the woman suing the sun for emotional distress | | lawsuit
 Colonel Otis Pemberton | retired, allegedly, from a war nobody will confirm happened | | colonel
 Sable Okonkwo | an influencer with nine million followers, all of them bots she pays | | influencer
 "Sparky" Reyes | an ex-grid saboteur now working as a safety consultant | | sparky
-Delphine Rook | a corporate futures forecaster who has never once been right | | forecaster
+Delphine Rook | a corporate futures forecaster who has never been right | | forecaster
 Brother Ansel | a monk who took a vow of aggressive silence | | monk
 Iris Vann | three-time champion of competitive hoarding | | hoarder
 Gus "Two-Livers" Malkin | a professional poison taster, mostly retired, involuntarily | | taster
@@ -339,7 +339,7 @@ Still cleared to broadcast as of this sentence, your host, {host}!
 [barber] The barbershop on my block does haircuts and minor surgery now. Same chair, same man, same question: "How short?"
 [laundry] The laundromat put up a sign. "Not responsible for garments, contents, or outcomes." Outcomes. I have been thinking about outcomes all week.
 [plumbing] My building's plumbing finally got fixed. Turns out it was never broken, it was rerouted. Somebody upstairs has been showering in my water pressure for six years, and honestly, good for him.
-[elevator] The elevator in my building talks now. It says "Going up." It has never once said going down. We've all quietly agreed not to raise it.
+[elevator] The elevator in my building talks now. It says "Going up." It has never said going down. We've all quietly agreed not to raise it.
 [grid] The power went out on my floor for nine hours. The grid called it a load-balancing event. I was the load. I was balanced.
 [pirateradio] There's a pirate station broadcasting on the emergency band. All they play is weather from thirty years ago. It's the most soothing thing in this city and they'll shut it down by spring.
 [tourism] The district launched a tourism campaign this week. The slogan is "Coldwater: You're Already Here."
@@ -732,7 +732,7 @@ You're suing the sun? >> Emotional distress, {host_first}. It's been up there th
 What are your chances, realistically? >> My lawyer says it's a long shot, jurisdictionally. I said, so is the sun.
 What happens if you win? >> Every sunrise owes me residuals. Think about the precedent. Think about the light.
 Has the sun responded to the suit? >> It rose the next morning, {host_first}, which my lawyer says is either contempt or a confession. We're arguing which.
-Any other defendants on your list? >> Gravity's next. It's been holding me down my whole life and it's never once apologized.
+Any other defendants on your list? >> Gravity's next. It's been holding me down my whole life and it's never apologized.
 ::endlines
 
 ::lines interview.colonel
@@ -745,7 +745,7 @@ Do you miss the service? >> I miss the certainty, {host_first}. Out here nobody 
 
 ::lines interview.influencer
 Nine million followers. That's remarkable. >> Every one a bot I personally pay, {host_first}. Do you know how expensive authenticity is?
-Isn't that just fake engagement? >> My bots have never once let me down. Can you say that about a person?
+Isn't that just fake engagement? >> My bots have never let me down. Can you say that about a person?
 Doesn't it ever feel hollow? >> I post my breakfast, the bots love it, I feel seen. The illusion holds one more day. It's the modern condition.
 What's your engagement rate? >> One hundred percent, {host_first}. The bots never miss. That's more than I can say for my own family.
 Ever meet a real follower? >> Once, {host_first}. It was terrifying. He had OPINIONS. My bots would never. I blocked reality that day.
@@ -760,7 +760,7 @@ Any advice for homeowners? >> Don't touch the box, {host_first}. That's my box n
 ::endlines
 
 ::lines interview.forecaster
-Eleven years forecasting the market? >> And never once right, {host_first}. That's a KIND of consistency.
+Eleven years forecasting the market? >> And never right, {host_first}. That's a KIND of consistency.
 Then why do the corporates keep you on? >> A broken forecaster is a fixed point. You can navigate by being exactly wrong.
 What's your call for tomorrow? >> Stability and growth. I've predicted that every day. You've watched the results.
 What did you predict for LAST quarter? >> Boom times, {host_first}. It was the crash. But directionally, there was movement, and I called the movement.

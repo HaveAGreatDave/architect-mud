@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "A hound of Bracken Hale's went out onto the flats four days ago and has not come back. She is heavy in whelp.\n\nBracken has been out three nights looking for her. He is fifty-one and he will not stop.\n\nQuarrel Nine asked you to go and find the dog, and was extremely clear that this is not a test and buys you nothing, and asked anyway.\n\nShe will not come to you. Find her, stay with her, and she will follow when she has decided about you.",
+  "description": "A hound of Bracken Hale's went out onto the flats four days ago and hasn't come back. She's heavy in whelp.\n\nBracken has been out three nights looking for her. He's fifty-one and he won't stop.\n\nQuarrel Nine asked you to go and find the dog, and was extremely clear that this isn't a test and buys you nothing, and asked anyway.\n\nShe won't come to you. Find her, stay with her, and she'll follow when she has decided about you.",
   "fail_on": [],
   "id": "quest_thorn_toll",
   "meta": {},
@@ -22,7 +22,7 @@
       "emotes": [
         "{who} stops moving, and sits down in the dirt, and waits.",
         "{who} finds her wedged under an overhang with her back to the open and her eyes on it.",
-        "{who} does not reach out, and does not talk, and lets a very large animal make up its own mind."
+        "{who} doesn't reach out, and doesn't talk, and lets a very large animal make up its own mind."
       ],
       "id": "o_found",
       "type": "visit",

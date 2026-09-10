@@ -1,5 +1,5 @@
 {
-  "description": "An oxy-fuel cutting lance that spits a 3000°C jet. Chews through steel casing and busbars alike.",
+  "description": null,
   "flags": {},
   "id": "item_thermal_lance",
   "name": "thermal lance",
@@ -32,6 +32,7 @@
       "max": 100,
       "min": 55
     },
+    "description": "An oxy-fuel cutting lance that spits a 3000°C jet. Chews through steel casing and busbars alike.",
     "min_skill": {
       "science": 6
     },

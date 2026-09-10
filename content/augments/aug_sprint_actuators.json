@@ -3,7 +3,7 @@
   "description": "Calf and thigh servos that fire on your reflexes, not your fatigue. You move before the meat around you has decided to.",
   "failure_messages": {
     "burnout": "A gear strips somewhere in the thigh, and the leg answers half a beat late from now on.",
-    "dead": "Both actuators shut down. You are walking on meat and bone, and it feels like wading.",
+    "dead": "Both actuators shut down. You're walking on meat and bone, and it feels like wading.",
     "fault": "The knee servo loses synchronisation. Your leg goes out from under you mid-stride.",
     "strain": "The servos in your legs whine on every step, and the heat of them climbs behind your knees."
   },

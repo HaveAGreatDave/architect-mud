@@ -1,5 +1,5 @@
 {
-  "description": "A cabinet in the corner by the door, kept immaculate — the perspex polished, all nine coils loaded, the price card printed rather than written. There is a strip of gaffer tape on the floor half a metre out from it, and a sign above the tape reading OPEN THEM AT THE COUNTER LIKE A PERSON.",
+  "description": "A cabinet in the corner by the door, kept immaculate — the perspex polished, all nine coils loaded, the price card printed rather than written. There's a strip of gaffer tape on the floor half a metre out from it, and a sign above the tape reading OPEN THEM AT THE COUNTER LIKE A PERSON.",
   "flags": {
     "click_cmd": "buypack",
     "interactions": [],

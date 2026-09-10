@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#141c17",
-  "description": "A curtained corner booth where the night's guest is parked between segments to sweat under a single warm lamp. A cracked mirror ringed with half-dead bulbs, a bowl of the good snacks, and a monitor counting down to the next taping in unforgiving red. This is where careers wait to be called back to the couch, or not.",
+  "description": "A curtained corner booth where the night's guest is parked between segments to sweat under a single warm lamp. A cracked mirror ringed with half-dead bulbs, a bowl of the good snacks, and a monitor counting down to the next taping in unforgiving red. Careers wait here to be called back to the couch, or not.",
   "exits": {
     "west": "zone_greenroom_lounge"
   },

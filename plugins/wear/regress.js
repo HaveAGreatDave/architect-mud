@@ -27,7 +27,7 @@ export default async function regress({ run, check, getPlayer }) {
   // ── Repairable by DEFAULT; no_repair is the opt-out ──
   check('anything that wears is repairable by default', isRepairable(weapon) && isRepairable(jacket));
   check('no_repair opts out', !isRepairable({ tags: { weapon: true, no_repair: true }, value: 100 }));
-  check('something that never wears is not repairable', !isRepairable(beer));
+  check("something that never wears isn't repairable", !isRepairable(beer));
 
   // ── Capacity derives from value, sub-linearly ──
   const cheap = durabilityOf({ tags: { weapon: true }, value: 10 });
@@ -47,7 +47,7 @@ export default async function regress({ run, check, getPlayer }) {
   const row = { inv_id: 'regress_wear_row', condition: 1, tags: { weapon: true }, value: 10, name: 'pipe' };
   p._wearPending = new Map();
   const first = wear(p, row, WEAR_EVENTS.swing, 'test');
-  check('a single swing does not change the band', first === null);
+  check("a single swing doesn't change the band", first === null);
   check('wear accrues in memory, not the row', p._wearPending.size === 1 && row.condition === 1);
   check('effective condition reflects pending wear', effectiveCondition(row, p) < 1);
 
@@ -113,7 +113,7 @@ export default async function regress({ run, check, getPlayer }) {
   // ── Watts is deliberately expensive ──
   const wrecked = _test.repairQuote({ value: 500 }, 0.1);
   check("a bench repair on good gear is a real cost", wrecked >= 200, String(wrecked));
-  check("there is a floor for trivial jobs", _test.repairQuote({ value: 5 }, 0.95) >= 1);
+  check("there's a floor for trivial jobs", _test.repairQuote({ value: 5 }, 0.95) >= 1);
 
   // ── Fatigue: each mend makes it likelier to simply GO ──
   const fresh = { condition: 0.5, tags: { weapon: true }, value: 100, custom_data: {} };
@@ -125,7 +125,7 @@ export default async function regress({ run, check, getPlayer }) {
   check("brittleness is capped", breakChanceOf({ ...mended, custom_data: { repairs: 999 } }) <= 0.12);
 
   // Rule 5 is what makes rule 4 fair: a fatigued item in GOOD shape is safe.
-  check("a much-mended item in good condition cannot break",
+  check("a much-mended item in good condition can't break",
     breakChanceOf({ ...mended, condition: 0.95 }) === 0);
   check("...nor one merely worn", breakChanceOf({ ...mended, condition: 0.75 }) === 0);
 
@@ -148,5 +148,5 @@ export default async function regress({ run, check, getPlayer }) {
   // undefined and the engine's infrastructure repair answers instead. This is
   // the assertion that proves the verb is shared, not owned.
   const r = await run('repair');
-  check('repair with nothing to fix does not crash', r && typeof r === 'object', JSON.stringify(r)?.slice(0, 120));
+  check("repair with nothing to fix doesn't crash", r && typeof r === 'object', JSON.stringify(r)?.slice(0, 120));
 }

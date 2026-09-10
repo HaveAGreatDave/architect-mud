@@ -1,5 +1,5 @@
 {
   "id": "dtt_death_003",
   "kind": "death",
-  "line": "It is {value}. It is going to be {value}. It was always going to be {value}."
+  "line": "It is {value}. It's going to be {value}. It was always going to be {value}."
 }

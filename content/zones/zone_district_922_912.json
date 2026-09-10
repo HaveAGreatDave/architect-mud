@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#37322a",
   "color": "#cdb489",
-  "description": "A cramped freight office with a service window, a wall of pigeonholes stuffed with manifests, and a hand-lettered sign: ALL DELIVERIES CHECK IN. This is where the Yards' paperwork lives and dies, and where the Yardmaster holds court over every crate that moves.",
+  "description": "A cramped freight office with a service window, a wall of pigeonholes stuffed with manifests, and a hand-lettered sign: ALL DELIVERIES CHECK IN. The Yards' paperwork lives and dies here, and the Yardmaster holds court over every crate that moves.",
   "exits": {
     "east": "zone_district_923_912",
     "west": "zone_yard_freightoffice"

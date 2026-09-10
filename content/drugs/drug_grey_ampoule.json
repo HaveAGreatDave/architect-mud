@@ -1,6 +1,6 @@
 {
   "addiction_chance": 0.08,
-  "description": "Nobody sells this under a name. It is described, when it is described at all, by what people have noticed afterwards, and the noticing is always secondhand, always cheerful, and never complete.",
+  "description": "Nobody sells this under a name. It's described, when it's described at all, by what people have noticed afterwards, and the noticing is always secondhand, always cheerful, and never complete.",
   "duration_seconds": 900,
   "effects": {
     "instant": {
@@ -10,7 +10,7 @@
     "onset_seconds": 40,
     "overdose": {
       "lethal": false,
-      "message": "Your whole body cramps at once, from the inside out, and something low in you feels wrung dry. It passes. You are fairly sure it passes."
+      "message": "Your whole body cramps at once, from the inside out, and something low in you feels wrung dry. It passes. You're fairly sure it passes."
     },
     "phases": {
       "comedown_message": "The heaviness fades. Something about it lingers anyway.",
@@ -20,9 +20,9 @@
       "peak_message": "A deep, unfamiliar heaviness settles low in your gut. Not unpleasant. Not nothing.",
       "peak_seconds": 600
     },
-    "take_line": "You push the needle in. There is a long, bright, total moment where the world is only that.",
+    "take_line": "You push the needle in. There's a long, bright, total moment where the world is only that.",
     "withdrawal": {
-      "message": "Everything the syringe was running has gone quiet, and quiet is not the same as rested.",
+      "message": "Everything the syringe was running has gone quiet, and quiet isn't the same as rested.",
       "mods": {
         "stamina_max": -5,
         "stat_brawn": -1
@@ -30,8 +30,8 @@
       "onset_seconds": 3600,
       "stages": {
         "easing": "The temperature settles. The ache stays and stops being interesting.",
-        "onset": "The heaviness low in your gut lifts, and what is left there is not empty so much as switched off.",
-        "peak": "Hot, then cold, then hot, and your whole middle aches on the inside, where there is nothing in there to have hurt.",
+        "onset": "The heaviness low in your gut lifts, and what's left there isn't empty so much as switched off.",
+        "peak": "Hot, then cold, then hot, and your whole middle aches on the inside, where there's nothing in there to have hurt.",
         "rising": "Your back aches across the kidneys, and the temperature of the room keeps being wrong in both directions.",
         "tail": "Back to yourself. Slightly less of yourself than was advertised, and nothing was ever advertised."
       }

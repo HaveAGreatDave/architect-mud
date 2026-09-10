@@ -1,10 +1,12 @@
 {
-  "description": "A blue benzo tab that files the sharp edges off a bad night.",
+  "description": null,
   "flags": {},
   "id": "item_lull",
   "name": "lull",
   "tags": {
-    "drug": true
+    "description": "A blue benzo tab that files the sharp edges off a bad night.",
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 70,

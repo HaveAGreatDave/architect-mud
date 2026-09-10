@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Still water, and a great deal of it, and it is warm. The surface holds the sky without altering it in any way and gives off steam in slow sheets that lean away downwind and come apart about head height. It smells of minerals and old eggs. Nothing about it moves unless something makes it move, and whatever is heating it is a long way underneath.",
+  "description": "Still water, and a great deal of it, and it's warm. The surface holds the sky without altering it in any way and gives off steam in slow sheets that lean away downwind and come apart about head height. It smells of minerals and old eggs. Nothing about it moves unless something makes it move, and whatever is heating it's a long way underneath.",
   "exits": {
     "east": "zone_dw_759_965",
     "north": "zone_dw_758_964",

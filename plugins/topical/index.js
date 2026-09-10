@@ -111,7 +111,7 @@ registerTopicalEffect('acid', async (player, { potency = 1 }) => {
     announceWear(player, item, wear(player, item, ACID_WEAR_POINTS * potency, 'acid'));
   }
   burn(player, ACID_DAMAGE * potency);
-  return { message: '<span class="text-red">It lands stinging and keeps stinging — it is eating into everything it touched.</span>' };
+  return { message: '<span class="text-red">It lands stinging and keeps stinging — it\'s eating into everything it touched.</span>' };
 });
 
 // Scalding. Small numbers on purpose: this is a bar-fight insult that happens to
@@ -120,7 +120,7 @@ const SCALD_DAMAGE = 3;
 registerTopicalEffect('hot_drink', async (player, { potency = 1 }) => {
   await stainClothing(player, SPLASH_SLOTS, 'grease').catch(() => {});
   burn(player, Math.max(1, SCALD_DAMAGE * potency));
-  return { message: '<span class="text-red">It lands scalding. You are wearing it, and it is still hot.</span>' };
+  return { message: '<span class="text-red">It lands scalding. You\'re wearing it, and it\'s still hot.</span>' };
 });
 
 // ── splash ──────────────────────────────────────────────────────────────────
@@ -213,7 +213,7 @@ async function cmdSplash(args, raw, player, broadcast) {
   }
 
   return { type: 'output', message: isHarmfulFluid(held.fluid)
-    ? `<span class="text-red">You throw ${held.label} over ${target.handle}. That was not a joke and everybody here knows it.</span>`
+    ? `<span class="text-red">You throw ${held.label} over ${target.handle}. That wasn't a joke and everybody here knows it.</span>`
     : `<span class="text-cyan">You throw ${held.label} over ${target.handle}.</span>` };
 }
 

@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "description": "A compact sky-apartment: engineered calm, a fold-away bed, and a floor-to-ceiling window that turns the whole cold city into a view you are paying for. Sparsely fitted, waiting for a tenant.",
+  "description": "A compact sky-apartment: engineered calm, a fold-away bed, and a floor-to-ceiling window that turns the whole cold city into a view you're paying for. Sparsely fitted, waiting for a tenant.",
   "exits": {
     "south": "zone_halcyon_residences"
   },

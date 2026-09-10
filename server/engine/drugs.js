@@ -276,7 +276,7 @@ const VISIBLE_BY_CLASS = {
   stimulant:  'Their jaw is working at nothing, and their eyes are open a size too wide.',
   depressant: 'Their eyelids keep sliding shut, and they surface a beat late from every sentence.',
 };
-const VISIBLE_TRIPPING = 'Their pupils are blown black, and they keep tracking something that is not there.';
+const VISIBLE_TRIPPING = "Their pupils are blown black, and they keep tracking something that isn't there.";
 
 // The line a given drug would put on your face, or null if nothing would show.
 function appearanceNoteFor(drug) {
@@ -662,7 +662,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // and while there's still time to stop.
   const mixKilled = crossBurden > 0 && (dosesInSystem / effOdThreshold) < CLASS_BURDEN_LIMIT;
   const mixLine = crossBurden > 0
-    ? `\n<span class="overdose-warning">It is landing on top of something that pulls the same way.</span>`
+    ? `\n<span class="overdose-warning">It's landing on top of something that pulls the same way.</span>`
     : '';
 
   // --- Overdose --------------------------------------------------------------
@@ -681,7 +681,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     // Name the mix when the mix is what did it — dying to arithmetic you were
     // never shown is a bug, not difficulty.
     const cause = mixKilled
-      ? `\n<span class="overdose-warning">On its own it would have been survivable. On top of what was already in you, it is not.</span>`
+      ? `\n<span class="overdose-warning">On its own it would have been survivable. On top of what was already in you, it's not.</span>`
       : '';
 
     if (eff.overdose?.lethal) {
@@ -698,7 +698,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   }
 
   const substituteLine = substituting
-    ? `\n<span class="withdrawal-warning">It is not what you are actually craving, but the shakes ease off anyway.</span>`
+    ? `\n<span class="withdrawal-warning">It isn't what you're actually craving, but the shakes ease off anyway.</span>`
     : '';
   message += addictedLine + mixLine + substituteLine;
 
@@ -1229,12 +1229,16 @@ export async function getPlayerDrugState(playerId) {
 // Wipe the player's ACTIVE drug state on death: reverse every timed drug/withdrawal
 // buff (so the body resets to true base — no full-heal to a buffed cap, no free HP
 // loss on comedown), drop phased drugs, and clear doses-in-system + active windows
-// (so a respawn isn't left one dose from an instant re-overdose). Tolerance and
-// addiction persist — they're long-term, not an active-body state that a fresh clone
-// would shed. In-memory reversal is synchronous; the DB clear fires async.
+// (so a respawn isn't left one dose from an instant re-overdose). Addiction goes with
+// it: the habit lives in the body, and the body is the part that got replaced, so a
+// fresh clone comes out clean rather than owing withdrawal to a bender it never went
+// on. Tolerance persists — it's the one long-term half worth keeping, and shedding it
+// would make dying a way to reset your dose costs.
+// In-memory reversal is synchronous; the DB clear fires async — the promise is
+// returned (not awaited by the death path) purely so a test can wait on it.
 export function clearActiveDrugState(player) {
   clearActiveDrugBuffs(player);
-  query('UPDATE player_drug_state SET doses_in_system=0, active_until=0 WHERE player_id=$1', [player.id])
+  return query('UPDATE player_drug_state SET doses_in_system=0, active_until=0, addiction=0, is_addicted=0 WHERE player_id=$1', [player.id])
     .catch(err => console.error('[drugs] failed to clear doses on death for', player.id, err.message));
 }
 

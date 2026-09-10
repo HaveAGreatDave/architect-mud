@@ -14,7 +14,7 @@
   ],
   "description": "Everything sharpened at once. You can smell blood through a wall and hear a heartbeat across a room, and you have started noticing that you enjoy it.",
   "drawbacks": [
-    "You cannot stop noticing"
+    "You can't stop noticing"
   ],
   "effects": {
     "acuity_hearing": 3,

@@ -1,11 +1,11 @@
 {
   "ambient_events": [
-    "Somebody up on the walk shifts their weight and does not look down.",
+    "Somebody up on the walk shifts their weight and doesn't look down.",
     "The leaves of the gate stand a hand apart and go no further.",
     "The dark of the tunnel is about four degrees cooler than the road, and no more."
   ],
   "ambient_theme": "outdoors",
-  "description": "The gateway itself, a tunnel of dressed stone the depth of the wall, cool for about four paces and then hot again. Two leaves of plate steel stand in it, taller than they need to be and blank as a closed hand. There is no handle on the outside.",
+  "description": "The gateway itself, a tunnel of dressed stone the depth of the wall, cool for about four paces and then hot again. Two leaves of plate steel stand in it, taller than they need to be and blank as a closed hand. There's no handle on the outside.",
   "exits": {
     "east": "zone_terminus_1212_940",
     "north": "zone_terminus_1211_939",

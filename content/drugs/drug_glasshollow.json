@@ -8,15 +8,15 @@
       "mode": "phantom",
       "phantoms": [
         {
-          "arrive": "There is someone standing where you are standing, half a step out of true, mouthing along to the thoughts as you think them.",
+          "arrive": "There's someone standing where you're standing, half a step out of true, mouthing along to the thoughts as you think them.",
           "barks": [
             "The one standing inside you thinks your next thought a half-second early. You hear it in your own voice.",
             "It shifts its weight when you shift yours, but always a little wrong, a little late."
           ],
-          "depart": "You breathe out and it breathes out with you, and then only you are breathing.",
+          "depart": "You breathe out and it breathes out with you, and then only you're breathing.",
           "hp": 12,
           "kind": "person",
-          "look": "It is you, rendered by something that has only ever read about you. The proportions are right. Nothing else is.",
+          "look": "It's you, rendered by something that has only ever read about you. The proportions are right. Nothing else is.",
           "name": "someone standing exactly where you are",
           "stay_frac": 0.7,
           "talk": "It answers in your voice, from somewhere inside your chest: \"There's no one here but us, and there's no us.\""
@@ -31,14 +31,14 @@
           "hp": 10,
           "kind": "person",
           "look": "The edges of it are too clean, like a cut in a photograph. What's behind isn't dark. It's more room, wrong-way-round.",
-          "name": "a seam in the wall that is watching",
+          "name": "a seam in the wall that's watching",
           "stay_frac": 0.85,
-          "talk": "The eye does not blink. The seam widens, very slightly, as if leaning closer to listen."
+          "talk": "The eye doesn't blink. The seam widens, very slightly, as if leaning closer to listen."
         },
         {
           "arrive": "A small figure resolves out of the glare on a nearby surface: a child's shape, edged in cold light, facing the wrong way.",
           "barks": [
-            "The glare-child raises one arm and points at something behind you. You do not turn around.",
+            "The glare-child raises one arm and points at something behind you. You don't turn around.",
             "It hums a tune you almost recognise, in a key that doesn't exist."
           ],
           "depart": "The light shifts by an inch and takes the shape of the child with it.",
@@ -70,7 +70,7 @@
       "comeup_message": "<span class=\"msg-system\">The light in the room goes thin and grey, as if the world were a print left too long in the sun.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 20,
-      "end_message": "<span class=\"msg-system\">The room settles back into being only a room. You are fairly sure you are alone. Fairly.</span>",
+      "end_message": "<span class=\"msg-system\">The room settles back into being only a room. You're fairly sure you're alone. Fairly.</span>",
       "peak_mods": {
         "stat_brains": -2,
         "stat_cool": -3
@@ -94,7 +94,7 @@
       "stages": {
         "easing": "The certainty stops being aggressive about it.",
         "onset": "The world thickens up. Everything is exactly as solid as it says it is.",
-        "peak": "It is all completely certain of itself and none of it will admit anything, and the thing you saw through the thin patch is still in the room and has stopped being visible.",
+        "peak": "It's all completely certain of itself and none of it'll admit anything, and the thing you saw through the thin patch is still in the room and has stopped being visible.",
         "rising": "You keep checking corners for a seam and finding a corner.",
         "tail": "Solid, ordinary, and closed. The legions are drawing off and not all of them have gone."
       }

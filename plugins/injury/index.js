@@ -183,13 +183,13 @@ const cap = s => String(s || '').charAt(0).toUpperCase() + String(s || '').slice
 // stay true to `penalties.js` — a detail line that promises a penalty the engine
 // doesn't apply is worse than no line at all.
 const CONSEQUENCE = {
-  head:      { 2: 'Thinking is slower than it should be.', 3: 'You cannot think straight and your hands shake.' },
+  head:      { 2: 'Thinking is slower than it should be.', 3: "You can't think straight and your hands shake." },
   torso:     { 2: 'Breathing hurts. You get your wind back slowly.', 3: 'Every breath is short. Recovery is a crawl.' },
   left_arm:  { 2: 'Your swing goes wide.', 3: 'You can barely lift it. Everything you swing misses.' },
   right_arm: { 2: 'Your swing goes wide.', 3: 'You can barely lift it. Everything you swing misses.' },
-  left_leg:  { 2: 'You are limping. Walking costs more.', 3: 'It will not take your weight. You cannot run.' },
-  right_leg: { 2: 'You are limping. Walking costs more.', 3: 'It will not take your weight. You cannot run.' },
-  feet:      { 2: 'Every step is a wince.', 3: 'You cannot run on these.' },
+  left_leg:  { 2: "You're limping. Walking costs more.", 3: "It won't take your weight. You can't run." },
+  right_leg: { 2: "You're limping. Walking costs more.", 3: "It won't take your weight. You can't run." },
+  feet:      { 2: 'Every step is a wince.', 3: "You can't run on these." },
 };
 
 function flavour(inj) {
@@ -400,12 +400,12 @@ export const hooks = {
       ? injuries.filter(i => rx.types.includes(i.type))
       : injuries;
     if (!eligible.length) {
-      return `That is the wrong thing entirely for a ${injuries[0].name} ${injuries[0].partLabel}.`;
+      return `That's the wrong thing entirely for a ${injuries[0].name} ${injuries[0].partLabel}.`;
     }
 
     // Improvised gear can simply fail. It's the cheap tier; it should feel cheap.
     if (rx.chance != null && Math.random() > rx.chance) {
-      return 'You make a mess of it. Whatever that accomplished, it was not treatment.';
+      return "You make a mess of it. Whatever that accomplished, it wasn't treatment.";
     }
 
     // `all` treats every eligible wound at once — which is what makes a trauma
@@ -423,7 +423,7 @@ export const hooks = {
       rec.at = Date.now();
       treated.push(inj.partLabel);
     }
-    if (!treated.length) return 'It is as patched as anything out of a kit is going to get.';
+    if (!treated.length) return "It's as patched as anything out of a kit is going to get.";
     player._injuriesDirty = true;
     return `You work on your ${treated.join(', ')}. Better — not good, but better.`;
   },
@@ -539,7 +539,7 @@ function aimCostNote(r) {
   if (r.base === 0) return 'Centre mass is where you were swinging anyway — it costs you nothing.';
   const cost = `<span class="dmg-type">(${r.real} to hit)</span>`;
   if (r.bought <= 0) {
-    return `Right now that is a gamble, not a tactic ${cost}. A called shot is a trained hand — `
+    return `Right now that's a gamble, not a tactic ${cost}. A called shot is a trained hand — `
       + `your <b>${r.name}</b> is ${r.skill}, and every 2 points of it buys back 1 of that penalty. `
       + `Fight with the ${r.weapon} until it does.`;
   }
@@ -599,8 +599,8 @@ export const commands = {
       const anatomy = foe ? foeAnatomy(foe) : null;
 
       const head = cur
-        ? `You are aiming for the <span class="hit-part">${partLabel(cur)}</span>. ${aimCostNote(await aimReadiness(player, cur))}`
-        : 'You are not aiming anywhere in particular — you swing for whatever presents itself.';
+        ? `You're aiming for the <span class="hit-part">${partLabel(cur)}</span>. ${aimCostNote(await aimReadiness(player, cur))}`
+        : "You aren't aiming anywhere in particular — you swing for whatever presents itself.";
 
       if (anatomy?.length) {
         // Capitalised in the list because it reads as a menu of choices, not as
@@ -629,7 +629,7 @@ export const commands = {
     const { ok, part } = resolveAimPart(arg, validParts);
     if (!ok) {
       const offer = anatomy ? anatomy.map(p => p.label).join(', ') : PARTS.map(p => PART_LABELS[p]).join(', ');
-      const who = foe ? `${foe.name} has no "${arg}"` : `You cannot aim for a "${arg}"`;
+      const who = foe ? `${foe.name} has no "${arg}"` : `You can't aim for a "${arg}"`;
       return { type: 'error', message: `${who}. Try: ${offer} — or <b>auto</b>.` };
     }
 

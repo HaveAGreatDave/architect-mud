@@ -2,7 +2,7 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "Sit if you are stopping. Not on the table.",
+    "Sit if you're stopping. Not on the table.",
     "I have four on the shelf and none of them is a left.",
     "The card goes with the limb. Always the card.",
     "If it clicks it wants oil. If it grinds, come to me."
@@ -32,7 +32,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The interval and the sizes.\" He unhooks one and hands it to you, and the card is exactly that: a servicing interval, a list of thread sizes, and a column of dates in four different hands. \"Eight days out here. Twelve in the works, where there is less grit.\n\n\"An arm nobody can service is an ornament. So the sizes are on the card, and the sizes are ones the stores actually holds, and if I ever fit a thread the stores does not hold you may take it off me and hit me with it.\""
+      "text": "\"The interval and the sizes.\" He unhooks one and hands it to you, and the card is exactly that: a servicing interval, a list of thread sizes, and a column of dates in four different hands. \"Eight days out here. Twelve in the works, where there's less grit.\n\n\"An arm nobody can service is an ornament. So the sizes are on the card, and the sizes are ones the stores actually holds, and if I ever fit a thread the stores doesn't hold you may take it off me and hit me with it.\""
     },
     "city": {
       "actions": [],
@@ -45,11 +45,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"You have.\" Entirely unbothered. \"Lighter, quicker, better than the one it replaced, and it talks to something.\"\n\nHe puts the limb back on its hook and squares the card.\n\n\"Bring one out here and in a season the grit is in it and you cannot open it, and there is nobody within four hundred miles who is allowed to. Then you have a good arm you are not permitted to mend.\n\n\"Mine are worse. Mine open.\""
+      "text": "\"You have.\" Entirely unbothered. \"Lighter, quicker, better than the one it replaced, and it talks to something.\"\n\nHe puts the limb back on its hook and squares the card.\n\n\"Bring one out here and in a season the grit is in it and you can't open it, and there's nobody within four hundred miles who's allowed to. Then you have a good arm you aren't permitted to mend.\n\n\"Mine are worse. Mine open.\""
     },
     "root": {
       "actions": [],
-      "first": "He dries his hands finger by finger. \"You have all your limbs, so you are not a patient, which makes you a visitor, and visitors ask about the shelf.\" He nods at it without turning. \"Perrin Ockley. Ask about the shelf.\"",
+      "first": "He dries his hands finger by finger. \"You have all your limbs, so you aren't a patient, which makes you a visitor, and visitors ask about the shelf.\" He nods at it without turning. \"Perrin Ockley. Ask about the shelf.\"",
       "options": [
         {
           "actions": [],
@@ -69,7 +69,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is the card for?",
+          "label": "What's the card for?",
           "next": "card"
         },
         {
@@ -82,9 +82,9 @@
       ],
       "text": "\"Back again. Nothing broken, I see.\"",
       "text_by_relation": {
-        "close": "\"Good.\" He dries the last finger. \"You can crank for me. It is duller than it looks and I will talk while we do it.\"",
+        "close": "\"Good.\" He dries the last finger. \"You can crank for me. It's duller than it looks and I'll talk while we do it.\"",
         "familiar": "He pushes the stool out with his foot. \"Sit. You can hold a wrist for me later if you have a strong stomach.\"",
-        "known": "\"Come in. Do not lean on the instruments.\""
+        "known": "\"Come in. Don't lean on the instruments.\""
       }
     },
     "scratch": {
@@ -105,7 +105,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Rarely. I make them out of what came in.\" A slight, dry pleasure. \"The plate off a hull, spring off a wreck, cable off whatever the yard has stripped this month. The leather I do buy, because nobody here tans well and I am tired of pretending otherwise.\n\n\"None of it is clever. All of it is a person's hands.\""
+      "text": "\"Rarely. I make them out of what came in.\" A slight, dry pleasure. \"The plate off a hull, spring off a wreck, cable off whatever the yard has stripped this month. The leather I do buy, because nobody here tans well and I'm tired of pretending otherwise.\n\n\"None of it's clever. All of it's a person's hands.\""
     },
     "shelf": {
       "actions": [],
@@ -114,7 +114,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is the card for?",
+          "label": "What's the card for?",
           "next": "card"
         },
         {
@@ -125,7 +125,7 @@
           "next": "scratch"
         }
       ],
-      "text": "\"Four arms and no legs, which is the wrong way round for a place with a quarry in its history, but people bring me what breaks.\" He sets the towel on its rail, square. \"They are not new. Every one of them has been on somebody. You take it off, it is cleaned, the sockets are packed to fit the next person, and it goes back up there.\n\n\"There is one on that shelf older than I am. It has had three owners and about nine elbows.\""
+      "text": "\"Four arms and no legs, which is the wrong way round for a place with a quarry in its history, but people bring me what breaks.\" He sets the towel on its rail, square. \"They aren't new. Every one of them has been on somebody. You take it off, it's cleaned, the sockets are packed to fit the next person, and it goes back up there.\n\n\"There's one on that shelf older than I am. It has had three owners and about nine elbows.\""
     }
   },
   "faction": "ideology_null",

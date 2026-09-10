@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "There is a document case in a lock-up off the Yards. The Quartermaster wants it at the Blind by morning, carried by hand, because every wire in this city belongs to somebody who reads it.\n\nIt is not heavy. The catches are up, which she mentions on the way past and does not come back to.\n\n\"Straight through. If it goes wrong, put it down and walk away from it. It is worth less than you are, and I will only say that once.\"",
+  "description": "There's a document case in a lock-up off the Yards. The Quartermaster wants it at the Blind by morning, carried by hand, because every wire in this city belongs to somebody who reads it.\n\nIt isn't heavy. The catches are up, which she mentions on the way past and doesn't come back to.\n\n\"Straight through. If it goes wrong, put it down and walk away from it. It's worth less than you are, and I'll only say that once.\"",
   "fail_on": [],
   "id": "quest_lw_fav_carry",
   "meta": {},
@@ -22,7 +22,7 @@
       "desc": "Get the case to the Quartermaster at the Blind.",
       "emotes": [
         "{who} puts it on the counter with the catches still up.",
-        "{who} is not asked whether they looked, then or ever."
+        "{who} isn't asked whether they looked, then or ever."
       ],
       "id": "o_back",
       "requires": [

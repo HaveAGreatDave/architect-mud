@@ -63,7 +63,7 @@ async function cmdAcceptPay(args, raw, player) {
   const offer = pendingPay.get(player.id);
   if (!offer) return { type: 'error', message: "Nobody's offering you any credits." };
   const payer = getLivePlayer(offer.fromId);
-  if (!payer) { clearOffer(player.id); return { type: 'error', message: 'Whoever offered that is gone.' }; }
+  if (!payer) { clearOffer(player.id); return { type: 'error', message: "Whoever offered that's gone." }; }
   clearOffer(player.id);
 
   let failed = null;

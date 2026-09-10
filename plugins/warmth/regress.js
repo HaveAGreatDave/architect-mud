@@ -10,8 +10,8 @@ export default async function regress({ check }) {
   // ── What counts as a heater ────────────────────────────────────────────────
   check('a heater is furniture with a target temperature',
     isHeater({ flags: { heater_target_c: 20 } }) === true, 'heater');
-  check('ordinary furniture is not a heater', isHeater({ flags: {} }) === false, 'not a heater');
-  check('a zero target is not a heater', isHeater({ flags: { heater_target_c: 0 } }) === false, 'not a heater');
+  check("ordinary furniture isn't a heater", isHeater({ flags: {} }) === false, 'not a heater');
+  check("a zero target isn't a heater", isHeater({ flags: { heater_target_c: 0 } }) === false, 'not a heater');
   check('the battery defaults to twelve in-game hours',
     capacityOf({ flags: { heater_target_c: 20 } }) === 720, String(capacityOf({ flags: {} })));
   check('an authored battery overrides the default',
@@ -28,7 +28,7 @@ export default async function regress({ check }) {
   // Two heaters are one room held at the higher setting, never the sum — otherwise a stack of
   // cheap heaters cooks an apartment.
   const best = (targets, baseC) => { const t = Math.max(...targets); return t > baseC ? t - baseC : 0; };
-  check('two heaters are not twice as warm', best([20, 22], 0) === 22, String(best([20, 22], 0)));
+  check("two heaters aren't twice as warm", best([20, 22], 0) === 22, String(best([20, 22], 0)));
   check('the higher thermostat wins', best([15, 20], 10) === 10, String(best([15, 20], 10)));
 
   // ── The battery ────────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ export default async function regress({ check }) {
     const p = {};
     applyWarmth(p, 5, 20);
     applyWarmth(p, 2, 30);
-    check('a weaker source cannot dilute a stronger one', warmthBonus(p) === 5, String(warmthBonus(p)));
+    check("a weaker source can't dilute a stronger one", warmthBonus(p) === 5, String(warmthBonus(p)));
     applyWarmth(p, 9, 10);
     check('a stronger source takes over', warmthBonus(p) === 9, String(warmthBonus(p)));
   }

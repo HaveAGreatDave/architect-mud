@@ -57,7 +57,7 @@ registerPrintArtifact('wrong_hands', {
 });
 registerPrintArtifact('static_voice', {
   at: 45,
-  self: 'There is a hiss under your voice now, faint as a room tone, and it is in every recording of you from here on.',
+  self: "There's a hiss under your voice now, faint as a room tone, and it's in every recording of you from here on.",
   other: 'A thin static rides under their voice, the way a room tone rides under a recording.',
 });
 registerPrintArtifact('flinch_delay', {

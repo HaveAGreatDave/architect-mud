@@ -39,7 +39,7 @@ export default async function regress({ run, check, getPlayer }) {
     const bad = await run('keypad cachet 9999');
     check('wrong code is refused', bad?.type === 'error', bad?.message);
     check('wrong code leaks nothing about the lab', !/chem|lab/i.test(bad?.message || ''), bad?.message);
-    check('wrong code does not move the wall', _test.isOpen(cabinet) === wasOpen, 'state changed on a bad code');
+    check("wrong code doesn't move the wall", _test.isOpen(cabinet) === wasOpen, 'state changed on a bad code');
 
     // The real code toggles it. Run it twice so the suite leaves the world exactly
     // as it found it — a regress that leaves a dealer's lab hanging open is a bug
@@ -69,7 +69,7 @@ export default async function regress({ run, check, getPlayer }) {
       const labDesc = await run(`examine ${lab.name}`);
       check('open ⇒ the keypad rides on the lab', /data-action="keypad"/.test(labDesc?.message || ''), labDesc?.message);
       check('open ⇒ the lab resolves as a keypad target', !!(await _test.resolveDisguise(p, lab.name)).furniture,
-        'the lab name did not resolve back to its cabinet');
+        "the lab name didn't resolve back to its cabinet");
       check('the lab back-points at its cabinet', lab.flags?.conceal_hidden_by === CABINET, JSON.stringify(lab.flags));
       // Re-read the row: updateFurniture REPLACES the cached object rather than
       // mutating it, so the `lab` captured up top still carries `concealed`.
@@ -80,7 +80,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     await run(`keypad cachet ${code}`);
     check('toggles back to how it started', _test.isOpen(cabinet) === wasOpen, 'left the cabinet in the wrong state');
-    check('sealed ⇒ the lab is not a keypad advert', !availableActions(getFurnitureById(LAB), p).includes('keypad'),
+    check("sealed ⇒ the lab isn't a keypad advert", !availableActions(getFurnitureById(LAB), p).includes('keypad'),
       'a sealed lab advertised its own keypad');
 
     // While sealed, examine advertises the pad and nothing else.
@@ -98,7 +98,7 @@ export default async function regress({ run, check, getPlayer }) {
   const stranger = { id: `${p.id}-not-me` };
 
   check('owner sees the keypad hint', /keypad/i.test(hooks['furniture.describe'](fake, p) || ''),
-    'owner was not offered the pad in their own room');
+    "owner wasn't offered the pad in their own room");
   check('a guest is told nothing', hooks['furniture.describe'](fake, stranger) === undefined,
     'the pad advertised itself to a stranger');
   check('owner gets the keypad action', availableActions(fake, p).includes('keypad'),
@@ -115,7 +115,7 @@ export default async function regress({ run, check, getPlayer }) {
   // with no owner test anywhere on the path, so a guest with the code still works it.
   p.current_zone = getFurnitureById(CABINET)?.zone_id || savedZone;
   const asStranger = await _test.resolveDisguise(stranger.id ? { ...p, id: stranger.id } : p, 'cachet');
-  check('the verb itself is not owner-locked', !!asStranger.furniture, JSON.stringify(asStranger));
+  check("the verb itself isn't owner-locked", !!asStranger.furniture, JSON.stringify(asStranger));
 
   p.current_zone = savedZone;
 }

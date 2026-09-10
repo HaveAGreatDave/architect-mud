@@ -15,7 +15,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('weapon is contraband', _test.isContraband('item_x', { weapon: {} }) === true);
   check('drug is contraband', _test.isContraband('item_x', { drug: {} }) === true);
   check('hack deck is contraband', _test.isContraband('item_x', { hack_device: {} }) === true);
-  check('plain clothing is not contraband', _test.isContraband('item_basic_shirt', {}) === false);
+  check("plain clothing isn't contraband", _test.isContraband('item_basic_shirt', {}) === false);
 
   // ── Clean death does not jail ─────────────────────────────────────────────
   // A player with no wanted flag must fall through to the normal clone-vat respawn
@@ -23,7 +23,7 @@ export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
   await query('DELETE FROM jail_prisoners WHERE player_id=$1', [p.id]).catch(() => {});
   const clean = await _test.onRespawnZone({ id: p.id, handle: p.handle }, null);
-  check('unwanted death does not divert respawn', clean === undefined, JSON.stringify(clean)?.slice(0, 80));
+  check("unwanted death doesn't divert respawn", clean === undefined, JSON.stringify(clean)?.slice(0, 80));
   const row = await query('SELECT 1 FROM jail_prisoners WHERE player_id=$1', [p.id]).catch(() => ({ rows: [] }));
   check('unwanted death creates no prisoner row', row.rows.length === 0);
 
@@ -51,7 +51,7 @@ export default async function regress({ run, check, getPlayer }) {
     await _test.restoreHeld(tid, held);
     const restored = await query('SELECT item_id FROM player_inventory WHERE player_id=$1', [tid]);
     check('restore returns the legal item', restored.rows.some(r => r.item_id === misc));
-    check('restore does not return the weapon', !restored.rows.some(r => r.item_id === wpn));
+    check("restore doesn't return the weapon", !restored.rows.some(r => r.item_id === wpn));
 
     // The garb is a souvenir: released prisoners keep the jumpsuit, and it comes
     // off the torso on the way out so it can't fight the restored clothes for the slot.
@@ -67,7 +67,7 @@ export default async function regress({ run, check, getPlayer }) {
       const after = await query('SELECT item_id, is_equipped, slot FROM player_inventory WHERE player_id=$1', [tid3]);
       const kept = after.rows.find(r => r.item_id === garb);
       check('released prisoner keeps the jumpsuit', !!kept, JSON.stringify(after.rows)?.slice(0, 120));
-      check('…unequipped, so it does not clash with restored clothes', !!kept && !kept.is_equipped && !kept.slot);
+      check("…unequipped, so it doesn't clash with restored clothes", !!kept && !kept.is_equipped && !kept.slot);
       check('…and their own things come back with it', after.rows.some(r => r.item_id === misc));
       await query('DELETE FROM player_inventory WHERE player_id=$1', [tid3]).catch(() => {});
     }
@@ -78,7 +78,7 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM player_inventory WHERE player_id=$1', [tid2]).catch(() => {});
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,custom_data) VALUES ($1,$2,$3,1,$4)`, [`${tid2}_p`, tid2, wpn, JSON.stringify({ packaged: true })]);
     const held2 = await _test.confiscate(tid2, 'JailTest');
-    check('sealed crate is not bagged as evidence', !held2.some(h => h.item_id === wpn));
+    check("sealed crate isn't bagged as evidence", !held2.some(h => h.item_id === wpn));
     const kept = await query('SELECT 1 FROM player_inventory WHERE player_id=$1', [tid2]);
     check('sealed crate survives confiscation', kept.rows.length === 1, kept.rows.length);
     await query('DELETE FROM player_inventory WHERE player_id=$1', [tid2]).catch(() => {});

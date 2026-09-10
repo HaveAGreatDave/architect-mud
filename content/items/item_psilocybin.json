@@ -1,10 +1,12 @@
 {
-  "description": "A handful of wrinkled grey mushrooms grown in somebody's ventilation duct.",
+  "description": null,
   "flags": {},
   "id": "item_psilocybin",
   "name": "psilocybin",
   "tags": {
-    "drug": true
+    "description": "A handful of wrinkled grey mushrooms grown in somebody's ventilation duct.",
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 60,

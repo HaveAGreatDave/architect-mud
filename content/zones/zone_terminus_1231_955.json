@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The rim folds back on itself, and the fold makes a ramp of sorts, if a ramp were vertical for the first part and loose for the rest. You can see where it tops out. That is most of the argument.",
+  "description": "The rim folds back on itself, and the fold makes a ramp of sorts, if a ramp were vertical for the first part and loose for the rest. You can see where it tops out. That's most of the argument.",
   "exits": {
     "east": "zone_terminus_1232_955",
     "north": "zone_terminus_1231_954",

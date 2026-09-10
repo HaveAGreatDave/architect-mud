@@ -5,7 +5,7 @@
     "Your place stays exactly where it is."
   ],
   "cause": "drug",
-  "description": "It is enormous, it is made of the same folding that made everything else, and it has been running for ten thousand years with nobody required to attend. You have a place in here. It was assigned a long time ago, it has been kept for you, and it is going to be kept after you leave.",
+  "description": "It's enormous, it's made of the same folding that made everything else, and it has been running for ten thousand years with nobody required to attend. You have a place in here. It was assigned a long time ago, it has been kept for you, and it's going to be kept after you leave.",
   "drug_id": "drug_threshold",
   "fx": "bloom",
   "fx_intensity": 0.8,
@@ -15,7 +15,7 @@
     {
       "looks": [
         "It goes up in stages, and each stage is a longer time than the one below it.",
-        "None of it is stone. All of it is holding.",
+        "None of it's stone. All of it's holding.",
         "You can see how it was built, which was by continuing."
       ],
       "name": "the vaulting"
@@ -23,8 +23,8 @@
     {
       "looks": [
         "Marked, kept, and the right size.",
-        "You have used it before, at length, and did not know that until now.",
-        "Nobody is going to sit in it while you are away."
+        "You have used it before, at length, and didn't know that until now.",
+        "Nobody is going to sit in it while you're away."
       ],
       "name": "your place in it"
     }

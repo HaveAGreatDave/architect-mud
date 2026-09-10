@@ -70,14 +70,14 @@ export default async function regress({ run, check }) {
   check('an unknown date deep-cleans (fails safe)', isDeepCleanDay(null) === true);
 
   // --- ownership providers ---
-  check('an unowned zone is not owned', isOwnedZone('__nobodys_room__') === false);
-  check('a null zone id is not owned', isOwnedZone(null) === false);
+  check("an unowned zone isn't owned", isOwnedZone('__nobodys_room__') === false);
+  check("a null zone id isn't owned", isOwnedZone(null) === false);
   registerOwnedZoneProvider((z) => z === '__owned_by_test__');
   check('a registered provider makes a zone owned', isOwnedZone('__owned_by_test__') === true);
   // A provider that throws must not take the nightly sweep down with it.
   registerOwnedZoneProvider(() => { throw new Error('bad provider'); });
   check('a throwing provider is contained', isOwnedZone('__nobodys_room__') === false);
-  check('a throwing provider does not break a good one', isOwnedZone('__owned_by_test__') === true);
+  check("a throwing provider doesn't break a good one", isOwnedZone('__owned_by_test__') === true);
 
   // Prose selection is worst-first, so mopping blood never reads as sweeping dust.
   check('the worst stain picks the line',

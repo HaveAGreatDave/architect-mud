@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A bay stacked with work in progress, each piece with a tag wired to it saying what is wrong and who found it.",
+  "description": "A bay stacked with work in progress, each piece with a tag wired to it saying what's wrong and who found it.",
   "exits": {
     "east": "zone_dw_765_973",
     "south": "zone_dw_764_974",

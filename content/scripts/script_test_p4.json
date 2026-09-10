@@ -23,7 +23,7 @@
         "type": "say"
       },
       "stranger": {
-        "text": "The script reports: you are a stranger here.",
+        "text": "The script reports: you're a stranger here.",
         "type": "say"
       }
     },

@@ -1,6 +1,6 @@
 {
   "category": "Job Board",
-  "description": "Empty freight, wrong direction, on foot, because the thing that should have carried it is unserviceable and everyone here is out of favours. Hangar bay to the apron, up the road, into town. It pays because it is miserable. 30₵.",
+  "description": "Empty freight, wrong direction, on foot, because the thing that should have carried it's unserviceable and everyone here is out of favours. Hangar bay to the apron, up the road, into town. It pays because it's miserable. 30₵.",
   "fail_on": [],
   "id": "quest_reach_deadhead",
   "meta": {},
@@ -9,7 +9,7 @@
     {
       "desc": "The Hangar Bay",
       "emotes": [
-        "{who} loads up in the hangar bay and is told, cheerfully, that it's not far. It is far.",
+        "{who} loads up in the hangar bay and is told, cheerfully, that it's not far. It's far.",
         "{who} takes the whole load in one trip out of pure spite.",
         "{who} straps the load on, looks at the door, and stops asking why nobody else volunteered."
       ],
@@ -37,7 +37,7 @@
       "desc": "The road east",
       "emotes": [
         "{who} grinds east up the road with the heat coming off it in a sheet.",
-        "{who} is now carrying the load in a way that is bad for their back and good for their pace.",
+        "{who} is now carrying the load in a way that's bad for their back and good for their pace.",
         "{who} counts buildings on the horizon. There are four. There have always been four."
       ],
       "id": "o2",
@@ -53,7 +53,7 @@
       "emotes": [
         "{who} drops the load in the street and stands over it, breathing like a man who has just argued with geography.",
         "{who} sets the freight down in town and swears never again, in the tone of somebody who will be back tomorrow.",
-        "{who} arrives, unloads, and is handed a drink they did not order and absolutely need."
+        "{who} arrives, unloads, and is handed a drink they didn't order and absolutely need."
       ],
       "id": "o3",
       "requires": [

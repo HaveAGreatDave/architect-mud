@@ -1,10 +1,10 @@
 {
   "asks": [
     "Who do you think looks at this?",
-    "Would you behave differently if I were not here?",
+    "Would you behave differently if I weren't here?",
     "Shall I open them?"
   ],
-  "description": "A face coming down out of the ceiling as though through a skin, features stretched taut by the material it is pushing into. It is where the camera was, and it is doing the same job.",
+  "description": "A face coming down out of the ceiling as though through a skin, features stretched taut by the material it's pushing into. It's where the camera was, and it's doing the same job.",
   "drug_id": null,
   "emotes": [
     "{it} presses a little further through, and the ceiling gives.",
@@ -16,14 +16,14 @@
   "id": "dx_default_camera_face",
   "looks": [
     "The ceiling has taken the shape of a face without breaking, and the strain is visible around the jaw.",
-    "The eyes are shut, because opening them would mean tearing through, and it has not decided to yet.",
+    "The eyes are shut, because opening them would mean tearing through, and it hasn't decided to yet.",
     "It turns, slowly, following the room, and the ceiling turns with it."
   ],
   "matches": "camera",
   "name": "a face pressed through the ceiling",
   "says": [
-    "I am not recording. I am just watching.",
-    "There is another one of these in the next room.",
+    "I'm not recording. I'm just watching.",
+    "There's another one of these in the next room.",
     "You have got very used to me."
   ],
   "scope": "object"

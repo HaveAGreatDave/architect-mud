@@ -1,9 +1,10 @@
 {
-  "description": "Vented, and cold for the first time in its working life. The certification plate is still perfectly legible, which somehow makes it worse.",
+  "description": null,
   "flags": {},
   "id": "item_ruined_power_cell",
   "name": "a vented power cell",
   "tags": {
+    "description": "Vented, and cold for the first time in its working life. The certification plate is still perfectly legible, which somehow makes it worse.",
     "no_install": true,
     "no_repair": true,
     "scrap": true

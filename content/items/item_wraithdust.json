@@ -1,10 +1,12 @@
 {
-  "description": "A twist of oily grey powder that smells faintly of hot metal and hospital corridors. They say it introduces you to people.",
+  "description": null,
   "flags": {},
   "id": "item_wraithdust",
   "name": "wraithdust",
   "tags": {
-    "drug": true
+    "description": "A twist of oily grey powder that smells faintly of hot metal and hospital corridors. They say it introduces you to people.",
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 160,

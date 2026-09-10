@@ -1,10 +1,11 @@
 {
-  "description": "A hinged ceramic-and-lead shell moulded to a torso that is not yours yet. It is obscenely heavy and it smells faintly of the foundry.",
+  "description": null,
   "flags": {},
   "id": "item_aug_radsealed_chassis",
   "name": "a rad-sealed chassis",
   "tags": {
-    "augment_hardware": "aug_radsealed_chassis"
+    "augment_hardware": "aug_radsealed_chassis",
+    "description": "A hinged ceramic-and-lead shell moulded to a torso that isn't yours yet. It's obscenely heavy and it smells faintly of the foundry."
   },
   "type": "misc",
   "value": 2200,

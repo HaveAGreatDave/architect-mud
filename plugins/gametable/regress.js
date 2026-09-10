@@ -60,18 +60,18 @@ export default async function regress({ check }) {
 
     // Bare `pokertext` toggles from the current state.
     await pokertext('pokertext', player);
-    check('bare pokertext toggles on', isTextMode(PID), 'toggle did not turn on');
+    check('bare pokertext toggles on', isTextMode(PID), "toggle didn't turn on");
     await pokertext('pokertext', player);
-    check('bare pokertext toggles off', !isTextMode(PID), 'toggle did not turn off');
+    check('bare pokertext toggles off', !isTextMode(PID), "toggle didn't turn off");
 
     // `text` / `visual` are the same switch under natural names. With no table
     // here they just store the pref (and return an output note, not a pane).
     let tr = await commands.text([], 'text', player, noop);
-    check('text switches to text mode', isTextMode(PID), 'text did not opt in');
+    check('text switches to text mode', isTextMode(PID), "text didn't opt in");
     check('text with no table returns output', tr?.type === 'output', JSON.stringify(tr)?.slice(0, 120));
     check('text at the felt persists the middle rung', (await flagVal()) === 'textgames', `flag=${await flagVal()}`);
     let vr = await commands.visual([], 'visual', player, noop);
-    check('visual switches back to visual mode', !isTextMode(PID), 'visual did not opt out');
+    check('visual switches back to visual mode', !isTextMode(PID), "visual didn't opt out");
     check('visual persists the flag', (await flagVal()) === 'visual', `flag=${await flagVal()}`);
 
     // `config.textTable` is the table's OPENING DEFAULT, never an override: it
@@ -96,7 +96,7 @@ export default async function regress({ check }) {
 
     // …and `visual` must never be refused, at any table.
     const vAtOldSchool = await commands.visual([], 'visual', player, noop);
-    check('`visual` is not refused at a textTable', vAtOldSchool?.type !== 'error', JSON.stringify(vAtOldSchool)?.slice(0, 120));
+    check("`visual` isn't refused at a textTable", vAtOldSchool?.type !== 'error', JSON.stringify(vAtOldSchool)?.slice(0, 120));
     await query('DELETE FROM player_flags WHERE player_id=$1', [PID]);
 
     // Narration builders must be safe no-ops when nobody at the table is opted in.
@@ -114,7 +114,7 @@ export default async function regress({ check }) {
       narrateTurn(fakeTable, PID);    // opted in → builds + sends (no live socket = harmless)
       narrateStreet(fakeTable, 'flop');
       narrateDeal(fakeTable);
-    } catch (e) { threw = true; check('narration builders do not throw', false, e.message); }
+    } catch (e) { threw = true; check("narration builders don't throw", false, e.message); }
     check('narration builders run cleanly', !threw, 'a builder threw');
 
     // Reconnect: a player who drops while seated comes back to the login LOOK,
@@ -239,7 +239,7 @@ async function chessRegress(check) {
 
   // A pinned piece cannot move — the whole point of filtering pseudo-legal moves
   // rather than trusting generation.
-  check('chess: a piece pinned to its king cannot step aside',
+  check("chess: a piece pinned to its king can't step aside",
     countFrom('4k3/4r3/8/8/8/4N3/8/4K3 w - - 0 1', 'e3') === 0);
   check('chess: an unpinned knight in the same spot moves freely',
     countFrom('4k3/8/8/8/8/4N3/8/4K3 w - - 0 1', 'e3') === 8);
@@ -259,7 +259,7 @@ async function chessRegress(check) {
   let r = play(g, ['f3', 'e5', 'g4', 'Qh4']);
   check('chess: Fool\'s Mate is playable move for move', r.ok, `${r.failed}: ${r.error}`);
   check('chess: Fool\'s Mate ends in checkmate', g.result?.reason === 'checkmate' && !g.result.drawn);
-  check('chess: the loser is not the winner', g.result?.winnerColor === 'b');
+  check("chess: the loser isn't the winner", g.result?.winnerColor === 'b');
   check('chess: checkmate is marked with # in the log', g.history.at(-1)?.san === 'Qh4#',
     g.history.at(-1)?.san);
 
@@ -293,8 +293,8 @@ async function chessRegress(check) {
 
   // Turn order and ownership — the two ways a player cheats by accident.
   g = newGame();
-  check('chess: you cannot move on your opponent\'s turn', g.handleMove('black', 'e5').ok === false);
-  check('chess: a spectator cannot move', g.handleMove('nobody', 'e4').ok === false);
+  check('chess: you can\'t move on your opponent\'s turn', g.handleMove('black', 'e5').ok === false);
+  check("chess: a spectator can't move", g.handleMove('nobody', 'e4').ok === false);
   check('chess: an illegal move is refused with a reason',
     g.handleMove('white', 'e2e5').ok === false);
 
@@ -340,7 +340,7 @@ async function chessRegress(check) {
   // get there, not "Rad1". Noise in the log is its own bug.
   const oneRook = parseFen('4k3/8/8/8/4K3/8/8/R7 w - - 0 1');
   const soloD1 = generateMoves(oneRook).find(m => toAlgebraic(m.to) === 'd1');
-  check('chess: a lone rook is not disambiguated', moveToSan(oneRook, soloD1) === 'Rd1',
+  check("chess: a lone rook isn't disambiguated", moveToSan(oneRook, soloD1) === 'Rd1',
     moveToSan(oneRook, soloD1));
 
   // The bot: must return a legal move, from any position, inside the budget.
@@ -394,7 +394,7 @@ async function chessRegress(check) {
   const tl = threatLines(hanging, 'b');
   check('chess text: threats names an attacked piece as undefended',
     /pawn e5 \(undefended\)/.test(tl), tl);
-  check('chess text: threats tells the reader what is free to take',
+  check("chess text: threats tells the reader what's free to take",
     /Hanging for you: pawn d4/.test(tl), tl);
   const quiet = threatLines(newGame(), 'w');
   check('chess text: a quiet position says so rather than listing nothing',
@@ -438,7 +438,7 @@ async function chessRegress(check) {
   check('chess bot: the seat is a synthetic one', isChessBotId(free.seats[seated.seatIdx]?.playerId));
   check('chess bot: authored strength reaches the seat', free.seats[seated.seatIdx]?.persona?.depth === 1);
   const twice = await free.summonBot(npc);
-  check('chess bot: the same opponent cannot be summoned twice', twice.ok === false);
+  check("chess bot: the same opponent can't be summoned twice", twice.ok === false);
 
   const staked = mkTable({ minBet: 500 }, 'staked');
   const stakedSeat = await staked.summonBot(npc);

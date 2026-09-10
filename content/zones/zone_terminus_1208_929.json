@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Grey-green thorn, waist high, following a line of damp that is not visible any other way. It is the only thing out here that is any colour at all. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "Grey-green thorn, waist high, following a line of damp that isn't visible any other way. It's the only thing out here that's any colour at all. Off toward the middle of the country there's a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
   "exits": {
     "east": "zone_terminus_1209_929",
     "north": "zone_terminus_1208_928",

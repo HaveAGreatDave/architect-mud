@@ -20,7 +20,7 @@ import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel, closeMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
-import { openPianoPanel, closePianoPanel, onRoomNote } from './panels/piano.js';
+import { openPianoPanel, closePianoPanel, onRoomNote, onVoiceConfig } from './panels/piano.js';
 import { openCardMachinePanel, cardMachineVend, openPackReveal } from './panels/cardpack.js';
 import { openSlotsPanel } from './panels/slots.js';
 import { openCardMintPanel, cardMintStruck } from './panels/cardmint.js';
@@ -59,7 +59,7 @@ import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/intro-cinematic.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightBurst, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightBurst, flightSimContacts, flightSimAASites, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/cab-view.js';
@@ -109,9 +109,9 @@ const WELCOME_OMINOUS = [
   n => `We have been waiting for you, ${n}.`,
   n => `${n}. Reconnection confirmed. Compliance appreciated.`,
   n => `You were logged as absent, ${n}. The absence has been amended.`,
-  n => `Good. You are breathing. That simplifies the paperwork, ${n}.`,
+  n => `Good. You're breathing. That simplifies the paperwork, ${n}.`,
   n => `${n}. Your file was open the whole time. Nobody closed it.`,
-  n => `The Basin did not miss you, ${n}. It doesn't do that. But it noticed.`,
+  n => `The Basin didn't miss you, ${n}. It doesn't do that. But it noticed.`,
   n => `Resume, ${n}. Everything continued without you.`,
   n => `${n}. Somebody asked about you while you were away. We told them nothing.`,
   n => `Session restored, ${n}. Your prior session ended in a manner we found instructive.`,
@@ -120,7 +120,7 @@ const WELCOME_OMINOUS = [
   n => `Step in, ${n}. The city has been rearranged slightly. You'll adapt or you won't.`,
   n => `We kept watching after you left, ${n}. There wasn't much to watch.`,
   n => `${n}. Identity accepted. Provisionally.`,
-  n => `You are late, ${n}. Nothing was scheduled. You are still late.`,
+  n => `You're late, ${n}. Nothing was scheduled. You're still late.`,
   n => `Welcome home, ${n}. That word is used loosely here.`,
 ];
 // State-aware ominous lines. Each reads a field already present on the auth
@@ -145,14 +145,14 @@ const WELCOME_STATE = [
   { when: p => p.hp_max && p.hp >= p.hp_max, line: (n) => `Unmarked, ${n}. Either you were careful or you did nothing at all.` },
   { when: p => (p.deaths || 0) >= 10, line: (n) => `Death number ${'' + (p.deaths || 0)} is behind you, ${n}. We have stopped filing them individually.` },
   { when: p => (p.deaths || 0) === 0 && (p.total_xp || 0) > 500, line: (n) => `Still no deaths on your record, ${n}. Records like that are a kind of debt.` },
-  { when: p => p.body_temp_c != null && p.body_temp_c <= 35, line: (n) => `You are colder than you should be, ${n}. The Basin will finish that job if you let it.` },
+  { when: p => p.body_temp_c != null && p.body_temp_c <= 35, line: (n) => `You're colder than you should be, ${n}. The Basin will finish that job if you let it.` },
   { when: p => p.body_temp_c != null && p.body_temp_c >= 39, line: (n) => `You're running hot, ${n}. Something in you is burning fuel it doesn't have.` },
   { when: p => (p.wetness || 0) > 40, line: (n) => `You came back wet, ${n}. We would rather not know from what.` },
 
   // Mind
   { when: p => p.sanity_max && p.sanity / p.sanity_max <= 0.3, line: (n) => `Your readings are wrong, ${n}. Not low. Wrong. Whatever you saw down there, it saw the paperwork too.` },
-  { when: p => p.sanity_max && p.sanity / p.sanity_max <= 0.55, line: (n) => `You are thinking a little sideways today, ${n}. We have noted it. We note everything.` },
-  { when: p => p.sanity_max && p.sanity >= p.sanity_max, line: (n) => `Perfectly lucid, ${n}. That is the least interesting way to be in Coldwater.` },
+  { when: p => p.sanity_max && p.sanity / p.sanity_max <= 0.55, line: (n) => `You're thinking a little sideways today, ${n}. We have noted it. We note everything.` },
+  { when: p => p.sanity_max && p.sanity >= p.sanity_max, line: (n) => `Perfectly lucid, ${n}. That's the least interesting way to be in Coldwater.` },
 
   // Appetite
   { when: p => (p.hunger ?? 100) <= 15, line: (n) => `You haven't eaten, ${n}. The Basin is patient about that. It waits.` },
@@ -171,7 +171,7 @@ const WELCOME_STATE = [
   { when: p => p.combat_stance === 'aggressive', line: (n) => `You went offline with your guard down and your fists up, ${n}. Bold, for a body that only has one of itself.` },
 
   // Money & standing
-  { when: p => (p.credits || 0) > 20000, line: (n) => `You are carrying too much of it on your person, ${n}. So is everyone who has ever been robbed.` },
+  { when: p => (p.credits || 0) > 20000, line: (n) => `You're carrying too much of it on your person, ${n}. So is everyone who has ever been robbed.` },
   { when: p => (p.bank_credits || 0) === 0 && (p.credits || 0) > 5000, line: (n) => `Nothing banked, ${n}. You don't trust the vault. The vault has noticed.` },
   { when: p => p.home_zone && !p.died_offline, line: (n) => `Your door was undisturbed while you slept, ${n}. This time.` },
 
@@ -179,15 +179,15 @@ const WELCOME_STATE = [
   { when: p => p.current_zone === p.anchor_zone, line: (n) => `You never left your anchor, ${n}. Some people call that caution.` },
   { when: p => p.home_zone && p.current_zone === p.home_zone, line: (n) => `You logged off at home, ${n}. It's still standing. Try not to read anything into that.` },
   // Transient void rooms are `xing_<leader>_<seq>` (plugins/voidwalking), not real zone ids.
-  { when: p => p.current_zone && /^xing_/.test(p.current_zone), line: (n) => `You went out past the map, ${n}, and the map did not follow you back.` },
+  { when: p => p.current_zone && /^xing_/.test(p.current_zone), line: (n) => `You went out past the map, ${n}, and the map didn't follow you back.` },
 
   // Career
-  { when: p => (p.total_xp || 0) < 100, line: (n) => `You are new, ${n}. The Basin has a word for new. It isn't a kind one.` },
+  { when: p => (p.total_xp || 0) < 100, line: (n) => `You're new, ${n}. The Basin has a word for new. It isn't a kind one.` },
   { when: p => (p.total_xp || 0) > 50000, line: (n) => `You have outlasted your cohort, ${n}. All of it.` },
   { when: p => !p.archetype, line: (n) => `You still haven't decided what you are, ${n}. The city will decide for you eventually.` },
 
   // Sleep debt — last_slept_at is real time, so this reads a genuinely long gap
-  { when: p => p.last_slept_at && (Date.now() - p.last_slept_at) > 36e5 * 12, line: (n) => `You have not slept in a long time, ${n}. We can hear it in the way you move.` },
+  { when: p => p.last_slept_at && (Date.now() - p.last_slept_at) > 36e5 * 12, line: (n) => `You haven't slept in a long time, ${n}. We can hear it in the way you move.` },
 ];
 // Choose the greeting. Split out from playWelcomeVoice so the MOTD banner can
 // carry the same line even when the voice itself is muted.
@@ -232,6 +232,18 @@ function playWelcomeVoice(handle, player) {
 // whatever per-event gain the server already set. (Poker SFX have their own
 // softening in poker-sfx.js.)
 const GAME_SFX_GAIN = 0.6;
+
+// A compass direction as a stereo position. North and south are DEAD CENTRE and
+// that is not a shortcoming: this is a headphone pan, which carries left/right
+// and cannot carry front/back at all, so a sound from ahead and a sound from
+// behind are honestly the same thing here. Diagonals get a partial pan, up and
+// down get none. Anything unknown pans nowhere rather than guessing.
+const DIR_PAN = {
+  east: 0.75, west: -0.75,
+  northeast: 0.5, southeast: 0.5, northwest: -0.5, southwest: -0.5,
+  north: 0, south: 0, up: 0, down: 0,
+};
+const panForDir = (dir) => DIR_PAN[dir] ?? 0;
 
 // ── A cadence, scheduled here rather than sent as N messages ─────────────────
 //
@@ -289,8 +301,8 @@ function setSleepBar(sleeping, dreaming) {
   const label = document.getElementById('sleep-bar-label');
   if (label) {
     label.textContent = dreaming
-      ? 'You are dreaming. You can walk, look and speak here.'
-      : 'You are asleep. Any command will wake you.';
+      ? "You're dreaming. You can walk, look and speak here."
+      : "You're asleep. Any command will wake you.";
   }
 }
 
@@ -1174,6 +1186,9 @@ const handlers = {
   instrument_panel: (msg) => { openPianoPanel(msg); },
   instrument_note: (msg) => { onRoomNote(msg); },
   instrument_close: () => { closePianoPanel(); },
+  // An AUTHORED instrument's synth config, sent once per sit and per room entry
+  // rather than per note — which is what keeps the note relay at ~40 bytes.
+  instrument_voice: (msg) => { onVoiceConfig(msg); },
   // The card machine's face, its vend, and the pack-opening cinematic. All three
   // still echo `message` into the log — the overlay is the show, never the record,
   // so closing it (or an audio-off client) loses nothing but the presentation.
@@ -1471,6 +1486,7 @@ const handlers = {
   flight_burst: (msg) => { flightBurst(msg); },        // a bomb going off — world-anchored fireball in the windshield
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
   flight_aasites: (msg) => { flightSimAASites(msg); },     // active ground AA emplacements → 3D turret models
+  flight_hopper: (msg) => { flightSimHopper(msg); },       // ag-plane hopper: the pour dialog behind the cockpit's HOPPER button
   air_hit: (msg) => { flightSimAirHit(msg); },             // air-to-air gun hit feedback (Phase B)
   flight_kill: (msg) => { flightSimKill(msg); },           // confirmed kill → big top-of-glass banner
   air_threat: (msg) => { flightSimAirThreat(msg); },       // RWR: missile lock/launch warnings + flare confirm (Phase C)
@@ -1611,7 +1627,11 @@ const handlers = {
   // for this song, so closing that surface can stop it without silencing a zone
   // theme or the player's own AMP tape — they all share one music player.
   audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false, owner: msg.owner }); },
-  audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name, 'gain', msg.gain ?? 1); window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN); },
+  // `from`/`hops` are only present when the cue reached you from ANOTHER room
+  // (propagateAudio in server/engine/sounds.js) — the doorway it came through and
+  // the number of walls in the way. The mapping from a compass direction to a pan
+  // lives here rather than on the server, which sends the fact and not the sound.
+  audio_sfx: (msg) => { window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN, { pan: panForDir(msg.from), muffle: msg.hops || 0 }); },
   // Procedural cue: the server sent PARAMETERS and a seed, not layers. We build
   // the sound here from the shared generator — same seed, same field, ~100 bytes
   // on the wire instead of the several KB a serialised burst field costs.
@@ -1642,6 +1662,9 @@ const handlers = {
     if (msg.series) { playSeries(msg.series, msg.params || {}, play); return; }
     play(msg.params || {});
   },
+  // Which room the listener is in — the reverb send. Sent on every zone change;
+  // the engine crossfades and ignores a repeat of the space it is already in.
+  audio_space: (msg) => { window.AudioEngine?.setSpace?.(msg.space); },
   audio_sample: (msg) => { console.log('[audio] sample received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSample(msg.def); },
   audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },
   audio_loop_gain: (msg) => { window.AudioEngine?.setLoopGain(msg.id, msg.gain, msg.ramp ?? 0.4); },

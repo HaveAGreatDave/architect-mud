@@ -174,7 +174,7 @@ async function buildCards(player, field) {
 // Everything in the player's hands holding liquid — the pour list for the Hopper tab. The
 // SAME predicate cmdLoadHopper matches on (a fillable container with fluid_amount > 0), because
 // a button offering a can the verb would then refuse is worse than no button.
-async function carriedFluids(player) {
+export async function carriedFluids(player) {
   const { rows } = await query(
     `SELECT i.name, COALESCE(pi.custom_data->>'fluid_type','water') fluid,
             SUM(COALESCE((pi.custom_data->>'fluid_amount')::numeric,0)) amount, COUNT(*) n
@@ -791,7 +791,7 @@ async function partsSheet(player, tgt) {
   const shelf = Object.entries(PARTS)
     .filter(([, p]) => slots.some(s => s.id === p.slot))
     .map(([k, p]) => `· <b>${p.name}</b> <span class="text-dim">(${p.slot}, tier ${p.tier})</span> — ${p.price}₵ · <span class="action-link" data-action="cmd" data-cmd="modify buy ${k}">buy</span>\n  <span class="text-dim">${p.blurb}</span>`);
-  const carried = env.kg ? `\n<span class="text-dim">Fitted hardware weighs ${env.kg}kg — payload you are already carrying.</span>` : '';
+  const carried = env.kg ? `\n<span class="text-dim">Fitted hardware weighs ${env.kg}kg — payload you're already carrying.</span>` : '';
   return { type: 'output', message:
     `<span class="text-cyan">PARTS — ${type.name || 'aircraft'}:</span>\n${lines.join('\n')}${carried}\n` +
     `<b>IN YOUR KIT:</b>\n${hand}\n<b>THE SHELF:</b>\n${shelf.join('\n')}` };

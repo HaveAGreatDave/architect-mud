@@ -95,6 +95,39 @@ export function salvoOf(live) { return Math.max(1, live.type?.data?.salvo || 1);
 export function bombLoad(live) { return Math.max(0, live.type?.data?.bombs || 0); }
 export function bombAmmo(live) { return Math.max(0, live.bombs ?? bombLoad(live)); }
 
+// ── Piloting IP margins ───────────────────────────────────────────────────────
+// ⚠ THE THIRD ARGUMENT TO awardSkillUse IS A SKILL-CHECK MARGIN, NOT AN XP AMOUNT
+// — a BIGGER number pays LESS. `awardIp` rolls `chance = base / (1 + |margin| *
+// scale)` (server/engine/ip.js), so on the default tunables 0.5 is ~50%, 1 is
+// ~33%, 2 is 20%, 4 is ~11%, and 0 is a GUARANTEED point. The parameter means
+// "how far INSIDE your ability this was", because you learn at the edge.
+//
+// These constants exist because that reads backwards at a call site, and it had
+// been read backwards at every one of them: `bombKillAA` passed 3 — the lowest
+// rate in the plugin — directly under a comment promising it "pays out
+// generously: this is the hardest way in the game to kill one", while takeoff,
+// landing, `startup`, `climb` and `scan` all passed 0, a guaranteed point per
+// press. Two of those are repeatable on the apron at will, so piloting was
+// trained fastest by starting the engine over and over, and combat trained it
+// slower than routine flying did.
+//
+// ⚠ Nothing here is 0, deliberately. A silenced AA site comes back as soon as a
+// living engineer repairs it (plugins/aa-sites), so every award below is farmable
+// given patience, and a guaranteed point is a faucet rather than a reward.
+// ⚠ Where a real skillCheck already ran, pass ITS `.margin` instead of any of
+// these — that is what the parameter is for, and it makes a barely-made climb
+// teach more than a comfortable one. Only events with no check of their own
+// belong in this table.
+export const PILOT_IP = {
+  BOMB_KILL:    0.5,   // ~50% — dive-bombing an AA site: the hardest kill in the game
+  MISSILE:      1,     // ~33% — ammo-limited, one award per impact
+  AA_SILENCED:  1,     // ~33% — a swarm or strafe pass that kills a battery
+  LANDING:      1.5,   // ~25% — the half of flying that is actually hard, once a trip
+  GUNS:         2,     // ~20% — free ammo, and a burst rolls repeatedly across one pass
+  TAKEOFF:      2,     // ~20%
+  ROUTINE:      4,     // ~11% — `startup`/`scan`: repeatable on the ground, at will
+};
+
 // ── Continuous-flight seam (Phase 1 slice) ────────────────────────────────────
 // The overhaul's continuous energy model runs client-side; the server reconciles
 // and owns the consequences. It's gated to ONE airframe (the Mayfly) for the slice
@@ -685,7 +718,7 @@ export const PARTS = {
   part_engine_hotsection: { slot: 'engine', tier: 2, price: 4200, item: 'part_engine_hotsection',
     name: 'Hot-Section Turbine', kg: 12,
     cruiseMult: 1.15, burnMult: 1.14, heatMult: 1.22, boostRange: 0.5,
-    blurb: 'Race-shop internals and a turbine section that runs at temperatures the manual calls a fire. It is very fast and it is always angry.' },
+    blurb: "Race-shop internals and a turbine section that runs at temperatures the manual calls a fire. It's very fast and it's always angry." },
 
   // AVIONICS — instrument grade. Buys you precision (dial travel) and a machine
   // that is harder to lose the picture in.
@@ -694,7 +727,7 @@ export const PARTS = {
     blurb: 'One flat panel where six shaking dials used to be. You can actually see what she is doing.' },
   part_avionics_inertial: { slot: 'avionics', tier: 2, price: 3600, item: 'part_avionics_inertial',
     name: 'Inertial Reference Suite', kg: 6, rangeBonus: 0.5, avionics: 2,
-    blurb: 'A sealed platform that knows where it is without asking anyone. Hardened, shielded, and utterly unbothered by weather.' },
+    blurb: "A sealed platform that knows where it's without asking anyone. Hardened, shielded, and utterly unbothered by weather." },
 
   // TANKAGE — range, paid for in payload.
   part_tank_aux: { slot: 'fuel', tier: 1, price: 900, item: 'part_tank_aux',
@@ -707,10 +740,10 @@ export const PARTS = {
   // STRUCTURE — one of two answers. Spar set buys payload; plate buys survival.
   part_frame_spar: { slot: 'frame', tier: 1, price: 1600, item: 'part_frame_spar',
     name: 'Reinforced Spar Set', kg: 9, towMult: 1.25, cgRange: 0.3,
-    blurb: 'Doubled spar caps and new wing-root fittings. She will carry more, and she will not complain about where you put it.' },
+    blurb: "Doubled spar caps and new wing-root fittings. She will carry more, and she won't complain about where you put it." },
   part_frame_plate: { slot: 'frame', tier: 2, price: 3400, item: 'part_frame_plate',
     name: 'Bolt-On Armour Plate', kg: 16, soak: 0.35, cruiseMult: 0.94, handling: 1.2,
-    blurb: 'Composite plate over the tub, the tanks and the pilot. Every gram of it is in the wrong place aerodynamically and every gram of it has been earned.' },
+    blurb: "Composite plate over the tub, the tanks and the pilot. Every gram of it's in the wrong place aerodynamically and every gram of it has been earned." },
 
   // HARDPOINTS — the mounts themselves. Legality is contextual (the airspace
   // decides), so owning and fitting these is not in itself a crime.
@@ -1904,7 +1937,7 @@ export async function parkAt(live, zoneId) {
     getZone(occZone)?.players.add(pid);
     closeHud(pid);
     out(pid, occZone === zoneId
-      ? `<span class="text-dim">You are down at ${z?.name || 'the field'}.</span>`
+      ? `<span class="text-dim">You're down at ${z?.name || 'the field'}.</span>`
       : `<span class="text-dim">You taxi into the hangar at ${z?.name || 'the field'}, cut the engine, and climb out.</span>`);
     // Setting foot on the ground is an arrival — fire the event so zone.entered
     // consumers (first-visit lore, and the Echelon's board check that smites an
@@ -1976,8 +2009,8 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
     detach(p, { restore: true });
     p.current_zone = wreckZone;
     out(pid, byPlayer
-      ? '<span class="text-red">Rounds find something vital — the controls go dead and the world tips up. There is a noise, and then nothing.</span>'
-      : '<span class="text-red">The ground comes up to meet you. There is a noise, and then there is nothing.</span>');
+      ? '<span class="text-red">Rounds find something vital — the controls go dead and the world tips up. There\'s a noise, and then nothing.</span>'
+      : '<span class="text-red">The ground comes up to meet you. There\'s a noise, and then there\'s nothing.</span>');
     await handlePlayerDeath(p, byPlayer || null, { type: reason, label });
   }
   if (byPlayer) {

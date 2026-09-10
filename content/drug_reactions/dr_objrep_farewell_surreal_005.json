@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Mind the step. There is no step. Mind it anyway.",
+  "self_line": "Mind the step. There's no step. Mind it anyway.",
   "source": "object_reply_farewell",
   "tone": "surreal"
 }

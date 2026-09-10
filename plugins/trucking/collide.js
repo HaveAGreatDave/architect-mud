@@ -138,5 +138,5 @@ export function narrateCollision(rig, hit) {
   const hard = hit.closing > 34;
   sendToPlayer(id, { type: 'emote', message: hard
     ? `<span class="msg-danger">Sheet metal goes somewhere it was never folded to go. The whole cab jumps, the wheel tries to leave your hands, and for a second the windscreen is full of somebody else's paint.</span>`
-    : `<span class="text-amber">A bang, and the shove of something as heavy as you are. You are both going to be looking at that later.</span>` });
+    : `<span class="text-amber">A bang, and the shove of something as heavy as you are. You're both going to be looking at that later.</span>` });
 }

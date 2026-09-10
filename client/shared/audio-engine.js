@@ -1,8 +1,23 @@
 /**
- * Procedural SNES-style Audio engine. Real Web Audio API playback — music,
- * SFX, ambience — synthesized entirely in-browser, no samples. Wholly
- * separate from the text-based "Sound" system (server/engine/sounds.js);
- * never merge the two.
+ * SIREN — Sources, Index, Resonance, Envelopes & Noise.
+ *
+ * The synthesizer. Real Web Audio API playback — music, SFX, ambience —
+ * synthesized entirely in-browser, no samples. Wholly separate from the
+ * text-based "Sound" system (server/engine/sounds.js); never merge the two.
+ *
+ * `Index` is the FM modulation index, the parameter the whole synth turns on.
+ *
+ * ⚠ GREPPING FOR "SIREN" IS USELESS HERE. The word is already a domain noun in
+ * this game — the emergency siren, the dive siren, the cockpit warnings — with
+ * ~26 case-sensitive hits in plugins/emergency, plugins/flight, esp.js and
+ * engine-audio.js, none of which have anything to do with the synth. Like THOMAS,
+ * this names a system and never an identifier: the code's own vocabulary is
+ * buildLayer, layer.fm, voices and busFor.
+ *
+ * ⚠ ORACLE, the formant VOICE, lives further down this file and does NOT use
+ * SIREN's layer builder. It shares driveCurve, the noise buffer, the resonator
+ * bank and the buses, then builds its own node graph — it never calls buildLayer.
+ * An FM feature added here does not reach the voice, and the reverse.
  *
  * Dual-mode like client/shared/tagHelpers.js: attaches to window/globalThis
  * so it works as a plain <script> include in both the devpanel (classic
@@ -39,7 +54,7 @@
   // ── Context + buses ────────────────────────────────────────────────────────
 
   let ctx = null;
-  let masterGain, musicGain, sfxGain, ambientGain, tvGain;
+  let masterGain, musicGain, sfxGain, ambientGain, tvGain, uiGain;
   let _noiseBuffer = null;
   let _settings = { enabled: true, music: true, sfx: true, tv: true, masterVolume: 0.40, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.3, tvVolume: 0.6, muteWhenHidden: true };
   let _hiddenDucked = false;
@@ -67,12 +82,140 @@
     sfxGain = ctx.createGain();
     ambientGain = ctx.createGain();
     tvGain = ctx.createGain();
+    uiGain = ctx.createGain();
     musicGain.connect(masterGain);
     sfxGain.connect(masterGain);
     ambientGain.connect(masterGain);
     tvGain.connect(masterGain);
+    // Straight to master, and deliberately NOT into the reverb send below.
+    uiGain.connect(masterGain);
+    buildReverb();
     _applyGains();
     return ctx;
+  }
+
+  // ── The room (reverb) ──────────────────────────────────────────────────────
+  //
+  // Until this there was no reverb of any kind, so a stone church, a storm
+  // drain, a shipping container and the open waste all sounded identical: every
+  // sound happened AT the listener rather than somewhere. `echo` is a delay
+  // line, which is a repeat, not a space.
+  //
+  // A SEND, not an insert, and only from sfx + ambient. The dry path is
+  // untouched, so a space with wet 0 is byte-for-byte the mix that shipped
+  // before this existed — which is what makes it safe to turn on everywhere at
+  // once. Music and TV stay dry deliberately: a song is not in the room with
+  // you, and a television is a speaker whose own room reverb is already baked
+  // into whatever it is playing.
+  //
+  // The impulse responses are GENERATED, not sampled. Decaying noise with a
+  // one-pole damping filter is a crude reverb and an entirely convincing one at
+  // this scale, and it keeps the promise the rest of the engine makes: no
+  // assets, nothing to download, nothing to keep in a repo.
+  let reverbNode = null, reverbSend = null, _space = null;
+  const _irCache = new Map();
+
+  // seconds — how long the tail runs · damp — 0..1, how fast the top end dies
+  // (a stone room is bright, a carpeted one is dead) · pre — pre-delay in ms,
+  // which is what the ear reads as SIZE rather than as wetness · wet — send level.
+  const SPACES = {
+    // Outdoors. Not silence: even open ground returns something off the dirt, and
+    // a hard zero here is what makes a game sound like it is in a vacuum.
+    outdoor:  { seconds: 0.30, damp: 0.75, pre: 2,  wet: 0.05 },
+    // A street between buildings. Short, hard, and mostly one early reflection.
+    street:   { seconds: 0.55, damp: 0.55, pre: 9,  wet: 0.11 },
+    // An ordinary interior with soft furnishings in it.
+    room:     { seconds: 0.45, damp: 0.80, pre: 5,  wet: 0.14 },
+    // Bare hard interior — tile, concrete, a shop floor.
+    hall:     { seconds: 1.30, damp: 0.35, pre: 14, wet: 0.22 },
+    // Stone. Long, bright, and the reason St Garneau's needed this at all.
+    stone:    { seconds: 2.60, damp: 0.22, pre: 20, wet: 0.30 },
+    // Under the city. Long AND dark, which is a different thing from long.
+    tunnel:   { seconds: 2.10, damp: 0.88, pre: 11, wet: 0.34 },
+    // Inside metal. Short, extremely bright, faintly horrible.
+    metal:    { seconds: 0.70, damp: 0.10, pre: 4,  wet: 0.26 },
+  };
+
+  function buildReverb() {
+    reverbNode = ctx.createConvolver();
+    reverbSend = ctx.createGain();
+    reverbSend.gain.value = 0;
+    sfxGain.connect(reverbSend);
+    ambientGain.connect(reverbSend);
+    // A TELEVISION IS A SPEAKER STANDING IN YOUR ROOM. This was left dry on the
+    // reasoning that a broadcast's own room reverb is already baked into what it
+    // plays — which is half right and the wrong half to act on: the studio
+    // ambience is baked in, and then the speaker is still in a room with you.
+    //
+    // At a reduced level, because it is one box against a wall rather than a
+    // sound happening everywhere in the room, and because the baked-in half is
+    // already there and doubling it reads as a cathedral.
+    //
+    // ⚠ `uiGain` is deliberately NOT here. See busFor.
+    const tvSend = ctx.createGain();
+    tvSend.gain.value = 0.45;
+    tvGain.connect(tvSend).connect(reverbSend);
+    reverbSend.connect(reverbNode).connect(masterGain);
+    setSpace('outdoor', { instant: true });
+  }
+
+  function impulseFor(name) {
+    const cached = _irCache.get(name);
+    if (cached) return cached;
+    const s = SPACES[name] || SPACES.room;
+    const sr = ctx.sampleRate;
+    const len = Math.max(1, Math.floor(sr * s.seconds));
+    const pre = Math.floor(sr * (s.pre / 1000));
+    const buf = ctx.createBuffer(2, len + pre, sr);
+    // Per channel, and with its own noise: two identical channels is a mono
+    // reverb wearing a stereo buffer, and the whole point of a room is that the
+    // two ears do not hear the same thing.
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      let lp = 0;
+      const damp = 1 - s.damp;   // one-pole coefficient: lower damp = darker tail
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        // Exponential, not linear. A linear fade reads as a gate closing.
+        const env = Math.pow(1 - t, 2.2);
+        lp += damp * ((Math.random() * 2 - 1) - lp);
+        d[pre + i] = lp * env;
+      }
+    }
+    _irCache.set(name, buf);
+    return buf;
+  }
+
+  // Swap the room. `instant` is for boot; everything else crossfades, because a
+  // reverb tail that changes character in one frame is a click.
+  function setSpace(name, { instant = false, wet = null } = {}) {
+    const c = ensureContext();
+    if (!c || !reverbNode) return;
+    const key = SPACES[name] ? name : 'room';
+    const s = SPACES[key];
+    const target = wet != null ? wet : s.wet;
+    if (_space === key && wet == null) return;
+    _space = key;
+    // The buffer swap is not ramped — it cannot be — so the send is ducked
+    // through it. The old tail is discarded rather than crossfaded, which is
+    // audible only if you change rooms mid-explosion.
+    const t = c.currentTime;
+    if (instant) {
+      reverbNode.buffer = impulseFor(key);
+      reverbSend.gain.setValueAtTime(target, t);
+      return;
+    }
+    reverbSend.gain.cancelScheduledValues(t);
+    reverbSend.gain.setValueAtTime(reverbSend.gain.value, t);
+    reverbSend.gain.linearRampToValueAtTime(0, t + 0.08);
+    setTimeout(() => {
+      if (_space !== key || !reverbNode) return;   // a later room already won
+      reverbNode.buffer = impulseFor(key);
+      const t2 = ctx.currentTime;
+      reverbSend.gain.cancelScheduledValues(t2);
+      reverbSend.gain.setValueAtTime(0, t2);
+      reverbSend.gain.linearRampToValueAtTime(target, t2 + 0.25);
+    }, 90);
   }
 
   function getNoiseBuffer() {
@@ -149,6 +292,8 @@
     sfxGain.gain.setTargetAtTime(_settings.sfx ? _settings.sfxVolume : 0, t, 0.02);
     ambientGain.gain.setTargetAtTime(_settings.ambientVolume ?? 0.5, t, 0.02);
     tvGain.gain.setTargetAtTime(_settings.tv ? _settings.tvVolume : 0, t, 0.02);
+    // Follows the sfx slider — it is a game sound — but never the sfx routing.
+    uiGain.gain.setTargetAtTime(_settings.sfx ? _settings.sfxVolume : 0, t, 0.02);
   }
 
   function applyVolumeSettings(settings) {
@@ -172,19 +317,55 @@
     if (category === 'tv') return tvGain;
     if (category === 'ambient') return ambientGain;
     if (category === 'music') return musicGain;
+    // ⚠ THE ACCESSIBILITY BUS, AND IT MUST STAY DRY. Read Aloud speaks through
+    // `channel: 'ui'`, which routed to the sfx bus — and the moment the sfx bus
+    // grew a reverb send, a player relying on the log reader heard their reader
+    // reverberating in a stone church. Room ambience is a texture for the world;
+    // on the one voice whose whole job is to be UNDERSTOOD it is damage.
+    //
+    // Same volume as sfx (it is a game sound, and the sfx slider should move it),
+    // separate node so it can be routed past the send.
+    if (category === 'ui') return uiGain;
     return sfxGain;
   }
 
-  // ── 16-voice manager with priority stealing ───────────────────────────────
-
-  const MAX_VOICES = 16;
+  // ── Voice manager with priority stealing ──────────────────────────────────
+  //
+  // ⚠ THE POOL AND THE CHANNEL COUNT WERE THE SAME NUMBER, AND THAT IS A BUG,
+  // not a budget. A tracker step allocates a voice PER CHANNEL, so a 16-channel
+  // song could hold every slot in a 16-slot pool — and since songs and SFX both
+  // default to priority 5, and stealing is allowed at equal priority, a dense
+  // song and a fight then spent the whole time evicting each other. Nothing
+  // reported it, because a stolen voice is not an error: it is a sound that did
+  // not happen.
+  //
+  // 32 is not an aesthetic choice — 16 was, and it was borrowed from a console
+  // whose voices were hardware. This is a pool of Web Audio node graphs, and the
+  // constraint that actually exists is CPU, which sits nowhere near either
+  // number. Priority stealing is unchanged and still does the real work.
+  const MAX_VOICES = 32;
   const MAX_CHANNELS = 16; // tracker songs play at most 16 channels; extras are ignored
   const voices = new Array(MAX_VOICES).fill(null); // {priority, startedAt, stop()} | null
 
+  // What the pool is actually doing. Counters rather than an estimate, because
+  // the failure mode here is SILENT — a dropped cue and a cue that was never
+  // requested are indistinguishable from the outside, so "is the pool big
+  // enough?" was not a question anybody could answer. Read with _voiceStats().
+  const vstat = { played: 0, stolen: 0, dropped: 0, peak: 0 };
+
   function allocateVoice(priority) {
+    let live = 0;
+    let free = -1;
     for (let i = 0; i < MAX_VOICES; i++) {
-      if (!voices[i]) return i;
+      if (voices[i]) live++;
+      else if (free === -1) free = i;
     }
+    if (free !== -1) {
+      vstat.played++;
+      if (live + 1 > vstat.peak) vstat.peak = live + 1;
+      return free;
+    }
+    vstat.peak = MAX_VOICES;
     // Steal the lowest-priority, oldest active voice — but only if it's no
     // more important than the incoming sound. Otherwise the sound is dropped.
     let stealIdx = -1;
@@ -196,7 +377,9 @@
         stealIdx = i;
       }
     }
-    if (stealIdx === -1) return -1;
+    if (stealIdx === -1) { vstat.dropped++; return -1; }
+    vstat.stolen++;
+    vstat.played++;
     voices[stealIdx].stop(true);
     voices[stealIdx] = null;
     return stealIdx;
@@ -228,10 +411,91 @@
   // ── Layer graph builder (shared by instruments, SFX, ambience) ───────────
   // layer: { waveform, freq, detune, noiseMix, filter:{type,freq,q,to,time},
   //          adsr:{a,d,s,r}, vibrato:{rate,depth}, tremolo:{rate,depth},
-  //          pitchBend:{to,time}, fm:{rate,depth,depthTo,rateTo,time}, gain }
+  //          pitchBend:{to,time}, gain,
+  //          fm:{ rate|ratio, rateTo|ratioTo, depth|index, depthTo|indexEnd,
+  //               wave, time, op2:{ …the same keys again } } }
   // filter.to/.time sweep the cutoff exactly like pitchBend sweeps the pitch,
   // and fm.depthTo/.rateTo sweep the modulation index / modulator pitch the same
   // way — one {to, time} contract for every travelling parameter.
+  // In every fm pair the RATIO form is relative to the note and the RATE form is
+  // absolute Hz; see the long note at the fm block below for which to reach for.
+
+  const OSC_WAVES = ['sine', 'square', 'sawtooth', 'triangle'];
+
+  // ── ONE SOURCE, MANY RESONATORS, SUMMED ───────────────────────────────────
+  //
+  // The topology formant synthesis needs and a serial filter cannot express. A
+  // layer's ordinary `filter` is one biquad in the signal path; this is N
+  // bandpasses side by side, each fed the SAME source and mixed back together.
+  //
+  // The difference is not academic. Four serial filters are a narrower and
+  // narrower band until nothing is left; four PARALLEL ones are four resonances
+  // in one sound, which is what a vocal tract does and what makes a vowel a vowel.
+  // Modelling it as four separate layers would give four independent oscillators —
+  // four voices, not one voice through four resonators.
+  //
+  // ORACLE has always built this by hand for its formants. It is here so the
+  // layer synth can have it too (`layer.formants`), and so there is ONE
+  // implementation rather than a second one written from the same idea later.
+  // Handles come back because ORACLE glides its bands across an utterance; a
+  // static caller can ignore them.
+  function buildResonatorBank(source, dest, bands) {
+    const out = [];
+    for (const b of bands) {
+      const freq = typeof b === 'number' ? b : b.freq;
+      if (!(freq > 0)) continue;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = freq;
+      // A bandpass sharp enough to be physically correct starts to whistle on a
+      // source with no breath noise to fill in between the harmonics, which is
+      // why ORACLE clamps its own Q rather than deriving it freely.
+      bp.Q.value = (typeof b === 'object' && b.q) || 6;
+      const g = ctx.createGain();
+      g.gain.value = (typeof b === 'object' && b.gain != null) ? b.gain : 1;
+      source.connect(bp).connect(g).connect(dest);
+      out.push({ filter: bp, gain: g });
+    }
+    return out;
+  }
+
+  // Waveshaper curves, cached by drive. A curve is a 2,048-float array and this
+  // runs on the cue path — every layer of every sound — so building one per note
+  // would allocate about 8 KB a footstep. Quantised to 0.05 because nobody can
+  // hear the difference between drive 0.30 and 0.32, and it turns an unbounded
+  // cache into twenty entries.
+  // The five voices in procedural-sfx.js, as instrument rows a song can name.
+  // Looked up lazily and cached: procedural-sfx is a sibling global that may load
+  // after this file, so resolving at load time would bind undefined for ever.
+  const _codeVoices = new Map();
+  function codeVoice(name) {
+    if (!name) return null;
+    if (_codeVoices.has(name)) return _codeVoices.get(name);
+    const cfg = global.ProceduralSFX?.voiceConfig?.(name) || null;
+    const row = cfg ? { waveform: cfg.waveform, config: cfg } : null;
+    _codeVoices.set(name, row);
+    return row;
+  }
+
+  const _driveCurves = new Map();
+  function driveCurve(amount) {
+    const k = Math.round(Math.max(0, Math.min(1, amount)) * 20) / 20;
+    let c = _driveCurves.get(k);
+    if (c) return c;
+    const n = 2048;
+    c = new Float32Array(n);
+    // tanh, normalised by its own output at full scale. Monotonic and symmetric,
+    // so it clips rather than folding — a folding curve is a ring modulator with
+    // extra steps and sounds like a fault rather than like overdrive.
+    const g = 1 + k * 24;
+    const norm = Math.tanh(g);
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1;
+      c[i] = Math.tanh(x * g) / norm;
+    }
+    _driveCurves.set(k, c);
+    return c;
+  }
 
   function buildLayer(layer, destination, time, holdSeconds) {
     const nodes = [];
@@ -244,7 +508,7 @@
 
     if (noiseMix < 1) {
       tone = ctx.createOscillator();
-      tone.type = ['sine', 'square', 'sawtooth', 'triangle'].includes(layer.waveform) ? layer.waveform : 'square';
+      tone.type = OSC_WAVES.includes(layer.waveform) ? layer.waveform : 'square';
       const freq = layer.freq || 440;
       tone.frequency.setValueAtTime(freq, time);
       if (layer.detune) tone.detune.setValueAtTime(layer.detune, time);
@@ -261,7 +525,7 @@
         nodes.push(lfo);
       }
       // Audio-rate FM: modulator oscillator feeds tone.frequency (in Hz).
-      // depth is the frequency deviation in Hz; index = depth / carrier_freq.
+      // depth is the frequency deviation in Hz.
       //
       // depthTo/time sweep the modulation index across the note, using the SAME
       // {to, time} exponential-approach contract as pitchBend and filter above,
@@ -272,16 +536,88 @@
       // is what makes a collision read as inharmonic rather than musical.
       // Both are optional — omitted leaves a static index, exactly the previous
       // behaviour, so every cue already shipped is unaffected.
-      if (layer.fm?.rate) {
+      //
+      // RATIO IS WHAT MAKES A LAYER AN INSTRUMENT, and `rate` alone can't be one.
+      // `rate` is absolute Hz, which is right for an impact and wrong for a note:
+      // the tracker plays ONE instrument config at every pitch, overriding `freq`
+      // and nothing else, so an absolute modulator sits at the same Hz at C2 and
+      // at C6 and the voice is a different instrument at each end of the keyboard.
+      // `ratio` resolves against the carrier instead — modulator = freq × ratio —
+      // so the spectrum scales with pitch and the voice keeps its identity.
+      // Integer ratios are harmonic, non-integer go bell/metallic. This is what
+      // note() in procedural-sfx.js was computing by hand, and the only reason a
+      // piano lived outside the instrument table.
+      //
+      // `index` is the textbook modulation index — deviation ÷ MODULATOR freq —
+      // which is the form that stays constant across pitch once ratio is fixed.
+      // ⚠ It is NOT the quantity the old comment here called index (that one
+      // divided by the carrier), and the two FM callers already disagreed about
+      // which they meant: hockey-sfx.js divides by the modulator, note() divides
+      // by the carrier. Neither is touched — `index` is the new spelling and it
+      // means the modulator one, which is the standard.
+      const fmc = layer.fm;
+      if (fmc && (fmc.rate || fmc.ratio)) {
+        const carrier = layer.freq || 440;
+        const tc = Math.max(0.005, (fmc.time || 0.2) / 3);
+        const modRate = fmc.ratio ? carrier * fmc.ratio : fmc.rate;
         const mod = ctx.createOscillator();
-        mod.frequency.setValueAtTime(layer.fm.rate, time);
-        if (layer.fm.rateTo) {
-          mod.frequency.setTargetAtTime(layer.fm.rateTo, time, Math.max(0.005, (layer.fm.time || 0.2) / 3));
-        }
+        // The modulator's own waveform. Sine is the classic and stays the default;
+        // a square or saw modulator is an entirely different sideband family for
+        // one line, and is most of how the cheap FM chips got their grit.
+        mod.type = OSC_WAVES.includes(fmc.wave) ? fmc.wave : 'sine';
+        mod.frequency.setValueAtTime(modRate, time);
+        // A ratio-authored voice follows its own carrier through a pitch bend
+        // without being told to, because holding the ratio through the bend is
+        // what ratio MEANS — a modulator left behind at the old pitch turns a
+        // bend into a detune. An explicit ratioTo/rateTo still wins.
+        const modRateTo = fmc.ratioTo != null ? carrier * fmc.ratioTo
+          : fmc.rateTo != null ? fmc.rateTo
+          : (fmc.ratio && layer.pitchBend?.to) ? layer.pitchBend.to * fmc.ratio
+          : null;
+        if (modRateTo) mod.frequency.setTargetAtTime(modRateTo, time, tc);
         const modGain = ctx.createGain();
-        modGain.gain.setValueAtTime(layer.fm.depth ?? 100, time);
-        if (layer.fm.depthTo != null) {
-          modGain.gain.setTargetAtTime(layer.fm.depthTo, time, Math.max(0.005, (layer.fm.time || 0.2) / 3));
+        // VELOCITY OPENS THE INDEX, not just the gain. Playing harder changing the
+        // TIMBRE is most of what separates a piano from a keyboard, and until this
+        // existed it lived only inside note() — so the five voices in the
+        // INSTRUMENTS table had it and the 23 authored instruments in the DB could
+        // not, whatever they were authored with. The tracker multiplies `vol` into
+        // the gain and stopped there.
+        //
+        // `bright` is how far velocity moves the index; `velocity` is injected per
+        // note by whoever is playing, the same way `freq` already is. Centred on
+        // 0.5 so a mid-velocity note is the authored timbre and the table reads as
+        // written. Only the ATTACK index is scaled — the sweep target is where the
+        // note settles, and a hard note settles in the same place as a soft one.
+        // Both absent is the whole of the previous behaviour.
+        const vel = layer.velocity;
+        const bright = (vel != null && fmc.bright) ? Math.max(0, 1 + (vel - 0.5) * fmc.bright) : 1;
+        modGain.gain.setValueAtTime((fmc.index != null ? fmc.index * modRate : (fmc.depth ?? 100)) * bright, time);
+        const depthTo = fmc.indexEnd != null ? fmc.indexEnd * (modRateTo || modRate) : fmc.depthTo;
+        if (depthTo != null) modGain.gain.setTargetAtTime(depthTo, time, tc);
+        // Operator 2, in SERIES: it modulates the MODULATOR, not the carrier. Two
+        // sines into a carrier are just two partials; a stack is where FM stops
+        // sounding like oscillators and starts sounding like a material, so series
+        // buys far more per line than parallel would.
+        //
+        // Its ratio is against the NOTE, not against the operator below it — that
+        // is how every FM instrument is specified, and a ratio-of-a-ratio compounds
+        // into numbers nobody can author.
+        const op2 = fmc.op2;
+        if (op2 && (op2.rate || op2.ratio)) {
+          const r2 = op2.ratio ? carrier * op2.ratio : op2.rate;
+          const tc2 = Math.max(0.005, (op2.time ?? fmc.time ?? 0.2) / 3);
+          const m2 = ctx.createOscillator();
+          m2.type = OSC_WAVES.includes(op2.wave) ? op2.wave : 'sine';
+          m2.frequency.setValueAtTime(r2, time);
+          const r2To = op2.ratioTo != null ? carrier * op2.ratioTo : op2.rateTo;
+          if (r2To) m2.frequency.setTargetAtTime(r2To, time, tc2);
+          const g2 = ctx.createGain();
+          g2.gain.setValueAtTime(op2.index != null ? op2.index * r2 : (op2.depth ?? 100), time);
+          const d2To = op2.indexEnd != null ? op2.indexEnd * (r2To || r2) : op2.depthTo;
+          if (d2To != null) g2.gain.setTargetAtTime(d2To, time, tc2);
+          m2.connect(g2).connect(mod.frequency);
+          m2.start(time);
+          nodes.push(m2);
         }
         mod.connect(modGain).connect(tone.frequency);
         mod.start(time);
@@ -297,7 +633,40 @@
     }
 
     let mixPoint = gain;
-    if (layer.filter) {
+
+    // ── Drive ────────────────────────────────────────────────────────────────
+    // Soft-clipping distortion, 0..1. Nothing in this game could sound BROKEN
+    // before — overdriven, clipped, blown — which is an odd hole in an engine
+    // for a world built out of failing hardware.
+    //
+    // Placed AFTER the envelope and BEFORE the filter, which is the order that
+    // makes it behave like an amplifier rather than an effect: the ADSR drives
+    // the clipper, so a hard attack is dirtier than the tail all by itself, and
+    // the filter then cleans up the harmonics the clipper just created instead
+    // of being distorted itself.
+    //
+    // The curve is normalised through tanh's own output, so raising drive adds
+    // harmonics WITHOUT adding level — a distortion control that is also a
+    // volume control is one nobody can use.
+    if (layer.drive > 0) {
+      const shaper = ctx.createWaveShaper();
+      shaper.curve = driveCurve(layer.drive);
+      shaper.oversample = '4x';   // the clipper makes harmonics above Nyquist; fold them back
+      mixPoint.connect(shaper);
+      mixPoint = shaper;
+    }
+
+    // FORMANTS — a parallel resonator bank instead of the single filter, using
+    // the same primitive ORACLE builds its vowels from. This is the one thing the
+    // layer synth genuinely could not do: give a synthesised sound the shape of a
+    // throat, so a pad can sit somewhere between an instrument and a vowel.
+    // `[700, 1220, 2600]` is roughly an /ɑ/; move F1 and F2 and you move the vowel.
+    // Takes bare numbers or {freq, q, gain}, and overrides `filter` when present.
+    if (Array.isArray(layer.formants) && layer.formants.length) {
+      const sum = ctx.createGain();
+      buildResonatorBank(mixPoint, sum, layer.formants);
+      mixPoint = sum;
+    } else if (layer.filter) {
       const filter = ctx.createBiquadFilter();
       filter.type = layer.filter.type || 'lowpass';
       filter.Q.value = layer.filter.q ?? 1;
@@ -314,7 +683,10 @@
           layer.filter.to, time, Math.max(0.01, (layer.filter.time || 0.2) / 3)
         );
       }
-      gain.connect(filter);
+      // ⚠ mixPoint, not `gain` — the drive stage above may already sit between
+      // them, and a hardcoded `gain.connect(filter)` here would route around it,
+      // leaving a driven layer sounding exactly like an undriven one.
+      mixPoint.connect(filter);
       mixPoint = filter;
     }
 
@@ -608,29 +980,85 @@
 
   // ── SFX (one-shots) ────────────────────────────────────────────────────────
 
-  function playSfx(def, gainMultiplier = 1) {
+  // `sustain: true` hands the note's ENDING to the caller and returns a handle to
+  // end it with. Everything else here is a one-shot whose length is known when it
+  // starts; a key held under a finger is not, and there was no way to express that.
+  //
+  // ⚠ It cannot be done by calling the returned handle on an ordinary playSfx.
+  // buildLayer's `release()` latches on first call, and passing `holdSeconds`
+  // CALLS it during build (synchronously, with a future time — it schedules the
+  // ramp rather than waiting). So a normal cue is already released before playSfx
+  // returns, and a later release() from a keyup would be silently ignored. The
+  // sustain path exists to withhold that build-time call.
+  function playSfx(def, gainMultiplier = 1, opts = {}) {
     const c = init();
-    if (!c || !def?.config) return;
+    if (!c || !def?.config) return null;
     const priority = def.priority ?? 5;
     const idx = allocateVoice(priority);
-    if (idx === -1) return; // dropped — all higher/equal-priority voices busy
+    if (idx === -1) return null; // dropped — all higher/equal-priority voices busy
     const time = c.currentTime;
     const duration = def.config.duration ?? 0.4;
     let destination = busFor(def.category);
+    // ── Where it came from ───────────────────────────────────────────────────
+    // A sound reaching you from the next room already travelled a known route:
+    // propagateAudio walks the exits, so the server knows which doorway it came
+    // through and how many walls are in the way. All of that was thrown away at
+    // the wire and every distant sound arrived dead centre at full bandwidth,
+    // which is the one thing a wall never does.
+    //
+    // `pan` is that doorway and `muffle` is the walls. Both are ordinary send
+    // options rather than layer keys, because they are a property of the
+    // LISTENER'S position, not of the sound — the same cue is muffled for one
+    // player and not for another, and a cue definition must never carry that.
+    if (opts.muffle > 0) {
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      // Roughly an octave of top end per wall. Floored at 400Hz: past that a
+      // sound stops being muffled and becomes a different sound.
+      lp.frequency.value = Math.max(400, 12000 / Math.pow(2, Math.min(5, opts.muffle)));
+      lp.Q.value = 0.5;
+      lp.connect(destination);
+      destination = lp;
+    }
+    if (opts.pan && c.createStereoPanner) {
+      const p = c.createStereoPanner();
+      p.pan.value = Math.max(-1, Math.min(1, opts.pan));
+      p.connect(destination);
+      destination = p;
+    }
     if (gainMultiplier !== 1) {
       const g = c.createGain();
       g.gain.value = gainMultiplier;
       g.connect(destination);
       destination = g;
     }
-    const sound = buildSound(def.config, destination, time, duration);
+    const sustain = opts.sustain === true;
+    const sound = buildSound(def.config, destination, time, sustain ? null : duration);
     const voiceToken = occupyVoice(idx, priority, () => sound.release(c.currentTime));
+    if (sustain) {
+      let done = false;
+      const end = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(capT);
+        sound.release(c.currentTime);
+        const tail = Math.max(...(def.config.layers || [def.config]).map(l => l.adsr?.r ?? 0.15), 0.15);
+        setTimeout(() => freeVoice(idx, voiceToken), (tail + 0.1) * 1000);
+      };
+      // A held voice whose release never arrives is a stuck note that outlives the
+      // room, and a lost keyup is ordinary — an alt-tab, a focus change, a dropped
+      // note-off from someone else's client. The cap is not tuning, it is the only
+      // thing standing between a bug elsewhere and a drone nobody can silence.
+      const capT = setTimeout(end, (opts.maxHold ?? 30) * 1000);
+      return { release: end };
+    }
     // Hold the slot for the longest layer's own release, not a flat default — the
     // per-layer adsr is where the release actually lives, so a long crowd swell was
     // freeing its slot roughly a second before it stopped being audible.
     const tail = Math.max(def.config.adsr?.r ?? 0,
       ...(def.config.layers || []).map(l => (l.delay ?? 0) + (l.adsr?.r ?? 0)), 0.15);
     setTimeout(() => freeVoice(idx, voiceToken), (duration + tail + 0.1) * 1000);
+    return null;
   }
 
   // ── Ambience / arbitrary loops ─────────────────────────────────────────────
@@ -893,7 +1321,14 @@
         }
 
         // A new note plays: cut whatever this channel was still playing (monophony).
-        const instrument = (def._instrumentsById && def._instrumentsById[step.instrument]) || {};
+        //
+        // An unknown instrument id falls back to the shared voice table, which is
+        // what lets a song name `piano` or `rhodes` directly. Those five lived in
+        // procedural-sfx.js and were reachable only by sitting at furniture; they
+        // are ordinary configs now, so there is no reason a song cannot use one.
+        const instrument = (def._instrumentsById && def._instrumentsById[step.instrument])
+          || codeVoice(step.instrument)
+          || {};
         if (live) { live.cut(time); channelVoice[chIdx] = null; }
 
         // Sample-backed instrument: pitch-shift the sample buffer instead of synthesis.
@@ -919,6 +1354,11 @@
         if (freq == null) return;
         const config = { ...(instrument.config || {}), waveform: instrument.waveform || 'square', freq };
         config.gain = (config.gain ?? 1) * (step.vol ?? 1);
+        // …and the same number again as VELOCITY, which reaches the timbre rather
+        // than the level (see `fm.bright` in buildLayer). A step's vol was applied
+        // to gain and nowhere else, which is why an authored instrument could not
+        // do the one thing that makes a struck instrument sound struck.
+        config.velocity = step.vol ?? 1;
         const idx = allocateVoice(priority);
         if (idx === -1) return;
         const sound = buildSound(config, channelGains[chIdx], time, stepSeconds * 0.9);
@@ -1136,7 +1576,18 @@
     else _sampleCache.clear();
   }
 
-  // ── Formant speech: procedural TV-narrator readout ──────────────────────────
+  // ── ORACLE — Orthography, Resonance, Accent, Cadence, Lexicon & Emphasis ────
+  //
+  // The voice. A formant speech synth: a glottal PeriodicWave through a
+  // four-formant bank with a nasal antiformant, a separate noise path for
+  // fricatives and stop bursts, a 27k-word lexicon over letter-to-sound rules,
+  // RP/GA accents, and prosody that falls at a full stop and rises at a question
+  // mark. It reads broadcasts, the Architect, the library and Read Aloud. Its
+  // tuning surface is the dev panel's Voice Lab tab.
+  //
+  // ⚠ ORACLE lives inside SIREN's file and does NOT use its layer builder — see the
+  // header. It does share the resonator bank below, which is what its vowels are.
+  //
   // Two stages: text→phoneme (dictionary + rules) and phoneme→formant synthesis.
   // Each narrator's name seeds a deterministic voice. Rides the 'tv' bus, so TV
   // volume, the tv-enable toggle, and mute-when-hidden already apply. Sounds like
@@ -1176,6 +1627,10 @@
       // formant is what the ear reads as American rhoticity. Slightly longer,
       // since RP holds this one.
       ERR:{f:[490,1350,2350],t:'V',d:165},
+      // RP GOAT (/əʊ/). Same offglide as GA's OW; the difference is entirely in
+      // where it STARTS — central rather than back-rounded, so F2 begins near the
+      // schwa's 1400 instead of 840. Slightly longer, as RP holds it.
+      OWR:{f:[500,1400,2350], to:[300,870,2240], t:'V',d:180},
       EY:{f:[530,1840,2480],to:[270,2290,3010],t:'V',d:170},
       AY:{f:[730,1090,2440],to:[270,2290,3010],t:'V',d:180},
       OY:{f:[570,840,2410], to:[270,2290,3010],t:'V',d:180},
@@ -1205,9 +1660,22 @@
       // asp: voice-onset time (ms of aspiration after the burst before voicing starts).
       // English voiceless stops are aspirated and voiced ones aren't — that gap IS
       // the contrast a listener uses, far more than the burst frequency.
-      P:{t:'S',d:90,nf:1500,vd:0,lf:LAB,asp:55}, B:{t:'S',d:80,nf:900,vd:.4,lf:LAB,asp:8},
-      T:{t:'S',d:90,nf:4000,vd:0,lf:ALV,asp:60}, D:{t:'S',d:80,nf:3000,vd:.4,lf:ALV,asp:10},
-      K:{t:'S',d:90,nf:2000,vd:0,lf:VEL,asp:70}, G:{t:'S',d:80,nf:1800,vd:.4,lf:VEL,asp:12},
+      //
+      // A BURST HAS A SHAPE, NOT JUST A FREQUENCY. Every stop released through one
+      // fixed band — Q 2, 20ms, one level — with only `nf` moving, and the shape is
+      // most of what the classical place features actually describe:
+      //
+      //   bq  burst Q. LOW is diffuse (energy spread across the spectrum), HIGH is
+      //       compact (one sharp mid peak). Velars are the compact ones and it is
+      //       their most identifiable property; labials are the diffuse ones.
+      //   bd  burst duration, ms. A velar release is genuinely the longest — the
+      //       tongue body peels off the palate slowly — and an alveolar is a sharp
+      //       tap. This was 20ms for all six.
+      //   bg  burst level, relative. A labial burst is weak: there is no cavity in
+      //       front of the lips to resonate, so nothing amplifies it.
+      P:{t:'S',d:90,nf:1500,vd:0,lf:LAB,asp:55,bq:0.8,bd:14,bg:0.7}, B:{t:'S',d:80,nf:900,vd:.4,lf:LAB,asp:8,bq:0.8,bd:12,bg:0.6},
+      T:{t:'S',d:90,nf:4000,vd:0,lf:ALV,asp:60,bq:1.6,bd:15,bg:1.1}, D:{t:'S',d:80,nf:3000,vd:.4,lf:ALV,asp:10,bq:1.6,bd:13,bg:0.9},
+      K:{t:'S',d:90,nf:2000,vd:0,lf:VEL,asp:70,bq:4.5,bd:30,bg:1.15}, G:{t:'S',d:80,nf:1800,vd:.4,lf:VEL,asp:12,bq:4.5,bd:26,bg:1.0},
       // TWO pauses, not one. Connected speech does not stop between words — the
       // words run together and only phrase boundaries get real silence. A single
       // 120ms gap after every word is most of what made this read as dictation
@@ -1409,7 +1877,31 @@
 
     // Pronounce a word: initialism → hand-dict → CMU → inflectional suffix →
     // compound → letter rules.
+    // ⚠ DEGEMINATION BELONGS ON THE OUTPUT, not in the letter rules. The doubled
+    // consonants are made where two phoneme sequences are JOINED — `tableland` is
+    // the dictionary's `table` (…AX L) plus its `land` (L AE N…), and `funnelled`
+    // is `funnel` plus the -ed suffix. The letter rules never see either. A first
+    // cut put the filter inside g2p and changed nothing at all, which is worth
+    // recording: the same word can arrive by a dictionary hit, a compound, a
+    // suffix rule or a guess, and only the exit is common to all of them.
+    //
+    // English has no geminate inside a word. `tableland` was "table-l-and" and
+    // `rubbly` "rub-b-ly" — and those two are terrain words appearing 287 and 157
+    // times in room prose, so Read Aloud said them wrong in hundreds of rooms.
+    // 126 words in the game's own vocabulary carried the fault; the `merrin` entry
+    // in DICT is the same bug, patched once by hand.
+    //
+    // Consonants only. An adjacent identical VOWEL pair has a different cause (the
+    // -ia/-ya spellings: `fascia` → F AE S S AX AX) and collapsing it here would
+    // hide that rather than fix it. Across a hyphen too, correctly: "hand-drawn"
+    // is said /hændrɔːn/, with one d.
+    const DEGEM_VOWEL = /^(AA|AE|AH|AO|AW|AY|EH|ER|EY|IH|IY|OW|OY|UH|UW|AX|ERR|OWR)$/;
     function pronounceWord(w){
+      const ph = pronounceWordRaw(w);
+      if (!Array.isArray(ph) || ph.length < 2) return ph;
+      return ph.filter((p, i) => i === 0 || p !== ph[i - 1] || DEGEM_VOWEL.test(p));
+    }
+    function pronounceWordRaw(w){
       // ── Initialisms ────────────────────────────────────────────────────────
       // Checked FIRST, and off the raw token, because the case is the evidence
       // and the next line destroys it.
@@ -1620,7 +2112,7 @@
         }
         i++;
       }
-      return out;
+return out;
     }
 
     // Numbers & number-symbols → words, so the voice can actually SAY them (digits are otherwise
@@ -1748,23 +2240,42 @@
     const RP_BATH_FOLLOW = new Set(['F','TH','S','N','M','NG']);
     const VOWELS = new Set(['IY','IH','EH','AE','AA','AO','UH','UW','ER','ERR','AH','AX','EY','AY','OW','OY','AW']);
 
+    // The next actual sound, skipping stress markers (which are not sounds).
+    // Used by linking-r to see across a word gap without seeing across a pause.
+    const nextSound = (phon, k) => { while (isMark(phon[k])) k++; return phon[k]; };
+
     function applyAccent(phon, accent){
       if (accent !== 'rp') return phon;
       const out = [];
       for (let i = 0; i < phon.length; i++){
         const p = phon[i];
-        // Look past word gaps: an /r/ at the end of "far" is still non-prevocalic
-        // even though the next SOUND is a pause. Linking-r across a word boundary
-        // is a refinement this deliberately doesn't attempt.
         // A stress marker is not a sound: skip past it when looking ahead, or an
         // /r/ before a STRESSED vowel would read as non-prevocalic and vanish.
         let n = i+1; while (isMark(phon[n])) n++;
         const next = phon[n];
         if (p === 'R'){
           if (next && VOWELS.has(next)) out.push('R');   // prevocalic /r/ survives
+          // LINKING-R. A non-rhotic speaker drops the /r/ of "far" — but not in
+          // "far away", where the following word begins with a vowel and the /r/
+          // comes back to bridge them. Look past a WORD GAP specifically, which is
+          // why this cannot use `isGap`: that matches every pause, and "far. Away"
+          // has no link across it. A comma is the same — the juncture is what kills
+          // the bridge, not the silence.
+          //
+          // ⚠ This gives linking-r and CANNOT give intrusive-r ("lawr and order"),
+          // because it only ever KEEPS an /r/ the dictionary already put there.
+          // That is the right side to err on: intrusive-r is variable, stigmatised
+          // in exactly the register this voice reads in, and would need orthography
+          // we no longer have by this point.
+          else if (phon[n] === '_' && VOWELS.has(nextSound(phon, n + 1))) out.push('R');
           continue;                                      // …otherwise it's gone
         }
         if (p === 'ER'){ out.push('ERR'); continue; }
+        // GOAT. GA starts this diphthong back and rounded (/oʊ/); RP starts it
+        // CENTRAL (/əʊ/), and that onset is one of the loudest single tells between
+        // the two accents — "no", "home", "over". Same phoneme-substitution route
+        // ER→ERR already uses, so the scheduling loop needs to know nothing.
+        if (p === 'OW'){ out.push('OWR'); continue; }
         if (p === 'AE'){
           // Scan to the next non-gap phone: the trigger consonant may sit across
           // a syllable break in the run.
@@ -1820,7 +2331,7 @@
     // Every number in here was arrived at by measurement plus a guess at how the
     // guess would SOUND, which is the one thing measurement can't settle. Gathering
     // them in one live object means they can be turned by ear in the voice lab
-    // (client/devpanel/voice-lab.html) instead of by edit-reload-listen, and it
+    // (the dev panel's Voice Lab tab) instead of by edit-reload-listen, and it
     // makes the set of things that are opinions rather than physics explicit.
     // Read at speak() time, so a change applies to the very next line.
     const TUNING = {
@@ -2077,6 +2588,14 @@
         oq: 0.48,            // pressed, not breathy — a closed glottis reads as weight
         jitter: 0.005, breath: 0,
         lilt: 0.035, decl: 0.18,
+        // ⚠ A NAMED VOICE IS FULLY AUTHORED, INCLUDING THE TRAITS IT DOESN'T HAVE.
+        // Anything absent here falls through to the dice above, so the moment
+        // `drive` was added this voice quietly picked up 0.105 of it — a hand-tuned
+        // character changing because somebody extended a table. Grit might well
+        // suit the Architect, but that is a decision about a character, and a
+        // decision nobody made is not one. Add a new trait here and to every other
+        // named voice in the same commit.
+        drive: 0, growl: 0,
       },
     };
 
@@ -2108,6 +2627,25 @@
         // reading" — a flat F0 is the single most robotic thing a formant synth does.
         lilt:   0.05+r()*0.05,   // how far F0 moves on a stressed vowel
         decl:   0.10+r()*0.05,   // phrase-final declination (pitch falls as breath goes)
+        // ⚠ EVERYTHING NEW GOES AT THE BOTTOM. These draw from the same sequence,
+        // so a field inserted above would shift every draw after it and silently
+        // rename every narrator in the game — the `oq` note above is this same
+        // rule, learned the hard way once already.
+        //
+        // DRIVE — transmission grit. Most of what a listener reads as "this came
+        // through equipment" is clipping, not filtering, and almost every voice in
+        // this game arrives over a transmitter. Two thirds of the cast get none,
+        // for the same reason two thirds get no breath: a uniform roll means
+        // nobody draws zero, and a trait everyone has marks nobody out.
+        drive:  r() < 0.34 ? 0.10 + r()*0.22 : 0,
+        // GROWL — a sub-harmonic at F0/2, which is period doubling: the voice
+        // starts producing every other cycle at a different amplitude and the ear
+        // reads creak, fry, or something not quite human. Deliberately RARE, and
+        // deliberately not the same axis as `jitter`: jitter is aperiodic
+        // roughness at a few Hz, this is a second pitch an octave down inside the
+        // source itself. A voice with both is a wreck, which is occasionally what
+        // is wanted.
+        growl:  r() < 0.14 ? 0.03 + r()*0.06 : 0,
       }, named || null);
     }
 
@@ -2310,8 +2848,25 @@
       const c = ensureContext(); if (!c) return;
       if (c.state === 'suspended') c.resume();
       cancel();
-      const V = voiceFromName(opt.seed || text);
+      // `opt.voice` overrides individual parameters on top of whatever the seed
+      // rolled. Nothing in the game passes it — this exists so a voice can be
+      // AUDITIONED. Character comes from hashing a name, so before this the only
+      // way to hear what `drive` or `growl` sound like was to type seeds until one
+      // happened to roll them, which is not tuning, it is fishing. The dev panel's
+      // voice lab drives this; the values it prints go straight into NAMED_VOICES.
+      const V = Object.assign(voiceFromName(opt.seed || text), opt.voice || null);
       const F0 = V.f0, ringAmt = V.ring, fshift = V.fshift;
+      // ⚠ NO CHARACTER ON THE ACCESSIBILITY CHANNEL. Drive and growl are texture:
+      // clipping and period doubling both make a voice more interesting and less
+      // intelligible, which is a fine trade for a narrator and the wrong one for
+      // the log reader. `reader` genuinely rolled growl 0.084 the moment these
+      // existed — the seed does not know what it is for, so the caller has to say.
+      //
+      // This is the same rule as the dry `ui` bus a few lines up, applied to the
+      // source instead of the routing: everything that makes the world sound rich
+      // makes a screen reader worse.
+      const driveAmt = ui ? 0 : (V.drive || 0);
+      const growlAmt = ui ? 0 : (V.growl || 0);
       // Set → convert → clear, all synchronously (see lexLook).
       _lex = opt.lex || null;
       let phon;
@@ -2341,7 +2896,9 @@
       // drags. Broadcast's nodeHoldMs is fitted to this number — re-measure both
       // together if the phoneme durations are ever retuned.
       const speed = V.speed * TUNING.rate;
-      const out = busFor(ui ? 'sfx' : 'tv');
+      // 'ui' is a DRY bus (see busFor). Read Aloud is the caller, and a screen
+      // reader carrying the room's reverb is harder to understand, not richer.
+      const out = busFor(ui ? 'ui' : 'tv');
 
       const master = c.createGain(); master.gain.value = 0.9;
       const ringGain = c.createGain(); ringGain.gain.value = 1 - ringAmt;
@@ -2373,7 +2930,27 @@
       const comp = c.createDynamicsCompressor();
       comp.threshold.value = -22; comp.knee.value = 12; comp.ratio.value = 3;
       comp.attack.value = 0.004; comp.release.value = 0.12;
-      master.connect(ringGain).connect(presence).connect(comp).connect(out);
+      // DRIVE — after the compressor, which is the order a transmitter actually
+      // has: level is controlled first and THEN the stage that cannot pass more
+      // than it can pass clips what is left. Driving before the compressor would
+      // let the compressor pull the distortion back down and mostly undo it.
+      //
+      // Reuses the same normalised tanh curve buildLayer uses (cached, shared),
+      // so a driven voice and a driven cue distort identically rather than being
+      // two people's idea of overdrive.
+      let voiceTail = comp;
+      if (driveAmt > 0) {
+        const vs = c.createWaveShaper();
+        vs.curve = driveCurve(driveAmt);
+        vs.oversample = '4x';
+        // Clipping raises perceived loudness even with a normalised curve, because
+        // it fills in everything under the peaks. Trimmed back so a gritty narrator
+        // is not also a louder one — the two must be separable or neither is usable.
+        const trim = c.createGain(); trim.gain.value = 1 - driveAmt * 0.35;
+        comp.connect(vs).connect(trim);
+        voiceTail = trim;
+      }
+      voiceTail.connect(out);
 
       const glot = c.createOscillator(); glot.frequency.value = F0;
       glot.setPeriodicWave(glottalWave(c, V.oq));
@@ -2393,6 +2970,63 @@
       const jitG = c.createGain(); jitG.gain.value = F0 * V.jitter; jit.connect(jitG).connect(glot.frequency);
       const jit2 = c.createOscillator(); jit2.type = 'sine'; jit2.frequency.value = 6.3;
       const jit2G = c.createGain(); jit2G.gain.value = F0 * V.jitter * 0.6; jit2.connect(jit2G).connect(glot.frequency);
+      // GROWL. Audio-rate FM on the glottal source at HALF F0 — period doubling,
+      // which is the actual mechanism behind creak and vocal fry: alternate cycles
+      // come out at a different amplitude and the ear stops reading one clean
+      // pitch. Costs one oscillator and one gain, because the modulation path into
+      // glot.frequency already exists for jitter; this is the same wire at a
+      // thousand times the rate.
+      //
+      // Not a substitute for jitter and not on the same axis: jitter is aperiodic
+      // roughness a few Hz wide, this is a second pitch an octave down inside the
+      // source. Scaled by F0 so a low voice and a high one growl by the same
+      // musical interval rather than the same number of Hz.
+      // ⚠ Built here (it needs `glot`) but STARTED further down with everything
+      // else: every source in this voice goes into `src`, which is what starts
+      // them on one clock and what `cancel()` stops. An oscillator started by hand
+      // here would run on past a cancelled line with nothing holding a reference
+      // to stop it — a permanent tone under the game with no way to reach it.
+      // GLOTTAL FM. `growl` began as one hardcoded sub-harmonic — a modulator at
+      // F0/2, which is period doubling and reads as creak. Ratio, index and
+      // waveform turn that one effect into a family, and the member worth having
+      // is a NON-INTEGER ratio: the partials stop being harmonics of anything and
+      // the voice goes inharmonic.
+      //
+      // WHY THAT IS NOT THE RING MODULATOR ALREADY HERE. `ring` is amplitude
+      // modulation on the OUTPUT, after the formant bank — it modulates a finished
+      // voice, and reads as a voice with a box on it. This is FM on the SOURCE,
+      // before the tract: the formants still shape it correctly, so it reads as a
+      // throat producing something a throat should not. Different mechanism,
+      // different place in the chain, different thing to hear.
+      //
+      //   growlRatio  modulator frequency as a multiple of F0.
+      //               0.5 sub-harmonic — creak, fry (the original, and the default)
+      //               1   harmonic — brightens rather than roughens
+      //               1.414, 2.41 inharmonic — machine, wrong, not-a-person
+      //   growl       modulation index, scaled by F0 so a low and a high voice
+      //               are modulated by the same musical interval
+      //   growlWave   modulator waveform; square/saw are far harsher sidebands
+      //   growl2      a SECOND modulator, in PARALLEL, at its own ratio
+      //
+      // ⚠ Parallel, where buildLayer's op2 is in series, and the difference is the
+      // goal rather than an inconsistency: series compounds into one richer
+      // spectrum, parallel puts two competing periodicities into the source, which
+      // is what diplophonia — two pitches from one throat — actually is.
+      let growlOsc = null, growl2Osc = null;
+      if (growlAmt > 0) {
+        growlOsc = c.createOscillator();
+        growlOsc.type = OSC_WAVES.includes(V.growlWave) ? V.growlWave : 'sine';
+        growlOsc.frequency.value = F0 * (V.growlRatio ?? 0.5);
+        const growlG = c.createGain(); growlG.gain.value = F0 * growlAmt;
+        growlOsc.connect(growlG).connect(glot.frequency);
+        if (V.growl2 > 0) {
+          growl2Osc = c.createOscillator();
+          growl2Osc.type = OSC_WAVES.includes(V.growl2Wave) ? V.growl2Wave : 'sine';
+          growl2Osc.frequency.value = F0 * (V.growl2Ratio ?? 1.5);
+          const g2 = c.createGain(); g2.gain.value = F0 * V.growl2;
+          growl2Osc.connect(g2).connect(glot.frequency);
+        }
+      }
       const shim = c.createOscillator(); shim.type = 'sine'; shim.frequency.value = 5.1;
       const shimG = c.createGain(); shimG.gain.value = 0.05; shim.connect(shimG).connect(master.gain);
       const voiced = c.createGain(); voiced.gain.value = 0;
@@ -2413,14 +3047,16 @@
       // where it stops sounding like a resonance and starts sounding like a bell.
       const F_BW = [90, 130, 200, 280];
       const qFor = (f, k) => Math.max(3, Math.min(16, f / F_BW[k]));
-      const forms = [], fgain = [];
-      [0,1,2,3].forEach(k => {
-        const bp = c.createBiquadFilter(); bp.type = 'bandpass';
-        bp.frequency.value = k === 3 ? 3600 : 500; bp.Q.value = qFor(bp.frequency.value, k);
-        const g = c.createGain(); g.gain.value = k === 0 ? 1 : 0.4;
-        tilt.connect(bp).connect(g).connect(voiced);
-        forms.push(bp); fgain.push(g);
-      });
+      // Built through the SHARED bank (see buildResonatorBank up in the synth), so
+      // the voice's vowels and a layer's `formants` are one implementation rather
+      // than two written from the same idea. The handles come back because this
+      // caller does something a static layer never does: it glides every band
+      // across the utterance, phoneme to phoneme.
+      const bank = buildResonatorBank(tilt, voiced, [0,1,2,3].map(k => {
+        const f = k === 3 ? 3600 : 500;
+        return { freq: f, q: qFor(f, k), gain: k === 0 ? 1 : 0.4 };
+      }));
+      const forms = bank.map(b => b.filter), fgain = bank.map(b => b.gain);
 
       // ── Cascade-derived formant amplitudes ───────────────────────────────────
       // A real vocal tract is a CASCADE — one tube, whose poles all shape the same
@@ -2795,10 +3431,12 @@
           if (timing.unreleased) {
             t += 0.02; prevNasal = false; prevP = p; prevCode = code; continue;
           }
-          // BURST
-          setNoiseBand(p.nf, 2, t, 0.005);
-          noiseG.gain.setTargetAtTime(0.22 * TUNING.aspiration, t, 0.003);
-          t += 0.02;
+          // BURST — see bq/bd/bg in the phoneme table. The defaults reproduce the
+          // old fixed values exactly, so a stop that does not declare a shape (the
+          // flap) releases precisely as it did before.
+          setNoiseBand(p.nf, p.bq ?? 2, t, 0.005);
+          noiseG.gain.setTargetAtTime(0.22 * (p.bg ?? 1) * TUNING.aspiration, t, 0.003);
+          t += (p.bd ?? 20) / 1000;
           // ASPIRATION — the voice-onset gap. Voiceless stops breathe through it at
           // a glottal band; voiced ones barely have one and start phonating at once.
           //
@@ -2888,7 +3526,20 @@
       // end lifted, and not so deep it becomes a growl.
       if (!rise && TUNING.creak > 0) {
         const cf = Math.max(0.55, 1 - 0.30 * TUNING.creak);
-        glot.frequency.setTargetAtTime(F0 * cf, Math.max(t0, end - 0.07), 0.035);
+        // ⚠ CREAK USED TO ERASE THE TERMINAL CONTOUR. The line above sets a target
+        // at end-0.18 that differs for a line trailing off (`...`) versus one
+        // landing on a full stop — and this then overwrote glot.frequency 110ms
+        // later at a flat F0*cf, which is lower than either branch. So the trail
+        // distinction existed, was computed, and was audible for a tenth of a
+        // second before being wiped on every single statement.
+        //
+        // Carrying the factor through rather than rebasing creak on the terminal
+        // target: rebasing is more physically honest (fry falls from wherever the
+        // pitch IS, not from F0) but would drop the common case from F0*0.70 to
+        // about F0*0.57, well past the floor that stops it becoming a growl, and
+        // retuning that needs an ear. This leaves a full stop EXACTLY where it was
+        // and only changes the case that was being erased.
+        glot.frequency.setTargetAtTime(F0 * cf * (trail ? 0.94 : 1), Math.max(t0, end - 0.07), 0.035);
         // Irregularity is the other half — a steady low tone is a hum, not creak.
         // BOTH LFOs. Raising only one leaves the other steady, which is a partial
         // return to periodic vibrato — the exact thing two beating LFOs exist to avoid.
@@ -2897,6 +3548,8 @@
         jit2G.gain.setTargetAtTime(F0 * V.jitter * 0.6 * (1 + 4 * TUNING.creak), cj, 0.03);
       }
       const src = [glot, nz, lfo, jit, jit2, shim];
+      if (growlOsc) src.push(growlOsc);
+      if (growl2Osc) src.push(growl2Osc);
       src.forEach(n => n.start(t0));
       src.forEach(n => n.stop(end+0.1));
       live = src;
@@ -2916,7 +3569,7 @@
         return ph;
       } finally { _lex = null; }
     };
-    return { speak, cancel, tuning: TUNING, phonemesFor, estimate: estimateDuration };
+    return { speak, cancel, tuning: TUNING, phonemesFor, estimate: estimateDuration, voiceFor: voiceFromName };
   })();
 
   global.AudioEngine = {
@@ -2926,13 +3579,31 @@
     playMusic, stopMusic, stopMusicOwnedBy, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
     noteToFreq,
+    // The room the listener is standing in. Named spaces rather than numbers,
+    // because the caller (plugins/audio) owns the world's vocabulary and this
+    // file must never learn what a storm drain is.
+    setSpace,
+    spaceNames: () => Object.keys(SPACES),
+    // The bus Read Aloud speaks through. Exposed only so a test can prove it is
+    // not wired into the reverb send — that is a routing property, and routing is
+    // exactly the kind of thing a later change breaks without touching this file.
+    _speechBus: () => { ensureContext(); return busFor('ui'); },
+    // What the voice pool is doing. A dropped cue is silent and a cue nobody
+    // asked for is also silent, so without counters "is 32 enough?" is not a
+    // question anyone can answer from the outside.
+    _voiceStats: () => ({ ...vstat, size: MAX_VOICES, live: voices.filter(Boolean).length }),
     speak: (text, opt) => Speech.speak(text, opt),
     cancelSpeech: () => Speech.cancel(),
     // Live tunables — see the TUNING block in Speech. Mutate and the next line
-    // spoken picks it up. Used by the voice lab (client/devpanel/voice-lab.html)
+    // spoken picks it up. Used by the voice lab (the dev panel's Voice Lab tab)
     // and read by tv.js for the inter-line gap.
     voiceTuning: Speech.tuning,
     _phonemesFor: (text, opt) => Speech.phonemesFor(text, opt),
+    // One narrator's parameters, without speaking. Exposed because the draw ORDER
+    // in voiceFromName is load-bearing — a field inserted above an existing one
+    // shifts every draw after it and silently recasts every voice in the game —
+    // and nothing could check that from outside until now.
+    _voiceFor: (name) => Speech.voiceFor(name),
     // Scheduled length of a run, without needing an AudioContext — so the voice
     // smoke test can check pacing against broadcast's hold headlessly.
     _estimateDuration: (phon, speed, shout) => Speech.estimate(phon, speed, shout),

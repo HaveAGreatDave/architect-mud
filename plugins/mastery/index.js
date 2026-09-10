@@ -147,8 +147,8 @@ function cmdMastery(args, raw, player) {
   if (!known.length) {
     return {
       type: 'output',
-      message: 'You have never been taught anything you did not work out for yourself.'
-        + '\n<span class="text-dim">The Long Watch teach. They do not advertise.</span>',
+      message: "You have never been taught anything you didn't work out for yourself."
+        + '\n<span class="text-dim">The Long Watch teach. They don\'t advertise.</span>',
     };
   }
 
@@ -163,7 +163,7 @@ function cmdMastery(args, raw, player) {
     lines.push(`  ${d.padEnd(9)} <span class="hit-part">${bandOf(eff)}</span>${held}`);
   }
   const reason = capReason(player);
-  if (reason) lines.push(`\n<span class="text-dim">You will not get further than this: ${reason}.</span>`);
+  if (reason) lines.push(`\n<span class="text-dim">You won't get further than this: ${reason}.</span>`);
   return { type: 'output', message: lines.join('\n') };
 }
 
@@ -181,14 +181,14 @@ function cmdRead(args, raw, player) {
 
   const q = args.join(' ').trim();
   const candidates = (getZoneEnemies?.(player.current_zone) || []);
-  if (!candidates.length) return { type: 'output', message: 'There is nothing here worth watching that closely.' };
+  if (!candidates.length) return { type: 'output', message: "There's nothing here worth watching that closely." };
 
   const r = q ? siftResolve(q, candidates) : { type: 'match', candidate: candidates[0] };
   if (r.type === 'ambiguous') {
     createSelectionState(player.id, r.candidates, { dispatchType: 'mastery.read', dispatchParam: 'candidate' });
     return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
-  if (r.type !== 'match' || !r.candidate) return { type: 'output', message: 'You do not see that.' };
+  if (r.type !== 'match' || !r.candidate) return { type: 'output', message: "You don't see that." };
   return readReport(player, r.candidate);
 }
 
@@ -198,7 +198,7 @@ function readReport(player, enemy) {
   const lines = [];
 
   const line = tierLine(tier, enemy.name);
-  lines.push(line || `<span class="text-dim">You have not watched ${enemy.name} long enough to see anything in it yet.</span>`);
+  lines.push(line || `<span class="text-dim">You haven't watched ${enemy.name} long enough to see anything in it yet.</span>`);
 
   if (rec.familiarity >= 20) {
     lines.push(`<span class="text-dim">You have fought this kind of thing before, and it shows.</span>`);
@@ -224,19 +224,19 @@ function cmdStance(args, raw, player) {
     return {
       type: 'output',
       message: live
-        ? `You are holding ${stanceFor(live.name)?.name}.\n<span class="text-dim">stance drop</span>`
+        ? `You're holding ${stanceFor(live.name)?.name}.\n<span class="text-dim">stance drop</span>`
         : `You can hold: ${known.map(s => s.name).join(', ')}.\n<span class="text-dim">stance &lt;name&gt;</span>`,
     };
   }
   if (sub === 'drop') {
     const line = endStance(player, 'drop');
-    return { type: 'output', message: line || 'You are not holding anything.' };
+    return { type: 'output', message: line || "You aren't holding anything." };
   }
 
   const def = known.find(s => s.id === sub || s.name.toLowerCase().startsWith(sub));
   if (!def) return undefined;
   if (isOnCooldown(player.id, 'stance')) {
-    return { type: 'error', message: 'You have not got your breath back yet.' };
+    return { type: 'error', message: "You haven't got your breath back yet." };
   }
   player._stance = { name: def.id, startedAt: Date.now(), expiresAt: Date.now() + def.durationMs };
   setCooldown(player.id, 'stance');
@@ -253,15 +253,15 @@ function cmdTechnique(args, raw, player) {
     return { type: 'output', message: `<span class="heading">TECHNIQUE</span>\n${lines.join('\n')}\n${composureLine(player)}` };
   }
   const def = known.find(t => t.id === q || t.name.toLowerCase().replace(/\s+/g, '_').startsWith(q));
-  if (!def) return { type: 'error', message: 'You do not know that one.' };
+  if (!def) return { type: 'error', message: "You don't know that one." };
 
   // One shared window with pow and dodge — you get one clever thing per cycle.
   if (isOnCooldown(player.id, MOVE_KEY)) {
     const s = Math.ceil(getCooldownRemaining(player.id, MOVE_KEY) / 1000);
-    return { type: 'error', message: `You are not set for it yet. (${s}s)` };
+    return { type: 'error', message: `You aren't set for it yet. (${s}s)` };
   }
   if (!spendComposure(player, def.composure)) {
-    return { type: 'error', message: 'You are not composed enough for that.' };
+    return { type: 'error', message: "You aren't composed enough for that." };
   }
   player._technique = { id: def.id, kind: def.kind, armedAt: Date.now() };
   setCooldown(player.id, MOVE_KEY);
@@ -280,7 +280,7 @@ function cmdTechnique(args, raw, player) {
 function cmdFocus(args, raw, player) {
   if (effectiveRank(player, 'will') < 20) return undefined;
   if (!isOnCooldown(player.id, MOVE_KEY)) {
-    return { type: 'output', message: 'You are already set. Nothing to gather.' };
+    return { type: 'output', message: "You're already set. Nothing to gather." };
   }
   if (!spendComposure(player, FOCUS_COST)) {
     return { type: 'error', message: 'You have nothing left to gather.' };
@@ -309,7 +309,7 @@ function cmdReadResolve(args, raw, player) {
     type: 'combat', noRefresh: true,
     message: res.correct
       ? '<span class="crit-tag">Read.</span>'
-      : `<span class="text-dim">Wrong read. You brace for something it was not going to do.</span>`,
+      : `<span class="text-dim">Wrong read. You brace for something it wasn't going to do.</span>`,
   };
 }
 
@@ -380,7 +380,7 @@ async function doTrain(player, entry, wanted) {
     return {
       type: 'output',
       message: `${npc.name} stops, and looks at you properly for the first time.`
-        + `\n<span class="text-dim">"You have not stood a watch. I am not going to teach you how we move before you have done that. Talk to Pike."</span>`,
+        + `\n<span class="text-dim">"You haven't stood a watch. I'm not going to teach you how we move before you have done that. Talk to Pike."</span>`,
     };
   }
 
@@ -406,7 +406,7 @@ async function doTrain(player, entry, wanted) {
     return {
       type: 'output',
       message: `${npc.name} watches you move, and stops you before you have finished.`
-        + `\n<span class="text-dim">"I can't teach you past this. ${reason ? reason[0].toUpperCase() + reason.slice(1) : 'You are as far as you go'}."</span>`,
+        + `\n<span class="text-dim">"I can't teach you past this. ${reason ? reason[0].toUpperCase() + reason.slice(1) : "You're as far as you go"}."</span>`,
     };
   }
   if (stored >= instructorCeiling) {
@@ -541,7 +541,7 @@ registerSwingContributor((phase, ctx) => {
       // The window armed by the LAST swing is answered by this one.
       if (takeAnswer(player, enemy)) {
         ctx.negate = true;
-        ctx.negateLine = `<span class="crit-tag">You saw it coming.</span> You are moving before ${enemy.name} is, and it closes on air.`;
+        ctx.negateLine = `<span class="crit-tag">You saw it coming.</span> You're moving before ${enemy.name} is, and it closes on air.`;
         // The counter rides the engine's OWN swing path, so soak, body parts,
         // crits, injury and loot-on-death all still apply.
         player._powQueued = true;
@@ -655,7 +655,7 @@ registerMoveGate(({ player }) => {
   if (!st) return null;
   const def = stanceFor(st.name);
   if (!def?.immobile) return null;
-  return { block: true, message: 'You are rooted to the spot. Drop the stance first.' };
+  return { block: true, message: "You're rooted to the spot. Drop the stance first." };
 }, 'mastery');
 
 on('player.death', ({ player }) => {

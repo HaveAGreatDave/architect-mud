@@ -26,7 +26,7 @@ import { emit, on } from '../../server/engine/events.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { isOwnedZone } from '../../server/engine/zone-filth.js';
 import './help.js';
-import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { coolSweat, coolSewerGrime, markWashed, checkFilthy } from '../../server/engine/hygiene.js';
 import { adjustRelation } from '../../server/engine/relations.js';
 
@@ -578,7 +578,7 @@ async function startRelief(player, mode, target, broadcast) {
       message: `${player.handle} relieves themselves into a ${target.vessel.name}, with the composure of someone who has decided this is normal.` }, player.id);
     emit('bodily.publicRelief', { player, zoneId: player.current_zone });
     return { type: 'output', message: isPoop
-      ? `You squat over the ${target.vessel.name} and fill it. It is warm, and it is yours, and it is in a bowl.`
+      ? `You squat over the ${target.vessel.name} and fill it. It's warm, and it's yours, and it's in a bowl.`
       : `You piss into the ${target.vessel.name} until it sloshes. Nobody was going to use it for anything else. Probably.` };
   }
 
@@ -661,9 +661,9 @@ function openingLine(mode, target, seated) {
     if (t) return seated ? `You settle onto the ${t} and let go.` : `You step up to the ${t} and let go.`;
     return `You plant your feet and let go where you stand.`;
   }
-  if (target.kind === 'creature') return `You squat over ${t}. Nature will not be rushed.`;
-  if (t) return `You settle onto the ${t}. Nature will not be rushed.`;
-  return `You squat down where you stand. Nature will not be rushed.`;
+  if (target.kind === 'creature') return `You squat over ${t}. Nature won't be rushed.`;
+  if (t) return `You settle onto the ${t}. Nature won't be rushed.`;
+  return `You squat down where you stand. Nature won't be rushed.`;
 }
 
 // Land the result — reuse the target-specific effects in relieveBladder/Bowels,
@@ -748,9 +748,9 @@ async function finishRelief(player, session) {
 // the culprit is not anonymous). Returns a line to append to their private
 // result — the relief message is already built by the time we get here.
 const OVERFLOW_SELF = [
-  `And then the water keeps rising. It comes over the rim, over your feet, and across the floor, and there is a moment where you understand exactly how much of this was avoidable.`,
+  `And then the water keeps rising. It comes over the rim, over your feet, and across the floor, and there's a moment where you understand exactly how much of this was avoidable.`,
   `The bowl makes a sound you have never heard a bowl make. Then it gives up entirely, and so does the floor.`,
-  `It does not go down. It comes up. You get off it far too late.`,
+  `It doesn't go down. It comes up. You get off it far too late.`,
 ];
 
 async function overflowToilet(player, furniture, session, broadcast) {
@@ -948,10 +948,10 @@ async function cmdTakeFilth(args, player) {
 
   const handline = gloves.length
     ? `Your ${gloves[0].name} take the worst of it, which is the first time they've earned their keep.`
-    : `<span style="color:var(--red)">It is on your hands now. Bare skin. You will be able to smell yourself.</span>`;
+    : `<span style="color:var(--red)">It's on your hands now. Bare skin. You'll be able to smell yourself.</span>`;
   return {
     type: 'take',
-    message: `You reach into the ${fouled.name} and lift out a measure of filth. It is warmer than you expected and heavier than it looks. The water it came out of stays exactly where it is, and stays exactly what it is. <span class="text-dim">(Flushing is a separate act.)</span>\n${handline}`,
+    message: `You reach into the ${fouled.name} and lift out a measure of filth. It's warmer than you expected and heavier than it looks. The water it came out of stays exactly where it is, and stays exactly what it is. <span class="text-dim">(Flushing is a separate act.)</span>\n${handline}`,
   };
 }
 
@@ -1181,7 +1181,7 @@ export const hooks = {
       // smell this one from the doorway, which is the warning.
       out.push({ text: 'a toilet that has stopped coping, and the floor around it', strength: 10, source: 'feces' });
     } else if (anyFouled) {
-      out.push({ text: 'a toilet somebody used and did not flush', strength: 9, source: 'feces' });
+      out.push({ text: "a toilet somebody used and didn't flush", strength: 9, source: 'feces' });
     } else if (here.some(f => isResidue(f.id))) {
       // Weaker than an unflushed deposit, and worded to say why: the mass is gone
       // and the water it sat in is not. Only reported when nothing worse is here,
@@ -1194,16 +1194,23 @@ export const hooks = {
     return out;
   },
   'furniture.describe': (f) => {
+    // A shower says what it is for. `shower` was reachable only from inside the
+    // `use shower` panel, which a player has to already suspect exists, and `clean`
+    // belongs on the same fixture because a bathroom is the room you wash
+    // yourself in AND the room you wash. Both are offered on sight.
+    if (isShower(f)) {
+      return `<span class="text-dim">${teachVerb('shower')} to get under it. ${teachVerb('clean')} for the floor.</span>`;
+    }
     if (!isToilet(f)) return undefined;
     const lines = [];
-    if (isOverflowing(f.id)) lines.push(`It is full to the brim and past it. The next person to use this is going to regret it, and so is the floor.`);
+    if (isOverflowing(f.id)) lines.push(`It's full to the brim and past it. The next person to use this is going to regret it, and so is the floor.`);
     else if (isFouled(f.id)) {
       const n = stateOf(f.id).poop;
       lines.push(n > 1
         ? `Nobody has flushed this in a while. You can count the visits.`
         : `Someone left a grim deposit behind and never flushed.`);
     }
-    else if (isResidue(f.id)) lines.push(`Whatever was in here has been taken out of it. The water it was sitting in has not gone anywhere, and it is the wrong colour.`);
+    else if (isResidue(f.id)) lines.push(`Whatever was in here has been taken out of it. The water it was sitting in hasn't gone anywhere, and it's the wrong colour.`);
     else if (isPeed(f.id))   lines.push(`The bowl is full of stale, unflushed piss.`);
     return lines.length ? `<span style="color:var(--red)">${lines.join(' ')}</span>` : undefined;
   },
@@ -1415,7 +1422,7 @@ const lastFart = new Map(); // playerId -> epoch ms
 export const FART_STYLE_LINES = {
   brassy:   { min: 0.2,  max: 1,    self: `You brace, concentrate, and deliver.`,            zone: `{who} farts, with visible commitment.` },
   squeak:   { min: 0,    max: 0.55, self: `It comes out as a thin squeak. Undignified.`,     zone: `{who} emits a small, high squeak.` },
-  drone:    { min: 0.5,  max: 1,    self: `It goes on. And on. You wait it out.`,            zone: `{who} produces a long, low note that does not seem to end.` },
+  drone:    { min: 0.5,  max: 1,    self: `It goes on. And on. You wait it out.`,            zone: `{who} produces a long, low note that doesn't seem to end.` },
   flutter:  { min: 0.3,  max: 1,    self: `A loose, flapping affair. Not your best work.`,   zone: `{who} lets out something loose and flapping.` },
   staccato: { min: 0.35, max: 1,    self: `It arrives in instalments. You count four.`,      zone: `{who} fires off a rapid volley.` },
   falter:   { min: 0.25, max: 0.9,  self: `A false start, a pause, then the real thing.`,    zone: `{who} starts, stops, then commits.` },
@@ -1447,7 +1454,7 @@ async function cmdFart(args, player, broadcast) {
     // It still made a noise on the way out.
     emit('bodily.sfx', { zoneId: player.current_zone, playerId: player.id, cue: 'fart', intensity: pressure, style: 'flutter' });
     taintAir(player.current_zone, 'fart');
-    return { type: 'output', message: `You commit. It was not only gas.\n${shame}` };
+    return { type: 'output', message: `You commit. It wasn't only gas.\n${shame}` };
   }
 
   // Below about a quarter full there is simply nothing to work with, and trying
@@ -1513,7 +1520,7 @@ const GROUND_POOP_MSGS = [
 
 const NPC_PEE_YELLS = [
   `What the — are you PISSING on me?! Get away, you animal!`,
-  `AGH! Stop! That is disgusting — someone call the enforcers!`,
+  `AGH! Stop! That's disgusting — someone call the enforcers!`,
   `You filthy freak! I'll remember your face!`,
   `Is this a joke to you?! You're urinating on a person!`,
 ];
@@ -1530,8 +1537,8 @@ const NPC_PEE_WITNESS = [
   `recoils. "Animals. We're surrounded by animals."`,
 ];
 const NPC_POOP_WITNESS = [
-  `retches. "Oh that is VILE — they're actually doing it right there!"`,
-  `backs away, horrified. "I did not need to see that. Ever."`,
+  `retches. "Oh that's VILE — they're actually doing it right there!"`,
+  `backs away, horrified. "I didn't need to see that. Ever."`,
   `shouts, "Public defecation! Someone call an enforcer!"`,
   `dry-heaves. "The smell. Oh god, the smell."`,
 ];

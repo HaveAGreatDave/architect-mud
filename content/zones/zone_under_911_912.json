@@ -2,7 +2,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "description": "The sewer beneath Foundry Way + Meltwater Row is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here.",
+  "description": "The sewer beneath Foundry Way + Meltwater Row is all crumbling grade and standing filth, the kind of dark that has never been disturbed by anyone with a reason to be here.",
   "exits": {
     "east": "zone_under_912_912",
     "north": "zone_under_911_911",

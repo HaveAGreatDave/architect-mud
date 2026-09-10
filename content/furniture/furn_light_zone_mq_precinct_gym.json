@@ -1,5 +1,5 @@
 {
-  "description": "A single caged lamp hung dead centre over the bench, throwing everything else in the room into a corner. Whatever you are doing in here, you are doing it in a spotlight.",
+  "description": "A single caged lamp hung dead centre over the bench, throwing everything else in the room into a corner. Whatever you're doing in here, you're doing it in a spotlight.",
   "flags": {
     "interactions": [
       "switch"

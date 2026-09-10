@@ -184,9 +184,19 @@ export async function resolveAttack(player, target, broadcast) {
 
 	// Emit the player→enemy outcome here — the single chokepoint every player
 	// swing passes through: manual `attack`/`kill` and the auto-attack loop in
-	// gameLoop.js. Quest objective tracking hangs off enemy.killed/enemy.attacked.
-	if (result.killed) emit("enemy.killed", { actor: player, enemy: target });
-	else emit("enemy.attacked", { actor: player, enemy: target, critical: result.critical });
+	// gameLoop.js. Quest objective tracking hangs off enemy.killed/enemy.attacked,
+	// and so does the combat audio layer, which is why it gets no third event of
+	// its own — a parallel `combat.sfx` emit would be a second thing to forget on
+	// a path this heavily reused. Every field below is additive; existing
+	// subscribers keep destructuring exactly what they already took.
+	const swing = {
+		hit: result.hit !== false,
+		damage: result.damage || 0,
+		part: result.part,
+		weapon: weaponSkillId(wskill),
+	};
+	if (result.killed) emit("enemy.killed", { actor: player, enemy: target, ...swing });
+	else emit("enemy.attacked", { actor: player, enemy: target, critical: result.critical, ...swing });
 
 	// An arc-chain weapon can kill things it was never aimed at. Those bodies are
 	// made here, on the same path and by the same function as the primary's — the
@@ -773,7 +783,7 @@ export async function cmdFlee(arg, player, broadcast) {
 	let direction = (arg || '').trim().toLowerCase();
 	if (!direction) {
 		const exits = allExits(getZone(player.current_zone));
-		if (!exits.length) return { type: 'error', message: 'There is nowhere to run.' };
+		if (!exits.length) return { type: 'error', message: "There's nowhere to run." };
 		direction = exits[Math.floor(Math.random() * exits.length)].dir;
 	}
 	const { cmdMove } = await import('../../server/engine/commands/movement.js');

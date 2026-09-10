@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "description": "A dry brick landing at the foot of a drain riser: the storm shaft that climbs, up and up, into the back room of a certain repair shop on the surface. The Watch keep this stretch clean and quiet: it is the members' way down, out of the machine's sight the whole descent. The threshold itself lies east.",
+  "description": "A dry brick landing at the foot of a drain riser: the storm shaft that climbs, up and up, into the back room of a certain repair shop on the surface. The Watch keep this stretch clean and quiet: it's the members' way down, out of the machine's sight the whole descent. The threshold itself lies east.",
   "exits": {
     "east": "zone_under_watchthresh",
     "north": "zone_under_deepreach",

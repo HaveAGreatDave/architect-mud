@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The rim of the tableland, a clean red face of it going up out of reach. There is no way up here. There is a way up somewhere, and this is not it.",
+  "description": "The rim of the tableland, a clean red face of it going up out of reach. There's no way up here. There's a way up somewhere, and this isn't it.",
   "exits": {
     "east": "zone_terminus_1201_947",
     "north": "zone_terminus_1200_946",

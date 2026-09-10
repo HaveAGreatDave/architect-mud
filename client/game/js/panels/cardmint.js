@@ -58,7 +58,7 @@ function ensureStyles() {
     60%    { transform:none; }
   }
   /* The foil pass, after the platen lifts: one hard specular band raked across
-     the finished face. It is the moment the thing stops being stock. */
+     the finished face. It's the moment the thing stops being stock. */
   .cm-foil { position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0;
     background:linear-gradient(74deg, transparent 40%, rgba(255,236,190,.75) 50%, transparent 60%);
     mix-blend-mode:screen; }

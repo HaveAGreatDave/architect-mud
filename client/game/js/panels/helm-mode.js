@@ -322,6 +322,7 @@ export function openHelm(opts = {}) {
   if (!mount) return null;
   closeHelm();
   ensureHelmStyles();
+  window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told; an app that mounts there has to say so
   // Accent — follows the player's global theme (the wheel LEDs, needle, radar rings/sweep/blip and
   // charted course all take this), so the helm reads in the same colour family as the rest of the UI.
   // The theme vars live on <html>; read the effective --accent/--green (both #rrggbb in themes.css).
@@ -758,7 +759,7 @@ export function openHelm(opts = {}) {
     // with a specific reason instead of silently doing nothing, so it's clear you must choose water.
     const cell = cellFromEvent(e);
     if (!cell) { clearCourse(); mapInfo.textContent = 'Off the chart — tap open water inside the basin.'; return; }
-    if (!cellWater(cell.rows, cell.rx, cell.ry)) { clearCourse(); mapInfo.textContent = 'That is dry land — the Echelon can only make way over open water.'; return; }
+    if (!cellWater(cell.rows, cell.rx, cell.ry)) { clearCourse(); mapInfo.textContent = "That's dry land — the Echelon can only make way over open water."; return; }
     const path = previewCourse(cell.rows, cell.c, cell.c, cell.rx, cell.ry);
     if (!path) { clearCourse(); mapInfo.textContent = 'No navigable channel to that tile — pick open water clear of the shore.'; return; }
     armCourse(path.map(([rx, ry]) => [cell.gx + (rx - cell.c), cell.gy + (ry - cell.c)]));
@@ -843,6 +844,7 @@ export function openHelm(opts = {}) {
 export function closeHelm() {
   if (!_helm) return;
   const h = _helm; _helm = null;
+  window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
   clearInterval(h.poll);
   removeEventListener('pointerup', h.upH);
   removeEventListener('keydown', h.keyH);

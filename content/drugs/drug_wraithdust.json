@@ -17,7 +17,7 @@
           "depart": "You glance away for a second, and when you look back the gaunt man is simply gone.",
           "hp": 10,
           "kind": "person",
-          "look": "He stands too still, gown stained grey at the hem. When you meet his eyes he does not blink, and his smile does not reach them.",
+          "look": "He stands too still, gown stained grey at the hem. When you meet his eyes he doesn't blink, and his smile doesn't reach them.",
           "name": "a gaunt man in a hospital gown",
           "stay_frac": 0.7,
           "talk": "The gaunt man doesn't answer. He only watches, and smiles a little."
@@ -39,7 +39,7 @@
           "arrive": "A tall figure in a wide-brimmed hat is suddenly in the corner, as if it had always been there. You just hadn't noticed.",
           "barks": [
             "The tall figure hasn't moved. You're fairly sure it hasn't moved.",
-            "For a moment the tall figure's hat brim lifts, and there is nothing beneath it."
+            "For a moment the tall figure's hat brim lifts, and there's nothing beneath it."
           ],
           "depart": "The corner is just a corner again. It always was.",
           "hp": 12,
@@ -54,7 +54,7 @@
     "instant": {
       "sanity": -12
     },
-    "onset_message": "<span class=\"msg-system\">The quiet finishes settling. You are no longer sure you are alone in here.</span>",
+    "onset_message": "<span class=\"msg-system\">The quiet finishes settling. You're no longer sure you're alone in here.</span>",
     "onset_seconds": 40,
     "phases": {
       "comedown_message": "The air thins out. You're alone again. You think.",
@@ -76,7 +76,7 @@
       "recovery_per_sec": 0.0002
     },
     "withdrawal": {
-      "message": "The people it introduced you to did not leave when it did.",
+      "message": "The people it introduced you to didn't leave when it did.",
       "mods": {
         "stat_brains": -1,
         "stat_cool": -2
@@ -84,8 +84,8 @@
       "onset_seconds": 1800,
       "stages": {
         "easing": "They go back to only turning up when the light is bad.",
-        "onset": "The hot metal smell is in the room. There is no hot metal in the room.",
-        "peak": "They are waiting in the doorway, being polite about it, and the doorway is empty and you know the doorway is empty.",
+        "onset": "The hot metal smell is in the room. There's no hot metal in the room.",
+        "peak": "They're waiting in the doorway, being polite about it, and the doorway is empty and you know the doorway is empty.",
         "rising": "You hear your own name in a conversation nobody is having.",
         "tail": "Nobody in the doorway. You still say hello to it once a day, quietly, in case."
       }

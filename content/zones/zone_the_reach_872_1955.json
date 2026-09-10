@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The busiest twenty feet in the Reach. The saloon porch overhangs the boardwalk, the coyote sign buzzes and stutters above it, and there is a hitching rail out front that has not held an animal in living memory and holds six bike chains instead. The ground by the step is packed black and shiny from boots.",
+  "description": "The busiest twenty feet in the Reach. The saloon porch overhangs the boardwalk, the coyote sign buzzes and stutters above it, and there's a hitching rail out front that hasn't held an animal in living memory and holds six bike chains instead. The ground by the step is packed black and shiny from boots.",
   "exits": {
     "east": "zone_the_reach_873_1955",
     "north": "zone_the_reach_872_1954",
@@ -9,7 +9,7 @@
   },
   "flags": {
     "ambient_pool": "the_reach_the_west_lots",
-    "intro_lore": "So this is it: one dirt street, four buildings that matter, and a horizon with nothing on it in any direction. Everyone here flew in. Every one of them had a reason not to stay wherever they came from, and nobody has ever been rude enough to ask what it was. That is the arrangement, and it is the only law the Reach keeps: the Reach does not care what you did. It cares whether you can be trusted not to bring it back with you.",
+    "intro_lore": "So this is it: one dirt street, four buildings that matter, and a horizon with nothing on it in any direction. Everyone here flew in. Every one of them had a reason not to stay wherever they came from, and nobody has ever been rude enough to ask what it was. That's the arrangement, and it's the only law the Reach keeps: the Reach doesn't care what you did. It cares whether you can be trusted not to bring it back with you.",
     "lawless": true,
     "region_id": "region_the_reach",
     "terrain": "dirt_road"
