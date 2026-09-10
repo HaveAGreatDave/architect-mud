@@ -16,7 +16,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
-import { glWorldInstalled, glDecision, glLastError, lastViewState, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { glWorldInstalled, glDecision, glLastError, lastViewState, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, modelTopZAt, altForRoofZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
 // hook is never called and no context is asked for. It is imported HERE rather than from
@@ -3548,29 +3548,49 @@ function yachtProximity(F) {
   return null;
 }
 
-// ── Rooftop helideck (the Solenne Sky Pad) ───────────────────────────────────────────────────
+// ── Helipads: the Solenne's roof, and the three on the ground ────────────────────────────────
 // The catch window IS the drawn column: the radius and the ceiling are imported from the renderer
 // rather than restated here, so the ring you fly into is the ring that grabs you and the two can
 // never drift. The ceiling converts world-z → feet through the contact-altitude scale (600 ft/z).
-const ROOF_CATCH_CEIL_FT = ROOF_CATCH_CEIL_Z * 600;
+// ⚠ THE CEILING IS A HEIGHT IN THE DRAWN COLUMN, SO IT IS NO LONGER A FIXED NUMBER OF FEET.
+// The guidance column is drawn ROOF_CATCH_CEIL_Z above the pad in world-z; the arming test is in
+// altitude. Those were reconciled by a flat 600 ft per z, which was only ever right at one height
+// — and now that altitude and world-z are related by the render curve (see altForRoofZ), the same
+// half-unit of z is 158 ft above a tower and a few feet above a shed. Derived per pad, so the ring
+// you fly into stays the ring that grabs you, which is the invariant this whole block is built on.
+const padCeilFt = (padZ, padFt) => Math.max(60, altForRoofZ(padZ + ROOF_CATCH_CEIL_Z) - padFt);
 const ROOF_LAND_MS = 2800;   // guided descent from capture to skids-down
 
-// Nearest rooftop pad in the streamed window: a tile that is BOTH an airfield (kind 'field') and a
-// building (bt) — the rooftop-pad combination the renderer already understands. Its pad height comes
-// from the same captured model geometry CFIT reads, so the deck we land on is the deck we drew.
-function roofPadProximity(F) {
+// Nearest HELIPAD in the streamed window. Two shapes, one capture:
+//
+//   a ROOFTOP pad is a tile that is both an airfield and a building, and its deck height comes from
+//   the same captured model geometry CFIT reads — so the deck we land on is the deck we drew;
+//
+//   a GROUND pad is an airfield tile marked `pad` (a VTOL-only field), and its deck is the ground.
+//
+// ⚠ THE OLD TEST WAS "field AND building", WHICH IS ONE FIELD IN THE WHOLE WORLD. It reads as the
+// rooftop rule it was written for, and it silently meant the three ground helipads were the only
+// airfields in the game you could not be brought down onto — while the game calls them helipads on
+// the roster, in the charter desk and on the map. A pad is a pad; where its deck happens to be is a
+// question about its height, not about whether it catches you.
+function padProximity(F) {
   const map = F.map; if (!Array.isArray(map) || !map.length || !F.mapCenter || !F.pos) return null;
   const R = (map.length - 1) / 2;
   let best = null;
   for (let ry = 0; ry < map.length; ry++) {
     const row = map[ry]; if (!row) continue;
     for (let rx = 0; rx < row.length; rx++) {
-      const c = row[rx]; if (!c || c.kind !== 'field' || !c.bt) continue;
+      const c = row[rx]; if (!c || c.kind !== 'field' || !(c.bt || c.pad)) continue;
       const wx = F.mapCenter.x + (rx - R), wy = F.mapCenter.y + (ry - R);
       const dist = Math.hypot(wx - F.pos.x, wy - F.pos.y);
       if (dist > 4 || (best && dist >= best.dist)) continue;
-      const padFt = buildingRoofFtAt(wx, wy, c, wx, wy);
-      if (padFt > 0) best = { dist, padFt, tile: [wx, wy] };
+      // ⚠ A GROUND PAD IS AT ZERO AND THAT IS A REAL ANSWER, not a missing one. The rooftop probe
+      // returns 0 both for "no building here" and for "you are between two wings", so the old code
+      // read `padFt > 0` as the existence test. On a bare pad there is no building by definition,
+      // so the tile has to be asked first and the height second.
+      const padFt = c.bt ? buildingRoofFtAt(wx, wy, c, wx, wy) : 0;
+      const padZ = c.bt ? modelTopZAt(wx, wy, c, wx, wy) : 0;
+      if (c.bt ? padFt > 0 : !!c.pad) best = { dist, padFt, padZ, tile: [wx, wy] };
     }
   }
   return best;
@@ -4033,14 +4053,15 @@ function fsimFrame(now) {
   // Echelon's contract instead: fly into the drawn catch column and the deck takes you down.
   // The lock overrides the flight model for the last few seconds — CFIT is suppressed with it,
   // because the tower we're descending onto is the destination, not an obstacle.
-  const roofProx = (F.heli && !F.landed && !F.deckCine && F.reportedAirborne) ? roofPadProximity(F) : null;
+  const roofProx = (F.heli && !F.landed && !F.deckCine && F.reportedAirborne) ? padProximity(F) : null;
+  const roofCeil = roofProx ? padCeilFt(roofProx.padZ, roofProx.padFt) : 0;
   const roofArmed = !!(roofProx && !s.onGround && roofProx.dist <= ROOF_CATCH_R
-    && s.altitude <= roofProx.padFt + ROOF_CATCH_CEIL_FT && s.altitude >= roofProx.padFt - 40);
+    && s.altitude <= roofProx.padFt + roofCeil && s.altitude >= roofProx.padFt - 40);
   F.roofPadShow = !!(roofProx && roofProx.dist <= 3.5);   // the column is drawn from a way out — it's guidance
   F.roofPadArmed = roofArmed;
   if (roofProx && !F.roofLock && !roofArmed && !F.roofNoticed
-      && roofProx.dist <= ROOF_CATCH_R * 1.6 && s.altitude > roofProx.padFt + ROOF_CATCH_CEIL_FT
-      && s.altitude <= roofProx.padFt + ROOF_CATCH_CEIL_FT + 160) {
+      && roofProx.dist <= ROOF_CATCH_R * 1.6 && s.altitude > roofProx.padFt + roofCeil
+      && s.altitude <= roofProx.padFt + roofCeil + 160) {
     F.roofNoticed = true;
     if (F.toast) F.toast('⚠ PAD GUIDANCE — descend into the green column and the deck will bring you down.');
   }

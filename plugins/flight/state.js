@@ -1009,6 +1009,14 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // Building tiles carry their building_type AND their name so the windshield can
   // render either a dedicated per-building model (keyed off the name) or, failing
   // that, the type's 3-D archetype (office tower, warehouse, diner…), with a fallback.
+  // ⚠ A FIELD IS NOT A PAD UNLESS IT SAYS SO, and until now nothing on the cell said it. The
+  // canopy could tell a rooftop pad from a runway only by "is this field ALSO a building" — which
+  // is true of exactly one field in the world (the Solenne) and false of the three ground helipads
+  // (Threshold, the Gantry, the Ascension), so those three had no landing capture at all while
+  // reading as helipads everywhere else in the game. `vtol_only` is already the whole mechanical
+  // statement of "no runway, rotorcraft only" — it gates acquisition, charter and the roster — so
+  // the cell carries it rather than the canopy guessing from geometry.
+  const pad = (af && (af.vtol_only || af.charter_vtol_only)) ? 1 : undefined;
   const bt = cell.flags?.building_type || undefined;
   const bn = cell.flags?.building_name || undefined;
   // Door face + storey count so the windshield can angle the building's entrance
@@ -1203,7 +1211,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // (plugins/trucking/corridor.js): sun-bleached and sand-drifted, its paint half gone, patched and
   // cracked. Every baked world tile leaves it undefined and paints exactly as it always did.
   const wr = cell.flags?.road_wear ? 1 : undefined;
-  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined };
+  return { kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

@@ -6236,10 +6236,39 @@ export function buildingScaleFor(floors, seed = 0) {
   };
 }
 
-export const FT_PER_FLOOR = 12;   // realistic storey height (ft) used for collision altitudes
+export const FT_PER_FLOOR = 12;   // realistic storey height (ft) — still the floors↔feet rule for anything that asks about STOREYS
+
+// ── THE ALTITUDE AT WHICH THE EYE RISES ABOVE A DRAWN ROOF ──────────────────
+//
+// The renderer draws a building's top at a world-z. The camera's eye sits at
+//
+//     EH = eh + climbLift · √(altitude / 3000)
+//
+// so IN THE PICTURE you are above a roof exactly when EH exceeds that z. The curve is
+// √-compressed on purpose — it is what lets a cockpit at two thousand feet still read the ground
+// as tiles rather than a sheet — and collision was LINEAR in feet (storeys × 12, scaled by how far
+// the model extrudes past its storey stack). A straight line and a square root agree at one height
+// and nowhere else.
+//
+// ⚠ AND THEY DISAGREED IN BOTH DIRECTIONS, WHICH IS WHY NEITHER HALF LOOKED LIKE A BUG. Measured
+// over all 113 named models: the Solenne cleared CFIT at 161 ft while the eye only rises above its
+// drawn roof at 339 — so between those you fly straight through a tower that fills the windscreen,
+// which is the report this came from. At the other end a shed collided to 30 ft when the eye is
+// above it at 4, which is a hit on something the player can plainly see they are over, and the one
+// thing the CFIT sweep's own rules say must never happen.
+//
+// Inverting the eye-height curve is the single conversion that makes "am I above it" the same
+// question for the picture and for the sim. It is not a tuning constant and must not become one:
+// it is the render curve read backwards, so a change to `eh` or `climbLift` moves both together.
+export function altForRoofZ(z) {
+  const s = (z - RENDER_TUNE.eh) / Math.max(1e-6, RENDER_TUNE.climbLift);
+  if (!(s > 0)) return 0;
+  // The curve saturates: `height` is min(1, √(alt/3000)), so the eye stops climbing in z at
+  // 3,000 ft. A roof drawn above that could otherwise never be cleared at any altitude.
+  return Math.min(3000, 3000 * s * s);
+}
 export function buildingRoofFt(wx, wy, cell) {
-  if (buildingHeightZ(wx, wy, cell) <= 0) return 0;
-  return floorsOf(cell) * FT_PER_FLOOR;
+  return altForRoofZ(buildingHeightZ(wx, wy, cell));
 }
 
 // Roof altitude in FEET at one specific point on a tile — the per-segment counterpart to
@@ -6274,7 +6303,7 @@ function modelTopAt(wx, wy, cell, px, py, inFeet) {
     const lx = ox * ct + oy * st, ly = -ox * st + oy * ct;
     if (Math.abs(lx) > BAY.HW || Math.abs(ly) > BAY.HL) return 0;
     const z = bayTopZ(lx);
-    return inFeet ? z * (BAY_FLOORS * FT_PER_FLOOR) / BAY.RIDGE : z;
+    return inFeet ? altForRoofZ(z) : z;
   }
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   const m = modelFor(cell);
@@ -6284,10 +6313,10 @@ function modelTopAt(wx, wy, cell, px, py, inFeet) {
     // No dedicated model (a biome archetype) — the old square, unchanged.
     const foot = BUILDING_FOOT * (RENDER_TUNE.bldgFoot || 1);
     const inBox = Math.abs(px - wx) <= foot && Math.abs(py - wy) <= foot;
-    return inBox ? (inFeet ? floors * FT_PER_FLOOR : hz) : 0;
+    return inBox ? (inFeet ? altForRoofZ(hz) : hz) : 0;
   }
   const segs = shapeForModel(m, seed);
-  if (!segs || !segs.length) return inFeet ? floors * FT_PER_FLOOR : hz;
+  if (!segs || !segs.length) return inFeet ? altForRoofZ(hz) : hz;
   const h = hz;
   if (!(h > 0)) return 0;
   const fh = (BUILDING_FOOT + frac(seed + 2) * 0.06) * (RENDER_TUNE.bldgFoot || 1);
@@ -6296,14 +6325,16 @@ function modelTopAt(wx, wy, cell, px, py, inFeet) {
   const ox = px - wx, oy = py - wy;
   const lx = ox * ct + oy * st, ly = -ox * st + oy * ct;
   const V = (p) => p[0] * fh + p[1] * h + p[2];
-  const ftPerZ = inFeet ? (floors * FT_PER_FLOOR) / h : 1;   // world-z → feet, via the storey stack both agree on (1 = answer in world-z)
+  // ⚠ RANKED IN WORLD-Z AND CONVERTED ONCE, not per segment. altForRoofZ is monotonic, so the
+  // tallest segment in z is the tallest in feet — and doing the conversion inside the loop would
+  // run a square per segment per sweep step on the collision hot path for no answer it changes.
   let best = 0;
   for (const s of segs) {
-    const top = V(s.z1) * ftPerZ;
+    const top = V(s.z1);
     if (top <= best) continue;                   // can't raise the answer — skip the containment maths
     if (segContains(s, lx, ly, V)) best = top;
   }
-  return best;
+  return inFeet ? altForRoofZ(best) : best;
 }
 
 // Is a MODEL-LOCAL point inside this segment's footprint? Extracted so the aircraft's CFIT probe
