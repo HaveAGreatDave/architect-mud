@@ -560,6 +560,9 @@ async function main() {
     // faces — and a drawer reading the wrong field name passes that, projects at undefined and
     // paints nothing. See authoredDetailSmoke in windshield.js.
     for (const f of ws.authoredDetailSmoke()) problems.push(`authored detail — ${f}`);
+    // 4c. AND WHICH WALL A PER-FACE PALETTE LANDS ON. Face counts cannot see a shopfront on a
+    // flank — swap it and the count is identical. See facePalsSmoke in windshield.js.
+    for (const f of ws.facePalsSmoke()) problems.push(`face palettes — ${f}`);
 
     // 5. DETERMINISM, and 6. THE PORT CLAIMS. Both from scripts/shapes/modeldiff.mjs.
     //

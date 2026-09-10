@@ -8470,7 +8470,41 @@ export { ADORN_CHEAP, ADORN_RICH, ADORN_NEAR };
 // walls + an optional roof. Setback towers stack several of these. When a face sink is active the
 // walls/roof are queued (per-face depth) instead of painted, so they interleave correctly with the
 // rest of the building instead of the whole box landing on top of whatever was drawn before it.
+// ── PER-FACE MATERIALS: A GROUND FLOOR THAT IS NOT THE UPPER WALL ───────────
+//
+// `draw3DBoxAt` takes ONE palette and paints the whole box with it, which is why 27 models still
+// report a single wall material: a building that is one box can only ever be one thing. A tiled
+// shopfront under brick, a blank party wall, a distinct roof — all of it is a second palette on
+// one face, and NO new geometry in either renderer.
+//
+// ⚠ WHICH FACE IS "FRONT" IS AN ENTRANCE QUESTION, NOT A GEOMETRIC ONE, and that is the whole
+// difficulty. A box is world-axis-aligned — `cs` is built from ±fh/±fd and only `yaw` turns it —
+// while the building faces wherever `ent` says. So the arm, which knows E, resolves the spec into
+// the box own side order, and the box stays a dumb list. Get this backwards and the shopfront
+// lands on a side wall on THREE FACINGS OUT OF FOUR, which is exactly the bug that cost the near
+// tier its detail, and the reason gl:mesh captures all four facings.
+//
+// The side order is fixed by `cs`: 0 is −y, 1 is +x, 2 is +y, 3 is −x.
+const BOX_SIDE_N = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+function facePals(E, spec) {
+  const ex = E ? E[0] : 0, ey = E ? E[1] : 1;
+  let fi = 0, best = -Infinity;
+  for (let i = 0; i < 4; i++) { const d = BOX_SIDE_N[i][0] * ex + BOX_SIDE_N[i][1] * ey; if (d > best) { best = d; fi = i; } }
+  const side = spec.side || spec.front;
+  const out = [];
+  for (let i = 0; i < 4; i++) out[i] = i === fi ? (spec.front || side) : (i === (fi + 2) % 4 ? (spec.back || side) : side);
+  // ⚠ `base` is what everything OUTSIDE the picture reads — the shape capture records one palette
+  // per segment, and collision, the occluder hulls, derivedTrim and the cold open skyline all take
+  // it from there. It has to be the bulk material, not whichever side happens to be index 0.
+  out.base = side; out.roof = spec.roof || side;
+  return out;
+}
+
 function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof, yaw, fd) {
+  // A per-face box carries its palettes as an array in side order; everything that wants ONE
+  // answer asks for `base`. A plain string is unchanged in every path below.
+  const PF = Array.isArray(biome);
+  const basePal = PF ? (biome.base || biome[0]) : biome;
   // Shape capture records the RAW fh, ahead of the clamp below. That's load-bearing: 0.44 is an
   // absolute world constant while everything else in a record is a multiple of fh, so a post-clamp
   // number would only be valid at the one footprint it was captured at. Consumers re-apply
@@ -8479,7 +8513,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   // equal and every consumer behaves exactly as it did, while a SHALLOW one (an awning) records a
   // real half-depth instead of a lie that would put the slab back over the road at LOD range and in
   // collision. Both are pre-clamp; consumers re-apply min(…, 0.44).
-  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'box', dx, dy, hwRaw: fh, fdRaw: fd === undefined ? fh : fd, wz0, wz1, pal: biome, roof: !!roof, yaw: yaw || 0 }); return; }
+  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'box', dx, dy, hwRaw: fh, fdRaw: fd === undefined ? fh : fd, wz0, wz1, pal: basePal, roof: !!roof, yaw: yaw || 0 }); return; }
   if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   fh = Math.min(fh, 0.44);   // hard cap so even a WIDE model (warehouse/depot fh*1.1+) keeps a setback inside its tile and never bleeds onto the neighbour/road (was 0.48 → capped boxes reached the tile edge)
   // `fd` (optional half-DEPTH) makes the footprint rectangular instead of square. Almost every model
@@ -8499,7 +8533,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
       const j = (i + 1) % 4;
       const mx = (cs[i][0] + cs[j][0]) / 2, my = (cs[i][1] + cs[j][1]) / 2, ml = Math.hypot(mx, my) || 1;
       MESH_SINK.push({
-        kind: 'wall', pal: biome, seed,
+        kind: 'wall', pal: PF ? biome[i] : biome, seed,
         p: [[dx + cs[i][0], dy + cs[i][1], wz1], [dx + cs[j][0], dy + cs[j][1], wz1],
             [dx + cs[j][0], dy + cs[j][1], wz0], [dx + cs[i][0], dy + cs[i][1], wz0]],
         n: [mx / ml, my / ml, 0],
@@ -8507,7 +8541,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     }
     if (roof) {
       MESH_SINK.push({
-        kind: 'roof', pal: biome, seed,
+        kind: 'roof', pal: PF ? biome.roof : biome, seed,
         p: cs.map(([a, c]) => [dx + a, dy + c, wz1]),
         n: [0, 0, 1],
       });
@@ -8527,8 +8561,16 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   // …and the crossfade is BAKED, not blitted twice onto every wall — see wallTexMixed for the
   // algebra (identical at alpha 1, and the more correct answer in the horizon fade band).
   const NB = clamp((night - 0.30) / 0.20, 0, 1);
-  const wallTexN = wallTexMixed(biome, NB), shade = [0.0, 0.16, 0.3, 0.12];
-  const flatWall = rgb(mix(flatWallCol(biome, 0), flatWallCol(biome, 1), NB)), WALL_LOD_PX = TUNE.wallLodPx || 0;   // small-wall LOD: flat-fill (tone-matched to the tex average) instead of the column-split textured blit
+  const shade = [0.0, 0.16, 0.3, 0.12], WALL_LOD_PX = TUNE.wallLodPx || 0;
+  // ⚠ MEMOISED PER SIDE RATHER THAN HOISTED, because only the one or two faces that survive the
+  // backface cull are ever asked for. On GLASS 2 this runs ZERO times a frame — every box returns
+  // at MASS_OFF above — and on the fallback the worst aircraft frame goes 399 lookups to about 620,
+  // which timed warm is 0.1 ms. Measured before it was written, because "the innermost loop in the
+  // renderer" is the sort of thing that sounds expensive and turns out not to run at all.
+  const _tex = [], _flat = [];
+  const texFor = (i) => { const k = PF ? i : 0; return _tex[k] || (_tex[k] = wallTexMixed(PF ? biome[i] : biome, NB)); };
+  const flatFor = (i) => { const k = PF ? i : 0; const p = PF ? biome[i] : biome;
+    return _flat[k] || (_flat[k] = rgb(mix(flatWallCol(p, 0), flatWallCol(p, 1), NB))); };   // small-wall LOD: flat-fill (tone-matched to the tex average) instead of the column-split textured blit
   const faces = [];
   for (let i = 0; i < 4; i++) {
     const j = (i + 1) % 4;
@@ -8567,6 +8609,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     // then the nearest-neighbour blit aliases fine detail (the reeded Meridian piers crawl). Bilinear-
     // filter that far case; keep near/magnified walls crisp. wallW is the wider (near) top-edge run.
     const wallW = Math.max(Math.hypot(P1[0] - P0[0], P1[1] - P0[1]), Math.hypot(P2[0] - P3[0], P2[1] - P3[1]));
+    const wallTexN = texFor(fc.i);
     const minify = wallW < wallTexN.width || wallPx < wallTexN.height;
     // LOD: the vertical ramp only READS on tall near walls. On short/distant walls (a few px high) it's
     // indistinguishable from a flat tint, so skip the gradient object entirely and fill one solid mid
@@ -8609,7 +8652,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
       // triangle — so on the textured branch the path has to be laid AFTER the blit, while on the
       // flat branch the one we just filled is still current and must not be laid again.
       const overlay = litTop || litSolid || sh || fog > 0.004;
-      if (wallPx < WALL_LOD_PX) { quadPath(ctx, P0, P1, P2, P3); ctx.fillStyle = flatWall; ctx.fill(); }
+      if (wallPx < WALL_LOD_PX) { quadPath(ctx, P0, P1, P2, P3); ctx.fillStyle = flatFor(fc.i); ctx.fill(); }
       else { drawTexQuadP(ctx, wallTexN, P0, P1, P2, P3, fL, fR, minify); if (overlay) quadPath(ctx, P0, P1, P2, P3); }
       if (litTop) {
         const g = ctx.createLinearGradient(0, topY, 0, Math.max(botY, topY + 1));
@@ -8656,7 +8699,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     }
     if (cl.length >= 3) {
       const t = cl.map(([x, y]) => cam.proj(x, y, wz1));
-      const rp = t.map((q) => [q.sx, q.sy]), rtex = roofTex(biome, night);
+      const rp = t.map((q) => [q.sx, q.sy]), rtex = roofTex(PF ? biome.roof : biome, night);
       let rf = 0; for (const q of t) rf += q.f; rf /= t.length;
       const rfog = fogWeight(rf);
       const flat = whole ? null : rgb(flatRoofCol(biome, night));
@@ -18246,7 +18289,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'techstall': {   // Ampersand Electronics: a cluttered stall tucked under an overpass girder, strung with cyan tech-glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.5, pal, seed, night, alpha, true);               // stall box
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.5, facePals(E, { side: pal, front: 'ty_shop_b' }), seed, night, alpha, true);               // stall box   // display glazing to the street
       for (const s of [-1, 1]) { const [sx, sy] = F(s * fh * 1.05, -fh * 0.1); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.12, 0, h * 1.5, pal, seed + 2 + s, night, alpha, false); }   // overpass piers
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.4, h * 1.5, h * 1.68, pal, seed + 5, night, alpha, true);    // the girder deck overhead
       neonBlade(ctx, cam, dx, dy, h * 0.5, h * 0.82, m.neon || '#5fd0ff', night, alpha);
@@ -18261,7 +18304,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'boutique': {   // Second Skin: a narrow tall shopfront with a full-height neon fashion blade + warm display glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.8, 0, h * 0.98, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.8, 0, h * 0.98, facePals(E, { side: pal, front: 'ty_shop_c' }), seed, night, alpha, true);   // glazed street front, plain flanks
       { const [nx, ny] = F(fh * 0.6, fh * 0.5); neonBlade(ctx, cam, nx, ny, h * 0.28, h * 1.05, m.neon || '#ff4a9a', night, alpha); }
       if (night) glowPool(ctx, cam, dx, dy, h * 0.22, '255,150,200', 10, alpha * 0.28);                 // lit boutique window
       break;
@@ -18964,7 +19007,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'club': {   // box + twin neon roofline + colour glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 0.8, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 0.8, facePals(E, { side: pal, front: 'ty_shop_e' }), seed, night, alpha, true);   // frontage on the street, blank party walls
       { const [ax, ay] = F(-fh * 0.4, 0); neonBlade(ctx, cam, ax, ay, h * 0.8, h * 1.15, m.neon || '#ff4a9a', night, alpha); }
       { const [bx, by] = F(fh * 0.4, 0); neonBlade(ctx, cam, bx, by, h * 0.8, h * 1.15, m.neon || '#ff4a9a', night, alpha); }
       glowPool(ctx, cam, dx, dy, h * 0.85, '255,74,154', 20, alpha * (night ? 0.34 : 0.16));
@@ -21377,6 +21420,48 @@ export function captureModelTrace(m, opts = {}) {
   return sink;
 }
 
+// ── WHICH WALL IS THE FRONT — CHECKED AGAINST AN INDEPENDENT STATEMENT OF IT ─────────────────
+//
+// facePals resolves a {front, back, side, roof} spec into the side order draw3DBoxAt uses, and the
+// whole difficulty is that a box is world-axis-aligned while a building faces wherever `ent` says.
+// Resolve it backwards and the shopfront is right on ONE facing in four, which is how a bug of this
+// shape ships: it looks correct from the street you happened to test from.
+//
+// ⚠ The expectation is WRITTEN OUT rather than recomputed. Deriving it the same way the function
+// does would pass whatever the function did, including passing while wrong. The side order is fixed
+// by `cs` — 0 is −y, 1 is +x, 2 is +y, 3 is −x — so a building whose entrance faces north (+y) must
+// wear its front on side 2, east on 1, south on 0, west on 3. That is a fact about the geometry,
+// stated here once, and this asserts the function agrees with it.
+//
+// ⚠ It does NOT check that an ARM rotates rigidly, and it must not: models:survey established that
+// an arm is not a pure rotation of its own capture, so a mesh-level version of this check fails on
+// 144 of 173 models for reasons that have nothing to do with palettes. It was written that way
+// first and thrown away.
+const FRONT_SIDE_FOR = [
+  { E: [0, 1], name: "north", front: 2 },
+  { E: [1, 0], name: "east", front: 1 },
+  { E: [0, -1], name: "south", front: 0 },
+  { E: [-1, 0], name: "west", front: 3 },
+];
+export function facePalsSmoke() {
+  const out = [];
+  for (const { E, name, front } of FRONT_SIDE_FOR) {
+    const got = facePals(E, { side: "SIDE", front: "FRONT", back: "BACK", roof: "ROOF" });
+    const back = (front + 2) % 4;
+    if (got[front] !== "FRONT") out.push(name + ": the wall facing the entrance is " + got[front] + ", not the front");
+    if (got[back] !== "BACK") out.push(name + ": the wall opposite the entrance is " + got[back] + ", not the back");
+    for (const f of [(front + 1) % 4, (front + 3) % 4]) {
+      if (got[f] !== "SIDE") out.push(name + ": flank " + f + " is " + got[f] + ", not the side palette");
+    }
+    if (got.base !== "SIDE") out.push(name + ": base is " + got.base + " — the shape capture would record the wrong material, and collision, the occluder hulls and the cold open all read it");
+    if (got.roof !== "ROOF") out.push(name + ": roof is " + got.roof);
+  }
+  // A spec with only a side is legal and must fill every face with it.
+  const plain = facePals([0, 1], { side: "ONLY" });
+  for (let i = 0; i < 4; i++) if (plain[i] !== "ONLY") out.push("a side-only spec left face " + i + " as " + plain[i]);
+  if (plain.roof !== "ONLY" || plain.base !== "ONLY") out.push("a side-only spec did not fill base/roof");
+  return out;
+}
 // ── AUTHORED DETAIL SMOKE — every kind DECLARED, not every kind USED ─────────────────────────
 //
 // The adornment smoke below runs the authored models and checks what they ask the camera for.
