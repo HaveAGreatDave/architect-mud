@@ -182,7 +182,8 @@ for what the machine can do, `__glPhases()` for where the frame goes with the fl
 `__glStage1()` for the end-to-end saving, `__glFidelity()` for how close the two pictures are,
 `__glFloor()` and `__glFloorCost()` for the same two questions about the ground, `__glSign()` for
 whether the buildings still have their names on them, `__glLights()` for whether a sign lights the
-wall it is bolted to, `__glFrame()` for where the whole frame goes
+wall it is bolted to, `__glClouds()` for whether the deck is still the same sky,
+`__glFrame()` for where the whole frame goes
 now, and `__glBench()` for the original ceiling question.
 
 
@@ -687,6 +688,45 @@ by brightness. Ranking on the sprite's own screen radius instead (which is what 
 back when reach was derived from it) picks whatever is drawn biggest rather than whatever lights the
 most wall: the same frame went from 25.6% of its wall pixels moved to **43%** on the fix, at the same
 twelve lights and the same cost.
+
+### Is the cloud deck still the same sky? — `__glClouds()`
+
+The fly-through deck is a swarm of small puffs, each a stack of cards, and every card is a radial
+gradient and an ellipse fill. On the GPU each card is a quad, depth-tested against the city the
+world pass has just written.
+
+⚠ **The deck had never been run by a test at all, and that is why it was the largest unmeasured
+thing in the frame.** `drawVolumetricClouds` returns on its first line without `wxField`, `acX`
+and `acY`, and not one harness in this repo passed them — `viewRenderSmoke`, `framecost` and every
+bench on this page hand over a map, an hour and a heading and no weather field. `npm run
+shapes:clouds` measures it headlessly for the first time at **2,757–9,460 canvas calls a frame**,
+median 5,386, against a whole city block's 17,400.
+
+⚠ **The whole frame is compared here, unlike `__glFidelity`**, and that is deliberate rather than
+sloppy: the deck covers the sky and the sky is most of the frame, so masking it to "the clouds"
+would mean deciding where the clouds are, which is the thing under test. The scene is a bare plain
+for the same reason — a city in the frame puts the mass, the trim and the lights into a number
+that is supposed to be about vapour.
+
+⚠ **And a third render with NO deck is what makes the first number mean anything.** "The two
+renderers agree to 0.15%" is also exactly what comes back when the new one draws nothing and the
+old one drew very little — which is not hypothetical, it is what the light pass did one section up
+before its reach was fixed. `vsNone` is how much the deck is worth at all, and `meanPct` is only
+readable beside it.
+
+At 640×360, on a bare plain:
+
+| seat | cards | calls saved | vs the 2-D deck | vs no deck | worst | ms off | ms on |
+|---|---|---|---|---|---|---|---|
+| cumulus, from below | 382 | 1,389 | 0.21% | 3.47% | 36 | 1.3 | 0.8 |
+| cumulus, in the deck | 244 | 1,200 | 0.10% | 7.74% | 18 | 1.6 | 0.8 |
+| overcast, in the deck | 296 | 1,438 | 0.20% | 4.77% | 9 | 2.0 | 1.0 |
+| storm, alongside | 543 | 1,595 | 0.09% | 2.86% | 18 | 1.7 | 1.2 |
+| overcast at night | 296 | 1,438 | 0.23% | 10.39% | 10 | 2.2 | 1.4 |
+
+`cards` is what the GPU actually drew — a zero there with the flag on is the silent failure, and it
+is the reason `glLastFrame()` carries the count. `saved` is deterministic and is the number to
+compare across days; the milliseconds are not.
 
 ### Two things a bench in this file cannot see
 

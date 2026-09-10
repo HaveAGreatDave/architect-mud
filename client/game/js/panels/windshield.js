@@ -217,6 +217,13 @@ export const RENDER_TUNE = {
   // distance tests on every pixel of every wall, which is exactly the kind of thing that is free
   // on the machine it was written on and is not free on an integrated GPU.
   glLights: 1,
+  // The fly-through cloud deck as depth-tested quads instead of a few thousand radial-gradient
+  // ellipse fills. 0 puts it back on the canvas.
+  //
+  // ⚠ IT IS ALSO THE ONLY WAY A TOWER CAN STAND IN A CLOUD. The deck draws after the world, so
+  // in 2-D it paints over everything — a thirty-storey block in a 1,600 ft overcast is in front
+  // of the cloud on the way up and behind it on the way down, and a painter has to pick one.
+  glClouds: 1,
   gl: 1,
   mount: 1,
   shapeShadow: 1,
@@ -892,6 +899,7 @@ export function paintWindshield(id, view) {
   // function with its own id, and a second parameter on the world pass would have to be added to
   // four callers to say a thing this one already knows.
   GL_HOST = cv; GL_ID = id;
+  GL_DREW = false;   // per frame: set only when a GL canvas is actually blitted (see the cloud deck)
   const st = sceneFor(id, cw, ch);
   const v = view || {};
   // Who is standing near a depot door this frame — collected ONCE, here, before the world pass
@@ -1807,7 +1815,43 @@ export function paintWindshield(id, view) {
       // already stops under 'roofed' for the same reason; the bolt was simply never included,
       // because it is drawn in the world pass and the rain is drawn in the weather pass.
       if (!roofed && st.bolts && st.bolts.length) drawLightning(ctx, cam, st, now, v.acX ?? 0, v.acY ?? 0);   // 3-D lightning bolts inside storm cells
-      if (volOn) { pBegin('clouds'); drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr); pEnd(); }   // fly-through cloud deck: puff stacks + silver-lining rim, value-noise mottle, inter-lobe AO, virga shafts + whiteout/haze (base at a realistic altitude for `wx`)
+      if (volOn) {
+        pBegin('clouds');   // fly-through cloud deck: puff stacks, value-noise mottle, inter-lobe AO, virga shafts + whiteout/haze (base at a realistic altitude for `wx`)
+        // ⚠ ONLY WHEN THERE IS A BUFFER TO DRAW INTO. See GL_DREW: every way GLASS 2 can be absent
+        // this frame ends with the GL canvas holding nothing, and a deck handed to it then would be
+        // drawn perfectly into a buffer nobody blits.
+        CLOUD_SINK = (GL_DREW && TUNE.glClouds && GL_CLOUD_HOOK) ? [] : null;
+        try {
+          drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr);
+          if (CLOUD_SINK && CLOUD_SINK.length) {
+            const u = (c) => [c[0] / 255, c[1] / 255, c[2] / 255];
+            // The stormy tints are the deck's own two constants, resolved here so the shader holds
+            // no palette of its own — the same rule the mass pass follows with LIGHT_STATE.
+            const out = GL_CLOUD_HOOK(cam, CLOUD_SINK, {
+              id: GL_ID, cssH: _frameH, noise: cloudNoiseTex(),
+              base: u(baseTint), lit: u(litTint),
+              stormBase: u(mix(baseTint, [78, 84, 94], 0.5)), stormLit: u(mix(litTint, [140, 146, 156], 0.5)),
+              light: [(lightX ?? W * 0.5) * _frameDpr, (lightY ?? -H) * _frameDpr], lightStr: lightStr || 0,
+              mottle: (st.cloudQ ?? 1) > 0.4,
+            });
+            if (out && out.canvas) ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
+            else {
+              // One frame without a deck, then the canvas takes it back for good — the same policy
+              // the world pass uses, and for the same reason: a pass that silently drew nothing must
+              // not go on being asked every frame for the life of the session.
+              GL_LAST_ERROR = { where: 'cloud pass', message: 'drew nothing — no scene, or a lost context', at: Date.now() };
+              console.error('[windshield] the GL cloud pass drew nothing — putting the deck back on the canvas');
+              RENDER_TUNE.glClouds = 0;
+            }
+          }
+        } catch (e) {
+          GL_LAST_ERROR = { where: 'cloud pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() };
+          console.error('[windshield] the GL cloud pass threw — putting the deck back on the canvas', e);
+          RENDER_TUNE.glClouds = 0;
+        }
+        finally { CLOUD_SINK = null; }
+        pEnd();
+      }
       if (sky.night > 0.35) drawSearchlights(ctx, cam, vw, now, worldBlend);   // sweeping beams from restricted (no-fly) blocks at night
       if (!framed) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass
       if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
@@ -5607,17 +5651,22 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
       const pbase = cam.proj(dx, dy, pz);
       if (pbase.f > 0.12 && distFade > 0.4) {   // AO only on near puffs — the dense swarm makes a per-puff pool everywhere too costly
         const sAO = clamp(R * 0.95 * cam.FL / pbase.f, 2, W * 0.9);
-        cards.push({ ao: true, x: pbase.sx, y: pbase.sy + sAO * 0.16, s: sAO, f: pbase.f + 3, a: cellA * distFade * 0.4 });
+        // ⚠ THE POOL IS SUNK BY A SCREEN OFFSET AND THE GPU NEEDS A WORLD ONE. `sy` is
+        // `horizonY + depth·(EH − wz)/f`, so a downward screen shift of `d` is a drop of
+        // `d·f/depth` in world z — solved rather than guessed, and exact.
+        cards.push({ ao: true, x: pbase.sx, y: pbase.sy + sAO * 0.16, s: sAO, f: pbase.f + 3, a: cellA * distFade * 0.4,
+          wx: dx, wy: dy, wz: pz - sAO * 0.16 * pbase.f / cam.depth });
       }
       for (let ci = 0; ci < nCards; ci++) {
         const cd = CLOUD_CARDS[ci];
         const jx = (frac(c.seed + k * 3.1 + ci * 2.1) - 0.5) * 0.5, jy = (frac(c.seed + k * 1.7 + ci * 4.3) - 0.5) * 0.5;
-        const p = cam.proj(dx + (cd[0] + jx) * R * hScale, dy + (cd[1] + jy) * R * hScale, pz + cd[2] * R * vScale);
+        const cwx = dx + (cd[0] + jx) * R * hScale, cwy = dy + (cd[1] + jy) * R * hScale, cwz = pz + cd[2] * R * vScale;
+        const p = cam.proj(cwx, cwy, cwz);
         if (p.f <= 0.12) continue;                     // card is at/behind the eye → the whiteout covers it
         const near = smoothstep((p.f - 0.3) / 0.9);    // dissolve cards as they reach the eye so they melt INTO the whiteout, not balloon
         const sPx = clamp(R * cd[3] * 0.62 * cam.FL / p.f, 2, W * 0.9);
         const litEff = 0.5 + (cd[4] - 0.5) * litComp;   // full bright-top/dark-base range for cumulus; compressed toward flat grey for stratus
-        cards.push({ x: p.sx, y: p.sy, s: sPx, f: p.f, a: cellA * distFade * near, lit: litEff, oz: cd[2], ys: cd[5], stormy });
+        cards.push({ x: p.sx, y: p.sy, s: sPx, f: p.f, a: cellA * distFade * near, lit: litEff, oz: cd[2], ys: cd[5], stormy, wx: cwx, wy: cwy, wz: cwz });
       }
     }
   }
@@ -5626,6 +5675,26 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
   if (cardScale > 0.02) {
     cards.sort((a, b) => b.f - a.f);                   // far first (painter's)
     const noiseTex = cloudNoiseTex();
+    // ⚠ THE SORT STILL HAPPENS, AND THE DEPTH BUFFER IS NOT A SUBSTITUTE FOR IT. A card is a
+    // translucent gradient composited over what is behind it, so the order it is drawn in changes
+    // the colour; the depth test decides what the deck is BEHIND, never what a cloud is in front of
+    // another cloud. Both, or the deck reads as flat cut-outs.
+    if (CLOUD_SINK) {
+      for (const c of cards) {
+        CLOUD_SINK.push({
+          x: c.wx, y: c.wy, z: c.wz,
+          // Device pixels, exactly as a light's radius is: the quad is expanded in the vertex
+          // shader against a device-pixel viewport, and the size is HANDED OVER rather than
+          // re-derived so the two renderers cannot drift apart by one being retuned.
+          s: c.s * _frameDpr,
+          ys: c.ao ? 0.5 : c.ys,
+          a: clamp(c.a * cardScale, 0, 1),
+          lit: c.lit == null ? 0.5 : c.lit,
+          kind: c.ao ? 2 : (c.stormy ? 1 : 0),
+        });
+      }
+      cards.length = 0;
+    }
     const litOK = lightStr > 0.05 && lightX != null;
     // Per-frame baked-sprite cache. base/lit are constant across the frame, so bake each lit-bucket
     // (× normal/stormy) ONCE and reuse it for every small card. Invalidated when the frame's tint
@@ -8444,6 +8513,18 @@ let GL_HOOK = null, GL_CELLS = null, GL_HOST = null, GL_ID = null;
 // measurement and disagreed only over the world the game actually ships.
 let GL_TAKEN = null;
 export function installGLWorld(fn) { GL_HOOK = fn || null; }
+// ⚠ THE DECK COLLECTS AFTER THE WORLD PASS HAS ALREADY COMPOSITED, so it cannot ride the world
+// hook and cannot fill a sink the world hook reads — that is the trap the Curtain fell into, and
+// the failure is silent: the sink fills, nothing reads it, nothing draws and nothing says so. It
+// is a second hook called at a second moment, over the buffer the first one left.
+// ⚠ AND WHETHER THE WORLD PASS ACTUALLY DREW, which is what decides whether there is a depth
+// buffer for the deck to test against. Every reason GLASS 2 can be absent this frame — the flag
+// off, no context, a lost one, a window faded out below worldBlend, a throw — ends with the mass
+// painted in 2-D and the GL canvas holding nothing. Handing the deck to the GPU then draws it into
+// a buffer nobody blits, which is a sky with no clouds in it and no error anywhere.
+let GL_DREW = false;
+let GL_CLOUD_HOOK = null, CLOUD_SINK = null;
+export function installGLClouds(fn) { GL_CLOUD_HOOK = fn || null; }
 export function glWorldInstalled() { return !!GL_HOOK; }
 // What the world pass decided about GLASS 2 on its last run, recorded at the point of decision.
 // `glLastFrame()` says what the PASS drew and is null when the pass never ran, which is the same
@@ -22638,7 +22719,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       // the context away both arrive here without throwing, which is why the catch below is not
       // enough on its own. One frame is wrong; the flag then puts it back on the 2-D renderer for
       // good, exactly as a throw does.
-      if (out && out.canvas) ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
+      if (out && out.canvas) { ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH); GL_DREW = true; }
       else { GL_LAST_ERROR = { where: 'gl pass', message: 'drew nothing — no context, a lost context, or a zero-sized host', at: Date.now() }; console.error('[windshield] the GL world pass drew nothing — falling back to 2-D'); RENDER_TUNE.gl = 0; }
     }
     catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }

@@ -240,6 +240,30 @@ function tileMesh(deps, it) {
 // which building stands where. `gx`/`gy` are the tile's place in the MAP WINDOW, which holds still
 // while you drive across it; where the camera is standing inside that tile is a camera fact and is
 // applied below.
+// ── THE CLOUD DECK, AS A SECOND PASS OVER THE SAME BUFFER ──────────────────
+//
+// Called AFTER glWorldPass on the same frame and the same scene, from the point in the 2-D queue
+// where the deck has always drawn — which is after the world blit, which is why it cannot ride the
+// first pass. The trick that makes it cheap is in context.drawCloudDeck: the colour is cleared and
+// the depth is not, so the cards test against the city already in the buffer.
+//
+// ⚠ IT RETURNS null RATHER THAN THROWING when there is no scene to draw into. This runs after the
+// world pass has already decided whether GLASS 2 is alive this frame; a missing scene here means
+// the world pass answered nothing, and the caller has already put the flag back and painted the
+// city in 2-D. Falling over a second time would only replace one fallback with a worse one.
+export function glCloudPass(id, cam, cards, opts = {}) {
+  const g = scenes.get(id);
+  if (!g || !g.view || !g.canvas || !cards || !cards.length) return null;
+  if (g.view.lost && g.view.lost()) return null;
+  const dpr = cam && cam.W ? g.canvas.width / cam.W : 1;
+  const cssH = opts.cssH || (dpr > 0 ? g.canvas.height / dpr : g.canvas.height);
+  // ⚠ THE PLAIN CAMERA, NOT THE SHIFTED ONE. A card is collected fresh every frame in the
+  // camera-relative tiles the deck works in, the way a light is — only the cached mesh lives in
+  // the map window frame. Same ⚠ as the sprites, one pass later.
+  const n = g.view.drawCloudDeck(cam, cards, cssH, opts);
+  return n ? { cards: n, canvas: g.canvas } : null;
+}
+
 export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const W = host.width, H = host.height;
   // ⚠ THE CANVAS IS IN DEVICE PIXELS AND THE CAMERA IS IN CSS PIXELS, AND THE MATRIX NEEDS THE

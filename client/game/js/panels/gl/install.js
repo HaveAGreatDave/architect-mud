@@ -8,8 +8,8 @@
 // This module is that call, and it is the only place that knows both halves: it hands the GL pass
 // the renderer's own mesh capture, its own baked textures and its own palette, so nothing here has
 // an opinion about what a building is made of.
-import { installGLWorld, captureModelMesh, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, glLightState, RENDER_TUNE } from '../windshield.js';
-import { glWorldPass } from './world.js';
+import { installGLWorld, installGLClouds, captureModelMesh, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, glLightState, RENDER_TUNE } from '../windshield.js';
+import { glWorldPass, glCloudPass } from './world.js';
 import { NEAR, FAR } from './camera.js';
 import { MAX_LIGHTS } from './context.js';   // the uniform budget the light pass asks for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
 
@@ -126,7 +126,18 @@ export function installGL(hostFor) {
       },
     }));
   });
-  return () => installGLWorld(null);
+  // The deck, on the same scene and the same depth buffer, from where the 2-D queue has always
+  // drawn it. Its own installation because it is called at a different MOMENT — after the world
+  // blit — and a moment is not something one hook can express twice.
+  installGLClouds((cam, cards, opts) => {
+    const out = glCloudPass(opts.id || (hostFor && hostFor() || {}).id || 'ws', cam, cards, opts);
+    // Recorded on the world pass own stats rather than in a second place, so glLastFrame() stays the
+    // one answer to what the GPU drew this frame — and so a deck that quietly stopped drawing shows
+    // up as a zero next to the faces rather than not at all.
+    if (lastStats) lastStats.cloudCards = out ? out.cards : 0;
+    return out;
+  });
+  return () => { installGLWorld(null); installGLClouds(null); };
 }
 
 export { RENDER_TUNE };

@@ -22,6 +22,7 @@ import { createDecalLayer } from './decals.js';
 import { createBillboardLayer } from './billboards.js';
 import { createGroundLayer } from './ground.js';
 import { createFloorLayer } from './floor.js';
+import { createCloudLayer } from './clouds.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
 // haze jitter 1.
@@ -431,6 +432,25 @@ export function createGLView(canvas) {
     return L.draw(cam, canvas.width, canvas.height, cssH);
   }
 
+  // The fly-through cloud deck, drawn in a SECOND pass over the same buffer. See gl/clouds.js:
+  // the colour is cleared and the DEPTH IS NOT, so the cards test against the city the world
+  // pass wrote a moment ago without the mass being uploaded twice or the frame reordered.
+  let clouds = null;
+  const cloudLayer = () => (clouds || (clouds = createCloudLayer(gl)));
+  function drawCloudDeck(cam, cards, cssH, opts = {}) {
+    if (!cards || !cards.length) return 0;
+    const L = cloudLayer();
+    if (opts.noise) L.setNoise(opts.noise);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    // ⚠ COLOUR ONLY. Clearing DEPTH here puts every cloud back in front of every tower, which is
+    // exactly what the 2-D deck did and exactly what this pass exists to stop — and it would look
+    // like the port having no effect rather than like a missing bit.
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    L.upload(cards);
+    return L.draw(cam, canvas.width, canvas.height, cssH, opts);
+  }
+
   // The Curtain, on the same depth buffer as the mass. Built lazily like the lights: a view that
   // never sees the wall never compiles the program.
   let curtain = null;
@@ -477,6 +497,6 @@ export function createGLView(canvas) {
   const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
   function drawFloor(state) { return state ? floorLayer().draw(state) : 0; }
 
-  return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawBillboards, drawGround, drawFloor, setAtlas, lost: () => gl.isContextLost(),
+  return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawBillboards, drawGround, drawFloor, drawCloudDeck, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; } };
 }

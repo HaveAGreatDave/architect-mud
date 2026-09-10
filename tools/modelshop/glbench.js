@@ -995,4 +995,144 @@ export function runLights({ W = 640, H = 360, frames = 30, warm = 10 } = {}) {
   return { rows, swept };
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; window.__glLights = runLights; }
+// ── IS THE CLOUD DECK STILL THE SAME SKY? ───────────────────────────────────
+//
+// `__glClouds()`. The fly-through deck is a swarm of small puffs, each a stack of cards, and every
+// card is a radial gradient and an ellipse fill — measured headlessly by `npm run shapes:clouds` at
+// 2,757 to 9,460 canvas calls a frame. On the GPU each card is a quad, depth-tested against the
+// city the world pass just wrote, so a tower can finally stand IN a cloud instead of the painter
+// having to pick a side.
+//
+// ⚠ THE WHOLE FRAME IS COMPARED HERE, unlike __glFidelity, and that is deliberate rather than
+// sloppy: the deck covers the sky and the sky is most of the frame, so masking it to "the clouds"
+// would mean deciding where the clouds are, which is the thing under test. The scene is a bare
+// plain with no buildings for the same reason — a city in the frame would put the mass, the trim
+// and the lights into a number that is supposed to be about vapour.
+//
+// ⚠ AND THE CLOCK IS FROZEN. The cells drift, the birds fly. A diff across a moving sky measures
+// the sky, which is the trap runFidelity is written around and this borrows.
+const CLOUD_FIELD = (baseCloud, kinds) => ({
+  tick: 30, bounds: { minX: 80, maxX: 120, minY: 80, maxY: 120 }, wind: { dir: 220, kph: 18 },
+  baseCloud, precipFloor: 0, floorType: 'none',
+  cells: kinds.map((k, i) => ({
+    x: 100 + (i - 1) * 9, y: 88 + i * 8, r: 13 - i * 2, vx: 0.4 - i * 0.3, vy: 0.2 + i * 0.2,
+    type: k, intensity: 0.9 - i * 0.1, precip: k === 'cloud' ? 'none' : 'rain',
+  })),
+});
+const CLOUD_SEATS = [
+  { tag: 'cumulus, from below', wx: 'clear', h: 0.6, ay: 106, hour: 11, field: CLOUD_FIELD(0.15, ['cloud', 'cloud']) },
+  { tag: 'cumulus, in the deck', wx: 'clear', h: 1.6, ay: 98, hour: 11, field: CLOUD_FIELD(0.15, ['cloud', 'cloud']) },
+  { tag: 'overcast, in the deck', wx: 'cloudy', h: 0.9, ay: 100, hour: 13, field: CLOUD_FIELD(0.55, ['cloud', 'precip', 'storm']) },
+  { tag: 'storm, alongside', wx: 'storm', h: 1.1, ay: 112, hour: 13, field: CLOUD_FIELD(0.6, ['storm', 'precip', 'cloud']) },
+  { tag: 'overcast at night', wx: 'cloudy', h: 0.9, ay: 100, hour: 2, field: CLOUD_FIELD(0.55, ['cloud', 'precip', 'storm']) },
+];
+
+export function runCloudDeck({ W = 640, H = 360, frames = 24, warm = 10 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__clouds'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const mid = (a) => { const b = [...a].sort((p, q) => p - q); return b[b.length >> 1]; };
+  const flat = Array.from({ length: 21 }, () => Array.from({ length: 21 }, () => ({ kind: 'land', biome: 'grass', flr: 0 })));
+
+  // The 2-D call count, which is deterministic and is the half of this that can be compared across
+  // days. Only the frame canvas is counted; the GL canvas has no 2-D context.
+  const realGet = HTMLCanvasElement.prototype.getContext;
+  let calls = null;
+  HTMLCanvasElement.prototype.getContext = function (t, o) {
+    const cx = realGet.call(this, t, o);
+    if (!String(this.id).startsWith('__clouds') || t !== '2d') return cx;
+    return new Proxy(cx, {
+      get(a, k) { const v = a[k]; if (typeof v !== "function") return v; return (...z) => { if (calls) calls.n++; return v.apply(a, z); }; },
+      set(a, k, v) { a[k] = v; return true; },
+    });
+  };
+
+  const rows = [];
+  const realNow = performance.now.bind(performance);
+  try {
+    for (const seat of CLOUD_SEATS) {
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+      const view = {
+        cls: 'prop', phase: 'cruise', worldBlend: 1, height: seat.h, hour: seat.hour, weather: seat.wx,
+        speed: 0.4, map: flat, heading: 0, mapCenter: { x: 100, y: seat.ay },
+        wxField: seat.field, acX: 100, acY: seat.ay,
+        resFloor: 1, tune: { gl: 1, perfDS: 0 },
+      };
+      // ⚠ A SEAT OF ITS OWN, for the reason spelled out in runLights: sceneFor(id) advances smoothed
+      // state by dt, which under a frozen clock is zero for ever, so a second seat inherits the first.
+      const ID = '__clouds' + CLOUD_SEATS.indexOf(seat) + '_' + (runCloudDeck.n = (runCloudDeck.n || 0) + 1);
+      el.id = ID;
+      const paint = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
+
+      performance.now = () => 1e6;
+      RENDER_TUNE.glClouds = 0;
+      for (let i = 0; i < warm; i++) paintWindshield(ID, view);
+      paint(view); const two = shot();
+      calls = { n: 0 }; paintWindshield(ID, view); const calls2 = calls.n; calls = null;
+      RENDER_TUNE.glClouds = 1;
+      for (let i = 0; i < warm; i++) paintWindshield(ID, view);
+      paint(view); const gl = shot();
+      const st = glLastFrame() || {};
+      calls = { n: 0 }; paintWindshield(ID, view); const callsGL = calls.n; calls = null;
+      // ⚠ AND A THIRD RENDER WITH NO DECK AT ALL, which is what makes the first number mean
+      // anything. "The two renderers agree to 0.15%" is also exactly what comes back when the new
+      // one draws NOTHING and the old one drew very little — the same trap the light pass fell into
+      // one section up, where a whole feature measured as agreeing beautifully because it was
+      // invisible. `vsNone` is how much the deck is worth at all, and `meanPct` is only readable
+      // beside it: 0.15 against 2.57 says the port is faithful, 0.15 against 0.15 would say it is
+      // absent.
+      RENDER_TUNE.volClouds = 0;
+      for (let i = 0; i < warm; i++) paintWindshield(ID, view);
+      paint(view); const none = shot();
+      RENDER_TUNE.volClouds = 1;
+      performance.now = realNow;
+
+      let n = 0, sum = 0, over = 0, worst = 0, sumNone = 0;
+      for (let i = 0; i < two.length; i += 4) {
+        const d = (Math.abs(gl[i] - two[i]) + Math.abs(gl[i + 1] - two[i + 1]) + Math.abs(gl[i + 2] - two[i + 2])) / 3;
+        n++; sum += d; if (d > 16) over++; if (d > worst) worst = d;
+        sumNone += (Math.abs(gl[i] - none[i]) + Math.abs(gl[i + 1] - none[i + 1]) + Math.abs(gl[i + 2] - none[i + 2])) / 3;
+      }
+
+      // Alternated, minimum of each side — see the ⚠ in runLights, where a fixed order reported a
+      // 2.5 ms cost on a seat that was provably free.
+      const run = (g) => {
+        RENDER_TUNE.glClouds = g;
+        for (let i = 0; i < warm; i++) paintWindshield(ID, view);
+        const t = [];
+        for (let i = 0; i < frames; i++) { const t0 = performance.now(); paintWindshield(ID, { ...view, heading: i * 0.7 }); t.push(performance.now() - t0); }
+        return mid(t);
+      };
+      const offs = [], ons = [];
+      for (let r = 0; r < 3; r++) { offs.push(run(0)); ons.push(run(1)); }
+      RENDER_TUNE.glClouds = 1;
+
+      rows.push({
+        seat: seat.tag, cards: st.cloudCards || 0,
+        calls2d: calls2, callsGL, saved: calls2 - callsGL,
+        meanPct: +(sum / n / 255 * 100).toFixed(2), vsNone: +(sumNone / n / 255 * 100).toFixed(2),
+        overPct: +(over / n * 100).toFixed(1), worst: Math.round(worst),
+        msOff: +Math.min(...offs).toFixed(2), msOn: +Math.min(...ons).toFixed(2),
+        gain: +(Math.min(...offs) - Math.min(...ons)).toFixed(2),
+      });
+    }
+  } finally {
+    performance.now = realNow;
+    HTMLCanvasElement.prototype.getContext = realGet;
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0; RENDER_TUNE.glClouds = 1; RENDER_TUNE.volClouds = 1;
+    uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   cards is what the GPU actually drew — a zero there with the flag on is the silent failure.');
+  console.log('   meanPct is only readable beside vsNone: a small difference from the 2-D deck means a faithful port only if the deck is worth something in the first place.');
+  console.log('   saved is deterministic and is the number to compare across days; gain is not.');
+  return rows;
+}
+
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; window.__glLights = runLights; window.__glClouds = runCloudDeck; }
