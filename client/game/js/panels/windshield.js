@@ -142,6 +142,15 @@ export const RENDER_TUNE = {
   // ── Performance / adaptive-quality knobs (all live-tunable) ─────────────────────
   floorSubpixel: 0,   // 1 = size the Mode-7 ground raster in BACKING pixels rather than CSS pixels, so its texels match the resolution everything else in the frame is drawn at. Off by default because it costs dpr² times the texel loop and an aircraft's ground is a distant carpet; a ground camera (the truck cab) is looking straight at it and wants it. See M7_MIN_DS.
   perfDS: 1,          // 1 = under sustained frame-load, bump the Mode-7 floor's per-pixel downscale (DS) up to +4 on top of `pixel`, quartering the ground-raster texel count. The floor is a fixed-cost software raster the canvas dynamic-res dial can't touch, so this is the one lever that sheds its load. 0 = fixed `pixel` DS always.
+  // How finely a textured wall or roof is split so its perspective stays honest. A 2-D canvas can
+  // only map a texture affinely, so a face at an angle is cut into cells small enough that affine is
+  // right within one; `texqPx` is the worst residual warp in screen pixels we accept, `texqMaxK` caps
+  // the cells per axis and `texqCells` the total for a two-axis (roof) grid. The defaults are the
+  // measured cost-neutral point for a renderer drawing a whole city — see the derivation above
+  // drawTexQuadPersp. Raise them when the frame holds one building and nothing else (the Modelshop
+  // does); they buy picture, and they cost clip/transform/drawImage calls in proportion. On GLASS 2
+  // none of this runs: the GPU divides by w per pixel and the warp does not exist.
+  texqPx: 6, texqMaxK: 16, texqCells: 32,
   wallLodPx: 20,      // building-wall LOD: a wall whose on-screen height is below this (px) skips the perspective-correct column-split textured blit (the expensive clip/transform/drawImage storm) and fills one flat shaded polygon instead — a far/small wall's window grid is an aliased blur anyway. Higher = flat-shade more walls (faster, less detail); 0 = always texture every wall.
   // Building distance LOD (see drawModelLOD). `lodNear` is where a building stops running its full
   // model arm and is drawn from its captured segments instead; at exactly that distance the two are
@@ -7670,6 +7679,37 @@ function drawTexQuad(ctx, img, P0, P1, P2, P3, smooth) {
 // two raw affine triangles — 245px of crease on a low pass, 380px on a grazing one. Interpolating
 // over the corner depths is perspective-correct for any planar quad, needs no camera, and covers
 // both cases from one place.
+//
+// ── ⚠ AND EVERY NUMBER IN THAT TABLE WAS MEASURED AGAINST A RENDERER DRAWING THE WHOLE CITY ──
+// 6px/16 is where the walls came out cost-neutral against a frame shared with a skyline, and the cap
+// is there because the clip/transform/drawImage storm was competing with two thousand other faces.
+// GLASS 2 changed who is paying. The city's mass is on the GPU, where the perspective divide is free
+// and this warp does not exist at all — so what is left on this path is the FALLBACK (no WebGL2, a
+// lost context) and the Modelshop's preview, which draws ONE building and shares its frame with
+// nothing.
+//
+// The defaults are left exactly where they were measured: the fallback is the case where the machine
+// is already known to be weak, and handing it a finer grid as a reward for having no GPU is the
+// wrong way round. They are knobs instead, so a caller that knows it is drawing one building can buy
+// the warp out — see renderModelPreview, which does.
+//
+// ── ⚠ AND THERE IS A CEILING, WHICH IS A CORRECTNESS LIMIT AND NOT A COST ONE ────────────────
+// Past roughly K = 96 on a face this size the picture gets WORSE, and the shape of the mistake is
+// that it looks like it is getting better right up until you measure it. Every cell is a clipped,
+// antialiased blit; once a cell is about a pixel wide its two clipped edges are most of it, and the
+// seams composite. Measured on the bank at a close pose, against a converged K ≤ 96 render:
+//
+//     6px / K16     9.15% of pixels displaced      (the warp)
+//     1.5px / K96   4.65%
+//     0.5px / K96   0     ← reference
+//     0.4px / K400  5.50%      mean luminance 27.41 → 27.69
+//     0.2px / K800  9.25%                          → 27.95
+//
+// The last two are as far from the truth as doing nothing was, and the rising luminance is the
+// tell: that is background bleeding through seams, not detail arriving. So a "reference" render
+// taken at an enormous K is not a reference — the first version of this measurement used one, and
+// it made a finer setting score worse than the shipped one, which reads exactly like the fix not
+// working. Anything above ~K96 is buying seams.
 const TEXQ_TARGET_PX = 6;     // worst residual warp we are willing to leave on screen, in pixels
 const TEXQ_MAX_K = 16;        // per-axis cell cap — past this the clip/transform/drawImage storm costs more than the bow does
 const TEXQ_MAX_CELLS = 32;    // total cells for a two-axis (roof) quad; an unbudgeted 16×16 grid is 512 triangles for one soffit
@@ -7694,7 +7734,9 @@ function perspPt(P, Fd, u, v) {
 function texqK(fA, fB, px) {
   const r = Math.max(fA, fB) / Math.max(1e-3, Math.min(fA, fB));
   if (!(r > 1.0001) || !(px > 0)) return 1;
-  return Math.min(TEXQ_MAX_K, Math.max(1, Math.ceil(0.3 * px * (1 - 1 / r) / TEXQ_TARGET_PX)));
+  const target = TUNE.texqPx > 0 ? TUNE.texqPx : TEXQ_TARGET_PX;
+  const cap = TUNE.texqMaxK > 0 ? TUNE.texqMaxK : TEXQ_MAX_K;
+  return Math.min(cap, Math.max(1, Math.ceil(0.3 * px * (1 - 1 / r) / target)));
 }
 // Seam positions in TEXTURE space, spaced uniformly in SCREEN space (see above). 1/f is what is
 // linear across the screen, so step that, then invert each depth back to a texture coordinate —
@@ -7722,7 +7764,8 @@ function drawTexQuadPersp(ctx, img, P0, P1, P2, P3, Fd, smooth) {
   if (Ku <= 1 && Kv <= 1) { drawTexQuad(ctx, img, P0, P1, P2, P3, smooth); return; }   // flat-on: one affine quad is fine (and cheap)
   // Two-axis budget. Shrink the grid along its diagonal so a steeply foreshortened roof cannot turn
   // one soffit into a thousand clipped blits; the axis that wants it most keeps the larger share.
-  while (Ku * Kv > TEXQ_MAX_CELLS && (Ku > 1 || Kv > 1)) { if (Ku >= Kv) Ku--; else Kv--; }
+  const cellCap = TUNE.texqCells > 0 ? TUNE.texqCells : TEXQ_MAX_CELLS;
+  while (Ku * Kv > cellCap && (Ku > 1 || Kv > 1)) { if (Ku >= Kv) Ku--; else Kv--; }
   const W = img.width, H = img.height;
   const us = texqSeams(uA, uB, Ku), vs = texqSeams(vA, vB, Kv);
   // One row of grid points is carried into the next, so each interior point is solved once.
@@ -8386,7 +8429,10 @@ let PERF_DS = 0;   // adaptive Mode-7 downscale bump (0..4), set per-frame in pa
 // `pixel` qualifies on the rule above and is the most consequential key in the set: it is the
 // Mode-7 ground raster's texel size, so it decides how much of a fixed-cost software loop runs and
 // decides nothing about where anything is. Nothing outside a frame reads it.
-const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'pixel', 'floorSubpixel', 'texRes', 'gl']);
+// The three texq keys qualify on the rule above for the same reason `pixel` and `texRes` do: they
+// decide how much work a mapping is allowed to spend on itself and decide nothing about where any
+// geometry is. A face occupies the same four screen corners at every setting.
+const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'pixel', 'floorSubpixel', 'texRes', 'gl', 'texqPx', 'texqMaxK', 'texqCells']);
 // The resolved tune for the frame in progress. Defaults to RENDER_TUNE itself -- so with no caller
 // override this is the same object it always was, and the sliders keep working because the merge is
 // rebuilt from RENDER_TUNE every frame rather than snapshotted once.
@@ -14866,6 +14912,8 @@ export function shapeRenderSmoke() {
 // resolves to `f = dist`, `l = 0`) and orbiting is done by walking the heading around it.
 //
 // `canvas` must be a sized canvas element; this file must not reach into the DOM for one.
+// The preview's perspective budget — see the `texq` note inside.
+const PREVIEW_TEXQ = { texqPx: 1.5, texqMaxK: 96, texqCells: 256 };
 export function renderModelPreview(canvas, opts = {}) {
   if (SHAPE_SINK) throw new Error('renderModelPreview: SHAPE_SINK is set — a capture is in flight');
   const {
@@ -14881,6 +14929,25 @@ export function renderModelPreview(canvas, opts = {}) {
     // `pitch` because a preview of an AIRCRAFT already has a pitch — the craft's attitude — and
     // the two would be one field with two meanings. 0 is the projection GLASS has always had.
     camPitch = 0,
+    // ── THE PREVIEW BUYS ITS PERSPECTIVE OUT AND THE SHIPPING RENDERER DOES NOT ───────────────
+    // A 2-D canvas maps a texture affinely, so drawTexQuadPersp splits a face into cells until the
+    // residual warp is under TEXQ_TARGET_PX — six pixels, which is where the walls came out
+    // cost-neutral for a renderer drawing a whole skyline. Standing at the foot of a tower, six
+    // pixels is a window grid that visibly bows, and the tool that exists for looking at ONE
+    // building close up is exactly where somebody sees it.
+    //
+    // ⚠ THE GAME DOES NOT HAVE THIS BUG, WHICH IS WHY THE FIX IS HERE AND NOT IN THE DEFAULT. The
+    // city's mass is on the GPU, where the perspective divide is per-pixel and free — so a preview
+    // that bows is the PREVIEW disagreeing with the sim, the one thing this function exists not to
+    // do. Lowering the shipped default instead would spend the FALLBACK renderer's frame — the
+    // machine with no WebGL2, already the weakest one — to fix a picture only the Modelshop draws.
+    //
+    // Measured over five models at 790×870: free at the distances the tool actually orbits at
+    // (1.21 ms/model against 1.38 shipped, inside the noise), and 6.2 ms against 1.6 nose-on,
+    // which is the only pose the warp lives in and a budget a single-model editor has. Against a
+    // 0.4px/K400 reference render the same close pose goes 5.06% of pixels displaced to 2.4%.
+    // `texq: {}` opts back out to whatever RENDER_TUNE says.
+    texq = PREVIEW_TEXQ,
   } = opts;
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
@@ -14908,15 +14975,20 @@ export function renderModelPreview(canvas, opts = {}) {
   }
 
   const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedTier = ADORN_TIER;
+  const savedTune = TUNE;
   try {
     FACE_SINK = [];
     ADORN_TIER = tier;
+    // ⚠ Restored below, unlike a frame's own TUNE. paintWindshield can leave its resolved tune
+    // lying about because it re-resolves at the top of every frame; this is not a frame, and the
+    // next thing to read TUNE may be a capture or a bench that never sets one.
+    TUNE = resolveTune(texq);
     drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board);
     flushFaces();
     if (wire) drawShapeWire(ctx, cam, dx, dy, fh, h, m, seed, E, -1);
   } finally {
     FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight;
-    _bladeSign = savedSign; ADORN_TIER = savedTier;
+    _bladeSign = savedSign; ADORN_TIER = savedTier; TUNE = savedTune;
     ctx.restore();
   }
   return { cam, dx, dy, horizonY };
