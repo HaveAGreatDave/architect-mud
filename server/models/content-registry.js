@@ -343,6 +343,14 @@ export const REGISTRY = [
   // files. It is an absent-by-default override in exactly the sense above — a
   // broadcast IS staged in a zone or it is not — and import still forces the NULL,
   // so unstaging one clears the column.
+  // ⚠ `acted` IS NOT ON THAT LIST, AND MUST NOT GO ON IT. It is `BOOLEAN DEFAULT FALSE`, so a row
+  // reads `false` and never null — `omitWhenNull` would not fire on it at all, and a file that
+  // omitted the key would go on disagreeing with its own row for ever. That disagreement is not
+  // theoretical: it made `--guard-wip` refuse a pull on 2026-09-10 ("unexported local edits") for
+  // a 673-line commit whose entire conflict was this one boolean, with the authored half of the
+  // file provably untouched. Every file states it, which is also the reason `connections` gives
+  // for stating its three booleans: flipping one back to false is then an UPDATE the import
+  // applies, rather than a key that simply stops being sent.
   { table: 'media_broadcasts', class: 'content', pk: ['id'], readTier: 'boot',
     where: "id NOT LIKE 'bc_clip_%'", omitWhenNull: ['location_zone_id'],
     runtimeInserts: 'broadcast ensureClipBroadcast mints bc_clip_* rows (outside predicate); surveillance reaps them' },

@@ -1,4 +1,5 @@
 {
+  "acted": false,
   "broadcast_graph": {
     "_start": "qh_start",
     "nodes": {
