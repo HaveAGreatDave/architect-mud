@@ -140,7 +140,7 @@
           "y": 40
         },
         "graphic_id": "quiet_hour_testcard",
-        "next": "qh_tone1",
+        "next": "qh_daycheck",
         "type": "title_card"
       },
       "qh_card3": {
@@ -669,29 +669,9 @@
           "x": 480,
           "y": 1560
         },
-        "next": "qh_tone2",
+        "next": "qh_credits",
         "text": "THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and aren't stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching",
         "type": "ticker"
-      },
-      "qh_tone1": {
-        "_vine": {
-          "x": 680,
-          "y": 40
-        },
-        "next": "qh_daycheck",
-        "song": "quiet_hour_tone",
-        "text": "♪ A single sustained tone, low and warm, the kind you stop hearing after a while and then notice you have stopped hearing. ♪",
-        "type": "music"
-      },
-      "qh_tone2": {
-        "_vine": {
-          "x": 680,
-          "y": 1560
-        },
-        "next": "qh_credits",
-        "song": "quiet_hour_tone",
-        "text": "♪ The tone resumes. It doesn't resolve. It simply continues, at exactly the volume it was before. ♪",
-        "type": "music"
       },
       "qh_vats": {
         "_vine": {
