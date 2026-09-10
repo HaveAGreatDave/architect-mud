@@ -59,6 +59,17 @@ isn't there for them. The pad ROOM is walled separately by `flags.residents_only
 [reference/world-rendering.md](reference/world-rendering.md) for how a rooftop pad renders
 as field *and* building on one tile.
 
+⚠ **THE ROOM DESCRIPTION ANSWERS TO THE SAME RULE, AND FOR MONTHS IT DID NOT.** `zone.describeRoom`
+built the whole services block — the bay, the pumps, the desks — off the raw `flags.airfield_id`
+on the tile, while `fieldFor()` decided whether any of it would open. Two gates on one surface,
+disagreeing: the Solenne Sky Pad printed `Services: hangar · refuel` and then answered `hangar`
+with *"Hangars are at the airfields."*, and every passer-by on the public street outside the lobby
+was offered a hangar bay they could not use. The rule is now one exported function
+(`fieldOpenTo(fieldZone, player)` in state.js) that both `fieldFor` and `describeAirfield` call —
+if the room says it, the verb opens it. **Admin and dev pass it**, exactly as they pass the
+residency move gate that let them onto the pad in the first place; without that a builder standing
+on the deck was told there was no field under their feet.
+
 **Rooftop helidecks land by CATCH VOLUME, not by touchdown** *(built)*. A rooftop pad is the
 one place in the city where ending up on top of a building is the goal, and everything else
 in the sim (CFIT) exists to prevent exactly that — so the pad borrows the Echelon's contract

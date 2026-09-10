@@ -507,12 +507,26 @@ export function fieldFor(player) {
     : z.flags?.hangar_ramp ? getZone(z.flags.hangar_ramp)                  // inside the hangar → its ramp
     : null;
   if (!f) return null;
-  // A PRIVATE field — a building's own pad (`residents_only: "<building>"`) — serves
-  // only that building's residents. Reporting "no field here" for everyone else gates
-  // the whole services surface in one place: bay, rent/store, refuel, tuning.
-  const priv = airfieldOf(f)?.residents_only;
-  if (priv && !isResidentOf(player, priv)) return null;
-  return f;
+  return fieldOpenTo(f, player) ? f : null;
+}
+
+// Does this field serve this player at all? A PRIVATE field — a building's own pad
+// (`residents_only: "<building>"`) — serves only that building's residents.
+//
+// ⚠ IT IS ALSO THE RULE THE ROOM DESCRIPTION ANSWERS TO, and that is why it is a function rather
+// than four lines inside fieldFor. `zone.describeRoom` advertised the bay, the pumps and the
+// desks off the raw `airfield_id` flag while this decided whether any of them would open, so the
+// Solenne Sky Pad printed "Services: hangar · refuel" and then answered `hangar` with "Hangars are
+// at the airfields." — two gates on one surface, disagreeing.
+//
+// Admin and dev pass, exactly as they do at the residency move gate that let them onto the pad in
+// the first place (plugins/residency). Without that a builder standing on the deck was told there
+// was no field under their feet.
+export function fieldOpenTo(fieldZone, player) {
+  const priv = airfieldOf(fieldZone)?.residents_only;
+  if (!priv) return true;
+  if (['admin', 'dev'].includes(player?.role)) return true;
+  return isResidentOf(player, priv);
 }
 
 // The real runway a field's aircraft take off along, derived from the map's yellow

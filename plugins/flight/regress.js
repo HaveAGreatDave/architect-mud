@@ -14,7 +14,7 @@ import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope, PYLON_MIN_TOW,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
   isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf, bombLoad, bombAmmo, waypointFor, bounds as flightBounds,
-  vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS, airfieldOf, fieldName } from './state.js';
+  vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS, airfieldOf, fieldOpenTo, fieldName } from './state.js';
 import { isFreightLicensed, ensureFreightDrops, isAirCargoUnlocked, hasCacheStanding,
   openOrders, placeCacheOrder, rawsCatalogue, trustFor, unitsPerPallet, palletPrice,
   waitingDropAt, FENCE_CACHES } from './contracts.js';
@@ -986,6 +986,41 @@ export default async function regress({ run, check, getPlayer }) {
   // The gate lives in pushHangarBay (not cmdHangar) precisely so every entry point
   // — bare `hangar`, `fleet`, `showroom`, `view`, the zone.entered auto-open, and
   // each command's post-action refresh — is covered by construction.
+  // ── A private pad advertises exactly what it will open ──────────────────────
+  // The Solenne Sky Pad printed "Services: hangar · refuel" and then answered `hangar` with
+  // "Hangars are at the airfields." — the room read the raw airfield_id flag and the verb read
+  // residency. One rule now answers both, so this holds the two together rather than restating
+  // either: whatever the description says, fieldFor must agree.
+  {
+    const priv = listAirfields().find(f => airfieldOf(getZone(f.id))?.residents_only);
+    check('a residents-only field exists to test the private-pad rule', !!priv, 'none authored');
+    if (priv) {
+      const z = getZone(priv.id);
+      // The suite's own player, worn two ways — describeAirfield reads display-mode flags off it,
+      // so a hand-rolled object with an id nothing knows would be testing a different code path.
+      const savedRole = p.role, savedZoneP = p.current_zone;
+      p.current_zone = z.id;
+      const nobody = Object.assign(p, { role: 'player' });
+      const dev = Object.assign({}, p, { role: 'admin' });
+      check('a private pad is closed to a non-resident', fieldOpenTo(z, nobody) === false);
+      check('a private pad is open to admin/dev, as the move gate that let them in already is',
+        fieldOpenTo(z, dev) === true);
+      const shown = await _test.describeAirfield(z, nobody);
+      check('and it advertises nothing to them', shown === undefined, String(shown).slice(0, 80));
+      const shownDev = await _test.describeAirfield(z, dev);
+      check('while the surface it will open still shows', /Hangar bay:/.test(shownDev || ''),
+        String(shownDev).slice(0, 80));
+      // The public case is untouched — the gate must not have swallowed every field's services.
+      const pub = listAirfields().find(f => {
+        const pz = getZone(f.id);
+        return pz?.flags?.airfield_id && !airfieldOf(pz)?.residents_only;
+      });
+      if (pub) check('a public field still describes its services to anyone',
+        /Hangar bay:/.test(await _test.describeAirfield(getZone(pub.id), nobody) || ''));
+      p.role = savedRole; p.current_zone = savedZoneP;
+    }
+  }
+
   {
     const savedBc = getBroadcast(), savedZoneH = p.current_zone;
     // A residents-only pad is deliberately invisible to a non-resident — fieldFor()

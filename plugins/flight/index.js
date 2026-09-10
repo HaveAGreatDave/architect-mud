@@ -40,7 +40,7 @@ import {
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
   RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, listRegions, worldTerrainMap, craftIsVtol, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
-  airfieldOf, fieldName, PILOT_IP,
+  airfieldOf, fieldOpenTo, fieldName, PILOT_IP,
 } from './state.js';
 import './hvac.js';   // registers a running cockpit as a climate-controlled cabin — see the file header
 import { boardCompanions } from './companions.js';
@@ -1639,6 +1639,9 @@ function serviceBits(field) {
 async function describeHangarInterior(zone, player) {
   const ramp = getZone(zone.flags.hangar_ramp);
   if (!ramp) return `<span class="furniture-label">Hangar:</span> ${svcLink('out', 'out')} <span class="text-dim">back out to the ramp</span>`;
+  // A private pad's services are the resident's; see fieldOpenTo. Nothing is advertised to
+  // somebody the verbs behind it would turn away.
+  if (!fieldOpenTo(ramp, player)) return undefined;
   const textOnly = await prefersTextTravel(player);
   let line = `${serviceBits(ramp)}\n<span class="furniture-label">Ramp:</span> ${svcLink('out', 'out')} <span class="text-dim">step back out onto the ramp</span>`;
   line += textOnly
@@ -1673,6 +1676,10 @@ async function describeAirfield(zone, player) {
     return `<span class="furniture-label">Controls:</span> ${svcLink('takecontrols', 'take the controls')} <span class="text-dim">— drop into the seat and fly her; step back out with <b>handoff</b> once she's down</span>`
       + `\n<span class="furniture-label">NAV console:</span> ${svcLink('nav', 'chart a course')} <span class="text-dim">— set where the crew fly her when you <b>handoff</b> in the air (also on the <b>DEADHEAD</b> tablet app)</span>`;
   if (!zone?.flags?.airfield_id) return undefined;
+  // ⚠ THE SAME RULE THE VERBS ANSWER TO. A field flag on a tile is not permission to use it: a
+  // building's own pad serves its residents, and this line used to advertise a hangar bay, pumps
+  // and desks to every passer-by that `hangar` would then refuse. One gate, both surfaces.
+  if (!fieldOpenTo(zone, player)) return undefined;
   const f = zone.flags;
   let line = serviceBits(zone);
   // A prominent, dedicated line for the 3D hangar bay so the look scene has an
@@ -2258,6 +2265,6 @@ export const routeHandler = async (path, method, body, auth) => {
   return null;
 };
 
-export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewLand, crewDivertFuel, groundStop, GROUND_STOP_SEVERITY };
+export const _test = { describeAirfield, surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewLand, crewDivertFuel, groundStop, GROUND_STOP_SEVERITY };
 
 console.log('[flight] Plugin loaded.');
