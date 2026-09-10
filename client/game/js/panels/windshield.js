@@ -14197,7 +14197,15 @@ export function bayMassSmoke() {
   near(buildingHeightZ(wx, wy, cell), BAY.RIDGE, 1e-9, "buildingHeightZ isn't the drawn ridge");
   near(modelTopZAt(wx, wy, cell, wx, wy), BAY.RIDGE, 1e-9, "the probe over the ridge isn't the ridge");
   near(modelTopZAt(wx, wy, cell, wx + BAY.HW - 0.005, wy), BAY.WALL, 0.005, "the probe at the eaves isn't the eaves");
-  near(buildingRoofFtAt(wx, wy, cell, wx, wy), BAY_FLOORS * FT_PER_FLOOR, 1e-6, 'the ridge in feet');
+  // ⚠ THE RIDGE IN FEET IS THE RIDGE IN WORLD-Z READ THROUGH altForRoofZ, never floors × 12.
+  // The linear form is what this line asserted until altForRoofZ landed, and it is the exact bug
+  // that conversion was written to end: the shed collided out to 26.4 ft while the eye only rises
+  // above its drawn roof at 2.2, which is a hit on something the driver can plainly see they are
+  // over. Restoring the multiplication puts the bug back and turns this gate green over it.
+  //
+  // The storey count still has to agree with the ridge — that is the `worth` check above, and it
+  // is the half of the contract BAY_FLOORS is actually for.
+  near(buildingRoofFtAt(wx, wy, cell, wx, wy), altForRoofZ(BAY.RIDGE), 1e-6, 'the ridge in feet');
   if (modelTopZAt(wx, wy, cell, wx + 0.49, wy + 0.49) !== 0) out.push('the probe found mass outside the shed footprint');
   if (groundObstructionAt(wx, wy, cell, wx, wy, 0.01) !== 0) out.push('a truck can no longer drive into the bay — the one hole in the collision model closed');
   // ── THE DOOR YOU CAN ALWAYS DRIVE OUT OF ─────────────────────────────────
