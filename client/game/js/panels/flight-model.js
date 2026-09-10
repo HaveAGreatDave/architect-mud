@@ -530,6 +530,13 @@ for (const p of Object.values(TYPES)) if (!p.heli) p.bestGlide = Math.round(tuni
 export function createState(p) {
   return {
     airspeed: 0, altitude: 0, pitch: p.groundPitch || 0, bank: 0, heading: 0,   // taildraggers start parked nose-high on the tailwheel
+    // THE GROUND IS NOT ALWAYS AT ZERO. Altitude here is height over a flat world, and for every
+    // strip and pad in the game the floor under the wheels is sea level. A rooftop helipad is the
+    // exception: the deck is the crown of a tower, and a helicopter parked on it that clamps to
+    // zero is a helicopter in the street. The owner sets this per frame (cockpit.js — deckFloorFt)
+    // from the same captured roof geometry CFIT reads, so the deck you sit on is the deck you would
+    // have collided with. 0 everywhere else, which is the behaviour that has always shipped.
+    groundFt: 0,
     tailDown: 1,           // taildragger heli: tailwheel planted (the parked 3-point sit) — see stepHeli §2
     vs: 0,                 // ft/min
     rpm: 0,                // 0..1 (spooled fraction of throttle)
@@ -689,8 +696,11 @@ function stepHeli(state, input, p, dt) {
   // Ground cushion (in-ground-effect): within ~a rotor-diameter of the deck the downwash piles
   // into a lift cushion, so a descent SOFTENS as you near the ground — she eases onto the skids
   // instead of dropping the last few feet. Sink only; hover and climb are untouched.
-  if (!s.onGround && vsTarget < 0 && s.altitude < HELI_GROUND_EFFECT_FT) {
-    const ge = 1 - s.altitude / HELI_GROUND_EFFECT_FT;   // 0 at the top of the band → 1 on the deck
+  // ⚠ Measured from the FLOOR, not from zero — this is a height-above-deck term, and on a rooftop
+  // pad zero is seventeen hundred feet below the skids.
+  const agl = s.altitude - (s.groundFt || 0);
+  if (!s.onGround && vsTarget < 0 && agl < HELI_GROUND_EFFECT_FT) {
+    const ge = clamp(1 - agl / HELI_GROUND_EFFECT_FT, 0, 1);   // 0 at the top of the band → 1 on the deck
     vsTarget *= 1 - 0.5 * ge * ge;
   }
   if (s.onGround && vsTarget <= 0) s.vs = 0;
@@ -704,13 +714,14 @@ function stepHeli(state, input, p, dt) {
   s.stallMargin = clamp((Nr - 0.5) / 0.4, 0, 1);   // reuse the margin channel to drive the horn
 
   // 7. Ground contact — set down vertically (no rollout). A hard arrival flags a heavy touchdown.
-  if (s.altitude <= 0) {
+  const floor = s.groundFt || 0;
+  if (s.altitude <= floor) {
     if (!s.onGround && s.vs < -300) s.events.push({ type: 'touchdown', severity: s.vs < -600 ? 'hard' : 'firm', vs: s.vs });
     // Taildragger: she rolls onto the mains at whatever attitude she arrived in, so seed the
     // tailwheel's contact from the touchdown pitch rather than snapping into the 3-point sit —
     // the pilot walks the tail down from there (§2).
     if (!s.onGround && p.groundPitch) s.tailDown = clamp(s.pitch / p.groundPitch, 0, 1);
-    s.altitude = 0; s.onGround = true; s.vs = Math.max(0, s.vs);
+    s.altitude = floor; s.onGround = true; s.vs = Math.max(0, s.vs);
   } else s.onGround = false;
   return s;
 }
@@ -1647,12 +1658,13 @@ export function step(state, input, p, dt) {
 
   // 9. Ground contact. Liftoff is emergent: once lift ≥ weight at rotation, altitude
   //    climbs off zero. Coming back down, a hard arrival is flagged by sink rate.
-  if (s.altitude <= 0) {
+  const floor = s.groundFt || 0;
+  if (s.altitude <= floor) {
     // Arrival severity scales with the airframe: a flat absolute fpm judged a Grasshopper and a
     // 5.0-mass freighter identically, when the gear that carries the freighter is built for it.
     const firmVs = -300 * (0.8 + 0.2 * (p.mass || 1)), hardVs = -700 * (0.8 + 0.2 * (p.mass || 1));
     if (!s.onGround && s.vs < firmVs) s.events.push({ type: 'touchdown', severity: s.vs < hardVs ? 'hard' : 'firm', vs: s.vs });
-    s.altitude = 0;
+    s.altitude = floor;
     s.onGround = true;
     s.vs = Math.max(0, s.vs);
   } else {

@@ -2633,6 +2633,19 @@ export function openFlightSim(opts = {}) {
     weapon: 'guns', msl: opts.hardpoints || 0, seekId: null, lockProg: 0, lockId: null, mslWarnT: 0,
     listeners: [],
   };
+  // Parked on a rooftop pad? Then the ground under the skids is the roof, not the street four
+  // hundred feet below it — see parkedDeck. Seeded here rather than in the state literal because
+  // it is read out of the map window the server sent with this very payload.
+  const deck = parkedDeck(F);
+  if (deck) {
+    F.padDeck = deck;
+    s.altitude = deck.ft; s.groundFt = deck.ft; s.onGround = true;
+    F.disp.alt = deck.ft;        // the altimeter opens on the deck height instead of sweeping up to it
+    // The climb-out flies straight up this pad's OWN catch column, and the column would grab it and
+    // set it back down — the same latch the Echelon and a rooftop arrival both use, armed from the
+    // start because we are already on the deck.
+    F.roofDeparted = false;
+  }
   _fsim = F;
   // THE PANE IS NOW AN AEROPLANE, and on a phone it has to be told. The mobile layout starts
   // #area-pane COLLAPSED and only ever opens it on a tap, so an app that mounts itself there —
@@ -3649,6 +3662,61 @@ function padProximity(F) {
   return best;
 }
 
+// One cell out of the streamed window, by absolute world tile. The index arithmetic is the same
+// three lines padProximity and buildingCollisionAt each run inline; this is for the callers that
+// want ONE named tile rather than a sweep.
+function windowCellAt(F, wx, wy) {
+  const map = F.map;
+  if (!Array.isArray(map) || !map.length || !F.mapCenter) return null;
+  const R = (map.length - 1) / 2;
+  const ry = Math.round(wy - F.mapCenter.y + R), rx = Math.round(wx - F.mapCenter.x + R);
+  const row = map[ry];
+  return row ? (row[rx] || null) : null;
+}
+
+// ── Parked on a rooftop pad ──────────────────────────────────────────────────────────────────
+// ⚠ THE DECK IS THE GROUND UP HERE, AND THE SIM'S GROUND IS ZERO. A rooftop pad is filed as an
+// airfield on the tile the TOWER stands on — the Solenne's Sky Pad and the street outside its
+// lobby are the same cell — so a helicopter parked there spawned at street level, inside the
+// building it is supposed to be sitting on top of. You looked out of the canopy at the lobby
+// canopy, and lifting the collective flew you up through thirty floors of apartments.
+//
+// The deck height comes from the same captured geometry CFIT reads (buildingRoofFtAt), so the
+// roof we sit on is the roof we would have hit — one number, no second idea of where the top of
+// the building is. Rotorcraft only: nothing else can be parked on a roof.
+function parkedDeck(F) {
+  if (!F.heli || !F.pos) return null;
+  const tx = Math.round(F.pos.x), ty = Math.round(F.pos.y);
+  const c = windowCellAt(F, tx, ty);
+  if (!c || c.kind !== 'field' || !c.bt) return null;   // an airfield tile that is ALSO a building = a rooftop pad
+  const ft = buildingRoofFtAt(tx, ty, c, tx, ty);
+  if (!(ft > 0)) return null;
+  return { tile: [tx, ty], ft, left: false };
+}
+
+// The floor the flight model clamps to this frame. Zero for every strip and ground pad in the
+// game; the roof for the deck we started on, until we leave it.
+//
+// ⚠ THE LATCH IS LOAD-BEARING AND IT ONLY EVER CLOSES. Without it, flying back over the tower a
+// hundred feet below its parapet would snap the aircraft UP onto the deck and set `onGround` —
+// which suppresses the CFIT test that runs later in the same frame, turning a fatal flight into
+// a building into a free rooftop landing. Coming back to a pad is the capture's job (padProximity
+// → startRoofLanding), which arrives from ABOVE, and never this floor's.
+function deckFloorFt(F, s) {
+  if (F.roofLock) return F.roofLock.padFt;   // the guided set-down owns the floor while it flies us down
+  const d = F.padDeck;
+  if (!d || d.left) return 0;
+  const c = windowCellAt(F, d.tile[0], d.tile[1]);
+  const ft = c ? buildingRoofFtAt(d.tile[0], d.tile[1], c, F.pos.x, F.pos.y) : 0;
+  if (ft > 0) return ft;
+  // The probe found no roof under us. Airborne, that is the departure — off the edge, and the floor
+  // below is the street. On the skids it means the probe could not answer at all (the window has
+  // scrolled or has not arrived), and dropping the floor there posts the aircraft through its own
+  // deck, so hold the height it spawned at.
+  if (!s.onGround) { d.left = true; return 0; }
+  return d.ft;
+}
+
 // Capture: freeze the pilot's inputs out of the vertical/lateral solution and fly the last few
 // seconds onto the pad centre. No cinematic — a rooftop set-down is a working arrival, not the
 // Echelon's set piece, and the pilot keeps the view they were flying.
@@ -3672,6 +3740,10 @@ function stepRoofLanding(F, s, now) {
   s.bank = 0; s.pitch = 6 * e;   // nose eases up into the flare as she settles
   if (t < 1) return;
   F.roofLock = null;
+  // She is parked on the roof now, so the roof is the ground — hand the floor from the lock to the
+  // deck. Without this the model reads a floor of zero for the beat between touchdown and the
+  // hand-off to the hangar bay, and drops her off the building she just landed on.
+  F.padDeck = { tile: L.tile, ft: L.padFt, left: false };
   F.deckLandTile = L.tile;   // report the landing AT the pad tile, so the server parks us on the roof
   finishLanding(F, s);
 }
@@ -4011,6 +4083,8 @@ function fsimFrame(now) {
   // Leftover time carries in F.acc, capped at 0.5 s and 8 steps so a long tab-stall drains
   // instead of spiralling.
   const FIXED = 1 / 60;
+  // Where the ground is this frame. Zero everywhere but a rooftop pad we are still standing on.
+  s.groundFt = deckFloorFt(F, s);
   F.acc = Math.min((F.acc || 0) + dt, 0.5);
   let nSteps = 0;
   perfBegin('sim:physics');
@@ -4121,7 +4195,14 @@ function fsimFrame(now) {
   // Departure latch, exactly as the Echelon has one: lifting off a pad flies you straight up through
   // its own catch column, and without this the climb-out is grabbed and set back down. You've
   // departed once you leave the radius or climb clear of the ceiling.
-  if (!roofArmed) F.roofDeparted = true;   // outside the radius or clear of the ceiling → armed again
+  // ⚠ ONLY AGAINST A PAD WE CAN ACTUALLY SEE. This used to read "not armed ⇒ departed", which is a
+  // statement about nothing on every frame with no pad in the window — and padProximity returns
+  // null on each parked frame AND on the first airborne one, because it gates on `reportedAirborne`
+  // and that is latched further down this same frame. So a helicopter lifting off a rooftop pad
+  // cleared the latch one frame before the capture could read it, flew into the pad's own catch
+  // column on the next, and was set straight back down. For ever: it could never leave the roof.
+  // Departure now means what it says — a pad is in view and we are outside its window.
+  if (roofProx && !roofArmed) F.roofDeparted = true;   // outside the radius or clear of the ceiling → armed again
   if (roofArmed && !F.roofLock && F.roofDeparted !== false) startRoofLanding(F, s, now, roofProx);
   if (F.roofLock) { stepRoofLanding(F, s, now); F.cfitCd = Math.max(F.cfitCd || 0, 1); }
   else if (!roofProx) F.roofNoticed = false;
@@ -4171,7 +4252,7 @@ function fsimFrame(now) {
   // Transitions → tell the server. Track descent rate while airborne so touchdown knows
   // how hard the arrival was (soft squeak vs firm thump).
   if (!s.onGround) { F.touchVs = s.vs; F.peakAltSinceLift = Math.max(F.peakAltSinceLift || 0, s.altitude); }
-  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; F.peakAltSinceLift = s.altitude; F.depPos = { x: F.pos.x, y: F.pos.y }; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
+  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; F.peakAltSinceLift = s.altitude; F.liftFloorFt = s.groundFt || 0; F.depPos = { x: F.pos.x, y: F.pos.y }; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
   if (s.onGround && F.reportedAirborne) {
     F.reportedAirborne = false;
     F.depPos = null;   // climb-out over — a later low pass gets normal CFIT
@@ -4180,7 +4261,10 @@ function fsimFrame(now) {
     // really established a climb — that's a rejected-takeoff bounce, not a hard landing, so
     // don't let its (very real, very fast) sink rate write the plane off. Only arm the
     // hard-landing crash check once she's actually climbed clear of the ground.
-    const establishedClimb = (F.peakAltSinceLift || 0) >= 25;
+    // ⚠ HEIGHT ABOVE THE DECK SHE LEFT, not altitude. Off a rooftop pad the peak opens seventeen
+    // hundred feet up and an absolute test is true before the skids are clear, which arms the
+    // write-off check on the very bounce it exists to forgive.
+    const establishedClimb = (F.peakAltSinceLift || 0) - (F.liftFloorFt || 0) >= 25;
     // The Echelon sits on a water tile (her district is water), so a set-down on OR alongside her
     // reads as "over water" — but that's the helipad, not a ditching. F.onYacht suppresses the
     // ditch so the touchdown rolls through to the auto-land path below (server snaps it to the pad).

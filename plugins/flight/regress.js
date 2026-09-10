@@ -150,6 +150,32 @@ export default async function regress({ run, check, getPlayer }) {
     return !s.stalled && s.stallDepth === 0 && s.buffet === 0;
   })());
 
+  // ── The deck is the ground on a rooftop pad ─────────────────────────────────
+  // `groundFt` is the flight model's floor. Zero is every strip and ground pad in the game and is
+  // the behaviour that has always shipped; the Solenne's Sky Pad is filed on the tile its TOWER
+  // stands on, so a helicopter parked there clamped to zero and spawned in the street, inside the
+  // building it is supposed to be sitting on top of. The cockpit sets it per frame from the same
+  // captured roof geometry CFIT reads (deckFloorFt).
+  check('flight model: the floor is zero unless somebody says otherwise', (() => {
+    const d = FM_TYPES.dragonfly, s = fmCreate(d);
+    return s.groundFt === 0 && s.altitude === 0 && s.onGround === true;
+  })());
+  check('flight model: a heli settles onto a raised deck, not through it', (() => {
+    const d = FM_TYPES.dragonfly, s = fmCreate(d);
+    s.groundFt = 1718; s.altitude = 1718; s.onGround = true;
+    // Full collective for ten seconds — she has to actually leave the deck…
+    for (let t2 = 0; t2 < 10; t2 += FM_DT) fmStep(s, fmIn({ throttle: 1, collRaw: 1, power: true }), d, FM_DT);
+    if (!(s.altitude > 1718) || s.onGround) return false;
+    // …and chopping it has to put her back ON the deck rather than dropping her to sea level.
+    for (let t2 = 0; t2 < 60; t2 += FM_DT) fmStep(s, fmIn({ throttle: 0, collRaw: 0, power: true }), d, FM_DT);
+    return s.onGround && s.altitude === 1718;
+  })());
+  check('flight model: a fixed-wing reads the same floor (one rule, both integrators)', (() => {
+    const s = fmCreate(may); s.groundFt = 400; s.altitude = 900; s.onGround = false; s.vs = -600;
+    for (let t2 = 0; t2 < 60; t2 += FM_DT) fmStep(s, fmIn({ throttle: 0 }), may, FM_DT);
+    return s.onGround && s.altitude === 400;
+  })());
+
   // ── Crash collateral (pure) ─────────────────────────────────────────────────
   check('crash severity scales with airframe', crashSeverity(8) === 1 && crashSeverity(30) === 2 && crashSeverity(85) === 3);
   check('collateral bill rises with casualties', collateralBill(2, 3, true) > collateralBill(2, 1, true));

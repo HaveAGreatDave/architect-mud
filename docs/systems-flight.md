@@ -87,6 +87,36 @@ it climbs through. The Solenne's crown carries the marked deck itself: TLOF circ
 perimeter lights — and **no antenna**, because a mast over a touchdown circle is the one thing
 that must never be there (its obstruction light moved to a perimeter post).
 
+⚠ **AND THE DECK IS THE GROUND, WHICH THE FLIGHT MODEL DID NOT BELIEVE.** Landing on a roof was
+built; being PARKED on one was not. `s.altitude` is height over a flat world and both integrators
+clamped it to zero, so a helicopter filed at the Solenne — a pad whose airfield tile is the tile
+its **tower** stands on — opened the cockpit in the street, inside the building it is meant to be
+sitting on top of, and lifting the collective flew it up through thirty floors of apartments.
+The model now carries a floor (`state.groundFt`, 0 everywhere else, so every strip and ground pad
+is the behaviour that always shipped) and the cockpit sets it per frame from `deckFloorFt`, off the
+**same `buildingRoofFtAt` probe CFIT reads** — the deck you sit on is the deck you would have hit,
+and `pen = roofFt − altitude` is exactly 0 on the skids, so the tower under you is not a collision.
+Four things that are each a way to get it silently wrong:
+
+- **The floor latches OFF and never back on.** Fly back over the tower a hundred feet below its
+  parapet and a live floor would snap you UP onto the deck and set `onGround`, which suppresses the
+  CFIT test later in the same frame — a fatal flight into a building becomes a free rooftop landing.
+  Coming back is the CAPTURE's job, which arrives from above.
+- **The departure latch has to survive the parked frames.** It read *"not armed ⇒ departed"*, a
+  statement about nothing on frames with no pad in the window — and `padProximity` returns null on
+  every parked frame AND the first airborne one, because it gates on `reportedAirborne`, latched
+  further down the same frame. So the climb-out cleared the latch one frame before the capture could
+  read it, flew into the pad's own column on the next, and was set straight back down. For ever.
+  It now reads `roofProx && !roofArmed`: a pad is in view and we are outside its window.
+- **Ground effect and the climb-out threshold are heights above the DECK**, not altitudes. An
+  absolute `peakAltSinceLift >= 25` is true before the skids are clear when the deck opens at 1,718 ft,
+  which arms the hard-landing write-off on the very bounce it exists to forgive.
+- **`stepRoofLanding` hands the floor to the deck when the lock releases**, or the beat between
+  touchdown and the hangar hand-off drops her off the building she just landed on.
+
+Only a rotorcraft, and only a tile that is both a field and a building — which today is the Solenne
+and nothing else, so the three ground helipads are untouched by construction.
+
 Ten aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
 Grasshopper · Locust · Viper · **Shrike**), three fuel types (avgas/jet/biofuel), four ground AA
 sites (Redline SAM / wastes autocannon / Slagworks flak / Clone Vats guardian), a Core
