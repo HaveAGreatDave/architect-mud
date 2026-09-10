@@ -88,6 +88,18 @@ let builds = 0;
 //           sign is mounted FLUSH on its wall, so a pure cosine is ~0 for the commonest case.
 export const LIGHT_TUNE = { minR: 0.8, span: 3.2, gain: 1.5, wrap: 0.6 };
 
+// ── CONTACT OCCLUSION, AS TWO NUMBERS ───────────────────────────────────────
+//
+// `fall` is how fast the ground lets go of a surface, in inverse tiles: the term is
+// exp(-z * fall), so 1/fall is the height at which a third of it is left. 1.6 puts the
+// visible band in the bottom ~1.5 tiles, which is a shopfront entire and the plinth of a
+// tower — the two places a contact shadow belongs.
+//
+// ⚠ THE STRENGTH IS NOT HERE. It is `RENDER_TUNE.glAO`, because it is the knob somebody
+// drags in the flight-sim panel and it doubles as the off switch — 0 makes the shader
+// multiply by exactly 1.0 and the frame is what shipped.
+export const AO_TUNE = { fall: 1.6 };
+
 // ⚠ AND IT IS SCALED BY THE NIGHT, WHICH IS NOT THE SAME AS BEING LEFT TO THE SPRITE ALPHAS.
 // GLASS goes on drawing signage by day, dimmed — so without this the wash goes on landing too, and
 // a shopfront measured a pink cast over 19,000 pixels of its own wall AT NOON, mean 8/255. A sign
@@ -377,7 +389,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // Remembered on the SCENE rather than in the module, because two views can be painting two
   // different cities in one frame and each has its own twelve.
   g.litHeld = lightList ? new Set(lightList.map((e) => e.key)) : null;
-  g.view.draw(camAt, { ...(opts.draw || {}), lights: lightList, lightWrap: LIGHT_TUNE.wrap, cssH });
+  g.view.draw(camAt, { ...(opts.draw || {}), lights: lightList, lightWrap: LIGHT_TUNE.wrap, cssH,
+    ao: opts.glAO || 0, aoFall: AO_TUNE.fall });
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
   // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
   // It cost an afternoon: the result looked like a floor (the backstop wash showed through the

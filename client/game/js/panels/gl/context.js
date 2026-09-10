@@ -115,6 +115,8 @@ uniform vec3 uLightP[GLASS_MAX_LIGHTS];
 uniform vec3 uLightC[GLASS_MAX_LIGHTS];
 uniform float uLightR[GLASS_MAX_LIGHTS];
 uniform float uLightWrap;
+uniform float uAo;        // contact-occlusion strength; 0 makes the term exactly 1.0
+uniform float uAoFall;    // how fast it lets go with height, in inverse tiles
 out vec4 outColor;
 void main() {
   vec3 n = normalize(vNormal);
@@ -137,6 +139,22 @@ void main() {
   float aBot = uStr * (0.30 + 0.22 * (1.0 - lit));
   vec3 shaded = mix(mix(surf, topCol, aTop), mix(surf, uShadow, aBot), clamp(vRamp, 0.0, 1.0));
   vec3 base = mix(surf, shaded, clamp(uVLight, 0.0, 1.0) * solid);
+  // ── CONTACT OCCLUSION ───────────────────────────────────────────────────────
+  //
+  // Ambient occlusion is a CONTACT effect — the ground robs a surface of sky the closer that
+  // surface is to it — so the quantity it wants is height above the ground, which this shader
+  // already has for free in vWorld.z. No second pass, no depth readback, no extra attribute: at
+  // uAo 0 the multiply is by exactly 1.0 and the frame is what shipped.
+  //
+  // ⚠ IT IS NOT THE WALL RAMP AND MUST NOT REPLACE IT. vRamp is the Gouraud fake — a per-FACE
+  // gradient that lands the warm sky catch at a wall's top edge — and it is most of what stops a
+  // flat-shaded box reading as a flat-shaded box. This is a separate, absolute term underneath it,
+  // which is why it multiplies rather than joining that lerp.
+  //
+  // ⚠ AND IT GOES BEFORE THE LIGHTS, DELIBERATELY. A neon sign in a dark corner should still light
+  // that corner; occlusion is a statement about the SKY, not about every photon in the scene.
+  // Putting it after would let a shaded plinth swallow the wash off a sign bolted to it.
+  base *= 1.0 - uAo * exp(-max(0.0, vWorld.z) * uAoFall);
   // The city own lights, added on top of the key shading.
   for (int i = 0; i < GLASS_MAX_LIGHTS; i++) {
     if (i >= uNLight) break;
@@ -234,6 +252,8 @@ export function createGLView(canvas) {
     lightC: gl.getUniformLocation(prog, 'uLightC'),
     lightR: gl.getUniformLocation(prog, 'uLightR'),
     lightWrap: gl.getUniformLocation(prog, 'uLightWrap'),
+    ao: gl.getUniformLocation(prog, 'uAo'),
+    aoFall: gl.getUniformLocation(prog, 'uAoFall'),
   };
 
   // Scratch, filled per frame and never reallocated: the arrays are the same size every frame and
@@ -392,6 +412,9 @@ export function createGLView(canvas) {
     gl.uniform1f(loc.hazeNear, opts.hazeNear == null ? 1e6 : opts.hazeNear);
     gl.uniform1f(loc.hazeFar, opts.hazeFar == null ? 1e6 + 1 : opts.hazeFar);
     gl.uniform1f(loc.vlight, opts.vlight == null ? 1 : opts.vlight);
+    // Contact occlusion. Absent means OFF and the shader multiplies by exactly 1.0.
+    gl.uniform1f(loc.ao, opts.ao == null ? 0 : opts.ao);
+    gl.uniform1f(loc.aoFall, opts.aoFall == null ? 1.6 : opts.aoFall);
     // The city's own lights. `opts.lights` is a list of { p: [x, y, z], rgb: [r, g, b], r }, already
     // in the same camera-relative tile frame the vertices are, and already the strongest few — see
     // world.js for why the selection lives there and not here.

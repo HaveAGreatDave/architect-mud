@@ -1270,4 +1270,116 @@ export function runFlicker({ W = 640, H = 360, frames = 30 } = {}) {
   return rows;
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; window.__glLights = runLights; window.__glClouds = runCloudDeck; window.__glFlicker = runFlicker; }
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; window.__glLights = runLights; window.__glClouds = runCloudDeck; window.__glFlicker = runFlicker; window.__glAO = runAO; }
+
+// ── CONTACT OCCLUSION: DOES IT MOVE ANYTHING, AND WHAT DOES IT COST ─────────
+//
+// `RENDER_TUNE.glAO` darkens a surface by how close it stands to the ground. The question a
+// strength knob always raises is whether the value in the file is a considered one or the first
+// thing somebody typed, so this sweeps it and reports what share of the BUILDING pixels each
+// setting actually moves — the same mask runLights uses, and for the same reason: measured against
+// the whole frame the answer is divided by a sky the effect is not allowed to touch, and it would
+// fall as the window got bigger.
+//
+// ⚠ THE DAY SEAT IS THE CONTROL AND THE NIGHT SEAT IS NOT. Unlike the city lights, occlusion is
+// NOT scaled by the night — the ground takes sky away at noon as much as at midnight — so both
+// seats should move, and a night-only or day-only result means the term has been wired to
+// something it should not depend on.
+//
+// ⚠ AND THE ZERO ROW IS THE PROOF THE SWITCH IS A SWITCH. At `glAO` 0 the shader multiplies by
+// exactly 1.0, so that row must come back 0.0% moved — not 'small', zero. Anything else means the
+// off state is not off, which is the property that makes the knob safe to ship at any value.
+const AO_SWEEP = [0, 0.2, 0.34, 0.5, 0.7];
+
+export function runAO({ W = 640, H = 360, frames = 24, warm = 8 } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const mid = (a) => { const b = [...a].sort((p, q) => p - q); return b[b.length >> 1]; };
+  const mk = (R, density) => {
+    const N = R * 2 + 1;
+    let k = 0;
+    return Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+      const dx = x - R;
+      if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+      if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+      const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (density && (h % 1000) / 1000 < density) {
+        const r = named[(k++) % named.length];
+        return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6), ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 3) };
+      }
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+  };
+
+  const rows = [], realNow = performance.now.bind(performance);
+  const heldAO = RENDER_TUNE.glAO;
+  try {
+    for (const seat of LIGHT_SEATS) {
+      const ID = '__ao' + LIGHT_SEATS.indexOf(seat) + '_' + (runAO.n = (runAO.n || 0) + 1);
+      el.id = ID;
+      const built = mk(seat.R, seat.density), bare = mk(seat.R, 0);
+      const view = (map) => ({
+        cls: seat.cls, phase: 'cruise', worldBlend: 1,
+        height: seat.cls === 'prop' ? 0.5 : 0, eyeH: seat.cls === 'prop' ? undefined : 0.12,
+        hour: seat.hour, weather: 'clear', speed: 0.4, map, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        resFloor: 1, tune: { gl: 1, perfDS: 0 },
+      });
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+      performance.now = () => 1e6;
+      const paint2 = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
+
+      RENDER_TUNE.glAO = 0;
+      paint2(view(bare)); const empty = shot();
+      paint2(view(built)); const off = shot();
+      const isWall = new Uint8Array(off.length >> 2);
+      let mask = 0;
+      for (let i = 0; i < off.length; i += 4) {
+        const d0 = Math.abs(off[i] - empty[i]) + Math.abs(off[i + 1] - empty[i + 1]) + Math.abs(off[i + 2] - empty[i + 2]);
+        if (d0 >= 12) { isWall[i >> 2] = 1; mask++; }
+      }
+      for (const s of AO_SWEEP) {
+        RENDER_TUNE.glAO = s;
+        paint2(view(built));
+        const on = shot();
+        let moved = 0, sum = 0, worst = 0;
+        for (let i = 0; i < off.length; i += 4) {
+          if (!isWall[i >> 2]) continue;
+          const d = (Math.abs(on[i] - off[i]) + Math.abs(on[i + 1] - off[i + 1]) + Math.abs(on[i + 2] - off[i + 2])) / 3;
+          if (d >= 2) { moved++; sum += d; }
+          if (d > worst) worst = d;
+        }
+        rows.push({ seat: seat.tag, glAO: s, wallPx: mask,
+          movedPct: mask ? +(moved / mask * 100).toFixed(1) : null,
+          meanOnMoved: moved ? +(sum / moved / 255 * 100).toFixed(1) : null,
+          worst: Math.round(worst) });
+      }
+      // Cost, clock live: off against the shipping value, same scene, same seat.
+      performance.now = realNow;
+      const t = (s) => {
+        RENDER_TUNE.glAO = s;
+        const v = view(built);
+        for (let i = 0; i < warm; i++) paintWindshield(ID, v);
+        const a = [];
+        for (let i = 0; i < frames; i++) { const t0 = performance.now(); paintWindshield(ID, v); a.push(performance.now() - t0); }
+        return mid(a);
+      };
+      const msOff = t(0), msOn = t(heldAO);
+      rows.push({ seat: seat.tag, glAO: `cost 0 -> ${heldAO}`, wallPx: null,
+        movedPct: null, meanOnMoved: null, worst: null,
+        ms: `${msOff.toFixed(2)} -> ${msOn.toFixed(2)}` });
+    }
+  } finally {
+    performance.now = realNow;
+    RENDER_TUNE.glAO = heldAO;
+    uninstall && uninstall(); holder.remove();
+  }
+  return rows;
+}

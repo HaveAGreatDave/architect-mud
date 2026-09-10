@@ -1304,6 +1304,7 @@ const FSIM_TUNE = [
   // always shipped — no canvas is created and no GL context is asked for — and a throw inside the
   // pass switches this back to 0 and finishes the frame in 2-D.
   ['gl', 'GLASS 2 (WebGL)', 0, 1, 1],
+  ['glAO', 'Contact occlusion', 0, 1, 0.02],
   ['occlude', 'Occlusion cull', 0, 1, 1],
   ['shapeShadow', 'Shape shadows', 0, 1, 1],
   // The hero model's own per-pixel sun shadow and lamp spill (model-raster.js). Both double as an

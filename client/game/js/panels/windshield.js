@@ -239,6 +239,43 @@ export const RENDER_TUNE = {
   // in 2-D it paints over everything — a thirty-storey block in a 1,600 ft overcast is in front
   // of the cloud on the way up and behind it on the way down, and a painter has to pick one.
   glClouds: 1,
+  // ── CONTACT OCCLUSION, AS A STRENGTH ────────────────────────────────────────
+  //
+  // How much sky the ground takes back from a surface standing on it. GLASS already had two
+  // things doing part of this job — `wallLit`'s per-face base gradient, which the code has always
+  // called ambient occlusion, and real cast shadows on the ground plane — so what this adds is the
+  // one they both miss: an ABSOLUTE darkening near z=0 that does not restart at every setback.
+  //
+  // ⚠ IT IS A STRENGTH AND 0 IS THE RENDERER THAT SHIPPED. The shader multiplies by
+  // `1 - uAo * exp(-z * fall)`, which at 0 is exactly 1.0 — not nearly, exactly, and `__glAO()`
+  // asserts that row at 0.0% of wall pixels moved. GL only: the 2-D fallback has no cheap way to
+  // say "height above the ground" per pixel.
+  //
+  // ⚠ AND IT DEFAULTS TO 0 ON THE EVIDENCE, WHICH IS NOT WHERE THIS WAS EXPECTED TO LAND. Swept in
+  // the Modelshop against one building from a fixed seat, world-height occlusion has no setting
+  // that is both visible and correct:
+  //
+  //   fall 1.6-4    the whole building dims, top to bottom. That is an exposure change on the
+  //                 entire city wearing occlusion's name, not a contact shadow.
+  //   fall 8        the only band where it reads as contact at all, and at strength 0.45 it is
+  //                 near-indistinguishable from off on both an office tower and a shopfront.
+  //   fall 14-22    genuinely a contact term, and genuinely invisible: the darkened band is under
+  //                 a tenth of a tile, which is a few pixels at any distance you look at a
+  //                 building from — and those pixels are already dark, because the cast ground
+  //                 shadow is standing on them.
+  //
+  // The reason is structural rather than aesthetic, which is why no amount of loosening the house
+  // style rescues it: HEIGHT ABOVE THE GROUND is the one axis GLASS already covers twice, with
+  // `wallLit`'s per-face base gradient and with real cast shadows. What occlusion would actually
+  // add is the axis this term cannot see — concave geometry, so a recessed doorway, the underside
+  // of a sill, the inner corner of a setback. That needs neighbours, which means SSAO (a
+  // screen-filling pass measures 0.6-1.3 ms here, against a 2.1 ms cab frame of which the whole
+  // city is 1.0) or baked per-vertex occlusion (a float per vertex, paid at buffer build — the one
+  // budget that is genuinely tight, at 6.5 ms for 240 buildings).
+  //
+  // Kept rather than reverted because the knob is provably inert and the measurement is the point:
+  // `__glAO()` is the rig any future attempt should be held to.
+  glAO: 0,
   gl: 1,
   mount: 1,
   shapeShadow: 1,
@@ -23232,7 +23269,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     pBegin('world:gl');
     try {
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, glLights: TUNE.glLights, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, worldBlend: WORLD_BLEND,
         curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, ground: GROUND_MESH, floor: FLOOR_STATE, now,
         fogNear: FOG_NEAR, fogFar: FOG_FAR,
         // The frame's own CSS size, because that is the unit `cam.horizonY` and `cam.depth` are in.

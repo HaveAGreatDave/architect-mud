@@ -104,7 +104,12 @@ export function installGL(hostFor) {
     return (lastStats = glWorldPass(opts.id || host.id || 'ws', host, cells, cam, {
       captureModelMesh, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
     }, {
-      sprites: opts.sprites, glLights: opts.glLights, cssW: opts.cssW, cssH: opts.cssH,
+      // ⚠ THIS LIST IS AN ALLOWLIST, NOT A SPREAD, so a new option added at the windshield end and
+      // not added here is silently dropped one hop before the shader that reads it. Contact
+      // occlusion shipped that way for an afternoon: the flag was set, the slider moved, the
+      // uniform existed, and __glAO() reported 0.0% of wall pixels moved at every strength up to
+      // 0.7 — which is what a correctly wired feature doing nothing looks like too.
+      sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, cssW: opts.cssW, cssH: opts.cssH,
       curtain: opts.curtain, decals: opts.decals, scatter: opts.scatter, ground: opts.ground,
       floor: opts.floor, now: opts.now,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,
