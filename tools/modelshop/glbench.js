@@ -1135,4 +1135,139 @@ export function runCloudDeck({ W = 640, H = 360, frames = 24, warm = 10 } = {}) 
   return rows;
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; window.__glLights = runLights; window.__glClouds = runCloudDeck; }
+// ── IS THE CITY FLICKERING? ─────────────────────────────────────────────────
+//
+// `__glFlicker()`. Every other bench here compares one frame against another frame of a DIFFERENT
+// renderer. This one compares consecutive frames of the SAME renderer, because "the lights strobe"
+// and "the buildings pulse" are complaints about the difference between frame n and frame n+1, and
+// no amount of looking at a single frame can see them.
+//
+// Two conditions, because they catch different bugs and a run that mixes them can name neither:
+//
+//   STILL — the camera does not move and the clock does. Anything that changes is animated: a
+//   blinking beacon, a bloom, a drifting cloud. A stable renderer still moves here, so the number
+//   is only meaningful against the same scene with the feature switched off.
+//
+//   CREEP — the camera moves a fraction of a tile a frame and the clock is FROZEN. Nothing in the
+//   world is animated, so a difference between consecutive frames is the renderer changing its
+//   mind: a set that got re-chosen, a tier that flipped, a buffer that got rebuilt differently.
+//   This is the one that finds a disco.
+//
+// ⚠ MEASURED OVER THE WALL MASK, not the whole frame — the sky, the clouds and the ground all move
+// on their own and would bury a building-lighting difference in weather.
+export function runFlicker({ W = 640, H = 360, frames = 30 } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+
+  const R = 13, N = 27;
+  let k = 0;
+  const city = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+    const dx = x - R;
+    if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+    if (Math.abs(dx) === 1) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+    if (Math.abs(dx) >= 2 && Math.abs(dx) <= 4 && ((x * 3 + y * 5) % 3) !== 0) {
+      const r = named[(k++) % named.length];
+      return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6), ent: dx < 0 ? 'east' : 'west', flr: 2 + ((x * 7 + y * 13) % 5) };
+    }
+    return { kind: 'land', biome: 'citycore', flr: 0 };
+  }));
+  const bare = Array.from({ length: N }, () => Array.from({ length: N }, () => ({ kind: 'land', biome: 'citycore', flr: 0, pw: 1 })));
+
+  const rows = [];
+  const realNow = performance.now.bind(performance);
+  let seat = 0;
+  try {
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+    const base = (map, off) => ({
+      cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12, hour: 2, weather: 'clear',
+      speed: 0.4, map, heading: 0, mapCenter: { x: 100, y: 104 },
+      mapOffset: { x: 0.2 + off, y: -0.3 + off * 0.6 },
+      resFloor: 1, tune: { gl: 1, perfDS: 0 },
+    });
+
+    // The mask: what the buildings cover, from a pair with and without them.
+    const ID0 = '__flick' + (seat++) + '_' + (runFlicker.n = (runFlicker.n || 0) + 1);
+    el.id = ID0;
+    performance.now = () => 1e6;
+    for (let i = 0; i < 10; i++) paintWindshield(ID0, base(bare, 0));
+    paintWindshield(ID0, base(bare, 0)); const empty = shot();
+    for (let i = 0; i < 10; i++) paintWindshield(ID0, base(city, 0));
+    paintWindshield(ID0, base(city, 0)); const built = shot();
+    performance.now = realNow;
+    // ⚠ TWO MASKS, BECAUSE "the terrain is flashing" AND "the lights are strobing" are different
+    // reports and one number cannot tell them apart. Wall = where the buildings changed the frame.
+    // Ground = below the horizon and NOT a building. Sky is measured by neither: it has clouds and
+    // birds in it and they move on purpose.
+    const isWall = new Uint8Array(empty.length >> 2);
+    const isGround = new Uint8Array(empty.length >> 2);
+    let mask = 0, gmask = 0;
+    const horizon = Math.round(H * 0.52);   // below this band the empty scene is ground, not sky
+    for (let i = 0; i < empty.length; i += 4) {
+      const px = (i >> 2) % W, py = (i >> 2 - 0) / W | 0;
+      const d = Math.abs(built[i] - empty[i]) + Math.abs(built[i + 1] - empty[i + 1]) + Math.abs(built[i + 2] - empty[i + 2]);
+      if (d >= 12) { isWall[i >> 2] = 1; mask++; }
+      else if (py > horizon) { isGround[i >> 2] = 1; gmask++; }
+      void px;
+    }
+
+    // One condition, one flag setting: paint `frames` frames and measure consecutive differences
+    // over the mask. `creep` moves the camera and freezes the clock; `still` does the reverse.
+    const measure = (label, creep, set) => {
+      for (const [key, val] of Object.entries(set)) RENDER_TUNE[key] = val;
+      const ID = '__flick' + (seat++) + '_' + (runFlicker.n = (runFlicker.n || 0) + 1);
+      el.id = ID;
+      if (creep) performance.now = () => 1e6;
+      for (let i = 0; i < 12; i++) paintWindshield(ID, base(city, 0));
+      let prev = null, sum = 0, worst = 0, gsum = 0, gworst = 0, n = 0;
+      for (let f = 0; f < frames; f++) {
+        paintWindshield(ID, base(city, creep ? f * 0.004 : 0));
+        const cur = shot();
+        if (prev) {
+          let s2 = 0, w2 = 0, g2 = 0, gw2 = 0;
+          for (let i = 0; i < cur.length; i += 4) {
+            const w = isWall[i >> 2], g = isGround[i >> 2];
+            if (!w && !g) continue;
+            const d = (Math.abs(cur[i] - prev[i]) + Math.abs(cur[i + 1] - prev[i + 1]) + Math.abs(cur[i + 2] - prev[i + 2])) / 3;
+            if (w) { s2 += d; if (d > w2) w2 = d; } else { g2 += d; if (d > gw2) gw2 = d; }
+          }
+          sum += s2 / Math.max(1, mask); if (w2 > worst) worst = w2;
+          gsum += g2 / Math.max(1, gmask); if (gw2 > gworst) gworst = gw2;
+          n++;
+        }
+        prev = cur;
+      }
+      performance.now = realNow;
+      return { case: label, wall: +(sum / Math.max(1, n)).toFixed(2), wallWorst: Math.round(worst),
+        ground: +(gsum / Math.max(1, n)).toFixed(2), groundWorst: Math.round(gworst) };
+    };
+
+    const held = { glLights: RENDER_TUNE.glLights, glClouds: RENDER_TUNE.glClouds, gl: RENDER_TUNE.gl, glFloor: RENDER_TUNE.glFloor };
+    rows.push(measure('creep: everything off', true, { glLights: 0, glClouds: 0, glFloor: 1, gl: 1 }));
+    rows.push(measure('creep: lights ON', true, { glLights: 1, glClouds: 0, glFloor: 1, gl: 1 }));
+    rows.push(measure('creep: clouds ON', true, { glLights: 0, glClouds: 1, glFloor: 1, gl: 1 }));
+    rows.push(measure('creep: both ON', true, { glLights: 1, glClouds: 1, glFloor: 1, gl: 1 }));
+    rows.push(measure('creep: 2-D floor', true, { glLights: 1, glClouds: 1, glFloor: 0, gl: 1 }));
+    rows.push(measure('creep: GLASS 1', true, { glLights: 0, glClouds: 0, glFloor: 0, gl: 0 }));
+    rows.push(measure('still: everything off', false, { glLights: 0, glClouds: 0, glFloor: 1, gl: 1 }));
+    rows.push(measure('still: both ON', false, { glLights: 1, glClouds: 1, glFloor: 1, gl: 1 }));
+    RENDER_TUNE.gl = held.gl; RENDER_TUNE.glLights = held.glLights; RENDER_TUNE.glClouds = held.glClouds; RENDER_TUNE.glFloor = held.glFloor;
+  } finally {
+    performance.now = realNow;
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0; RENDER_TUNE.glLights = 1; RENDER_TUNE.glClouds = 1;
+    uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   wall/ground are the mean colour change per pixel between CONSECUTIVE frames. A creeping camera with a frozen clock should be small and smooth;');
+  console.log('   a row that jumps against the one above it names the flag that is flickering.');
+  return rows;
+}
+
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; window.__glLights = runLights; window.__glClouds = runCloudDeck; window.__glFlicker = runFlicker; }

@@ -54,6 +54,20 @@ let builds = 0;
 // be ranked is how much of the PICTURE each wash covers — `reach / distance`, weighted by how
 // bright it is. A light that reaches three tiles from forty tiles away covers nothing.
 //
+// ⚠ AND THE RANK MUST NOT MOVE WITH A LIGHT OWN ALPHA, WHICH IS THE BUG THIS SHIPPED WITH.
+// `blinkLight` pulses its alpha by design and window blooms come and go, so scoring on alpha made
+// a beacon rise and fall through the cut line in time with its own blink — and because the list is
+// twelve of a hundred and twenty, one eviction reshuffles the whole set and every wall in frame
+// changes brightness at once. Reported as a disco: the scene getting brighter and darker quickly,
+// with nothing in the world doing anything of the kind. Rank is taken from the light COLOUR and
+// its distance, both of which hold still; alpha stays where it belongs, on how bright the wash is,
+// so a blinking sign pulses its own wall and nobody else moves.
+//
+// ⚠ AND THE SET IS STICKY, because ranking on steady numbers is not enough on its own: two lights
+// a hair apart either side of the cut swap places as the camera creeps, which is the same
+// reshuffle arriving more slowly. An incumbent has to be BEATEN, not merely matched — a challenger
+// carries the slot only at a clear margin, so the set changes when the view genuinely changes.
+//
 // ⚠ AND THE POSITIONS ARE IN THE WRONG FRAME BY DEFAULT. The mass is built at MAP-WINDOW tiles
 // so the buffer can be cached, and the camera is shifted by `ox/oy` to compensate; a sprite is
 // collected fresh each frame in camera-relative tiles and takes the plain camera. Those are the
@@ -80,7 +94,11 @@ export const LIGHT_TUNE = { minR: 0.8, span: 3.2, gain: 1.5, wrap: 0.6 };
 // does not visibly light a sunlit wall, so `night` (1 at midnight, 0.5 at dusk, 0 by day, the same
 // scalar every arm shades against) multiplies the gain and the whole term is exactly zero at midday
 // rather than merely small.
-function pickLights(cam, sprites, night) {
+// How much better a challenger has to be to take a sitting light own slot. See the ⚠ above: this
+// is the difference between a set that changes when the view does and one that changes every frame.
+const LIGHT_HOLD = 1.35;
+
+function pickLights(cam, sprites, night, held) {
   if (!sprites || !sprites.length || !cam) return null;
   const nightGain = LIGHT_TUNE.gain * Math.min(1, Math.max(0, night));
   if (!(nightGain > 0.01)) return null;
@@ -94,19 +112,29 @@ function pickLights(cam, sprites, night) {
     const f = bx * sinh - by * cosh;
     if (!(f > 0.2)) continue;             // behind the eye, or on it
     const c = s.rgb || [255, 255, 255];
-    // Brightness as the light own colour weighted the way an eye weights it, times its alpha.
-    const I = Math.min(1, (c[0] * 0.3 + c[1] * 0.6 + c[2] * 0.1) / 255 * s.a);
+    // The light own colour, weighted the way an eye weights it. NO ALPHA — see the ⚠ above.
+    const I = Math.min(1, (c[0] * 0.3 + c[1] * 0.6 + c[2] * 0.1) / 255);
     const r = LIGHT_TUNE.minR + LIGHT_TUNE.span * Math.sqrt(I);
     const k = s.a * nightGain;
+    // A stable name for this light, so last frame own choices can be recognised in this one. The
+    // sprite objects are rebuilt every frame and share no identity, so the POSITION is the identity
+    // — quantised, or a light drifting a thousandth of a tile is a different light every frame.
+    const key = ((s.x * 8) | 0) * 1048576 + ((s.y * 8) | 0) * 1024 + ((s.z * 8) | 0);
     out.push({
       p: [s.x + ox, s.y + oy, s.z],
       rgb: [c[0] / 255 * k, c[1] / 255 * k, c[2] / 255 * k],
       r,
+      key,
       score: I * r / f,
     });
   }
   if (!out.length) return null;
-  if (out.length > MAX_LIGHTS) { out.sort((p, q) => q.score - p.score); out.length = MAX_LIGHTS; }
+  if (out.length > MAX_LIGHTS) {
+    // Incumbents carry a bonus, so a challenger has to be clearly better rather than a hair better.
+    if (held) for (const e of out) if (held.has(e.key)) e.score *= LIGHT_HOLD;
+    out.sort((p, q) => q.score - p.score);
+    out.length = MAX_LIGHTS;
+  }
   return out;
 }
 
@@ -345,7 +373,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     ? { ...cam, fx: (cam.fx || 0) + cam.ox, fy: (cam.fy || 0) + cam.oy }
     : cam;
   // ⚠ COMPUTED FROM THE PLAIN CAMERA AND HANDED TO THE SHIFTED ONE — see pickLights.
-  const lightList = opts.glLights === 0 ? null : pickLights(cam, opts.sprites, opts.night || 0);
+  const lightList = opts.glLights === 0 ? null : pickLights(cam, opts.sprites, opts.night || 0, g.litHeld);
+  // Remembered on the SCENE rather than in the module, because two views can be painting two
+  // different cities in one frame and each has its own twelve.
+  g.litHeld = lightList ? new Set(lightList.map((e) => e.key)) : null;
   g.view.draw(camAt, { ...(opts.draw || {}), lights: lightList, lightWrap: LIGHT_TUNE.wrap, cssH });
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
   // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
