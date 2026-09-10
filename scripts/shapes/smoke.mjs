@@ -536,10 +536,11 @@ async function main() {
       problems.push('adornment drift — model-schema.mjs knows [' + schemaKinds + '] and windshield.js draws ['
         + rendererKinds + ']. A kind in only one of them is a field that validates and never paints.');
     }
-    // ── AND THE SAME FOR DETAIL, WHICH IS WRITTEN OUT TWICE FOR THE SAME REASON ──
-    // windshield.js cannot import the schema module, so the detail vocabulary and its per-kind
-    // screen-size floors exist in both files. A kind in only one either never draws or has no
-    // floor and draws at every distance, and both failures are silent.
+    // ── AND THE SAME FOR DETAIL, THOUGH ONLY HALF OF IT IS STILL TWO LISTS ──
+    // The schema moved to client/shared/, which windshield.js CAN import and now does — so the
+    // per-kind screen floors are read off it rather than restated, and cannot drift. What is still
+    // two lists is the vocabulary itself: a kind DECLARED in the schema and not DRAWN by the
+    // renderer is a field that validates, bakes, and paints nothing.
     const dSchema = Object.keys(DETAIL_SCHEMA).sort().join(',');
     const dRenderer = [...ws.AUTHORED_DETAIL_KINDS].sort().join(',');
     if (dSchema !== dRenderer) {
@@ -554,6 +555,11 @@ async function main() {
     // an adornment drawn at a non-finite position paints nothing and throws nothing, so every
     // other gate here reports a clean model with its neon silently missing.
     for (const f of ws.authoredAdornSmoke()) problems.push(`authored adorn — ${f}`);
+    // 4b. AND EVERY DETAIL KIND DECLARED, not merely every kind some model happens to use. A new
+    // kind is used by nothing on the day it lands, so the key-drift check above is the only gate it
+    // faces — and a drawer reading the wrong field name passes that, projects at undefined and
+    // paints nothing. See authoredDetailSmoke in windshield.js.
+    for (const f of ws.authoredDetailSmoke()) problems.push(`authored detail — ${f}`);
 
     // 5. DETERMINISM, and 6. THE PORT CLAIMS. Both from scripts/shapes/modeldiff.mjs.
     //

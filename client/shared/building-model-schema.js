@@ -129,6 +129,19 @@ export const DETAIL_SCHEMA = {
     plain: { pal: 'string' }, px: 8 },
   // A flat sign board on a face. Not neonBlade: that is a lit blade standing proud on its own
   // mast, this is a painted panel bolted to a wall, and most signage in a city is the second one.
+  // A zigzag steel fire escape down a face: landings, rails and the flights between them. The
+  // most characterful thing on this list — a blank wall and a wall with one of these read as
+  // two different neighbourhoods, and it is all flat quads.
+  fireEscape: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', half: 'fh', out: 'fh' }, required: ['z0', 'z1', 'half', 'out'],
+    plain: { pal: 'string', face: 'string', flights: 'number' }, px: 10 },
+  // A water tank up on legs. Aimed at the one view this game spends most of its time in: from
+  // the air a flat roof is the biggest surface on the building and usually the emptiest.
+  roofTank: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h' }, required: ['z', 'r', 'hh'],
+    plain: { pal: 'string' }, px: 9 },
+  // A pipe run ACROSS a face rather than down it. Same two crossed strips as `pipe`, turned:
+  // a service riser is vertical and everything it feeds is horizontal.
+  conduit: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', r: 'fh' }, required: ['z', 'half', 'r'],
+    plain: { pal: 'string', face: 'string' }, px: 5 },
   signBoard: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
     plain: { color: 'string', label: 'string', face: 'string' }, px: 9 },
 };
