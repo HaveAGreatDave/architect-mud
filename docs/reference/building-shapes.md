@@ -93,6 +93,178 @@ quads through `emitFlat` and **never** `draw3DBoxAt`/`drawFacetDrum`, and opens 
 guard `if (SHAPE_SINK || ADORN_TIER < ADORN_NEAR) return;`. The failure this guards against looks
 entirely correct on screen, so it is checked by value rather than by convention: `shapes:smoke`
 captures every model at `ADORN_NEAR` and at `ADORN_RICH` and fails if the segment lists differ.
+
+### Detail that changes the wall, not just what is bolted to it
+
+The first twelve detail kinds are all things **attached to** a wall — a pipe, a vent, a cable, a
+board. That is why a model built entirely out of them still reads as a box: none of them changes
+the silhouette or gives the facade any depth. Four kinds do, and they are the ones to reach for
+when a building looks flat: **`windowBay`** (a surround, glazing, a shadowed head and a lit sill),
+**`canopy`** (a slab cantilevered over the storey below, with an authored soffit colour),
+**`signGantry`** (a billboard standing on its own legs) and **`bladePanel`** (a sign slab hung
+proud of a wall with a visible edge return).
+
+⚠ **A RECESS IS NOT DRAWABLE HERE, AT ANY PRICE, AND THE FIRST CUT OF `windowBay` WAS ONE.** Nothing
+can cut a hole in a wall — a box face is a single quad — so glazing set back behind the wall plane
+is behind a solid surface in both renderers. `emitFlat` sorts on **mean depth**, and the comparison
+is against the wall's *centre*, so on the 2-D painter a recessed pane survives only when it happens
+to sit on the camera-facing half of the facade: six of ten windows vanished, and which six changed
+as the camera swung. GLASS 2 is worse and quieter — a depth buffer occludes it *correctly*, so on
+the shipping renderer all ten would be gone from every angle. **Build the surround proud instead.**
+At every viewing angle this game uses you see the inside of the far jamb, which is the cue a reveal
+actually gives, and it is honest in both renderers.
+
+⚠ **And a part bolted to a wall needs a `lift`, including one that projects.** Same mean-depth
+sort: a slab attached near the far end of a long facade sorts behind the whole facade and
+disappears, while the identical slab at the near end draws. Projecting outward is not protection.
+`lift` biases the painter's sort only — the mesh is pushed before it, with raw points — so it costs
+GLASS 2 nothing and cannot be used to fake depth there.
+
+Four more kinds cover the machinery on a working building, where `pipe` and `vent` are the
+domestic-scale versions of two of them and the other two had nothing: **`ductRun`** (a ribbed trunk
+up a face with an elbow and an arm), **`stack`** (an extract stack with a cowl), **`louvreBank`**
+(`vent` at plant-room scale) and **`tankFrame`** (a tank on a braced frame, a storey above the roof).
+
+### The derived kit — `RENDER_TUNE.derivedKit`
+
+`derivedTrim`'s coping band proved the pattern; `derivedKit` is the rest of the building — windows
+or louvres on the biggest wall, a riser, roof plant, and a ground floor — generated off each
+model's own captured shape. It reaches **127 of 173 models**: the ones with neither an authored
+`detail` list nor an `ARM_DETAIL` entry.
+
+**Hand-authoring is not available at this scale, and the numbers are what say so.** 173 models sit
+under **148 distinct arms, 130 of which draw exactly one model**; the biggest arm in the city covers
+four. So a per-arm trim pack buys almost nothing per list written, and each list has to be written
+against one arm's own setbacks and storey heights, where a number read wrong is a window floating in
+mid-air. Derivation has the opposite shape: `shapeForModel` already knows where every roof, wall and
+setback is, so a part placed off it cannot float, whatever arm drew the building.
+
+⚠ **The style axis is the PALETTE, because it is the only one that reaches every model.** The
+obvious choice is the archetype (`BLDG_TYPE_3D`'s `a`) and it resolves for **45 of 173** — the other
+128 are named models carrying no building type at all. `wallPaletteInfo()`'s material family
+resolves **173 of 173**, because a model cannot exist without a palette, and it is the better answer
+anyway: what a building is made of is what decides whether it wears ducting or balconies. The three
+kits are `works`, `block` and `front`; the `plain` family is 51 models and means nothing on its own,
+so it is broken by proportion — tall and slim is a block, low and wide is a works.
+
+The sections are **wall** (windows, or louvre banks on a works), **stair**, **riser**, **roof**,
+**ground**, **sign** and **cope**.
+
+### The sign probe — does this arm already sign itself?
+
+`sign` is the one section that cannot be read off a list. **66 of the 173 arms already sign
+themselves** with a `neonBlade`, a `marqueeBand`, or lettering painted onto a frieze, and every one
+of those calls lives inside the arm's own `case` where there is nothing declarative to inspect — so a
+kit that simply added a board would give a third of the city two signs on one frontage.
+
+⚠ **It is not a third capture pass, and that is the whole design.** The obvious build is a probe that
+runs the arm again with a sign sink installed, and captures in this file NEST — one asked for from
+inside `derivedTrim` would re-enter the arm being measured. Instead `SIGN_SEEN` rides the **shape**
+capture, which already runs for every model and is already cached: the sign helpers all return early
+on `SHAPE_SINK`, so they record on the way out for the cost of a Set insert on a pass that was
+happening anyway. ⚠ They record **before** the tier test — a blade suppressed by distance is still a
+blade the arm draws, and the question is what this building *has*.
+
+⚠ **The label is `$name`, resolved at draw time.** The derived list is cached per MODEL and one model
+serves many differently-named buildings (`type:shop` is every shop in Coldwater), so a resolved name
+would put whichever building rendered first onto all of them. `$name` reads `_bladeSign`, the
+building's own display name off the tile. A sign with nothing to say is not drawn at all — a blank
+board reads as one whose paint has come off, which is worse than no board.
+
+⚠ **A surface whose appearance depends on the TILE cannot live in a per-model mesh.** The GL mesh is
+captured once per model without a name, so a `$name` board recorded nothing — and then `FLAT_OFF`
+suppressed the canvas copy at draw time believing the mesh had it. The board vanished and its
+lettering, which goes through the decal path where the name *is* known, was left floating in front of
+the building. `emitFlat`'s `paint` option marks such a quad: never meshed, never suppressed.
+
+⚠ **And then the lettering has to composite where its board does.** The GL canvas is blitted *before*
+the 2-D pass, so a decal sits under everything the painter draws. Right for a board that is in the
+mesh; wrong for a `paint` board, which is drawn afterwards and covers its own words. That shipped for
+one iteration as a name board with lettering in GLASS 1 and a blank dark band in GLASS 2 — which
+reads like text failing to render rather than like a z-order bug. `emitSurfaceText` takes `onCanvas`
+for the callers that paint their own board. ⚠ `stair` is its own section rather than part of `wall`, because the two
+arms that already draw one (`apartment`, `embassy`) draw a fire escape and **no** windows — folding
+them together would mean those two keep their stair and lose their windows, which is exactly the
+trade the merge exists to stop. ⚠ And the stair takes **the flank the riser did not**: both want a
+side of the facade, and both reading the same coin flip put a downpipe through the middle of a
+staircase on about half of them.
+
+⚠ **The three wall arms are excluded** (`trm_wall`, `thornwall`, `damwall`), and it is the same
+correctness rule their own arms open with: a wall is the same tile seventy times, each deriving its
+own entrance facing from a door that is not there, so anything placed on a "front" points a
+different way on every tile and the run reads as noise. An ordinary building wants a riser on one
+flank and a door in one place; a wall cannot have either. They keep the coping band and nothing else.
+
+⚠ **The list is cached per model, so it must never depend on a per-view tunable.** `derivedKit`
+reads `RENDER_TUNE`, not the per-frame `TUNE` a view can override — two views can paint in one frame
+and whichever reached the cache first would decide what the city looks like. The flag is also in the
+cache key, because an A/B switch whose cache outlives it looks broken.
+
+⚠ **The roof is the one section that can make the city WORSE, and the first cut did.** Every other
+section is bounded by the wall it sits on, so it varies with the building whether it means to or
+not. A roof is a bare deck, so a fixed recipe puts the same mast in the same corner of every
+building — swept over 124 models that read as *more* uniform than the empty decks it replaced. Which
+plant appears, which corner it takes and how big it is are all rolled from `dRand(seed, salt)`, and
+the seed is the tile's own world coordinates (`tileSeed`), so a building keeps its skyline for ever
+while its neighbour gets a different one. ⚠ It must stay deterministic: `models:diff` asserts two
+renders of a model are identical, so `Math.random` here would fail the gate — and a roof that
+reshuffled every frame would strobe.
+
+⚠ **A contact sheet rendered at one seed cannot see any of that**, and reported uniformity that was
+not real until the sheet was fixed to vary the seed per cell. Same trap as the GL cache below: the
+harness was answering a different question from the one being asked.
+
+⚠ **The ground-floor storey is clamped, not scaled.** A ground floor is sized by a door and a
+person, not by how tall the block above it is, so every dimension there is `min(fraction, absolute)`.
+Scaling it with the mass gave a thirty-storey tower a two-storey front door.
+
+⚠ **Only the NIGHT colour of a window varies.** `windowBay` takes `glow` (after dark) and `glass`
+(by day); varying both is wrong twice — by daylight you cannot tell an occupied room from an empty
+one, and the unlit value taken from the building's own palette came out near-black on a dark wall,
+so the windows read as holes punched in the facade rather than as glass.
+
+### A hand-written list composes with the kit, it does not replace it
+
+The selection used to read `authored || ARM_DETAIL[type] || derived` — three alternatives, take the
+first. That was right while the derived answer was a single coping band. It stopped being right the
+moment the derived answer became a whole kit: the 27 arm lists average **5.1 parts** and between them
+use **none** of the eight new kinds, so `office`, `hotel`, `apartment`, `police`, `clinic` and
+`casino` — most of the city — were the *least* detailed buildings in it, and the ones nobody had ever
+touched were the best. A hand-written list now owns the **sections** it covers (`SECTION_OF`) and the
+kit fills the rest.
+
+⚠ **Only a part that could plausibly BE the whole section belongs in `SECTION_OF`.** A `vent` was
+filed under `wall` in the first cut — 19 of the 27 arm lists carry one, so every one of them counted
+as having a drawn facade and none got windows, which is the entire point of the merge. A `balcony`
+was filed under `ground`, and the two arms that have one hang it up the shaft. ⚠ And the base list is
+**concatenated, never mutated**: `ARM_DETAIL`'s arrays are module constants shared by every tile of
+that type, so pushing onto one would grow it by a kitful on every cache miss, for ever.
+
+Cost, measured: `framecost` 277,348 → 288,869 canvas calls (+4.2%) over 16 frames — a deliberate
+re-baseline, with the timing that justified it recorded at the top of
+[framecost.mjs](../../scripts/shapes/framecost.mjs). The GLASS 2 mesh goes 13,874 → 24,153 faces.
+⚠ **The call count and the clock disagree here, and the clock wins.** Timed on a real street, 70
+frames after 25 warm-up, adaptive dials pinned, two runs per setting: GLASS 2 measures **3.90/3.50 ms
+without the kit against 3.70/4.10 ms with it** — the runs disagree about which is faster, so it is
+inside the spread and is not a finding, at 2.3× the trim geometry. GLASS 1 measures **+0.6 ms on an
+11 ms frame**, and only runs where there is no WebGL2. The 2-D painter runs the detail layer only
+inside `RENDER_TUNE.detailNear`, so its cost is bounded by how many buildings are near you; the mesh
+is not gated, which is why `KIT_MAX` and `WIN_MAX` cap what one building can spend.
+
+⚠ **The jambs and mullions of a `windowBay` are MESH-ONLY**, which is the same bargain `ADORN_NEAR`
+itself is struck on: a depth-buffered quad is nearly free and a canvas one is not. GLASS 2 carries
+the whole reveal; the painter draws the four faces that read (surround, head, sill, glass) and skips
+the two that are edge-on from almost every angle. Putting the full set on the painter measured 12.6%
+over on the dense cab frame.
+
+⚠ **A/B-ING THIS AT RUNTIME LIES, AND IT LIED CONVINCINGLY.** Flipping `derivedKit` between two
+`paintWindshield` calls in one page measured **1 changed pixel** on a street and looked like proof
+the kit does nothing in the shipping renderer. It does not: `gl/world.js` caches a tile's mesh on
+the model's identity keyed by `meshParams`, and `shapeForModel` caches on identity too, so the
+second render was the FIRST render's cached geometry. Measured properly — one page load per setting,
+capture to disk, diff offline — the same street is **1,664 → 4,254 GL faces and 3.28% of the frame**,
+most of which is sky and road. `renderModelPreview` is safe to flip at runtime because it does not
+go through the GL buffer; `paintWindshield` is not.
 `doorReveal`, `mullions` and `glazeParallax` (the recessed door, the proud frame and the glass set
 back behind it, all on the `shop`/`default` arm) are the worked examples. The glazing shows what the
 tier is for: the pane is GENUINELY recessed behind the frame, so the parallax as you drive past is

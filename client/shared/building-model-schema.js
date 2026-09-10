@@ -152,8 +152,60 @@ export const DETAIL_SCHEMA = {
   // a service riser is vertical and everything it feeds is horizontal.
   conduit: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', r: 'fh' }, required: ['z', 'half', 'r'],
     plain: { pal: 'string', face: 'string' }, px: 5 },
+  // `color` is the BOARD and `ink` is the lettering. They were one field until the rooftop VOLTAGE
+  // board shipped as a blank cyan rectangle — see the ⚠ on signBoard in windshield.js. `ink` is
+  // optional and defaults to whichever of dark/bone can be read against the board.
+  // ⚠ `px` 7, lower than a vent's 6-to-9 neighbours, and deliberately: this is high-contrast
+  // lettering and stays legible at a size at which a louvre panel is mush. At 9 a name board only
+  // cleared its own floor inside about 1.3 tiles, which is close enough to touch the wall.
   signBoard: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
-    plain: { color: 'string', label: 'string', face: 'string' }, px: 9 },
+    plain: { color: 'string', ink: 'string', label: 'string', face: 'string' }, px: 7 },
+
+  // ── THE STRUCTURAL FOUR ─────────────────────────────────────────────────────
+  // Everything above is bolted TO a wall. These four give a wall a front and a back, and they are
+  // what stands between a box wearing greebles and the reference diorama. See the block comment on
+  // them in windshield.js for why each one is not the neighbouring part it looks like.
+
+  // A window with a surround, glazing, a shadowed head and a sill. ⚠ `depth` is how far the frame
+  // STANDS PROUD of the wall, not how far the glass is set back — a recess is not drawable here at
+  // any price, because neither renderer can cut a hole in a wall. See windowBay in windshield.js.
+  // ⚠ `px` 9 rather than the 7 it started at: this is the most-instanced part in the derived kit,
+  // so its screen-size floor is the single biggest lever on what a dense frame costs. At 7 a window
+  // was still being queued at 2.6 tiles, where it is a few pixels of frame and reads as noise.
+  windowBay: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h', depth: 'fh' }, required: ['z', 'half', 'hh'],
+    plain: { pal: 'string', glow: 'string', glass: 'string', bars: 'number', transom: 'number' }, px: 9 },
+  // A slab cantilevered over the storey below, with an authored soffit. Not `balcony`: that is a
+  // tray with a rail whose underside comes off the wall palette.
+  canopy: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', out: 'fh', hh: 'h' }, required: ['z', 'half', 'out'],
+    plain: { pal: 'string', soffit: 'string', strip: 'string' }, px: 9 },
+  // A billboard standing on a roof, on its own legs. `rise` is the leg height; the board sits on
+  // top of it, so a gantry cannot be drawn anywhere its structure is not.
+  signGantry: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h', rise: 'h' }, required: ['z', 'half', 'hh'],
+    plain: { pal: 'string', color: 'string', ink: 'string', label: 'string', trim: 'string', neon: 'boolean' }, px: 9 },
+  // A sign panel hung proud of a wall, with a visible edge return. Not `neonBlade`, whose
+  // half-width is in SCREEN pixels and which therefore never foreshortens — this is world geometry.
+  bladePanel: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', half: 'fh', out: 'fh' }, required: ['z0', 'z1', 'half'],
+    plain: { pal: 'string', color: 'string', ink: 'string', label: 'string' }, px: 8 },
+
+  // ── THE INDUSTRIAL FOUR ─────────────────────────────────────────────────────
+  // The machinery bolted to the outside of a working building. `pipe` and `vent` are the
+  // domestic-scale versions of two of these; the other two had nothing at all.
+
+  // Big external ducting: a ribbed trunk up a face, an elbow, and an arm running along the wall.
+  // `run` is signed, so the arm can turn either way; omit it for a plain riser.
+  ductRun: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', r: 'fh', run: 'fh' }, required: ['z0', 'z1', 'r'],
+    plain: { pal: 'string' }, px: 7 },
+  // An extract stack with a cowl. The cowl is what makes the silhouette read as extract not mast.
+  stack: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h' }, required: ['z', 'r', 'hh'],
+    plain: { pal: 'string' }, px: 7 },
+  // A bank of louvres — `vent` at plant-room scale. `n` is the slat count, which is what says
+  // whether this is an industrial intake or an air-handling wall.
+  louvreBank: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
+    plain: { pal: 'string', n: 'number' }, px: 8 },
+  // A tank on an open braced frame. `roofTank` is a drum on four stubs; this stands a storey above
+  // the roof and is visible from streets away. `rise` is the frame, `hh` the shell.
+  tankFrame: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h', rise: 'h' }, required: ['z', 'r', 'hh', 'rise'],
+    plain: { pal: 'string' }, px: 9 },
 };
 
 export const ADORN_SCHEMA = {

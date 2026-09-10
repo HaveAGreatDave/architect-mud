@@ -293,6 +293,12 @@ export const RENDER_TUNE = {
   // is ever in frame, so it is a handful of buildings, usually one or two. 0 disables the tier and
   // restores the renderer exactly as it was, the same off-switch discipline as lodNear/shapeShadow.
   detailNear: 3,      // tiles: run the model arm at ADORN_NEAR closer than this. 0 = off
+  // The DERIVED KIT: windows, roof plant, risers and a ground floor, generated off each building's
+  // own captured shape for the 127 models nobody has hand-authored trim for. 0 falls back to the
+  // coping band alone, which is what shipped before it. Same off-switch discipline as `legacyArms`
+  // and `glFloor`, and for the same reason: this changes the look of most of Coldwater at once, so
+  // "what did it do" has to be answerable by flipping one number rather than by reading a diff.
+  derivedKit: 1,
   lodFar: 32,         // tiles: by here a building is down to its single biggest mass
   // Distance (tiles) within which a neon sign earns a REAL glow. shadowBlur is a software blur pass
   // per draw and one of the two things that genuinely cost time in canvas2d (the other, gradient
@@ -8665,6 +8671,34 @@ if (typeof window !== 'undefined') {
 // post-pass. Keeping the guards dumb is deliberate — they sit at the top of the hottest drawing
 // functions in the file, and a guard that computes something is a guard that can be wrong.
 let SHAPE_SINK = null;
+// ── DOES THIS ARM SIGN ITSELF? ──────────────────────────────────────────────
+//
+// The derived kit wants to put a building's name on its front, and roughly half the arms already do
+// — with a `neonBlade`, a `marqueeBand`, or lettering painted straight onto a frieze. Those calls
+// live inside the arm's own `case`, not in a detail list, so there is nothing declarative to read
+// and a kit that just added a board would give half the city two signs on one frontage.
+//
+// ⚠ IT IS NOT A THIRD CAPTURE PASS, AND THAT IS THE WHOLE DESIGN. The obvious build is a probe that
+// runs the arm again with a sign sink installed — but captures in this file NEST (see the ⚠ on
+// emitFlat), and a third one asked for from inside `derivedTrim` would re-enter the arm that is
+// currently being measured. Instead it rides the SHAPE capture, which already runs for every model
+// and is already cached: the sign helpers all return early on `SHAPE_SINK`, so they record on the
+// way out and cost one Set insert on a pass that was happening anyway.
+//
+// ⚠ AND IT RECORDS BEFORE THE TIER TEST, not after. A capture can run at any `ADORN_TIER`, and a
+// blade suppressed by distance is still a blade the arm draws — the question is what this building
+// HAS, not what it happens to be painting from here.
+let SIGN_SEEN = null;
+const _modelSigns = new WeakMap();
+const signSetFor = (m) => { let s = _modelSigns.get(m); if (!s) { s = new Set(); _modelSigns.set(m, s); } return s; };
+// Whether this model's ARM paints any signage of its own. Forces the shape capture (cached) so the
+// answer exists, then reads what that capture saw.
+export function armSignsItself(m, seed) {
+  if (!m) return false;
+  try { shapeForModel(m, seed); } catch { /* a failed capture is not a claim about signage */ }
+  const s = _modelSigns.get(m);
+  return !!(s && s.size);
+}
 // The model palette currently being captured. Only draw3DBoxAt is handed a palette key; drums,
 // barrels and sawtooth roofs take colours or shading closures the LOD renderer can't reuse. So the
 // palette rides along ambiently (same idiom as _bladeSign) and every record carries one — which is
@@ -15438,7 +15472,19 @@ function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
   // happens to be is not a property of the building. A flat quad carries its own colour rather
   // than a palette key — that is what makes it flat — so it also carries a normal, worked out
   // from the polygon itself, and its own alpha, since half of these are deliberately see-through.
-  if (MESH_SINK) {
+  // ⚠ `paint` — A SURFACE WHOSE APPEARANCE DEPENDS ON THE TILE CANNOT LIVE IN A PER-MODEL MESH.
+  // The GL mesh is captured once per (model, scale, seed, facing) and shared by every tile drawing
+  // that model, so anything that varies per BUILDING — a board carrying `$name`, where the name
+  // comes off the tile — has no single answer at capture time. `captureModelMesh` is called without
+  // a name, so such a board silently records nothing, and then `FLAT_OFF` suppresses the canvas copy
+  // at draw time believing the mesh has it. The board vanishes and its lettering, which goes through
+  // the decal path where the name IS known, is left floating in the air in front of the building.
+  // Same shape as the marquee and blade bugs the GL flip turned up, and just as quiet.
+  //
+  // So a `paint` quad is neither meshed nor suppressed: it is canvas work in both renderers, which
+  // is what signage already is here — the arms keep running in GLASS 2 precisely to draw it.
+  if (opts.paint) { if (MESH_SINK) return; }
+  else if (MESH_SINK) {
     const rgba = cssRgb(fill);
     if (rgba && pts.length >= 3) {
       // Newell: correct for a polygon that is not perfectly planar, which a clipped one is not.
@@ -15459,7 +15505,7 @@ function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
   // ⚠ SUPPRESSED ONLY IF THE MESH COULD TAKE IT, and the test is the same one the capture used. A
   // quad whose fill is not a plain colour — a gradient, or a stroke-only outline with no fill at
   // all — is not in the mesh, and a blunt flag would delete it from the world rather than move it.
-  if (FLAT_OFF && cssRgb(fill)) return;
+  if (FLAT_OFF && !opts.paint && cssRgb(fill)) return;   // `paint` is never in the mesh — see above
   if (opts.cullN) {
     let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= pts.length; cy /= pts.length;
     const nx = opts.cullN[0], ny = opts.cullN[1];
@@ -15636,6 +15682,9 @@ let _bladeSign;   // ambient: the current building's display name, set by drawTy
 // every board of the same colour and label, is one texture and one draw call.
 const _marqueeTexCache = new Map();
 function bakeSignText(label, color, dn, vertical, solid, tight) {
+  // The universal chokepoint for world lettering, so it catches the arms that paint a name straight
+  // onto a frieze or a false front (The Meridian, The Dry Goods) rather than onto a blade or a band.
+  if (SIGN_SEEN) SIGN_SEEN.add('text');
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return null;   // adornment — and it allocates a canvas, which capture must never do
   const key = `${label}|${color}|${dn}|${vertical ? 1 : 0}|${solid ? 1 : 0}|${tight ? 1 : 0}`;
   let c = _signTexCache.get(key); if (c) return c;
@@ -15691,9 +15740,16 @@ function bakeSignText(label, color, dn, vertical, solid, tight) {
 // ⚠ The quad comes back through cam.unproj, so no caller has to grow a world-space twin of a
 // screen-space one it already computed. See makeCam: it answers null under pitch and this falls
 // back rather than guessing.
-function emitSurfaceText(ctx, cam, pts, tex, vertical, alpha, lift = DECO_LIFT) {
+// ⚠ `onCanvas` — LETTERING MUST COMPOSITE WHERE ITS BOARD DOES. The GL canvas is blitted BEFORE the
+// 2-D pass, so a decal is UNDER everything the painter then draws. That is right for a sign whose
+// board is in the mesh (both are on the GPU, both under the canvas) and wrong for one whose board is
+// a `paint` quad on the canvas — there the board is drawn after the decal and covers its own words.
+// Measured as a name board that appeared with its lettering in GLASS 1 and as a blank dark band in
+// GLASS 2, which reads exactly like a sign whose text failed to render rather than like a z-order
+// bug. A caller that paints its own board passes true and gets the 2-D path for the text as well.
+function emitSurfaceText(ctx, cam, pts, tex, vertical, alpha, lift = DECO_LIFT, onCanvas = false) {
   const draw = () => drawSurfaceText(ctx, pts[0], pts[1], pts[2], pts[3], tex, vertical, alpha);
-  if (!DECAL_SINK || !tex || SHAPE_SINK || ADORN_TIER < ADORN_RICH || !TUNE.glSign) { emitDeco(pts, draw, lift); return; }
+  if (onCanvas || !DECAL_SINK || !tex || SHAPE_SINK || ADORN_TIER < ADORN_RICH || !TUNE.glSign) { emitDeco(pts, draw, lift); return; }
   if (decoHidden(pts)) return;
   const w = cam.unproj ? pts.map((p) => cam.unproj(p, FACE_EPS)) : null;
   if (!w || w.some((q) => !q)) { emitDeco(pts, draw, lift); return; }
@@ -15738,6 +15794,7 @@ function drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha) {
   }
 }
 function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // vertical marquee blade
+  if (SIGN_SEEN) SIGN_SEEN.add('neonBlade');           // see the ⚠ on SIGN_SEEN — recorded before the tier test
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment — a stacked sign board; a label (explicit, or the ambient building name) paints real letters onto the blade face
   if (label === undefined) label = _bladeSign;   // default to the current building's name; pass '' to force the abstract rungs
   const b = cam.proj(dx, dy, h0), t = cam.proj(dx, dy, h1); if (b.f <= 0.12 || t.f <= 0.12) return;
@@ -15755,7 +15812,18 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
     trace(); ctx.fill(); ctx.shadowBlur = 0;
     if (label) {   // real letters painted DOWN the blade face (top→bottom), foreshortened with it
       const q = (p) => ({ sx: p[0], sy: p[1] });
-      drawSurfaceText(ctx, q(P[1]), q(P[2]), q(P[3]), q(P[0]), bakeSignText(label, color, night ? 1 : 0, true), true, alpha);
+      // ⚠ P[2]/P[1] AND NOT P[1]/P[2], AND EVERY BLADE IN THE CITY READ BACKWARDS UNTIL IT DID.
+      // `nx` is the screen-space perpendicular `-uy/len * wpx`, and a blade is upright, so `uy` is
+      // always negative (screen y grows down) and `nx` is therefore always POSITIVE — the `+n`
+      // corners are on the RIGHT for every blade, at every heading, at every distance. Handing
+      // P[1] over as the top-LEFT corner mirrors the baked texture unconditionally: not on one
+      // facing, not from behind, always. `_bladeSign` defaults the label to the building's own
+      // name, so this was most of the lettering in Coldwater, reversed.
+      //
+      // It survived because the fallback rungs below are symmetrical and the abstract blade is
+      // what most arms drew for years, and because a mirrored word at a hundred metres reads as
+      // a word. It is legible from a truck cab, which is where it was reported.
+      drawSurfaceText(ctx, q(P[2]), q(P[1]), q(P[0]), q(P[3]), bakeSignText(label, color, night ? 1 : 0, true), true, alpha);
     } else {   // no name → the old abstract "letter" rungs
       const N = clamp(Math.round(len / 8), 3, 8);
       ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
@@ -15934,6 +16002,7 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof 
 // marquee bulbs along the top & bottom rails — so it reads as signage in daylight instead
 // of a bare stroke (which is all it used to be).
 function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) {
+  if (SIGN_SEEN) SIGN_SEEN.add('marqueeBand');         // see the ⚠ on SIGN_SEEN
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
   const px = E[1] * half, py = -E[0] * half;                 // across-front half-width
   const ox = E[0] * half * 0.94, oy = E[1] * half * 0.94;    // pushed out to the front face
@@ -20506,8 +20575,14 @@ const SHAPE_STUB_CAM = { sinh: 0, cosh: 1, back: 0, ex: -0, ey: 0, fwdOff: 0, EH
 // stub cam) comes out the way we want: negative → the entrance face is toward the camera.
 function captureRawPass(m, fh, h, seed, dyOff) {
   const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+  const savedSigns = SIGN_SEEN;
   const sink = [];
   try {
+    // Riding along: the sign helpers record here on their way out of the SHAPE_SINK guard, so the
+    // derived kit can ask whether this arm already signs itself without a second run. See the ⚠ on
+    // SIGN_SEEN. It accumulates across every pass of the capture, which is what we want — a blade
+    // drawn at only one of the solve scales is still a blade this building has.
+    SIGN_SEEN = m ? signSetFor(m) : null;
     // A scratch face sink is REQUIRED, not tidiness: emitFace runs its closure immediately when
     // FACE_SINK is null, so capturing from outside a world pass (which is what collision does) would
     // otherwise execute every deferred paint closure in the arm against the stub ctx.
@@ -20525,6 +20600,7 @@ function captureRawPass(m, fh, h, seed, dyOff) {
   } finally {
     // Restore in a finally so a throwing arm can't leave the sink installed and blank the skyline.
     SHAPE_SINK = null; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+    SIGN_SEEN = savedSigns;
   }
   return sink;
 }
@@ -21347,15 +21423,362 @@ const AUTHORED_DETAIL = {
     }
   },
   // A painted sign board bolted to a wall — not neonBlade, which is a lit blade on its own mast.
+  //
+  // ⚠ THE BOARD AND THE LETTERING ARE TWO COLOURS, AND THEY USED TO BE ONE FIELD. `color` filled
+  // the board AND was handed to bakeSignText as the ink, so a labelled board painted its own words
+  // in its own colour and the label was invisible — cyan on cyan. `solid` lettering is deliberately
+  // flat with no white core and no halo (see bakeSignText), so there was nothing left to read it
+  // by. Voltage's rooftop VOLTAGE board shipped as a blank cyan rectangle for exactly this reason.
+  //
+  // `ink` is the lettering, and it DEFAULTS to legible rather than to `color`: dark ink on a light
+  // board, bone ink on a dark one, picked off the board's own luminance. That keeps the one arm
+  // that already authors a board (D_CIVIC, deliberately blank) pixel-identical, and means no
+  // author has to state two colours to get a sign they can read.
   signBoard: (c, d) => {
+    // ⚠ A SIGN WITH NOTHING TO SAY IS NOT DRAWN. `$name` resolves per TILE, so a model shared by a
+    // named building and an unnamed one would otherwise hang a blank board on the unnamed one — and
+    // a blank board is worse than no board, because it reads as a sign whose paint has come off.
+    if (d.label === '$name' && !c.name) return;
     const half = c.V(d.half), hh = c.V(d.hh), z = c.V(d.z), y = faceY(c.ly);
     const pts = [[c.lx - half, y, z + hh], [c.lx + half, y, z + hh], [c.lx + half, y, z - hh], [c.lx - half, y, z - hh]];
-    detailQuad(c.ctx, c.cam, c.F, pts, d.color || "#141018", c.alpha, { lift: DETAIL_LIFT, stroke: "rgba(0,0,0,0.5)", lw: 1 });
+    const board = d.color || "#141018";
+    // `$name` varies per TILE, so the board goes on the canvas in both renderers rather than into a
+    // per-model mesh that cannot hold two answers — see the ⚠ on `paint` in emitFlat. A board with a
+    // literal label is the same for every tile and meshes normally.
+    const perTile = d.label === '$name';
+    detailQuad(c.ctx, c.cam, c.F, pts, board, c.alpha, { lift: DETAIL_LIFT, stroke: "rgba(0,0,0,0.5)", lw: 1, paint: perTile });
     if (d.label) {
       // Painted INTO the surface, never billboarded — the house rule for all world text.
       const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
       if (w.every((q) => q.f > 0.12)) {
-        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === "$name" ? (c.name || "") : d.label, d.color || "#e8dcc8", c.night ? 1 : 0, false, true), false, c.alpha, DETAIL_LIFT * 2);
+        // `perTile` boards are canvas-painted, so their lettering has to be too — see the ⚠ on
+        // `onCanvas` in emitSurfaceText, or the board covers its own words in GLASS 2.
+        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === "$name" ? (c.name || "") : d.label, d.ink || inkFor(board), c.night ? 1 : 0, false, true), false, c.alpha, DETAIL_LIFT * 2, perTile);
+      }
+    }
+  },
+
+  // ── THE STRUCTURAL FOUR ────────────────────────────────────────────────────
+  //
+  // Everything above this line is stuff BOLTED TO a wall — a pipe, a vent, a board, a cable. That
+  // is why a model built entirely out of it still reads as a box: none of it changes the building's
+  // silhouette or gives a facade any depth, so a flat wall wearing forty greebles is a flat wall.
+  //
+  // These four are the parts that make a facade have a FRONT AND A BACK. A window you can see into,
+  // a slab that throws a shadow over the storey below, a board standing on legs, a panel hung proud
+  // of the wall with a visible edge. They are the difference between the reference diorama and what
+  // this format could express before them, and each one is still flat quads through `emitFlat` —
+  // adornment, never mass, so collision and the cold-open skyline do not move.
+  //
+  // ⚠ ALL FOUR RESPECT THE FACE SIGN, WHICH THE OLDER PROJECTING PARTS DO NOT. `balcony` and
+  // `fireEscape` compute their outer plane as `ly + out`, so on a face at NEGATIVE y they project
+  // backwards into the building. That is latent rather than live — nothing authored today hangs one
+  // off a back face — but a canopy is a part somebody will put on all four sides on the first day,
+  // so these take `sgn` off the face and push outward from it.
+
+  // A window that has a FRONT AND A BACK: a surround, glazing, a shadowed head and a sill you can
+  // see the top of. The single biggest thing missing from the format, because a lit opening is
+  // most of what reads as a building after dark and a painted-on rectangle never will.
+  //
+  // ⚠ IT IS BUILT PROUD OF THE WALL, NEVER RECESSED INTO IT, AND THE FIRST CUT WAS RECESSED. That
+  // version put the glazing behind the wall plane with four reveal faces running back to it — the
+  // honest way to model a window and the one thing neither of this game's renderers can draw.
+  // `emitFlat` sorts on MEAN DEPTH, so a pane a few centimetres behind a wall sorts behind the
+  // whole wall quad and the wall paints over it; and because the comparison is against the wall's
+  // CENTRE, whether any given window survived depended on which half of the facade it sat on and
+  // which way the camera was pointing — six of ten windows vanished, and the four that drew were
+  // the four nearest the camera-facing edge. GLASS 2 is worse and quieter: a depth buffer occludes
+  // a pane behind a wall CORRECTLY, so on the shipping renderer all ten would be gone, always.
+  //
+  // Nothing can cut a hole in a wall here — a box face is one quad — so a recess is not available
+  // at any price. A surround standing proud reads as the same thing from every angle this game
+  // uses, and is true in both renderers: at an oblique view you see the inside of the far jamb,
+  // which is exactly the cue a reveal gives. `depth` is therefore how far the frame STANDS OUT.
+  windowBay: (c, d) => {
+    const half = c.V(d.half), hh = c.V(d.hh), z = c.V(d.z);
+    const dep = d.depth ? c.V(d.depth) : Math.min(half, hh) * 0.35;
+    const sgn = c.ly < 0 ? -1 : 1;
+    const y = faceY(c.ly), yo = c.ly + sgn * dep;   // wall plane, and the frame's outer plane
+    const P = d.pal || c.pal;
+    const head = shadeOf(P, 0.34), sill = shadeOf(P, 1.28), jamb = shadeOf(P, 0.66), rim = shadeOf(P, 0.92);
+    const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, o || {});
+    const fr = Math.min(half, hh) * 0.26;           // frame width in the plane of the wall
+    const ho = half + fr, vo = hh + fr;
+    // 1) The surround, flat on the wall: one plate, so the frame is a shape and not four strips.
+    Q([[c.lx - ho, y, z + vo], [c.lx + ho, y, z + vo], [c.lx + ho, y, z - vo], [c.lx - ho, y, z - vo]], rim, c.alpha, { lift: DETAIL_LIFT });
+    // 2) The frame's returns — the surfaces that read as the reveal. Their SHADING ORDER is what
+    //    sells it: the head faces down and sees no sky, the sill faces up and is the brightest
+    //    thing on the facade, the jambs sit between. The depth itself is a few centimetres and
+    //    nobody can measure it by eye; the order is what the eye actually reads.
+    Q([[c.lx - half, y, z + hh], [c.lx + half, y, z + hh], [c.lx + half, yo, z + hh], [c.lx - half, yo, z + hh]], head, c.alpha, { lift: DETAIL_LIFT * 1.6 });
+    Q([[c.lx - half, y, z - hh], [c.lx + half, y, z - hh], [c.lx + half, yo, z - hh], [c.lx - half, yo, z - hh]], sill, c.alpha, { lift: DETAIL_LIFT * 1.6 });
+    // ⚠ A REVEAL JAMB FACES INWARD, so exactly one of the pair can ever be seen — the near one is
+    // turned away from you by definition. Culling the other is free correctness AND the cheapest
+    // saving on this pass: `windowBay` is by far the most-instanced part in the kit, so one quad
+    // here is one quad times every window in the city.
+    //
+    // ⚠ AND THE JAMBS AND MULLIONS ARE MESH-ONLY, which is the same bargain `ADORN_NEAR` itself is
+    // struck on. A depth-buffered quad is nearly free and a canvas one is not, so GLASS 2 carries
+    // the whole reveal at every distance while the 2-D painter draws the four faces that actually
+    // read — surround, head, sill, glass — and skips the two that are edge-on from almost every
+    // angle. Putting the full set on the painter measured `framecost` **12.6% over** on the dense
+    // cab frame against a 2% tolerance; this is most of the way back, and costs the GPU nothing.
+    // The parts are still in the mesh, so nothing is lost on the renderer that ships.
+    if (MESH_SINK) {
+      for (const sx of [-1, 1]) {
+        Q([[c.lx + sx * half, y, z + hh], [c.lx + sx * half, yo, z + hh], [c.lx + sx * half, yo, z - hh], [c.lx + sx * half, y, z - hh]], jamb, c.alpha,
+          { lift: DETAIL_LIFT * 1.6, cullN: [-sx * c.E[1], sx * c.E[0]] });
+      }
+    }
+    // 3) The glazing, at the BACK of the reveal — on the wall plane, where a window actually is.
+    //    Lit from inside after dark, and a dark sheet by day: never the wall colour, because a
+    //    window that matches its wall is a painted rectangle again.
+    const yg = y + sgn * FACE_EPS;
+    Q([[c.lx - half, yg, z + hh], [c.lx + half, yg, z + hh], [c.lx + half, yg, z - hh], [c.lx - half, yg, z - hh]],
+      c.night ? (d.glow || '#cfe6ff') : (d.glass || '#243040'), c.alpha * (c.night ? 0.96 : 0.9), { lift: DETAIL_LIFT * 1.3 });
+    // 4) Mullions and a transom, on the glazing. A shopfront is one sheet and a tenement window is
+    //    four panes, and these two fields are the whole difference between them.
+    const bars = MESH_SINK ? clamp(Math.round(d.bars || 0), 0, 6) : 0;   // mesh-only, see above
+    const yb2 = yg + sgn * FACE_EPS;
+    for (let i = 1; i <= bars; i++) {
+      const bx = c.lx - half + (2 * half) * (i / (bars + 1)), t = Math.max(half * 0.02, 0.004);
+      Q([[bx - t, yb2, z + hh], [bx + t, yb2, z + hh], [bx + t, yb2, z - hh], [bx - t, yb2, z - hh]], jamb, c.alpha, { lift: DETAIL_LIFT * 1.45 });
+    }
+    if (d.transom) {
+      const tz = z + hh - 2 * hh * clamp(d.transom, 0.05, 0.95), t = Math.max(hh * 0.035, 0.004);
+      Q([[c.lx - half, yb2, tz + t], [c.lx + half, yb2, tz + t], [c.lx + half, yb2, tz - t], [c.lx - half, yb2, tz - t]], jamb, c.alpha, { lift: DETAIL_LIFT * 1.45 });
+    }
+  },
+
+  // A slab cantilevered out over the storey below, with a soffit you can see. The reference's
+  // strongest single read: three of them, stacked, each with a coloured underside catching the
+  // neon. `balcony` is not this — that is a small tray with a rail, and its underside is derived
+  // from the wall palette, so it can never be the red that makes the reference work.
+  //
+  // ⚠ THE SOFFIT IS AUTHORED AND THE TOP IS NOT. Looking UP at a canopy is the common case in this
+  // game — a truck cab sits at eye height 0 — so the underside is the face that carries the colour,
+  // and deriving it from `pal` would put a grey slab where the design wants a lit one.
+  canopy: (c, d) => {
+    const half = c.V(d.half), out = c.V(d.out), z = c.V(d.z);
+    const hh = d.hh ? c.V(d.hh) : Math.max(out * 0.14, 0.01);
+    const sgn = c.ly < 0 ? -1 : 1;
+    const y0 = c.ly, y1 = c.ly + sgn * out;
+    const P = d.pal || c.pal;
+    const top = shadeOf(P, 1.06), edge = shadeOf(P, 0.84);
+    // ⚠ LIFTED, LIKE EVERY OTHER PART BOLTED TO A WALL. `emitFlat` sorts on the quad's MEAN depth
+    // against the wall's, and a wall's mean is its CENTRE — so a slab attached near the far end of
+    // a long facade sorts behind the whole facade and disappears, while the identical slab at the
+    // near end draws. See the ⚠ on windowBay: this is the same trap, and the reason a projecting
+    // part is not automatically safe from it.
+    const L = { lift: DETAIL_LIFT * 1.4 };
+    const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, o || L);
+    Q([[c.lx - half, y0, z + hh], [c.lx + half, y0, z + hh], [c.lx + half, y1, z + hh], [c.lx - half, y1, z + hh]], top, c.alpha);          // deck
+    Q([[c.lx - half, y1, z + hh], [c.lx + half, y1, z + hh], [c.lx + half, y1, z], [c.lx - half, y1, z]], edge, c.alpha);                    // fascia
+    Q([[c.lx - half, y0, z], [c.lx + half, y0, z], [c.lx + half, y1, z], [c.lx - half, y1, z]], d.soffit || shadeOf(P, 0.44), c.alpha);      // soffit
+    for (const sx of [-1, 1]) {   // the returns, so the slab has a thickness from the side too
+      Q([[c.lx + sx * half, y0, z + hh], [c.lx + sx * half, y1, z + hh], [c.lx + sx * half, y1, z], [c.lx + sx * half, y0, z]], edge, c.alpha,
+        { lift: DETAIL_LIFT * 1.4, cullN: [sx * c.E[1], -sx * c.E[0]] });
+    }
+    // Strip lighting tucked under the leading edge — the reason a canopy reads at night at all.
+    if (d.strip) {
+      const t = Math.max(hh * 0.35, 0.005), yl = y1 - sgn * out * 0.12;
+      Q([[c.lx - half * 0.94, yl, z + t], [c.lx + half * 0.94, yl, z + t], [c.lx + half * 0.94, yl, z], [c.lx - half * 0.94, yl, z]],
+        d.strip, c.alpha * (c.night ? 1 : 0.55), { lift: DETAIL_LIFT * 1.9 });
+    }
+  },
+
+  // A billboard STANDING ON A ROOF, on legs you can see. This is the part the floating rooftop
+  // sign was reaching for and missing: Voltage authored a board at z 1.42 over a roof at 1.2 and
+  // propped it with two `pipe` runs that stopped at 1.31, so there was a clear tile of empty air
+  // under a hovering slab. A gantry owns its own legs, so the board cannot be anywhere its
+  // structure is not.
+  signGantry: (c, d) => {
+    const half = c.V(d.half), hh = c.V(d.hh), z = c.V(d.z), rise = d.rise ? c.V(d.rise) : hh * 0.9;
+    const P = d.pal || c.pal;
+    const leg = shadeOf(P, 0.52), frame = shadeOf(P, 0.78);
+    const board = d.color || '#141018';
+    const y = faceY(c.ly), zb = z + rise, zt = zb + 2 * hh;
+    const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, o || {});
+    for (const sx of [-1, 1]) {   // two legs, splayed in a little from the board's own width
+      const lx = c.lx + sx * half * 0.62, t = Math.max(half * 0.045, 0.005);
+      Q([[lx - t, y, zb + hh * 0.2], [lx + t, y, zb + hh * 0.2], [lx + t, y, z], [lx - t, y, z]], leg, c.alpha, { lift: DETAIL_LIFT });
+    }
+    const pts = [[c.lx - half, y, zt], [c.lx + half, y, zt], [c.lx + half, y, zb], [c.lx - half, y, zb]];
+    Q(pts, board, c.alpha, { lift: DETAIL_LIFT, stroke: 'rgba(0,0,0,0.5)', lw: 1 });
+    // A lit frame round the board — the neon tube that makes the reference's sign a sign and not
+    // a rectangle. Drawn proud of the board so it survives a depth buffer.
+    if (d.trim) {
+      const t = Math.max(hh * 0.06, 0.004), yf = y + (y < 0 ? -FACE_EPS : FACE_EPS);
+      for (const [z0, z1] of [[zt - t, zt], [zb, zb + t]]) Q([[c.lx - half, yf, z1], [c.lx + half, yf, z1], [c.lx + half, yf, z0], [c.lx - half, yf, z0]], d.trim, c.alpha, {});
+      for (const sx of [-1, 1]) Q([[c.lx + sx * half - t, yf, zt], [c.lx + sx * half + t, yf, zt], [c.lx + sx * half + t, yf, zb], [c.lx + sx * half - t, yf, zb]], d.trim, c.alpha, {});
+    } else {
+      for (const sx of [-1, 1]) {   // otherwise a plain steel surround, which most boards have
+        const t = Math.max(half * 0.03, 0.004);
+        Q([[c.lx + sx * half - t, y, zt], [c.lx + sx * half + t, y, zt], [c.lx + sx * half + t, y, zb], [c.lx + sx * half - t, y, zb]], frame, c.alpha, { lift: DETAIL_LIFT * 1.2 });
+      }
+    }
+    if (d.label) {
+      const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
+      if (w.every((q) => q.f > 0.12)) {
+        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === '$name' ? (c.name || '') : d.label, d.ink || inkFor(board), c.night ? 1 : 0, false, !d.neon), false, c.alpha, DETAIL_LIFT * 2);
+      }
+    }
+  },
+
+  // A sign panel hung PROUD of a wall, with a visible edge return — the orange slab down the
+  // corner of the reference. Not `neonBlade`, and the difference is the whole complaint: that
+  // helper's half-width is in SCREEN PIXELS (clamped 2..9), so it is a billboard that keeps a
+  // constant thickness however you move, never foreshortens, and reads as a sticker floating in
+  // front of the building. This is world geometry — it has a front, two edges and a real depth, so
+  // it turns with the building, and at a grazing angle you see the side of it like you should.
+  bladePanel: (c, d) => {
+    const half = c.V(d.half), z0 = c.V(d.z0), z1 = c.V(d.z1);
+    const out = d.out ? c.V(d.out) : half * 0.5;
+    const sgn = c.ly < 0 ? -1 : 1;
+    const y0 = c.ly, y1 = c.ly + sgn * out;
+    const face = d.color || c.neon || '#5cd6ff';
+    const side = shadeOf(d.pal || c.pal, 0.5);
+    const L = { lift: DETAIL_LIFT * 1.5 };   // see the ⚠ on canopy: mean-depth sorting, same trap
+    const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, o || L);
+    // The two edge returns and the caps: the parts that give it thickness, drawn first so the lit
+    // face lands on top of their joint.
+    for (const sx of [-1, 1]) {
+      Q([[c.lx + sx * half, y0, z1], [c.lx + sx * half, y1, z1], [c.lx + sx * half, y1, z0], [c.lx + sx * half, y0, z0]], side, c.alpha,
+        { lift: DETAIL_LIFT * 1.5, cullN: [sx * c.E[1], -sx * c.E[0]] });
+    }
+    for (const z of [z0, z1]) Q([[c.lx - half, y0, z], [c.lx + half, y0, z], [c.lx + half, y1, z], [c.lx - half, y1, z]], side, c.alpha);
+    const pts = [[c.lx - half, y1, z1], [c.lx + half, y1, z1], [c.lx + half, y1, z0], [c.lx - half, y1, z0]];
+    Q(pts, face, c.alpha * (c.night ? 1 : 0.92), { lift: DETAIL_LIFT * 2 });
+    if (d.label) {
+      const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
+      if (w.every((q) => q.f > 0.12)) {
+        // `vertical` down the panel, which is what a hung blade is for. Painted ink rather than
+        // neon: the panel itself is the lit surface, so a glowing letter on a glowing board is the
+        // same soup `signBoard` used to make.
+        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === '$name' ? (c.name || '') : d.label, d.ink || inkFor(face), c.night ? 1 : 0, true, true), true, c.alpha, DETAIL_LIFT * 2);
+      }
+    }
+  },
+
+  // ── THE INDUSTRIAL FOUR ────────────────────────────────────────────────────
+  //
+  // A working building is mostly the machinery bolted to the outside of it: ducting the size of a
+  // corridor, an extract stack, banks of louvres, a water tank up on a frame. `pipe` and `vent` are
+  // the domestic-scale versions of two of those and there was nothing at all for the other two.
+
+  // BIG external ducting: a trunk up a face, an elbow, and an arm running off along the wall. The
+  // single most recognisable thing on an industrial building, and the reason `pipe` is not enough —
+  // a downpipe is a line, and a duct is a volume with ribs that reads at fifty metres.
+  //
+  // Drawn as crossed strips like `pipe`, for the same reason: two quads read as a cylinder from any
+  // angle a wall is seen from, and cost a fraction of a drum. The RIBS are what separate it from a
+  // fat pipe — a smooth tube of this diameter reads as a silo.
+  ductRun: (c, d) => {
+    const r = c.V(d.r), z0 = c.V(d.z0), z1 = c.V(d.z1);
+    const run = d.run ? c.V(d.run) : 0;
+    const sgn = c.ly < 0 ? -1 : 1;
+    const y = c.ly + sgn * r;                       // the trunk stands off the wall by its own radius
+    const P = d.pal || c.pal;
+    const col = shadeOf(P, 0.8), lit = shadeOf(P, 1.05), rib = shadeOf(P, 0.58);
+    const L = { lift: DETAIL_LIFT * 1.6 };
+    const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, o || L);
+    Q([[c.lx - r, y, z1], [c.lx + r, y, z1], [c.lx + r, y, z0], [c.lx - r, y, z0]], col, c.alpha);
+    Q([[c.lx, y - r, z1], [c.lx, y + r, z1], [c.lx, y + r, z0], [c.lx, y - r, z0]], lit, c.alpha, { lift: DETAIL_LIFT * 1.9 });
+    const ribs = clamp(Math.round((z1 - z0) / Math.max(r * 1.8, 0.02)), 0, 14);
+    for (let i = 1; i <= ribs; i++) {
+      const zz = z0 + (z1 - z0) * (i / (ribs + 1)), t = r * 0.16;
+      Q([[c.lx - r * 1.18, y, zz + t], [c.lx + r * 1.18, y, zz + t], [c.lx + r * 1.18, y, zz - t], [c.lx - r * 1.18, y, zz - t]], rib, c.alpha, { lift: DETAIL_LIFT * 2.2 });
+    }
+    if (!run) return;
+    // The elbow and the arm. `run` is signed, so a duct can turn either way along the wall.
+    const ex = c.lx + run, zz = z1;
+    Q([[c.lx - r, y, zz + r], [ex, y, zz + r], [ex, y, zz - r], [c.lx - r, y, zz - r]], col, c.alpha);
+    Q([[c.lx - r, y - r, zz], [ex, y - r, zz], [ex, y + r, zz], [c.lx - r, y + r, zz]], lit, c.alpha, { lift: DETAIL_LIFT * 1.9 });
+    const n2 = clamp(Math.round(Math.abs(run) / Math.max(r * 1.8, 0.02)), 0, 14);
+    for (let i = 1; i <= n2; i++) {
+      const xx = c.lx + run * (i / (n2 + 1)), t = r * 0.16;
+      Q([[xx - t, y, zz + r * 1.18], [xx + t, y, zz + r * 1.18], [xx + t, y, zz - r * 1.18], [xx - t, y, zz - r * 1.18]], rib, c.alpha, { lift: DETAIL_LIFT * 2.2 });
+    }
+  },
+
+  // An extract stack with a cowl. Roof-mounted, and the one part on this list whose whole job is to
+  // break a flat roofline — from the air a roof is the biggest surface a building has.
+  stack: (c, d) => {
+    const r = c.V(d.r), z = c.V(d.z), hh = c.V(d.hh);
+    const P = d.pal || c.pal;
+    const body = shadeOf(P, 0.74), lit = shadeOf(P, 1.02), band = shadeOf(P, 0.5);
+    const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, o || {});
+    const zt = z + hh;
+    Q([[c.lx - r, c.ly, zt], [c.lx + r, c.ly, zt], [c.lx + r, c.ly, z], [c.lx - r, c.ly, z]], body, c.alpha);
+    Q([[c.lx, c.ly - r, zt], [c.lx, c.ly + r, zt], [c.lx, c.ly + r, z], [c.lx, c.ly - r, z]], lit, c.alpha);
+    for (const t of [0.34, 0.68]) {   // strapping bands
+      const zz = z + hh * t, th = r * 0.14;
+      Q([[c.lx - r * 1.2, c.ly, zz + th], [c.lx + r * 1.2, c.ly, zz + th], [c.lx + r * 1.2, c.ly, zz - th], [c.lx - r * 1.2, c.ly, zz - th]], band, c.alpha);
+    }
+    // The cowl: a wider cap with a lip, which is the silhouette that says extract rather than mast.
+    const cr = r * 1.7, ct = hh * 0.1;
+    Q([[c.lx - cr, c.ly - cr, zt + ct], [c.lx + cr, c.ly - cr, zt + ct], [c.lx + cr, c.ly + cr, zt + ct], [c.lx - cr, c.ly + cr, zt + ct]], shadeOf(P, 1.12), c.alpha);
+    for (const [sx, sy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const ax = sx ? c.lx + sx * cr : c.lx - cr, ay = sy ? c.ly + sy * cr : c.ly - cr;
+      const bx = sx ? c.lx + sx * cr : c.lx + cr, by = sy ? c.ly + sy * cr : c.ly + cr;
+      Q([[ax, ay, zt + ct], [bx, by, zt + ct], [bx, by, zt], [ax, ay, zt]], band, c.alpha, { cullN: [sx * c.E[1] + sy * c.E[0], sy * c.E[1] - sx * c.E[0]] });
+    }
+  },
+
+  // A bank of louvres — the big sibling of `vent`. A plant room, a substation and a server hall are
+  // all mostly this, and at these sizes the SLAT COUNT is what says which: a few deep blades read as
+  // industrial intake, a dense stack reads as an air-handling wall.
+  louvreBank: (c, d) => {
+    const half = c.V(d.half), hh = c.V(d.hh), y = faceY(c.ly);
+    const z = c.V(d.z), P = d.pal || c.pal;
+    const back = shadeOf(P, 0.3), blade = shadeOf(P, 0.72), edge = shadeOf(P, 0.95);
+    const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, o || {});
+    Q([[c.lx - half, y, z + hh], [c.lx + half, y, z + hh], [c.lx + half, y, z - hh], [c.lx - half, y, z - hh]], back, c.alpha, { lift: DETAIL_LIFT });
+    const n = clamp(Math.round(d.n || 6), 2, 16);
+    const sgn = c.ly < 0 ? -1 : 1, yb = y + sgn * FACE_EPS;
+    const step = (2 * hh) / n;
+    for (let i = 0; i < n; i++) {
+      const zt = z + hh - step * i, t = step * 0.42;
+      Q([[c.lx - half * 0.97, yb, zt], [c.lx + half * 0.97, yb, zt], [c.lx + half * 0.97, yb, zt - t], [c.lx - half * 0.97, yb, zt - t]], blade, c.alpha, { lift: DETAIL_LIFT * 1.5 });
+    }
+    for (const sx of [-1, 1]) {   // the frame, so the bank has an edge rather than fraying out
+      const t = Math.max(half * 0.05, 0.004);
+      Q([[c.lx + sx * half - t, yb, z + hh], [c.lx + sx * half + t, yb, z + hh], [c.lx + sx * half + t, yb, z - hh], [c.lx + sx * half - t, yb, z - hh]], edge, c.alpha, { lift: DETAIL_LIFT * 1.8 });
+    }
+  },
+
+  // A tank up on an open braced frame. `roofTank` is the domestic version — a drum on four stubs;
+  // this is the one that stands a storey above the roof on a lattice and is visible from streets
+  // away. The BRACING is the whole silhouette: four legs alone read as a table.
+  tankFrame: (c, d) => {
+    const r = c.V(d.r), hh = c.V(d.hh), z = c.V(d.z), rise = c.V(d.rise);
+    const P = d.pal || c.pal;
+    const leg = shadeOf(P, 0.42), body = shadeOf(P, 0.86), lid = shadeOf(P, 1.16), band = shadeOf(P, 0.62);
+    const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, o || {});
+    const t = Math.max(r * 0.08, 0.005);
+    // Four legs, and an X across each of the two faces that read: a brace on the near pair is what
+    // makes the gap under the tank look structural instead of empty.
+    for (const [ax, ay] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const lx = c.lx + ax * r * 0.82, ly = c.ly + ay * r * 0.82;
+      Q([[lx - t, ly, z + rise], [lx + t, ly, z + rise], [lx + t, ly, z], [lx - t, ly, z]], leg, c.alpha);
+    }
+    for (const sy of [-1, 1]) {
+      const ly = c.ly + sy * r * 0.82, x0 = c.lx - r * 0.82, x1 = c.lx + r * 0.82;
+      for (const dir of [1, -1]) {
+        const a0 = dir > 0 ? x0 : x1, a1 = dir > 0 ? x1 : x0;
+        Q([[a0, ly, z], [a1, ly, z + rise], [a1, ly, z + rise - t * 2.4], [a0, ly, z - t * 2.4]], leg, c.alpha * 0.9);
+      }
+    }
+    const zb = z + rise, zt = zb + hh;
+    Q([[c.lx - r, c.ly - r, zt], [c.lx + r, c.ly - r, zt], [c.lx + r, c.ly + r, zt], [c.lx - r, c.ly + r, zt]], lid, c.alpha);
+    for (const [sx, sy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const ax = sx ? c.lx + sx * r : c.lx - r, ay = sy ? c.ly + sy * r : c.ly - r;
+      const bx = sx ? c.lx + sx * r : c.lx + r, by = sy ? c.ly + sy * r : c.ly + r;
+      Q([[ax, ay, zt], [bx, by, zt], [bx, by, zb], [ax, ay, zb]], body, c.alpha, { cullN: [sx * c.E[1] + sy * c.E[0], sy * c.E[1] - sx * c.E[0]] });
+      for (const f of [0.32, 0.7]) {   // hoop bands round the shell
+        const zz = zb + hh * f, th = hh * 0.05;
+        Q([[ax, ay, zz + th], [bx, by, zz + th], [bx, by, zz - th], [ax, ay, zz - th]], band, c.alpha,
+          { cullN: [sx * c.E[1] + sy * c.E[0], sy * c.E[1] - sx * c.E[0]], lift: DETAIL_LIFT });
       }
     }
   },
@@ -21375,6 +21798,18 @@ export const DETAIL_PX = Object.fromEntries(Object.entries(DETAIL_SCHEMA).map(([
 function shadeOf(pal, k) {
   const c = WALL_COL[pal] || [110, 116, 124];
   return `rgb(${Math.min(255, c[0] * k) | 0},${Math.min(255, c[1] * k) | 0},${Math.min(255, c[2] * k) | 0})`;
+}
+// Lettering that can be READ against a given board, for the callers that paint text onto a panel
+// they were also given the colour of. Two answers, not a gradient: a sign painter picks the dark
+// or the light and the whole point is contrast. The threshold is on perceived luminance rather
+// than on the mean, because a saturated cyan board and a saturated blue one have the same mean
+// and want opposite ink.
+function inkFor(css) {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(css).trim());
+  let r = 20, g = 20, b = 24;
+  if (m) { const v = parseInt(m[1], 16); r = v >> 16 & 255; g = v >> 8 & 255; b = v & 255; }
+  else { const p = /rgba?\(([^)]+)\)/i.exec(String(css)); if (p) { const n = p[1].split(',').map(Number); r = n[0] | 0; g = n[1] | 0; b = n[2] | 0; } }
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 140 ? '#14110f' : '#e8dcc8';
 }
 
 const AUTHORED_ADORN = {
@@ -21788,17 +22223,96 @@ const ARM_DETAIL = {
 // round its ANKLES, which reads exactly as somebody described it: the buildings look like they are
 // coming up out of the ground. A roofline is a height, so this sorts on height.
 const DERIVED_MAX = 2;             // how many segments of one building get a band
+
+// ── THE KIT NOBODY HAS TO AUTHOR ────────────────────────────────────────────
+//
+// The coping band above proved the pattern; this is the rest of the building. It exists because
+// hand-authoring is not available at this scale and the numbers say so plainly: **173 models sit
+// under 148 DISTINCT ARMS, and 130 of those arms draw exactly one model.** The biggest arm in the
+// city covers four. So a per-arm trim pack — the obvious answer, and the one `ARM_DETAIL` already
+// offers — buys almost nothing per list written, and every list has to be written against one
+// arm's own setbacks and storey heights, where a number read wrong is a window floating in air.
+//
+// Derivation has the opposite shape. `shapeForModel` already knows where every roof, wall and
+// setback in Coldwater is — it is what collision, the ground shadows, the occluder hulls and the
+// cold open all read — so a part placed off it cannot float, whatever arm drew the building. One
+// rule reaches all 173, and a hand-written list still wins wherever somebody has bothered.
+//
+// ⚠ THE STYLE COMES FROM THE PALETTE, BECAUSE IT IS THE ONLY AXIS THAT REACHES EVERY MODEL. The
+// obvious choice is the building's ARCHETYPE (`BLDG_TYPE_3D`'s `a`: industrial, citycore, uptown…)
+// and it resolves for **45 of 173** — the other 128 are named models, which carry no building type
+// at all. `wallPaletteInfo()`'s material family resolves for **173 of 173**, because a model cannot
+// exist without a palette. It is also the better answer on the merits: what a building is MADE of
+// is what decides whether it wears ducting or balconies, and a corrugated-steel apartment block
+// should get the shed kit.
+//
+// ⚠ AND `plain` IS 51 MODELS AND MEANS NOTHING ON ITS OWN, so it is broken by PROPORTION: tall and
+// slim is a block, low and wide is a works. That is the one place shape decides style.
+const WORKS_MAT = new Set(['metal', 'plate', 'concrete']);
+const BLOCK_MAT = new Set(['window grid', 'brick', 'stone', 'stucco', 'tile', 'timber', 'bale']);
+const FRONT_MAT = new Set(['glass', 'deco', 'brass']);
+let _matByPal = null;
+function palMaterial(pal) {
+  if (!_matByPal) { _matByPal = new Map(); for (const e of wallPaletteInfo()) _matByPal.set(e.key, e.material); }
+  return _matByPal.get(pal) || 'plain';
+}
+// `works` wears machinery, `block` wears windows and balconies, `front` wears glazing and canopies.
+function derivedStyle(m, hw, top) {
+  const mat = palMaterial(m.pal);
+  if (WORKS_MAT.has(mat)) return 'works';
+  if (FRONT_MAT.has(mat) || m.neon) return 'front';
+  if (BLOCK_MAT.has(mat)) return 'block';
+  return (top > hw * 3.2) ? 'block' : 'works';   // `plain`, decided by proportion
+}
+// A deterministic 0..1 from the seed and a salt. Not Math.random: `models:diff` asserts every model
+// renders identically twice, and a building that reshuffles its own plant every frame fails it.
+const dRand = (seed, salt) => { const x = Math.sin((seed + 1) * 12.9898 + salt * 78.233) * 43758.5453; return x - Math.floor(x); };
+
 const _derived = new WeakMap();
+// Which SECTION of a building each detail kind belongs to. A hand-written list that names any kind
+// in a section owns that section outright and the kit stays out of it. Kinds absent from this table
+// (a sign board, a cable, a fire escape) belong to no section and never suppress anything — they
+// are decoration, and having one is not a claim to have drawn a facade.
+// ⚠ ONLY A PART THAT COULD PLAUSIBLY BE THE WHOLE SECTION BELONGS HERE, and the first cut got two
+// wrong in the direction that silently does nothing. A `vent` was filed under `wall` — but 19 of the
+// 27 arm lists carry a vent, so every one of them would have counted as having a drawn facade and
+// NONE would have got windows, which is the entire point of the merge. A `balcony` was filed under
+// `ground`, and the two arms that have one (hotel, embassy) hang it up the shaft, not at the street.
+// Owning a section means "somebody drew this face"; a vent and a balcony are decoration on it.
+const SECTION_OF = {
+  windowBay: 'wall', louvreBank: 'wall',
+  ductRun: 'riser', pipe: 'riser', conduit: 'riser',
+  roofTank: 'roof', tankFrame: 'roof', stack: 'roof', antennaCluster: 'roof', acUnit: 'roof',
+  canopy: 'ground', shutter: 'ground',
+  // ⚠ `stair` IS ITS OWN SECTION AND NOT PART OF `wall`, because the two arms that already draw one
+  // (apartment, embassy) draw a fire escape and NO windows. Folding them together would mean those
+  // two keep their stair and lose their windows — the exact trade the merge exists to stop.
+  fireEscape: 'stair', balcony: 'stair',
+  signBoard: 'sign', bladePanel: 'sign', signGantry: 'sign',
+  parapet: 'cope',
+};
 function derivedTrim(m, fh, h, seed) {
   let byScale = _derived.get(m);
   if (!byScale) { byScale = new Map(); _derived.set(m, byScale); }
-  const k = fh + ':' + h + ':' + seed;
+  // The kit flag is in the KEY, not just read at build time: it is an A/B switch for a change that
+  // reaches most of the city, and a cache that outlives the flag makes the switch look broken.
+  const k = fh + ':' + h + ':' + seed + ':' + (RENDER_TUNE.derivedKit ? 1 : 0);
   let list = byScale.get(k);
   if (list) return list;
-  list = [];
+  // What somebody has already drawn for this building, and which sections that covers.
+  const base = (m.detail && m.detail.length) ? m.detail : (ARM_DETAIL[m.type] || null);
+  const have = new Set();
+  if (base) for (const d of base) { const s = SECTION_OF[d.kind]; if (s) have.add(s); }
+  // ⚠ THE `sign` SECTION IS THE ONE THAT CANNOT BE READ OFF A LIST. 66 of the 173 arms already sign
+  // themselves with a blade, a band or lettering painted onto a frieze, and every one of those calls
+  // is inside the arm's own code where there is nothing declarative to inspect. `armSignsItself`
+  // rides the shape capture to answer it — see the ⚠ on SIGN_SEEN.
+  if (armSignsItself(m, seed)) have.add('sign');
+  const kit = [];
   const segs = shapeForModel(m, seed);
   if (segs && segs.length) {
     const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
+    const A = (v) => [0, 0, v];   // the derived list resolves to ABSOLUTE numbers — see the ⚠ above
     const cand = [];
     for (const sg of segs) {
       if (sg.kind !== 'box' || sg.roof === false || (sg.yaw || 0)) continue;
@@ -21807,22 +22321,299 @@ function derivedTrim(m, fh, h, seed) {
       if (!(hw > 0.03) || Math.abs(hw - fd) > 0.02) continue;
       const z1 = V(sg.z1), z0 = V(sg.z0);
       if (!(z1 > z0)) continue;
-      cand.push({ sg, hw, z0, z1 });
+      cand.push({ sg, hw, fd, z0, z1, cx: V(sg.cx), cy: V(sg.cy) });
     }
     cand.sort((a, b) => b.z1 - a.z1);
-    for (const { sg, hw, z0, z1 } of cand.slice(0, DERIVED_MAX)) {
-      list.push({
-        kind: 'parapet',
-        cx: [0, 0, V(sg.cx)], cy: [0, 0, V(sg.cy)],
-        z: [0, 0, z1],
-        half: [0, 0, hw * 1.03],
-        hh: [0, 0, clamp((z1 - z0) * 0.045, 0.008, 0.05)],
-        pal: sg.pal || m.pal,
-      });
+    if (!have.has('cope')) {
+      for (const { sg, hw, z0, z1 } of cand.slice(0, DERIVED_MAX)) {
+        kit.push({
+          kind: 'parapet',
+          cx: [0, 0, V(sg.cx)], cy: [0, 0, V(sg.cy)],
+          z: [0, 0, z1],
+          half: [0, 0, hw * 1.03],
+          hh: [0, 0, clamp((z1 - z0) * 0.045, 0.008, 0.05)],
+          pal: sg.pal || m.pal,
+        });
+      }
     }
+    if (cand.length) derivedKit(kit, cand, m, seed, A, have);
   }
+  // ⚠ THE BASE IS CONCATENATED, NEVER MUTATED. `ARM_DETAIL`'s lists are module constants shared by
+  // every tile of that type and `m.detail` is the baked model record — pushing onto either would
+  // grow the authored list by a kitful on every cache miss, for ever.
+  list = base ? base.concat(kit) : kit;
   byScale.set(k, list);
   return list;
+}
+
+// The kit itself. Three jobs, in the order they read from a street: what the walls do, what stands
+// on the roof, and what the ground floor is.
+//
+// ⚠ EVERY PART IS BUDGETED, because this multiplies across the whole city. The 2-D painter only
+// runs the detail layer inside `RENDER_TUNE.detailNear`, so its cost is bounded by how many
+// buildings are near you — but the GLASS 2 MESH IS NOT GATED, and a mesh is built for every tile in
+// the window. `KIT_MAX` is the ceiling per building, and the pass spends it on the biggest surfaces
+// first rather than scattering it evenly.
+const KIT_MAX = 26;
+const WIN_MAX = 9;                 // windows per facade — see the ⚠ on the grid below
+// ⚠ THE THREE WALL ARMS ARE EXCLUDED, AND IT IS THE SAME CORRECTNESS RULE THEIR OWN ARMS OPEN WITH.
+// A wall is the SAME TILE seventy times in a row, and every one of those tiles derives its own
+// entrance facing from a door that is not there — so anything this kit places on a "front" face
+// points a different way on each tile and the run reads as noise rather than as a wall. Every arm
+// in the switch above obeys that by using centred mass and symmetric (±) pairs only; this pass
+// deliberately does the opposite, because an ordinary building wants a riser on ONE flank and a
+// door in ONE place. The two cannot both be right, so a wall gets the coping band and nothing else.
+const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall']);
+// ⚠ `RENDER_TUNE` AND NOT THE PER-VIEW `TUNE`, BECAUSE THE LIST IS CACHED PER MODEL. A view can
+// override a tunable (`VIEW_TUNABLE`), and two views can paint in one frame — so a per-view value
+// read here would be baked into a cache the other view then reads, and which view got there first
+// would decide what the city looks like. The kit is a property of the building, not of the seat.
+function derivedKit(list, cand, m, seed, A, have) {
+  if (!RENDER_TUNE.derivedKit || NO_KIT.has(m.type)) return;
+  const wants = (s) => !have.has(s);   // a section somebody already drew is theirs; stay out of it
+  const pal = m.pal;
+  const top = cand[0].z1;
+  const main = cand.slice().sort((a, b) => (b.z1 - b.z0) * b.hw - (a.z1 - a.z0) * a.hw)[0];   // the biggest wall
+  const style = derivedStyle(m, main.hw, top);
+  const R = (salt) => dRand(seed, salt);
+  let spent = 0;
+  const push = (p) => { if (spent < KIT_MAX) { list.push(p); spent++; } };
+
+  // ── 1. THE WALLS ──────────────────────────────────────────────────────────
+  // Windows go on the FRONT face of the biggest box, in whole storeys. A storey is ~0.17 world
+  // units here, which is the figure `buildingScaleFor` already works in, so a band lands where a
+  // floor is rather than where a fraction of the wall is.
+  const fy = main.cy + main.fd;                      // the front face plane of the biggest mass
+  const wallH = main.z1 - main.z0;
+  const floors = clamp(Math.round(wallH / 0.17), 1, 6);
+  if (wants('wall') && style !== 'works' && wallH > 0.14 && main.hw > 0.12) {
+    // ⚠ THE GRID IS BUDGETED, NOT JUST BOUNDED. Six floors by three columns is eighteen windows,
+    // and a `windowBay` is the most-instanced part in the kit at eight quads apiece — so the tall
+    // wide buildings, which are exactly the ones a dense frame is full of, were spending ~150 quads
+    // each on glazing alone and put `framecost` 14% over its 2% tolerance on the cab:200 case.
+    // Floors are kept in preference to columns because vertical rhythm is what reads as storeys.
+    const cols0 = clamp(Math.round(main.hw / 0.13), 1, 3);
+    const cols = clamp(Math.floor(WIN_MAX / floors), 1, cols0);
+    const cw = (main.hw * 1.5) / cols;                // leave a pier at each end
+    const ww = cw * 0.33, wh = Math.min(0.042, wallH / (floors * 2.9));
+    // ⚠ NOT EVERY WINDOW IS LIT, and this is the cheapest thing on the whole pass. A facade where
+    // every pane carries the same glow reads as a texture swatch rather than as a building with
+    // people in it; the reference dioramas are all lit unevenly and it is most of what makes them
+    // look inhabited. `dRand` is seeded off the tile, so a building keeps the same windows on every
+    // frame — `models:diff` asserts two renders are identical and a flicker would fail it — while
+    // two buildings of the same type on the same street light differently.
+    // ⚠ ONLY THE NIGHT COLOUR VARIES, AND THE FIRST CUT VARIED BOTH. `windowBay` takes `glow` (what
+    // the pane is after dark) and `glass` (what it is by day), and setting the day colour per window
+    // too is wrong twice over: by daylight you cannot tell an occupied room from an empty one, and
+    // the unlit value — a dark shade of the building's own palette — came out near-black on a dark
+    // wall, so the windows read as HOLES punched in the facade rather than as glass. Day glazing is
+    // left at the primitive's own default; only the lamp behind it is a coin toss.
+    const warm = style === 'front' ? '#bfe4ff' : '#e8d6a8';
+    const unlit = '#1b2430';           // a dim cold pane, never the wall colour and never black
+    for (let f = 0; f < floors; f++) {
+      const z = main.z0 + wallH * ((f + 0.62) / floors);
+      if (z + wh > main.z1 - 0.02) continue;
+      for (let i = 0; i < cols; i++) {
+        const x = main.cx - main.hw * 0.75 + cw * (i + 0.5);
+        const lit = dRand(seed, f * 11 + i * 3 + 1) > 0.34;
+        push({ kind: 'windowBay', cx: A(x), cy: A(fy), z: A(z), half: A(ww), hh: A(wh),
+          depth: A(Math.min(ww, wh) * 0.3), bars: cols > 2 ? 0 : 1, pal,
+          glow: lit ? warm : unlit });
+      }
+    }
+  } else if (wants('wall') && style === 'works' && wallH > 0.18 && main.hw > 0.12) {
+    // A works gets louvres where a block gets windows: the same rhythm, doing a different job.
+    const n = clamp(Math.round(main.hw / 0.16), 1, 2);
+    for (let i = 0; i < n; i++) {
+      const x = main.cx + (n === 1 ? 0 : (i ? 1 : -1) * main.hw * 0.44);
+      push({ kind: 'louvreBank', cx: A(x), cy: A(fy), z: A(main.z0 + wallH * 0.62),
+        half: A(main.hw * 0.26), hh: A(Math.min(wallH * 0.16, 0.05)), n: 6, pal });
+    }
+  }
+  // The riser: ducting on a works, a downpipe on anything else. Always on a flank, never centred.
+  // ⚠ The flank is chosen OUTSIDE the `wants` guard, because the stair below reads it to take the
+  // other one — and a building whose riser was suppressed still needs the answer to that question.
+  const riserX = main.cx + main.hw * (R(3) > 0.5 ? 0.82 : -0.82);
+  if (wants('riser')) {
+    const rx = riserX;
+    if (style === 'works') {
+      push({ kind: 'ductRun', cx: A(rx), cy: A(fy), z0: A(main.z0 + wallH * 0.08), z1: A(main.z1 - wallH * 0.12),
+        r: A(clamp(main.hw * 0.09, 0.012, 0.03)), run: A(-Math.sign(rx - main.cx) * main.hw * 0.5), pal });
+    } else {
+      push({ kind: 'pipe', cx: A(rx), cy: A(fy), z0: A(main.z0), z1: A(main.z1 - wallH * 0.06),
+        r: A(clamp(main.hw * 0.03, 0.006, 0.014)), pal });
+      push({ kind: 'cableRun', cx: A(main.cx), cy: A(fy + 0.012), z: A(main.z1 - wallH * 0.14),
+        half: A(main.hw * 0.8), sag: A(wallH * 0.05), r: A(0.006), pal: 'infra' });
+    }
+  }
+
+  // ── 1b. THE STAIR ─────────────────────────────────────────────────────────
+  // A zigzag fire escape is the most characterful thing in the whole vocabulary — a blank wall and a
+  // wall with one of these read as two different neighbourhoods — and until now the kit never
+  // emitted one, so it reached the two arms that hand-author it and nothing else. It is also the
+  // dearest part on the list at ~14 quads, so it goes on ONE flank of ONE building, never repeated.
+  //
+  // ⚠ IT TAKES THE FLANK THE RISER DID NOT. Both want a side of the facade, and both defaulting to
+  // the same coin flip put a downpipe through the middle of a staircase on about half of them.
+  const stairSide = -Math.sign(riserX - main.cx) || 1;
+  if (wants('stair') && wallH > 0.26 && main.hw > 0.14) {
+    if (style === 'works' || dRand(seed, 61) > 0.45) {
+      push({ kind: 'fireEscape', cx: A(main.cx + stairSide * main.hw * 0.6), cy: A(fy),
+        z0: A(main.z0 + wallH * 0.18), z1: A(main.z1 - wallH * 0.1),
+        half: A(Math.min(main.hw * 0.22, 0.075)), out: A(clamp(main.hw * 0.14, 0.025, 0.05)),
+        flights: clamp(Math.round(wallH / 0.2), 2, 4), pal });
+    } else {
+      // A balcony stack instead — the same wall doing the same job for somebody who lives there.
+      const n = clamp(Math.round(wallH / 0.22), 2, 3);
+      for (let i = 0; i < n; i++) {
+        push({ kind: 'balcony', cx: A(main.cx + stairSide * main.hw * 0.55), cy: A(fy),
+          z: A(main.z0 + wallH * (0.3 + i * 0.24)),
+          half: A(Math.min(main.hw * 0.26, 0.09)), out: A(clamp(main.hw * 0.13, 0.022, 0.045)),
+          rail: A(Math.min(wallH * 0.05, 0.022)), pal });
+      }
+    }
+  }
+
+  // ── 2. THE ROOF ───────────────────────────────────────────────────────────
+  // From the air a flat roof is the biggest surface a building has and usually the emptiest, and
+  // this game spends half its time looking down. The deck is the TOP box's own roof, so the plant
+  // stands on it rather than hovering over the tallest thing on the tile.
+  // ⚠ THE ROOF IS THE ONE PLACE THIS PASS CAN MAKE THE CITY WORSE, AND THE FIRST CUT DID. Every
+  // other section is bounded by the wall it sits on, so it varies with the building whether it means
+  // to or not. A roof is a bare deck, so a fixed recipe puts the SAME mast in the SAME corner of
+  // every building — and swept over 124 models that read as more uniform than the bare decks it
+  // replaced, which is the opposite of the point. Presence, corner and size are all seeded off the
+  // tile: `dRand` is deterministic (`models:diff` asserts two renders match), so a building keeps
+  // its own skyline for ever while its neighbour gets a different one.
+  const deck = cand[0], dhw = deck.hw;
+  if (wants('roof') && dhw > 0.08) {
+    // Four corners, shuffled per building, so two neighbours do not agree about where the plant is.
+    const CORNERS = [[-0.44, -0.4], [0.44, -0.36], [0.42, 0.4], [-0.4, 0.42]];
+    const rot = Math.floor(R(21) * 4);
+    const q = (i, jx = 0, jy = 0) => {
+      const [fx, fy2] = CORNERS[(i + rot) % 4];
+      return { x: deck.cx + dhw * (fx + jx), y: deck.cy + dhw * (fy2 + jy) };
+    };
+    const big = dhw > 0.15;
+    if (style === 'works') {
+      // A tank is the landmark and only the bigger works get one; the rest get the stack alone,
+      // which is what stops every industrial roof carrying the same two objects.
+      if (big && R(31) > 0.35) {
+        const t = q(0, 0.06, 0.04);
+        push({ kind: 'tankFrame', cx: A(t.x), cy: A(t.y), z: A(top), r: A(dhw * (0.24 + R(33) * 0.1)),
+          hh: A(dhw * (0.38 + R(35) * 0.16)), rise: A(dhw * (0.26 + R(37) * 0.18)), pal });
+      }
+      const s = q(2, -0.05, -0.03);
+      // ⚠ Toned from `dhw * 0.85`. At that height a stack on a small roof is a mast half the height
+      // of its own building, and swept across the works set it read as a gallows rather than as a
+      // flue — the single worst-looking thing the first cut produced.
+      push({ kind: 'stack', cx: A(s.x), cy: A(s.y), z: A(top), r: A(clamp(dhw * 0.13, 0.014, 0.036)),
+        hh: A(dhw * (0.34 + R(39) * 0.22)), pal });
+    } else {
+      if (R(41) > 0.3) {
+        const t = q(0, 0.05, 0.05);
+        push({ kind: 'roofTank', cx: A(t.x), cy: A(t.y), z: A(top),
+          r: A(dhw * (0.19 + R(43) * 0.09)), hh: A(dhw * (0.24 + R(45) * 0.12)), pal });
+      }
+      if (R(47) > 0.35) {
+        const a = q(2, -0.04, -0.06);
+        push({ kind: 'antennaCluster', cx: A(a.x), cy: A(a.y), z: A(top), r: A(dhw * 0.2),
+          hh: A(dhw * (0.34 + R(49) * 0.26)), n: 3 + Math.round(R(7) * 4), pal });
+      }
+    }
+    // Plant boxes: one or two, on the two corners the landmark did not take.
+    const u = q(1, -0.06, 0.05);
+    push({ kind: 'acUnit', cx: A(u.x), cy: A(u.y), z: A(top),
+      w: A(dhw * (0.12 + R(51) * 0.07)), d: A(dhw * 0.12), hh: A(dhw * (0.09 + R(53) * 0.05)), pal });
+    if (big && R(55) > 0.4) {
+      const u2 = q(3, 0.05, -0.05);
+      push({ kind: 'acUnit', cx: A(u2.x), cy: A(u2.y), z: A(top),
+        w: A(dhw * 0.11), d: A(dhw * 0.09), hh: A(dhw * 0.09), pal });
+    }
+  }
+
+  // ── 3. THE GROUND FLOOR ───────────────────────────────────────────────────
+  //
+  // The one part a player on foot or in a cab actually stands in front of, and the part every one
+  // of the reference dioramas is dominated by: an awning, a lit shopfront, a shutter, a door. The
+  // upper floors are what a building looks like from an aeroplane; this is what it looks like from
+  // the game's commonest camera, which sits at eye height 0.
+  //
+  // ⚠ THE STOREY IS CLAMPED, NOT SCALED. A ground floor is about the same height whoever built it —
+  // it is sized by a door and a person, not by how tall the block above it is — so every dimension
+  // here is `min(a fraction of the base, an absolute)`. Scaling it with the mass gave a thirty-storey
+  // tower a two-storey front door.
+  const base = cand[cand.length - 1];
+  const by = base.cy + base.fd, bh = base.z1 - base.z0;
+  const GF = Math.min(bh * 0.62, 0.115);           // the shopfront band's height above the pavement
+  if (wants('ground') && bh > 0.05 && base.hw > 0.1) {
+    const dz = base.z0 + GF * 0.52;                 // the middle of that band
+    if (style === 'works') {
+      // A works meets the street with a vehicle door and a personnel door beside it.
+      push({ kind: 'shutter', cx: A(base.cx - base.hw * 0.18), cy: A(by), z: A(dz),
+        half: A(base.hw * 0.34), hh: A(GF * 0.46), pal });
+      push({ kind: 'windowBay', cx: A(base.cx + base.hw * 0.52), cy: A(by), z: A(dz),
+        half: A(Math.min(base.hw * 0.11, 0.035)), hh: A(GF * 0.4), depth: A(0.01), pal,
+        glow: '#d8c88a', glass: '#1c2026' });
+      push({ kind: 'louvreBank', cx: A(base.cx + base.hw * 0.8), cy: A(by), z: A(dz + GF * 0.1),
+        half: A(Math.min(base.hw * 0.12, 0.04)), hh: A(GF * 0.26), n: 5, pal });
+    } else {
+      // A shopfront: a run of glazing under an awning, with the entrance bay left dark beside it.
+      // The awning is the thing that reads first — it is the only horizontal on the whole facade.
+      push({ kind: 'canopy', cx: A(base.cx), cy: A(by), z: A(base.z0 + GF),
+        half: A(base.hw * 0.86), out: A(clamp(base.hw * 0.26, 0.03, 0.075)), hh: A(0.014), pal,
+        soffit: shadeOf(pal, 0.3), strip: style === 'front' ? '#ffd9a0' : undefined });
+      const glow = style === 'front' ? '#cfe6ff' : '#f0d8a0';
+      // Two panes and a doorway between them, which is what a shop actually is.
+      for (const s of [-1, 1]) {
+        push({ kind: 'windowBay', cx: A(base.cx + s * base.hw * 0.46), cy: A(by), z: A(dz),
+          half: A(Math.min(base.hw * 0.3, 0.1)), hh: A(GF * 0.36), depth: A(0.012), pal,
+          glow, bars: 1 });
+      }
+      push({ kind: 'windowBay', cx: A(base.cx), cy: A(by), z: A(base.z0 + GF * 0.42),
+        half: A(Math.min(base.hw * 0.13, 0.045)), hh: A(GF * 0.42), depth: A(0.016), pal,
+        glow: shadeOf(pal, 0.5), glass: shadeOf(pal, 0.42) });   // the doorway: a recess, not a light
+    }
+    // ── 3b. THE NAME ────────────────────────────────────────────────────────
+    // A board over the door, carrying the building's own name. 107 of the 173 arms sign themselves
+    // with nothing at all, and an unsigned building in a city is the thing that most makes it read
+    // as scenery rather than as a place — every one of the reference photographs is covered in
+    // lettering. The 66 that already sign themselves are detected rather than guessed and skipped.
+    //
+    // ⚠ THE LABEL IS `$name`, RESOLVED AT DRAW TIME, AND BAKING THE TEXT IN WOULD BE A REAL BUG.
+    // This list is cached per MODEL, and one model is drawn by many differently-named buildings —
+    // `type:shop` is every shop in Coldwater. A resolved name here would put whichever building was
+    // rendered first onto all of them.
+    //
+    // ⚠ A HORIZONTAL BOARD RATHER THAN A VERTICAL BLADE, for the same reason: the name is not known
+    // when this list is built, so its LENGTH is not known either, and a twelve-character name down a
+    // blade is unreadable while a board just squashes. An author who knows the name can choose.
+    if (wants('sign')) {
+      // ⚠ SIZED TO BE READ, NOT TO BE TIDY. `signBoard` is screen-size gated like everything else,
+      // and at the first cut's proportions the board only cleared its floor inside ~1.3 tiles —
+      // close enough to touch the wall. A sign you can only read with your nose against it is not
+      // doing the job a sign exists to do, so the band is deeper and its floor is lower than a
+      // vent's: high-contrast lettering stays legible at a size at which a louvre is mush.
+      const sz = Math.min(base.hw * 0.62, 0.19);
+      push({ kind: 'signBoard', cx: A(base.cx), cy: A(by), z: A(base.z0 + GF + 0.036),
+        half: A(sz), hh: A(Math.min(sz * 0.3, 0.04)), label: '$name',
+        color: style === 'works' ? shadeOf(pal, 0.34) : '#151119',
+        ink: style === 'works' ? '#cfc6b4' : (m.neon || '#e8dcc8') });
+    }
+    // Street-level plant: a condenser bolted to the wall beside the door, and an extract grille.
+    // Every one of the reference photographs has this and none of them has it on the ROOF only —
+    // the machinery you actually walk past is at head height, which is the camera this game uses
+    // most. Cheap enough to be unconditional: an acUnit is a top and one visible side.
+    const px = base.cx + base.hw * (dRand(seed, 63) > 0.5 ? 0.78 : -0.78);
+    push({ kind: 'acUnit', cx: A(px), cy: A(by + 0.012), z: A(base.z0 + GF * 0.72),
+      w: A(Math.min(base.hw * 0.1, 0.032)), d: A(Math.min(base.hw * 0.07, 0.022)),
+      hh: A(Math.min(GF * 0.17, 0.022)), pal });
+    if (dRand(seed, 65) > 0.45) {
+      push({ kind: 'vent', cx: A(base.cx - (px - base.cx) * 0.55), cy: A(by),
+        z: A(base.z0 + GF * 0.78), w: A(Math.min(base.hw * 0.11, 0.036)),
+        hh: A(Math.min(GF * 0.14, 0.02)), pal });
+    }
+  }
 }
 
 // ── THE DETAIL LAYER, FOR ANY MODEL ─────────────────────────────────────────
@@ -21850,15 +22641,29 @@ function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
   // the cache is cold. It terminates and it draws the right picture, which is why it showed up as a
   // face count and not as a hang: 8,435 mesh faces became 101,400.
   if (SHAPE_SINK || ADORN_TIER < ADORN_NEAR) return;
-  // Authored first, then the arm's own list, then the band derived off the captured shape. Each
-  // step down is a wider net and a plainer answer, and the last one reaches every building.
-  const list = (m.detail && m.detail.length) ? m.detail
-    : (ARM_DETAIL[m.type] || derivedTrim(m, fh, h, seed));
+  // ⚠ THE HAND-WRITTEN LISTS NO LONGER *REPLACE* THE DERIVED ONE, THEY COMPOSE WITH IT — and until
+  // they did, having somebody bother to author trim for your building made it WORSE. This read
+  // `authored || arm || derived`, three alternatives, take the first. That was right when the
+  // derived answer was a single coping band. It stopped being right the moment the derived answer
+  // became a whole kit: the 27 arm lists average **5.1 parts** and between them use NONE of the
+  // eight new kinds — no windows, no shopfront, no ground floor at all — so `office`, `hotel`,
+  // `apartment`, `police`, `clinic` and `casino`, which are most of the city, were the least
+  // detailed buildings in it, and the ones nobody had touched were the best.
+  //
+  // The rule is now: a hand-written list wins for the SECTIONS it covers, and the kit fills the
+  // rest. An author who drew a shopfront keeps their shopfront; an author who never drew one gets
+  // ours. It applies to authored `m.detail` too, uniformly — Voltage already covers all four
+  // sections, so it is unchanged by this and that is the check that the rule is the right shape.
+  const list = derivedTrim(m, fh, h, seed);
   if (!list.length) return;
   const th = Math.atan2(-E[0], E[1]);
   const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
   const hostF = cam.proj(dx, dy, 0).f;
-  const dc = { ctx, cam, V, E, th, seed, night, alpha, now, pal: m.pal, name: m.name || m.id, lx: 0, ly: 0,
+  // ⚠ `_bladeSign` FIRST, and it is the difference between a sign and a slug. That ambient is the
+  // BUILDING's display name, upper-cased, set by drawTypeModel from the tile — which is what a
+  // `$name` label wants. `m.name`/`m.id` is the MODEL's identifier, so a board resolving to it would
+  // read "latherlye" rather than "LATHER & LYE", and every shop in the city would say "shop".
+  const dc = { ctx, cam, V, E, th, seed, night, alpha, now, pal: m.pal, name: _bladeSign || m.name || m.id, lx: 0, ly: 0,
     F: (lx, ly) => facePt(dx, dy, lx, ly, E) };
   for (const d of list) {
     const fn = AUTHORED_DETAIL[d.kind];

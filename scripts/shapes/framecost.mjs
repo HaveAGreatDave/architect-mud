@@ -19,6 +19,23 @@
 // ⚠ AND IT IS NOT A FRAME TIMER. Wall-clock in node against a stub canvas measures the stub. A call
 // count is what survives the machine it runs on, and it is the quantity the renderer's own
 // optimisations move: the cheap wall branch is ~8 calls where a near textured wall is ~320.
+//
+// ── THE RE-BASELINES, AND WHAT WAS MEASURED BEFORE EACH ─────────────────────
+// A number here can only be re-cut deliberately, so each time it is, the reason and the TIMING that
+// justified it go in this list. A call count is a proxy; when the proxy and the clock disagree, the
+// clock is the one that decides, and the disagreement is the thing worth writing down.
+//
+// 277,348 → 288,869 (+4.2%) — the derived detail kit began filling the sections that hand-written
+//   `ARM_DETAIL` lists leave empty, so the 46 arm-trimmed buildings (office, hotel, apartment,
+//   police, clinic, casino — most of the city) gained windows and a ground floor. Timed on a real
+//   street, 70 frames after 25 warm-up, adaptive dials pinned, two full runs per setting:
+//     GLASS 2 (ships): 3.90/3.50 ms off vs 3.70/4.10 ms on — the two runs disagree about which is
+//       faster, so it is inside the spread (p25-p75 3.1-8.5) and is NOT a finding. It carries
+//       6,348 → 14,773 trim faces for no measurable time, which is what a depth buffer is for.
+//     GLASS 1 (fallback): 11.30/11.30 ms off vs 11.70/12.20 ms on — ~+0.6 ms on an 11 ms frame,
+//       consistent in direction, and only on machines with no WebGL2 or a lost context.
+//   ⚠ One machine, discrete NVIDIA card. "Falls back correctly" is not "is fast on an integrated
+//   GPU", and integrated hardware is exactly where GLASS 1 is most likely to be the one running.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';

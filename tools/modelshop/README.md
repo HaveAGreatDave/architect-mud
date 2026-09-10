@@ -870,6 +870,74 @@ of two of them being special cases everywhere.
 Adding them moved the port survey: **138 of 172 arms are now expressible**, up from 129, and
 the only remaining reason an arm cannot be expressed is entrance-face-only mass.
 
+## The four detail kinds that make a wall a wall
+
+The detail vocabulary started as twelve kinds that are all **bolted to** a wall — a pipe, a vent,
+an AC box, a cable, a board. Hang forty of them on a flat box and you still have a flat box: none
+of them changes the silhouette, and none of them gives the facade any depth. Four kinds do, and
+they are the ones to reach for when a model looks like a boxy excuse for a building:
+
+| kind | what it is | the part it is not |
+|---|---|---|
+| `windowBay` | surround, glazing, shadowed head, lit sill, optional bars and transom | not a painted rectangle |
+| `canopy` | a slab cantilevered over the storey below, authored soffit colour, optional strip light | not `balcony`, whose underside comes off the wall palette |
+| `signGantry` | a billboard standing on its own legs | not `signBoard`, which is flat on a wall |
+| `bladePanel` | a sign slab hung proud, with a visible edge return | not `neonBlade` — see below |
+
+⚠ **`depth` on a `windowBay` is how far the frame STANDS PROUD, never how far the glass is set
+back.** A recess is not drawable here at any price: nothing can cut a hole in a wall, so glazing
+behind the wall plane is behind a solid quad. On the 2-D painter it sorts behind the *whole* wall
+(mean depth, measured at the wall's centre) so it survives only on the camera-facing half of the
+facade; on GLASS 2 the depth buffer occludes it correctly and it is gone from every angle. A
+surround standing proud reads as the same thing — at an oblique view you see the inside of the far
+jamb, which is the cue a reveal actually gives — and is true in both renderers. Measured while
+getting this wrong: six of ten windows invisible, and which six changed as the camera swung.
+
+⚠ **A part bolted to a wall needs a `lift`, and projecting outward is not protection.** Same
+mean-depth sort: a slab attached near the far end of a long facade sorts behind the whole facade.
+`lift` biases the painter only — the mesh is pushed before it — so it costs GLASS 2 nothing.
+
+⚠ **Prefer `bladePanel` over `neonBlade` for anything hung on a building.** `neonBlade`'s
+half-width is in SCREEN PIXELS (clamped 2–9), so it keeps a constant thickness however you move,
+never foreshortens, and reads as a sticker floating in front of the wall. It is also cheaper to
+replace than to keep: it sets `shadowBlur`, and swapping Voltage's two blades for two panels made
+the whole 16-frame `framecost` baseline **1.5% cheaper**.
+
+### The bug under all the blades
+
+`neonBlade` painted its label **mirrored, unconditionally** — every blade, every heading, every
+distance. The quad it hands `drawSurfaceText` is built from a screen-space perpendicular
+`nx = -uy/len * wpx`; a blade is upright, so `uy` is always negative and `nx` therefore always
+positive, and the corner passed as *top-left* was always the one on the right. `_bladeSign`
+defaults a blade's label to the building's own name, so this was most of the lettering in
+Coldwater, reversed. It survived because the no-label fallback rungs are symmetrical, and because
+a mirrored word at a hundred metres still reads as a word — it is legible from a truck cab, which
+is where it was finally reported.
+
+`signBoard` had the sibling of it: `color` filled the board **and** was handed over as the ink, and
+`solid` lettering is deliberately flat with no white core and no halo, so a labelled board painted
+its own words in its own colour and read as a blank rectangle. `ink` is now its own field and
+defaults to whichever of dark/bone can actually be read against the board.
+
+## Authoring versus the derived kit
+
+`RENDER_TUNE.derivedKit` generates windows, a riser, roof plant and a ground floor for the **127
+models nobody has hand-authored trim for**, off each building's own captured shape. Read the section
+in [building-shapes.md](../../docs/reference/building-shapes.md) before changing it — particularly
+why the style axis is the palette rather than the archetype, and why the three wall arms are out.
+
+**It raises the floor; it does not reach the ceiling.** The kit is one rule applied to 127 buildings
+sight-unseen, so it is deliberately conservative: it will never place the thing that makes a
+particular building *that* building. Voltage is the counter-example and the reason this tool exists
+— a deliberate five-mass composition with its signage on real structure, which no derivation would
+have produced. The honest division of labour is that the kit stops anything reading as a bare box,
+and authoring in the Modelshop is how a building becomes worth looking at.
+
+⚠ **A model with an `ARM_DETAIL` entry or an authored `detail` list never sees the kit** — those 46
+keep their own trim, which is the intended precedence and also the reason a spot-check of
+`type:office`/`type:power`/`type:warehouse` shows no change at all. Pick a subject off the derived
+list before concluding the kit does nothing.
+
 ## Textures
 
 In GLASS the **palette key IS the surface**: `draw3DBoxAt` takes one surface argument and
@@ -984,6 +1052,40 @@ a static file server: it owns no geometry, no palette and no camera.
 
 It draws no terrain, no sky pass, no traffic and no weather. One model on a flat ground
 plane, so the thing you are looking at is the thing you are editing.
+
+### ⚠ The one place it is now the OTHER renderer
+
+The rule above was written when GLASS 1 was the renderer. The viewport is still GLASS 1 —
+`renderModelPreview()` draws to a 2-D canvas — and since 2026-09-09 the game defaults to
+GLASS 2. Everything about the model is still shared, which is what the rule is for; but
+one thing is not, and it is visible.
+
+**A 2-D canvas cannot map a texture through a perspective divide.** `drawTexQuadPersp`
+fakes it by cutting a face into cells small enough that affine is right within one, and
+the shipped budget stops at six pixels of residual warp — measured as the cost-neutral
+point for a renderer drawing a whole skyline. Standing at the foot of a tower, six pixels
+is a window grid that visibly bows and steps. On the GPU the divide is per pixel and free,
+so **the game does not have this and the preview did**: an author looking at a facade from
+the pavement was the only person in the project who could see it.
+
+So `renderModelPreview` takes its own budget — `PREVIEW_TEXQ`, 1.5px capped at K96 — while
+`RENDER_TUNE.texqPx` / `.texqMaxK` / `.texqCells` keep the shipped defaults for the
+fallback path. Measured over five models at 790×870: free at the distances the tool
+actually orbits at (1.78 ms/model against 2.42 shipped), 8.1 ms against 3.0 nose-on, and
+the displaced-pixel count against a converged reference roughly halved — office 3.8% →
+2.4%, civic 4.7% → 2.4%, bank 9.2% → 4.7%, and exactly 0 → 0 at orbit distance, where
+there was nothing to fix.
+
+⚠ **Do not "improve" it by raising K further.** Past about K96 the picture gets worse, and
+it looks like it is getting better until you measure it — every cell is a clipped,
+antialiased blit, and once a cell is a pixel wide its two seams are most of it. On the bank:
+0.4px/K400 scores 5.5% and 0.2px/K800 scores 9.2%, as far from the truth as doing nothing
+was, with mean luminance climbing 27.41 → 27.95 as background bleeds through the seams. A
+reference render taken at an enormous K is therefore not a reference — the first cut of
+this measurement used one, and it scored the fix as worse than the bug.
+
+**The honest check is still the GL toggle.** Press it: the mass comes back
+perspective-correct because a GPU is drawing it, which is what the player gets.
 
 ## What it shows
 
