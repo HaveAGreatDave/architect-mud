@@ -224,15 +224,19 @@ function _spawnMapDraw() {
 // --- Data shaping ------------------------------------------------------------
 // The monochrome plan base, the region buckets and the interior-room-to-facade
 // walk are shared with the Power panel's regional grid — see maps.js.
+// Only the two wrappers that bind _spawnMapData live here; the rest of the plan
+// helpers are called by their own names, the way power.js calls them.
+// ⚠ Never alias one into a top-level const. These are classic scripts sharing
+// one scope and enemies.js loads fifteen tags BEFORE maps.js, so
+// `const X = PLAN_MAP_INK` reads a binding still in its temporal dead zone and
+// throws while this file is being evaluated. Every function declaration below is
+// already hoisted by then, so the panel looks intact — but the `let`s further
+// down never initialise, and the first one an edit form touches (_lootItems)
+// throws "cannot access before initialization" inside an awaited editForm,
+// leaving the form on "Loading..." for ever. That is what hid the AI Behaviour
+// button, and the console named neither maps.js nor the form while doing it.
 const _spawnTileZone = (zone, zoneById) => planTileZoneFor(zone, zoneById, _spawnMapData.mapParents);
-const _spawnRegionOf = planRegionOf;
 const _spawnRegionName = rid => planRegionName(_spawnMapData.regions, rid);
-const SPAWN_MAP_INK = PLAN_MAP_INK;
-const SPAWN_TERRAIN_TONE = PLAN_TERRAIN_TONE;
-const SPAWN_TILE_DEFAULT = PLAN_TILE_DEFAULT;
-const SPAWN_TILE_BUILDING = PLAN_TILE_BUILDING;
-const _spawnTileIsBuilding = planTileIsBuilding;
-const _spawnTileTone = planTileTone;
 
 // { byTile: Map(tileZoneId -> [{zone, spawns}]), orphans: [{zone, spawns}] }
 // honouring the search box (matches enemy name).
