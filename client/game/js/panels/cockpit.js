@@ -1304,6 +1304,14 @@ const FSIM_TUNE = [
   // always shipped — no canvas is created and no GL context is asked for — and a throw inside the
   // pass switches this back to 0 and finishes the frame in 2-D.
   ['gl', 'GLASS 2 (WebGL)', 0, 1, 1],
+  // Multisampling on the GL canvas. A creation attribute, so moving it rebuilds the context and the
+  // vertex buffer — one visible hitch, then the new setting. Worth a slider because the 2-D canvas
+  // underneath has no AA at all, so this is a cost nobody chose to pay.
+  ['glMsaa', 'GL antialias', 0, 1, 1],
+  // The sun's own depth pass: a building shading its neighbour's wall, a setback shading the storey
+  // below it. A strength, with 0 the renderer as it was. The ground hulls are the separate
+  // 'Shape shadows' switch and are unaffected either way.
+  ['glShadow', 'Sun shadows', 0, 1, 0.05],
   ['glAO', 'Contact occlusion', 0, 1, 0.02],
   ['occlude', 'Occlusion cull', 0, 1, 1],
   ['shapeShadow', 'Shape shadows', 0, 1, 1],

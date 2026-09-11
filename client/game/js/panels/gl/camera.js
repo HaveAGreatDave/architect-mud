@@ -105,3 +105,65 @@ export function projectThrough(m, x, y, z, W, H) {
   const ndcX = cx / cw, ndcY = cy / cw;
   return { sx: (ndcX + 1) * 0.5 * W, sy: (1 - ndcY) * 0.5 * H, f };
 }
+
+// ── THE SUN, AS A MATRIX ────────────────────────────────────────────────────
+//
+// A shadow map is a second render of the same city from where the light is, so it needs the same
+// thing the camera needed: the projection GLASS already implies, written as a 4x4 rather than
+// approximated by one. GLASS's sun is two numbers — `dir`, the direction toward it in tile space,
+// and `len`, how far a shadow reaches per unit of height. `drawBuildingShadow` has always used them
+// the same way: a point at height z lands its shadow `len * z` along `-dir`.
+//
+// ⚠ SO THE LIGHT DIRECTION IS DERIVED FROM THAT RELATION, NOT FROM AN ELEVATION ANGLE. `sun.elev`
+// exists and is NOT the same quantity — it is `sin(dayT * PI)`, a brightness curve, while `len` is
+// clamped to 0.5..3.4 so a low sun does not throw a shadow across the whole map. If this file took
+// the elevation instead, a building's shadow on its neighbour would point somewhere its shadow on
+// the ground does not, and nothing in the picture would say which of the two was wrong.
+//
+// `bounds` is the mesh's own axis-aligned box, in the same frame the vertices are in. It comes from
+// the buffer rather than from the window, so a caster can never be outside the box that is supposed
+// to contain every caster.
+export function lightMatrix(sun, b) {
+  const len = Math.max(0.05, sun.len || 1);
+  // Travel: from the sun toward the ground. `(-dir * len, -1)` before normalising, which is exactly
+  // the vector `drawBuildingShadow` walks when it offsets a roof corner onto the ground.
+  let lx = -sun.dir[0] * len, ly = -sun.dir[1] * len, lz = -1;
+  const ll = Math.hypot(lx, ly, lz) || 1; lx /= ll; ly /= ll; lz /= ll;
+  // ⚠ THE UP REFERENCE HAS TO DODGE THE LIGHT, AND AT NOON IT NEARLY DOES NOT. A high sun makes
+  // the travel vector almost world -z, so crossing it with world +z gives a zero-length vector and
+  // every term below comes out NaN. A NaN matrix draws an empty shadow map, which is indistinguishable
+  // from a sunny day on which nothing happens to cast — no error, no warning, no shadows.
+  const steep = Math.abs(lz) > 0.99;
+  const ref = steep ? [0, 1, 0] : [0, 0, 1];
+  // right = normalize(ref x L), up = L x right. Right-handed, and the handedness does not matter:
+  // the map is only ever compared against itself.
+  let rx = ref[1] * lz - ref[2] * ly, ry = ref[2] * lx - ref[0] * lz, rz = ref[0] * ly - ref[1] * lx;
+  const rl = Math.hypot(rx, ry, rz) || 1; rx /= rl; ry /= rl; rz /= rl;
+  const ux = ly * rz - lz * ry, uy = lz * rx - lx * rz, uz = lx * ry - ly * rx;
+
+  // The eight corners of the mesh box, in light space, give the tightest ortho box that still holds
+  // every caster. Tight matters: the map is a fixed number of texels, so every tile of slack is
+  // resolution spent on empty ground.
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (let i = 0; i < 8; i++) {
+    const px = (i & 1) ? b.x1 : b.x0, py = (i & 2) ? b.y1 : b.y0, pz = (i & 4) ? b.z1 : b.z0;
+    const cx = px * rx + py * ry + pz * rz;
+    const cy = px * ux + py * uy + pz * uz;
+    const cz = px * lx + py * ly + pz * lz;
+    if (cx < x0) x0 = cx; if (cx > x1) x1 = cx;
+    if (cy < y0) y0 = cy; if (cy > y1) y1 = cy;
+    if (cz < z0) z0 = cz; if (cz > z1) z1 = cz;
+  }
+  // A degenerate axis (one building, one tile, a flat plate) would divide by zero.
+  const sx = 2 / Math.max(1e-4, x1 - x0), sy = 2 / Math.max(1e-4, y1 - y0), sz = 2 / Math.max(1e-4, z1 - z0);
+  const tx = -(x1 + x0) / Math.max(1e-4, x1 - x0);
+  const ty = -(y1 + y0) / Math.max(1e-4, y1 - y0);
+  const tz = -(z1 + z0) / Math.max(1e-4, z1 - z0);
+  // Column-major, same layout as everything else here: world -> light clip, w fixed at 1.
+  return [
+    rx * sx, ux * sy, lx * sz, 0,
+    ry * sx, uy * sy, ly * sz, 0,
+    rz * sx, uz * sy, lz * sz, 0,
+    tx, ty, tz, 1,
+  ];
+}

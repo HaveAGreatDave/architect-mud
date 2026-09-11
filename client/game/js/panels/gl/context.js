@@ -12,9 +12,11 @@
 // server follows, for the same reason: two definitions of what a building looks like is the failure
 // this whole effort is trying not to introduce.
 //
-// ⚠ AND IT IS NOT WIRED INTO THE GAME. `paintWindshield` does not know it exists. The only caller is
-// the Modelshop's GL preview, where a wrong answer is a picture somebody is looking at rather than a
-// city nobody can see.
+// ⚠ THIS HEADER IS OLDER THAN THE FILE. It said the pass was not wired into the game and that the
+// Modelshop preview was its only caller; GLASS 2 has been the default renderer since 2026-09-09 and
+// `paintWindshield` composites this buffer every frame. The spike framing above is kept because the
+// discipline it describes still holds — this file knows how to put triangles on a screen and
+// nothing whatever about buildings — but the scope has not been "mass only" for a long time.
 import { viewProjMatrix } from './camera.js';
 import { createSpriteLayer } from './sprites.js';
 import { createCurtainLayer } from './curtain.js';
@@ -23,6 +25,7 @@ import { createBillboardLayer } from './billboards.js';
 import { createGroundLayer } from './ground.js';
 import { createFloorLayer } from './floor.js';
 import { createCloudLayer } from './clouds.js';
+import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
 // haze jitter 1.
@@ -117,10 +120,83 @@ uniform float uLightR[GLASS_MAX_LIGHTS];
 uniform float uLightWrap;
 uniform float uAo;        // contact-occlusion strength; 0 makes the term exactly 1.0
 uniform float uAoFall;    // how fast it lets go with height, in inverse tiles
+// ── THE SUN'S OWN DEPTH BUFFER ──────────────────────────────────────────────
+//
+// See gl/shadow.js. 'uShadowStr' is the strength AND the off switch: at 0 the function below is
+// never called, the key term is left exactly as it was, and the frame is the one that shipped.
+// It defaults to 0 today — see the note on RENDER_TUNE.glShadow in windshield.js for what works
+// and what does not.
+uniform highp sampler2D uShadowMap;
+uniform mat4 uLightVP;
+uniform float uShadowStr;
+uniform float uShadowTexel;
+uniform float uShadowBias;
+uniform vec3 uSunDir;
 out vec4 outColor;
+
+// 1.0 where the sun cannot see this point, 0.0 where it can.
+//
+// ⚠ NO PER-FRAGMENT BRANCH AROUND THE SAMPLES, AND NO IMPLICIT LOD. This function was first written
+// the obvious way — an early return for a point outside the light's box, then four plain texture()
+// calls — and that is UNDEFINED BEHAVIOUR, not a style question. A plain texture() picks its mip
+// from screen-space derivatives, which are computed across a quad of four fragments; put one behind
+// a test that some of those four fail and the derivative is taken over fragments that never ran.
+// On this driver it came back NaN, and a NaN here is not a missing shadow: it poisons the key term,
+// then the whole colour, and the building is painted BLACK at full alpha with the right silhouette.
+//
+// ⚠ THAT BUG IS FIXED AND THE SYMPTOM OUTLIVED IT, WHICH IS WHY THE KNOB STILL DEFAULTS TO 0. The
+// picture is bit-identical at strength 0.35 and at 1.0 while getUniform reads both values back out
+// of the live program — a term that does not respond to its own strength is not a shading value,
+// it is a mask, and a mask over 93% of the city is a black city. See the note on RENDER_TUNE
+// .glShadow in windshield.js for the full list of what has been ruled out. The two cheap checks
+// worth keeping from it: a result that ignores its strength is arithmetic, not tuning, and a
+// symptom that survives skipping the pass that produces the input is not about that pass.
+//
+// So: the samples are unconditional, the LOD is stated (there is one level; there is nothing to
+// choose), and being outside the box multiplies the ANSWER by zero instead of skipping the work.
+float sunShadow(vec3 wp, vec3 n) {
+  vec4 ls = uLightVP * vec4(wp, 1.0);
+  vec3 p = ls.xyz * 0.5 + 0.5;              // ortho, so w is 1 and there is no divide
+  // ⚠ OUTSIDE THE BOX IS LIT, NEVER SHADOWED. The ortho box is fitted to the mesh, so every CASTER
+  // is inside it — but a fragment being SHADED can sit outside, and answering anything other than
+  // lit there is a hard-edged rectangle of darkness around the city with nothing casting it.
+  float inside = (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0) ? 0.0 : 1.0;
+  // Slope-scaled: a surface nearly edge-on to the light crosses many texels' worth of depth inside
+  // one texel of the map, which is where acne comes from and where a flat bias cannot reach.
+  float ndl = clamp(dot(n, uSunDir), 0.0, 1.0);
+  float r = clamp(p.z - uShadowBias * (1.0 + 3.0 * (1.0 - ndl)), 0.0, 1.0);
+  vec2 uv = clamp(p.xy, 0.0, 1.0);
+  float t = uShadowTexel;
+  // Four taps averaged by hand — percentage-closer filtering without the hardware compare sampler.
+  // 'step(r, d)' is 1 where the stored depth is at or beyond this fragment, which is to say lit.
+  float s = step(r, textureLod(uShadowMap, uv + vec2(-0.5, -0.5) * t, 0.0).r)
+          + step(r, textureLod(uShadowMap, uv + vec2( 0.5, -0.5) * t, 0.0).r)
+          + step(r, textureLod(uShadowMap, uv + vec2(-0.5,  0.5) * t, 0.0).r)
+          + step(r, textureLod(uShadowMap, uv + vec2( 0.5,  0.5) * t, 0.0).r);
+  return (1.0 - s * 0.25) * uShadowStr * inside;
+}
+
 void main() {
   vec3 n = normalize(vNormal);
   float lit = clamp(0.5 + dot(n, normalize(uKeyDir)) * 0.5, 0.0, 1.0);
+  // ⚠ THE SHADOW LANDS ON the KEY TERM, AND THAT IS THE FAITHFUL PLACE FOR IT. lit is the half-lambert
+  // of the key, and it is the only thing the warm top overlay, the cool base overlay and their two
+  // alphas are built from — so a surface the sun cannot see is one whose key term is 0, which is
+  // the deep shadow side of GLASS's own palette rather than a new colour invented here. It also
+  // makes the off switch exact: at strength 0 this line is lit = mix(lit, 0.0, 0.0).
+  // ⚠ THE GUARD IS ON A UNIFORM, WHICH IS THE ONE KIND OF BRANCH THAT IS SAFE HERE. Every fragment
+  // in the quad takes the same side of it, so nothing inside is evaluated on a lane that did not
+  // run. It is also what makes the off switch free rather than merely exact: at strength 0 the four
+  // samples are not taken at all.
+  float shKraw = uShadowStr > 0.0 ? sunShadow(vWorld, n) : 0.0;
+  // ⚠ AND THE ANSWER IS SANITISED WITH A COMPARISON, NOT WITH clamp. Every comparison against NaN
+  // is false by definition, so '> 0.0' rejects one where clamp — which is min(max(x,0),1) — is
+  // left to whatever the driver does with NaN, and on this one it leaks. A NaN reaching the key
+  // term does not make a dark building, it makes a BLACK one at full alpha: the shadow value is
+  // the single most dangerous number in this shader, and it is cheaper to make it impossible than
+  // to prove the four things upstream of it can never produce one.
+  float shK = shKraw > 0.0 ? min(shKraw, 1.0) : 0.0;
+  lit = mix(lit, 0.0, shK);
   // The palette colour is what a flat-shaded face gets; the atlas is what a textured one gets.
   // Mixed rather than branched because a branch here is a branch per fragment, and the untextured
   // path exists only for the silhouette comparison.
@@ -139,6 +215,12 @@ void main() {
   float aBot = uStr * (0.30 + 0.22 * (1.0 - lit));
   vec3 shaded = mix(mix(surf, topCol, aTop), mix(surf, uShadow, aBot), clamp(vRamp, 0.0, 1.0));
   vec3 base = mix(surf, shaded, clamp(uVLight, 0.0, 1.0) * solid);
+  // ⚠ AND A FLAT FACE HAS TO BE DARKENED SEPARATELY, because the key term cannot reach it. Trim — every
+  // panel, band, louvre, sill and coping — takes its own colour with no key shading at all, on
+  // purpose (see 'solid' above). Left out of the shadow it stays at full brightness on the
+  // shadowed side of the very building it is bolted to, which reads as the trim glowing. The
+  // factor is smaller than the key swing because there is no ramp under it to fall back to.
+  base *= 1.0 - 0.45 * shK * (1.0 - solid);
   // ── CONTACT OCCLUSION ───────────────────────────────────────────────────────
   //
   // Ambient occlusion is a CONTACT effect — the ground robs a surface of sky the closer that
@@ -203,8 +285,19 @@ function compile(gl, type, src, label) {
   return sh;
 }
 
-export function createGLView(canvas) {
-  const gl = canvas.getContext('webgl2', { antialias: true, alpha: true, depth: true });
+// ⚠ MSAA IS A KNOB, AND THE DEFAULT WAS NEVER MEASURED. `antialias: true` was written once and
+// never swept: the 2-D canvas it composites onto has no multisampling at all, so GLASS 2 is buying
+// smoother building edges nobody asked for, at a cost that is paid over the WHOLE frame and scales
+// with the backing store rather than with how much city is in it. That is free on a discrete card
+// and is exactly the shape of thing that is not free on an integrated one — which is every machine
+// this renderer has never been measured on.
+//
+// ⚠ AND IT CANNOT BE CHANGED ON A LIVE CONTEXT. It is a creation attribute, so the caller has to
+// drop the view and make a new one; `sceneGL` treats it the way it already treats a resize. Which
+// is also why it is not a per-frame decision — a dial that flipped it under load would rebuild the
+// context, the atlas and the whole vertex buffer twice a second.
+export function createGLView(canvas, opts = {}) {
+  const gl = canvas.getContext('webgl2', { antialias: opts.msaa !== 0, alpha: true, depth: true });
   if (!gl) return null;
   // ⚠ A LOST CONTEXT IS SILENT. Every call keeps returning, nothing throws, and the canvas simply
   // stops changing — which with MASS_OFF set is a city of floating lights and no buildings. The
@@ -254,6 +347,12 @@ export function createGLView(canvas) {
     lightWrap: gl.getUniformLocation(prog, 'uLightWrap'),
     ao: gl.getUniformLocation(prog, 'uAo'),
     aoFall: gl.getUniformLocation(prog, 'uAoFall'),
+    shadowMap: gl.getUniformLocation(prog, 'uShadowMap'),
+    lightVP: gl.getUniformLocation(prog, 'uLightVP'),
+    shadowStr: gl.getUniformLocation(prog, 'uShadowStr'),
+    shadowTexel: gl.getUniformLocation(prog, 'uShadowTexel'),
+    shadowBias: gl.getUniformLocation(prog, 'uShadowBias'),
+    sunDir: gl.getUniformLocation(prog, 'uSunDir'),
   };
 
   // Scratch, filled per frame and never reallocated: the arrays are the same size every frame and
@@ -265,6 +364,14 @@ export function createGLView(canvas) {
   const buf = gl.createBuffer();
   let count = 0;
   let atlasTex = null, hasAtlas = false;
+  // The mesh's own axis-aligned box, in the frame the vertices are in. Accumulated on the way into
+  // the vertex data rather than derived from the window, because the shadow projection has to
+  // contain every CASTER and the only list that is certainly every caster is the buffer itself.
+  let bounds = null;
+  // ⚠ ONE DEPTH TEXTURE PER VIEW, BUILT ON FIRST USE AND NEVER REBUILT. A shadow map that resized
+  // with the window would reallocate on every seat change; a fixed square costs the same at every
+  // seat and the projection is what tightens onto the geometry.
+  let shadow = null, shadowTried = false;
 
   // One texture for the whole city. See gl/atlas.js for why this is an atlas rather than a bind
   // per face: a draw call can hold one texture, and per-face binds would make a skyline several
@@ -307,11 +414,21 @@ export function createGLView(canvas) {
     for (const g of groups) for (const f of g.faces) verts += (f.p.length - 2) * 3;
     const data = new Float32Array(verts * STRIDE);
     let o = 0;
+    let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity, bz0 = Infinity, bz1 = -Infinity;
     for (const grp of groups) {
       const ox = grp.ox || 0, oy = grp.oy || 0;
       for (const f of grp.faces) {
         const [r, g, b] = f.rgb || [128, 128, 128];
-        const n = f.n || [0, 0, 1];
+        // ⚠ A ZERO-LENGTH NORMAL IS A NaN FACTORY, AND SOME CAPTURED FACES CARRY ONE. `f.n || …`
+        // only catches a MISSING normal; `[0, 0, 0]` is a perfectly truthy array, and it comes out
+        // of a degenerate face in the capture. `normalize(vec3(0.0))` is 0/0, and the NaN spreads
+        // through every term downstream of the light dot. It had been in the buffer harmlessly for
+        // as long as GL has been shading — `clamp` happens to absorb it in the key term on this
+        // driver — and it surfaced the moment the sun pass fed the same normal to a slope bias,
+        // where it painted 10% of the city solid black. Measured in the Modelshop at 15,021
+        // fragments of 134,445 on one cab frame.
+        const nn = f.n;
+        const n = (nn && (nn[0] || nn[1] || nn[2])) ? nn : [0, 0, 1];
         // The UV a face was given, mapped into its rect in the atlas. A face with neither keeps a
         // degenerate rect and samples one texel, which is what an untextured face wants.
         const uv = f.uv || null, rc = (rectOf ? rectOf(f) : f.rect) || [0, 0, 0, 0];
@@ -333,7 +450,11 @@ export function createGLView(canvas) {
           for (let e = 0; e < 3; e++) {
             const k = e === 0 ? 0 : i + e - 1;
             const p = f.p[k], t = uv ? uv[k] : null;
-            data[o] = p[0] + ox; data[o + 1] = p[1] + oy; data[o + 2] = p[2];
+            const wx = p[0] + ox, wy = p[1] + oy, wz = p[2];
+            if (wx < bx0) bx0 = wx; if (wx > bx1) bx1 = wx;
+            if (wy < by0) by0 = wy; if (wy > by1) by1 = wy;
+            if (wz < bz0) bz0 = wz; if (wz > bz1) bz1 = wz;
+            data[o] = wx; data[o + 1] = wy; data[o + 2] = wz;
             data[o + 3] = n[0]; data[o + 4] = n[1]; data[o + 5] = n[2];
             data[o + 6] = cr; data[o + 7] = cg; data[o + 8] = cb;
             data[o + 9] = u0 + du * (t ? t[0] : 0); data[o + 10] = v0 + dv * (t ? t[1] : 0);
@@ -352,6 +473,11 @@ export function createGLView(canvas) {
     // in the same expression `proj` uses. Swapping here fed it y where it wanted wz, which projects
     // every vertex somewhere off screen: a full buffer, a clean draw call, and an empty frame.
     count = verts;
+    // ⚠ THE GROUND PLANE IS FORCED INTO THE BOX. A city of flat plates — a container yard, a run of
+    // sheds — can have every vertex above z = 0, and a shadow projection fitted to that box has its
+    // near plane above the ground the shadows are meant to land on. Reaching down to 0 costs a
+    // fraction of the depth range and removes the case entirely.
+    bounds = verts ? { x0: bx0, x1: bx1, y0: by0, y1: by1, z0: Math.min(0, bz0), z1: bz1 } : null;
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
@@ -370,7 +496,31 @@ export function createGLView(canvas) {
   // One mesh at the origin, the way the model preview and the bench hand it over.
   function upload(faces) { return uploadGroups([{ faces }], null); }
 
+  // ── THE SUN PASS, RUN FROM INSIDE `draw` AND NOT FROM THE CALLER ────────────
+  //
+  // It has to happen before the frame is cleared and before the viewport is set for the canvas, and
+  // it has to put both back. Every one of those is an ordering a call site could get wrong once and
+  // then never think about again, and each failure is silent in a different way: a shadow pass
+  // after the clear wipes the frame, one that leaves the framebuffer bound draws the whole city
+  // into a 2048-square depth texture nobody looks at. So the pass lives at the top of the function
+  // that has to follow it, and the caller hands over data.
+  //
+  // Returns the uniform values the fragment shader needs, or null — and null is a full answer: the
+  // strength goes to 0, the comparison is skipped, and the frame is the one that shipped.
+  function sunPass(opts) {
+    const s = opts.shadow;
+    if (!s || !(s.str > 0) || !s.lightVP || !count) return null;
+    if (!shadow && !shadowTried) {
+      shadowTried = true;                     // one attempt per view; a driver that refused once will refuse again
+      try { shadow = createShadowLayer(gl, loc.pos); } catch { shadow = null; }
+    }
+    if (!shadow) return null;
+    shadow.render(vao, count, s.lightVP);
+    return shadow;
+  }
+
   function draw(cam, opts = {}) {
+    const sun = sunPass(opts);
     const W = canvas.width, H = canvas.height;
     gl.viewport(0, 0, W, H);
     gl.enable(gl.DEPTH_TEST);
@@ -434,6 +584,21 @@ export function createGLView(canvas) {
     const textured = hasAtlas && opts.textured !== false;
     gl.uniform1f(loc.textured, textured ? 1 : 0);
     if (textured) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(loc.atlas, 0); }
+    // ⚠ THE STRENGTH IS WRITTEN ON EVERY FRAME, INCLUDING THE FRAMES WITH NO SUN. A uniform holds
+    // its last value, so a pass that only set this when it had a shadow would leave the previous
+    // frame's strength standing after sunset, against a depth texture belonging to an hour ago —
+    // the city wearing yesterday afternoon's shadows all night.
+    gl.uniform1f(loc.shadowStr, sun ? opts.shadow.str : 0);
+    if (sun) {
+      gl.uniformMatrix4fv(loc.lightVP, false, new Float32Array(opts.shadow.lightVP));
+      gl.uniform1f(loc.shadowTexel, sun.texel);
+      gl.uniform1f(loc.shadowBias, opts.shadow.bias);
+      const d = opts.shadow.sunDir;
+      gl.uniform3f(loc.sunDir, d[0], d[1], d[2]);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, sun.tex);
+      gl.uniform1i(loc.shadowMap, 1);
+    }
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
@@ -525,5 +690,9 @@ export function createGLView(canvas) {
   function drawFloor(state) { return state ? floorLayer().draw(state) : 0; }
 
   return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, setAtlas, lost: () => gl.isContextLost(),
-    maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; } };
+    maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
+    // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
+    // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is
+    // the silent failure this whole layer is written around.
+    get bounds() { return bounds; }, get shadowSize() { return shadow ? shadow.size : 0; } };
 }

@@ -285,6 +285,62 @@ export const RENDER_TUNE = {
   // Kept rather than reverted because the knob is provably inert and the measurement is the point:
   // `__glAO()` is the rig any future attempt should be held to.
   glAO: 0,
+  // ── MULTISAMPLING, WHICH HAD NEVER BEEN A DECISION ──────────────────────────
+  //
+  // `antialias: true` was written into the context attributes once and never swept. The 2-D canvas
+  // GLASS 2 composites onto has no multisampling at all, so this is buying smoother building edges
+  // nobody asked for — at a cost paid over the WHOLE backing store, scaling with resolution rather
+  // than with how much city is in frame. On the one discrete card any of this was measured on that
+  // is free; an integrated GPU is where a full-frame fill cost stops being free, and that is every
+  // machine this renderer has never been run on.
+  //
+  // ⚠ IT IS A CONTEXT CREATION ATTRIBUTE, so changing it drops the GL view and rebuilds it — the
+  // same path a resize already takes. That is also why it must not become an adaptive dial: a knob
+  // that flipped this under load would rebuild the context, the atlas and the vertex buffer twice
+  // a second, which is the opposite of shedding work.
+  glMsaa: 1,
+  // ── THE SUN'S OWN SHADOWS, AS A STRENGTH ────────────────────────────────────
+  //
+  // How far a surface the sun cannot see falls back toward the light it would have facing away
+  // from the sun. Same shape as `modelShadow`, and for the same reason: 0 is the renderer exactly
+  // as it was — the shader's shadow function returns before it samples anything and `lit` is left
+  // untouched — which is a claim worth being able to test rather than assert.
+  //
+  // ⚠ IT IS NOT THE GROUND SHADOWS, AND IT DOES NOT REPLACE THEM. `drawBuildingShadow` has always
+  // laid a footprint hull on the ground and goes on doing exactly that. What this adds is what a
+  // painter's queue could never answer: a building shading its NEIGHBOUR'S WALL, a setback shading
+  // the storey under it, a canopy shading its own frontage. Those have no existing implementation
+  // to double up with, which is why this half comes first. The two agree because both read the
+  // same `dir` and `len` off the same sun — see lightMatrix in gl/camera.js.
+  //
+  // ⚠ GL ONLY, AND DAYLIGHT ONLY. There is no cheap way to ask "is this pixel lit" on a 2-D canvas,
+  // which is the whole reason the hull was the answer for so long; and the pass is skipped outright
+  // once the sun is down, so it costs nothing for half of every day.
+  //
+  // ⚠ AND IT DEFAULTS TO 0 BECAUSE IT DOES NOT WORK YET, not because it is a preference. What is
+  // right: the geometry (`gl:shadow` holds the light matrix against drawBuildingShadow's own sun to
+  // 2.2e-16), the depth pass (2048 square, allocated and rendered), the night gate (exactly 0 moved
+  // pixels with the sun down), and the promise that the ground is untouched (0.01% of non-building
+  // pixels move, against 2.6% before the sampler was changed). What is wrong is the one thing that
+  // makes it a shading value rather than a mask: THE TERM IGNORES ITS OWN STRENGTH. Measured in the
+  // Modelshop, frames at 0.35 and at 1.0 are bit-identical — 0 pixels differ — while `getUniform`
+  // reads 0.35 and 1.0 back out of the live program, and 93% of building pixels are shadowed at
+  // both. A shadow that cannot be turned down is a mask, and a mask over most of the city is a
+  // black city; the screenshots are exactly that.
+  //
+  // ⚠ WHAT HAS BEEN RULED OUT, so the next attempt does not re-run it. It is not the depth pass
+  // (skipping the drawArrays entirely changes nothing), not framebuffer state (skipping the whole
+  // render changes nothing), not the uniforms (all read back finite and correct, matrix included),
+  // not degenerate normals (`captureModelMesh` over every model at all four facings: 105,216 faces,
+  // zero non-finite or zero-length), and not the non-uniform-control-flow derivative bug the
+  // shader comment describes — that was real and is fixed, and the symptom outlived it. The
+  // hardware compare sampler WAS part of it: dropping COMPARE_REF_TO_TEXTURE for a plain depth read
+  // and an explicit `step` is what took the ground spill from 2.6% to 0.01%.
+  //
+  // Kept rather than reverted on the same grounds as `glAO` below: the knob is provably inert at 0,
+  // and the rig — `npm run gl:shadow` and `__glShadow()` in the Modelshop — is the thing any next
+  // attempt should be held to.
+  glShadow: 0,
   gl: 1,
   mount: 1,
   shapeShadow: 1,
@@ -572,6 +628,33 @@ function drawSkyRainbow(ctx, W, horizonY, heading, FL, sunAzDeg, sunElDeg, arcs,
 }
 
 function smoothstep(t) { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+
+// ── ONE DEFINITION OF A DEADBAND, BECAUSE THERE ARE TWO DIALS ───────────────
+//
+// Both adaptive-quality dials in this file quantise a moving average: the canvas resolution to
+// 0.1 steps, the Mode-7 downscale to whole ones. Re-rounding a moving average every frame is
+// bistable at every boundary — a frame time parked near a step puts the value either side of it
+// and the quantised answer changes about twice a second for as long as the load holds. Each
+// change re-renders the scene at a different sample density, which on thin hard edges (lane
+// markings, kerbs, a window grid) reads as the picture blinking between levels of detail.
+//
+// ⚠ IT IS NOT A DAMPING PROBLEM. The EMAs behind both dials are well behaved and the underlying
+// value moves smoothly; the ROUNDING is what is bistable, so damping harder only makes the blink
+// slower. The step has to remember where it is and refuse to leave until the dial has genuinely
+// gone past it — a band wider than the dither and narrower than a step.
+//
+// ⚠ AND THE QUANTISER IS PASSED IN RATHER THAN A STEP SIZE. `Math.round(x * 10) / 10` and
+// `Math.round(x / 0.1) * 0.1` are not the same function: at 0.95 the first gives 1.0 and the
+// second 0.9, because 0.95 / 0.1 is 9.499999999999998. That is a whole level of resolution, at a
+// boundary the dial sits on constantly — it is the step just under native. Taking a step size
+// would have been the obvious tidy-up and would have cost the top of the range.
+//
+// `held` is the step in force (null before the first frame), `raw` the continuous value this
+// frame, `quant` this dial's own rounding, `band` how far `raw` must stray before the step moves.
+export function deadbandStep(held, raw, quant, band) {
+  return (held == null || Math.abs(raw - held) > band) ? quant(raw) : held;
+}
+const TENTHS = (x) => Math.round(x * 10) / 10;
 
 // The height (in world grid units) the cloud deck sits above the aircraft — sets how fast a
 // front rises from the horizon toward overhead as you close on it. A cell this far away sits at
@@ -1027,22 +1110,15 @@ export function paintWindshield(id, view) {
   st.resScale = st.resScale ? st.resScale + (resTarget - st.resScale) * 0.08 : resTarget;
   // ── AND THE STEP NEEDS HYSTERESIS, OR IT DITHERS ON THE EDGE ───────────────
   //
-  // The 0.1 quantisation above is here so the backing store re-allocates only when the dial
-  // crosses a step rather than on every ±1px of drift — the comment says so. But re-rounding a
-  // moving average every frame does not give you that: a frame time that parks near a boundary
-  // puts `resScale` either side of it and the canvas resizes back and forth for as long as the
-  // load holds. Simulated on a hitchy 30 ms frame it settles between THREE levels (1.0, 0.9,
-  // 0.8) and changes eight times in three hundred frames — about twice a second — and every one
-  // of those re-renders the whole scene at a different sample density. On lane markings and
-  // kerbs, which are thin hard edges, that reads as the road blinking between light levels.
-  //
-  // ⚠ The dial is not oscillating and this is not a damping problem: the two EMAs are already
-  // well behaved and the value moves smoothly. It is the ROUNDING that is bistable, so damping
-  // it harder would only make the blink slower. What it needs is to remember which step it is
-  // on and refuse to leave until the dial has genuinely gone past it — a deadband wider than
-  // the dither and narrower than a step.
-  const wantStep = Math.round(st.resScale * 10) / 10;
-  if (st.resStep == null || Math.abs(st.resScale - st.resStep) > 0.075) st.resStep = wantStep;
+  // The 0.1 quantisation is here so the backing store re-allocates only when the dial crosses a
+  // step rather than on every ±1px of drift. Re-rounding a moving average every frame does not
+  // give you that: a frame time that parks near a boundary puts `resScale` either side of it and
+  // the canvas resizes back and forth for as long as the load holds. Simulated on a hitchy 30 ms
+  // frame it settles between THREE levels (1.0, 0.9, 0.8) and changes eight times in three
+  // hundred frames — about twice a second. On lane markings and kerbs, which are thin hard edges,
+  // that reads as the road blinking between light levels. See deadbandStep for why the band is
+  // three quarters of a step and why the quantiser goes in as a function.
+  st.resStep = deadbandStep(st.resStep, st.resScale, TENTHS, 0.075);
   const dpr = baseDpr * st.resStep;
   if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
   const now = performance.now();
@@ -1062,7 +1138,16 @@ export function paintWindshield(id, view) {
   // is read outside a frame, so a stale one cannot reach collision or capture).
   TUNE = resolveTune(v.tune);
   M7_MIN_DS = TUNE.floorSubpixel ? clamp(1 / dpr, 0.5, 1) : 1;
-  PERF_DS = TUNE.perfDS !== 0 ? clamp(Math.round((st.frameMs - 24) / 8), 0, 4) : 0;   // 24ms→0, 32→+1, 40→+2 … cap +4
+  // 24ms→0, 32→+1, 40→+2 … cap +4.
+  // ⚠ THE SAME DEADBAND AS THE RESOLUTION DIAL, AND IT HAD BEEN MISSING HERE THE WHOLE TIME. This
+  // is the identical shape — a whole number rounded off a moving average — so it dithers at every
+  // boundary in the identical way, and what it dithers is the ground raster's texel size. It has
+  // been INERT since the floor moved to the GPU, because drawMode7Floor returns before the raster
+  // whenever `glFloor` is on, which means it is armed on exactly the machines that fall back to
+  // the software floor and nowhere a bench would ever see it.
+  if (TUNE.perfDS === 0) st.perfDS = 0;
+  else st.perfDS = deadbandStep(st.perfDS, clamp((st.frameMs - 24) / 8, 0, 4), Math.round, 0.75);
+  PERF_DS = st.perfDS;
   // Floor raised 0.3→0.5: under a heavy deck the puff budget shed as much as 70% of its puffs,
   // and since heavy clouds ARE the load the dial oscillated the deck — on-screen puffs blinked out
   // and back as frames breathed. A 0.5 floor halves that swing (min budget 170, not 102) so the
@@ -1249,6 +1334,14 @@ export function paintWindshield(id, view) {
     heading: v.heading == null ? null : +v.heading.toFixed(1), pitchDeg: v.pitch ?? null, bankDeg: v.bank ?? null,
     horizonPx: null, mapR: v.map ? (v.map.length - 1) / 2 : null,
     mapCenter: v.mapCenter || null, mapOffset: v.mapOffset || null, W, H, dpr,
+    // The two adaptive-quality dials, as they stand this frame. Both quantise a moving average and
+    // both used to dither at every boundary (see deadbandStep), and neither was observable from
+    // outside — "the road is blinking between light levels" is a report about these two numbers
+    // and there was no way to read them, in the game or in a harness.
+    // ⚠ THE RAW DIAL AS WELL AS THE STEP. A deadband is only checkable against the value it is
+    // damping: with the step alone, a harness has to re-derive `resScale` from the frame time,
+    // which is a second copy of the formula under test.
+    frameMs: +(st.frameMs || 0).toFixed(2), resScale: st.resScale, resStep: st.resStep, perfDS: st.perfDS,
   };
   ctx.clearRect(0, 0, W, H);
 
@@ -8432,7 +8525,7 @@ let PERF_DS = 0;   // adaptive Mode-7 downscale bump (0..4), set per-frame in pa
 // The three texq keys qualify on the rule above for the same reason `pixel` and `texRes` do: they
 // decide how much work a mapping is allowed to spend on itself and decide nothing about where any
 // geometry is. A face occupies the same four screen corners at every setting.
-const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'pixel', 'floorSubpixel', 'texRes', 'gl', 'texqPx', 'texqMaxK', 'texqCells']);
+const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'pixel', 'floorSubpixel', 'texRes', 'gl', 'glMsaa', 'glShadow', 'texqPx', 'texqMaxK', 'texqCells']);
 // The resolved tune for the frame in progress. Defaults to RENDER_TUNE itself -- so with no caller
 // override this is the same object it always was, and the sliders keep working because the merge is
 // rebuilt from RENDER_TUNE every frame rather than snapshotted once.
@@ -24283,7 +24376,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     pBegin('world:gl');
     try {
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, sun, worldBlend: WORLD_BLEND,
         curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, ground: GROUND_MESH, floor: FLOOR_STATE, now,
         fogNear: FOG_NEAR, fogFar: FOG_FAR,
         // The frame's own CSS size, because that is the unit `cam.horizonY` and `cam.depth` are in.

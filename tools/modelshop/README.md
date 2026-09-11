@@ -756,6 +756,90 @@ game console (see `client/game/js/panels/gl/world.js`) reports every building th
 than one way while you flew. A clean run is `{ changed: 0 }`, and that is what confirmed the first
 fix. When a gate renders a scene somebody wrote down, the scene somebody wrote down is never the
 one that breaks.
+
+### The two adaptive dials, and the dither neither was allowed to have — `npm run dials`
+
+`paintWindshield` quantises two moving averages every frame: the canvas resolution to 0.1 steps,
+and the Mode-7 ground raster's downscale to whole ones. Rounding a moving average is bistable at
+every boundary, so a frame time parked near a step changes the quantised answer about twice a
+second and re-renders the scene at a different sample density each time. On lane markings and
+kerbs that is the road blinking between light levels, which is how it was reported.
+
+The resolution dial had a deadband. **`PERF_DS` never did**, and it has been inert only because
+`drawMode7Floor` returns before the raster whenever `glFloor` is on — which means it is armed on
+exactly the machines that fall back to the software floor, and nowhere any bench would look. Both
+dials now go through one `deadbandStep`, and the quantiser is passed in as a FUNCTION rather than
+as a step size: `Math.round(x * 10) / 10` and `Math.round(x / 0.1) * 0.1` disagree at 0.95, which
+is a whole level of resolution at the boundary just under native.
+
+⚠ **Every timing harness on this page pins both dials** (`resFloor: 1`, `perfDS: 0`) for the good
+reason given under `__glFrame()` — a loose dial sheds resolution where the frame is expensive and
+gets read as the renderer. The cost is that a bug driven BY a dial is invisible to all of them at
+once; four headless reproductions of the blinking road came back flat because the harness had the
+dial disabled. `scripts/shapes/dials.mjs` is the one thing in the repo that runs them LOOSE.
+
+⚠ **And a deadband test passes for the wrong reason if the trace does not dither.** "The step
+changed once" is also what a trace that never went near a boundary produces, so every case computes
+the NAIVE answer over the same recorded dial values and reports both. At 26.6 ms the resolution
+dial changes 9 times over 230 settled frames and 0 with the band; at 28 ms the downscale changes
+17 and 0. A 14 → 48 → 14 ms ramp still walks both dials over their whole range and brings them back.
+
+### MSAA, which had never been a decision — `RENDER_TUNE.glMsaa`
+
+`antialias: true` was written into the context attributes once and never swept. The 2-D canvas
+GLASS 2 composites onto has no multisampling at all, so this buys smoother building edges nobody
+asked for, at a cost paid over the whole backing store and scaling with resolution rather than with
+how much city is in frame. Free on the one discrete card everything here was measured on; an
+integrated GPU is precisely where a full-frame fill cost stops being free.
+
+⚠ **It is a context CREATION attribute**, so moving it drops the GL view and rebuilds it — the same
+path a resize already takes, one visible hitch and then the new setting. That is also why it must
+never become an adaptive dial: a knob that flipped this under load would rebuild the context, the
+atlas and the vertex buffer twice a second.
+
+### The sun on the depth buffer — parked at 0, and what it cost to find out
+
+`RENDER_TUNE.glShadow` renders the city a second time from where the sun is, into a depth texture,
+and compares per fragment in the shader that was going to shade that fragment anyway. It is the
+half a painter's queue could never do: `drawBuildingShadow` lays a footprint hull on z = 0 and
+that is the ONLY building shadow GLASS has ever had — nothing shades a neighbour's wall, nothing
+shades itself, a setback casts nothing onto the storey below it.
+
+**It defaults to 0 because it does not work yet.** What measures correctly:
+
+| | |
+|---|---|
+| the light matrix | `npm run gl:shadow` — a point and the place its shadow lands on the ground map to the same texel to **2.2e-16**, over 27 daylight hours and 4 window shapes |
+| the depth pass | 2048 square, allocated and rendered; `glLastFrame().shadowSize` says so |
+| the night gate | **exactly 0** moved pixels with the sun down, and no texture allocated at all |
+| the ground | **0.01%** of non-building pixels move, against 2.6% before the sampler changed |
+
+What is wrong is the one thing that makes it a shading value rather than a mask: **the term ignores
+its own strength.** Frames at 0.35 and at 1.0 are bit-identical — 0 pixels differ — while
+`getUniform` reads 0.35 and 1.0 back out of the live program, and 93% of building pixels are
+shadowed at both. A shadow that cannot be turned down is a mask, and a mask over most of the city
+is a black city.
+
+⚠ **What has been ruled out, so a next attempt does not re-run it.** Not the depth pass (skipping
+the `drawArrays` changes nothing). Not framebuffer state (skipping the whole render changes
+nothing). Not the uniforms (matrix and scalars all read back finite and correct). Not degenerate
+normals (`captureModelMesh` over every model at all four facings: 105,216 faces, zero non-finite or
+zero-length). And not the non-uniform-control-flow bug — that one was **real**: four `texture()`
+calls sat behind a per-fragment early return, which is an implicit-LOD sample in divergent flow and
+undefined by the spec. It is fixed with `textureLod` and the symptom outlived it.
+
+The hardware compare sampler WAS part of it. Dropping `COMPARE_REF_TO_TEXTURE` for a plain depth
+read and an explicit `step` is what took the ground spill from 2.6% to 0.01% — worth knowing before
+reaching for `sampler2DShadow` through ANGLE again.
+
+Kept rather than reverted on the same grounds as `glAO`: the knob is provably inert at 0
+(`framecost` is unchanged to the call, 292,585), and the rig is the point — `npm run gl:shadow`
+headless, `__glShadow()` in the Modelshop for pixels, cost and the night control.
+
+⚠ **Two cheap checks worth taking from the whole episode.** A result that ignores its own strength
+is arithmetic, not tuning — stop reaching for the tuning knobs. And a symptom that survives
+skipping the pass which produces its input is not about that pass.
+
 ### Hardware coverage
 
 `glCapabilities()` in the console answers "will this machine run it", from a throwaway context it

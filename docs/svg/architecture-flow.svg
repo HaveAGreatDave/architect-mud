@@ -1,0 +1,278 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-18 -18 1146 1748" width="1146" height="1748" role="img" aria-labelledby="fcTitle fcDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Arial, sans-serif">
+    <title id="fcTitle">Architect MUD architecture flowchart</title>
+    <desc id="fcDesc">Three clients — the player client, the dev panel, and the Studio and Modelshop authoring tools — reach the server two ways: a raw WebSocket carries all gameplay in both directions, while HTTP REST carries content editing only, and the two never cross. A player command enters handleCommand and passes through five dispatch stages in order: SIFT target resolution, input matchers, plugin commands, specialized actions, and finally engine builtins; the first match wins, so plugins beat builtins. Handlers reach each other through four seams — actions, hooks, events and registries — across 137 plugins. Everything mutates the world Maps, an in-memory hub in server slash engine slash world dot js that is authoritative at runtime and that every hot path reads instead of querying. From the hub, fields are written to PostgreSQL by tier: durable fields write through immediately, checkpoint fields set a dirty flag and are flushed in one batched statement, and derived fields are never written and are rebuilt at boot. Below Postgres, world content lives as 41,495 JSON files in git; a push to main is the deploy, and CI backs up production, applies the schema, imports the content and gates on the regression suite. Postgres then boot-loads back into the world Maps, and room output broadcasts from the hub back out to zone occupants over the WebSocket, closing the loop.</desc>
+
+    <defs>
+      <marker id="ar" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#3a4a68"/></marker>
+      <marker id="arc" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#28e5ff"/></marker>
+      <marker id="arm" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#ff2ec4"/></marker>
+      <marker id="arg" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#39ff8f"/></marker>
+      <marker id="ara" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f5b942"/></marker>
+      <filter id="hubglow" x="-20%" y="-60%" width="140%" height="220%">
+        <feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <style>
+      .fc-b{fill:#0d0d16; stroke:#2a2a40; stroke-width:1}
+      .fc-b2{fill:#15151f; stroke:#2a2a40; stroke-width:1}
+      .fc-bc{fill:#0d0d16; stroke:#28e5ff; stroke-width:1.4}
+      .fc-bg{fill:#0d0d16; stroke:#39ff8f; stroke-width:1.2}
+      .fc-ba{fill:#0d0d16; stroke:#f5b942; stroke-width:1.2}
+      .fc-bd{fill:#0b0b12; stroke:#2a2a40; stroke-width:1; stroke-dasharray:4 3}
+      .fc-hub{fill:rgba(40,229,255,.06); stroke:#28e5ff; stroke-width:1.8}
+      .fc-lane{font-size:11px; letter-spacing:.22em; fill:#28e5ff; font-weight:700}
+      .fc-num{font-size:12px; fill:#ff2ec4; font-weight:700}
+      .fc-h{font-size:12.5px; fill:#fff; font-weight:700; letter-spacing:.05em}
+      .fc-hb{font-size:15px; fill:#fff; font-weight:700; letter-spacing:.08em}
+      .fc-s{font-size:9.6px; fill:#6b7a9c}
+      .fc-x{font-size:10.2px; fill:#9aa8c7}
+      .fc-k{font-size:10.2px; fill:#28e5ff}
+      .fc-g{font-size:10.2px; fill:#39ff8f}
+      .fc-a{font-size:10.2px; fill:#f5b942}
+      .fc-m{font-size:10.4px; fill:#ff2ec4}
+      .fc-w{stroke:#3a4a68; fill:none; stroke-width:1.4}
+      .fc-wc{stroke:#28e5ff; fill:none; stroke-width:1.6}
+      .fc-wm{stroke:#ff2ec4; fill:none; stroke-width:1.5}
+      .fc-wg{stroke:#39ff8f; fill:none; stroke-width:1.5}
+      .fc-wa{stroke:#f5b942; fill:none; stroke-width:1.5}
+      .fc-wd{stroke:#3a4a68; fill:none; stroke-width:1.3; stroke-dasharray:5 4}
+    </style>
+    <rect x="-18" y="-18" width="1146" height="1748" fill="#0d0d16"/>
+
+
+    <!-- ══ LANE 1 · CLIENTS ══ -->
+    <text class="fc-num" x="76" y="26">1</text><text class="fc-lane" x="92" y="26">CLIENTS — VANILLA JS, NO BUILD STEP</text>
+    <rect class="fc-b" x="76" y="38" width="310" height="142"/>
+    <text class="fc-h" x="92" y="60">PLAYER CLIENT</text>
+    <text class="fc-s" x="92" y="76">client/game/ · 249 modules</text>
+    <text class="fc-x" x="92" y="96">room · combat · inventory · shop</text>
+    <text class="fc-x" x="92" y="113">tablet OS · CODEX · macros</text>
+    <text class="fc-x" x="92" y="130">smartbar · triggers · automation</text>
+    <text class="fc-k" x="92" y="150">cockpit + truck cab → GLASS</text>
+    <text class="fc-s" x="92" y="167">what you edit is what runs</text>
+
+    <rect class="fc-b" x="411" y="38" width="310" height="142"/>
+    <text class="fc-h" x="427" y="60">DEV PANEL</text>
+    <text class="fc-s" x="427" y="76">client/devpanel/</text>
+    <text class="fc-x" x="427" y="96">zones · items · npcs · enemies</text>
+    <text class="fc-x" x="427" y="113">VINE graph editors · terrain</text>
+    <text class="fc-x" x="427" y="130">audio lab · voice lab · power</text>
+    <text class="fc-k" x="427" y="150">the content surface</text>
+    <text class="fc-s" x="427" y="167">no one touches code to author</text>
+
+    <rect class="fc-b" x="746" y="38" width="310" height="142"/>
+    <text class="fc-h" x="762" y="60">STUDIO / MODELSHOP</text>
+    <text class="fc-s" x="762" y="76">tools/ · 9,581 lines</text>
+    <text class="fc-x" x="762" y="96">Map Studio — edits content/</text>
+    <text class="fc-x" x="762" y="113">with no DB in the process</text>
+    <text class="fc-x" x="762" y="130">Modelshop — GLASS models</text>
+    <text class="fc-k" x="762" y="150">imports the real renderer</text>
+    <text class="fc-s" x="762" y="167">so there is no second preview</text>
+
+    <path class="fc-wc" d="M231,180 L231,212" marker-end="url(#arc)"/>
+    <path class="fc-w"  d="M566,180 L566,212" marker-end="url(#ar)"/>
+    <path class="fc-w"  d="M901,180 L901,212" marker-end="url(#ar)"/>
+
+    <!-- ══ LANE 2 · TRANSPORT ══ -->
+    <text class="fc-num" x="76" y="206">2</text><text class="fc-lane" x="92" y="206">TRANSPORT</text>
+    <rect class="fc-bc" x="76" y="216" width="630" height="106"/>
+    <text class="fc-h" x="92" y="238">RAW WEBSOCKET</text>
+    <text class="fc-s" x="230" y="238">ws · permessage-deflate · all gameplay, both ways</text>
+    <text class="fc-k" x="92" y="262">→  command · move · say · attack · buy · instrument_note</text>
+    <text class="fc-k" x="92" y="281">←  room_update · zone_event · player_update · combat</text>
+    <text class="fc-s" x="92" y="305">one look was 34 KB uncompressed; it is 1.7 KB on the wire now</text>
+
+    <rect class="fc-b" x="736" y="216" width="320" height="106"/>
+    <text class="fc-h" x="752" y="238">HTTP / REST</text>
+    <text class="fc-s" x="752" y="256">server/api/routes.js</text>
+    <text class="fc-x" x="752" y="277">dev panel + tools only</text>
+    <text class="fc-x" x="752" y="294">content editing, never gameplay</text>
+    <text class="fc-s" x="752" y="311">3,757 lines of CRUD</text>
+
+    <path class="fc-wc" d="M391,322 L391,348" marker-end="url(#arc)"/>
+    <text class="fc-s" x="401" y="340">a player types something</text>
+
+    <text class="fc-m" x="76" y="366">▸ No REST for gameplay. No WebSocket for content editing. The two surfaces never cross — which is what lets the dev panel exist without being a second game server.</text>
+
+    <!-- ══ LANE 3 · DISPATCH ══ -->
+    <text class="fc-num" x="76" y="386">3</text><text class="fc-lane" x="92" y="386">DISPATCH — FIRST MATCH WINS</text>
+    <rect class="fc-b2" x="76" y="396" width="980" height="216"/>
+    <text class="fc-h" x="92" y="420">handleCommand()</text>
+    <text class="fc-s" x="230" y="420">server/engine/commands/index.js — the order below IS the architecture</text>
+
+    <rect class="fc-b" x="92" y="436" width="180" height="118"/>
+    <text class="fc-num" x="104" y="456">1</text><text class="fc-k" x="118" y="456">SIFT INTERCEPT</text>
+    <text class="fc-x" x="104" y="476">target resolution</text>
+    <text class="fc-x" x="104" y="493">owns bare numbers</text>
+    <text class="fc-s" x="104" y="513">runs before all routing,</text>
+    <text class="fc-s" x="104" y="528">so "2" answers a prompt</text>
+    <text class="fc-s" x="104" y="543">instead of running</text>
+
+    <rect class="fc-b" x="292" y="436" width="180" height="118"/>
+    <text class="fc-num" x="304" y="456">2</text><text class="fc-k" x="318" y="456">INPUT MATCHERS</text>
+    <text class="fc-x" x="304" y="476">whole-line patterns,</text>
+    <text class="fc-x" x="304" y="493">not verbs</text>
+    <text class="fc-s" x="304" y="513">pspsps calls the cat</text>
+    <text class="fc-s" x="304" y="528">without stealing call</text>
+    <text class="fc-s" x="304" y="543">and summon from poker</text>
+
+    <rect class="fc-bc" x="492" y="436" width="180" height="118"/>
+    <text class="fc-num" x="504" y="456">3</text><text class="fc-k" x="518" y="456">PLUGIN COMMANDS</text>
+    <text class="fc-x" x="504" y="476">623 verbs</text>
+    <text class="fc-x" x="504" y="493">95 plugins</text>
+    <text class="fc-s" x="504" y="513">plugin.json IS the</text>
+    <text class="fc-s" x="504" y="528">registry — an undeclared</text>
+    <text class="fc-s" x="504" y="543">verb does not exist</text>
+
+    <rect class="fc-b" x="692" y="436" width="180" height="118"/>
+    <text class="fc-num" x="704" y="456">4</text><text class="fc-k" x="718" y="456">SPECIALIZED</text>
+    <text class="fc-x" x="704" y="476">verb-first, tag-gated</text>
+    <text class="fc-x" x="704" y="493">open / read / repair</text>
+    <text class="fc-s" x="704" y="513">a door, a container and</text>
+    <text class="fc-s" x="704" y="528">a letter each answer,</text>
+    <text class="fc-s" x="704" y="543">none knows the others</text>
+
+    <rect class="fc-b" x="892" y="436" width="164" height="118"/>
+    <text class="fc-num" x="904" y="456">5</text><text class="fc-k" x="918" y="456">BUILTINS</text>
+    <text class="fc-x" x="904" y="476">the floor</text>
+    <text class="fc-x" x="904" y="493">move · look · say</text>
+    <text class="fc-s" x="904" y="513">what must work in a</text>
+    <text class="fc-s" x="904" y="528">world with every</text>
+    <text class="fc-s" x="904" y="543">plugin disabled</text>
+
+    <path class="fc-wc" d="M274,495 L290,495" marker-end="url(#arc)"/>
+    <path class="fc-wc" d="M474,495 L490,495" marker-end="url(#arc)"/>
+    <path class="fc-wc" d="M674,495 L690,495" marker-end="url(#arc)"/>
+    <path class="fc-wc" d="M874,495 L890,495" marker-end="url(#arc)"/>
+
+    <text class="fc-m" x="92" y="582">▸ Stage 3 precedes stage 5, so an engine builtin whose verb a plugin has claimed is dead code that still looks alive.</text>
+    <text class="fc-s" x="92" y="600">This is the first thing to check before editing any command handler.</text>
+
+    <path class="fc-wc" d="M566,612 L566,646" marker-end="url(#arc)"/>
+
+    <!-- ══ LANE 4 · SEAMS & PLUGINS ══ -->
+    <text class="fc-num" x="76" y="666">4</text><text class="fc-lane" x="92" y="666">SEAMS &amp; PLUGINS — HOW CODE REACHES CODE WITHOUT IMPORTING IT</text>
+    <rect class="fc-b" x="76" y="676" width="410" height="212"/>
+    <text class="fc-h" x="92" y="698">FOUR SEAMS</text>
+    <text class="fc-k" x="92" y="722">registerAction / dispatchAction</text>
+    <text class="fc-s" x="92" y="738">197 sites · dispatched BY NAME, so demolition</text>
+    <text class="fc-s" x="92" y="752">charges a crime without importing surveillance</text>
+    <text class="fc-k" x="92" y="776">fireHook — 40 named hooks</text>
+    <text class="fc-s" x="92" y="792">gather from everyone, OR last-non-undefined wins</text>
+    <text class="fc-k" x="92" y="816">events — on / emit</text>
+    <text class="fc-s" x="92" y="832">one quests subscriber yields a whole objective type</text>
+    <text class="fc-k" x="92" y="856">registries</text>
+    <text class="fc-s" x="92" y="872">47 move gates · 45 status effects · 23 lock types</text>
+
+    <rect class="fc-b" x="516" y="676" width="540" height="212"/>
+    <text class="fc-h" x="532" y="698">plugins/</text>
+    <text class="fc-s" x="590" y="698">137 plugins · 182,418 lines · 623 verbs</text>
+    <text class="fc-x" x="532" y="722">combat · survival · crime · surveillance · jail · stealth</text>
+    <text class="fc-x" x="532" y="739">flight · trucking · voidwalking · swimming · fishing</text>
+    <text class="fc-x" x="532" y="756">cooking · drinks · synthesis · durability · augments</text>
+    <text class="fc-x" x="532" y="773">mutations · psionics · mastery · nullcraft · ideologies</text>
+    <text class="fc-x" x="532" y="790">broadcast · gametable · storefront · corps · quests</text>
+    <text class="fc-s" x="532" y="814">42 of them declare no verbs at all — pure hook subscribers,</text>
+    <text class="fc-s" x="532" y="829">adding behaviour to flows they never expose a command for</text>
+    <text class="fc-a" x="532" y="853">median plugin: 2 verbs.  flight: 101.</text>
+    <text class="fc-s" x="532" y="872">126 ship their own regress.js — 37,785 lines, none loads in prod</text>
+
+    <path class="fc-w" d="M488,782 L514,782" marker-end="url(#ar)"/>
+    <path class="fc-w" d="M514,796 L488,796" marker-end="url(#ar)"/>
+
+    <path class="fc-wc" d="M566,888 L566,922" marker-end="url(#arc)"/>
+    <text class="fc-s" x="576" y="910">every mutation ends here</text>
+
+    <!-- ══ LANE 5 · THE HUB ══ -->
+    <text class="fc-num" x="76" y="942">5</text><text class="fc-lane" x="92" y="942">THE HUB — WHERE EVERYTHING CONVERGES</text>
+    <rect class="fc-hub" x="76" y="952" width="980" height="140" filter="url(#hubglow)"/>
+    <text class="fc-hb" x="96" y="984">WORLD MAPS — IN MEMORY</text>
+    <text class="fc-s" x="400" y="984">server/engine/world.js</text>
+    <text class="fc-k" x="96" y="1012">zones · npcs · doors · furniture · orgs · players · spawnTimers · flags</text>
+    <text class="fc-x" x="96" y="1036">Authoritative at runtime. Every hot path — per move, per swing, per tick — reads here and never queries.</text>
+    <text class="fc-s" x="96" y="1058">A cache is only as safe as its write funnel: furniture (~40 scattered writers) and npcs had to earn theirs through</text>
+    <text class="fc-s" x="96" y="1074">three helpers each before they were allowed to live here. Bulk writers re-cache exactly the rows Postgres returns.</text>
+
+    <!-- ══ LANE 6 · PERSISTENCE TIERS ══ -->
+    <text class="fc-num" x="76" y="1112">6</text><text class="fc-lane" x="92" y="1112">PERSISTENCE TIERS — PICK ONE BEFORE WRITING THE CODE</text>
+
+    <path class="fc-wg" d="M231,1120 L231,1137" marker-end="url(#arg)"/>
+    <path class="fc-wa" d="M566,1120 L566,1137" marker-end="url(#ara)"/>
+    <path class="fc-wd" d="M901,1120 L901,1137" marker-end="url(#ar)"/>
+    <rect class="fc-bg" x="76" y="1140" width="310" height="176"/>
+    <text class="fc-g" x="92" y="1162">DURABLE</text>
+    <text class="fc-s" x="92" y="1178">must survive any death</text>
+    <text class="fc-x" x="92" y="1200">credits · bank · inventory</text>
+    <text class="fc-x" x="92" y="1217">deaths · kills · door locks</text>
+    <text class="fc-x" x="92" y="1234">apartments · rent</text>
+    <text class="fc-g" x="92" y="1260">write through, at the</text>
+    <text class="fc-g" x="92" y="1276">mutation site</text>
+    <text class="fc-s" x="92" y="1300">on crash: intact</text>
+
+    <rect class="fc-ba" x="411" y="1140" width="310" height="176"/>
+    <text class="fc-a" x="427" y="1162">CHECKPOINT</text>
+    <text class="fc-s" x="427" y="1178">must survive a clean restart</text>
+    <text class="fc-x" x="427" y="1200">position · combat hp/stamina</text>
+    <text class="fc-x" x="427" y="1217">hunger · thirst · body temp</text>
+    <text class="fc-x" x="427" y="1234">surveillance heat</text>
+    <text class="fc-a" x="427" y="1260">dirty flag → batched flush</text>
+    <text class="fc-a" x="427" y="1276">ONE UPDATE … FROM (VALUES …)</text>
+    <text class="fc-s" x="427" y="1300">on crash: ≤ one interval, benignly</text>
+
+    <rect class="fc-bd" x="746" y="1140" width="310" height="176"/>
+    <text class="fc-s" x="762" y="1162" style="font-size:10.2px;fill:#9aa8c7">DERIVED</text>
+    <text class="fc-s" x="762" y="1178">recomputed or irrelevant at boot</text>
+    <text class="fc-x" x="762" y="1200">power grid · weather field</text>
+    <text class="fc-x" x="762" y="1217">npc live position · zone temps</text>
+    <text class="fc-x" x="762" y="1234">door state during transit</text>
+    <text class="fc-s" x="762" y="1260" style="fill:#6b7a9c">never written from ticks</text>
+    <text class="fc-s" x="762" y="1276" style="fill:#6b7a9c">or transits — at all</text>
+    <text class="fc-s" x="762" y="1300">on crash: rebuilt</text>
+
+    <text class="fc-s" x="762" y="1334">no write path ↓</text>
+    <path class="fc-wg" d="M231,1316 L231,1370" marker-end="url(#arg)"/>
+    <path class="fc-wa" d="M566,1316 L566,1370" marker-end="url(#ara)"/>
+    <text class="fc-s" x="576" y="1348">one round trip for every dirty player</text>
+
+    <!-- ══ LANE 7 · POSTGRES ══ -->
+    <text class="fc-num" x="76" y="1390">7</text><text class="fc-lane" x="92" y="1390">SOURCE OF TRUTH</text>
+    <rect class="fc-b2" x="76" y="1400" width="980" height="104"/>
+    <text class="fc-hb" x="96" y="1430">PostgreSQL — Neon</text>
+    <text class="fc-k" x="330" y="1430">149 tables · one query() helper · NO ORM</text>
+    <text class="fc-x" x="96" y="1456">SCHEMA_SQL is 3,234 lines of idempotent DDL in ONE file. Nothing migrates on boot — schema and content are deliberate acts.</text>
+    <text class="fc-s" x="96" y="1478">Remote. Every query() is a pool checkout plus a network round trip, so the cost that matters is round-trip COUNT, never query complexity.</text>
+
+    <!-- ══ LANE 8 · CONTENT / CODEX ══ -->
+    <text class="fc-num" x="76" y="1584">8</text><text class="fc-lane" x="92" y="1584">CONTENT — THE CODEX PIPELINE, FLOWING UP</text>
+    <rect class="fc-b" x="76" y="1594" width="310" height="86"/>
+    <text class="fc-h" x="92" y="1616">content/</text>
+    <text class="fc-x" x="92" y="1638">41,495 JSON files · 67 categories</text>
+    <text class="fc-x" x="92" y="1655">one file per entity, all in git</text>
+    <text class="fc-s" x="92" y="1672">zones · npcs · items · furniture · quests</text>
+
+    <rect class="fc-b" x="411" y="1594" width="310" height="86"/>
+    <text class="fc-h" x="427" y="1616">git push main</text>
+    <text class="fc-m" x="427" y="1638">the push IS the deploy</text>
+    <text class="fc-s" x="427" y="1655">no separate publish step, and no</text>
+    <text class="fc-s" x="427" y="1672">world content anywhere in the code</text>
+
+    <rect class="fc-b" x="746" y="1594" width="310" height="86"/>
+    <text class="fc-h" x="762" y="1616">CI</text>
+    <text class="fc-x" x="762" y="1638">back up prod → apply SCHEMA_SQL</text>
+    <text class="fc-x" x="762" y="1655">→ import upsert → regress gate</text>
+    <text class="fc-s" x="762" y="1672">a red suite stops the deploy</text>
+
+    <path class="fc-wm" d="M388,1637 L409,1637" marker-end="url(#arm)"/>
+    <path class="fc-wm" d="M723,1637 L744,1637" marker-end="url(#arm)"/>
+    <path class="fc-wm" d="M901,1590 L901,1510" marker-end="url(#arm)"/>
+
+    <text class="fc-s" x="76" y="1702">The import is an upsert that replaces whole columns, so editing a file is enough to REMOVE a key — which is why a one-shot script against prod is needed far less often than it looks.</text>
+
+    <!-- return path: broadcast back out to clients (left gutter) -->
+    <path class="fc-wc" d="M76,1022 L44,1022 L44,266 L74,266" marker-end="url(#arc)"/>
+    <text class="fc-k" x="38" y="700" transform="rotate(-90 38 700)" style="font-size:10px">BROADCAST → ZONE OCCUPANTS</text>
+
+    <!-- boot-load return: Postgres up into the hub (right gutter) -->
+    <path class="fc-wm" d="M1056,1452 L1084,1452 L1084,1022 L1058,1022" marker-end="url(#arm)"/>
+    <text class="fc-m" x="1098" y="1240" transform="rotate(-90 1098 1240)" style="font-size:10px">BOOT LOAD</text>
+  </svg>

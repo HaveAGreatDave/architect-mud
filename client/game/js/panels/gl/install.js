@@ -109,7 +109,12 @@ export function installGL(hostFor) {
       // occlusion shipped that way for an afternoon: the flag was set, the slider moved, the
       // uniform existed, and __glAO() reported 0.0% of wall pixels moved at every strength up to
       // 0.7 — which is what a correctly wired feature doing nothing looks like too.
-      sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, cssW: opts.cssW, cssH: opts.cssH,
+      sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, msaa: opts.msaa, cssW: opts.cssW, cssH: opts.cssH,
+      // The sun's own depth pass. Both halves are needed and neither is derivable from the other:
+      // `glShadow` is the strength the player set, `sun` is the frame's own light — the same two
+      // numbers (`dir`, `len`) the ground hulls have always cast with, so the shadow on a wall and
+      // the shadow on the pavement come from one source rather than two.
+      glShadow: opts.glShadow, sun: opts.sun,
       curtain: opts.curtain, decals: opts.decals, scatter: opts.scatter, ground: opts.ground,
       floor: opts.floor, now: opts.now,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,

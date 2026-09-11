@@ -1383,3 +1383,173 @@ export function runAO({ W = 640, H = 360, frames = 24, warm = 8 } = {}) {
   }
   return rows;
 }
+
+// ── THE SUN'S OWN SHADOWS: DO THEY LAND, AND ON WHAT? ───────────────────────
+//
+// `__glShadow()`. GLASS has had exactly one building shadow since it was written: a footprint hull
+// on the ground. The depth pass adds the half a painter's queue could never do — a building shading
+// its neighbour's wall, a setback shading the storey below it. Three questions, and they are three
+// different runs because they fail in three different ways.
+//
+// ⚠ FIRST, DID IT REACH ANY PIXELS. The failure mode is silence, as it is for the signage and the
+// lights: a framebuffer the driver would not complete, a matrix that came out NaN at noon, a
+// comparison running the wrong way — every one of those draws a correct, unshadowed city and looks
+// like a day with nothing casting. So the first half is a pixel diff of one frame with the strength
+// at 0 and at its shipping value, over the mask of what the buildings cover.
+//
+// ⚠ SECOND, DID IT REACH PIXELS IT HAS NO BUSINESS REACHING. The ground hulls are untouched by this
+// change and must stay untouched, so the frame is split the way __glTerrain splits it — inside the
+// building mask and outside it — and the OUTSIDE number is the one that has to be near zero. A
+// whole-frame figure tells those two apart not at all, and "the ground went dark" is exactly the
+// report a mis-projected shadow map produces.
+//
+// ⚠ THIRD, IS IT FREE AT NIGHT. The pass is skipped outright once the sun is down, so a night seat
+// must come back at 0.0% moved — not small, zero. That is also the cheapest possible check that the
+// strength uniform is written on every frame rather than only on the frames that set it: a uniform
+// holds its last value, and a city wearing this afternoon's shadows at midnight is what forgetting
+// that looks like.
+const SHADOW_SEATS = [
+  { tag: 'cab, low morning sun', R: 14, density: 0.18, hour: 8, cls: 'truck' },
+  { tag: 'cab, high noon sun', R: 14, density: 0.18, hour: 12.5, cls: 'truck' },
+  { tag: 'air, afternoon', R: 36, density: 0.05, hour: 15.5, cls: 'prop' },
+  { tag: 'cab, night (control)', R: 14, density: 0.18, hour: 2, cls: 'truck' },
+];
+
+const SHADOW_SWEEP = [0.35, 0.7, 1];
+
+export function runShadow({ W = 640, H = 360, frames = 30, warm = 10 } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const mid = (a) => { const b = [...a].sort((p, q) => p - q); return b[b.length >> 1]; };
+
+  // The same generated city runLights uses — a road, a couple of clear tiles either side of it, and
+  // real named models at 'density' beyond that, so what casts a shadow here is the buildings the
+  // game actually has rather than boxes invented for the harness.
+  const mk = (R, density) => {
+    const N = R * 2 + 1;
+    let k = 0, n = 0;
+    const m = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+      const dx = x - R;
+      if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+      if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+      const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (density && (h % 1000) / 1000 < density) {
+        const r = named[(k++) % named.length];
+        n++;
+        return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6), ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 3) };
+      }
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+    m._buildings = n;
+    return m;
+  };
+
+  const rows = [], swept = [];
+  const realNow = performance.now.bind(performance);
+  const heldStr = RENDER_TUNE.glShadow;
+  try {
+    for (const seat of SHADOW_SEATS) {
+      // A scene id of its own per seat — see the warning in runLights: a frozen clock cannot advance
+      // the smoothed per-view state, so a second seat on one id inherits the first seat's camera and
+      // its two frames come back identical, which reads as the feature doing nothing.
+      const ID = '__shadow' + SHADOW_SEATS.indexOf(seat) + '_' + (runShadow.n = (runShadow.n || 0) + 1);
+      el.id = ID;
+      const built = mk(seat.R, seat.density), bare = mk(seat.R, 0);
+      const view = (map) => ({
+        cls: seat.cls, phase: 'cruise', worldBlend: 1,
+        height: seat.cls === 'prop' ? 0.5 : 0, eyeH: seat.cls === 'prop' ? undefined : 0.12,
+        hour: seat.hour, weather: 'clear', speed: 0.4, map, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        resFloor: 1, tune: { gl: 1, perfDS: 0 },
+      });
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+
+      performance.now = () => 1e6;
+      const paint2 = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
+      RENDER_TUNE.glShadow = 0;
+      paint2(view(bare)); const empty = shot();
+      paint2(view(built)); const off = shot();
+      const statsOff = glLastFrame() || {};
+      // The building mask, from the pair with and without buildings. Everything outside it is
+      // ground, sky and road — the half that must not move.
+      const isWall = new Uint8Array(off.length >> 2);
+      let mask = 0;
+      for (let i = 0; i < off.length; i += 4) {
+        const d0 = Math.abs(off[i] - empty[i]) + Math.abs(off[i + 1] - empty[i + 1]) + Math.abs(off[i + 2] - empty[i + 2]);
+        if (d0 >= 12) { isWall[i >> 2] = 1; mask++; }
+      }
+      let chosen = null, size = 0;
+      for (const str of SHADOW_SWEEP) {
+        RENDER_TUNE.glShadow = str;
+        paint2(view(built));
+        const on = shot();
+        const st = glLastFrame() || {};
+        if (str === 0.7) size = st.shadowSize || 0;
+        let moved = 0, sum = 0, worst = 0, gMoved = 0, gTot = 0;
+        for (let i = 0; i < off.length; i += 4) {
+          const d = (Math.abs(on[i] - off[i]) + Math.abs(on[i + 1] - off[i + 1]) + Math.abs(on[i + 2] - off[i + 2])) / 3;
+          if (isWall[i >> 2]) {
+            if (d >= 2) { moved++; sum += d; }
+            if (d > worst) worst = d;
+          } else { gTot++; if (d >= 2) gMoved++; }
+        }
+        const row = { seat: seat.tag, str, wallPx: mask,
+          shadedPct: mask ? +(moved / mask * 100).toFixed(1) : null,
+          meanOnShaded: moved ? +(sum / moved / 255 * 100).toFixed(1) : null,
+          worst: Math.round(worst),
+          groundPct: gTot ? +(gMoved / gTot * 100).toFixed(2) : null };
+        swept.push(row);
+        if (str === 0.7) chosen = row;
+      }
+      performance.now = realNow;
+
+      // The cost, on a real clock. Alternated with the minimum of each side taken, for the reason
+      // written out in runLights: a median of two samples is the larger of them, so any drift across
+      // the sequence lands on whichever side ran last and invents a cost for a provably free case.
+      const run = (s) => {
+        RENDER_TUNE.glShadow = s;
+        const v = view(built);
+        for (let i = 0; i < warm; i++) paintWindshield(ID, v);
+        const t = [];
+        for (let i = 0; i < frames; i++) { const t0 = performance.now(); paintWindshield(ID, { ...v, heading: i * 0.7 }); t.push(performance.now() - t0); }
+        return mid(t);
+      };
+      const offs = [], ons = [];
+      for (let r = 0; r < 3; r++) { offs.push(run(0)); ons.push(run(0.7)); }
+      const msOff = Math.min(...offs), msOn = Math.min(...ons);
+      RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0;
+
+      rows.push({
+        seat: seat.tag, buildings: built._buildings, faces: statsOff.faces || 0,
+        map: size ? size + 'sq' : '-',
+        wallPx: mask, shadedPct: chosen && chosen.shadedPct, meanOnShaded: chosen && chosen.meanOnShaded,
+        worst: chosen && chosen.worst, groundPct: chosen && chosen.groundPct,
+        msOff: +msOff.toFixed(2), msOn: +msOn.toFixed(2), cost: +(msOn - msOff).toFixed(2),
+        spread: offs.map((x) => x.toFixed(1)).join('/') + ' vs ' + ons.map((x) => x.toFixed(1)).join('/'),
+      });
+    }
+  } finally {
+    performance.now = realNow;
+    RENDER_TUNE.glShadow = heldStr;
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0;
+    uninstall(); holder.remove();
+  }
+  console.table(swept);
+  console.table(rows);
+  console.log('   shadedPct is the share of BUILDING pixels the sun pass changed. A zero on a daylight seat is the silent failure —');
+  console.log('   a driver that refused the depth framebuffer, a NaN matrix, or a comparison running the wrong way all look like this.');
+  console.log('   groundPct must stay near zero: the ground hulls are not touched by this change, and a mis-projected map darkens them.');
+  console.log('   The night row is the control. It must read 0 on every column — the pass is skipped, so nothing may move.');
+  console.log('   map is the shadow texture actually allocated; a dash means the driver refused it and the frame fell back.');
+  return { rows, swept };
+}
+
+if (typeof window !== 'undefined') window.__glShadow = runShadow;

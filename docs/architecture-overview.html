@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architect MUD — The Architecture</title>
+<style>
+  /* Architect house palette — lifted from client/game/styles.css so this reads
+     like the thing it's about: deep navy-black, hairline navy rules, cyan for
+     signal, magenta reserved for the one accent the game reserves it for. */
+  :root{
+    --bg:#05050a; --panel:#0d0d16; --panel2:#15151f;
+    --line:#2a2a40; --line-soft:#1b1b2b;
+    --ink:#e8e8f5; --muted:#9aa8c7; --hint:#6b7a9c;
+    --cyan:#28e5ff; --blue:#5b9dff; --accent:#ff2ec4;
+    --good:#39ff8f; --bad:#ff3b5c; --amber:#f5b942;
+    --mono:"Courier New",Courier,ui-monospace,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{
+    font-family:var(--sans); color:var(--ink); margin:0; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    background:
+      linear-gradient(rgba(40,229,255,.028) 1px, transparent 1px) 0 0/100% 28px,
+      linear-gradient(90deg, rgba(40,229,255,.028) 1px, transparent 1px) 0 0/28px 100%,
+      radial-gradient(1200px 600px at 50% -10%, #101a2e 0%, var(--bg) 70%);
+  }
+  .wrap{max-width:860px; margin:0 auto; padding:56px 32px 96px}
+
+  /* Masthead — a drawing-sheet title block */
+  .plate{border:1px solid var(--line); background:linear-gradient(180deg,var(--panel) 0%,rgba(13,13,22,.5) 100%); padding:26px 28px; margin:0 0 34px; position:relative}
+  .plate::before{content:""; position:absolute; inset:5px; border:1px solid var(--line-soft); pointer-events:none}
+  .stamp{font-family:var(--mono); font-size:11px; letter-spacing:.34em; text-transform:uppercase; color:var(--cyan); margin:0 0 12px}
+  h1{font-family:var(--mono); font-size:27px; font-weight:700; letter-spacing:-.01em; margin:0 0 10px; color:#fff; line-height:1.25}
+  .sub{color:var(--muted); margin:0 0 6px; font-size:15px}
+  .meta{color:var(--hint); font-size:12px; margin:0; font-family:var(--mono); letter-spacing:.04em}
+
+  h2{
+    font-family:var(--mono); font-size:16px; font-weight:700; color:var(--cyan);
+    letter-spacing:.16em; text-transform:uppercase; margin:52px 0 16px;
+    padding-bottom:9px; border-bottom:1px solid var(--line);
+  }
+  h2::before{content:"▸ "; color:var(--accent)}
+  h3{font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); margin:30px 0 10px}
+  p{font-size:15px; margin:0 0 15px}
+  .lead{font-size:16.5px; color:#f2f2fb}
+  strong{color:#fff}
+  em{color:var(--muted)}
+
+  .haiku{
+    background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--accent);
+    padding:22px 26px; margin:26px 0 30px; color:var(--ink);
+    white-space:pre-line; font-family:var(--mono); font-size:15.5px; line-height:2;
+  }
+  .haiku .attrib{display:block; font-family:var(--sans); font-size:12px; color:var(--hint); margin-top:14px; white-space:normal; line-height:1.6}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:22px 0 10px}
+  .card{background:var(--panel); border:1px solid var(--line); padding:16px 18px; position:relative; overflow:hidden}
+  .card::after{content:""; position:absolute; left:0; top:0; width:2px; height:100%; background:var(--cyan); opacity:.55}
+  .card .label{font-family:var(--mono); font-size:10.5px; color:var(--hint); margin:0 0 8px; text-transform:uppercase; letter-spacing:.18em}
+  .card .val{font-family:var(--mono); font-size:23px; font-weight:700; margin:0; color:#fff}
+  .card .val .vs{font-size:12px; color:var(--hint); font-weight:400}
+  .card .val.g{color:var(--good)}
+  .card .val.c{color:var(--cyan)}
+  .card .note{font-size:11.5px; color:var(--muted); margin:6px 0 0; font-family:var(--mono)}
+
+  table{border-collapse:collapse; width:100%; font-size:13.5px; margin:10px 0 6px; background:var(--panel)}
+  th,td{border:1px solid var(--line); padding:8px 12px; text-align:left; vertical-align:top}
+  th{background:var(--panel2); color:var(--cyan); font-family:var(--mono); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.13em}
+  td.num,th.num{text-align:right; font-family:var(--mono)}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.018)}
+  td.g{color:var(--good); font-weight:700} td.r{color:var(--bad); font-weight:700}
+  tr.total td{background:var(--panel2); font-weight:700; color:#fff}
+
+  .legend{display:flex; gap:20px; font-size:12px; color:var(--muted); margin:8px 0 12px; flex-wrap:wrap; font-family:var(--mono)}
+  .legend span{display:flex; align-items:center; gap:7px}
+  .sw{width:10px; height:10px; display:inline-block}
+  .chart-box{position:relative; width:100%; margin:8px 0 10px; background:var(--panel); border:1px solid var(--line); padding:14px}
+
+  ul{padding-left:20px; margin:8px 0} li{font-size:15px; margin:7px 0}
+  li::marker{color:var(--cyan)}
+  code{background:var(--panel2); border:1px solid var(--line-soft); padding:1.5px 6px; font-size:12.5px; font-family:var(--mono); color:var(--cyan)}
+
+  .callout{background:rgba(245,185,66,.06); border:1px solid rgba(245,185,66,.32); border-left:3px solid var(--amber); padding:15px 19px; margin:20px 0}
+  .callout.bad{background:rgba(255,59,92,.06); border-color:rgba(255,59,92,.32); border-left-color:var(--bad)}
+  .callout.good{background:rgba(57,255,143,.05); border-color:rgba(57,255,143,.28); border-left-color:var(--good)}
+  .callout p:last-child{margin-bottom:0}
+  .aside{color:var(--muted); font-size:14px}
+  .foot{margin-top:56px; padding-top:18px; border-top:1px solid var(--line); color:var(--hint); font-size:11.5px; font-family:var(--mono); line-height:1.8}
+
+  /* Diagrams break out of the 860px measure on wide screens and scroll on narrow ones */
+  .diagram{margin:18px 0 12px; border:1px solid var(--line); background:var(--panel); padding:14px; overflow-x:auto}
+  .diagram svg{display:block; width:100%; min-width:880px; height:auto}
+  @media(min-width:1240px){ .diagram{width:1104px; margin-left:-154px} }
+  .fc-b{fill:#0d0d16; stroke:#2a2a40; stroke-width:1}
+  .fc-b2{fill:#15151f; stroke:#2a2a40; stroke-width:1}
+  .fc-bc{fill:#0d0d16; stroke:#28e5ff; stroke-width:1.4}
+  .fc-bg{fill:#0d0d16; stroke:#39ff8f; stroke-width:1.2}
+  .fc-ba{fill:#0d0d16; stroke:#f5b942; stroke-width:1.2}
+  .fc-bd{fill:#0b0b12; stroke:#2a2a40; stroke-width:1; stroke-dasharray:4 3}
+  .fc-hub{fill:rgba(40,229,255,.06); stroke:#28e5ff; stroke-width:1.8}
+  .fc-lane{font-size:11px; letter-spacing:.22em; fill:#28e5ff; font-weight:700}
+  .fc-num{font-size:12px; fill:#ff2ec4; font-weight:700}
+  .fc-h{font-size:12.5px; fill:#fff; font-weight:700; letter-spacing:.05em}
+  .fc-hb{font-size:15px; fill:#fff; font-weight:700; letter-spacing:.08em}
+  .fc-s{font-size:9.6px; fill:#6b7a9c}
+  .fc-x{font-size:10.2px; fill:#9aa8c7}
+  .fc-k{font-size:10.2px; fill:#28e5ff}
+  .fc-g{font-size:10.2px; fill:#39ff8f}
+  .fc-a{font-size:10.2px; fill:#f5b942}
+  .fc-m{font-size:10.4px; fill:#ff2ec4}
+  .fc-w{stroke:#3a4a68; fill:none; stroke-width:1.4}
+  .fc-wc{stroke:#28e5ff; fill:none; stroke-width:1.6}
+  .fc-wm{stroke:#ff2ec4; fill:none; stroke-width:1.5}
+  .fc-wg{stroke:#39ff8f; fill:none; stroke-width:1.5}
+  .fc-wa{stroke:#f5b942; fill:none; stroke-width:1.5}
+  .fc-wd{stroke:#3a4a68; fill:none; stroke-width:1.3; stroke-dasharray:5 4}
+
+  /* The name stack — nested boxes, platform outward to game inward */
+  .nest{border:1px solid var(--line); background:var(--panel); padding:16px 18px; margin:6px 0 8px}
+  .nest .nlabel{font-family:var(--mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--cyan); margin:0 0 6px}
+  .nest .nbody{font-size:14px; color:var(--muted); margin:0}
+  .nest .nbody b{color:var(--ink); font-weight:600}
+  .nest.n2{margin-left:18px; border-left:2px solid var(--blue)}
+  .nest.n3{margin-left:36px; border-left:2px solid var(--accent)}
+
+  /* Pipeline — the dispatch ladder */
+  .pipe{border:1px solid var(--line); background:var(--panel); margin:14px 0 8px}
+  .step{display:flex; gap:14px; padding:12px 16px; border-bottom:1px solid var(--line-soft); align-items:baseline}
+  .step:last-child{border-bottom:0}
+  .step .n{font-family:var(--mono); font-size:11px; color:var(--accent); flex:0 0 22px; font-weight:700}
+  .step .t{font-family:var(--mono); font-size:12.5px; color:var(--cyan); flex:0 0 168px; letter-spacing:.06em; text-transform:uppercase; font-weight:700}
+  .step .d{font-size:14px; color:var(--muted); flex:1}
+  .step .d b{color:var(--ink); font-weight:600}
+  @media(max-width:640px){ .step{flex-direction:column; gap:4px} .step .t{flex:none} }
+
+  @media print{ body{background:#fff} .wrap{max-width:none} h2{page-break-after:avoid} table,.chart-box{page-break-inside:avoid} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="plate">
+    <p class="stamp">Architect MUD · Architecture · As Built</p>
+    <h1>The Architecture,<br>Measured Rather<br>Than <em>Remembered</em></h1>
+    <p class="sub">A structural tour of THOMAS, and of the one game running on it</p>
+    <p class="meta">2026-09-10 &nbsp;·&nbsp; branch main &nbsp;·&nbsp; 2,627 commits &nbsp;·&nbsp; every figure below counted from the tree on the day</p>
+  </div>
+
+  <div class="haiku">One engine, one game —
+    the seam between them is drawn
+    so a second can fit.
+    <span class="attrib">— the whole architecture in seventeen syllables, and the only rule that has consistently paid for itself</span>
+  </div>
+
+  <p class="lead">Architect MUD is a post-singularity browser MUD in the HellMOO tradition: text-driven, real-time, brutal and funny. Underneath it sits a Node server talking raw WebSockets to vanilla JavaScript, with PostgreSQL as the only source of truth. There's no build step, no ORM and no framework — three absences that are load-bearing rather than incidental, and this document is largely about why.</p>
+
+  <p>Everything here was counted from the working tree on 2026-09-10 rather than quoted from a doc header. That distinction matters more than it sounds: this project has already shipped a lint rule specifically because five finished systems were reported as outstanding work, every error traced to a status line nobody updated.</p>
+
+  <h2>The shape, in six numbers</h2>
+  <div class="cards">
+    <div class="card"><p class="label">JavaScript</p><p class="val">479,575</p><p class="note">lines, 1,225 files</p></div>
+    <div class="card"><p class="label">Plugins</p><p class="val c">137</p><p class="note">623 player verbs</p></div>
+    <div class="card"><p class="label">Schema</p><p class="val">149</p><p class="note">tables, one file</p></div>
+    <div class="card"><p class="label">Content files</p><p class="val">41,495</p><p class="note">JSON, 67 categories</p></div>
+    <div class="card"><p class="label">Runtime deps</p><p class="val g">4</p><p class="note">zero dev deps</p></div>
+    <div class="card"><p class="label">Regress</p><p class="val g">9,336</p><p class="note">assertions, last recorded</p></div>
+  </div>
+
+  <p class="aside">The last two are the ones worth staring at together. A codebase of this size with <strong>four runtime dependencies and no dev dependencies at all</strong> — <code>pg</code>, <code>ws</code>, <code>dotenv</code> and a mail SDK — is unusual enough to be a deliberate position, and the 9,336-assertion suite is what makes that position survivable. You can't lean on a framework's guarantees if you haven't got a framework, so the guarantees are written down as tests instead.</p>
+
+  <h2>Four names, nested</h2>
+  <p>The most common orientation error here is assuming "Architect" names the whole thing. It doesn't. The platform and the game have separate names, and two of the subsystems have their own.</p>
+
+  <div class="nest">
+    <p class="nlabel">THOMAS — the platform</p>
+    <p class="nbody"><b>The Hypermedia Online Multiplayer Adventure System.</b> The client and the engine: <code>client/</code>, <code>server/engine/</code>, the dev panel, the plugin loader, the CODEX pipeline. With modification — through the dev panel, which is the surface built for exactly that — somebody could stand up a <b>different MUD</b> on it.</p>
+    <div class="nest n2">
+      <p class="nlabel">GLASS — the renderer</p>
+      <p class="nbody"><b>Geometry, Lights, Aircraft, Streets &amp; Structures.</b> The 3D renderer, seen through exactly two windows: a cockpit canopy and a truck windscreen. Historically a CPU painter's algorithm on a plain 2D canvas; since 2026-09-09 the world draws in WebGL2 by default with the canvas retained as an overlay and a fallback.</p>
+    </div>
+    <div class="nest n2">
+      <p class="nlabel">SIREN — the synthesizer &nbsp;/&nbsp; ORACLE — the voice</p>
+      <p class="nbody"><b>Sources, Index, Resonance, Envelopes &amp; Noise</b>, and <b>Orthography, Resonance, Accent, Cadence, Lexicon &amp; Emphasis.</b> A 32-voice FM synth with a tracker player and generated-IR reverb, and a four-formant speech synth over a 27,000-word lexicon. They share a file, some buses and a noise buffer — and nothing else. ORACLE never calls SIREN's layer builder, so an FM feature added to the synth does not reach the voice.</p>
+    </div>
+    <div class="nest n3">
+      <p class="nlabel">Architect — the game</p>
+      <p class="nbody">Coldwater, the Basin, the orders, the prose. It lives in Postgres and under <code>content/</code>. <b>One game, running on the platform above it.</b></p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <p><strong>Grepping for these names will mislead you.</strong> "THOMAS" appears in the codebase exactly once, in the dev panel's boot splash, where it reads as if it names the dev panel. It doesn't — it names the platform the splash is booting. SIREN and ORACLE appear only in file headers, and "siren" is already a domain noun here (the emergency siren, the dive siren, the cockpit warnings) with around 26 hits that have nothing to do with audio. These name <em>systems</em>; nothing in the code is called any of them.</p>
+  </div>
+
+  <h2>How it fits together</h2>
+  <p>One diagram, four flows. The thing to look for is the <strong>convergence</strong>: player commands come down from the top, world content comes up from the bottom, and both end at the same place — a set of plain JavaScript Maps held in server memory. That hub is what makes the hot paths affordable, and it's also where the subtle bugs live, because RAM and Postgres each believe they're authoritative about something.</p>
+
+  <div class="legend">
+    <span><span class="sw" style="background:var(--cyan)"></span>player command path</span>
+    <span><span class="sw" style="background:var(--good)"></span>durable write</span>
+    <span><span class="sw" style="background:var(--amber)"></span>coalesced write</span>
+    <span><span class="sw" style="background:var(--accent)"></span>content deploy</span>
+    <span><span class="sw" style="background:#3a4a68"></span>dev &amp; authoring</span>
+  </div>
+
+  <div class="diagram">
+  <svg viewBox="0 0 1110 1712" role="img" aria-labelledby="fcTitle fcDesc">
+    <title id="fcTitle">Architect MUD architecture flowchart</title>
+    <desc id="fcDesc">Three clients — the player client, the dev panel, and the Studio and Modelshop authoring tools — reach the server two ways: a raw WebSocket carries all gameplay in both directions, while HTTP REST carries content editing only, and the two never cross. A player command enters handleCommand and passes through five dispatch stages in order: SIFT target resolution, input matchers, plugin commands, specialized actions, and finally engine builtins; the first match wins, so plugins beat builtins. Handlers reach each other through four seams — actions, hooks, events and registries — across 137 plugins. Everything mutates the world Maps, an in-memory hub in server slash engine slash world dot js that is authoritative at runtime and that every hot path reads instead of querying. From the hub, fields are written to PostgreSQL by tier: durable fields write through immediately, checkpoint fields set a dirty flag and are flushed in one batched statement, and derived fields are never written and are rebuilt at boot. Below Postgres, world content lives as 41,495 JSON files in git; a push to main is the deploy, and CI backs up production, applies the schema, imports the content and gates on the regression suite. Postgres then boot-loads back into the world Maps, and room output broadcasts from the hub back out to zone occupants over the WebSocket, closing the loop.</desc>
+
+    <defs>
+      <marker id="ar" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#3a4a68"/></marker>
+      <marker id="arc" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#28e5ff"/></marker>
+      <marker id="arm" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#ff2ec4"/></marker>
+      <marker id="arg" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#39ff8f"/></marker>
+      <marker id="ara" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f5b942"/></marker>
+      <filter id="hubglow" x="-20%" y="-60%" width="140%" height="220%">
+        <feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+
+    <!-- ══ LANE 1 · CLIENTS ══ -->
+    <text class="fc-num" x="76" y="26">1</text><text class="fc-lane" x="92" y="26">CLIENTS — VANILLA JS, NO BUILD STEP</text>
+    <rect class="fc-b" x="76" y="38" width="310" height="142"/>
+    <text class="fc-h" x="92" y="60">PLAYER CLIENT</text>
+    <text class="fc-s" x="92" y="76">client/game/ · 249 modules</text>
+    <text class="fc-x" x="92" y="96">room · combat · inventory · shop</text>
+    <text class="fc-x" x="92" y="113">tablet OS · CODEX · macros</text>
+    <text class="fc-x" x="92" y="130">smartbar · triggers · automation</text>
+    <text class="fc-k" x="92" y="150">cockpit + truck cab → GLASS</text>
+    <text class="fc-s" x="92" y="167">what you edit is what runs</text>
+
+    <rect class="fc-b" x="411" y="38" width="310" height="142"/>
+    <text class="fc-h" x="427" y="60">DEV PANEL</text>
+    <text class="fc-s" x="427" y="76">client/devpanel/</text>
+    <text class="fc-x" x="427" y="96">zones · items · npcs · enemies</text>
+    <text class="fc-x" x="427" y="113">VINE graph editors · terrain</text>
+    <text class="fc-x" x="427" y="130">audio lab · voice lab · power</text>
+    <text class="fc-k" x="427" y="150">the content surface</text>
+    <text class="fc-s" x="427" y="167">no one touches code to author</text>
+
+    <rect class="fc-b" x="746" y="38" width="310" height="142"/>
+    <text class="fc-h" x="762" y="60">STUDIO / MODELSHOP</text>
+    <text class="fc-s" x="762" y="76">tools/ · 9,581 lines</text>
+    <text class="fc-x" x="762" y="96">Map Studio — edits content/</text>
+    <text class="fc-x" x="762" y="113">with no DB in the process</text>
+    <text class="fc-x" x="762" y="130">Modelshop — GLASS models</text>
+    <text class="fc-k" x="762" y="150">imports the real renderer</text>
+    <text class="fc-s" x="762" y="167">so there is no second preview</text>
+
+    <path class="fc-wc" d="M231,180 L231,212" marker-end="url(#arc)"/>
+    <path class="fc-w"  d="M566,180 L566,212" marker-end="url(#ar)"/>
+    <path class="fc-w"  d="M901,180 L901,212" marker-end="url(#ar)"/>
+
+    <!-- ══ LANE 2 · TRANSPORT ══ -->
+    <text class="fc-num" x="76" y="206">2</text><text class="fc-lane" x="92" y="206">TRANSPORT</text>
+    <rect class="fc-bc" x="76" y="216" width="630" height="106"/>
+    <text class="fc-h" x="92" y="238">RAW WEBSOCKET</text>
+    <text class="fc-s" x="230" y="238">ws · permessage-deflate · all gameplay, both ways</text>
+    <text class="fc-k" x="92" y="262">→  command · move · say · attack · buy · instrument_note</text>
+    <text class="fc-k" x="92" y="281">←  room_update · zone_event · player_update · combat</text>
+    <text class="fc-s" x="92" y="305">one look was 34 KB uncompressed; it is 1.7 KB on the wire now</text>
+
+    <rect class="fc-b" x="736" y="216" width="320" height="106"/>
+    <text class="fc-h" x="752" y="238">HTTP / REST</text>
+    <text class="fc-s" x="752" y="256">server/api/routes.js</text>
+    <text class="fc-x" x="752" y="277">dev panel + tools only</text>
+    <text class="fc-x" x="752" y="294">content editing, never gameplay</text>
+    <text class="fc-s" x="752" y="311">3,757 lines of CRUD</text>
+
+    <path class="fc-wc" d="M391,322 L391,348" marker-end="url(#arc)"/>
+    <text class="fc-s" x="401" y="340">a player types something</text>
+
+    <text class="fc-m" x="76" y="366">▸ No REST for gameplay. No WebSocket for content editing. The two surfaces never cross — which is what lets the dev panel exist without being a second game server.</text>
+
+    <!-- ══ LANE 3 · DISPATCH ══ -->
+    <text class="fc-num" x="76" y="386">3</text><text class="fc-lane" x="92" y="386">DISPATCH — FIRST MATCH WINS</text>
+    <rect class="fc-b2" x="76" y="396" width="980" height="216"/>
+    <text class="fc-h" x="92" y="420">handleCommand()</text>
+    <text class="fc-s" x="230" y="420">server/engine/commands/index.js — the order below IS the architecture</text>
+
+    <rect class="fc-b" x="92" y="436" width="180" height="118"/>
+    <text class="fc-num" x="104" y="456">1</text><text class="fc-k" x="118" y="456">SIFT INTERCEPT</text>
+    <text class="fc-x" x="104" y="476">target resolution</text>
+    <text class="fc-x" x="104" y="493">owns bare numbers</text>
+    <text class="fc-s" x="104" y="513">runs before all routing,</text>
+    <text class="fc-s" x="104" y="528">so "2" answers a prompt</text>
+    <text class="fc-s" x="104" y="543">instead of running</text>
+
+    <rect class="fc-b" x="292" y="436" width="180" height="118"/>
+    <text class="fc-num" x="304" y="456">2</text><text class="fc-k" x="318" y="456">INPUT MATCHERS</text>
+    <text class="fc-x" x="304" y="476">whole-line patterns,</text>
+    <text class="fc-x" x="304" y="493">not verbs</text>
+    <text class="fc-s" x="304" y="513">pspsps calls the cat</text>
+    <text class="fc-s" x="304" y="528">without stealing call</text>
+    <text class="fc-s" x="304" y="543">and summon from poker</text>
+
+    <rect class="fc-bc" x="492" y="436" width="180" height="118"/>
+    <text class="fc-num" x="504" y="456">3</text><text class="fc-k" x="518" y="456">PLUGIN COMMANDS</text>
+    <text class="fc-x" x="504" y="476">623 verbs</text>
+    <text class="fc-x" x="504" y="493">95 plugins</text>
+    <text class="fc-s" x="504" y="513">plugin.json IS the</text>
+    <text class="fc-s" x="504" y="528">registry — an undeclared</text>
+    <text class="fc-s" x="504" y="543">verb does not exist</text>
+
+    <rect class="fc-b" x="692" y="436" width="180" height="118"/>
+    <text class="fc-num" x="704" y="456">4</text><text class="fc-k" x="718" y="456">SPECIALIZED</text>
+    <text class="fc-x" x="704" y="476">verb-first, tag-gated</text>
+    <text class="fc-x" x="704" y="493">open / read / repair</text>
+    <text class="fc-s" x="704" y="513">a door, a container and</text>
+    <text class="fc-s" x="704" y="528">a letter each answer,</text>
+    <text class="fc-s" x="704" y="543">none knows the others</text>
+
+    <rect class="fc-b" x="892" y="436" width="164" height="118"/>
+    <text class="fc-num" x="904" y="456">5</text><text class="fc-k" x="918" y="456">BUILTINS</text>
+    <text class="fc-x" x="904" y="476">the floor</text>
+    <text class="fc-x" x="904" y="493">move · look · say</text>
+    <text class="fc-s" x="904" y="513">what must work in a</text>
+    <text class="fc-s" x="904" y="528">world with every</text>
+    <text class="fc-s" x="904" y="543">plugin disabled</text>
+
+    <path class="fc-wc" d="M274,495 L290,495" marker-end="url(#arc)"/>
+    <path class="fc-wc" d="M474,495 L490,495" marker-end="url(#arc)"/>
+    <path class="fc-wc" d="M674,495 L690,495" marker-end="url(#arc)"/>
+    <path class="fc-wc" d="M874,495 L890,495" marker-end="url(#arc)"/>
+
+    <text class="fc-m" x="92" y="582">▸ Stage 3 precedes stage 5, so an engine builtin whose verb a plugin has claimed is dead code that still looks alive.</text>
+    <text class="fc-s" x="92" y="600">This is the first thing to check before editing any command handler.</text>
+
+    <path class="fc-wc" d="M566,612 L566,646" marker-end="url(#arc)"/>
+
+    <!-- ══ LANE 4 · SEAMS & PLUGINS ══ -->
+    <text class="fc-num" x="76" y="666">4</text><text class="fc-lane" x="92" y="666">SEAMS &amp; PLUGINS — HOW CODE REACHES CODE WITHOUT IMPORTING IT</text>
+    <rect class="fc-b" x="76" y="676" width="410" height="212"/>
+    <text class="fc-h" x="92" y="698">FOUR SEAMS</text>
+    <text class="fc-k" x="92" y="722">registerAction / dispatchAction</text>
+    <text class="fc-s" x="92" y="738">197 sites · dispatched BY NAME, so demolition</text>
+    <text class="fc-s" x="92" y="752">charges a crime without importing surveillance</text>
+    <text class="fc-k" x="92" y="776">fireHook — 40 named hooks</text>
+    <text class="fc-s" x="92" y="792">gather from everyone, OR last-non-undefined wins</text>
+    <text class="fc-k" x="92" y="816">events — on / emit</text>
+    <text class="fc-s" x="92" y="832">one quests subscriber yields a whole objective type</text>
+    <text class="fc-k" x="92" y="856">registries</text>
+    <text class="fc-s" x="92" y="872">47 move gates · 45 status effects · 23 lock types</text>
+
+    <rect class="fc-b" x="516" y="676" width="540" height="212"/>
+    <text class="fc-h" x="532" y="698">plugins/</text>
+    <text class="fc-s" x="590" y="698">137 plugins · 182,418 lines · 623 verbs</text>
+    <text class="fc-x" x="532" y="722">combat · survival · crime · surveillance · jail · stealth</text>
+    <text class="fc-x" x="532" y="739">flight · trucking · voidwalking · swimming · fishing</text>
+    <text class="fc-x" x="532" y="756">cooking · drinks · synthesis · durability · augments</text>
+    <text class="fc-x" x="532" y="773">mutations · psionics · mastery · nullcraft · ideologies</text>
+    <text class="fc-x" x="532" y="790">broadcast · gametable · storefront · corps · quests</text>
+    <text class="fc-s" x="532" y="814">42 of them declare no verbs at all — pure hook subscribers,</text>
+    <text class="fc-s" x="532" y="829">adding behaviour to flows they never expose a command for</text>
+    <text class="fc-a" x="532" y="853">median plugin: 2 verbs.  flight: 101.</text>
+    <text class="fc-s" x="532" y="872">126 ship their own regress.js — 37,785 lines, none loads in prod</text>
+
+    <path class="fc-w" d="M488,782 L514,782" marker-end="url(#ar)"/>
+    <path class="fc-w" d="M514,796 L488,796" marker-end="url(#ar)"/>
+
+    <path class="fc-wc" d="M566,888 L566,922" marker-end="url(#arc)"/>
+    <text class="fc-s" x="576" y="910">every mutation ends here</text>
+
+    <!-- ══ LANE 5 · THE HUB ══ -->
+    <text class="fc-num" x="76" y="942">5</text><text class="fc-lane" x="92" y="942">THE HUB — WHERE EVERYTHING CONVERGES</text>
+    <rect class="fc-hub" x="76" y="952" width="980" height="140" filter="url(#hubglow)"/>
+    <text class="fc-hb" x="96" y="984">WORLD MAPS — IN MEMORY</text>
+    <text class="fc-s" x="400" y="984">server/engine/world.js</text>
+    <text class="fc-k" x="96" y="1012">zones · npcs · doors · furniture · orgs · players · spawnTimers · flags</text>
+    <text class="fc-x" x="96" y="1036">Authoritative at runtime. Every hot path — per move, per swing, per tick — reads here and never queries.</text>
+    <text class="fc-s" x="96" y="1058">A cache is only as safe as its write funnel: furniture (~40 scattered writers) and npcs had to earn theirs through</text>
+    <text class="fc-s" x="96" y="1074">three helpers each before they were allowed to live here. Bulk writers re-cache exactly the rows Postgres returns.</text>
+
+    <!-- ══ LANE 6 · PERSISTENCE TIERS ══ -->
+    <text class="fc-num" x="76" y="1112">6</text><text class="fc-lane" x="92" y="1112">PERSISTENCE TIERS — PICK ONE BEFORE WRITING THE CODE</text>
+
+    <path class="fc-wg" d="M231,1120 L231,1137" marker-end="url(#arg)"/>
+    <path class="fc-wa" d="M566,1120 L566,1137" marker-end="url(#ara)"/>
+    <path class="fc-wd" d="M901,1120 L901,1137" marker-end="url(#ar)"/>
+    <rect class="fc-bg" x="76" y="1140" width="310" height="176"/>
+    <text class="fc-g" x="92" y="1162">DURABLE</text>
+    <text class="fc-s" x="92" y="1178">must survive any death</text>
+    <text class="fc-x" x="92" y="1200">credits · bank · inventory</text>
+    <text class="fc-x" x="92" y="1217">deaths · kills · door locks</text>
+    <text class="fc-x" x="92" y="1234">apartments · rent</text>
+    <text class="fc-g" x="92" y="1260">write through, at the</text>
+    <text class="fc-g" x="92" y="1276">mutation site</text>
+    <text class="fc-s" x="92" y="1300">on crash: intact</text>
+
+    <rect class="fc-ba" x="411" y="1140" width="310" height="176"/>
+    <text class="fc-a" x="427" y="1162">CHECKPOINT</text>
+    <text class="fc-s" x="427" y="1178">must survive a clean restart</text>
+    <text class="fc-x" x="427" y="1200">position · combat hp/stamina</text>
+    <text class="fc-x" x="427" y="1217">hunger · thirst · body temp</text>
+    <text class="fc-x" x="427" y="1234">surveillance heat</text>
+    <text class="fc-a" x="427" y="1260">dirty flag → batched flush</text>
+    <text class="fc-a" x="427" y="1276">ONE UPDATE … FROM (VALUES …)</text>
+    <text class="fc-s" x="427" y="1300">on crash: ≤ one interval, benignly</text>
+
+    <rect class="fc-bd" x="746" y="1140" width="310" height="176"/>
+    <text class="fc-s" x="762" y="1162" style="font-size:10.2px;fill:#9aa8c7">DERIVED</text>
+    <text class="fc-s" x="762" y="1178">recomputed or irrelevant at boot</text>
+    <text class="fc-x" x="762" y="1200">power grid · weather field</text>
+    <text class="fc-x" x="762" y="1217">npc live position · zone temps</text>
+    <text class="fc-x" x="762" y="1234">door state during transit</text>
+    <text class="fc-s" x="762" y="1260" style="fill:#6b7a9c">never written from ticks</text>
+    <text class="fc-s" x="762" y="1276" style="fill:#6b7a9c">or transits — at all</text>
+    <text class="fc-s" x="762" y="1300">on crash: rebuilt</text>
+
+    <text class="fc-s" x="762" y="1334">no write path ↓</text>
+    <path class="fc-wg" d="M231,1316 L231,1370" marker-end="url(#arg)"/>
+    <path class="fc-wa" d="M566,1316 L566,1370" marker-end="url(#ara)"/>
+    <text class="fc-s" x="576" y="1348">one round trip for every dirty player</text>
+
+    <!-- ══ LANE 7 · POSTGRES ══ -->
+    <text class="fc-num" x="76" y="1390">7</text><text class="fc-lane" x="92" y="1390">SOURCE OF TRUTH</text>
+    <rect class="fc-b2" x="76" y="1400" width="980" height="104"/>
+    <text class="fc-hb" x="96" y="1430">PostgreSQL — Neon</text>
+    <text class="fc-k" x="330" y="1430">149 tables · one query() helper · NO ORM</text>
+    <text class="fc-x" x="96" y="1456">SCHEMA_SQL is 3,234 lines of idempotent DDL in ONE file. Nothing migrates on boot — schema and content are deliberate acts.</text>
+    <text class="fc-s" x="96" y="1478">Remote. Every query() is a pool checkout plus a network round trip, so the cost that matters is round-trip COUNT, never query complexity.</text>
+
+    <!-- ══ LANE 8 · CONTENT / CODEX ══ -->
+    <text class="fc-num" x="76" y="1584">8</text><text class="fc-lane" x="92" y="1584">CONTENT — THE CODEX PIPELINE, FLOWING UP</text>
+    <rect class="fc-b" x="76" y="1594" width="310" height="86"/>
+    <text class="fc-h" x="92" y="1616">content/</text>
+    <text class="fc-x" x="92" y="1638">41,495 JSON files · 67 categories</text>
+    <text class="fc-x" x="92" y="1655">one file per entity, all in git</text>
+    <text class="fc-s" x="92" y="1672">zones · npcs · items · furniture · quests</text>
+
+    <rect class="fc-b" x="411" y="1594" width="310" height="86"/>
+    <text class="fc-h" x="427" y="1616">git push main</text>
+    <text class="fc-m" x="427" y="1638">the push IS the deploy</text>
+    <text class="fc-s" x="427" y="1655">no separate publish step, and no</text>
+    <text class="fc-s" x="427" y="1672">world content anywhere in the code</text>
+
+    <rect class="fc-b" x="746" y="1594" width="310" height="86"/>
+    <text class="fc-h" x="762" y="1616">CI</text>
+    <text class="fc-x" x="762" y="1638">back up prod → apply SCHEMA_SQL</text>
+    <text class="fc-x" x="762" y="1655">→ import upsert → regress gate</text>
+    <text class="fc-s" x="762" y="1672">a red suite stops the deploy</text>
+
+    <path class="fc-wm" d="M388,1637 L409,1637" marker-end="url(#arm)"/>
+    <path class="fc-wm" d="M723,1637 L744,1637" marker-end="url(#arm)"/>
+    <path class="fc-wm" d="M901,1590 L901,1510" marker-end="url(#arm)"/>
+
+    <text class="fc-s" x="76" y="1702">The import is an upsert that replaces whole columns, so editing a file is enough to REMOVE a key — which is why a one-shot script against prod is needed far less often than it looks.</text>
+
+    <!-- return path: broadcast back out to clients (left gutter) -->
+    <path class="fc-wc" d="M76,1022 L44,1022 L44,266 L74,266" marker-end="url(#arc)"/>
+    <text class="fc-k" x="38" y="700" transform="rotate(-90 38 700)" style="font-size:10px">BROADCAST → ZONE OCCUPANTS</text>
+
+    <!-- boot-load return: Postgres up into the hub (right gutter) -->
+    <path class="fc-wm" d="M1056,1452 L1084,1452 L1084,1022 L1058,1022" marker-end="url(#arm)"/>
+    <text class="fc-m" x="1098" y="1240" transform="rotate(-90 1098 1240)" style="font-size:10px">BOOT LOAD</text>
+  </svg>
+  </div>
+
+  <p class="aside">Two details in that picture are worth more than the boxes. The <strong>left-hand return path</strong> is the whole reason the hub exists: room output walks <code>zone.players</code> — a set the movement, jail, death, flight and void-crossing paths all already maintain — rather than scanning every connected socket to ask who's nearby. And the <strong>right-hand return path</strong> is the only arrow that runs at boot and never again, which is what makes 41,495 content files affordable to serve.</p>
+
+  <h2>The one rule</h2>
+  <p><strong>No one touches code to create content.</strong> The codebase is the engine; the world is data. Writers and designers work through a browser-based dev panel, and publishing a zone edit never requires a deploy.</p>
+
+  <p>Stated that way it sounds like tidiness. It isn't, and the reason is the name stack above: <strong>every piece of Coldwater that ends up hardcoded in an engine or client file is a thing a second game would have to unpick.</strong> That's what gives the rule teeth. It isn't a preference about file organisation, it's the thing that keeps THOMAS reusable, and each violation has a measurable future cost.</p>
+
+  <p>The split shows up in the line counts. Of 479,575 lines of JavaScript, none of it is world content — the world is 41,495 JSON files and 149 Postgres tables sitting entirely outside the code.</p>
+
+  <div class="legend"><span><span class="sw" style="background:var(--cyan)"></span>lines of JavaScript by area</span></div>
+  <div class="chart-box" style="height:300px"><canvas id="locChart" role="img" aria-label="Horizontal bar chart of lines of JavaScript by area: plugins 182,418; client 164,786; server 59,993; scripts 55,764; tools 9,581; tests 6,650."></canvas></div>
+
+  <table>
+    <thead><tr><th>Area</th><th class="num">Lines</th><th class="num">Files</th><th>What lives there</th></tr></thead>
+    <tbody>
+      <tr><td>plugins/</td><td class="num">182,418</td><td class="num">489</td><td>137 plugins — where nearly every game system actually lives</td></tr>
+      <tr><td>client/</td><td class="num">164,786</td><td class="num">249</td><td>Player client, dev panel, shared catalogs. No build step</td></tr>
+      <tr><td>server/</td><td class="num">59,993</td><td class="num">156</td><td>Engine, dispatch, substrates, schema, REST for the dev panel</td></tr>
+      <tr><td>scripts/</td><td class="num">55,764</td><td class="num">312</td><td>The verification apparatus — 37 of these gate every push</td></tr>
+      <tr><td>tools/</td><td class="num">9,581</td><td class="num">18</td><td>Map Studio and Modelshop, the two authoring surfaces</td></tr>
+      <tr><td>tests/</td><td class="num">6,650</td><td class="num">1</td><td>The engine half of the regression suite</td></tr>
+    </tbody>
+  </table>
+
+  <p>Two things in that table are worth noticing. <strong><code>scripts/</code> is nearly the size of <code>server/</code></strong> — the machinery that checks the game is almost as large as the engine that runs it, which is the shape you end up with when there's no framework to inherit correctness from. And of the 182,418 lines under <code>plugins/</code>, <strong>37,785 are test code</strong>: 126 of the 137 plugins ship their own <code>regress.js</code> beside the thing it tests, and none of it loads in production.</p>
+
+  <h2>The stack, and what it refuses</h2>
+  <table>
+    <thead><tr><th>Layer</th><th>Choice</th><th>Why this one</th></tr></thead>
+    <tbody>
+      <tr><td>Runtime</td><td>Node.js, ES modules</td><td>One language across server, client and tooling</td></tr>
+      <tr><td>Transport</td><td><code>ws</code>, raw WebSocket</td><td>Real-time bidirectional; no framing library on top</td></tr>
+      <tr><td>Frontend</td><td>Vanilla JS, one HTML file per client</td><td><strong>No build step.</strong> What you edit is what the browser runs</td></tr>
+      <tr><td>Database</td><td>PostgreSQL via Neon</td><td>Same engine in dev and prod, so there's only ever one schema</td></tr>
+      <tr><td>Query layer</td><td><code>pg</code> + raw SQL through one <code>query()</code> helper</td><td><strong>No ORM.</strong> Every round trip is visible at its call site</td></tr>
+      <tr><td>Auth</td><td>Opaque random tokens + SHA-256</td><td>Not JWT — that row claimed <code>jsonwebtoken</code> for months while nothing imported it</td></tr>
+      <tr><td>Hosting</td><td>Render, free tier</td><td>Chosen over serverless platforms purely for long-lived WebSockets</td></tr>
+    </tbody>
+  </table>
+
+  <p>The auth row is a small monument to why this document counts things. A dependency sat in the stack table, and in everyone's mental model, for months after nothing imported it. It was removed on 2026-08-18 once somebody checked.</p>
+
+  <h3>No startup migrations</h3>
+  <p>The server touches neither schema nor content on boot. Both are deliberate acts:</p>
+  <ul>
+    <li><strong>Schema</strong> is one exported string — <code>SCHEMA_SQL</code> in <code>server/models/schema.js</code>, 3,234 lines of idempotent DDL covering 149 tables. Applied locally on demand; applied to production by CI.</li>
+    <li><strong>Content</strong> lives in git as one JSON file per entity. A push to <code>main</code> is the deploy: CI backs production up, applies schema ahead of content, and refuses to proceed on a red regress.</li>
+    <li><strong>One-shot scripts</strong> against production are reserved for what the deploy genuinely can't do, which is narrower than it looks — the import is an upsert that replaces whole columns, so editing a content file is enough to <em>remove</em> a JSON key.</li>
+  </ul>
+  <p class="aside">The old boot-time <code>migrate()</code> was removed precisely because content-rewriting code firing on every restart made local development unpredictable. Boot stays dumb on purpose, and the same reasoning is why the regression suite is never wired into production startup.</p>
+
+  <h2>How a command travels</h2>
+  <p>A player types something. Five stages decide what happens, in this order, and the order is the architecture — <strong>plugins beat engine builtins</strong>, which is what lets a plugin take ownership of a verb the engine also defines without either side knowing about the other.</p>
+
+  <div class="pipe">
+    <div class="step"><span class="n">1</span><span class="t">SIFT intercept</span><span class="d">Target resolution and selection state. Runs <b>before all routing</b>, and owns bare numbers — so answering "which rusty pipe?" with "2" can't be mistaken for a command.</span></div>
+    <div class="step"><span class="n">2</span><span class="t">Input matchers</span><span class="d">Pattern matches on the whole line rather than a verb. This is how <code>pspsps</code> calls a cat, without <code>call</code> and <code>summon</code> being stolen from the poker table.</span></div>
+    <div class="step"><span class="n">3</span><span class="t">Plugin commands</span><span class="d">623 verbs across 95 plugins, registered from <code>plugin.json</code> manifests. <b>A verb not listed in the manifest does not exist</b>, however complete the handler is.</span></div>
+    <div class="step"><span class="n">4</span><span class="t">Specialized actions</span><span class="d">Verb-first, tag-gated. <code>open</code> means something different to a door, a container and a letter, and none of those three implementations knows about the others.</span></div>
+    <div class="step"><span class="n">5</span><span class="t">Engine builtins</span><span class="d">The floor. Movement, look, inventory, say — the verbs that must work in a world with every plugin disabled.</span></div>
+  </div>
+
+  <p>Because stage 3 precedes stage 5, an engine builtin whose verb a plugin has claimed is dead code that still looks alive. That's common enough to be the first thing the contributor docs tell you to check before editing any command handler.</p>
+
+  <h2>Plugins: a long tail with a whale in it</h2>
+  <p>137 plugins, of which 95 declare player verbs and 42 declare none at all — those are pure hook subscribers, adding behaviour to flows they never expose a command for. The distribution is lopsided in a way that's worth knowing before you go looking for a system:</p>
+
+  <div class="legend"><span><span class="sw" style="background:var(--cyan)"></span>player verbs declared, top 10 of 95</span></div>
+  <div class="chart-box" style="height:300px"><canvas id="verbChart" role="img" aria-label="Bar chart of verbs per plugin: flight 101, mis 35, gametable 34, trucking 34, cooking 26, surveillance 26, interactions 23, storefront 18, broadcast 16, psionics 13."></canvas></div>
+
+  <p>The <strong>median plugin declares two verbs</strong>. The flight plugin declares 101. That isn't a defect — flight carries aircraft, airfields, hazards, contracts, air combat and hangars, and it earns the count — but it does mean "look in the plugin with the obvious name" works far better for small systems than large ones.</p>
+
+  <p>Plugins communicate through four seams, none of which require them to import each other:</p>
+  <table>
+    <thead><tr><th>Seam</th><th>Shape</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td>Actions</td><td><code>registerAction</code> / <code>dispatchAction</code></td><td>The canonical mutation path. Dispatched <em>by name</em>, so demolition can charge a crime without importing surveillance</td></tr>
+      <tr><td>Hooks</td><td><code>fireHook</code> — 40 named hooks</td><td>Gather and veto points. Some collect contributions from every listener; some keep the last non-undefined answer</td></tr>
+      <tr><td>Events</td><td>In-process bus, <code>on</code> / <code>emit</code></td><td>Fire-and-forget notification. One subscriber in the quests plugin yields a whole objective type for free</td></tr>
+      <tr><td>Registries</td><td>Move gates, lock types, status effects, specialized actions</td><td>Typed extension points — 47 move gates and 45 status effects registered across the tree</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <p><strong>The hook contract is where the subtle bugs live.</strong> The two shapes look identical at the call site and behave completely differently: a <em>gather</em> hook collects from everyone, while <code>fireHook</code> hands every handler the same original arguments and keeps the <em>last</em> non-undefined result. A second opinion on a last-wins hook doesn't refine the first one, it replaces it — which is why the Blind Fighting discipline deliberately isn't a <code>visibility.perceive</code> contributor, despite its own design document prescribing exactly that. Returning <code>undefined</code> when you have no opinion doesn't rescue it, because in a dark room it <em>has</em> one.</p>
+  </div>
+
+  <h2>Where data lives, and when it's written</h2>
+  <p>Production Postgres is remote, so the cost that matters is never query complexity — it's <strong>round-trip count</strong>. Two tier systems govern this, one per direction, and the rule is that you pick a field's tier <em>before</em> writing the code.</p>
+
+  <h3>Persistence tiers — the write side</h3>
+  <table>
+    <thead><tr><th>Tier</th><th>Meaning</th><th>Policy</th><th>On crash</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Durable</strong></td><td>Must survive any death</td><td>Write through at the mutation site</td><td class="g">Intact</td></tr>
+      <tr><td><strong>Checkpoint</strong></td><td>Must survive a clean restart</td><td>Write at logout and coarse boundaries — never per tick</td><td>Loses ≤ one interval, benignly</td></tr>
+      <tr><td><strong>Derived</strong></td><td>Recomputed or irrelevant at boot</td><td>Never written from ticks or transits</td><td>Rebuilt</td></tr>
+    </tbody>
+  </table>
+
+  <p>Money and inventory are durable. Position, combat HP and the survival resources are coalesced: the mutation site sets a dirty flag, and a low-frequency flush persists every dirty player in <strong>one</strong> <code>UPDATE … FROM (VALUES …)</code>. That decouples round-trip count from player count multiplied by action rate on exactly the paths that scale worst — a busy zone of 200 players costs the same number of writes as a quiet one. The payload grows; the round trips don't.</p>
+
+  <div class="callout bad">
+    <p><strong>The cost of that pattern is discipline, and a violation fails silently.</strong> There's no error when a new damage source forgets to set <code>_resDirty</code> — the damage simply never persists. Five invariants hold it together, and the most easily broken is ordering: the resource flush is deliberately the last statement in the combat tick, so anything added after it won't be seen until the next one.</p>
+  </div>
+
+  <h3>Read tiers — the other direction</h3>
+  <p>Six tiers, from "boot-loaded into a Map" through "event-bust plus TTL" down to "query fresh, because the writers are uncoordinated". The decision procedure is one sentence, and it's the most quoted line in the architecture doc:</p>
+
+  <div class="callout good">
+    <p><strong>A cache is only as safe as its write funnel.</strong> Before caching a table, grep every INSERT, UPDATE and DELETE against it. If the writers are scattered and can't maintain the cache, either build the funnel first or stay on "query fresh" — a stale cache that misrenders lights or sells from a phantom shelf is strictly worse than a round trip.</p>
+  </div>
+
+  <p><code>furniture</code> and <code>npcs</code> are the two tables that had to <em>earn</em> their funnels before they could be cached: around 40 scattered furniture writers were routed through three helpers first. Bulk writers hand their SQL to a wrapper that appends <code>RETURNING</code> and re-caches exactly the rows Postgres says it touched, because hand-writing a JavaScript mirror of a <code>WHERE</code> clause creates a second source of truth for the predicate, and drift between the two stales the cache invisibly.</p>
+
+  <h2>The world, as data</h2>
+  <p>41,495 JSON files across 67 categories, all of it outside the code, all of it deployed by <code>git push</code>.</p>
+
+  <div class="legend"><span><span class="sw" style="background:var(--blue)"></span>content files by category, top 8 of 67</span></div>
+  <div class="chart-box" style="height:290px"><canvas id="contentChart" role="img" aria-label="Bar chart of content files by category: zones 17,267; power_zones 17,239; furniture 1,453; connections 1,157; items 718; global ambient events 421; zone spawns 333; npcs 266."></canvas></div>
+
+  <p>The top two are near-identical for a structural reason: <strong>power is modelled per zone</strong>, so nearly every tile in the world has a matching power zone, and lighting, ATMs, doors and broadcast all read the grid rather than each carrying their own notion of whether the lights are on. Five regions exist — Coldwater, Deadwater, Terminus, the Scarletwastes and the Reach — and the 17,267 zones spread across them at wildly different densities.</p>
+
+  <h2>GLASS: a renderer that moved to the GPU without being rewritten</h2>
+  <p>The flight sim and the truck cab share one renderer. Until 2026-09-09 it was a CPU painter's algorithm on a 2D canvas, with faces queued and flushed back-to-front because there's no depth buffer to sort them. It now composites in WebGL2 by default — and the interesting part is what <em>didn't</em> change.</p>
+
+  <p>The 173 building models are still hand-written drawing code. They weren't ported. Instead they <strong>record themselves</strong>: the same functions that draw a building emit their geometry into a sink, so one set of model code now feeds the GPU mesh, distance LOD, occlusion culling, ground shadows, per-point collision and the intro cinematic's skyline. <strong>An authored model plugs in at one function and every one of those consumers reads it with no change of their own.</strong></p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 1110 706" role="img" aria-labelledby="rpTitle rpDesc">
+    <title id="rpTitle">The GLASS render pipeline</title>
+    <desc id="rpDesc">A world snapshot arrives from the server over the WebSocket. It reaches windshield dot js, which holds 173 hand-written building model arms — drawing code rather than model data. Those same arms are run with a sink installed, so instead of only painting pixels they record their own geometry as affine data into SHAPE_SINK and MESH_SINK. That one recording fans out to six consumers that never had to be written separately: the GPU mesh, distance LOD, occlusion culling, ground shadows, per-point CFIT collision, and the cold-open skyline bake. Rendering then splits two ways: GLASS 2 draws mass, the ground shader, lights, signage, clouds and the Curtain in WebGL2 with a depth buffer, while the 2D canvas retains the sky, weather, dash, glass and HUD as an overlay on top. Any failure in the GPU path — no WebGL2, a lost context, a shader that will not compile, a texture page too large, a pass returning nothing, or a pass that throws — sets the render flag to zero and finishes the frame entirely in 2D.</desc>
+
+    <defs>
+      <marker id="rar" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#3a4a68"/></marker>
+      <marker id="rarc" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#28e5ff"/></marker>
+      <marker id="rarm" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#ff2ec4"/></marker>
+      <marker id="rara" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f5b942"/></marker>
+    </defs>
+
+    <rect class="fc-b" x="76" y="20" width="980" height="58"/>
+    <text class="fc-h" x="96" y="44">WORLD SNAPSHOT</text>
+    <text class="fc-s" x="260" y="44">the zone window, over the same WebSocket as everything else</text>
+    <text class="fc-x" x="96" y="64">terrain · buildings · lights · weather · traffic — derived once, shared by the cockpit and the truck cab</text>
+
+    <path class="fc-wc" d="M566,78 L566,110" marker-end="url(#rarc)"/>
+
+    <rect class="fc-bc" x="76" y="120" width="980" height="76"/>
+    <text class="fc-hb" x="96" y="150">windshield.js</text>
+    <text class="fc-s" x="300" y="150">26,256 lines · 173 building model arms</text>
+    <text class="fc-x" x="96" y="174">The arms are DRAWING CODE, not model data. Nobody ported them — and that is the point of what happens next.</text>
+
+    <path class="fc-wm" d="M566,196 L566,236" marker-end="url(#rarm)"/>
+    <text class="fc-m" x="578" y="222">run the same arms with a sink installed</text>
+
+    <rect class="fc-b2" x="76" y="246" width="980" height="72"/>
+    <text class="fc-h" x="96" y="272">SHAPE_SINK  /  MESH_SINK</text>
+    <text class="fc-m" x="330" y="272">the arms record themselves</text>
+    <text class="fc-x" x="96" y="296">geometry captured as affine [a·fh + b·h + c] data, so one arm answers at any footprint and any storey height</text>
+
+    <path class="fc-w" d="M151,318 L151,352" marker-end="url(#rar)"/>
+    <path class="fc-w" d="M317,318 L317,352" marker-end="url(#rar)"/>
+    <path class="fc-w" d="M483,318 L483,352" marker-end="url(#rar)"/>
+    <path class="fc-w" d="M649,318 L649,352" marker-end="url(#rar)"/>
+    <path class="fc-w" d="M815,318 L815,352" marker-end="url(#rar)"/>
+    <path class="fc-w" d="M981,318 L981,352" marker-end="url(#rar)"/>
+
+    <rect class="fc-bc" x="76" y="362" width="150" height="84"/>
+    <text class="fc-k" x="90" y="384">GPU MESH</text>
+    <text class="fc-s" x="90" y="404">triangles for</text>
+    <text class="fc-s" x="90" y="419">GLASS 2</text>
+    <text class="fc-s" x="90" y="437">8,435 faces</text>
+
+    <rect class="fc-b" x="242" y="362" width="150" height="84"/>
+    <text class="fc-k" x="256" y="384">DISTANCE LOD</text>
+    <text class="fc-s" x="256" y="404">what sheds, and</text>
+    <text class="fc-s" x="256" y="419">at which tier</text>
+
+    <rect class="fc-b" x="408" y="362" width="150" height="84"/>
+    <text class="fc-k" x="422" y="384">OCCLUSION</text>
+    <text class="fc-s" x="422" y="404">the occluder field</text>
+    <text class="fc-s" x="422" y="419">a frame builds</text>
+
+    <rect class="fc-b" x="574" y="362" width="150" height="84"/>
+    <text class="fc-k" x="588" y="384">SHADOWS</text>
+    <text class="fc-s" x="588" y="404">cast on the</text>
+    <text class="fc-s" x="588" y="419">ground plane</text>
+
+    <rect class="fc-b" x="740" y="362" width="150" height="84"/>
+    <text class="fc-k" x="754" y="384">CFIT COLLISION</text>
+    <text class="fc-s" x="754" y="404">per-point — you</text>
+    <text class="fc-s" x="754" y="419">hit the building</text>
+    <text class="fc-s" x="754" y="437">you can see</text>
+
+    <rect class="fc-b" x="906" y="362" width="150" height="84"/>
+    <text class="fc-k" x="920" y="384">COLD OPEN</text>
+    <text class="fc-s" x="920" y="404">the skyline bake</text>
+    <text class="fc-s" x="920" y="419">in the intro</text>
+
+    <text class="fc-m" x="210" y="478">▸ Six consumers, one recording. An authored model plugs in at modelFor() and every one of them reads it with no change of their own.</text>
+
+    <path class="fc-wc" d="M151,446 L151,504" marker-end="url(#rarc)"/>
+
+    <rect class="fc-bc" x="76" y="514" width="630" height="104"/>
+    <text class="fc-hb" x="96" y="542">GLASS 2 — WebGL2</text>
+    <text class="fc-s" x="300" y="542">default since 2026-09-09 · depth buffer</text>
+    <text class="fc-x" x="96" y="566">building mass · ground fragment shader · lights as sprites</text>
+    <text class="fc-x" x="96" y="583">signage decals · cloud deck · the Curtain</text>
+    <text class="fc-s" x="96" y="604">a depth test replaces a painter's queue, so occlusion stops being a probe with tuned fudge factors</text>
+
+    <rect class="fc-b" x="736" y="514" width="320" height="104"/>
+    <text class="fc-h" x="752" y="542">2D CANVAS OVERLAY</text>
+    <text class="fc-s" x="752" y="560">retained on purpose</text>
+    <text class="fc-x" x="752" y="582">sky · distant ridge · weather</text>
+    <text class="fc-x" x="752" y="599">dash · glass · badges · HUD</text>
+    <text class="fc-s" x="752" y="614">no ordering problem, and the HUD needs text</text>
+
+    <rect class="fc-ba" x="76" y="640" width="980" height="48"/>
+    <text class="fc-a" x="96" y="662">FAIL SAFE</text>
+    <text class="fc-x" x="190" y="662">no WebGL2 · lost context · shader will not compile · texture page too large · pass returns nothing · pass throws</text>
+    <text class="fc-a" x="190" y="680">→  RENDER_TUNE.gl = 0, and the frame finishes entirely in 2D. Off is the absence of a code path: no canvas, no context asked for.</text>
+  </svg>
+  </div>
+
+  <table>
+    <thead><tr><th>Surface</th><th>Where it draws now</th><th>Why it moved</th></tr></thead>
+    <tbody>
+      <tr><td>Building mass</td><td>GPU mesh</td><td>Truck frame 5.7 → 2.4 ms; aircraft 21.8 → 13.6 ms</td></tr>
+      <tr><td>The ground</td><td>Fragment shader</td><td>Was the largest fixed cost in the frame: 32.9 → 1.3 ms in a city, 65.4 → 0.6 over open sea</td></tr>
+      <tr><td>Lights and signage</td><td>Depth-tested quads</td><td>Occlusion stops being a probe with tuned fudge factors and becomes a depth comparison</td></tr>
+      <tr><td>Cloud deck</td><td>Quads, depth kept</td><td>A tower can stand <em>in</em> an overcast rather than the painter having to pick a side</td></tr>
+      <tr><td>Sky, weather, dash, HUD</td><td class="g">Still 2D canvas</td><td>No ordering problem to solve, no measurable cost, and the HUD needs text</td></tr>
+    </tbody>
+  </table>
+
+  <p>Every failure path hands the world back: no WebGL2, a lost context, a shader that won't compile, a texture page the device can't hold, a pass that returns nothing, and a pass that throws all set the flag to 0 and finish the frame in 2D. That fallback is what makes the default defensible.</p>
+
+  <div class="callout bad">
+    <p><strong>Honest caveat, and it's the same one every time.</strong> All of those numbers come from <em>one machine with a discrete NVIDIA card</em>. "Falls back correctly" is not "is fast on an integrated GPU", and no other hardware has been tested. Treat the millisecond figures as a direction, not a guarantee.</p>
+  </div>
+
+  <p class="aside">The other lesson from that work is methodological, and it generalises past rendering. Three successive attempts to answer "what should we port next" produced confident wrong answers: a city built from hand-picked models picked its own conclusion, a loose adaptive resolution dial read as though it were the renderer, and a call count turned out not to be a millisecond — a function responsible for 492 of 1,800 canvas calls measured at <strong>0 ms</strong>. The harness now reports a spread, because the same seat once gave one pass an 8.4 ms cost and a 6.7 ms saving on consecutive runs. <strong>A difference inside the spread is not a finding.</strong></p>
+
+  <h2>The gate</h2>
+  <p>Before the regression suite runs at all, <strong>37 checks</strong> run ahead of it — and the same chain gates every push, because the pre-push hook invokes the npm script rather than the test file directly.</p>
+
+  <div class="cards">
+    <div class="card"><p class="label">Pre-checks</p><p class="val c">37</p><p class="note">before regress starts</p></div>
+    <div class="card"><p class="label">Assertions</p><p class="val g">9,336</p><p class="note">last recorded run</p></div>
+    <div class="card"><p class="label">Plugin suites</p><p class="val">126</p><p class="note">of 137 plugins</p></div>
+    <div class="card"><p class="label">Plugin READMEs</p><p class="val">133</p><p class="note">status-linted</p></div>
+  </div>
+
+  <p>The chain covers more ground than "does the code work":</p>
+  <ul>
+    <li><strong>Every client file parses.</strong> There's no build step, so before this nothing between an editor and a player's browser ever parsed them. The failure it exists for is a backtick inside an HTML comment inside a template literal, which once ended a string mid-sentence and killed the entire client boot in production.</li>
+    <li><strong>Every named import resolves to a real export</strong> — checked against <em>the commit being pushed</em>, not the working tree. That distinction is the whole point: a commit once shipped an import whose export existed only in an uncommitted file, so the local suite passed 8,988/8,988 while CI couldn't load the plugin at all.</li>
+    <li><strong>Every building model executes</strong> at night and day, at both entrance facings, against a DOM stub. Before this, the only thing that ever ran a model was a player flying past that particular building.</li>
+    <li><strong>Every doc link resolves, every plugin verb is documented</strong>, and a status header saying "not built" above a body full of completion markers is a hard failure.</li>
+    <li><strong>Every content file is linted</strong> for runtime columns that shouldn't be in git.</li>
+  </ul>
+
+  <div class="callout">
+    <p><strong>Three ways this gate lies to you</strong>, all discovered the hard way. A run that was killed prints no trailing <code>N/N passed</code> line — absence of that line means the suite didn't finish, which is a different problem from a failing test. Piping the run to <code>tail</code> reports <em>tail's</em> exit status, so a red suite comes back 0 and any wrapper watching the exit code calls it green. And starting a second suite kills the first, because the orphan sweep that runs first includes the suite itself in its process filter.</p>
+  </div>
+
+  <h2>What's deliberately absent</h2>
+  <table>
+    <thead><tr><th>Not here</th><th>The reasoning</th></tr></thead>
+    <tbody>
+      <tr><td>An ORM</td><td>Every round trip stays visible at its call site. With latency living in round-trip count, hiding them behind a query builder hides the thing that matters</td></tr>
+      <tr><td>A build step</td><td>What you edit is what runs. The cost is paid back as parse smokes and generated module preload hints rather than as a toolchain</td></tr>
+      <tr><td>Dev dependencies</td><td>Zero. Every check in the 37-step chain is plain Node against the repo's own source</td></tr>
+      <tr><td>Boot migrations</td><td>Removed. Content-rewriting code firing on every restart made local development unpredictable</td></tr>
+      <tr><td>New columns on <code>players</code></td><td>Per-player scalars go in a flag store or their own table. The sparse-column path has no natural end</td></tr>
+      <tr><td>A dirty-flag framework</td><td>Deliberate. Every checkpoint field must be crash-benign <em>by construction</em>, and a framework would make that somebody else's problem</td></tr>
+      <tr><td>A player-facing readout for Unrest</td><td>The moment there's a number on screen, the simulation becomes a dashboard to optimise. The dev panel gets every scalar instead</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="color:var(--bad)">Read this bit: what's still awkward</h2>
+  <p>An architecture document that only describes intentions is the failure mode this project already has a lint rule for. So, the ledger.</p>
+  <ul>
+    <li><strong>One file is 26,256 lines.</strong> <code>windshield.js</code> owns the scene, the 173 model arms, LOD, the occluder field and collision. It was 7,854 lines in July. It has real automated coverage now, which it didn't then, but size alone makes it the hardest file in the tree to change safely.</li>
+    <li><strong>The renderer's numbers come from one GPU.</strong> Stated above and repeated here, because it's the claim most likely to be quoted without its caveat.</li>
+    <li><strong>The regression suite never boots the environment.</strong> No <code>initEnvironment</code>, so the power grid and weather simulation are uncovered. A green suite proves nothing about either — and power is per-zone across 17,239 zones, so that's a wide blind spot.</li>
+    <li><strong>Plugin size is unevenly distributed against plugin docs.</strong> 133 of 137 plugins have a README, but a 101-verb plugin and a 2-verb plugin get the same structural treatment, and the large ones are correspondingly harder to navigate.</li>
+    <li><strong>Eleven plugins have no <code>regress.js</code>.</strong> The convention is that a plugin ships its own suite; most do, and the gap is not currently tracked anywhere that would fail a push.</li>
+    <li><strong>The dev panel is the platform's reuse story and is barely exercised by tests.</strong> The claim that somebody could build a second MUD on THOMAS rests on the dev panel being sufficient, and nothing verifies that end to end.</li>
+    <li><strong>Every cache is a bet with a stated window.</strong> They're bounded, documented, and they fail open on a read error — but if something behaves oddly, they're the first place to look, and the list of them is longer than it was a year ago.</li>
+  </ul>
+
+  <div class="haiku">No framework beneath —
+    nine thousand assertions hold
+    the floor up instead.
+  </div>
+
+  <p class="foot">Counted from the working tree at 2026-09-10 on branch main, 2,627 commits deep. Line counts exclude <code>node_modules</code> and worktrees. Verb and hook totals read from the 137 <code>plugin.json</code> manifests, which are authoritative — the loader registers exactly what they list. The 9,336-assertion figure is the most recent recorded green run rather than one taken for this document; the regression suite was not run while writing it. Renderer timings are quoted from the GLASS 2 flip and were measured on a single machine with a discrete NVIDIA GPU.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+  const BLUE = "#5b9dff", AMBER = "#f5b942", GREEN = "#39ff8f", RED = "#ff3b5c", CYAN = "#28e5ff", MAG = "#ff2ec4";
+  Chart.defaults.color = "#9aa8c7";
+  Chart.defaults.font.family = '"Courier New",Courier,monospace';
+  Chart.defaults.font.size = 11;
+  const gridOpts = { grid:{ color:"rgba(42,42,64,.75)" }, border:{ color:"#2a2a40" }, ticks:{ color:"#9aa8c7", font:{ size:11 } } };
+
+  new Chart(document.getElementById("locChart"), {
+    type:"bar",
+    data:{ labels:["plugins/","client/","server/","scripts/","tools/","tests/"],
+      datasets:[{ label:"lines", data:[182418,164786,59993,55764,9581,6650],
+        backgroundColor:[ CYAN, BLUE, MAG, AMBER, GREEN, GREEN ], borderRadius:2, borderWidth:0 }] },
+    options:{ indexAxis:"y", responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{ label:c => c.parsed.x.toLocaleString() + " lines" } } },
+      scales:{ x:{ beginAtZero:true, title:{ display:true, text:"lines of JavaScript" }, ...gridOpts }, y:gridOpts } }
+  });
+
+  new Chart(document.getElementById("verbChart"), {
+    type:"bar",
+    data:{ labels:["flight","mis","gametable","trucking","cooking","surveillance","interactions","storefront","broadcast","psionics"],
+      datasets:[{ label:"verbs", data:[101,35,34,34,26,26,23,18,16,13],
+        backgroundColor:[ MAG, CYAN, CYAN, CYAN, BLUE, BLUE, BLUE, BLUE, BLUE, BLUE ], borderRadius:2, borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{ label:c => c.parsed.y + " player verbs (median across all 137 plugins: 2)" } } },
+      scales:{ y:{ beginAtZero:true, title:{ display:true, text:"verbs declared in plugin.json" }, ...gridOpts }, x:gridOpts } }
+  });
+
+  new Chart(document.getElementById("contentChart"), {
+    type:"bar",
+    data:{ labels:["zones","power_zones","furniture","connections","items","ambient events","zone spawns","npcs"],
+      datasets:[{ label:"files", data:[17267,17239,1453,1157,718,421,333,266],
+        backgroundColor:[ CYAN, CYAN, BLUE, BLUE, BLUE, AMBER, AMBER, MAG ], borderRadius:2, borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{ label:c => c.parsed.y.toLocaleString() + " JSON files" } } },
+      scales:{ y:{ type:"logarithmic", title:{ display:true, text:"JSON files (log scale)" }, ...gridOpts }, x:gridOpts } }
+  });
+
+  // A chart constructed while its container still measures zero writes width:0px inline —
+  // and Chart.js sizes from the canvas's OWN computed style, so that zero becomes a ceiling
+  // it can never grow back through. resize() alone does not recover it; the latched inline
+  // size has to be cleared first. Re-fit once layout settles, and on any resize.
+  function fitCharts(){
+    document.querySelectorAll("canvas").forEach(c => {
+      const ch = Chart.getChart(c);
+      if (!ch) return;
+      if (!c.width || !c.getBoundingClientRect().width) { c.style.width = ""; c.style.height = ""; }
+      try { ch.resize(); } catch (e) {}
+    });
+  }
+  window.addEventListener("load", fitCharts);
+  window.addEventListener("resize", fitCharts);
+  setTimeout(fitCharts, 0);
+  setTimeout(fitCharts, 250);
+</script>
+</body>
+</html>

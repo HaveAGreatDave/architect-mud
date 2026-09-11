@@ -24,6 +24,8 @@
 // should be 1.
 import { createGLView, MAX_LIGHTS } from './context.js';
 import { buildAtlas, faceUVs } from './atlas.js';
+import { lightMatrix } from './camera.js';
+import { SHADOW_BIAS_TILES } from './shadow.js';
 
 const scenes = new Map();
 // How many times the vertex buffer has been rebuilt since the page loaded. The whole argument for
@@ -247,9 +249,9 @@ export function fadeLights(ranked, state, dt) {
   return live.map(({ e, w }) => ({ ...e, rgb: [e.rgb[0] * w, e.rgb[1] * w, e.rgb[2] * w] }));
 }
 
-function sceneGL(id, w, h) {
+function sceneGL(id, w, h, msaa = 1) {
   let g = scenes.get(id);
-  if (!g) { g = { canvas: null, view: null, key: '', atlasKey: '', epoch: '', atlas: null }; scenes.set(id, g); }
+  if (!g) { g = { canvas: null, view: null, key: '', atlasKey: '', epoch: '', atlas: null, msaa: msaa !== 0 ? 1 : 0 }; scenes.set(id, g); }
   // ⚠ THE GL CANVAS IS A BUFFER, NOT AN ELEMENT ON THE PAGE. Stacking it under the 2-D one is the
   // obvious arrangement and it cannot work: the 2-D pass paints the sky and the ground, opaquely,
   // over the whole frame — so a GL city underneath is drawn perfectly and covered completely, and
@@ -263,12 +265,17 @@ function sceneGL(id, w, h) {
     cv.className = 'ws-gl';
     g.canvas = cv;
   }
-  if (g.canvas.width !== w || g.canvas.height !== h) {
+  // ⚠ MSAA RIDES THE SAME REBUILD AS A RESIZE, because it is a context CREATION attribute and
+  // there is no way to change it on a live one. Dropping the view is what a resize already does,
+  // so this costs one branch rather than a mechanism. See createGLView for why it is a knob.
+  const wantMsaa = msaa !== 0 ? 1 : 0;
+  if (g.canvas.width !== w || g.canvas.height !== h || g.msaa !== wantMsaa) {
     g.canvas.width = w; g.canvas.height = h;
+    g.msaa = wantMsaa;
     g.view = null;                    // a resized canvas loses its context state; rebuild it
     g.key = '';
   }
-  if (!g.view) { g.view = createGLView(g.canvas); g.atlasKey = ''; g.key = ''; }
+  if (!g.view) { g.view = createGLView(g.canvas, { msaa: wantMsaa }); g.atlasKey = ''; g.key = ''; }
   return g;
 }
 
@@ -353,6 +360,40 @@ if (typeof window !== 'undefined') {
 }
 const meshParams = (it) => it.fh + ':' + it.h + ':' + it.seed + ':' + it.E[0] + ',' + it.E[1];
 
+// ── WHAT THE SUN PASS IS HANDED, OR NOTHING AT ALL ──────────────────────────
+//
+// Everything the shadow needs, assembled in one place so the three ways it must NOT run are three
+// lines rather than three call sites: the knob is off, the sun is down, or the buffer has no
+// geometry to fit a projection to. Returning null is a full answer — `draw` puts the strength to 0
+// and the comparison in the shader never happens.
+//
+// ⚠ THE SUN GOING DOWN IS A HARD GATE AND NOT A FADE TO ZERO STRENGTH. `len` is 0 outside
+// 05:30-18:30, which makes the light direction straight down and the ortho box degenerate; more to
+// the point, the pass is a full re-render of the city and half of every day is night. Skipping it
+// is the difference between a feature that costs something after dark and one that costs nothing.
+function sunShadowFor(g, opts) {
+  const str = opts.glShadow || 0;
+  const sun = opts.sun;
+  if (!(str > 0) || !sun || !(sun.len > 0) || !sun.dir) return null;
+  const b = g.view.bounds;
+  if (!b) return null;
+  // ⚠ THE BIAS IS CONVERTED FROM TILES INTO THIS BOX'S OWN DEPTH RANGE. The box is fitted to the
+  // mesh, so a cab's is about a third the depth of a cockpit's — a constant in clip units is two
+  // different distances in the two seats, and the value that stops acne in one detaches a shadow
+  // from its building in the other. The span here is the diagonal rather than the height, because
+  // a low sun lays the light axis over almost as much ground as it does height.
+  const span = Math.max(1, Math.hypot(b.x1 - b.x0, b.y1 - b.y0, b.z1 - b.z0));
+  // Toward the sun, in three dimensions — for the slope term in the bias only. `len` is cotangent
+  // of the elevation in this renderer's own terms (see lightMatrix), so the vertical component is 1
+  // before normalising and a low sun leans the vector over.
+  const sx = sun.dir[0] * sun.len, sy = sun.dir[1] * sun.len;
+  const sl = Math.hypot(sx, sy, 1) || 1;
+  return {
+    str, lightVP: lightMatrix(sun, b), bias: SHADOW_BIAS_TILES / span,
+    sunDir: [sx / sl, sy / sl, 1 / sl],
+  };
+}
+
 function tileMesh(deps, it) {
   let byParam = meshCache.get(it.m);
   if (!byParam) { byParam = new Map(); meshCache.set(it.m, byParam); }
@@ -417,7 +458,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // does not, where the rounding of a device-pixel canvas costs a fraction of a pixel.
   const cssH = opts.cssH || (dpr > 0 ? H / dpr : H);
   if (!W || !H) return null;
-  const g = sceneGL(id, W, H);
+  const g = sceneGL(id, W, H, opts.msaa == null ? 1 : opts.msaa);
   // No WebGL2 on this machine, or the driver took the context away. Either way the pass draws
   // nothing and must SAY so — the caller has already suppressed the 2-D mass on the strength of
   // this pass existing. The scene is dropped so a restored context rebuilds from scratch.
@@ -503,7 +544,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     g.litHeld = ranked ? new Set(ranked.slice(0, MAX_LIGHTS).map((e) => e.key)) : null;
   } else { g.litHeld = null; g.litW.clear(); }
   g.view.draw(camAt, { ...(opts.draw || {}), lights: lightList, lightWrap: LIGHT_TUNE.wrap, cssH,
-    ao: opts.glAO || 0, aoFall: AO_TUNE.fall });
+    ao: opts.glAO || 0, aoFall: AO_TUNE.fall, shadow: sunShadowFor(g, opts) });
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
   // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
   // It cost an afternoon: the result looked like a floor (the backstop wash showed through the
@@ -535,6 +576,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // The scatter carries the renderer own fog curve, because the 2-D drawers tint by fogTint at
   // the anchor depth and a billboard that did not would be a different bush at every distance.
   const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand);
-  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, scatter, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, canvas: g.canvas };
+  // ⚠ `shadowSize` IS 0 WHEN THE DRIVER REFUSED THE DEPTH FRAMEBUFFER, and that is the only way to
+  // tell that case apart from a sunny frame in which nothing happens to cast. Same argument as
+  // `builds` and `cloudCards`: the picture is a correct picture either way.
+  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, scatter, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, shadowSize: g.view.shadowSize || 0, canvas: g.canvas };
 }
 
