@@ -22385,19 +22385,33 @@ function derivedTrim(m, fh, h, seed) {
   if (segs && segs.length) {
     const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
     const A = (v) => [0, 0, v];   // the derived list resolves to ABSOLUTE numbers — see the ⚠ above
-    const cand = [];
+    // ⚠ TWO CANDIDATE LISTS, BECAUSE A COPING BAND AND A WINDOW WANT DIFFERENT THINGS. Coping sits
+    // ON a roof and is drawn as a SQUARE ring off `half`, so it needs a box with a real roof face
+    // and a near-square footprint. A window, a shutter, a stair or a sign goes on a WALL and needs
+    // neither — and requiring both shut out every shed in the city.
+    //
+    // A box under a barrel roof carries `roof: false`, because the barrel is its lid. That is the
+    // whole industrial set: type:warehouse, type:truck_depot, type:hangar, type:diner, both named
+    // hangars and The Glasshouse had **no usable candidate at all** and so got nothing — no
+    // louvres, no roller shutter, no duct, no name board. Crate Expectations rendering as a
+    // featureless dark shed in the game is exactly this, and it is the works kit missing the
+    // buildings it was written for.
+    const cand = [], deck = [];
     for (const sg of segs) {
-      if (sg.kind !== 'box' || sg.roof === false || (sg.yaw || 0)) continue;
+      if (sg.kind !== 'box' || (sg.yaw || 0)) continue;
       const hw = Math.min(V(sg.hwRaw), 0.44);
       const fd = Math.min(sg.fdRaw ? V(sg.fdRaw) : hw, 0.44);
-      if (!(hw > 0.03) || Math.abs(hw - fd) > 0.02) continue;
+      if (!(hw > 0.03)) continue;
       const z1 = V(sg.z1), z0 = V(sg.z0);
       if (!(z1 > z0)) continue;
-      cand.push({ sg, hw, fd, z0, z1, cx: V(sg.cx), cy: V(sg.cy) });
+      const e = { sg, hw, fd, z0, z1, cx: V(sg.cx), cy: V(sg.cy) };
+      cand.push(e);
+      if (sg.roof !== false && Math.abs(hw - fd) <= 0.02) deck.push(e);
     }
     cand.sort((a, b) => b.z1 - a.z1);
+    deck.sort((a, b) => b.z1 - a.z1);
     if (!have.has('cope')) {
-      for (const { sg, hw, z0, z1 } of cand.slice(0, DERIVED_MAX)) {
+      for (const { sg, hw, z0, z1 } of deck.slice(0, DERIVED_MAX)) {
         kit.push({
           kind: 'parapet',
           cx: [0, 0, V(sg.cx)], cy: [0, 0, V(sg.cy)],
@@ -22408,7 +22422,7 @@ function derivedTrim(m, fh, h, seed) {
         });
       }
     }
-    if (cand.length) derivedKit(kit, cand, m, seed, A, have);
+    if (cand.length) derivedKit(kit, cand, deck, m, seed, A, have);
   }
   // ⚠ THE BASE IS CONCATENATED, NEVER MUTATED. `ARM_DETAIL`'s lists are module constants shared by
   // every tile of that type and `m.detail` is the baked model record — pushing onto either would
@@ -22440,7 +22454,10 @@ const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall']);
 // override a tunable (`VIEW_TUNABLE`), and two views can paint in one frame — so a per-view value
 // read here would be baked into a cache the other view then reads, and which view got there first
 // would decide what the city looks like. The kit is a property of the building, not of the seat.
-function derivedKit(list, cand, m, seed, A, have) {
+// `cand` is every usable box — what a wall part stands on. `deck` is the subset with a real, roughly
+// square roof face — what a roof part stands ON. They differ for every shed in the city: a box under
+// a barrel roof is a fine wall and not a floor you can put a water tank on. See the ⚠ in derivedTrim.
+function derivedKit(list, cand, deck, m, seed, A, have) {
   if (!RENDER_TUNE.derivedKit || NO_KIT.has(m.type)) return;
   const wants = (s) => !have.has(s);   // a section somebody already drew is theirs; stay out of it
   const pal = m.pal;
@@ -22557,14 +22574,20 @@ function derivedKit(list, cand, m, seed, A, have) {
   // replaced, which is the opposite of the point. Presence, corner and size are all seeded off the
   // tile: `dRand` is deterministic (`models:diff` asserts two renders match), so a building keeps
   // its own skyline for ever while its neighbour gets a different one.
-  const deck = cand[0], dhw = deck.hw;
-  if (wants('roof') && dhw > 0.08) {
+  // ⚠ ROOF PLANT STANDS ON A REAL DECK, NEVER ON THE TALLEST BOX. A shed's wall box is the tallest
+  // thing in `cand` and its lid is a barrel — putting a tank on it floats the tank inside the curve.
+  // `deck` is empty for a building with no flat roof at all, and then there is simply no roof plant,
+  // which is the right answer rather than a fallback.
+  const roofOn = deck.length ? deck[0] : null;
+  const deckZ = roofOn ? roofOn.z1 : 0;   // ⚠ the DECK own top, not the tallest box in the tile
+  const dhw = roofOn ? roofOn.hw : 0;
+  if (wants('roof') && roofOn && dhw > 0.08) {
     // Four corners, shuffled per building, so two neighbours do not agree about where the plant is.
     const CORNERS = [[-0.44, -0.4], [0.44, -0.36], [0.42, 0.4], [-0.4, 0.42]];
     const rot = Math.floor(R(21) * 4);
     const q = (i, jx = 0, jy = 0) => {
       const [fx, fy2] = CORNERS[(i + rot) % 4];
-      return { x: deck.cx + dhw * (fx + jx), y: deck.cy + dhw * (fy2 + jy) };
+      return { x: roofOn.cx + dhw * (fx + jx), y: roofOn.cy + dhw * (fy2 + jy) };
     };
     const big = dhw > 0.15;
     if (style === 'works') {
@@ -22572,34 +22595,34 @@ function derivedKit(list, cand, m, seed, A, have) {
       // which is what stops every industrial roof carrying the same two objects.
       if (big && R(31) > 0.35) {
         const t = q(0, 0.06, 0.04);
-        push({ kind: 'tankFrame', cx: A(t.x), cy: A(t.y), z: A(top), r: A(dhw * (0.24 + R(33) * 0.1)),
+        push({ kind: 'tankFrame', cx: A(t.x), cy: A(t.y), z: A(deckZ), r: A(dhw * (0.24 + R(33) * 0.1)),
           hh: A(dhw * (0.38 + R(35) * 0.16)), rise: A(dhw * (0.26 + R(37) * 0.18)), pal });
       }
       const s = q(2, -0.05, -0.03);
       // ⚠ Toned from `dhw * 0.85`. At that height a stack on a small roof is a mast half the height
       // of its own building, and swept across the works set it read as a gallows rather than as a
       // flue — the single worst-looking thing the first cut produced.
-      push({ kind: 'stack', cx: A(s.x), cy: A(s.y), z: A(top), r: A(clamp(dhw * 0.13, 0.014, 0.036)),
+      push({ kind: 'stack', cx: A(s.x), cy: A(s.y), z: A(deckZ), r: A(clamp(dhw * 0.13, 0.014, 0.036)),
         hh: A(dhw * (0.34 + R(39) * 0.22)), pal });
     } else {
       if (R(41) > 0.3) {
         const t = q(0, 0.05, 0.05);
-        push({ kind: 'roofTank', cx: A(t.x), cy: A(t.y), z: A(top),
+        push({ kind: 'roofTank', cx: A(t.x), cy: A(t.y), z: A(deckZ),
           r: A(dhw * (0.19 + R(43) * 0.09)), hh: A(dhw * (0.24 + R(45) * 0.12)), pal });
       }
       if (R(47) > 0.35) {
         const a = q(2, -0.04, -0.06);
-        push({ kind: 'antennaCluster', cx: A(a.x), cy: A(a.y), z: A(top), r: A(dhw * 0.2),
+        push({ kind: 'antennaCluster', cx: A(a.x), cy: A(a.y), z: A(deckZ), r: A(dhw * 0.2),
           hh: A(dhw * (0.34 + R(49) * 0.26)), n: 3 + Math.round(R(7) * 4), pal });
       }
     }
     // Plant boxes: one or two, on the two corners the landmark did not take.
     const u = q(1, -0.06, 0.05);
-    push({ kind: 'acUnit', cx: A(u.x), cy: A(u.y), z: A(top),
+    push({ kind: 'acUnit', cx: A(u.x), cy: A(u.y), z: A(deckZ),
       w: A(dhw * (0.12 + R(51) * 0.07)), d: A(dhw * 0.12), hh: A(dhw * (0.09 + R(53) * 0.05)), pal });
     if (big && R(55) > 0.4) {
       const u2 = q(3, 0.05, -0.05);
-      push({ kind: 'acUnit', cx: A(u2.x), cy: A(u2.y), z: A(top),
+      push({ kind: 'acUnit', cx: A(u2.x), cy: A(u2.y), z: A(deckZ),
         w: A(dhw * 0.11), d: A(dhw * 0.09), hh: A(dhw * 0.09), pal });
     }
   }
