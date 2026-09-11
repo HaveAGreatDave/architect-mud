@@ -7467,6 +7467,39 @@ function wallTex(biome, night) {
       const lit = frac(Math.round(x / tr) * 2.3 + Math.round(y / tr) * 7.9 + 0.5) < (nite ? 0.55 : 0.18);
       g.fillStyle = nite ? (lit ? 'rgba(255,214,120,0.9)' : 'rgba(14,18,26,0.85)') : (lit ? 'rgba(160,200,230,0.55)' : 'rgba(26,32,42,0.7)');
       g.fillRect(x, y, ww, wh);
+      // ── THE TEXEL TIER: DETAIL THAT ONLY EXISTS WHEN THERE ARE TEXELS TO SPEND ──────────────
+      //
+      // ⚠ RAISING `texRes` ON ITS OWN ADDS NOTHING, AND THAT IS WHY THIS IS HERE. Every feature in
+      // this generator is sized in `tr` units — `xs = 4*tr`, `ww = 2*tr`, `px = tr` — so the whole
+      // texture is resolution-INDEPENDENT: at texRes 2 it draws the same three columns and six rows
+      // of window at twice the size. Measured by eye against the raw texture blown up, texRes 1, 2,
+      // 3 and 4 are the same picture with progressively softer edges, because the only thing the
+      // extra texels buy is sub-texel rounding. Asking for a higher resolution made it MUSHIER.
+      //
+      // So the extra resolution has to be spent deliberately, the way `ADORN_NEAR` spends distance:
+      // a mullion and a blind are one texel each and there is no room for either at 16x32, so they
+      // are drawn only where they fit. ⚠ Below the threshold NOTHING here runs, so texRes 1 — what
+      // ships, and what every existing baseline was measured at — is byte-for-byte unchanged.
+      if (tr >= 2 && ww >= 3 && wh >= 4) {
+        const seedW = Math.round(x / tr) * 2.3 + Math.round(y / tr) * 7.9;
+        // A mullion: the bar that makes a hole in a wall read as a WINDOW rather than a dark patch.
+        g.fillStyle = nite && lit ? 'rgba(90,60,20,0.55)' : 'rgba(0,0,0,0.38)';
+        g.fillRect(x + ((ww >> 1) | 0), y, px, wh);
+        if (wh >= 6) g.fillRect(x, y + ((wh * 0.38) | 0), ww, px);   // a transom on the taller ones
+        // A blind or a shade, part drawn, on some of them. This is the single cheapest thing that
+        // stops a facade reading as a repeating stamp — it varies per window and costs one rect.
+        const bl = frac(seedW * 1.7 + 0.31);
+        if (bl < 0.34) {
+          const bh = Math.max(px, Math.round(wh * (0.25 + bl)));
+          g.fillStyle = nite && lit ? 'rgba(255,224,150,0.42)' : 'rgba(0,0,0,0.30)';
+          g.fillRect(x, y, ww, bh);
+        }
+        // Grime below the sill, where a century of rain has run off it.
+        if (frac(seedW * 3.1) < 0.4) {
+          g.fillStyle = 'rgba(0,0,0,0.16)';
+          g.fillRect(x + (frac(seedW * 5.9) * ww | 0), y + wh + px, px, Math.max(px, (ys - wh) >> 1));
+        }
+      }
       // THE SURROUND — how the wall meets the hole in it, which is different for every material and
       // is most of what says which material it is once the windows are covering the wall. Two or
       // three pixels each, and skipped entirely for an unassigned palette so nothing that shipped
