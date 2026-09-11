@@ -21651,6 +21651,97 @@ const AUTHORED_DETAIL = {
     detailQuad(c.ctx, c.cam, c.F, [[c.lx, y - r, z1], [c.lx, y + r, z1], [c.lx, y + r, z0], [c.lx, y - r, z0]], lit, c.alpha, { lift: DETAIL_LIFT * 1.5 });
   },
   // A mechanical box: a top and one side, which is all of it that is ever visible from outside.
+  // ── THE STREET ITSELF, WHICH GLASS HAD NOTHING FOR ─────────────────────────────────────────────
+  //
+  // Every neon reference is half building and half PAVEMENT: a lamp on a gooseneck, a lit vending
+  // machine against the wall, bollards along the kerb. GLASS could draw a thirty-storey tower and
+  // had no way to say "and there is a lamp post outside it", so the ground floor of every building
+  // in the city met the road with nothing in between.
+  //
+  // ⚠ THESE ARE BUILDING PARTS, NOT SCATTER, and that is the decision that makes them cheap. Ground
+  // scatter is placed per TILE by the terrain pass and knows nothing about what is standing on the
+  // tile; a part knows its building's footprint, its entrance and its palette, so it can be put
+  // against the right wall, at the right end, facing the right way — and it inherits the screen-size
+  // gate, the near-tier distance gate and the mesh capture for free.
+
+  // A lamp on a gooseneck arm — the single most recognisable object on a street, and the one the
+  // reference photographs all have. The arm is stepped rather than curved: at the size this is ever
+  // drawn, three segments and a round head read as a gooseneck and a real arc costs a path.
+  streetLamp: (c, d) => {
+    const z0 = c.V(d.z0 ?? [0, 0, 0]), z1 = c.V(d.z1), out = c.V(d.out ?? [0, 0, 0.1]);
+    const r = Math.max(c.V(d.r ?? [0, 0, 0.012]), 0.004);
+    const P = d.pal || c.pal, post = shadeOf(P, 0.5), lit = shadeOf(P, 0.86);
+    const Q = (pts, fill, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, c.alpha, o || {});
+    // The column: two crossed quads. A four-sided box at this width is four quads for a silhouette
+    // a cross gives in two, and nothing is ever close enough to a lamp post to catch it out.
+    Q([[c.lx - r, c.ly, z1], [c.lx + r, c.ly, z1], [c.lx + r, c.ly, z0], [c.lx - r, c.ly, z0]], post, {});
+    Q([[c.lx, c.ly - r, z1], [c.lx, c.ly + r, z1], [c.lx, c.ly + r, z0], [c.lx, c.ly - r, z0]], post, {});
+    // The gooseneck, stepping out along the entrance normal and dropping as it goes.
+    const sgn = d.flip ? -1 : 1, steps = [[0.30, 0.055], [0.72, 0.085], [1, 0.06]];
+    let px = c.lx, pz = z1;
+    for (const [t, drop] of steps) {
+      const nx = c.lx + sgn * out * t, nz = z1 - (z1 - z0) * drop;
+      Q([[px, c.ly - r * 0.7, pz], [nx, c.ly - r * 0.7, nz], [nx, c.ly + r * 0.7, nz], [px, c.ly + r * 0.7, pz]], post, {});
+      px = nx; pz = nz;
+    }
+    // The head, and the light it throws. ⚠ The glow is a SPRITE — it rides SPRITE_SINK like every
+    // other light in GLASS, so GLASS 2 depth-tests it and the city walls catch its wash, rather than
+    // it being a painted blob this one part invented.
+    const hw = r * 3.2, hd = r * 2.2;
+    Q([[px - hw, c.ly - hd, pz], [px + hw, c.ly - hd, pz], [px + hw, c.ly + hd, pz], [px - hw, c.ly + hd, pz]], post, {});
+    Q([[px - hw, c.ly - hd, pz - r * 1.4], [px + hw, c.ly - hd, pz - r * 1.4], [px + hw, c.ly + hd, pz - r * 1.4], [px - hw, c.ly + hd, pz - r * 1.4]], lit, {});
+    if (c.night > 0.15) {
+      const [wx, wy] = c.F(px, c.ly);
+      glowPool(c.ctx, c.cam, wx, wy, pz - r * 1.4, d.rgb || '255,214,150', (d.s ?? 26) * c.night, c.alpha);
+    }
+  },
+
+  // A lit machine standing against the wall — the purple vending machine in the reference, and the
+  // thing that says a shopfront is open at four in the morning.
+  vendingMachine: (c, d) => {
+    const w = c.V(d.w ?? [0, 0, 0.032]), dp = c.V(d.d ?? [0, 0, 0.022]);
+    const hh = c.V(d.hh ?? [0, 0, 0.05]), z = c.V(d.z ?? [0, 0, 0]);
+    const P = d.pal || c.pal, body = shadeOf(P, 0.44), top = shadeOf(P, 0.66);
+    const face = d.glow || '#c060e0', y = c.ly;
+    const Q = (pts, fill, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, c.alpha, o || {});
+    Q([[c.lx - w, y - dp, z + hh], [c.lx + w, y - dp, z + hh], [c.lx + w, y + dp, z + hh], [c.lx - w, y + dp, z + hh]], top, {});
+    for (const sx of [-1, 1]) {
+      Q([[c.lx + sx * w, y - dp, z + hh], [c.lx + sx * w, y + dp, z + hh], [c.lx + sx * w, y + dp, z], [c.lx + sx * w, y - dp, z]], body,
+        { cullN: [sx * c.E[1], -sx * c.E[0]] });
+    }
+    // The glazed front, and a dark surround so it reads as a window in a cabinet rather than as a
+    // coloured slab. Out along the face by FACE_EPS for the same reason every proud part is.
+    const yf = y + dp, ye = yf + FACE_EPS;
+    Q([[c.lx - w, yf, z + hh], [c.lx + w, yf, z + hh], [c.lx + w, yf, z], [c.lx - w, yf, z]], body, {});
+    Q([[c.lx - w * 0.76, ye, z + hh * 0.9], [c.lx + w * 0.76, ye, z + hh * 0.9], [c.lx + w * 0.76, ye, z + hh * 0.22], [c.lx - w * 0.76, ye, z + hh * 0.22]], face,
+      { lift: DETAIL_LIFT, stroke: 'rgba(0,0,0,0.45)', lw: 1 });
+    if (c.night > 0.15) {
+      const [wx, wy] = c.F(c.lx, yf);
+      glowPool(c.ctx, c.cam, wx, wy, z + hh * 0.55, d.rgb || '190,110,230', (d.s ?? 14) * c.night, c.alpha);
+    }
+  },
+
+  // A row of posts along the kerb. One authored part, `count` of them, because a single bollard is
+  // a mistake and a row is street furniture.
+  bollard: (c, d) => {
+    const r = Math.max(c.V(d.r ?? [0, 0, 0.009]), 0.003);
+    const hh = c.V(d.hh ?? [0, 0, 0.022]), z = c.V(d.z ?? [0, 0, 0]);
+    const n = Math.max(1, Math.min(8, d.count || 3)), step = c.V(d.step ?? [0, 0, 0.07]);
+    const P = d.pal || c.pal, post = shadeOf(P, 0.54), cap = shadeOf(P, 0.8);
+    const Q = (pts, fill, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, c.alpha, o || {});
+    for (let i = 0; i < n; i++) {
+      const x = c.lx + (i - (n - 1) / 2) * step;
+      Q([[x - r, c.ly, z + hh], [x + r, c.ly, z + hh], [x + r, c.ly, z], [x - r, c.ly, z]], post, {});
+      Q([[x, c.ly - r, z + hh], [x, c.ly + r, z + hh], [x, c.ly + r, z], [x, c.ly - r, z]], post, {});
+      // The reflective band every bollard has, which is most of what makes it read as one.
+      if (d.band) {
+        const zb = z + hh * 0.72;
+        Q([[x - r * 1.08, c.ly, zb], [x + r * 1.08, c.ly, zb], [x + r * 1.08, c.ly, zb - hh * 0.14], [x - r * 1.08, c.ly, zb - hh * 0.14]], d.band, { lift: DETAIL_LIFT });
+      }
+      Q([[x - r, c.ly - r, z + hh], [x + r, c.ly - r, z + hh], [x + r, c.ly + r, z + hh], [x - r, c.ly + r, z + hh]], cap, {});
+    }
+  },
+
   acUnit: (c, d) => {
     const w = c.V(d.w), dp = d.d ? c.V(d.d) : w * 0.7, hh = d.hh ? c.V(d.hh) : w * 0.55, z = c.V(d.z);
     const top = shadeOf(d.pal || c.pal, 1.1), side = shadeOf(d.pal || c.pal, 0.72);
@@ -22686,7 +22777,11 @@ const SECTION_OF = {
   signBoard: 'sign', bladePanel: 'sign', signGantry: 'sign',
   parapet: 'cope',
 };
-function derivedTrim(m, fh, h, seed) {
+// ⚠ Exported so a gate can count what the kit actually produces. The rolls inside it are seeded and
+// most of them are MEAN — a third of buildings get a lamp — so "did that part reach the city" is a
+// question with a number rather than a screenshot, and a screenshot of a lamp post and a screenshot
+// of a canopy column are the same screenshot.
+export function derivedTrim(m, fh, h, seed) {
   let byScale = _derived.get(m);
   if (!byScale) { byScale = new Map(); _derived.set(m, byScale); }
   // The kit flag is in the KEY, not just read at build time: it is an A/B switch for a change that
@@ -23034,6 +23129,38 @@ function derivedKit(list, cand, deck, m, seed, A, have) {
       push({ kind: 'vent', cx: A(base.cx - (px - base.cx) * 0.55), cy: A(by),
         z: A(base.z0 + GF * 0.78), w: A(Math.min(base.hw * 0.11, 0.036)),
         hh: A(Math.min(GF * 0.14, 0.02)), pal });
+    }
+    // ── AND THE PAVEMENT IN FRONT OF IT ────────────────────────────────────────────────────────
+    //
+    // ⚠ RATIONED, HARD, AND THAT IS THE WHOLE DESIGN. A lamp post outside every building in
+    // Coldwater is not a street, it is a fence: the thing that reads as a lit street is a lamp every
+    // few frontages with dark between them. So each of these is behind its own deterministic roll
+    // and the rolls are deliberately mean — about a third of buildings get a lamp, a quarter get
+    // bollards, and a machine needs a lit shopfront to stand against in the first place.
+    //
+    // ⚠ AND THEY STAND OFF THE BUILDING, past `by`, which is the one place in this kit where that is
+    // right. Everything else here is bolted to a wall and `anchored.mjs` proves it; these are on the
+    // PAVEMENT, so they are deliberately not in that gate's FACE_PARTS and deliberately not in
+    // SECTION_OF either — standing a lamp outside a building is not a claim to have drawn its
+    // facade.
+    const kerb = by + (by < 0 ? -1 : 1) * Math.min(base.hw * 0.34, 0.13);
+    if (dRand(seed, 71) > 0.66) {
+      const lx = base.cx + base.hw * (dRand(seed, 72) > 0.5 ? 0.82 : -0.82);
+      push({ kind: 'streetLamp', cx: A(lx), cy: A(kerb), z0: A(base.z0), z1: A(base.z0 + GF * 1.5),
+        out: A(Math.min(base.hw * 0.3, 0.1)), r: A(Math.min(base.hw * 0.035, 0.011)),
+        flip: by > 0, pal, rgb: style === 'front' ? '255,206,140' : '210,226,255' });
+    }
+    if (style === 'front' && dRand(seed, 73) > 0.74) {
+      push({ kind: 'bollard', cx: A(base.cx), cy: A(kerb), z: A(base.z0),
+        r: A(Math.min(base.hw * 0.028, 0.009)), hh: A(Math.min(GF * 0.2, 0.024)),
+        step: A(Math.min(base.hw * 0.32, 0.08)), count: 3, band: '#e8d8a0', pal });
+    }
+    if (style === 'front' && dRand(seed, 74) > 0.7) {
+      const vx = base.cx - (px - base.cx) * 0.9;
+      push({ kind: 'vendingMachine', cx: A(vx), cy: A(by), z: A(base.z0),
+        w: A(Math.min(base.hw * 0.1, 0.03)), d: A(Math.min(base.hw * 0.07, 0.02)),
+        hh: A(Math.min(GF * 0.42, 0.052)), pal,
+        glow: m.neon || '#c060e0', rgb: '190,110,230' });
     }
   }
 }

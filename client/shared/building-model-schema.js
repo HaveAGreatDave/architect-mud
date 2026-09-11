@@ -172,6 +172,16 @@ export const DETAIL_SCHEMA = {
   signBoard: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
     plain: { color: 'string', ink: 'string', label: 'string', face: 'string', font: 'string', picto: 'string' }, px: 7 },
 
+  // ── THE STREET ITSELF ───────────────────────────────────────────────────────
+  // Building parts rather than ground scatter, so they know the footprint, the entrance and the
+  // palette — see the note above `streetLamp` in windshield.js.
+  streetLamp: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', out: 'fh', r: 'fh' }, required: ['z1'],
+    plain: { pal: 'string', rgb: 'string', s: 'number', flip: 'boolean' }, px: 7 },
+  vendingMachine: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', d: 'fh', hh: 'h' }, required: ['z'],
+    plain: { pal: 'string', glow: 'string', rgb: 'string', s: 'number' }, px: 7 },
+  bollard: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h', step: 'fh' }, required: ['z'],
+    plain: { pal: 'string', band: 'string', count: 'number' }, px: 6 },
+
   // ── THE STRUCTURAL FOUR ─────────────────────────────────────────────────────
   // Everything above is bolted TO a wall. These four give a wall a front and a back, and they are
   // what stands between a box wearing greebles and the reference diorama. See the block comment on
