@@ -394,6 +394,117 @@ function sunShadowFor(g, opts) {
   };
 }
 
+// ── BAKED AMBIENT OCCLUSION, ON THE ONE AXIS THE HEIGHT TERM CANNOT SEE ───────────────────────
+//
+// `RENDER_TUNE.glAO` is a world-HEIGHT term — it darkens by distance above the ground — and it ships
+// at 0 because that axis is already covered twice, by `wallLit`'s per-face gradient and by real cast
+// shadows. The note on it names what occlusion would actually add and why it was not built: concave
+// geometry, so a recessed doorway, the underside of a sill, the inner corner of a setback. That
+// needs neighbours, and the two ways to get them were costed as SSAO (a screen pass) or per-vertex
+// baking, the latter rejected at "6.5 ms for 240 buildings … the one budget that is genuinely tight".
+//
+// ⚠ THAT COSTING ASSUMED THE BAKE IS PAID PER BUFFER BUILD, AND IT IS NOT. `tileMesh` is memoised
+// per model per parameter set, and a window of 240 buildings is instances of far fewer distinct
+// models — so this is paid once per model, on first sight, and every later frame and every rebuild
+// reads it back off the cached face. What was costed as a per-rebuild price is a one-off.
+//
+// The sample is a hemisphere about the face normal, tested against the model's own solid volume.
+// ⚠ It is the SAME solid CFIT asks (`modelSolid` → `segContains` → the captured shape), so a corner
+// that reads as dark is a corner that is really there.
+const AO_DIRS = (() => {
+  // One straight out along the normal, then two rings tilted off it. Fixed angles rather than a
+  // random set: an unseeded pattern makes the bake non-deterministic, and `models:diff` is watching.
+  const out = [[0, 0, 1]];
+  for (const [tilt, n] of [[0.62, 4], [1.05, 4]]) {
+    const st = Math.sin(tilt), ct = Math.cos(tilt);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + (tilt > 1 ? Math.PI / 4 : 0);
+      out.push([Math.cos(a) * st, Math.sin(a) * st, ct]);
+    }
+  }
+  return out;
+})();
+// Two reaches, so a surface deep in a corner reads darker than one that merely touches another. In
+// tiles: a wall is 0.88 across, so 0.05 is a hand's width against a building and 0.14 is a doorway.
+const AO_REACH = [0.05, 0.14];
+// How far off its own surface a sample starts. Trim stands proud of its wall by `FACE_EPS`, which is
+// far smaller than this — so without the offset half the samples of every trim face begin inside the
+// wall behind it and the whole piece bakes black.
+const AO_BIAS = 0.006;
+
+export function bakeFaceAO(faces, solid) {
+  // ⚠ THE EARLY-OUT IS NOT AN OPTIMISATION, IT IS WHAT MAKES THIS SHIP. Sampling every vertex of
+  // every face costs 4.7 ms on the average model and 45.8 ms on The Meridian Lobby, whose gargoyles
+  // are 44% of every face in the city — and a 45 ms bake is a dropped frame the moment that
+  // building comes round a corner. Most of it is wasted: 54% of vertices in the city touch nothing
+  // at all, because most of a building is open wall.
+  //
+  // So a face whose own bounding box, grown by the furthest reach, misses every segment's box is
+  // fully open by construction and is filled in without a single solid() call. ⚠ The segment boxes
+  // are conservative on purpose (see modelSolid) — an under-sized one here would skip sampling on a
+  // face that really is in a corner, and bake it open.
+  const REACH = AO_REACH[AO_REACH.length - 1] + AO_BIAS;
+  // ⚠ AND THE SEGMENTS THAT SURVIVED THE TEST ARE HANDED ON, WHICH IS WHERE THE TIME ACTUALLY GOES.
+  // The early-out alone saves 22%: every wall face lies ON a box, so something is always near it and
+  // the answer is almost always yes. Excluding a face's own host makes the test fire, and is WRONG —
+  // it took the occluded share of the city from 45.7% of vertices to 33.6%, because a face nested
+  // inside a larger box's bounding volume is genuinely occluded BY that box. So nothing is skipped
+  // on that basis; instead the sampling below tests only the segments actually in range, which turns
+  // a whole-model scan per sample into two or three boxes.
+  // ⚠ NULL, NEVER AN EMPTY ARRAY, WHEN THERE ARE NO BOUNDS TO NARROW BY. `modelSolid` supplies
+  // them, but this function takes any predicate — and an empty list means "test these zero segments"
+  // rather than "test everything", so a solid without bounds would bake the whole city fully open.
+  // Silently, and looking exactly like the strength being set to 0.
+  const near = solid.bounds ? [] : null;
+  const bounds = solid.bounds || null;
+  const anyNear = (f) => {
+    if (!bounds) return true;          // no narrowing available — `near` is null and the full scan runs
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const q of f.p) {
+      if (q[0] < x0) x0 = q[0]; if (q[0] > x1) x1 = q[0];
+      if (q[1] < y0) y0 = q[1]; if (q[1] > y1) y1 = q[1];
+      if (q[2] < z0) z0 = q[2]; if (q[2] > z1) z1 = q[2];
+    }
+    x0 -= REACH; x1 += REACH; y0 -= REACH; y1 += REACH; z0 -= REACH; z1 += REACH;
+    near.length = 0;
+    for (let i = 0; i < bounds.length; i++) {
+      const b = bounds[i];
+      if (b.x1 >= x0 && b.x0 <= x1 && b.y1 >= y0 && b.y0 <= y1 && b.z1 >= z0 && b.z0 <= z1) near.push(i);
+    }
+    return near.length > 0;
+  };
+  for (const f of faces) {
+    if (!anyNear(f)) { f.ao = null; continue; }   // fills `near` with the segments in range
+    const n = f.n && (f.n[0] || f.n[1] || f.n[2]) ? f.n : [0, 0, 1];
+    // An orthonormal frame about the normal. ⚠ The seed axis must not be parallel to n, or the cross
+    // product is zero, every sample direction collapses onto the normal, and the model bakes a
+    // uniform mid-grey — which reads as a strength setting rather than as a bug.
+    const ax = Math.abs(n[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1];
+    let tx = [n[1] * ax[2] - n[2] * ax[1], n[2] * ax[0] - n[0] * ax[2], n[0] * ax[1] - n[1] * ax[0]];
+    const tl = Math.hypot(tx[0], tx[1], tx[2]) || 1;
+    tx = [tx[0] / tl, tx[1] / tl, tx[2] / tl];
+    const ty = [n[1] * tx[2] - n[2] * tx[1], n[2] * tx[0] - n[0] * tx[2], n[0] * tx[1] - n[1] * tx[0]];
+    const ao = new Float32Array(f.p.length);
+    for (let v = 0; v < f.p.length; v++) {
+      const q = f.p[v];
+      let hits = 0, taken = 0;
+      for (const d of AO_DIRS) {
+        const wx = tx[0] * d[0] + ty[0] * d[1] + n[0] * d[2];
+        const wy = tx[1] * d[0] + ty[1] * d[1] + n[1] * d[2];
+        const wz = tx[2] * d[0] + ty[2] * d[1] + n[2] * d[2];
+        for (let r = 0; r < AO_REACH.length; r++) {
+          const R = AO_REACH[r];
+          taken++;
+          if (solid(q[0] + n[0] * AO_BIAS + wx * R, q[1] + n[1] * AO_BIAS + wy * R,
+                    q[2] + n[2] * AO_BIAS + wz * R, near)) hits++;
+        }
+      }
+      ao[v] = taken ? 1 - hits / taken : 1;
+    }
+    f.ao = ao;
+  }
+}
+
 function tileMesh(deps, it) {
   let byParam = meshCache.get(it.m);
   if (!byParam) { byParam = new Map(); meshCache.set(it.m, byParam); }
@@ -408,6 +519,12 @@ function tileMesh(deps, it) {
       uv: faceUVs(f),
       texKey: f.pal ? (f.kind === 'roof' ? 'r:' : 'w:') + f.pal : null,
     }));
+    // ⚠ Inside the memo, so it is paid once per model per parameter set and never per rebuild. A
+    // model whose shape will not capture gets no term at all rather than a wrong one.
+    try {
+      const solid = deps.modelSolid && deps.modelSolid(it.m, it.seed, it.fh, it.h);
+      if (solid) bakeFaceAO(faces, solid);
+    } catch { /* an un-captured shape is not a claim about occlusion */ }
     byParam.set(k, faces);
   }
   return faces;
@@ -544,7 +661,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     g.litHeld = ranked ? new Set(ranked.slice(0, MAX_LIGHTS).map((e) => e.key)) : null;
   } else { g.litHeld = null; g.litW.clear(); }
   g.view.draw(camAt, { ...(opts.draw || {}), lights: lightList, lightWrap: LIGHT_TUNE.wrap, cssH,
-    ao: opts.glAO || 0, aoFall: AO_TUNE.fall, shadow: sunShadowFor(g, opts) });
+    ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, shadow: sunShadowFor(g, opts) });
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
   // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
   // It cost an afternoon: the result looked like a floor (the backstop wash showed through the

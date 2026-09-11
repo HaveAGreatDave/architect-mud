@@ -1270,7 +1270,7 @@ export function runFlicker({ W = 640, H = 360, frames = 30 } = {}) {
   return rows;
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; window.__glLights = runLights; window.__glClouds = runCloudDeck; window.__glFlicker = runFlicker; window.__glAO = runAO; }
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; window.__glLights = runLights; window.__glClouds = runCloudDeck; window.__glFlicker = runFlicker; window.__glAO = runAO; window.__glBakedAO = runBakedAO; }
 
 // ── CONTACT OCCLUSION: DOES IT MOVE ANYTHING, AND WHAT DOES IT COST ─────────
 //
@@ -1379,6 +1379,135 @@ export function runAO({ W = 640, H = 360, frames = 24, warm = 8 } = {}) {
   } finally {
     performance.now = realNow;
     RENDER_TUNE.glAO = heldAO;
+    uninstall && uninstall(); holder.remove();
+  }
+  return rows;
+}
+
+
+// ── THE BAKED OCCLUSION: DOES IT LAND, AND ONLY WHERE IT SHOULD? ────────────
+//
+// `__glBakedAO()`. The sibling of `__glAO()` above and the answer to what that one measured itself
+// out of: world-height occlusion has no setting that is both visible and correct, because height is
+// an axis GLASS already covers twice. This term is per-VERTEX and sampled against the building's own
+// solid volume, so it sees the axis that one cannot — a recessed doorway, the underside of a sill,
+// the inner corner of a setback.
+//
+// ⚠ FIRST, DID IT REACH ANY PIXELS AT ALL, and that is not a formality — it is the failure this
+// feature actually shipped with for its first hour. The attribute was in the buffer, the varying was
+// declared, the uniform existed, the strength was 0.55, and the sweep reported 0.0% moved at every
+// setting, because `installGL`'s option list is an ALLOWLIST and `glBakedAo` was not on it. The note
+// above that list had been written for the identical bug in contact occlusion. A correctly wired
+// feature doing nothing looks exactly like a feature that is switched off.
+//
+// ⚠ SECOND, DID IT STAY ON THE BUILDINGS. It is a term in the mass shader, so the ground must not
+// move. A whole-frame number tells those apart not at all, and "everything went dark" is what a
+// strength that has become an exposure control looks like.
+//
+// ⚠ THIRD, IS IT THE SAME BY DAY AND BY NIGHT — which is the OPPOSITE of what the wall-wash lights
+// want. Those are scaled by the night, because a sign is a light source and the sun outshines it.
+// Occlusion is a statement about how much SKY a surface can see, and a corner is just as enclosed at
+// noon. A day-only or night-only reading means somebody has scaled it by the wrong thing.
+const BAO_SEATS = [
+  { tag: 'cab, day', R: 12, density: 0.3, hour: 13, cls: 'truck' },
+  { tag: 'cab, night', R: 12, density: 0.3, hour: 23, cls: 'truck' },
+  { tag: 'air, day', R: 30, density: 0.06, hour: 13, cls: 'prop' },
+];
+const BAO_SWEEP = [0.3, 0.55, 0.8];
+
+export function runBakedAO({ W = 640, H = 360, frames = 24, warm = 8 } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const mid = (a) => { const b = [...a].sort((p, q) => p - q); return b[b.length >> 1]; };
+  const mk = (R, density) => {
+    const N = R * 2 + 1;
+    let k = 0;
+    return Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+      const dx = x - R;
+      if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+      if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+      const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (density && (h % 1000) / 1000 < density) {
+        const r = named[(k++) % named.length];
+        return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6),
+          ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 3) };
+      }
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+  };
+
+  const rows = [], realNow = performance.now.bind(performance);
+  const held = RENDER_TUNE.glBakedAo;
+  try {
+    for (const seat of BAO_SEATS) {
+      const ID = '__bao' + BAO_SEATS.indexOf(seat) + '_' + (runBakedAO.n = (runBakedAO.n || 0) + 1);
+      el.id = ID;
+      const built = mk(seat.R, seat.density), bare = mk(seat.R, 0);
+      const view = (map) => ({
+        cls: seat.cls, phase: 'cruise', worldBlend: 1,
+        height: seat.cls === 'prop' ? 0.5 : 0, eyeH: seat.cls === 'prop' ? undefined : 0.12,
+        hour: seat.hour, weather: 'clear', speed: 0.4, map, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        // ⚠ The dials are pinned for the reason every bench here pins them: a loose resolution step
+        // sheds pixels exactly where the frame is expensive and gets read as the feature.
+        resFloor: 1, tune: { gl: 1, perfDS: 0 },
+      });
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+      performance.now = () => 1e6;
+      const paint2 = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
+
+      RENDER_TUNE.glBakedAo = 0;
+      paint2(view(bare)); const empty = shot();
+      paint2(view(built)); const off = shot();
+      // What the buildings cover, and what they do not. The split is the whole second question.
+      const isWall = new Uint8Array(off.length >> 2);
+      let mask = 0, ground = 0;
+      for (let i = 0; i < off.length; i += 4) {
+        const d = Math.abs(off[i] - empty[i]) + Math.abs(off[i + 1] - empty[i + 1]) + Math.abs(off[i + 2] - empty[i + 2]);
+        if (d > 18) { isWall[i >> 2] = 1; mask++; } else ground++;
+      }
+      for (const s of BAO_SWEEP) {
+        RENDER_TUNE.glBakedAo = s;
+        paint2(view(built)); const on = shot();
+        let moved = 0, sum = 0, worst = 0, outside = 0;
+        for (let i = 0; i < on.length; i += 4) {
+          const d = (Math.abs(on[i] - off[i]) + Math.abs(on[i + 1] - off[i + 1]) + Math.abs(on[i + 2] - off[i + 2])) / 3;
+          if (!isWall[i >> 2]) { if (d >= 2) outside++; continue; }
+          if (d >= 2) { moved++; sum += d; }
+          if (d > worst) worst = d;
+        }
+        rows.push({ seat: seat.tag, glBakedAo: s, wallPx: mask,
+          movedPct: mask ? +(moved / mask * 100).toFixed(1) : null,
+          meanOnMoved: moved ? +(sum / moved / 255 * 100).toFixed(1) : null,
+          worst: Math.round(worst),
+          offBuildingPct: ground ? +(outside / ground * 100).toFixed(2) : null });
+      }
+      // Cost, clock live. The bake itself is inside the tileMesh memo, so a warmed scene is the
+      // honest steady-state reading and the first-sight cost is glao.mjs's number, not this one.
+      performance.now = realNow;
+      const t = (s) => {
+        RENDER_TUNE.glBakedAo = s;
+        const v = view(built);
+        for (let i = 0; i < warm; i++) paintWindshield(ID, v);
+        const a = [];
+        for (let i = 0; i < frames; i++) { const t0 = performance.now(); paintWindshield(ID, v); a.push(performance.now() - t0); }
+        return mid(a);
+      };
+      const msOff = t(0), msOn = t(held);
+      rows.push({ seat: seat.tag, glBakedAo: `cost 0 -> ${held}`, wallPx: null,
+        movedPct: null, meanOnMoved: null, worst: null, offBuildingPct: null,
+        ms: `${msOff.toFixed(2)} -> ${msOn.toFixed(2)}` });
+    }
+  } finally {
+    performance.now = realNow;
+    RENDER_TUNE.glBakedAo = held;
     uninstall && uninstall(); holder.remove();
   }
   return rows;

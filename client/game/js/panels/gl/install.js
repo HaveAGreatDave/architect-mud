@@ -8,7 +8,7 @@
 // This module is that call, and it is the only place that knows both halves: it hands the GL pass
 // the renderer's own mesh capture, its own baked textures and its own palette, so nothing here has
 // an opinion about what a building is made of.
-import { installGLWorld, installGLClouds, captureModelMesh, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, glLightState, RENDER_TUNE } from '../windshield.js';
+import { installGLWorld, installGLClouds, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, glLightState, RENDER_TUNE } from '../windshield.js';
 import { glWorldPass, glCloudPass } from './world.js';
 import { NEAR, FAR } from './camera.js';
 import { MAX_LIGHTS } from './context.js';   // the uniform budget the light pass asks for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
@@ -102,14 +102,17 @@ export function installGL(hostFor) {
     const dir = L.dir || [L.sx, L.sy];
     const u = (c) => [c[0] / 255, c[1] / 255, c[2] / 255];
     return (lastStats = glWorldPass(opts.id || host.id || 'ws', host, cells, cam, {
-      captureModelMesh, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
+      captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
     }, {
       // ⚠ THIS LIST IS AN ALLOWLIST, NOT A SPREAD, so a new option added at the windshield end and
       // not added here is silently dropped one hop before the shader that reads it. Contact
       // occlusion shipped that way for an afternoon: the flag was set, the slider moved, the
       // uniform existed, and __glAO() reported 0.0% of wall pixels moved at every strength up to
-      // 0.7 — which is what a correctly wired feature doing nothing looks like too.
-      sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, msaa: opts.msaa, cssW: opts.cssW, cssH: opts.cssH,
+      // 0.7 — which is what a correctly wired feature doing nothing looks like too. ⚠ AND IT
+      // CAUGHT THE NEXT ONE: the baked per-vertex term was added at both ends, gated, measured and
+      // swept before anybody read this paragraph, and reported exactly the same 0.0% at every
+      // strength. The note is the only reason that took minutes instead of an afternoon.
+      sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, glBakedAo: opts.glBakedAo, msaa: opts.msaa, cssW: opts.cssW, cssH: opts.cssH,
       // The sun's own depth pass. Both halves are needed and neither is derivable from the other:
       // `glShadow` is the strength the player set, `sun` is the frame's own light — the same two
       // numbers (`dir`, `len`) the ground hulls have always cast with, so the shadow on a wall and

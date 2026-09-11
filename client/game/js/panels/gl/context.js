@@ -29,7 +29,7 @@ import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
 // haze jitter 1.
-const STRIDE = 15;
+const STRIDE = 16;
 
 const VERT = `#version 300 es
 in vec3 aPos;
@@ -40,6 +40,7 @@ in float aRamp;
 in float aAlpha;
 in float aFlat;
 in float aJit;
+in float aBakedAo;
 uniform mat4 uViewProj;
 out vec3 vNormal;
 out vec3 vColor;
@@ -49,6 +50,7 @@ out float vDepth;
 out float vAlpha;
 out float vFlat;
 out float vJit;
+out float vBakedAo;
 out vec3 vWorld;
 void main() {
   vec4 clip = uViewProj * vec4(aPos, 1.0);
@@ -60,6 +62,7 @@ void main() {
   vAlpha = aAlpha;
   vFlat = aFlat;
   vJit = aJit;
+  vBakedAo = aBakedAo;
   vWorld = aPos;                // the city own lights need a position to fall off FROM
   vDepth = clip.w;              // the camera-forward distance, in tiles — the same f GLASS sorts on
 }`;
@@ -79,6 +82,7 @@ in float vDepth;
 in float vAlpha;
 in float vFlat;
 in float vJit;
+in float vBakedAo;
 in vec3 vWorld;
 uniform sampler2D uAtlas;
 uniform float uTextured;
@@ -120,6 +124,7 @@ uniform float uLightR[GLASS_MAX_LIGHTS];
 uniform float uLightWrap;
 uniform float uAo;        // contact-occlusion strength; 0 makes the term exactly 1.0
 uniform float uAoFall;    // how fast it lets go with height, in inverse tiles
+uniform float uBakedAo;   // strength of the PER-VERTEX bake; 0 makes that term exactly 1.0 too
 // ── THE SUN'S OWN DEPTH BUFFER ──────────────────────────────────────────────
 //
 // See gl/shadow.js. 'uShadowStr' is the strength AND the off switch: at 0 the function below is
@@ -237,6 +242,14 @@ void main() {
   // that corner; occlusion is a statement about the SKY, not about every photon in the scene.
   // Putting it after would let a shaded plinth swallow the wash off a sign bolted to it.
   base *= 1.0 - uAo * exp(-max(0.0, vWorld.z) * uAoFall);
+  // ── AND THE CONCAVE HALF, WHICH IS THE ONE THE HEIGHT TERM ABOVE CANNOT SEE ────────────────
+  // vBakedAo is 1 where the vertex sees open sky and falls toward 0 in a corner, sampled against
+  // the building's own solid volume at mesh-capture time (gl/world.js). Interpolating it across the
+  // face is the whole reason it is a vertex attribute rather than a uniform: the gradient IS the
+  // effect, and a per-face value would just be a differently-lit flat quad.
+  // ⚠ SAME PLACEMENT ARGUMENT AS THE TERM ABOVE — before the lights. Occlusion is a statement about
+  // the SKY, and a neon sign in a recessed doorway must still light the doorway.
+  base *= 1.0 - uBakedAo * (1.0 - clamp(vBakedAo, 0.0, 1.0));
   // The city own lights, added on top of the key shading.
   for (int i = 0; i < GLASS_MAX_LIGHTS; i++) {
     if (i >= uNLight) break;
@@ -321,6 +334,7 @@ export function createGLView(canvas, opts = {}) {
     jit: gl.getAttribLocation(prog, 'aJit'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     flat: gl.getAttribLocation(prog, 'aFlat'),
+    bao: gl.getAttribLocation(prog, 'aBakedAo'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     keyDir: gl.getUniformLocation(prog, 'uKeyDir'),
     key: gl.getUniformLocation(prog, 'uKey'),
@@ -347,6 +361,7 @@ export function createGLView(canvas, opts = {}) {
     lightWrap: gl.getUniformLocation(prog, 'uLightWrap'),
     ao: gl.getUniformLocation(prog, 'uAo'),
     aoFall: gl.getUniformLocation(prog, 'uAoFall'),
+    bakedAo: gl.getUniformLocation(prog, 'uBakedAo'),
     shadowMap: gl.getUniformLocation(prog, 'uShadowMap'),
     lightVP: gl.getUniformLocation(prog, 'uLightVP'),
     shadowStr: gl.getUniformLocation(prog, 'uShadowStr'),
@@ -462,6 +477,10 @@ export function createGLView(canvas, opts = {}) {
             data[o + 12] = fa;
             data[o + 13] = flat;
             data[o + 14] = jit;
+            // Baked occlusion, 1 where the surface sees open sky. ⚠ A face with no bake takes 1.0
+            // rather than 0 — an absent term must be "not occluded", or every surface the bake
+            // could not reach goes black instead of simply staying as it was.
+            data[o + 15] = f.ao ? f.ao[k] : 1;
             o += STRIDE;
           }
         }
@@ -490,6 +509,7 @@ export function createGLView(canvas, opts = {}) {
     if (loc.alpha >= 0) { gl.enableVertexAttribArray(loc.alpha); gl.vertexAttribPointer(loc.alpha, 1, gl.FLOAT, false, S, 48); }
     if (loc.flat >= 0) { gl.enableVertexAttribArray(loc.flat); gl.vertexAttribPointer(loc.flat, 1, gl.FLOAT, false, S, 52); }
     if (loc.jit >= 0) { gl.enableVertexAttribArray(loc.jit); gl.vertexAttribPointer(loc.jit, 1, gl.FLOAT, false, S, 56); }
+    if (loc.bao >= 0) { gl.enableVertexAttribArray(loc.bao); gl.vertexAttribPointer(loc.bao, 1, gl.FLOAT, false, S, 60); }
     gl.bindVertexArray(null);
     return count;
   }
@@ -564,6 +584,7 @@ export function createGLView(canvas, opts = {}) {
     gl.uniform1f(loc.vlight, opts.vlight == null ? 1 : opts.vlight);
     // Contact occlusion. Absent means OFF and the shader multiplies by exactly 1.0.
     gl.uniform1f(loc.ao, opts.ao == null ? 0 : opts.ao);
+    gl.uniform1f(loc.bakedAo, opts.bakedAo == null ? 0 : opts.bakedAo);
     gl.uniform1f(loc.aoFall, opts.aoFall == null ? 1.6 : opts.aoFall);
     // The city's own lights. `opts.lights` is a list of { p: [x, y, z], rgb: [r, g, b], r }, already
     // in the same camera-relative tile frame the vertices are, and already the strongest few — see

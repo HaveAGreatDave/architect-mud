@@ -285,6 +285,18 @@ export const RENDER_TUNE = {
   // Kept rather than reverted because the knob is provably inert and the measurement is the point:
   // `__glAO()` is the rig any future attempt should be held to.
   glAO: 0,
+  // ── AND THE HALF THAT TERM COULD NOT SEE, BAKED PER VERTEX ──────────────────
+  //
+  // The note above names exactly what world-height occlusion misses and cannot reach: concave
+  // geometry — a recessed doorway, the underside of a sill, the inner corner of a setback — and
+  // costs the two ways of getting it. Baking was rejected at "6.5 ms for 240 buildings", and that
+  // figure assumed the bake is paid per BUFFER BUILD. It is not: `tileMesh` is memoised per model
+  // per parameter set, so it is paid once per model on first sight and read back off the cached
+  // face for ever after. See gl/world.js.
+  //
+  // ⚠ A STRENGTH, AND 0 IS AGAIN EXACTLY THE RENDERER THAT SHIPPED — the shader multiplies by
+  // `1 - uBakedAo * (1 - vBakedAo)`. GL only; the 2-D fallback has no per-vertex channel to carry it.
+  glBakedAo: 0.55,
   // ── MULTISAMPLING, WHICH HAD NEVER BEEN A DECISION ──────────────────────────
   //
   // `antialias: true` was written into the context attributes once and never swept. The 2-D canvas
@@ -6560,6 +6572,51 @@ function segContains(s, lx, ly, V) {
   }
   if (s.kind === 'barrel') return Math.abs(dx - V(s.cxL)) <= V(s.hl) && Math.abs(dy) <= V(s.hw);
   return Math.abs(dx) <= V(s.hx) && Math.abs(dy) <= V(s.hy);
+}
+
+// THE MODEL'S SOLID VOLUME, AS A PREDICATE.
+//
+// ⚠ THE SOLID THE OCCLUSION BAKE SAMPLES IS THE SOLID YOU CRASH INTO, deliberately — this hands
+// back `segContains` over the same captured shape that `modelTopAt` and `groundObstructionAt` ask,
+// so a corner that reads as dark is a corner that is actually there. A second idea of "inside the
+// building" living in the GL pass is the drift this whole capture arrangement exists to prevent.
+//
+// Resolved once at (fh, h) and handed back closed over, because the caller asks it tens of
+// thousands of times per model and the affine solve is most of the work.
+export function modelSolid(m, seed, fh, h) {
+  const segs = shapeForModel(m, seed);
+  if (!segs || !segs.length) return null;
+  const V = (q) => q[0] * fh + q[1] * h + q[2];
+  const res = segs.map((sg) => ({ sg, z0: V(sg.z0), z1: V(sg.z1) }));
+  // ⚠ `only` NARROWS, IT NEVER WIDENS. An occlusion bake asks this tens of thousands of times per
+  // model against the same handful of segments, so it passes the indices its own range test already
+  // found; every other caller omits it and tests the whole model, exactly as before.
+  const hit = (x, y, z, only) => {
+    const n = only ? only.length : res.length;
+    for (let i = 0; i < n; i++) {
+      const r = res[only ? only[i] : i];
+      if (z < r.z0 || z > r.z1) continue;
+      if (segContains(r.sg, x, y, V)) return true;
+    }
+    return false;
+  };
+  // ⚠ A CONSERVATIVE BOX PER SEGMENT, SO A CALLER CAN ASK "IS ANYTHING NEAR" BEFORE IT ASKS "IS
+  // THIS SOLID". It must never be SMALLER than the real segment — a caller that skips work on the
+  // strength of this would skip it wrongly — so a yawed box takes its own diagonal and a drum takes
+  // the larger of its two radii on both axes.
+  hit.bounds = res.map(({ sg, z0, z1 }) => {
+    const cx = V(sg.cx), cy = V(sg.cy);
+    let hx, hy;
+    if (sg.kind === 'drum') { hx = hy = Math.max(V(sg.rb), V(sg.rt)); }
+    else if (sg.kind === 'barrel') { hx = V(sg.hl) + Math.abs(V(sg.cxL)); hy = V(sg.hw); }
+    else if (sg.kind === 'box') {
+      hx = Math.min(V(sg.hwRaw), 0.44);
+      hy = Math.min(V(sg.fdRaw ?? sg.hwRaw), 0.44);
+      if (sg.yaw) { const d = Math.hypot(hx, hy); hx = hy = d; }
+    } else { hx = V(sg.hx); hy = V(sg.hy); }
+    return { x0: cx - hx, x1: cx + hx, y0: cy - hy, y1: cy + hy, z0, z1 };
+  });
+  return hit;
 }
 
 // GROUND OBSTRUCTION — the ground vehicle's half of CFIT (THE LONG HAUL).
@@ -24418,7 +24475,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     pBegin('world:gl');
     try {
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, sun, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, sun, worldBlend: WORLD_BLEND,
         curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, ground: GROUND_MESH, floor: FLOOR_STATE, now,
         fogNear: FOG_NEAR, fogFar: FOG_FAR,
         // The frame's own CSS size, because that is the unit `cam.horizonY` and `cam.depth` are in.
