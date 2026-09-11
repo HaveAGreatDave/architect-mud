@@ -306,6 +306,18 @@ Each zone in the network gets a `power_zones` row and a `lighting_states` row. S
 - **Overhead / lamp** — indoor, player-switchable via the `switch`/`flip` command, blocked if the room has no power record at all.
 - **Streetlight** — outdoor, *not* player-switchable; reconciled **per-zone against each zone's local ambient visibility** (time-of-day light attenuated by that zone's local weather cell, `vis < VISIBILITY_DIM`), so a storm cell rolling over one block lights it while clear blocks stay dark. Swept on the 30-minute tick and re-reconciled every 30 seconds for occupied zones; also re-synced on every server boot.
 
+**Transitions are an event.** A zone whose status actually changes emits `zone.power.changed`
+(`{ zoneId, prevStatus, status, silent }`) — so a system can react to the lights going without
+polling the power map. ⚠ It is QUEUED during the sim and flushed from `loadZonePowerAndLighting()`,
+never emitted inline: `state.zones` (what `getZonePowerStatus` and `getZoneVisibility` read) is not
+rebuilt until `simulatePowerNetwork` returns, so an inline emit hands every subscriber a world that
+still reports the OLD status for the very zone the event says just changed. Putting the flush in the
+state rebuild rather than at the six sim call sites makes that ordering true by construction — a new
+power path gets the event for free and cannot get it early. `silent` means something else is already
+narrating this blackout (the ion storm announce, a ghost-mode sabotage emote) and the generic "the
+lights cut out" line was suppressed; it is not a reason for a subscriber to abstain. First consumer:
+the blackout reactions in [plugins/ambient-life](../plugins/ambient-life/README.md).
+
 **Visibility.** `getZoneVisibility(zoneId)` combines ambient light (time of day) with artificial light (power status + lit fixture count) and weather/fog factors into a `clear`/`dim`/`dark` category, appended as a flavor line to every room description. Deliberately informational only — darkness does not hide exits, items, or NPCs.
 
 **Dev tools.** `environment.routes.js` exposes time/weather overrides, forced ticks, generator install/remove, and load/failure simulation, all gated to the same `dev`/`admin`/`builder`/`designer` roles as the rest of the dev panel.

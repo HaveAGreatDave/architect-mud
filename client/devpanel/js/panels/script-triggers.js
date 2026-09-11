@@ -14,7 +14,7 @@ const TRIGGER_EVENT_CATALOG = {
   'Quests & flags': ['quest.started', 'quest.advanced', 'quest.completed', 'quest.abandoned', 'flag.set', 'flag.cleared', 'accolade.unlocked'],
   'Weather': ['weather.event', 'weather.lightningStrike', 'weather.thunder', 'weather.zoneAmbience'],
   'Flight': ['flight.crashed', 'flight.aaFired', 'flight.aaSilenced', 'flight.aaRepaired', 'flight.strafeIncoming'],
-  'Social & misc': ['npc.gift', 'gossip.housing', 'gossip.bigBuy', 'gossip.pokerWin', 'atm.jacked', 'atm.drained', 'device.power.changed', 'device.tuned', 'camera.recorded', 'corp.asset.claimed', 'sports.game', 'sports.champion'],
+  'Social & misc': ['npc.gift', 'gossip.housing', 'gossip.bigBuy', 'gossip.pokerWin', 'atm.jacked', 'atm.drained', 'device.power.changed', 'zone.power.changed', 'device.tuned', 'camera.recorded', 'corp.asset.claimed', 'sports.game', 'sports.champion'],
 };
 
 // Events whose payload carries no player. A trigger on one of these can still

@@ -4,6 +4,7 @@ import { _test } from './index.js';
 import { _internals as _home } from './home-life.js';
 import { _intrusion } from './intrusion.js';
 import { _eviction } from './eviction.js';
+import { _blackout, zoneIsDark } from './blackout.js';
 import { isDwellingZone } from '../../server/engine/zone-tags.js';
 import { world, getZone, getZoneFurniture } from '../../server/engine/world.js';
 import { isToilet, isShower } from '../bodily/index.js';
@@ -185,5 +186,89 @@ export default async function regress({ run, check }) {
     check('evict: the grace is long enough to be heeded', GRACE_MS >= 10_000);
 
     for (const z of [zoneId, hallId, flatId]) world.zones.delete(z);
+  }
+
+  // ── …and then the lights went out (blackout.js) ──
+  // Three things are worth pinning: which transitions are worth a word at all,
+  // who is in a position to say it, and that the three voices are actually
+  // different voices rather than one pool with the nouns swapped.
+  {
+    const { LINES, reactorsIn, placeFor, kindOf } = _blackout;
+
+    // Only the transitions somebody in the room could perceive.
+    check('blackout: losing the supply is a beat', kindOf('powered', 'offline') === 'out');
+    check('blackout: browning out is a beat', kindOf('powered', 'overloaded') === 'brown');
+    check('blackout: coming back is a beat', kindOf('offline', 'powered') === 'back');
+    // A zone already powered that the sim re-derives as powered changed nothing.
+    check('blackout: powered → powered is not a beat', kindOf('powered', 'powered') === null);
+    check('blackout: an unknown status is not a beat', kindOf('powered', 'clearing') === null);
+
+    // Every line names the NPC. An unattributed one reads as the room talking.
+    const pools = Object.entries(LINES).flatMap(([where, byKind]) =>
+      Object.entries(byKind).map(([kind, lines]) => [`${where}.${kind}`, lines]));
+    check('blackout: all nine pools are stocked',
+      pools.length === 9 && pools.every(([, l]) => l.length >= 2),
+      pools.map(([k, l]) => `${k}:${l.length}`).join(' '));
+    check('blackout: every line names the NPC',
+      pools.every(([, l]) => l.every(s => s.includes('{npc}'))),
+      pools.find(([, l]) => l.some(s => !s.includes('{npc}')))?.[0]);
+    // The em dash is the Ascendant voice tell, and none of these people are one.
+    check('blackout: no em dashes in any reaction',
+      pools.every(([, l]) => l.every(s => !s.includes('—'))),
+      pools.find(([, l]) => l.some(s => s.includes('—')))?.[0]);
+    // The whole reason for the split: a shopkeeper must not complain about their
+    // heating, and a tenant must not worry about the till.
+    const joined = (where, kind) => LINES[where][kind].join(' ').toLowerCase();
+    check('blackout: the counter is a work concern only',
+      /till|stock|shift|freezer|counter/.test(joined('work', 'out'))
+      && !/\btill\b|\bshift\b/.test(joined('home', 'out')), null);
+    check('blackout: somebody merely passing through says the least',
+      LINES.passing.out.every(l => l.length < 120), null);
+
+    // Who gets to speak. Every gate here was a bad read first: a corpse with an
+    // opinion, a shopkeeper narrating while a player is mid-purchase, and — the
+    // one this file exists to get right — a sleeper sitting up for a power cut.
+    const zoneId = 'zone_blackout_test';
+    world.zones.set(zoneId, {
+      id: zoneId, npcs: new Set(['b_ok', 'b_dead', 'b_asleep', 'b_shop', 'b_fight', 'b_mute', 'b_elsewhere']),
+      enemies: new Set(), players: new Set(),
+    });
+    world.npcs.set('b_ok',        { id: 'b_ok',        name: 'Awake',   zone_id: zoneId, home_zone: zoneId });
+    world.npcs.set('b_dead',      { id: 'b_dead',      name: 'Corpse',  zone_id: zoneId, _dead: true });
+    world.npcs.set('b_asleep',    { id: 'b_asleep',    name: 'Sleeper', zone_id: zoneId, _ai: { homeSleeping: true } });
+    world.npcs.set('b_shop',      { id: 'b_shop',      name: 'Keeper',  zone_id: zoneId, _ai: { shopPaused: true } });
+    world.npcs.set('b_fight',     { id: 'b_fight',     name: 'Fighter', zone_id: zoneId, _combatTargetId: 'x' });
+    world.npcs.set('b_mute',      { id: 'b_mute',      name: 'Quiet',   zone_id: zoneId, flags: { no_banter: true } });
+    world.npcs.set('b_elsewhere', { id: 'b_elsewhere', name: 'Gone',    zone_id: 'zone_somewhere_else' });
+
+    const ids = reactorsIn(zoneId).map(n => n.id);
+    check('blackout: only the one person who could react does',
+      ids.length === 1 && ids[0] === 'b_ok', ids.join(','));
+    check('blackout: nobody wakes up for a power cut',
+      !ids.includes('b_asleep'), ids.join(','));
+    // ⚠ NOT eligibleNpcs(): that excludes an NPC on their vendor shift, which is
+    // the exact person this feature is for. Pinned so a future tidy-up that
+    // "unifies the predicates" fails here rather than silently in a shop.
+    world.npcs.set('b_vendor', { id: 'b_vendor', name: 'Grocer', zone_id: zoneId, work_zone_id: zoneId, _ai: { vendor_was_working: true } });
+    world.zones.get(zoneId).npcs.add('b_vendor');
+    check('blackout: a vendor ON SHIFT is exactly who reacts',
+      reactorsIn(zoneId).some(n => n.id === 'b_vendor'), null);
+    check('blackout: an unknown zone yields nobody', reactorsIn('zone_nope').length === 0);
+
+    // The trap that would switch off every domestic routine in the world: an
+    // unwired zone answers 'unpowered', which is not the same as 'the lights went'.
+    check('blackout: a zone with no power_zones row is not dark', zoneIsDark('zone_never_wired') === false);
+
+    check('blackout: home is read off home_zone',
+      placeFor({ home_zone: zoneId }, zoneId) === 'home');
+    check('blackout: work is read off work_zone_id',
+      placeFor({ work_zone_id: zoneId }, zoneId) === 'work');
+    check('blackout: living over the shop is still at home in the flat',
+      placeFor({ home_zone: zoneId, work_zone_id: zoneId }, zoneId) === 'home');
+    check('blackout: anywhere else is passing through',
+      placeFor({ home_zone: 'z1', work_zone_id: 'z2' }, zoneId) === 'passing');
+
+    for (const id of ['b_ok', 'b_dead', 'b_asleep', 'b_shop', 'b_fight', 'b_mute', 'b_elsewhere', 'b_vendor']) world.npcs.delete(id);
+    world.zones.delete(zoneId);
   }
 }

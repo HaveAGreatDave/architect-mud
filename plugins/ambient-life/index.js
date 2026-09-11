@@ -38,6 +38,7 @@ import { commands as stripperCommands } from '../strippers/index.js';
 import { homeLifeTick } from './home-life.js';
 import './intrusion.js';   // registers the zone.entered "someone's in my flat" reaction
 import './eviction.js';    // registers the npc.lockup "you don't belong here, out" escort
+import './blackout.js';    // registers the zone.power.changed "the lights just went" reaction
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const START_CHANCE     = 0.5;             // per eligible zone, per tick

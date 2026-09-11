@@ -708,6 +708,10 @@ function loadZonePowerAndLighting() {
   const anyOverloaded = [...state.zones.values()].some(z => z.powerStatus === 'overloaded');
   if (anyOverloaded) overloadSince ??= Date.now();
   else overloadSince = null;
+  // Last, so a `zone.power.changed` subscriber asking getZonePowerStatus or
+  // getZoneVisibility about the zone it was just told about gets this cycle's
+  // answer. See pendingPowerTransitions.
+  flushPowerTransitions();
 }
 
 // ── Windows are a ZONE FLAG ──────────────────────────────────────────────────
@@ -1468,6 +1472,44 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
       // state this one ends.
       broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">The grid comes back up. The supply steadies, and the lights with it.</span><br>', refresh: true });
     }
+  }
+
+  // Same rule the two broadcasts above use: a null previous status is the first
+  // cycle after a topology load, where nothing has actually changed — it's just
+  // the first time the sim has looked. Announcing ~17k transitions at boot is the
+  // version of this bug that already got fixed once for the light lines.
+  if (prevStatus != null && prevStatus !== newStatus) {
+    pendingPowerTransitions.push({ zoneId, prevStatus, status: newStatus, silent: !!opts.silent });
+  }
+}
+
+// Zone power transitions, queued here and emitted by flushPowerTransitions()
+// once the sim has finished and state.zones has been rebuilt.
+//
+// ⚠ THE DELAY IS THE WHOLE POINT. `state.zones` — what getZonePowerStatus and
+// getZoneVisibility read — is not rebuilt until loadZonePowerAndLighting() runs
+// AFTER simulatePowerNetwork returns. Emitting from inside applyPowerLightEffects
+// would hand every subscriber a world that still reports the OLD status for the
+// very zone the event says just changed, which is the failure reconcileDevicePower
+// has its own comment about one screen down.
+const pendingPowerTransitions = [];
+
+// Drained at the end of loadZonePowerAndLighting(), which is called after every
+// call to simulatePowerNetwork and after the two direct applyPowerLightEffects
+// callers (drainZonePower, the EMP path). Putting it there rather than at the six
+// call sites makes the ordering true by construction instead of by everybody
+// remembering — a new power path gets the event for free, and cannot get it early.
+function flushPowerTransitions() {
+  if (!pendingPowerTransitions.length) return;
+  const batch = pendingPowerTransitions.splice(0, pendingPowerTransitions.length);
+  for (const t of batch) {
+    // `silent` means something else is already narrating this blackout to the
+    // room (the ion storm's sky-wide announce, a ghost-mode sabotage emote), so
+    // the generic "the lights cut out" line was suppressed. It is NOT a reason to
+    // suppress a subscriber: a person swearing at a dead freezer is not a second
+    // copy of "the lights cut out", it's the reaction to it. Subscribers that
+    // genuinely would duplicate the announce can read the flag and abstain.
+    emit('zone.power.changed', t);
   }
 }
 

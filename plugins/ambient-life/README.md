@@ -116,3 +116,44 @@ and pinned by [regress.js](regress.js):
 No resist roll: a refusal mechanic would let a player stand in a locked shop indefinitely by losing
 rolls, which is the situation the whole file exists to end. The timer re-validates everything (still
 online, still in the room, NPC still there and awake) — a warning is not a scheduled teleport.
+
+## Blackout — somebody in the room has an opinion about it
+
+[blackout.js](blackout.js) is the reaction the power sim never had. It cut the fixtures,
+preserved what they were doing, restored them and narrated all three; what it had no
+concept of was a **person standing in the room while it happened**. A generator tripping
+in an occupied kitchen used to leave two residents carrying on in silence.
+
+It rides a new engine event, **`zone.power.changed`** (`{ zoneId, prevStatus, status, silent }`),
+emitted on a genuine status transition. ⚠ It is queued during the power sim and flushed from
+`loadZonePowerAndLighting()`, because `state.zones` — everything `getZonePowerStatus` and
+`getZoneVisibility` read — is not rebuilt until after `simulatePowerNetwork` returns. Emitting
+inline would hand every subscriber a world that still reported the OLD status for the very zone
+the event says just changed.
+
+**Words only.** The engine owns the lights, the fridge, the till and the dark; this owns what
+somebody says about them. Same rule `intrusion.js` is written to.
+
+| Rule | Why |
+|---|---|
+| **Where they are decides what they say** | Three pools, chosen off `home_zone` / `work_zone_id` (266 and 224 of the cast carry them). Home is an inconvenience with a sigh in it; work is stock, a dead till and money; a corridor is barely anything. Without the split every shopkeeper in Coldwater complained about their heating. |
+| **Nobody wakes up for it** | A sleeper's lights were already off. `intrusion.js` forces a wake because a stranger in your bedroom is the loudest thing that can happen to you; a power cut is not, and a tenement sitting up in bed because a generator tripped is worse than silence. |
+| **One voice per room, on a 5-minute cooldown** | The brownout rotation re-derives the grid every five minutes and a zone flapping at its ceiling transitions every other cycle. |
+| **Outdoors in daylight, nothing happened** | Losing a street's supply at noon changes nothing anybody standing in it can perceive. Indoors always counts, because what dies indoors is appliances rather than daylight. |
+
+⚠ **It deliberately does NOT use `eligibleNpcs()`.** That predicate excludes an NPC on their vendor
+shift (`_ai.vendor_was_working`), because banter is what you do when you're *not* working — and the
+shopkeeper behind the counter is precisely the person this feature exists for. [regress.js](regress.js)
+pins that, so a future tidy-up that unifies the two predicates fails there rather than silently in a shop.
+
+⚠ **`silent` is not a reason to abstain.** The flag means something else is already narrating this
+blackout (the ion storm's sky-wide announce, a ghost-mode sabotage emote) and the generic "the lights
+cut out" line was suppressed. A person swearing at a dead freezer is not a second copy of that; it's
+the reaction to it.
+
+**Home life stops.** `home-life.js` now refuses to start a domestic routine in an unpowered zone and
+aborts an in-flight one, because "Something is frying" in a room with no supply is the single line
+that would make the whole layer read as broken. ⚠ `zoneIsDark()` treats an **unknown** zone as
+POWERED — `getZonePowerStatus` answers `'unpowered'` for any zone with no `power_zones` row, which is
+most of the map, and reading that as "dark" would switch off every domestic routine everywhere the
+grid was simply never wired.

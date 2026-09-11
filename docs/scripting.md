@@ -229,6 +229,7 @@ are not uniform. Verified examples:
 | Event | Useful tokens | Note |
 |---|---|---|
 | `credits.changed` | `${event.delta}`, `${event.reason}`, `${event.after}` | **no actor** — carries `playerId`, so `once`/`say`/player-scope flags don't work here |
+| `zone.power.changed` | `${event.zoneId}`, `${event.prevStatus}`, `${event.status}` | **no actor** either — a zone’s supply changed (`powered`/`overloaded`/`offline`), fired on the transition only. `silent` means something else is already narrating the blackout |
 | `vendor.purchase` | `${event.itemId}`, `${event.price}`, `${event.quantity}`, `${event.player.handle}` | `player`, not `actor` — the dispatcher normalizes both |
 | `item.taken` / `item.dropped` | `${event.item.name}`, `${event.item.id}` | full item row |
 | `item.equipped` | `${event.item.name}`, `${event.slot}` | |

@@ -22,6 +22,11 @@
 //     people all frying eggs in silence.
 //   • A witness must be present, and is re-checked before every beat: this is
 //     scenery for whoever is in the room, not a simulation running in the dark.
+//   • AND NOT IN AN ACTUAL BLACKOUT. "Something is frying" in a room with no
+//     supply is the one line that makes the whole layer read as broken, so a
+//     dark zone starts nothing and an in-flight scene stops where it is. What
+//     plays instead is blackout.js, which is the reaction to the thing that
+//     just interrupted dinner.
 import { world, getZonePlayers, getZone, getZoneFurniture } from '../../server/engine/world.js';
 import { isDwellingZone } from '../../server/engine/zone-tags.js';
 import { sendToZone, getBroadcast } from '../../server/engine/messaging.js';
@@ -33,6 +38,7 @@ import { query } from '../../server/models/db.js';
 import { DISHES } from '../cooking/dishes.js';
 import { DRINKS } from '../drinks/recipes.js';
 import { isToilet, isShower } from '../bodily/index.js';
+import { zoneIsDark } from './blackout.js';
 
 const START_CHANCE = 0.35;                 // per eligible zone, per tick
 const COOLDOWN_MS = [8 * 60_000, 20 * 60_000];
@@ -197,6 +203,7 @@ function homebodiesIn(zoneId) {
   // as home_zone, and cooking a meal on the shop floor is worse than saying
   // nothing — this is the same dwelling test the engine's passive ticker uses.
   if (!isDwellingZone(getZone(zoneId) || zone)) return [];
+  if (zoneIsDark(zoneId)) return [];             // no supply, no dinner
   const out = [];
   for (const id of zone.npcs) {
     const npc = world.npcs.get(id);
@@ -225,9 +232,11 @@ function play(zoneId, npc, beats) {
     // ...and re-checks unconsciousness with it: someone who lies down mid-routine
     // (or gets put down) stops cooking there and then rather than narrating the
     // rest of the meal from the floor.
+    // ...and the supply with it: a blackout mid-scene ends the scene rather than
+    // narrating the rest of the meal by touch.
     if (i >= beats.length || !getZonePlayers(zoneId).length
         || !live || live._dead || live.zone_id !== zoneId || live._combatTargetId
-        || isBusyBeingUnconscious(live)) {
+        || isBusyBeingUnconscious(live) || zoneIsDark(zoneId)) {
       activeHome.delete(zoneId);
       startCooldown(zoneId);
       return;
