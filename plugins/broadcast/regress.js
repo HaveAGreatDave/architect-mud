@@ -234,8 +234,20 @@ export default async function regress({ check, run, getPlayer }) {
     // A hero day is still reported as ITSELF, welded or not.
     check('an acid day is named as acid inside the welded line',
       wx2.some(t => /acid|caustic/i.test(t)), 'sky.acid');
+    // ⚠ MEMBERSHIP IN THE POOL, never a regex over its prose. This enumerated
+    // five phrasings against an `intro.night` pool that HAS five entries and
+    // missed one of them — "Late one. Dex Rime. Sky's awake, so I am, so here we
+    // are." — so the gate went red on roughly one run in five, at random, for a
+    // show that had picked a perfectly good graveyard intro. Asserting membership
+    // tests the thing the check is actually named for (the 2am slot drew from the
+    // night pool) and cannot go stale the next time somebody adds a sixth line.
+    // ⚠ The pool keys are FLAT DOTTED STRINGS — `pools['intro.night']`, not
+    // `pools.intro.night`. `pools.intro` is a real key too (the daytime intros),
+    // so the nested spelling silently reads `undefined` and fails every run
+    // rather than one in five, which looks like a worse bug than the one it was
+    // meant to fix.
     check('a 2am airing opens on the graveyard intro',
-      /graveyard|small hours|Still awake|Night owls|If you're up/.test(wx2[0] || ''), wx2[0] || '(none)');
+      (wxScript2.pools['intro.night'] || []).includes(wx2[0] || ''), wx2[0] || '(none)');
     check('the forecast still requires its host on stage', wg2._requireHost === true, String(wg2._requireHost));
   } else {
     check('a weather broadcast row exists to assemble', false, 'no weather_pools row');
