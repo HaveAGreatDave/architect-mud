@@ -853,6 +853,30 @@ const LIGHT_SWEEP = [
   { tag: 'gain x1.5', set: { gain: 2.25 } },
 ];
 
+// ── A FROZEN CLOCK HIDES THE LIGHTS, AND EVERY LIGHT MEASUREMENT HERE WAS BLIND ────────────────
+//
+// ⚠ THESE HARNESSES ALL PIN `performance.now`, for the good reason the fidelity rig records: two
+// renders of the same empty scene differ by ninety-eight thousand pixels because the clouds drift
+// and the birds fly, so a moving sky is not a finding. Then `fadeLights` shipped, and the light set
+// became a function of ELAPSED TIME — a light ramps into its slot over a few frames rather than
+// appearing in it. Under a clock that never advances, dt is 0 on every frame, no light ever ramps,
+// and `glLastFrame().lit` is 0 for ever.
+//
+// So every seat in `__glLights` has been reporting 0.0% of wall pixels moved since that landed, at
+// every setting of its own sweep — which is precisely what the feature being switched off looks
+// like, and precisely what its own documentation warns about for the shader end of the same wire.
+// The numbers in the tree for that pass (43% on a dense night cab frame, 23.5% from the air) were
+// measured before the fade existed and cannot be reproduced by the harness that produced them.
+//
+// The fix keeps both properties: STEP the clock until the fade reaches its steady state, then FREEZE
+// it and take the A and B renders at the same instant. The sky is still still; the lights are on.
+function settleFade(paint, frames = 24, step = 33, t0 = 1e6) {
+  let t = t0;
+  for (let i = 0; i < frames; i++) { t += step; performance.now = () => t; paint(); }
+  performance.now = () => t;      // frozen from here, so A and B differ only by the thing under test
+  return t;
+}
+
 export function runLights({ W = 640, H = 360, frames = 30, warm = 10 } = {}) {
   const named = shapeModelRegistry().filter((r) => r.key.startsWith("named:"));
   const holder = document.createElement('div');
@@ -908,10 +932,10 @@ export function runLights({ W = 640, H = 360, frames = 30, warm = 10 } = {}) {
       });
       RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
 
-      // ── the picture, clock frozen ──
-      performance.now = () => 1e6;
+      // ── the picture, clock settled then frozen — see settleFade ──
       const paint2 = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
       RENDER_TUNE.glLights = 0;
+      performance.now = () => 1e6;
       paint2(view(bare)); const empty = shot();
       paint2(view(built)); const off = shot();
       // ⚠ THE MASK IS THE BUILDINGS, TAKEN FROM A THIRD RENDER WITH NONE IN IT. Measured against the
@@ -930,6 +954,11 @@ export function runLights({ W = 640, H = 360, frames = 30, warm = 10 } = {}) {
       let stats = {};
       for (const cfg of LIGHT_SWEEP) {
         Object.assign(LIGHT_TUNE, held, cfg.set);
+        // ⚠ SETTLED AFTER THE SETTING IS APPLIED, NOT ONCE AT THE TOP — see settleFade. The fade is
+        // a function of elapsed time AND of which lights are wanted, so a settle taken before
+        // `glLights` is switched on, or before this sweep's own tuning, ramps nothing and the row
+        // comes back at 0.0% exactly as if the feature were off.
+        settleFade(() => paintWindshield(ID, view(built)));
         paint2(view(built));
         const on = shot();
         if (!sweep.length) stats = glLastFrame() || {};
@@ -1460,8 +1489,11 @@ export function runBakedAO({ W = 640, H = 360, frames = 24, warm = 8 } = {}) {
         resFloor: 1, tune: { gl: 1, perfDS: 0 },
       });
       RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
-      performance.now = () => 1e6;
       const paint2 = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
+      // ⚠ SETTLED, NOT MERELY FROZEN — see settleFade above. Occlusion does not depend on the light
+      // set, but the frame it is measured against does: with the fade never ramping, the night seats
+      // were being compared on a city with no wall wash on it at all, which is not the city.
+      settleFade(() => paintWindshield(ID, view(built)));
 
       RENDER_TUNE.glBakedAo = 0;
       paint2(view(bare)); const empty = shot();
