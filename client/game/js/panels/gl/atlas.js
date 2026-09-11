@@ -22,24 +22,73 @@ const PAD = 1;
 
 // `tiles` is [{ key, canvas }]. Returns { canvas, rect: Map(key -> [u0, v0, u1, v1]), size }.
 // ⚠ `maxSize` IS NOT OPTIONAL ADVICE. WebGL2 guarantees only that MAX_TEXTURE_SIZE is at least
-// 2048, and every palette in the city at `texRes: 2` wants a 2048×4096 page. On a device at the
+// 2048, and the banded packer below is what keeps the city inside it: under the uniform grid it
+// replaced, every palette at `texRes: 2` wanted a 2048×4096 page. On a device at the
 // floor that upload is an INVALID_VALUE and nothing else — no throw, no warning, a city wearing a
 // black texture. Refusing the page instead hands the renderer back to flat palette colours, which
 // is a picture somebody can look at and recognise.
 export function buildAtlas(tiles, maxSize = Infinity) {
   if (!tiles.length) return null;
-  // Every wall tile is the same size and every roof tile is the same size, so a shelf packer is
-  // overkill: a uniform grid of the largest cell wastes a few percent and cannot get the arithmetic
-  // wrong. The cell is the biggest tile plus its skirt.
-  const cw = Math.max(...tiles.map((t) => t.canvas.width)) + PAD * 2;
-  const ch = Math.max(...tiles.map((t) => t.canvas.height)) + PAD * 2;
-  // ⚠ THE GRID IS BALANCED ON THE CELL, NOT ON THE COUNT. A square grid of tall cells makes a page
-  // twice as high as it is wide, which is the shape most likely to cross a device limit on one axis
-  // while wasting half the other. Solving for cols·cw ≈ rows·ch instead costs one square root.
-  const cols = Math.max(1, Math.round(Math.sqrt(tiles.length * ch / cw)));
-  const rows = Math.ceil(tiles.length / cols);
-  const W = pow2(cols * cw), H = pow2(rows * ch);
-  if (W > maxSize || H > maxSize) return null;
+  // ── BANDED BY CELL SIZE, BECAUSE ONE OUTLIER USED TO SIZE EVERY CELL ───────────────────────
+  //
+  // ⚠ THIS WAS A UNIFORM GRID OF THE LARGEST CELL, AND THE COMMENT ON IT SAID THAT WASTES "A FEW
+  // PERCENT". Measured, it wastes about seven eighths. The city bakes 283 wall tiles at 16x32 and
+  // 284 roof tiles at 16x16 — and exactly ONE surface at 32x56, which under a uniform grid sized
+  // the cell for all 568 of them. Every 16x16 roof sat in a 34x58 box.
+  //
+  // The cost of that was not memory, it was the RESOLUTION CEILING. `texRes` 2 wanted a 2048x4096
+  // page, over the only size WebGL2 guarantees, so the whole city fell back to flat palette colours
+  // on a floor-spec device and the dial could never be raised. Grouping tiles by their own cell and
+  // laying each group out in its own band puts the same 568 surfaces at texRes 2 into 512x2048 —
+  // and texRes 3 into 2048x2048, which the old packer could not reach at any setting.
+  //
+  // The page width is CHOSEN rather than derived: a band's column count is whatever fits across it,
+  // so a wider page is fewer, taller bands. Trying the powers of two and keeping the smallest area
+  // that fits the device is cheaper than reasoning about it and cannot pick a shape that does not.
+  const groups = new Map();
+  for (const t of tiles) {
+    const k = t.canvas.width + 'x' + t.canvas.height;
+    let g = groups.get(k); if (!g) groups.set(k, g = []);
+    g.push(t);
+  }
+  // ⚠ Deterministic order, so the same set of surfaces always packs to the same page. The caller
+  // fills its key set by frame traversal, which is not a stable order, and a page that reshuffled
+  // between two frames of identical content would churn the upload for nothing.
+  const bands = [...groups.entries()]
+    .sort((x, y) => (y[1][0].canvas.height - x[1][0].canvas.height)
+      || (y[1][0].canvas.width - x[1][0].canvas.width) || (x[0] < y[0] ? -1 : 1))
+    .map(([, g]) => g.slice().sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0)));
+
+  const widest = Math.max(...tiles.map((t) => t.canvas.width)) + PAD * 2;
+  const layoutAt = (W) => {
+    if (W < widest) return null;
+    let H = 0;
+    const rows = [];
+    for (const g of bands) {
+      const cw = g[0].canvas.width + PAD * 2, ch = g[0].canvas.height + PAD * 2;
+      const cols = Math.max(1, Math.floor(W / cw));
+      rows.push({ g, cw, ch, cols, y: H });
+      H += Math.ceil(g.length / cols) * ch;
+    }
+    H = pow2(H);
+    return H > maxSize ? null : { W, H, rows };
+  };
+  // ⚠ THE PAGE IS CHOSEN ON ITS LONGEST AXIS, NOT ITS AREA, and picking area first is a bug that
+  // looks like it works. Halving the width doubles the band count and therefore the height, so every
+  // candidate here has the SAME area — 64x8192, 128x4096 and 256x2048 are all 512k texels — and an
+  // area comparison keeps whichever came first. That is the 64-wide one: a page eight thousand
+  // texels tall, over the device limit on one axis while measuring as the smallest page available.
+  let best = null;
+  const CAP = Math.min(maxSize, 8192);
+  for (let W = pow2(widest); W <= CAP; W *= 2) {
+    const lay = layoutAt(W);
+    if (!lay) continue;
+    const worse = best && (Math.max(lay.W, lay.H) > Math.max(best.W, best.H)
+      || (Math.max(lay.W, lay.H) === Math.max(best.W, best.H) && lay.W * lay.H >= best.W * best.H));
+    if (!worse) best = lay;
+  }
+  if (!best) return null;
+  const { W, H } = best;
 
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
@@ -47,16 +96,19 @@ export function buildAtlas(tiles, maxSize = Infinity) {
   ctx.imageSmoothingEnabled = false;
 
   const rect = new Map();
-  tiles.forEach((t, i) => {
-    const cx = (i % cols) * cw + PAD, cy = Math.floor(i / cols) * ch + PAD;
-    const tw = t.canvas.width, th = t.canvas.height;
-    // The skirt: the tile drawn once oversized behind itself, then the tile on top. Cheaper than
-    // four edge blits and gives the same result for a one-texel pad.
-    ctx.drawImage(t.canvas, cx - PAD, cy - PAD, tw + PAD * 2, th + PAD * 2);
-    ctx.drawImage(t.canvas, cx, cy);
-    rect.set(t.key, [cx / W, cy / H, (cx + tw) / W, (cy + th) / H]);
-  });
-  return { canvas, rect, size: [W, H], cell: [cw, ch], count: tiles.length };
+  for (const band of best.rows) {
+    band.g.forEach((t, i) => {
+      const cx = (i % band.cols) * band.cw + PAD;
+      const cy = band.y + Math.floor(i / band.cols) * band.ch + PAD;
+      const tw = t.canvas.width, th = t.canvas.height;
+      // The skirt: the tile drawn once oversized behind itself, then the tile on top. Cheaper than
+      // four edge blits and gives the same result for a one-texel pad.
+      ctx.drawImage(t.canvas, cx - PAD, cy - PAD, tw + PAD * 2, th + PAD * 2);
+      ctx.drawImage(t.canvas, cx, cy);
+      rect.set(t.key, [cx / W, cy / H, (cx + tw) / W, (cy + th) / H]);
+    });
+  }
+  return { canvas, rect, size: [W, H], cell: [best.rows[0].cw, best.rows[0].ch], count: tiles.length, bands: best.rows.length };
 }
 
 function pow2(n) { let p = 1; while (p < n) p *= 2; return p; }

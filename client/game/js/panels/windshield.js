@@ -7563,17 +7563,26 @@ function wallTex(biome, night) {
 // simultaneous global tone shift is the visible kind — 1.6% per step puts it under notice, and the
 // cost of a finer ramp is a handful more 16×32 redraws across an entire dusk.
 const WALL_MIX_STEPS = 64;
-const _wallMix = new Map();  // biome → { c, q } — the composited canvas and the NB step it holds
+const _wallMix = new Map();  // biome:texRes → { c, q } — the composited canvas and the NB step it holds
 export function wallTexMixed(biome, NB) {
   const q = Math.round(clamp(NB, 0, 1) * WALL_MIX_STEPS);
   if (q <= 0) return wallTex(biome, 0);
   if (q >= WALL_MIX_STEPS) return wallTex(biome, 1);
   const day = wallTex(biome, 0);
-  let e = _wallMix.get(biome);
-  if (!e) { e = { c: texCanvas(day.width, day.height), q: -1 }; _wallMix.set(biome, e); }
-  // ⚠ The texRes slider resizes the baked variants under us, and assigning canvas.width also CLEARS
-  // it — so the size check has to come first and has to force the redraw, or a wall goes blank the
-  // frame somebody drags that slider.
+  // ⚠ KEYED ON THE RESOLUTION AS WELL AS THE PALETTE, BECAUSE TWO SEATS NOW DISAGREE ABOUT IT. The
+  // cab runs `texRes` 2 and every other view runs 1 (see cab-render-tune.js), and with one entry per
+  // palette the two hand back the SAME canvas — which the size check below then resizes, and
+  // assigning canvas.width clears it, so every wall texture in the city is redrawn from scratch on
+  // every alternation. Measured at 20 of 20 before this key changed. One entry per palette per
+  // resolution is two entries in practice, and neither ever resizes.
+  const mk = biome + ':' + TR();
+  let e = _wallMix.get(mk);
+  if (!e) { e = { c: texCanvas(day.width, day.height), q: -1 }; _wallMix.set(mk, e); }
+  // ⚠ The texRes slider still resizes the baked variants under us — it moves TR() and therefore the
+  // key, but a slider dragged back to a resolution already in the map finds an entry whose canvas
+  // was sized for it, so this stays the guard for the case where the generator's own size changes.
+  // Assigning canvas.width also CLEARS it, so the size check has to come first and force the redraw
+  // or a wall goes blank the frame somebody drags that slider.
   if (e.c.width !== day.width || e.c.height !== day.height) { e.c.width = day.width; e.c.height = day.height; e.q = -1; }
   if (e.q !== q) {
     const g = e.c.getContext('2d');

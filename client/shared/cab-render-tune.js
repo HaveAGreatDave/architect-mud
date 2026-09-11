@@ -89,6 +89,29 @@ export const CAB_VIEW_TUNE = Object.freeze({
   // view can afford, so the shed has room to release it when the frame is cheap. Left here rather
   // than deleted because the key is right and a machine that can pay for it may exist later.
   floorSubpixel: 0,
+  // ── THE ONE SEAT WHERE MORE TEXELS ARE WORTH ANYTHING ──────────────────────
+  //
+  // `texRes` is the wall texture's resolution, and it ships at 1 — a 16x32 canvas stretched over a
+  // whole facade. From a cockpit that is right and raising it would be worse than useless: the
+  // atlas has NO MIPMAPS (min filter is a plain LINEAR tap, see gl/context.js), so a texture is only
+  // ever sharper where it is MAGNIFIED. Minify a 64-texel wall into a 20px building at the far end
+  // of an aircraft's window and the extra texels buy shimmer, not detail.
+  //
+  // A cab is the opposite case and the only one in the game: the camera is on the ground with walls
+  // filling the windscreen, every one of them magnified many times over. `wallLodPx` above puts the
+  // number on it — anything over 44px on screen takes the textured path, and from this seat that is
+  // essentially the whole visible city.
+  //
+  // ⚠ AND IT ONLY BECAME AFFORDABLE WHEN THE ATLAS PACKER WAS FIXED. Under the uniform grid this
+  // wanted a 2048x4096 page — over the only size WebGL2 guarantees — so a floor-spec device would
+  // have drawn the whole city in flat palette colours. Banded, every palette in Coldwater at
+  // texRes 2 is 512x2048, and `scripts/shapes/atlasfit.mjs` is what keeps that true.
+  //
+  // ⚠ AND IT IS WHAT SWITCHES THE TEXEL TIER ON. The generator is resolution-INDEPENDENT — every
+  // feature in it is sized in `tr` units — so raising this on its own would have drawn the same
+  // picture with softer edges. The mullions, transoms, blinds and sill grime in `wallTex` are gated
+  // on there being room for them (`tr >= 2`), and this is the seat that has it.
+  texRes: 2,
   // Rooftop signage and ground shadows go BEHIND the building in front of them long before they go
   // small. That is a thing only a ground camera gets to be true about.
   decoFar: 12,

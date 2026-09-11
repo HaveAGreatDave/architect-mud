@@ -47,7 +47,7 @@ function ensureCanvas(host) {
 // ⚠ ROOFS COME FROM A DIFFERENT GENERATOR, and asking only for the wall gives every roof in the
 // city the generic gravel tile — which is the face a flight sim spends the whole flight looking
 // down at. Both are keyed here, and the key carries which one it is.
-function surfaced(faces, night) {
+function surfaced(faces, night, maxTexture) {
   const pal = paletteMap();
   const NB = Math.max(0, Math.min(1, (night - 0.30) / 0.20));
   const tiles = new Map();
@@ -60,7 +60,11 @@ function surfaced(faces, night) {
     }
     return { ...f, texKey: f.pal ? key : null, rgb: f.rgbOverride || pal.get(f.pal) || [120, 126, 134], uv: faceUVs(f) };
   });
-  const atlas = buildAtlas([...tiles.values()]);
+  // ⚠ THE DEVICE LIMIT IS PASSED HERE FOR THE SAME REASON THE GAME PASSES IT. An unbounded page is
+  // the one call shape where the packer has to choose a layout with nothing telling it what will
+  // fit, and the tool exists to show what the game will draw — a Modelshop that silently packs a
+  // page this machine can hold and the player's cannot is a tool disagreeing with the sim.
+  const atlas = buildAtlas([...tiles.values()], maxTexture || 2048);
   for (const f of keyed) f.rect = atlas && f.texKey ? atlas.rect.get(f.texKey) : null;
   return { faces: keyed, atlas };
 }
@@ -92,7 +96,7 @@ export function glDraw(host, m, res, opts = {}) {
   // frame comes back empty. `dx`/`dy` off the preview result are where the 2-D pass put it, and
   // using those is what keeps the two pictures at one place as well as at one camera.
   const ox = res && res.dx || 0, oy = res && res.dy || 0;
-  const built = surfaced(captureModelMesh(m, opts.mesh || {}), (opts.mesh && opts.mesh.night) || 0);
+  const built = surfaced(captureModelMesh(m, opts.mesh || {}), (opts.mesh && opts.mesh.night) || 0, view.maxTexture);
   const mesh = built.faces.map((f) => ({ ...f, p: f.p.map((p) => [p[0] + ox, p[1] + oy, p[2]]) }));
   if (built.atlas) view.setAtlas(built.atlas.canvas);
   view.upload(mesh);
