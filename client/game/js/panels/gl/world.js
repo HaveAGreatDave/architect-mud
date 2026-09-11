@@ -86,7 +86,7 @@ let builds = 0;
 //   gain  — how bright the wash is, against a base in 0..1
 //   wrap  — how far round the light reaches; 0 is exactly lambert. See the ⚠ in context.js: a
 //           sign is mounted FLUSH on its wall, so a pure cosine is ~0 for the commonest case.
-export const LIGHT_TUNE = { minR: 0.8, span: 3.2, gain: 1.5, wrap: 0.6 };
+export const LIGHT_TUNE = { minR: 0.8, span: 3.2, gain: 1.5, wrap: 0.6, rise: 0.22, fall: 0.38 };
 
 // ── CONTACT OCCLUSION, AS TWO NUMBERS ───────────────────────────────────────
 //
@@ -109,6 +109,37 @@ export const AO_TUNE = { fall: 1.6 };
 // How much better a challenger has to be to take a sitting light own slot. See the ⚠ above: this
 // is the difference between a set that changes when the view does and one that changes every frame.
 const LIGHT_HOLD = 1.35;
+
+// ── ⚠ A LIGHT FADES IN AND OUT. IT MUST NEVER BE SWITCHED. ──────────────────
+//
+// There are twelve uniform slots and a night city has far more than twelve lights near you, so the
+// chosen set churns constantly as you move — that is the budget working, and `LIGHT_HOLD` only
+// decides WHICH twelve, not what happens at the moment one is swapped. Without a ramp a light's
+// entire wall wash appears or vanishes between two consecutive frames.
+//
+// Measured flying a lit street: the pixels the light pass visibly changes ran
+// 3642 → 2812 → 3640 → 4852 → 3158 → 2218, with a **1,654-pixel step in a single frame** — 1.7% of
+// the frame lighting up or going out at once, repeatedly, which is what reads as a strobe on the
+// buildings you are passing. It is worst exactly where it is most visible: near, dense and at night.
+//
+// So a slot carries a WEIGHT that ramps, and a light on its way out keeps its slot while it fades.
+// Because the final sort is on `score * weight`, a fading light gives its slot up on its own as the
+// weight decays — no separate eviction rule, and no starving the wanted set.
+//
+// ⚠ THE RAMP IS IN SECONDS, NOT FRAMES. A per-frame step makes the fade take four times as long on
+// a 240 Hz monitor as on a 60 Hz one, and this renderer already sheds frames deliberately under
+// load — so the one moment the fade most needs to be smooth is the moment a frame-counted one would
+// be slowest. `dt` is clamped because a tab that was in the background hands back a huge delta, and
+// an unclamped ramp would snap every light to its target on the first frame back — the pop this
+// exists to remove, arriving exactly when somebody alt-tabs in.
+// In LIGHT_TUNE rather than as constants so the fade has an off switch: setting both to 0 restores
+// the instant swap exactly, which is what the A/B that justified this measures against.
+const LIGHT_DT_MAX = 0.1;  // clamp on one frame's delta
+// How many of the twelve slots an outgoing light may borrow while it fades. Three, because that is
+// about as many as turn over at once when flying a lit street, and because each one costs the frame
+// its twelfth-brightest light for a third of a second — a trade worth making to stop a wash
+// vanishing between two frames, and not worth making many times over.
+const FADE_SLOTS = 3;
 
 function pickLights(cam, sprites, night, held) {
   if (!sprites || !sprites.length || !cam) return null;
@@ -141,13 +172,66 @@ function pickLights(cam, sprites, night, held) {
     });
   }
   if (!out.length) return null;
-  if (out.length > MAX_LIGHTS) {
-    // Incumbents carry a bonus, so a challenger has to be clearly better rather than a hair better.
-    if (held) for (const e of out) if (held.has(e.key)) e.score *= LIGHT_HOLD;
-    out.sort((p, q) => q.score - p.score);
-    out.length = MAX_LIGHTS;
-  }
+  // Incumbents carry a bonus, so a challenger has to be clearly better rather than a hair better.
+  if (held) for (const e of out) if (held.has(e.key)) e.score *= LIGHT_HOLD;
+  out.sort((p, q) => q.score - p.score);
   return out;
+}
+
+// Ramp each light's contribution toward its target and hand back the slots, weight applied. See the
+// ⚠ on LIGHT_RISE. `state` is the scene's own map, so two views painting two cities keep their own.
+export function fadeLights(ranked, state, dt) {
+  // ⚠ THE SET IS CHOSEN ON SCORE ALONE, AND THE WEIGHT ONLY DECIDES BRIGHTNESS. Ranking the slots
+  // on `score * weight` is the obvious build and it is wrong: a light that has just been elected
+  // starts at weight 0, so it sorts BELOW the one it just beat, and the two trade the slot back and
+  // forth while neither gets bright. Measured, a short fade that way came out WORSE than no fade at
+  // all — worst step 367 against 311 — which is the tell that the fade had started driving the
+  // churn it exists to smooth. The wanted set is now exactly the set HEAD would have picked;
+  // fading-out lights take whatever slots are left over, and the ramp is only ever a multiplier.
+  const rise = LIGHT_TUNE.rise > 0 ? dt / LIGHT_TUNE.rise : 1;
+  const fall = LIGHT_TUNE.fall > 0 ? dt / LIGHT_TUNE.fall : 1;
+  // ⚠ A FADING LIGHT NEEDS A SLOT, AND THE WANTED SET HAS TO GIVE ONE UP. There are exactly
+  // MAX_LIGHTS uniform slots; if the top MAX_LIGHTS by score take all of them there is nowhere for
+  // an outgoing light to fade, and eviction stays instant — which is half the pop still shipping.
+  // The first cut appended fading lights "into whatever slots remain" and in a dense city there are
+  // never any, so the fade only ever worked on the way IN. The gate caught it; the frame did not.
+  //
+  // So the wanted set is trimmed by however many lights are actually on their way out, up to
+  // FADE_SLOTS. The light that gets bumped is the LOWEST-SCORING of the twelve, which is the one
+  // covering least of the picture — and it then joins the outgoing set and fades on the next frame
+  // rather than snapping off, so the cascade decays instead of ringing.
+  const ideal = ranked.slice(0, MAX_LIGHTS);
+  const idealKeys = new Set(ideal.map((e) => e.key));
+  const fading = ranked.filter((e) => !idealKeys.has(e.key) && (state.get(e.key) ?? 0) > 0);
+  const reserve = Math.min(fading.length, FADE_SLOTS);
+  const wanted = ideal.slice(0, Math.max(1, MAX_LIGHTS - reserve));
+  const inSet = new Set(wanted.map((e) => e.key));
+  const live = [];
+  for (const e of wanted) {
+    const w = Math.min(1, (state.get(e.key) ?? 0) + rise);
+    state.set(e.key, w);
+    if (w > 0) live.push({ e, w });
+  }
+  for (const e of ranked) {
+    if (inSet.has(e.key)) continue;
+    const w0 = state.get(e.key);
+    if (w0 === undefined) continue;
+    const w = w0 - fall;
+    if (w <= 0) { state.delete(e.key); continue; }
+    state.set(e.key, w);
+    if (live.length < MAX_LIGHTS) live.push({ e, w });
+  }
+  // ⚠ A LIGHT THAT LEFT THE FRAME ENTIRELY IS NOT IN `ranked` AT ALL, so it never reaches the loop
+  // above and would keep its stale weight for ever — and snap back to it the moment it returned.
+  // Anything not seen this frame is decayed here and dropped when it reaches zero.
+  const seen = new Set(ranked.map((e) => e.key));
+  for (const [k, w0] of [...state]) {
+    if (seen.has(k)) continue;                 // handled above, in one of the two loops
+    const w = w0 - fall;
+    if (w <= 0) state.delete(k); else state.set(k, w);
+  }
+  if (!live.length) return null;
+  return live.map(({ e, w }) => ({ ...e, rgb: [e.rgb[0] * w, e.rgb[1] * w, e.rgb[2] * w] }));
 }
 
 function sceneGL(id, w, h) {
@@ -385,10 +469,26 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     ? { ...cam, fx: (cam.fx || 0) + cam.ox, fy: (cam.fy || 0) + cam.oy }
     : cam;
   // ⚠ COMPUTED FROM THE PLAIN CAMERA AND HANDED TO THE SHIFTED ONE — see pickLights.
-  const lightList = opts.glLights === 0 ? null : pickLights(cam, opts.sprites, opts.night || 0, g.litHeld);
   // Remembered on the SCENE rather than in the module, because two views can be painting two
-  // different cities in one frame and each has its own twelve.
-  g.litHeld = lightList ? new Set(lightList.map((e) => e.key)) : null;
+  // different cities in one frame and each has its own twelve — and now its own fade state too.
+  // ⚠ THE FRAME'S OWN CLOCK (`opts.now`), NOT A FRESH performance.now(). Sampling the clock here
+  // gives a SECOND idea of what time it is inside one frame, and the two disagree in both directions
+  // that matter: the pass is called twice for one frame in places, so the second call sees dt≈0 and
+  // the ramp stalls; and any harness that drives `now` to step through time — which is the only way
+  // to test a fade headlessly — cannot move this at all. `now` is what every animated thing in the
+  // renderer already shades against, so the fade is on the same clock as everything it fades.
+  if (!g.litW) g.litW = new Map();
+  const tNow = (opts.now || 0) / 1000;
+  const dt = Math.min(LIGHT_DT_MAX, Math.max(0, tNow - (g.litT ?? tNow)));
+  g.litT = tNow;
+  let lightList = null;
+  if (opts.glLights !== 0) {
+    const ranked = pickLights(cam, opts.sprites, opts.night || 0, g.litHeld);
+    lightList = ranked ? fadeLights(ranked, g.litW, dt) : null;
+    // The HELD set is what was WANTED this frame, not what is lit — an incumbent bonus given to a
+    // light that is only still on screen because it is fading out would keep re-electing it.
+    g.litHeld = ranked ? new Set(ranked.slice(0, MAX_LIGHTS).map((e) => e.key)) : null;
+  } else { g.litHeld = null; g.litW.clear(); }
   g.view.draw(camAt, { ...(opts.draw || {}), lights: lightList, lightWrap: LIGHT_TUNE.wrap, cssH,
     ao: opts.glAO || 0, aoFall: AO_TUNE.fall });
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
