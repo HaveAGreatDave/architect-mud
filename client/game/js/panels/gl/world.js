@@ -86,7 +86,20 @@ let builds = 0;
 //   gain  — how bright the wash is, against a base in 0..1
 //   wrap  — how far round the light reaches; 0 is exactly lambert. See the ⚠ in context.js: a
 //           sign is mounted FLUSH on its wall, so a pure cosine is ~0 for the commonest case.
-export const LIGHT_TUNE = { minR: 0.8, span: 3.2, gain: 1.5, wrap: 0.6, rise: 0.22, fall: 0.38 };
+// ⚠ `gain` WAS 1.5 AND IT SATURATED THE BUILDINGS IT WAS MOST MEANT FOR. The wash is additive per
+// light, and a neon-heavy frontage carries a dozen of its own — two glow pools, four beacons, a
+// marquee, a pair of blades — so they stack and the facade goes flat. Measured at a truck cab in
+// front of Voltage and Neon Vig at 22:00: at 1.5 both were a single uniform slab of their own sign
+// colour with no wall texture, no window grid and no trim left. The detail is all still being
+// drawn; it is just underneath. `__glLights()` sweeps what share of wall pixels each setting moves,
+// which is the right question for "is the feature doing anything" and the wrong one for "is it
+// doing too much" — more pixels moved scores better right up to the point everything is one colour.
+//
+// 0.45 was picked against the failure rather than the feature: at it, the same two buildings keep
+// their texture and read as lit, and the buildings with ONE modest sign (an office, a walk-up) are
+// visually unchanged — which is the check that matters, because it says the reduction bites only
+// where the saturation was.
+export const LIGHT_TUNE = { minR: 0.8, span: 3.2, gain: 0.45, wrap: 0.6, rise: 0.22, fall: 0.38 };
 
 // ── CONTACT OCCLUSION, AS TWO NUMBERS ───────────────────────────────────────
 //
