@@ -12,7 +12,11 @@
       "message": "One popper too many and your blood pressure bottoms out. You fold like a chair."
     },
     "phases": {
-      "comedown_scale": 0.5,
+      "comedown_mods": {
+        "stat_brawn": -1,
+        "stat_cool": -2
+      },
+      "comedown_scale": 1,
       "comedown_seconds": 26,
       "comeup_message": "<span class=\"msg-system\">A hot rush slams up the back of your neck and the room goes bright and loud.</span>",
       "comeup_scale": 0.8,

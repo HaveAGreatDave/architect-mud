@@ -45,6 +45,19 @@
       "lethal": false,
       "message": "You go too far in and are shown too much at once. You come back shaking, intact, and unable to say a word about it."
     },
+    "phases": {
+      "comedown_scale": 0.4,
+      "comedown_seconds": 30,
+      "comeup_scale": 0.5,
+      "comeup_seconds": 3,
+      "end_message": "<span class=\"msg-system\">You are in a room, on the floor, and you have been gone about fifteen minutes, and you are entirely fine.</span>",
+      "peak_mods": {
+        "stat_brains": -4,
+        "stat_cool": -3,
+        "stat_reflexes": -5
+      },
+      "peak_seconds": 115
+    },
     "take_line": "You load the {name} onto the screen and take it all in one long pull.",
     "tolerance": {
       "gain_per_dose": 0,

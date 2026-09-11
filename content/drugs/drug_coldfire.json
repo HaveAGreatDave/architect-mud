@@ -16,10 +16,15 @@
       "message": "Your body can't tell it's dying. It sprints straight past the edge."
     },
     "phases": {
-      "comedown_scale": 0.6,
+      "comedown_mods": {
+        "hp_max": -10,
+        "stat_brawn": -2,
+        "stat_endurance": -3
+      },
+      "comedown_scale": 1,
       "comedown_seconds": 90,
       "comeup_scale": 0.6,
-      "comeup_seconds": 10,
+      "comeup_seconds": 12,
       "end_message": "<span class=\"msg-system\">The fire gutters out. Every wound you ignored is suddenly very loud.</span>",
       "peak_message": "<span class=\"msg-system\">Cold fire floods your veins. Pain becomes a distant rumour.</span>",
       "peak_mods": {
@@ -28,7 +33,7 @@
         "stat_brawn": 5,
         "stat_endurance": 3
       },
-      "peak_seconds": 140
+      "peak_seconds": 138
     },
     "take_line": "You dose yourself with {name}, cold and clinical.",
     "tolerance": {

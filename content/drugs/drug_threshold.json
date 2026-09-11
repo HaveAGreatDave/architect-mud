@@ -32,6 +32,19 @@
       "sanity": -12
     },
     "onset_seconds": 0,
+    "phases": {
+      "comedown_scale": 0.4,
+      "comedown_seconds": 40,
+      "comeup_scale": 0.5,
+      "comeup_seconds": 4,
+      "end_message": "<span class=\"msg-system\">Four hundred seconds, by the clock. You will be arguing with that clock for a while.</span>",
+      "peak_mods": {
+        "stat_brains": -4,
+        "stat_cool": -4,
+        "stat_reflexes": -5
+      },
+      "peak_seconds": 180
+    },
     "take_line": "You take a single breath of {name}.",
     "tolerance": {
       "gain_per_dose": 0.2,

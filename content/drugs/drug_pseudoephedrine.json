@@ -29,6 +29,11 @@
       "peak_seconds": 140
     },
     "take_line": "You swallow a dose from {name}.",
+    "tolerance": {
+      "gain_per_dose": 0.1,
+      "max_reduction": 0.5,
+      "recovery_per_sec": 0.00001
+    },
     "withdrawal": {
       "message": "Your sinuses shut harder than they were before you opened them.",
       "mods": {

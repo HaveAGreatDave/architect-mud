@@ -13,6 +13,7 @@
     "drug_family": "stimulant",
     "form": "leaf",
     "legal": true,
+    "skin_permeability": 0.85,
     "sub": "dried"
   },
   "id": "drug_loose_tobacco",

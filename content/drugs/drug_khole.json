@@ -45,6 +45,24 @@
       "lethal": true,
       "message": "You go so far down the hole that you forget the way back, and your body forgets to breathe."
     },
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">You are handed your body back a piece at a time, in no particular order.</span>",
+      "comedown_mods": {
+        "stat_brains": -2,
+        "stat_reflexes": -2
+      },
+      "comedown_scale": 1,
+      "comedown_seconds": 60,
+      "comeup_scale": 0.3,
+      "comeup_seconds": 8,
+      "end_message": "<span class=\"msg-system\">All of you is in the same place again. You stay where you are for a bit anyway.</span>",
+      "peak_mods": {
+        "stat_brains": -3,
+        "stat_brawn": -3,
+        "stat_reflexes": -5
+      },
+      "peak_seconds": 190
+    },
     "take_line": "You cut out a line of {name} and snort it.",
     "tolerance": {
       "gain_per_dose": 0.2,

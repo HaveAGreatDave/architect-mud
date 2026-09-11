@@ -41,24 +41,33 @@
     },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The headache arrives on schedule and settles behind your eyes.</span>",
-      "comedown_scale": 0.4,
+      "comedown_mods": {
+        "stat_brains": -2,
+        "stat_endurance": -2
+      },
+      "comedown_scale": 1,
       "comedown_seconds": 60,
       "comeup_scale": 0.6,
       "comeup_seconds": 8,
       "end_message": "<span class=\"msg-system\">You come back with a mouth full of solvent and a little less than you started with.</span>",
       "peak_mods": {
+        "stat_brains": -3,
         "stat_cool": -2,
-        "stat_reflexes": -2,
-        "stat_smarts": -3
+        "stat_reflexes": -2
       },
       "peak_seconds": 45
     },
     "take_line": "You wet a rag from {name} and breathe it in.",
+    "tolerance": {
+      "gain_per_dose": 0.15,
+      "max_reduction": 0.6,
+      "recovery_per_sec": 0.000009
+    },
     "withdrawal": {
       "message": "Your hands are unsteady and the workshop shelf keeps catching your eye.",
       "mods": {
-        "stat_cool": -1,
-        "stat_smarts": -1
+        "stat_brains": -2,
+        "stat_cool": -2
       },
       "onset_seconds": 1200,
       "stages": {
@@ -72,7 +81,8 @@
   },
   "flags": {
     "drug_class": "depressant",
-    "legal": true
+    "legal": true,
+    "skin_permeability": 0.9
   },
   "id": "drug_toluene",
   "item_id": "item_reagent_solvent",

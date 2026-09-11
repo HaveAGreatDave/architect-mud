@@ -18,9 +18,18 @@
       "comeup_seconds": 60,
       "end_message": "Whatever that was, it's finished with you for now.",
       "peak_message": "A deep, unfamiliar heaviness settles low in your gut. Not unpleasant. Not nothing.",
+      "peak_mods": {
+        "stamina_max": 5,
+        "stat_brawn": 1
+      },
       "peak_seconds": 600
     },
     "take_line": "You push the needle in. There's a long, bright, total moment where the world is only that.",
+    "tolerance": {
+      "gain_per_dose": 0.1,
+      "max_reduction": 0.5,
+      "recovery_per_sec": 0.000006
+    },
     "withdrawal": {
       "message": "Everything the syringe was running has gone quiet, and quiet isn't the same as rested.",
       "mods": {

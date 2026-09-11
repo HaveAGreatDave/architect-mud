@@ -34,11 +34,31 @@ const SLUR_MIN     = 30;   // speech starts slurring at/above this
 const WOBBLE_MIN   = 40;   // movement starts staggering
 const BLACKOUT_MIN = 70;   // blackouts become possible
 const DECAY_PER_TICK = 0.15;   // 0.0375/sec → sober from 100 in ~44 min
+const TICK_SECONDS   = 4;      // the schedule below; absorption is measured against it
 const BLACKOUT_MIN_MS = 10000;
 const BLACKOUT_MAX_MS = 30000;
 
 const DEFAULT_INTOX_PER_DOSE = 22;
 const DEFAULT_SOBER_AMOUNT   = 30;
+
+// ABSORPTION — the reason it is possible to drink too much.
+//
+// A dose used to land on the meter whole, the instant it was swallowed, which
+// made over-drinking something you could only do on purpose: the feedback was
+// immediate and perfect, so you always knew exactly where you were before
+// deciding whether to order another. Nobody has ever been caught out by a drink
+// that told them the truth straight away.
+//
+// Alcohol arrives late. A drink taken now is still arriving a quarter of an hour
+// from now, and the round you ordered because you felt fine is the round that
+// puts you on the floor. So a dose goes into a PENDING pool and bleeds into the
+// meter over `flags.absorb_seconds`, read off the drug row like every other
+// number here — absent or 0 lands it whole, exactly as before, so nothing else
+// that feeds the meter changes.
+//
+// The pool is deliberately not visible anywhere. A read-out of what is still
+// coming would hand back the certainty this exists to take away.
+const DEFAULT_ABSORB_SECONDS = 0;
 
 // Bands for threshold narration. Index into BAND_MSG on crossing.
 const BANDS = [
@@ -95,6 +115,39 @@ function addIntoxication(player, amount) {
   return player.intoxication;
 }
 
+// Queue a dose to arrive over `seconds` instead of landing whole. Rate is per
+// second and the pool is a running total, so a second drink while the first is
+// still coming stacks rather than replacing it — which is the case the whole
+// mechanic is about.
+function queueAbsorption(player, amount, seconds) {
+  if (!(seconds > 0) || amount <= 0) return false;
+  player._intoxPending = (player._intoxPending || 0) + amount;
+  player._intoxRate = (player._intoxRate || 0) + amount / seconds;
+  return true;
+}
+
+// Bleed the pending pool into the meter. Returns what landed this tick.
+// Sobering up drains what is still in the pool first: coffee against a drink
+// you have not finished absorbing should take the drink, not just the part of
+// it that has already arrived.
+function absorbTick(player, elapsedSec) {
+  const pending = player._intoxPending || 0;
+  if (pending <= 0) { player._intoxPending = 0; player._intoxRate = 0; return 0; }
+  const landed = Math.min(pending, (player._intoxRate || 0) * elapsedSec);
+  player._intoxPending = pending - landed;
+  if (player._intoxPending <= 0.01) { player._intoxPending = 0; player._intoxRate = 0; }
+  return landed;
+}
+
+function drainPending(player, amount) {
+  const pending = player._intoxPending || 0;
+  if (pending <= 0 || amount <= 0) return 0;
+  const taken = Math.min(pending, amount);
+  player._intoxPending = pending - taken;
+  if (player._intoxPending <= 0.01) { player._intoxPending = 0; player._intoxRate = 0; }
+  return taken;
+}
+
 // Stream the drunkenness level to the client (drives the drunk flight-view warp).
 // Change-gated so it's near-silent while sober or steady, then follows the meter.
 function pushIntoxFx(player) {
@@ -109,14 +162,18 @@ on('player.drugUsed', ({ player, drug, potency }) => {
   const p = Math.max(0.5, potency ?? 1);
   if (drug.flags.alcoholic) {
     const per = Number(drug.flags.intox_per_dose) || DEFAULT_INTOX_PER_DOSE;
-    const lvl = addIntoxication(player, Math.round(per * p));
+    const dose = Math.round(per * p);
+    const absorb = Number(drug.flags.absorb_seconds) || DEFAULT_ABSORB_SECONDS;
+    if (queueAbsorption(player, dose, absorb)) return;   // arrives over the next few minutes
+    const lvl = addIntoxication(player, dose);
     narrateBand(player, lvl);
     pushIntoxFx(player);
   } else if (drug.flags.sobering) {
     const amt = Number(drug.flags.sober_amount) || DEFAULT_SOBER_AMOUNT;
     const before = player.intoxication || 0;
-    if (before > 0) {
-      const lvl = addIntoxication(player, -amt);
+    const stillComing = drainPending(player, amt);
+    if (before > 0 || stillComing > 0) {
+      const lvl = addIntoxication(player, -(amt - stillComing));
       sendToPlayer(player.id, { type: 'output', message: 'The caffeine cuts through the fog a little. You feel a touch more clear-headed.' });
       narrateBand(player, lvl);
       pushIntoxFx(player);
@@ -203,6 +260,8 @@ function clearAll(player) {
   if (player._blackoutActive) endBlackout(player);
   player.intoxication = 0;
   player._intoxBand = 0;
+  player._intoxPending = 0;   // a drink still arriving does not survive death or a logout either
+  player._intoxRate = 0;
   reverseMods(player, 'intox');   // drop any drunk stat impairment
   pushIntoxFx(player);   // → level 0, clears the drunk flight-view warp
 }
@@ -220,9 +279,16 @@ function intoxTick() {
     const now = Date.now();
     for (const player of getAllLivePlayers()) {
       if (player._blackoutActive && now >= (player.blackedOutUntil || 0)) endBlackout(player);
-      const lvl = player.intoxication || 0;
+      // Absorption first, and BEFORE the sober check — a player reading 0 with a
+      // drink still coming is the exact case this exists for, and skipping them
+      // would strand the pool forever.
+      const arriving = absorbTick(player, TICK_SECONDS);
+      const lvl = Math.min(100, (player.intoxication || 0) + arriving);
       if (lvl <= 0) continue;
       if (lvl >= BLACKOUT_MIN && !player._blackoutActive && Math.random() < blackoutChance(lvl)) startBlackout(player);
+      // Decay only runs against what has actually landed. While a dose is still
+      // arriving the meter climbs, which is what makes the drink you had a
+      // quarter of an hour ago the one that catches you.
       const next = Math.max(0, lvl - DECAY_PER_TICK);
       player.intoxication = next;
       narrateBand(player, next);
@@ -250,4 +316,5 @@ registerAction({
 });
 
 // Exposed for the regression suite.
-export const _test = { slur, addIntoxication, narrateBand, blackoutChance, BAND_MODS, SLUR_MIN, BLACKOUT_MIN };
+export const _test = { slur, addIntoxication, narrateBand, blackoutChance, BAND_MODS, SLUR_MIN, BLACKOUT_MIN,
+  queueAbsorption, absorbTick, drainPending, TICK_SECONDS, DECAY_PER_TICK };

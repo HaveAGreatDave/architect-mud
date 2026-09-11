@@ -14,7 +14,12 @@
       "message": "Your wetware runs too hot for too long and something delicate inside simply melts."
     },
     "phases": {
-      "comedown_scale": 0.6,
+      "comedown_mods": {
+        "sanity_regen_per_sec": -0.01,
+        "stat_brains": -4,
+        "stat_cool": -2
+      },
+      "comedown_scale": 1,
       "comedown_seconds": 78,
       "comeup_message": "<span class=\"msg-system\">Your lace spins up with a whine only you can hear. The world turns to data.</span>",
       "comeup_scale": 0.5,
@@ -23,7 +28,7 @@
       "peak_message": "<span class=\"msg-system\">You're thinking in parallel now, a dozen threads, all of them screaming.</span>",
       "peak_mods": {
         "hp_max": 10,
-        "sanity_regen_per_sec": -1,
+        "sanity_regen_per_sec": -0.12,
         "stat_brains": 5,
         "stat_reflexes": 4
       },

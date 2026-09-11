@@ -8,7 +8,9 @@ import {
   applyTopical, needsTopicalConsent, fluidInfo, registerTopicalEffect,
   hasTopicalEffect, hasTopicalWetting, describeContainerFluid, isHarmfulFluid,
   getTopicalConsent, systemicDose, hasTopicalDosing, MIN_SYSTEMIC_DOSE, TOPICAL_FLUIDS,
+  skinPermeabilityOf,
 } from '../../server/engine/topical.js';
+import { readdirSync, readFileSync } from 'fs';
 
 export default async function regress({ run, check, getPlayer }) {
   let r = await run('sprayconsent');
@@ -152,4 +154,80 @@ export default async function regress({ run, check, getPlayer }) {
   const probed = await applyTopical({ id: 'someone-else' }, { fluid: '__regress_probe' });
   check('a fluid effect gets the last word over the wetting pass',
     probed.message === 'probe', probed.message);
+
+  // ── The cargo's own half of absorption ─────────────────────────────────────
+  //
+  // `absorb` describes the LIQUID and says nothing about what is dissolved in
+  // it, so before this every drug in a given carrier was delivered identically:
+  // blacktar and slow off the same rag arrived at the same strength. Fentanyl
+  // comes as a patch and morphine never has, and they are the same class in the
+  // same carrier — the molecule is the difference.
+  {
+    // ⚠ 'drug' MUST BE A REAL FLUID. Fourteen fillable vials ship
+    // `prefill.fluid_type: 'drug'` and it was not a key in TOPICAL_FLUIDS, so all
+    // of them fell through `fluidInfo`'s forgiving fallback at absorb 0 — a vial
+    // of blacktar emptied over somebody wet them and did nothing else, for ever.
+    check("'drug' is a carrier the table knows, not the unknown-fluid fallback",
+      !!TOPICAL_FLUIDS.drug && fluidInfo('drug').absorb > 0, String(fluidInfo('drug').absorb));
+
+    // The registry is claimed by index.js; unclaimed it answers 1 and the formula
+    // is exactly what shipped before it existed.
+    check('a liquid carrying nothing is unchanged by permeability',
+      skinPermeabilityOf(null) === 1 && skinPermeabilityOf(undefined) === 1);
+
+    const doseOf = (fluid, drug, skinExposure = 1) => systemicDose({
+      potency: 1, absorb: fluidInfo(fluid).absorb, skinExposure,
+      permeability: skinPermeabilityOf(drug),
+    });
+
+    // THE QUESTION THIS ANSWERS: three drugs, one carrier, three outcomes.
+    const booze = skinPermeabilityOf('drug_alcohol');
+    const sedative = skinPermeabilityOf('drug_slow');
+    const opioid = skinPermeabilityOf('drug_blacktar');
+    check('alcohol, a sedative and an opioid do not share a permeability',
+      new Set([booze, sedative, opioid]).size === 3, [booze, sedative, opioid].join(' / '));
+    check('alcohol is the least able of them to cross skin',
+      booze < sedative && booze < opioid, `booze=${booze}`);
+
+    // Alcohol must be inert through EVERY carrier, not just its own. A drink
+    // thrown over somebody is a wet coat and a smell, never a drink.
+    const wetOnly = ['booze', 'drug', 'solvent', 'water'].filter(f => doseOf(f, 'drug_alcohol') === 0);
+    check('alcohol lands as nothing but wet through every carrier',
+      wetOnly.length === 4, wetOnly.join(','));
+
+    // ...while a solvent carrying something that DOES cross still works, or the
+    // permeability factor would just be an off switch.
+    check('a solvent carrying a permeable drug still doses hard',
+      doseOf('solvent', 'drug_ether') > MIN_SYSTEMIC_DOSE, String(doseOf('solvent', 'drug_ether')));
+
+    // Clothing is still chemical protection, and now it is the last line rather
+    // than the only one.
+    check('a coat still blocks what bare skin would take',
+      doseOf('solvent', 'drug_blacktar', 0.3) < doseOf('solvent', 'drug_blacktar', 1));
+
+    // ⚠ AN OVERRIDE HAS TO BE CHECKED AGAINST THE CARRIERS IT WILL MEET. Filing
+    // blacktar at the morphine end (0.15) read well and put its own vial back
+    // under the floor — the exact bug the 'drug' carrier above exists to fix.
+    // This sweeps every prefilled container in the world and fails if one of them
+    // carries a drug and delivers nothing.
+    //
+    // ⚠ Read from content/, not the local DB: the dev DB drifts from the tree,
+    // so a gate on it goes red for anyone who has not run content:import and
+    // green for anyone whose DB still holds the version this is meant to catch.
+    // Same rule as the broadcast weather pools.
+    const itemsDir = new URL('../../content/items/', import.meta.url);
+    const inert = [];
+    for (const f of readdirSync(itemsDir)) {
+      if (!f.endsWith('.json')) continue;
+      const pre = JSON.parse(readFileSync(new URL(f, itemsDir), 'utf8'))?.flags?.prefill;
+      if (!pre?.fluid_type || !pre.drug_id) continue;
+      if (doseOf(pre.fluid_type, pre.drug_id) === 0 && pre.drug_id !== 'drug_slow') {
+        inert.push(`${f.replace('.json', '')} (${pre.fluid_type}+${pre.drug_id})`);
+      }
+    }
+    // drug_slow is the one deliberate exception: a depressant sedative that does
+    // not cross skin is correct, and it is named here so it cannot drift silently.
+    check('every liquid drug vial in the world delivers something on bare skin',
+      inert.length === 0, inert.join(', '));
+  }
 }

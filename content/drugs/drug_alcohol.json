@@ -1,7 +1,7 @@
 {
-  "addiction_chance": 0,
+  "addiction_chance": 0.12,
   "description": "Ethanol, in whatever form it reaches you. Loosens you up, blurs the edges, then quietly takes your legs and the lights with them.",
-  "duration_seconds": 240,
+  "duration_seconds": 1800,
   "effects": {
     "diuretic": 2,
     "instant": {
@@ -14,18 +14,64 @@
       "lethal": true,
       "message": "You've had far too much, far too fast. The room spins hard, your stomach heaves, and then everything just… stops. Alcohol poisoning."
     },
-    "take_line": "You knock back {name}."
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">Somewhere in the last while your mouth turned to paper and the lights got louder.</span>",
+      "comedown_mods": {
+        "sanity_regen_per_sec": -0.004,
+        "stat_brains": -2,
+        "stat_cool": -2,
+        "stat_endurance": -2,
+        "stat_reflexes": -1
+      },
+      "comedown_scale": 1,
+      "comedown_seconds": 3600,
+      "comeup_message": "<span class=\"msg-system\">It goes down warm, and then does nothing at all, which is the first thing it does.</span>",
+      "comeup_scale": 0.3,
+      "comeup_seconds": 240,
+      "end_message": "<span class=\"msg-system\">It finishes with you, and leaves you tired in a way that sleeping has already failed to fix.</span>",
+      "peak_message": "<span class=\"msg-system\">The warmth catches up with you all at once. The room is friendly. Your opinions are excellent.</span>",
+      "peak_mods": {
+        "sanity_regen_per_sec": 0.015
+      },
+      "peak_seconds": 1200
+    },
+    "take_line": "You knock back {name}.",
+    "tolerance": {
+      "gain_per_dose": 0.03,
+      "lethal_gain_ratio": 0.15,
+      "max_reduction": 0.55,
+      "recovery_per_sec": 0.0000023
+    },
+    "withdrawal": {
+      "message": "Your hands won't be still, and the room has started putting things in the corners of itself.",
+      "mods": {
+        "hp_max": -10,
+        "stat_brains": -2,
+        "stat_cool": -3,
+        "stat_reflexes": -3
+      },
+      "onset_seconds": 5400,
+      "stages": {
+        "easing": "It lets go of your hands before it lets go of the rest. You get an hour of thinking it's finished.",
+        "onset": "Your hands are doing something small and constant, and looking at them doesn't stop it.",
+        "peak": "Everything in here has an extra edge on it, and one or two things have moved since you last looked. Your whole body is ringing like something struck it and nothing will make it stop.",
+        "rising": "You're sweating through a shirt in a cold room, and your own pulse is audible, and neither of those has a reason.",
+        "tail": "You sleep in ninety-minute pieces and come out of each one already sitting up. Four days of that, and the nights are the last thing to come back."
+      }
+    }
   },
   "flags": {
+    "absorb_seconds": 240,
     "alcoholic": true,
     "drug_class": "depressant",
     "drug_family": "depressant",
-    "intox_per_dose": 22,
-    "legal": true
+    "intox_per_dose": 31,
+    "legal": true,
+    "skin_permeability": 0.02
   },
   "id": "drug_alcohol",
   "item_id": "item_drug_beer",
   "name": "alcohol",
-  "overdose_threshold": 8,
+  "overdose_threshold": 14,
   "withdrawal_effects": {}
 }

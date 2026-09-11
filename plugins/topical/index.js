@@ -31,9 +31,9 @@
  */
 import {
   getTopicalConsent, setTopicalConsent, registerTopicalEffect, registerTopicalDosing,
-  describeContainerFluid, applyTopical, fluidInfo, isHarmfulFluid,
+  describeContainerFluid, applyTopical, fluidInfo, isHarmfulFluid, registerSkinPermeability,
 } from '../../server/engine/topical.js';
-import { useDrug } from '../../server/engine/drugs.js';
+import { useDrug, skinPermeability } from '../../server/engine/drugs.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { stainClothing, stainZone } from '../../server/engine/bodily.js';
 import { wear, announceWear } from '../../server/engine/durability.js';
@@ -64,6 +64,13 @@ function burn(player, amount) {
 //
 // The `drug` rides on the container, not the fluid table: a solvent is a
 // carrier, and what it carries is whatever was dissolved in it.
+// The cargo's own half of the absorption question. The substrate owns the liquid
+// (`absorb`) and must not import the drug cache to learn about the molecule, so
+// this plugin — which already has both sides on its import list — hands the one
+// over to the other. Without it every cargo crosses at full strength, and two
+// drugs in the same carrier are indistinguishable.
+registerSkinPermeability(skinPermeability);
+
 registerTopicalDosing(async (player, { drug, dose = 0, potencyMult = 1, broadcast }) => {
   if (!drug || dose <= 0) return null;
   await useDrug(player, drug, broadcast, {

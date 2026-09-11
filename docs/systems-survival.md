@@ -203,6 +203,15 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   `comedown_scale` and **cleanly reversed** on expiry (the ledger never bakes a buff into a base stat).
   `*_regen_per_sec` keys in `peak_mods` are per-second drip regen (fractional accumulator, like
   heal-over-time). Optional `comeup/peak/comedown/end_message` lines narrate each transition.
+- **`comedown_mods` — when the comedown is its own event, not less of the peak.** Absent (every drug
+  that shipped before it) the comedown stays a scaled copy of `peak_mods`, so nothing changed for any of
+  them. It exists because a **hangover is not the negative of being drunk**, and the only way to author a
+  different comedown used to be a negative `comedown_scale`. ⚠ That inversion works — `scaleMods` just
+  multiplies, so `stat_cool: +3` really does become `−2` — and it is a trap twice over: it flips **every**
+  key, so a peak that dulls you hands back `stat_brains: +1` in the morning, and an inverted
+  `*_regen_per_sec` drip is **capped by the engine on the way up** (at `<stat>_max`) and **floored only at
+  zero on the way down** — a −0.6/sec sanity bleed across a 45-minute comedown is −1600 sanity. Author the
+  comedown outright instead.
 - **Laced consumables** (`tags.laced_drug` + optional `tags.laced_potency`) — any **consumable** item
   (a drink or food, not a `drug`-type item) can carry a drug that fires when it's used: the consumable
   path applies the item's own restores, then calls `useDrug(laced_drug, { potencyMult: laced_potency,
@@ -408,6 +417,105 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   messages, the `[trip]` markup tag, `#trip-overlay` + `.tripping` CSS, and inline trip audio). Trips
   (and phantoms) are in-memory; a login rescue in `server/index.js` bounces anyone stranded in a dream
   zone by a restart back to their anchor.
+
+### Alcohol — two clocks, and which owns what
+
+`drug_alcohol` was the **only row in the game with nothing authored in any column**: no `phases`, no
+`peak_mods`, no phase messages, no `tolerance`, no `withdrawal`, and `addiction_chance: 0`, while 24
+drugs had a full come-up/peak/comedown and 26 had a five-beat withdrawal. The substance every bar in
+Coldwater serves had none of it. The pass that fixed it is
+[scripts/content/alcohol-arc.mjs](../scripts/content/alcohol-arc.mjs) (re-runnable, `--check`), with the
+withdrawal half in [withdrawal-stages.mjs](../scripts/content/withdrawal-stages.mjs) under that file's
+prose law like the other 26.
+
+The reason it could not simply be authored on top of what was there is that **alcohol has two clocks**:
+
+- **the BAC meter** (`plugins/intoxication`) owns **how drunk you are** — it sums doses, decays, and
+  drives slurring, staggering, blackouts and the band stat block. Right shape for drunkenness, wrong
+  shape for an arc: it is a scalar with no memory of where on the curve it is.
+- **the drug row** owns **the arc around it** — the minutes before the drink arrives, the warmth once it
+  does, and the hour afterwards.
+
+So `peak_mods` deliberately carries **no stat the bands already move** (cool, reflexes, brains, endurance
+are all theirs), or one drink would debuff a drinker from two places. It carries the anxiolytic half only;
+the hangover is `comedown_mods` (above), and it is the longest phase on the row.
+
+⚠ **Absorption is the reason it is possible to drink too much, and it is bounded by the decay rate.**
+A dose used to land whole and instantly, which made over-drinking something you could only do on purpose
+— the meter always told you the truth before you ordered the next one. `flags.absorb_seconds` bleeds the
+dose into the meter instead (absent or 0 lands it whole, so every other path is untouched). But the meter
+sheds `DECAY_PER_TICK` the **whole time a dose is arriving**, so a dose arriving slower than that is eaten
+on the way in and **the meter never moves**: you drink, and nothing happens, with no error anywhere. The
+first draft authored the honest real-world figure of fifteen minutes and did exactly that — 22 points over
+900s arrive at 0.0244/sec against 0.0375/sec of decay. It is 31 points over 240s now, which **peaks at the
+same 22 the bands were drawn around**: the lag is what is new, not how drunk a drink gets you. Both the
+content script and the intoxication regress hold that inequality, against the plugin's own constants.
+
+⚠ **`duration_seconds` is not cosmetic.** `tickDrugDecayAll` only sheds doses once `active_until < now`,
+so lengthening the window also stops the body clearing alcohol for that span — which is what makes
+overdose reachable at all. 240 → 1800 without touching the ceiling would have made four rust whiskeys
+inside half an hour lethal, so `overdose_threshold` moved with it (8 → 14). **Never move one without the
+other.** Tolerance then raises that ceiling, and `lethal_gain_ratio: 0.15` (against a 0.4 default) is the
+differential-tolerance law aimed at the substance it was written about: a drinker's felt tolerance climbs
+a long way while the dose that stops their breathing barely moves, so the relapse law bites hardest here.
+
+⚠ **Known limit, left alone deliberately.** The hangover is scaled by `potency`, which is *one dose's*
+strength, so twelve drinks and one drink produce the same comedown. Making it cumulative means the phase
+engine reading the BAC meter, which is a coupling worth more thought than a content pass should spend.
+
+### The once-over (2026-09-11) — what every row has, and how to see it
+
+[`scripts/content/drug-audit.mjs`](../scripts/content/drug-audit.mjs) scores all 39 rows out of four on
+things the engine READS — **ARC** (a `phases` block), **BITE** (`peak_mods` with something in it),
+**HABIT** (a `tolerance` block) and **COMEDOWN** (`comedown_mods`, for the drugs whose comedown is its own
+event). A report, not a gate, on the `models:quality` precedent. It exists because the alcohol gap was
+invisible: you had to open 39 files and hold them in your head to notice. It went **3.00/4 with 15 of 36
+complete to 4.00/4 with all 36**, via [`drug-arcs.mjs`](../scripts/content/drug-arcs.mjs).
+
+⚠ **A missing `drug_class` is not a finding** — 25 rows carry none and that is the documented design
+above. The audit must never report it as a gap.
+
+**The biggest gap was not alcohol or coffee — it was the hallucinogens.** Nine rows had no `phases` block
+at all, so a k-hole, a salvia break or a lungful of ether fired a rich timed trip, took some sanity, and
+left **every stat exactly where it was**. You could be unplugged from your own body and still shoot
+straight, drive and win a fight. They have arcs now. ⚠ None of them gets a `peak_message`: each already
+announces arrival with `onset_message`, so their come-up is set to their own `onset_seconds` and the
+existing line *is* the peak line. ⚠ DMT, Threshold and nitrous deliberately get **no** `comedown_mods` —
+coming back clean is the whole character of all three.
+
+**Four faults it turned up, each invisible in the file it lived in:**
+
+- ⚠ **A mod key nothing reads.** `applyMods` does `player[key] = (player[key]||0) + n` for whatever it is
+  handed, so a misspelt stat neither throws nor warns — it invents a field on the live player that no
+  reader has heard of. `drug_toluene` carried **`stat_smarts`** in two blocks; the six real stats are
+  brawn/reflexes/endurance/brains/cool/senses, and that debuff had never once landed.
+- ⚠ **A negative drip is floored only at zero.** `tickDrugs` clamps a regen at `<stat>_max` going **up**,
+  so `+3 hp/sec` just refills fast and stops, and four rows ship `+1 sanity/sec` harmlessly. Going **down**
+  it has the whole bar to eat. `drug_overclock` shipped **`sanity_regen_per_sec: -1` against a 150s peak**
+  — one dose emptied a full 100-point sanity bar in a hundred seconds — authored at the same magnitude as
+  those harmless positive ones. **Judge the two directions on different scales**, or the safe values look
+  like the unsafe one.
+- ⚠ **A silent arc.** `drug_grey_ampoule` ran a full 60/600/240 arc with **no `peak_mods`**: three authored
+  messages over fifteen minutes with nothing behind them, while its withdrawal took `stat_brawn` and
+  `stamina_max` the drug had never given.
+- ⚠ **Prose firing out of order.** `drug_blacktar` and `drug_coldfire` both had a come-up **shorter than
+  their own `onset_seconds`**, so the peak line printed while the drug was still arriving and the arrival
+  line landed after it.
+
+All four are now regress cases in `plugins/drugs/regress.js`, asserted across the whole cache rather than
+per drug — they are only visible when you hold every row side by side.
+
+**Coffee** was the last 0/4: no arc, no tolerance, no dependency, no withdrawal, on the most-consumed drug
+after alcohol and the one players take *deliberately*, because it is the sobering agent. ⚠ Its overdose
+window had to be **loosened**, not tightened — `duration_seconds` gates dose clearance, so 180s/threshold 6
+was already six cups inside three minutes, on the thing a player chains when trying to sober up. 900s /
+threshold 10 is ten cups in fifteen minutes.
+
+⚠ **Coffee still does not keep you awake.** `isWired`/`stimulantPotency` key on `drug_class === 'stimulant'`,
+and coffee is deliberately unclassed, so `cmdSleep` will let you lie down on a triple espresso. Fixing it
+means either giving coffee a class (forbidden — it would join the additive-overdose pool) or teaching those
+two functions to read `drug_family`, which would also pull in cigarettes and loose tobacco. **Left alone
+deliberately; it is a design decision, not an oversight.**
 
 ### What you KNOW about a compound (`known_facts`)
 

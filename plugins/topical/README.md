@@ -120,3 +120,43 @@ Add its row to `TOPICAL_FLUIDS` (description + `absorb`) and register the conseq
 that owns the state it writes. If it's a carrier rather than a substance in its own right, leave the
 drug off the table — the container names its own cargo. If it arrives in a new kind of container, register a resolver from the
 plugin that owns that container. Don't add a branch to the duster or to `splash`.
+
+## What crosses skin, and whose question it is
+
+Two things decide a systemic dose, and until 2026-09-11 only one of them existed:
+
+```
+dose = potency × carrier absorb × drug permeability × how much got past the clothes
+```
+
+`absorb` (`TOPICAL_FLUIDS`) is the **liquid**. `permeability` is the **molecule**,
+and without it any two drugs in one carrier were delivered identically — blacktar
+and slow off the same rag arrived at the same strength. Fentanyl comes as a patch
+and morphine never has, and they are the same class in the same carrier.
+
+**Both halves must be true.** A solvent that sinks straight in still delivers
+nothing if what it carries cannot cross, and a drug that crosses beautifully still
+needs a carrier to be in.
+
+The substrate names no drug ids, so the number arrives through
+`registerSkinPermeability`, claimed in `index.js` from `drugs.js`. **Unclaimed it
+answers 1**, which is exactly the behaviour that shipped before it existed.
+`skinPermeability()` derives from `drug_family` — already authored on every
+psychoactive and exactly the right axis — with `flags.skin_permeability` for the
+six rows whose chemistry parts company with their family (nicotine and the two
+solvents cross far better than their family; alcohol and caffeine far worse).
+
+⚠ **`drug` was missing from the fluid table.** Fourteen fillable vials ship
+`prefill.fluid_type: 'drug'` — every liquid product in the game, each with its
+`drug_id` beside it — and `drug` was not a key, so all of them resolved through
+`fluidInfo`'s fallback at `absorb: 0`. A vial of blacktar emptied over somebody wet
+them and did nothing else. It was invisible precisely because that fallback is
+forgiving on purpose: an unknown fluid is still supposed to land and still soak
+you. 36 of 37 prefilled containers now deliver a dose; the one that does not is a
+depressant sedative, which is correct.
+
+⚠ **An override has to be checked against the carriers it will meet.** Filing
+blacktar at the morphine end (0.15) reads well pharmacologically and is
+self-defeating: `0.5 × 0.15` is under `MIN_SYSTEMIC_DOSE`, so its own vial went
+straight back to doing nothing. `regress.js` sweeps every prefilled container in
+the world for exactly this.

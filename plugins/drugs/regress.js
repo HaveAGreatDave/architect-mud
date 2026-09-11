@@ -3,7 +3,7 @@
 // Covers the pharmacokinetic laws in server/engine/drugs.js. These are engine laws,
 // but this plugin owns the verbs that deliver a dose (use/inject), so the coverage
 // lives with it. Assertions run against the pure `_test` surface — no DB, no clock.
-import { _test as T, getDrugCache, drugForItem, isDrugItem, clearActiveDrugState } from '../../server/engine/drugs.js';
+import { _test as T, getDrugCache, drugForItem, isDrugItem, clearActiveDrugState, tickDrugs } from '../../server/engine/drugs.js';
 import { _test as F } from './index.js';
 import { query } from '../../server/models/db.js';
 
@@ -31,24 +31,36 @@ export default async function regress({ run, check, getPlayer }) {
   // --- polydrug: same-class drugs share one ceiling --------------------------
   // Each drug counts its doses as a fraction of ITS OWN ceiling; you overdose when
   // the total reaches 1. A lone unclassed drug therefore behaves exactly as before.
-  const CEIL = { alcohol: 8, blacktar: 2, lull: 3, grey: 3 };
+  // ⚠ DERIVED, never restated. These were four hard-coded numbers, and retuning
+  // ONE drug's overdose_threshold in content turned the law-check below red while
+  // the law itself was untouched — a test asserting a content value rather than
+  // the rule it illustrates. Read the ceilings from the same cache the engine
+  // reads and the arithmetic follows whatever the rows say.
+  const ceilOf = (id) => getDrugCache()[id]?.overdose_threshold ?? 3;
+  const CEIL = {
+    alcohol: ceilOf('drug_alcohol'), blacktar: ceilOf('drug_blacktar'),
+    lull: ceilOf('drug_lull'), grey: ceilOf('drug_grey'),
+  };
   const share = (n, ceil) => n / ceil;
+  // "half a skinful" is half of alcohol's own ceiling, whatever that is today.
+  const halfSkinful = CEIL.alcohol / 2;
   check('a lone drug at its ceiling is still an overdose (old law intact)',
-    share(2, CEIL.blacktar) >= 1);
+    share(CEIL.blacktar, CEIL.blacktar) >= 1);
   check('a lone drug under its ceiling is still safe',
-    share(1, CEIL.blacktar) < 1);
-  check('half a skinful plus one bag of tar reaches the limit',
-    share(4, CEIL.alcohol) + share(1, CEIL.blacktar) >= 1);
+    share(CEIL.blacktar - 1, CEIL.blacktar) < 1);
+  check('half a skinful plus half a ceiling of tar reaches the limit',
+    share(halfSkinful, CEIL.alcohol) + share(CEIL.blacktar / 2, CEIL.blacktar) >= 1);
   check('two drinks plus one bag of tar does NOT',
-    share(2, CEIL.alcohol) + share(1, CEIL.blacktar) < 1);
+    share(2, CEIL.alcohol) + share(1, CEIL.blacktar) < 1, `ceil=${CEIL.alcohol}`);
   check('booze + benzo + morphine stacks to the limit',
-    share(4, CEIL.alcohol) + share(1, CEIL.lull) + share(1, CEIL.grey) >= 1);
+    share(halfSkinful, CEIL.alcohol) + share(CEIL.lull / 2, CEIL.lull) + share(CEIL.grey / 2, CEIL.grey) >= 1);
   check('an unclassed drug contributes nothing to anyone', T.classBurden(
     [{ drug_id: 'drug_psilocybin', doses_in_system: 5, tolerance: 0 }], 'x', 'depressant') === 0);
   check("a different class doesn't cross-load",
     T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 6, tolerance: 0 }], 'x', 'stimulant') === 0);
   check('the same class does cross-load',
-    T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 0 }], 'x', 'depressant') === 0.5);
+    T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 0 }], 'x', 'depressant')
+      === share(4, CEIL.alcohol), `ceil=${CEIL.alcohol}`);
   check('the drug being taken is excluded from its own cross-load',
     T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 0 }], 'drug_alcohol', 'depressant') === 0);
   check('tolerance in the other drug lightens its contribution',
@@ -86,7 +98,12 @@ export default async function regress({ run, check, getPlayer }) {
   // --- uppers vs. the fatigue clock ------------------------------------------
   // The bender law: a habit doesn't just dull the high, it stops the drug holding
   // your eyes open. Without this the third day of a bender was the CHEAPEST one.
-  const { stimulantPotency, isWired, getDrugCache } = await import('../../server/engine/drugs.js');
+  // ⚠ Do NOT re-destructure `getDrugCache` here. A `const` of that name anywhere
+  // in this function puts EVERY reference to it in the function's temporal dead
+  // zone, including the ones above this line — which reads as
+  // "Cannot access 'getDrugCache' before initialization" from a call site that
+  // looks entirely innocent. It is already imported at the top of the file.
+  const { stimulantPotency, isWired } = await import('../../server/engine/drugs.js');
   const onStim = pot => ({ activeDrugs: [{ drugId: 'drug_redline', potency: pot }] });
   check('a fresh dose drives the fatigue clock at full strength',
     stimulantPotency(onStim(1)) === 1);
@@ -254,5 +271,160 @@ export default async function regress({ run, check, getPlayer }) {
     check('death still clears doses in system', Number(row?.doses_in_system) === 0, String(row?.doses_in_system));
     check('death does NOT reset tolerance', Number(row?.tolerance) > 0.6, String(row?.tolerance));
     await query('DELETE FROM player_drug_state WHERE player_id=$1 AND drug_id=$2', [pid, DID]);
+  }
+
+  // --- comedown_mods: a hangover is not the negative of the high -------------
+  //
+  // A comedown used to be expressible ONLY as a scaled copy of `peak_mods`, so
+  // the one way to author a different one was a negative `comedown_scale`. That
+  // inverts every key at once, including a `*_regen_per_sec` drip — and a drip
+  // the engine caps at `<stat>_max` going up is floored only at zero coming
+  // down, which turns a small regen into an unbounded bleed. These pin both
+  // halves: the new block wins in the comedown, and a drug without one behaves
+  // exactly as it did before.
+  {
+    const p2 = getPlayer();
+    const baseCool = p2.stat_cool || 0;
+    const baseBrains = p2.stat_brains || 0;
+    const at = (key) => p2.activeDrugs.find(a => a.drugId === key);
+    const PH = {
+      comeup_seconds: 1, peak_seconds: 1, comedown_seconds: 600,
+      comeup_scale: 1, comedown_scale: 1,
+      peak_mods: { stat_cool: 4 },
+      comedown_mods: { stat_brains: -3 },
+    };
+
+    T.startPhasedDrug(p2, { name: 'regress tipple' }, PH, 1, 'drug_regress_phase');
+    check('the come-up applies the peak block', (p2.stat_cool || 0) === baseCool + 4, `cool=${p2.stat_cool} base=${baseCool}`);
+
+    // Drop the entry into its comedown window and advance one tick.
+    at('drug_regress_phase').startedAt = Date.now() - 3000;
+    tickDrugs(p2);
+    check('the comedown applies comedown_mods', (p2.stat_brains || 0) === baseBrains - 3, `brains=${p2.stat_brains} base=${baseBrains}`);
+    check('and drops the peak block rather than scaling it', (p2.stat_cool || 0) === baseCool, `cool=${p2.stat_cool} base=${baseCool}`);
+
+    // Ride it out: the ledger must reverse exactly, or a hangover is permanent.
+    at('drug_regress_phase').startedAt = Date.now() - 999000;
+    tickDrugs(p2);
+    check('expiry reverses the comedown exactly', (p2.stat_brains || 0) === baseBrains && (p2.stat_cool || 0) === baseCool,
+      `brains=${p2.stat_brains} cool=${p2.stat_cool}`);
+    check('and the entry is gone', !p2.activeDrugs.some(a => a.drugId === 'drug_regress_phase'));
+
+    // The legacy path: no comedown_mods, so the comedown is still a scaled peak.
+    const LEGACY = { ...PH, comedown_mods: undefined, comedown_scale: 0.5 };
+    T.startPhasedDrug(p2, { name: 'regress legacy' }, LEGACY, 1, 'drug_regress_legacy');
+    at('drug_regress_legacy').startedAt = Date.now() - 3000;
+    tickDrugs(p2);
+    check('a drug with no comedown_mods still scales its peak block',
+      (p2.stat_cool || 0) === baseCool + 2, `cool=${p2.stat_cool} base=${baseCool}`);
+    at('drug_regress_legacy').startedAt = Date.now() - 999000;
+    tickDrugs(p2);
+    check('legacy comedown reverses too', (p2.stat_cool || 0) === baseCool, `cool=${p2.stat_cool}`);
+
+    // Leave the shared fake player exactly as found.
+    p2.activeDrugs = [];
+  }
+
+  // --- alcohol is authored at all -------------------------------------------
+  //
+  // It was the only drug row in the game with nothing in any column, which is
+  // invisible until somebody goes looking. These fail if that is ever reverted.
+  {
+    const al = getDrugCache()['drug_alcohol'];
+    const ph = al?.effects?.phases;
+    check('alcohol has a phase arc', !!ph && ph.peak_seconds > 0, String(!!ph));
+    check('alcohol authors its comedown rather than inverting its peak',
+      !!ph?.comedown_mods && (ph.comedown_scale ?? 1) >= 0, `scale=${ph?.comedown_scale}`);
+    check('alcohol can latch dependency, so its withdrawal can fire',
+      Number(al?.addiction_chance) > 0 && !!al?.effects?.withdrawal?.mods, String(al?.addiction_chance));
+    check('alcohol withdrawal speaks on all five beats',
+      Object.keys(al?.effects?.withdrawal?.stages || {}).length === 5);
+    // The two that must move together — see scripts/content/alcohol-arc.mjs.
+    check('a long clearance window is paid for with a higher ceiling',
+      !(al?.duration_seconds > 600) || al?.overdose_threshold >= 12,
+      `dur=${al?.duration_seconds} od=${al?.overdose_threshold}`);
+    // The BAC bands already move these; authoring them here debuffs twice.
+    const clash = Object.keys(ph?.peak_mods || {})
+      .filter(k => ['stat_cool', 'stat_reflexes', 'stat_brains', 'stat_endurance'].includes(k));
+    check('alcohol leaves impairment to the BAC bands', clash.length === 0, clash.join(','));
+  }
+
+  // --- the corpus, not one drug ---------------------------------------------
+  //
+  // Three faults that are each INVISIBLE in the file they live in and only show
+  // up when you hold all 39 rows side by side. scripts/content/drug-audit.mjs is
+  // the readable version of this; these are the ones worth failing a build over.
+  {
+    const all = Object.values(getDrugCache());
+    // The splice carrier composes its effects onto the inventory item, and the
+    // two loose-leaf rows are raw material rather than a dose.
+    const EXEMPT = new Set(['drug_compound', 'drug_loose_tobacco', 'drug_loose_cannabis']);
+    const dosed = all.filter(d => !EXEMPT.has(d.id));
+
+    // 1. A row that can hook you and then do nothing. The withdrawal tick is
+    //    gated on wd.mods, so without them is_addicted latches for ever with no
+    //    debuff, no line and no way to clear it.
+    const hooksAndDoesNothing = all
+      .filter(d => (d.addiction_chance || 0) > 0 && !d.effects?.withdrawal?.mods)
+      .map(d => d.id);
+    check('no drug can hook a player and then do nothing',
+      hooksAndDoesNothing.length === 0, hooksAndDoesNothing.join(', '));
+
+    // 2. A mod key nothing reads. applyMods does player[key] = (player[key]||0)+n
+    //    for whatever it is handed, so a misspelt stat neither throws nor warns —
+    //    it invents a field on the live player that no reader has heard of.
+    //    drug_toluene carried stat_smarts in two blocks and it never once landed.
+    const STATS = ['stat_brawn', 'stat_reflexes', 'stat_endurance', 'stat_brains', 'stat_cool', 'stat_senses'];
+    const CAPS = ['hp_max', 'sanity_max', 'stamina_max'];
+    const DRIPS = ['hp', 'sanity', 'stamina', 'radiation'];
+    const readable = k => STATS.includes(k) || CAPS.includes(k)
+      || (/_regen_per_sec$/.test(k) && DRIPS.includes(k.replace(/_regen_per_sec$/, '')));
+    const deadKeys = [];
+    for (const d of all) {
+      const e = d.effects || {};
+      for (const [blk, mods] of [['peak', e.phases?.peak_mods], ['comedown', e.phases?.comedown_mods], ['wd', e.withdrawal?.mods]]) {
+        for (const k of Object.keys(mods || {})) if (!readable(k)) deadKeys.push(`${d.id}/${blk}.${k}`);
+      }
+    }
+    check('every drug mod key is a field something actually reads', deadKeys.length === 0, deadKeys.join(', '));
+
+    // 3. ⚠ A DRIP'S TWO DIRECTIONS ARE NOT SYMMETRIC. tickDrugs clamps a regen at
+    //    <stat>_max going UP, so +3 hp/sec just refills fast and stops; going DOWN
+    //    it is floored only at ZERO, so the same magnitude has a whole 100-point
+    //    bar to eat. drug_overclock shipped sanity_regen_per_sec: -1 against a
+    //    150s peak — one dose emptied a full sanity bar in a hundred seconds —
+    //    authored at the same magnitude as four harmless POSITIVE sanity regens.
+    const hotDrips = [];
+    for (const d of all) {
+      const e = d.effects || {};
+      for (const [blk, mods] of [['peak', e.phases?.peak_mods], ['comedown', e.phases?.comedown_mods], ['wd', e.withdrawal?.mods]]) {
+        for (const [k, v] of Object.entries(mods || {})) {
+          if (!/_regen_per_sec$/.test(k)) continue;
+          if (v < 0 && Math.abs(v) > 0.2) hotDrips.push(`${d.id}/${blk}.${k}=${v}`);
+        }
+      }
+    }
+    check('no negative drip is steep enough to empty a bar in a single phase',
+      hotDrips.length === 0, hotDrips.join(', '));
+
+    // 4. A phases block with no peak_mods runs the arc, fires every authored
+    //    message, and does nothing to the player. drug_grey_ampoule did this for
+    //    fifteen minutes at a stretch.
+    const silentArcs = dosed.filter(d => d.effects?.phases && !Object.keys(d.effects.phases.peak_mods || {}).length).map(d => d.id);
+    check('no drug runs a phase arc that does nothing', silentArcs.length === 0, silentArcs.join(', '));
+
+    // 5. The come-up must not finish before the deferred instant hit lands, or
+    //    the peak line prints before the arrival line. Two rows had this.
+    const outOfOrder = dosed.filter(d => {
+      const e = d.effects || {};
+      return e.phases?.comeup_seconds != null && (e.onset_seconds || 0) > e.phases.comeup_seconds;
+    }).map(d => `${d.id} (comeup ${d.effects.phases.comeup_seconds} < onset ${d.effects.onset_seconds})`);
+    check('no drug peaks before it has finished arriving', outOfOrder.length === 0, outOfOrder.join(', '));
+
+    // 6. Every dosed row has a shape over time. Nine hallucinogens ran rich timed
+    //    trips while leaving every stat untouched — you could be unplugged from
+    //    your own body and still shoot straight.
+    const noArc = dosed.filter(d => !d.effects?.phases).map(d => d.id);
+    check('every dosed drug has a phase arc', noArc.length === 0, noArc.join(', '));
   }
 }

@@ -1,7 +1,7 @@
 {
-  "addiction_chance": 0,
+  "addiction_chance": 0.08,
   "description": "A jolt of caffeine. Sharpens you up for a while.",
-  "duration_seconds": 180,
+  "duration_seconds": 900,
   "effects": {
     "diuretic": 2.5,
     "instant": {
@@ -13,17 +13,59 @@
       "lethal": true,
       "message": "Your heart trips, stutters, and seizes. Too much caffeine, too fast: your chest goes tight and cold, and the world tips over."
     },
-    "take_line": "You take a sip of {name}."
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The edge comes off, and takes a little more with it than it brought.</span>",
+      "comedown_mods": {
+        "stat_brains": -1,
+        "stat_cool": -1
+      },
+      "comedown_scale": 1,
+      "comedown_seconds": 420,
+      "comeup_message": "<span class=\"msg-system\">The first mouthful is just heat. The rest of it is on the way.</span>",
+      "comeup_scale": 0.4,
+      "comeup_seconds": 120,
+      "end_message": "<span class=\"msg-system\">Whatever that was, it's finished, and you're further behind than when you started.</span>",
+      "peak_message": "<span class=\"msg-system\">Everything sharpens up a notch. You could get the whole list done.</span>",
+      "peak_mods": {
+        "stamina_regen_per_sec": 0.3,
+        "stat_brains": 1,
+        "stat_reflexes": 1
+      },
+      "peak_seconds": 600
+    },
+    "take_line": "You take a sip of {name}.",
+    "tolerance": {
+      "gain_per_dose": 0.05,
+      "lethal_gain_ratio": 0.2,
+      "max_reduction": 0.6,
+      "recovery_per_sec": 0.000009
+    },
+    "withdrawal": {
+      "message": "Your head has a pulse in it, and the light is louder than it was.",
+      "mods": {
+        "stat_brains": -2,
+        "stat_cool": -1
+      },
+      "onset_seconds": 7200,
+      "stages": {
+        "easing": "The head clears from the outside inward. There's a warm spot left in the middle of it.",
+        "onset": "A dull pressure starts up behind one eye and settles in.",
+        "peak": "Light is too bright and sound is too close, and you've read the same line four times without any of it going in.",
+        "rising": "The headache has arrived properly now, and it has a pulse, and the pulse is yours.",
+        "tail": "Functional. You surface about an hour later than you used to, and it takes the whole morning to be any use."
+      }
+    }
   },
   "flags": {
     "drug_family": "stimulant",
     "legal": true,
+    "skin_permeability": 0.05,
     "sober_amount": 30,
     "sobering": true
   },
   "id": "drug_coffee",
   "item_id": "item_drug_coffee",
   "name": "coffee",
-  "overdose_threshold": 6,
+  "overdose_threshold": 10,
   "withdrawal_effects": {}
 }

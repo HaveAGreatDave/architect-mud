@@ -45,10 +45,29 @@
       "lethal": true,
       "message": "Your heart goes somewhere fast and your breathing goes somewhere slow, and the two of them don't meet again."
     },
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">Your legs start answering closer to when you ask them.</span>",
+      "comedown_mods": {
+        "stat_brains": -2,
+        "stat_endurance": -1
+      },
+      "comedown_scale": 1,
+      "comedown_seconds": 235,
+      "comeup_scale": 0.3,
+      "comeup_seconds": 45,
+      "end_message": "<span class=\"msg-system\">Everything is the right distance away again. Your jaw aches and the sweetness is still in your teeth.</span>",
+      "peak_mods": {
+        "stat_brains": -3,
+        "stat_endurance": -2,
+        "stat_reflexes": -4
+      },
+      "peak_seconds": 620
+    },
     "take_line": "You drink the whole bottle of {name}, gagging on the sweetness.",
     "tolerance": {
       "gain_per_dose": 0.25,
-      "max_reduction": 0.7
+      "max_reduction": 0.7,
+      "recovery_per_sec": 0.000005
     },
     "withdrawal": {
       "message": "Everything is too sharp and too close and moving at the wrong speed. You want the distance back.",

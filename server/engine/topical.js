@@ -83,6 +83,19 @@ export const TOPICAL_FLUIDS = {
   // liquid is inert on its own; what it delivers is whatever `drug` the container
   // resolver hands over, which is why there is no drug id in this table.
   solvent:      { noun: 'a clear solvent', arrival: "it lands cold and thin, and it doesn't run off — it sinks in", wets: true, stain: 'chem', harmful: true, absorb: 0.85 },
+  // ⚠ THE ONE THE WORLD WAS ALREADY AUTHORED AGAINST. Fourteen fillable vials
+  // ship `prefill.fluid_type: 'drug'` — every liquid product in the game, each
+  // with its `drug_id` beside it — and `drug` was not a key here, so all of them
+  // resolved through `fluidInfo`'s fallback at `absorb: 0`. A vial of blacktar
+  // emptied over somebody wet them, and did nothing else, for ever. It was
+  // invisible because the fallback is deliberately forgiving: an unknown fluid is
+  // supposed to still land and still soak you, which is right for a liquid nobody
+  // has given a meaning yet and wrong for one fourteen items already use.
+  //
+  // A middling carrier on purpose. It is product in a vial, not a solvent chosen
+  // to drive things through skin — `solvent` is still the thing that does that,
+  // and the difference between the two is now worth authoring.
+  drug:         { noun: 'liquid product', arrival: 'it lands thin and cold and smells of the chemistry that made it', wets: true, stain: 'chem', harmful: true, absorb: 0.50 },
 };
 
 /** Anything not in the table is still a liquid, and the law still applies to it. */
@@ -102,7 +115,7 @@ export function isHarmfulFluid(fluid) { return !!fluidInfo(fluid).harmful; }
 // by it: alcohol sits on the skin and evaporates, a solvent carries whatever is
 // dissolved in it straight through.
 //
-//   dose = potency × absorb × skinExposure
+//   dose = potency × absorb × permeability × skinExposure
 //
 // `potency` is how much was thrown (the container's business), `absorb` is the
 // liquid's permeability (the table above), and `skinExposure` is the fraction
@@ -111,13 +124,35 @@ export function isHarmfulFluid(fluid) { return !!fluidInfo(fluid).harmful; }
 // exactly the question "what got through the coat". So a raincoat is chemical
 // protection now, for free, and a naked body is the worst case.
 //
+// `permeability` is the CARGO's own half, and it was missing: `absorb` describes
+// the liquid and says nothing about the molecule dissolved in it, so any two
+// drugs in the same carrier were delivered identically. Both halves have to be
+// true — a solvent that sinks straight in still delivers nothing if what it
+// carries cannot cross. The substrate names no drug ids, so the number arrives
+// through `registerSkinPermeability`; with nothing registered it is 1 and the
+// formula is exactly what it was.
+//
 // Below MIN_SYSTEMIC_DOSE nothing happens at all. This is load-bearing: without
 // it, every drink thrown in every bar would apply a rounding-error of alcohol,
 // and a thousand nothings would still add up to a tolerance and an addiction.
 export const MIN_SYSTEMIC_DOSE = 0.15;
-export function systemicDose({ potency = 1, absorb = 0, skinExposure = 1 } = {}) {
-  const dose = Math.max(0, potency) * Math.max(0, absorb) * Math.max(0, Math.min(1, skinExposure));
+export function systemicDose({ potency = 1, absorb = 0, skinExposure = 1, permeability = 1 } = {}) {
+  const dose = Math.max(0, potency) * Math.max(0, absorb)
+    * Math.max(0, Math.min(1, permeability)) * Math.max(0, Math.min(1, skinExposure));
   return dose < MIN_SYSTEMIC_DOSE ? 0 : Math.min(1, dose);
+}
+
+// drugId → 0-1, claimed by whoever owns drug knowledge. The substrate must not
+// import the drug cache: this file is loaded by the wetting and container
+// plugins, and a fluid landing on a body is not a pharmacology question until
+// something says it is. Unclaimed, every cargo crosses at full strength, which
+// is precisely the behaviour that shipped before this existed.
+let permeabilityOf = null;
+export function registerSkinPermeability(fn) { permeabilityOf = fn; }
+export function skinPermeabilityOf(drugId) {
+  if (!drugId || !permeabilityOf) return 1;
+  const n = Number(permeabilityOf(drugId));
+  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1;
 }
 
 // ── The registries ──────────────────────────────────────────────────────────
@@ -241,7 +276,12 @@ export async function applyTopical(target, ctx = {}) {
   // container resolver — the substrate names no drug ids) doses at the absorbed
   // fraction, through the skin route. Everything else computes a zero here and
   // costs nothing.
-  const dose = systemicDose({ potency, absorb: info.absorb, skinExposure });
+  const dose = systemicDose({
+    potency, absorb: info.absorb, skinExposure,
+    // The cargo's own half. `skinPermeabilityOf` answers 1 for a liquid carrying
+    // nothing, so a bucket of water costs exactly what it always did.
+    permeability: skinPermeabilityOf(ctx.drug),
+  });
   inner.dose = dose;
   if (dose > 0 && ctx.drug && dosingPass) {
     const dosed = await dosingPass(target, inner);

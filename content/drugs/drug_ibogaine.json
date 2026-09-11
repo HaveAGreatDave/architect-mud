@@ -45,6 +45,24 @@
       "lethal": true,
       "message": "Your heart finds a rhythm it has never tried before, holds it a moment too long, and stops looking for the old one."
     },
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The playback stops somewhere in the middle of a scene and does not resume.</span>",
+      "comedown_mods": {
+        "stat_brawn": -1,
+        "stat_endurance": -3
+      },
+      "comedown_scale": 1,
+      "comedown_seconds": 610,
+      "comeup_scale": 0.3,
+      "comeup_seconds": 90,
+      "end_message": "<span class=\"msg-system\">A day and a night of it, and you are still sitting in the same place, and your chest aches.</span>",
+      "peak_mods": {
+        "hp_max": -12,
+        "stat_endurance": -3,
+        "stat_reflexes": -4
+      },
+      "peak_seconds": 1700
+    },
     "take_line": "You chew the bitter {name} bark down and swallow.",
     "tolerance": {
       "gain_per_dose": 0.1,

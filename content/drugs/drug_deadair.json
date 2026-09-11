@@ -45,6 +45,24 @@
       "lethal": true,
       "message": "The static pulls you all the way under and keeps the channel dark."
     },
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The signal comes back up, and it is louder than you remember asking for.</span>",
+      "comedown_mods": {
+        "stat_brains": -2,
+        "stat_cool": -1
+      },
+      "comedown_scale": 1,
+      "comedown_seconds": 90,
+      "comeup_scale": 0.3,
+      "comeup_seconds": 8,
+      "end_message": "<span class=\"msg-system\">You are back on the channel with everyone else. It took longer than it should have.</span>",
+      "peak_mods": {
+        "stat_brains": -3,
+        "stat_cool": 2,
+        "stat_reflexes": -4
+      },
+      "peak_seconds": 200
+    },
     "take_line": "You dose {name} and wait for the signal to drop.",
     "tolerance": {
       "gain_per_dose": 0.2,

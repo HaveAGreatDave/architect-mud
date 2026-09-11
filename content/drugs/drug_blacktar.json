@@ -19,7 +19,7 @@
       "comedown_scale": 0.6,
       "comedown_seconds": 160,
       "comeup_scale": 0.6,
-      "comeup_seconds": 20,
+      "comeup_seconds": 30,
       "end_message": "<span class=\"msg-system\">You surface, gasping, into a world that got worse while you were gone.</span>",
       "peak_message": "<span class=\"msg-system\">You go under. The tar closes over your head, black and total and perfect.</span>",
       "peak_mods": {
@@ -27,7 +27,7 @@
         "stat_brains": -3,
         "stat_reflexes": -5
       },
-      "peak_seconds": 300
+      "peak_seconds": 290
     },
     "take_line": "You cook {name} down and get it into you.",
     "tolerance": {

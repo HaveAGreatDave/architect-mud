@@ -41,6 +41,23 @@
       "lethal": false,
       "message": "You take far too much and spend a bad four minutes convinced you're a garden fence. It passes. It always passes."
     },
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">You are put back roughly where you were found, facing about the right way.</span>",
+      "comedown_mods": {
+        "stat_cool": -2
+      },
+      "comedown_scale": 1,
+      "comedown_seconds": 30,
+      "comeup_scale": 0.5,
+      "comeup_seconds": 4,
+      "end_message": "<span class=\"msg-system\">A minute. It was a minute. You check twice and it was still a minute.</span>",
+      "peak_mods": {
+        "stat_brains": -5,
+        "stat_cool": -4,
+        "stat_reflexes": -5
+      },
+      "peak_seconds": 70
+    },
     "take_line": "You pack a bowl of {name} and burn it hot.",
     "tolerance": {
       "gain_per_dose": 0,

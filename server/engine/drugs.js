@@ -7,7 +7,8 @@
  * The `effects` JSONB is one schema with all sub-blocks optional:
  *   instant       — one-shot stat deltas (existing behaviour)
  *   phases        — { comeup_seconds, peak_seconds, comedown_seconds,
- *                     comeup_scale, comedown_scale, peak_mods, *_message }
+ *                     comeup_scale, comedown_scale, peak_mods, comedown_mods,
+ *                     *_message }
  *   tolerance     — { gain_per_dose, recovery_per_sec, max_reduction }
  *   withdrawal    — { onset_seconds, mods, message, addiction_per_dose,
  *                     addiction_recovery_per_sec }
@@ -173,6 +174,57 @@ const ROUTES = {
   eat:    { onset: 3.00, intensity: 0.80 },
   use:    { onset: 1,    intensity: 1 },
 };
+
+// ── What the DRUG can do about crossing skin ────────────────────────────────
+//
+// The carrier was the only thing that decided this, and a carrier is only half
+// the question. `TOPICAL_FLUIDS[fluid].absorb` says how well the LIQUID crosses;
+// it says nothing about the molecule dissolved in it, so any two drugs in the
+// same solvent were delivered identically — blacktar and slow off the same rag
+// arrived at the same strength, which is not how skin works. Fentanyl comes as a
+// patch and morphine never has, and they are the same class in the same carrier:
+// the molecule is the difference.
+//
+//   dose = potency × carrier absorb × THIS × how much got past the clothes
+//
+// Both halves have to be true for anything to land. A superb carrier holding
+// something that cannot cross still delivers nothing, and a drug that crosses
+// beautifully still needs a carrier to be in.
+//
+// DERIVED FROM FAMILY, overridden per row. `drug_family` is already authored on
+// every psychoactive and is exactly the pharmacological axis this depends on, so
+// 39 hand-written numbers would be 39 chances to disagree with a field the row
+// already carries. The table is a LAW — a property of the substances, like
+// ROUTES above — and the exceptions are CONTENT, on `flags.skin_permeability`.
+const SKIN_PERMEABILITY = {
+  deliriant:    0.80,   // tropane alkaloids; scopolamine has been sold as a patch for decades
+  dissociative: 0.60,   // small, lipophilic, and half of them are literally solvents
+  stimulant:    0.50,   // nicotine is the archetype and it crosses beautifully
+  opioid:       0.35,   // the family that splits hardest: fentanyl yes, morphine no
+  cannabis:     0.30,
+  nootropic:    0.30,
+  psychedelic:  0.20,   // acid through unbroken skin is mostly a story people tell
+  depressant:   0.15,
+};
+// Anything with no family at all. Deliberately low but not zero: most molecules
+// cross skin badly, and "badly" is a different claim from "never".
+const SKIN_PERMEABILITY_DEFAULT = 0.25;
+
+/**
+ * How well this drug crosses skin, 0-1. Sync by contract — read from the boot
+ * cache on the topical path, never a query.
+ *
+ * `flags.skin_permeability` wins when a row's own chemistry disagrees with its
+ * family, which is the only reason to author one.
+ */
+export function skinPermeability(drugId) {
+  const drug = DRUG_CACHE[drugId];
+  if (!drug) return SKIN_PERMEABILITY_DEFAULT;
+  const authored = Number(drug.flags?.skin_permeability);
+  if (Number.isFinite(authored)) return Math.max(0, Math.min(1, authored));
+  return SKIN_PERMEABILITY[drug.flags?.drug_family] ?? SKIN_PERMEABILITY_DEFAULT;
+}
+export const _skinPermeabilityTable = { SKIN_PERMEABILITY, SKIN_PERMEABILITY_DEFAULT };
 const NEUTRAL_ROUTE = ROUTES.use;
 
 // Doses clear on a half-life rather than a flat -1/min step: the body sheds a
@@ -291,10 +343,16 @@ function appearanceNoteFor(drug) {
 // Read by the drugs plugin (examine) and by surveillance (public intoxication), so
 // the mirror and the law can never disagree about who looks off their head.
 //
-// Stamped at dose time rather than derived from `activeDrugs`: five drugs — ether,
-// k-hole, threshold, voidwalk and alcohol — carry no `phases` block, so they never
-// create an activeDrugs entry at all and would have stayed invisible no matter how
-// wrecked they left you.
+// Stamped at dose time rather than derived from `activeDrugs`, because a drug
+// with no `phases` block never creates an activeDrugs entry at all and would
+// stay invisible no matter how wrecked it left you.
+//
+// This used to name the five that were in that position — ether, k-hole,
+// threshold, voidwalk and alcohol. Four of them have arcs now (the 2026-09-11
+// once-over) and voidwalk is not a live row at all, so the list is gone rather
+// than corrected: the stamp is right on its own terms and does not need a
+// casualty list to justify it. A new drug authored without phases gets the same
+// protection without anybody remembering to come back here.
 export function visibleIntoxication(player) {
   const v = player?._visibleDrug;
   if (!v || Date.now() >= v.until) return null;
@@ -839,6 +897,10 @@ function startPhasedDrug(player, drug, phases, potency, stateKey) {
     comedownMs: (phases.comedown_seconds || 0) * 1000,
     potency,
     peak_mods: phases.peak_mods || {},
+    // What the comedown does, when it is not just less of the peak. Absent —
+    // which is every drug that shipped before this — and the comedown stays a
+    // scaled copy of `peak_mods`, so nothing changes for any of them.
+    comedown_mods: phases.comedown_mods || null,
     comeup_scale: phases.comeup_scale ?? 1,
     comedown_scale: phases.comedown_scale ?? 1,
     messages: { peak: phases.peak_message, comedown: phases.comedown_message, end: phases.end_message },
@@ -875,9 +937,20 @@ export function tickDrugs(player) {
     else if (elapsed < entry.comeupMs + entry.peakMs) { phase = 'peak'; scale = 1; }
     else { phase = 'comedown'; scale = entry.comedown_scale; }
 
+    // A comedown is normally the peak wearing off, so it reads the same block at
+    // a lower scale. `comedown_mods` is for the drugs where it is its own event
+    // rather than less of the high — a hangover is not the negative of being
+    // drunk, and inverting the peak with a negative `comedown_scale` says it is.
+    // ⚠ That inversion is also unsafe: `scaleMods` multiplies, so a negative
+    // scale flips every key, including a `*_regen_per_sec` drip — and a drip the
+    // engine CAPS on the way up (at `<stat>_max`) is floored only at zero on the
+    // way down, so a modest regen becomes an unbounded bleed. Authoring the
+    // comedown outright is the way to say what it does.
+    const modsNow = (phase === 'comedown' && entry.comedown_mods) || entry.peak_mods;
+
     if (phase !== entry.phase) {
       entry.phase = phase;
-      applyMods(player, source, scaleMods(buffModsOf(entry.peak_mods), scale * entry.potency));
+      applyMods(player, source, scaleMods(buffModsOf(modsNow), scale * entry.potency));
       const m = phase === 'peak' ? entry.messages.peak : phase === 'comedown' ? entry.messages.comedown : null;
       if (m) messages.push(m);
       // A full peak is where the compound actually shows you what it does — the
@@ -887,7 +960,7 @@ export function tickDrugs(player) {
     }
 
     // Drip regen (sanity_regen_per_sec, hp_regen_per_sec, ...).
-    const drip = dripModsOf(entry.peak_mods);
+    const drip = dripModsOf(modsNow);
     for (const k in drip) {
       const base = k.replace(REGEN_RE, '');
       entry.tickAcc[k] = (entry.tickAcc[k] || 0) + drip[k] * scale * entry.potency;
@@ -1135,6 +1208,10 @@ export const _test = {
   ROUTES, ADDICT_LATCH, ADDICT_RELEASE, OD_TOLERANCE_BONUS, DOSE_CLEARANCE_FRACTION,
   TOLERANCE_RECOVERY_PER_SEC, ADDICTION_RECOVERY_PER_SEC,
   decayTolerances, LETHAL_TOLERANCE_GAIN_RATIO, LETHAL_TOLERANCE_RECOVERY_RATIO,
+  // Not a pure law, but the only way to exercise the phase engine without
+  // rebuilding the activeDrugs entry shape in a second place, where it would
+  // drift from this one the first time a field moved.
+  startPhasedDrug,
   odCeiling: (base, tolerance) => Math.max(1, Math.round(base * (1 + tolerance * OD_TOLERANCE_BONUS))),
   clearanceStep: (doses) => Math.max(0, doses - Math.ceil(doses * DOSE_CLEARANCE_FRACTION)),
 };

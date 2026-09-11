@@ -42,7 +42,30 @@
       "lethal": true,
       "message": "You breathe in one rag too many. The lights go out mid-thought."
     },
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The room finishes tilting back. The smell has not gone anywhere.</span>",
+      "comedown_mods": {
+        "stat_brains": -2,
+        "stat_endurance": -2
+      },
+      "comedown_scale": 1,
+      "comedown_seconds": 40,
+      "comeup_scale": 0.5,
+      "comeup_seconds": 2,
+      "end_message": "<span class=\"msg-system\">You are upright and the floor is flat, and there is a headache arriving from a long way off.</span>",
+      "peak_mods": {
+        "stat_brains": -4,
+        "stat_cool": -2,
+        "stat_reflexes": -4
+      },
+      "peak_seconds": 100
+    },
     "take_line": "You soak the rag and hold it over your face.",
+    "tolerance": {
+      "gain_per_dose": 0.12,
+      "max_reduction": 0.5,
+      "recovery_per_sec": 0.000008
+    },
     "withdrawal": {
       "message": "The room won't hold still, and the smell is on you when it shouldn't be.",
       "mods": {
@@ -61,7 +84,8 @@
   },
   "flags": {
     "drug_class": "depressant",
-    "drug_family": "dissociative"
+    "drug_family": "dissociative",
+    "skin_permeability": 0.9
   },
   "id": "drug_ether",
   "item_id": "item_ether",

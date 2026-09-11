@@ -13,7 +13,10 @@
       }
     },
     "phases": {
-      "comedown_scale": 0.5,
+      "comedown_mods": {
+        "stat_cool": -1
+      },
+      "comedown_scale": 1,
       "comedown_seconds": 40,
       "comeup_message": "<span class=\"msg-system\">You light up and draw deep. Your shoulders drop; the edge comes off your hunger.</span>",
       "comeup_scale": 0.6,
@@ -51,6 +54,7 @@
     "appetite_suppress_seconds": 900,
     "drug_family": "stimulant",
     "legal": true,
+    "skin_permeability": 0.85,
     "smokeable": true
   },
   "id": "drug_cigarettes",

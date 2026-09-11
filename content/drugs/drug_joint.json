@@ -27,7 +27,12 @@
       },
       "peak_seconds": 240
     },
-    "take_line": "You spark the {name} and pull on it."
+    "take_line": "You spark the {name} and pull on it.",
+    "tolerance": {
+      "gain_per_dose": 0.08,
+      "max_reduction": 0.5,
+      "recovery_per_sec": 0.000006
+    }
   },
   "flags": {
     "cannabis": true,

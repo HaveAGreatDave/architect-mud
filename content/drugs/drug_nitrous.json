@@ -37,6 +37,18 @@
       "lethal": true,
       "message": "You breathe nothing but the gas for too long, and the part of you that was supposed to notice has gone out."
     },
+    "phases": {
+      "comedown_scale": 0.4,
+      "comedown_seconds": 25,
+      "comeup_scale": 0.5,
+      "comeup_seconds": 2,
+      "end_message": "<span class=\"msg-system\">The beat lets go of the room. You are just a person holding an empty balloon.</span>",
+      "peak_mods": {
+        "stat_brains": -3,
+        "stat_reflexes": -3
+      },
+      "peak_seconds": 38
+    },
     "take_line": "You crack the {name} into a balloon and breathe it back in.",
     "tolerance": {
       "gain_per_dose": 0.05,

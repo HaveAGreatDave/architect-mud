@@ -17,7 +17,12 @@
     },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The wire goes slack. Your hands start to shake.</span>",
-      "comedown_scale": 0.5,
+      "comedown_mods": {
+        "stat_cool": -3,
+        "stat_endurance": -2,
+        "stat_reflexes": -3
+      },
+      "comedown_scale": 1,
       "comedown_seconds": 90,
       "comeup_message": "<span class=\"msg-system\">Your pulse redlines. The world drops into slow motion.</span>",
       "comeup_scale": 0.4,
