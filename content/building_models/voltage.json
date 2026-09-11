@@ -177,7 +177,9 @@
       "pal": "infra",
       "rise": 0.07,
       "trim": "#ff5ce0",
-      "z": 1.12
+      "z": 1.12,
+      "font": "script",
+      "picto": "martini"
     },
     {
       "cx": 0.16,
@@ -277,4 +279,3 @@
     }
   ]
 }
-

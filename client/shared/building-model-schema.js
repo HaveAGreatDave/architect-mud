@@ -158,8 +158,19 @@ export const DETAIL_SCHEMA = {
   // ⚠ `px` 7, lower than a vent's 6-to-9 neighbours, and deliberately: this is high-contrast
   // lettering and stays legible at a size at which a louvre panel is mush. At 9 a name board only
   // cleared its own floor inside about 1.3 tiles, which is close enough to touch the wall.
+  // ⚠ `font` AND `picto` ARE THE SAME TWO KEYS ON ALL THREE SIGN KINDS, deliberately. They are
+  // properties of LETTERING rather than of a particular fitting, and a board that could take a
+  // script hand while a gantry could not is a rule nobody would remember. `font` is one of
+  // SIGN_FONT's keys (mono, script, block, slab) and defaults to mono, which is every sign that has
+  // ever shipped; `picto` is one of SIGN_PICTO's (martini, mug, fork, bed, bolt, pill, fuel, arrow)
+  // and defaults to none. Both live in windshield.js, and an unknown value FALLS BACK rather than
+  // throwing — a typo in a model file must never be able to stop a building drawing.
+  //
+  // ⚠ AND `font` IS NOT `face`. signBoard already has a `face`, and it means which WALL the board is
+  // bolted to. Two keys one letter apart on the same part, meaning the side of a building and the
+  // shape of its letters, is the reason this paragraph names both.
   signBoard: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
-    plain: { color: 'string', ink: 'string', label: 'string', face: 'string' }, px: 7 },
+    plain: { color: 'string', ink: 'string', label: 'string', face: 'string', font: 'string', picto: 'string' }, px: 7 },
 
   // ── THE STRUCTURAL FOUR ─────────────────────────────────────────────────────
   // Everything above is bolted TO a wall. These four give a wall a front and a back, and they are
@@ -181,11 +192,11 @@ export const DETAIL_SCHEMA = {
   // A billboard standing on a roof, on its own legs. `rise` is the leg height; the board sits on
   // top of it, so a gantry cannot be drawn anywhere its structure is not.
   signGantry: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h', rise: 'h' }, required: ['z', 'half', 'hh'],
-    plain: { pal: 'string', color: 'string', ink: 'string', label: 'string', trim: 'string', neon: 'boolean' }, px: 9 },
+    plain: { pal: 'string', color: 'string', ink: 'string', label: 'string', trim: 'string', neon: 'boolean', font: 'string', picto: 'string' }, px: 9 },
   // A sign panel hung proud of a wall, with a visible edge return. Not `neonBlade`, whose
   // half-width is in SCREEN pixels and which therefore never foreshortens — this is world geometry.
   bladePanel: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', half: 'fh', out: 'fh' }, required: ['z0', 'z1', 'half'],
-    plain: { pal: 'string', color: 'string', ink: 'string', label: 'string' }, px: 8 },
+    plain: { pal: 'string', color: 'string', ink: 'string', label: 'string', font: 'string', picto: 'string' }, px: 8 },
 
   // ── THE INDUSTRIAL FOUR ─────────────────────────────────────────────────────
   // The machinery bolted to the outside of a working building. `pipe` and `vent` are the

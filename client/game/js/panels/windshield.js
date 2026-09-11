@@ -15945,26 +15945,96 @@ let _bladeSign;   // ambient: the current building's display name, set by drawTy
 // Baked marquee boards, keyed by APPEARANCE rather than by sign: every branch of the same chain,
 // every board of the same colour and label, is one texture and one draw call.
 const _marqueeTexCache = new Map();
-function bakeSignText(label, color, dn, vertical, solid, tight) {
+// ── A SIGN CAN BE LETTERED IN MORE THAN ONE HAND, AND A PICTOGRAM IS A WORD ────────────────────
+//
+// Every sign in Coldwater was `bold monospace` in a straight line. That is a typewriter, and a city
+// whose whole visual argument is neon does not letter its bars in Courier. Two additions, both
+// authored per sign and both defaulting to exactly what shipped.
+//
+// ⚠ A NON-MONOSPACE FACE MUST BE MEASURED, NEVER RESERVED. The horizontal layout below reserves a
+// full CELL per character, which is a monospace assumption — it is already nearly twice the ink a
+// mono advance uses, and against a script face with its long tails and tight joins it is wildly
+// wrong in both directions at once. So anything but `mono` takes the measured path whether or not
+// the caller asked for `tight`.
+//
+// ⚠ AND THE STACK ENDS IN A GENERIC FAMILY ON PURPOSE. `cursive` and `sans-serif` resolve to
+// SOMETHING on every machine, which is the property that matters: a missing font falls back to a
+// different hand, never to no sign. What it must not do is fall back to the DEFAULT face, which is
+// what naming one family and no family keyword would do — a script sign silently rendering as body
+// text on any machine without that font, and looking like the option not working.
+export const SIGN_FONT = {
+  mono: (C) => `bold ${Math.round(C * 0.72)}px monospace`,
+  script: (C) => `italic bold ${Math.round(C * 0.92)}px "Brush Script MT","Segoe Script","Snell Roundhand",cursive`,
+  block: (C) => `900 ${Math.round(C * 0.66)}px "Arial Black",Impact,"Haettenschweiler",sans-serif`,
+  slab: (C) => `bold ${Math.round(C * 0.70)}px Rockwell,"Roboto Slab",Georgia,serif`,
+};
+// A pictogram is drawn as a TUBE, not as a filled shape — it is bent glass with gas in it, so it is
+// a stroked path with round caps and joins, and it takes the same three passes the lettering does.
+// Each entry lays its path out in a unit box centred on the origin, ±0.5.
+export const SIGN_PICTO = {
+  martini: (g) => {
+    g.moveTo(-0.34, -0.30); g.lineTo(0.34, -0.30); g.lineTo(0, 0.06); g.closePath();   // the bowl
+    g.moveTo(0, 0.06); g.lineTo(0, 0.34);                                              // the stem
+    g.moveTo(-0.20, 0.38); g.lineTo(0.20, 0.38);                                       // the foot
+  },
+  mug: (g) => {
+    g.moveTo(-0.26, -0.20); g.lineTo(-0.26, 0.22); g.lineTo(0.18, 0.22); g.lineTo(0.18, -0.20); g.closePath();
+    g.moveTo(0.18, -0.08); g.arc(0.18, 0.01, 0.14, -Math.PI / 2, Math.PI / 2);         // the handle
+    g.moveTo(-0.10, -0.42); g.lineTo(-0.10, -0.30); g.moveTo(0.04, -0.42); g.lineTo(0.04, -0.30);  // steam
+  },
+  fork: (g) => {
+    g.moveTo(-0.24, -0.40); g.lineTo(-0.24, -0.10); g.moveTo(-0.12, -0.40); g.lineTo(-0.12, -0.10);
+    g.moveTo(-0.30, -0.10); g.lineTo(-0.06, -0.10); g.moveTo(-0.18, -0.10); g.lineTo(-0.18, 0.42);
+    g.moveTo(0.20, -0.40); g.lineTo(0.20, 0.42); g.moveTo(0.20, -0.40); g.lineTo(0.30, -0.18); g.lineTo(0.20, -0.02);
+  },
+  bed: (g) => {
+    g.moveTo(-0.36, 0.06); g.lineTo(0.36, 0.06); g.moveTo(-0.36, 0.06); g.lineTo(-0.36, 0.34);
+    g.moveTo(0.36, 0.06); g.lineTo(0.36, 0.34); g.moveTo(-0.36, -0.16); g.lineTo(-0.36, 0.06);
+    g.moveTo(-0.30, -0.14); g.arc(-0.18, -0.14, 0.12, Math.PI, 0);                     // the pillow
+    g.moveTo(-0.06, -0.14); g.lineTo(0.36, -0.14); g.lineTo(0.36, 0.06);
+  },
+  bolt: (g) => { g.moveTo(0.10, -0.44); g.lineTo(-0.20, 0.02); g.lineTo(0.02, 0.02); g.lineTo(-0.10, 0.44); g.lineTo(0.22, -0.06); g.lineTo(0, -0.06); g.closePath(); },
+  pill: (g) => {
+    g.moveTo(-0.30, 0.10); g.lineTo(-0.04, -0.16); g.moveTo(-0.16, 0.24); g.lineTo(0.10, -0.02);
+    g.moveTo(-0.30, 0.10); g.arc(-0.23, 0.17, 0.10, Math.PI * 1.25, Math.PI * 0.25);
+    g.moveTo(0.10, -0.02); g.arc(0.03, -0.09, 0.10, Math.PI * 0.25, Math.PI * 1.25);
+    g.moveTo(-0.16, 0.24); g.lineTo(-0.30, 0.10);
+  },
+  fuel: (g) => {
+    g.moveTo(-0.28, 0.40); g.lineTo(-0.28, -0.34); g.lineTo(0.06, -0.34); g.lineTo(0.06, 0.40); g.closePath();
+    g.moveTo(-0.22, -0.24); g.lineTo(0, -0.24); g.moveTo(0.06, -0.12); g.lineTo(0.24, -0.12); g.lineTo(0.24, 0.18);
+  },
+  arrow: (g) => { g.moveTo(-0.30, -0.22); g.lineTo(0.10, 0); g.lineTo(-0.30, 0.22); g.moveTo(0.22, -0.24); g.lineTo(0.22, 0.24); },
+};
+
+function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // The universal chokepoint for world lettering, so it catches the arms that paint a name straight
   // onto a frieze or a false front (The Meridian, The Dry Goods) rather than onto a blade or a band.
   if (SIGN_SEEN) SIGN_SEEN.add('text');
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return null;   // adornment — and it allocates a canvas, which capture must never do
-  const key = `${label}|${color}|${dn}|${vertical ? 1 : 0}|${solid ? 1 : 0}|${tight ? 1 : 0}`;
+  // ⚠ THE FACE AND THE PICTOGRAM ARE IN THE KEY. They change the picture and nothing else in it
+  // does, so leaving either out hands the first caller's artwork to every later one with the same
+  // label and colour — one chain's script wordmark appearing on another's block-lettered board.
+  const face = (opts && opts.font) || 'mono';
+  const picto = (opts && opts.picto) || '';
+  const key = `${label}|${color}|${dn}|${vertical ? 1 : 0}|${solid ? 1 : 0}|${tight ? 1 : 0}|${face}|${picto}`;
   let c = _signTexCache.get(key); if (c) return c;
   const n = label.length, CELL = 46, PAD = 8;   // logical px per glyph cell + margin; the strip map scales this onto the quad
-  const FONT = `bold ${Math.round(CELL * 0.72)}px monospace`;
+  const FONT = (SIGN_FONT[face] || SIGN_FONT.mono)(CELL);
+  const draw = SIGN_PICTO[picto] || null;
+  const cells = n + (draw ? 1 : 0);
   // A monospace advance is about 0.6em, so a full CELL per character reserves nearly twice the
   // width the glyphs actually use. That padding is invisible until something maps the canvas onto
   // a quad — at which point the ink is squeezed into the middle and the whole run comes out far
   // taller than it is wide. Measuring first is what makes the texture's aspect the TEXT's aspect.
-  let W = vertical ? CELL : n * CELL + PAD * 2;
-  if (tight && !vertical) {
+  let W = vertical ? CELL : cells * CELL + PAD * 2;
+  // ⚠ Measured rather than reserved for any face that is not monospace — see SIGN_FONT.
+  if ((tight || face !== 'mono') && !vertical) {
     const m = texCanvas(8, 8).getContext('2d');
     m.font = FONT;
-    W = Math.max(CELL, Math.ceil(m.measureText(label).width) + PAD * 2);
+    W = Math.max(CELL, Math.ceil(m.measureText(label).width) + (draw ? CELL : 0) + PAD * 2);
   }
-  const H = vertical ? n * CELL + PAD * 2 : CELL;
+  const H = vertical ? cells * CELL + PAD * 2 : CELL;
   c = texCanvas(W, H); const g = c.getContext('2d');
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = FONT;
   const glow = dn ? 12 : 6, core = dn ? 6 : 2;
@@ -15979,8 +16049,35 @@ function bakeSignText(label, color, dn, vertical, solid, tight) {
     g.shadowBlur = core; g.lineWidth = 2.4; g.strokeStyle = 'rgba(8,6,10,0.9)'; g.strokeText(ch, x, y); // dark edge
     g.shadowBlur = 0; g.fillStyle = 'rgba(255,255,255,0.95)'; g.fillText(ch, x, y);                    // bright core
   };
-  if (vertical) for (let i = 0; i < n; i++) put(label[i], W / 2, PAD + (i + 0.5) * CELL);
-  else put(label, W / 2, H / 2);
+  // A pictogram takes the same three passes the lettering does, because it is the same tube: a
+  // stroked path with round caps, not a filled silhouette. ⚠ The line width is set from CELL rather
+  // than fixed, so a pictogram stays the same weight as the letters beside it at any cell size.
+  const putPicto = (cx, cy) => {
+    g.save();
+    g.translate(cx, cy); g.scale(CELL * 0.82, CELL * 0.82);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    const pass = (w, col, blur) => {
+      g.beginPath(); draw(g);
+      g.lineWidth = w / (CELL * 0.82); g.strokeStyle = col;
+      g.shadowColor = color; g.shadowBlur = blur; g.stroke();
+    };
+    if (solid) { pass(4.6, color, dn ? 5 : 0); pass(4.6, color, 0); }
+    else {
+      pass(5.2, color, glow);                          // colour halo
+      pass(6.4, 'rgba(8,6,10,0.9)', core);             // dark edge, wider so it reads as a gap
+      pass(2.8, 'rgba(255,255,255,0.95)', 0);          // bright core
+    }
+    g.shadowBlur = 0; g.restore();
+  };
+  if (vertical) {
+    if (draw) putPicto(W / 2, PAD + 0.5 * CELL);
+    for (let i = 0; i < n; i++) put(label[i], W / 2, PAD + (i + 0.5 + (draw ? 1 : 0)) * CELL);
+  } else if (draw) {
+    // The glyph run keeps the middle of what is left, so a pictogram reads as a mark BESIDE the
+    // word rather than pushing it off centre.
+    putPicto(PAD + CELL * 0.5, H / 2);
+    put(label, PAD + CELL + (W - PAD * 2 - CELL) / 2, H / 2);
+  } else put(label, W / 2, H / 2);
   _signTexCache.set(key, c); return c;
 }
 // Map a baked texture onto a projected quad [TL,TR,BR,BL] ({sx,sy}) by strip subdivision.
@@ -21717,7 +21814,7 @@ const AUTHORED_DETAIL = {
       if (w.every((q) => q.f > 0.12)) {
         // `perTile` boards are canvas-painted, so their lettering has to be too — see the ⚠ on
         // `onCanvas` in emitSurfaceText, or the board covers its own words in GLASS 2.
-        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === "$name" ? (c.name || "") : d.label, d.ink || inkFor(board), c.night ? 1 : 0, false, true), false, c.alpha, DETAIL_LIFT * 2, perTile);
+        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === "$name" ? (c.name || "") : d.label, d.ink || inkFor(board), c.night ? 1 : 0, false, true, false, d), false, c.alpha, DETAIL_LIFT * 2, perTile);
       }
     }
   },
@@ -21884,7 +21981,7 @@ const AUTHORED_DETAIL = {
     if (d.label) {
       const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
       if (w.every((q) => q.f > 0.12)) {
-        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === '$name' ? (c.name || '') : d.label, d.ink || inkFor(board), c.night ? 1 : 0, false, !d.neon), false, c.alpha, DETAIL_LIFT * 2);
+        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === '$name' ? (c.name || '') : d.label, d.ink || inkFor(board), c.night ? 1 : 0, false, !d.neon, false, d), false, c.alpha, DETAIL_LIFT * 2);
       }
     }
   },
@@ -21919,7 +22016,7 @@ const AUTHORED_DETAIL = {
         // `vertical` down the panel, which is what a hung blade is for. Painted ink rather than
         // neon: the panel itself is the lit surface, so a glowing letter on a glowing board is the
         // same soup `signBoard` used to make.
-        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === '$name' ? (c.name || '') : d.label, d.ink || inkFor(face), c.night ? 1 : 0, true, true), true, c.alpha, DETAIL_LIFT * 2);
+        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === '$name' ? (c.name || '') : d.label, d.ink || inkFor(face), c.night ? 1 : 0, true, true, d), true, c.alpha, DETAIL_LIFT * 2);
       }
     }
   },
@@ -22521,6 +22618,40 @@ function palMaterial(pal) {
   return _matByPal.get(pal) || 'plain';
 }
 // `works` wears machinery, `block` wears windows and balconies, `front` wears glazing and canopies.
+// ── WHAT TRADE IS THIS, AND HOW DOES THAT TRADE LETTER ITS SIGN? ───────────────────────────────
+//
+// A pictogram is the one piece of signage that works before you can read the name, and it is what
+// every neon reference has that GLASS did not: a martini glass over a bar, a bed over a hotel, a
+// bolt over a substation. It is also the cheapest possible authoring, because the game ALREADY
+// knows what the building is — `m.type` is the arm, and the arm is the trade.
+//
+// ⚠ SO IT IS DERIVED, NOT AUTHORED, for the same reason the rest of the kit is: 130 of 148 arms
+// draw exactly one model, so authoring a mark per building is 130 files to get 130 marks. A table
+// of trades is one place, it reaches every building of that trade at once, and an author who wants
+// something else still writes `picto` on the part and wins.
+//
+// ⚠ AND MOST TYPES ARE DELIBERATELY ABSENT. A mark means something only if it is not on everything,
+// and a pictogram over a warehouse, an office or somebody's flat is decoration pretending to be
+// information. Absent is the default and absent is mono with no mark, which is every sign that has
+// ever shipped.
+const SIGN_TRADE = {
+  bar: ['script', 'martini'], divebar: ['script', 'martini'], saloon: ['script', 'martini'],
+  honkytonk: ['script', 'martini'], nightclub: ['script', 'martini'], club: ['script', 'martini'],
+  casino: ['script', 'martini'], neonvig: ['script', 'martini'], strip: ['script', 'martini'],
+  grindhouse: ['script', ''], atelier: ['script', ''], boutique: ['script', ''],
+  diner: ['slab', 'fork'], noodlebar: ['slab', 'fork'], helpings: ['slab', 'fork'],
+  butcher: ['slab', 'fork'], bodega: ['slab', ''], mercantile: ['slab', ''], deptstore: ['block', ''],
+  stimcafe: ['script', 'mug'], laundromat: ['slab', 'mug'], bathhouse: ['slab', ''],
+  hotel: ['block', 'bed'], layover: ['block', 'bed'], embassy: ['slab', 'bed'], twocell: ['block', 'bed'],
+  clinic: ['block', 'pill'], asc_clinic: ['block', 'pill'], dw_surgery: ['block', 'pill'],
+  sw_physic: ['block', 'pill'], chemsupply: ['block', 'pill'], stitch: ['block', 'pill'],
+  power: ['block', 'bolt'], dynamo: ['block', 'bolt'], dw_turbine: ['block', 'bolt'],
+  trm_charge: ['block', 'bolt'], signalbox: ['block', 'bolt'],
+  fuel_yard: ['block', 'fuel'], garage: ['block', 'fuel'], truck_depot: ['block', 'fuel'],
+  dw_depot: ['block', 'fuel'], freight_office: ['block', 'arrow'], freight_forwarder: ['block', 'arrow'],
+  permits: ['slab', 'arrow'], thumbscale: ['block', 'arrow'],
+};
+
 function derivedStyle(m, hw, top) {
   const mat = palMaterial(m.pal);
   if (WORKS_MAT.has(mat)) return 'works';
@@ -22882,10 +23013,14 @@ function derivedKit(list, cand, deck, m, seed, A, have) {
       // doing the job a sign exists to do, so the band is deeper and its floor is lower than a
       // vent's: high-contrast lettering stays legible at a size at which a louvre is mush.
       const sz = Math.min(base.hw * 0.62, 0.19);
+      // The trade's own hand and mark, if it has one — see SIGN_TRADE. A works building keeps
+      // mono whatever its trade says, because a stencilled number on a plant is the point of it.
+      const [tFont, tPicto] = (style !== 'works' && SIGN_TRADE[m.type]) || ['', ''];
       push({ kind: 'signBoard', cx: A(base.cx), cy: A(by), z: A(base.z0 + GF + 0.036),
         half: A(sz), hh: A(Math.min(sz * 0.3, 0.04)), label: '$name',
         color: style === 'works' ? shadeOf(pal, 0.34) : '#151119',
-        ink: style === 'works' ? '#cfc6b4' : (m.neon || '#e8dcc8') });
+        ink: style === 'works' ? '#cfc6b4' : (m.neon || '#e8dcc8'),
+        ...(tFont ? { font: tFont } : {}), ...(tPicto ? { picto: tPicto } : {}) });
     }
     // Street-level plant: a condenser bolted to the wall beside the door, and an extract grille.
     // Every one of the reference photographs has this and none of them has it on the ROOF only —
