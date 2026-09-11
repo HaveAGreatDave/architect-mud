@@ -1,53 +1,373 @@
 {
   "adorn": [
-    { "kind": "marqueeBand", "cx": 0, "cy": 0.435, "half": 0.2, "z": 0.29, "color": "#5cd6ff", "label": "VOLTAGE" },
-    { "kind": "glowPool", "cx": -0.05, "cy": 0.46, "z": 0.02, "rgb": "200,40,120", "s": 22 },
-    { "kind": "glowPool", "cx": 0.2, "cy": 0.46, "z": 0.02, "rgb": "70,150,255", "s": 18 },
-    { "kind": "blinkLight", "cx": -0.3, "cy": 0.1, "z": 1.47, "rgb": "255,90,200", "r": 1.6 },
-    { "kind": "blinkLight", "cx": 0.3, "cy": 0.1, "z": 1.47, "rgb": "255,90,200", "r": 1.6 },
-    { "kind": "glowPool", "cx": 0, "cy": 0.1, "z": 1.3, "rgb": "255,92,224", "s": 13 }
+    {
+      "kind": "marqueeBand",
+      "cx": 0.16,
+      "cy": 0.242,
+      "half": 0.2,
+      "z": 0.3,
+      "color": "#5cd6ff",
+      "label": "VOLTAGE"
+    },
+    {
+      "kind": "glowPool",
+      "cx": -0.05,
+      "cy": 0.46,
+      "z": 0.02,
+      "rgb": "200,40,120",
+      "s": 22
+    },
+    {
+      "kind": "glowPool",
+      "cx": 0.2,
+      "cy": 0.46,
+      "z": 0.02,
+      "rgb": "70,150,255",
+      "s": 18
+    },
+    {
+      "kind": "blinkLight",
+      "cx": -0.3,
+      "cy": 0.1,
+      "z": 1.47,
+      "rgb": "255,90,200",
+      "r": 1.6
+    },
+    {
+      "kind": "blinkLight",
+      "cx": 0.3,
+      "cy": 0.1,
+      "z": 1.47,
+      "rgb": "255,90,200",
+      "r": 1.6
+    },
+    {
+      "kind": "glowPool",
+      "cx": 0,
+      "cy": 0.1,
+      "z": 1.3,
+      "rgb": "255,92,224",
+      "s": 13
+    }
   ],
-  "basis": { "fh": 0.4, "h": 1 },
-  "bind": [{ "by": "name", "key": "Voltage" }],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Voltage"
+    }
+  ],
   "detail": [
-    { "kind": "parapet", "cx": 0, "cy": 0, "z": 0.26, "half": 0.44, "hh": 0.018, "pal": "infra" },
-    { "kind": "parapet", "cx": 0.16, "cy": 0.14, "z": 0.6, "half": 0.26, "hh": 0.016, "pal": "infra" },
-    { "kind": "parapet", "cx": 0, "cy": -0.08, "z": 0.98, "half": 0.42, "hh": 0.024, "pal": "infra" },
-    { "kind": "parapet", "cx": -0.02, "cy": -0.12, "z": 1.22, "half": 0.33, "hh": 0.02, "pal": "infra" },
-
-    { "kind": "canopy", "cx": -0.06, "cy": 0.43, "z": 0.265, "half": 0.28, "out": 0.1, "hh": 0.02, "pal": "ty_hangar_a", "soffit": "#c8246e", "strip": "#7fe8ff" },
-    { "kind": "canopy", "cx": 0.2, "cy": 0.43, "z": 0.585, "half": 0.24, "out": 0.085, "hh": 0.018, "pal": "ty_hangar_a", "soffit": "#c8246e", "strip": "#7fe8ff" },
-
-    { "kind": "windowBay", "cx": -0.24, "cy": 0.43, "z": 0.15, "half": 0.11, "hh": 0.085, "depth": 0.045, "glow": "#7fe8ff", "bars": 1, "pal": "ty_hangar_a" },
-    { "kind": "windowBay", "cx": 0.22, "cy": 0.43, "z": 0.15, "half": 0.12, "hh": 0.085, "depth": 0.045, "glow": "#ff8ae0", "pal": "ty_hangar_a" },
-    { "kind": "windowBay", "cx": 0.2, "cy": 0.43, "z": 0.44, "half": 0.15, "hh": 0.06, "depth": 0.04, "glow": "#ff8ae0", "transom": 0.3, "pal": "ty_hangar_a" },
-    { "kind": "repeat", "count": 3, "step": { "z": 0.18 },
-      "of": { "kind": "windowBay", "cx": -0.08, "cy": 0.27, "z": 0.42, "half": 0.09, "hh": 0.05, "depth": 0.032, "glow": "#9fd8ff", "bars": 1, "pal": "ty_hangar_a" } },
-    { "kind": "repeat", "count": 3, "step": { "z": 0.18 },
-      "of": { "kind": "windowBay", "cx": 0.12, "cy": 0.27, "z": 0.42, "half": 0.09, "hh": 0.05, "depth": 0.032, "glow": "#5cd6ff", "bars": 1, "pal": "ty_hangar_a" } },
-    { "kind": "windowBay", "cx": 0, "cy": 0.18, "z": 1.07, "half": 0.2, "hh": 0.055, "depth": 0.035, "glow": "#cfe6ff", "bars": 2, "pal": "ty_hangar_a" },
-
-    { "kind": "bladePanel", "cx": -0.04, "cy": 0.43, "z0": 0.3, "z1": 0.575, "half": 0.055, "out": 0.05, "color": "#ff5ce0", "label": "BAR", "pal": "ty_hangar_a" },
-    { "kind": "bladePanel", "cx": 0.33, "cy": 0.27, "z0": 0.63, "z1": 0.95, "half": 0.05, "out": 0.045, "color": "#5cd6ff", "label": "LIVE", "pal": "ty_hangar_a" },
-
-    { "kind": "signGantry", "cx": 0, "cy": 0.1, "z": 1.22, "half": 0.3, "hh": 0.085, "rise": 0.06, "color": "#141018", "trim": "#ff5ce0", "ink": "#ff9ae8", "label": "VOLTAGE", "neon": true, "pal": "infra" },
-    { "kind": "signBoard", "cx": 0, "cy": 0.18, "z": 1.165, "half": 0.19, "hh": 0.026, "color": "#141018", "ink": "#9fd8ff", "label": "24 HOURS" },
-
-    { "kind": "fireEscape", "cx": -0.3, "cy": 0.27, "z0": 0.34, "z1": 0.94, "half": 0.085, "out": 0.055, "pal": "ty_hangar_a", "flights": 3 },
-    { "kind": "shutter", "cx": -0.02, "cy": 0.435, "z": 0.1, "half": 0.075, "hh": 0.075, "pal": "ty_hangar_a" },
-
-    { "kind": "roofTank", "cx": 0.14, "cy": -0.02, "z": 0.6, "r": 0.08, "hh": 0.055, "pal": "ty_hangar_a" },
-    { "kind": "antennaCluster", "cx": 0.16, "cy": -0.06, "z": 1.22, "r": 0.09, "hh": 0.13, "n": 6, "pal": "ty_hangar_a" },
-    { "kind": "acUnit", "cx": -0.2, "cy": 0.05, "z": 0.6, "w": 0.06, "d": 0.05, "hh": 0.045, "pal": "ty_hangar_a" },
-    { "kind": "acUnit", "cx": 0.34, "cy": 0.2, "z": 0.98, "w": 0.055, "d": 0.045, "hh": 0.04, "pal": "ty_hangar_a" },
-    { "kind": "acUnit", "cx": -0.3, "cy": 0.46, "z": 0.5, "w": 0.05, "d": 0.04, "hh": 0.045, "pal": "ty_hangar_a" },
-    { "kind": "vent", "cx": 0.36, "cy": 0.435, "z": 0.16, "w": 0.05, "hh": 0.04, "pal": "ty_hangar_a" },
-
-    { "kind": "pipe", "cx": -0.41, "cy": 0.26, "z0": 0, "z1": 0.96, "r": 0.01, "pal": "ty_hangar_a" },
-    { "kind": "pipe", "cx": 0.4, "cy": 0.26, "z0": 0.28, "z1": 0.96, "r": 0.01, "pal": "ty_hangar_a" },
-    { "kind": "conduit", "cx": 0, "cy": 0.275, "z": 0.34, "half": 0.36, "r": 0.006, "pal": "infra" },
-    { "kind": "conduit", "cx": 0, "cy": 0.275, "z": 0.93, "half": 0.38, "r": 0.006, "pal": "infra" },
-    { "kind": "cableRun", "cx": 0, "cy": 0.3, "z": 0.9, "half": 0.36, "sag": 0.055, "r": 0.006, "pal": "infra" }
+    {
+      "kind": "parapet",
+      "cx": 0,
+      "cy": 0,
+      "z": 0.26,
+      "half": 0.44,
+      "hh": 0.018,
+      "pal": "infra"
+    },
+    {
+      "kind": "parapet",
+      "cx": 0.16,
+      "cy": 0.14,
+      "z": 0.6,
+      "half": 0.26,
+      "hh": 0.016,
+      "pal": "infra"
+    },
+    {
+      "kind": "parapet",
+      "cx": 0,
+      "cy": -0.08,
+      "z": 0.98,
+      "half": 0.42,
+      "hh": 0.024,
+      "pal": "infra"
+    },
+    {
+      "kind": "parapet",
+      "cx": -0.02,
+      "cy": -0.12,
+      "z": 1.22,
+      "half": 0.33,
+      "hh": 0.02,
+      "pal": "infra"
+    },
+    {
+      "kind": "canopy",
+      "cx": -0.06,
+      "cy": 0.43,
+      "z": 0.265,
+      "half": 0.28,
+      "out": 0.1,
+      "hh": 0.02,
+      "pal": "ty_hangar_a",
+      "soffit": "#c8246e",
+      "strip": "#7fe8ff"
+    },
+    {
+      "kind": "canopy",
+      "cx": 0.2,
+      "cy": 0.43,
+      "z": 0.585,
+      "half": 0.24,
+      "out": 0.085,
+      "hh": 0.018,
+      "pal": "ty_hangar_a",
+      "soffit": "#c8246e",
+      "strip": "#7fe8ff"
+    },
+    {
+      "kind": "windowBay",
+      "cx": -0.24,
+      "cy": 0.43,
+      "z": 0.15,
+      "half": 0.11,
+      "hh": 0.085,
+      "depth": 0.045,
+      "glow": "#7fe8ff",
+      "bars": 1,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "windowBay",
+      "cx": 0.22,
+      "cy": 0.43,
+      "z": 0.15,
+      "half": 0.12,
+      "hh": 0.085,
+      "depth": 0.045,
+      "glow": "#ff8ae0",
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "windowBay",
+      "cx": 0.2,
+      "cy": 0.43,
+      "z": 0.44,
+      "half": 0.15,
+      "hh": 0.06,
+      "depth": 0.04,
+      "glow": "#ff8ae0",
+      "transom": 0.3,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "repeat",
+      "count": 2,
+      "step": {
+        "z": 0.18
+      },
+      "of": {
+        "kind": "windowBay",
+        "cx": -0.14,
+        "cy": 0.27,
+        "z": 0.66,
+        "half": 0.09,
+        "hh": 0.05,
+        "depth": 0.032,
+        "glow": "#9fd8ff",
+        "bars": 1,
+        "pal": "ty_hangar_a"
+      }
+    },
+    {
+      "kind": "repeat",
+      "count": 2,
+      "step": {
+        "z": 0.18
+      },
+      "of": {
+        "kind": "windowBay",
+        "cx": 0.1,
+        "cy": 0.27,
+        "z": 0.66,
+        "half": 0.09,
+        "hh": 0.05,
+        "depth": 0.032,
+        "glow": "#5cd6ff",
+        "bars": 1,
+        "pal": "ty_hangar_a"
+      }
+    },
+    {
+      "kind": "windowBay",
+      "cx": 0,
+      "cy": 0.18,
+      "z": 1.07,
+      "half": 0.2,
+      "hh": 0.055,
+      "depth": 0.035,
+      "glow": "#cfe6ff",
+      "bars": 2,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "bladePanel",
+      "cx": 0.33,
+      "cy": 0.27,
+      "z0": 0.63,
+      "z1": 0.95,
+      "half": 0.05,
+      "out": 0.045,
+      "color": "#5cd6ff",
+      "label": "LIVE",
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "signGantry",
+      "cx": 0,
+      "cy": 0.1,
+      "z": 1.22,
+      "half": 0.3,
+      "hh": 0.085,
+      "rise": 0.06,
+      "color": "#141018",
+      "trim": "#ff5ce0",
+      "ink": "#ff9ae8",
+      "label": "VOLTAGE",
+      "neon": true,
+      "pal": "infra"
+    },
+    {
+      "kind": "signBoard",
+      "cx": 0,
+      "cy": 0.18,
+      "z": 1.165,
+      "half": 0.19,
+      "hh": 0.026,
+      "color": "#141018",
+      "ink": "#9fd8ff",
+      "label": "24 HOURS"
+    },
+    {
+      "kind": "fireEscape",
+      "cx": -0.3,
+      "cy": 0.27,
+      "z0": 0.34,
+      "z1": 0.94,
+      "half": 0.085,
+      "out": 0.055,
+      "pal": "ty_hangar_a",
+      "flights": 3
+    },
+    {
+      "kind": "shutter",
+      "cx": -0.02,
+      "cy": 0.435,
+      "z": 0.1,
+      "half": 0.075,
+      "hh": 0.075,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "roofTank",
+      "cx": 0.14,
+      "cy": -0.02,
+      "z": 0.6,
+      "r": 0.08,
+      "hh": 0.055,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "antennaCluster",
+      "cx": 0.16,
+      "cy": -0.06,
+      "z": 1.22,
+      "r": 0.09,
+      "hh": 0.13,
+      "n": 6,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "acUnit",
+      "cx": -0.2,
+      "cy": 0.05,
+      "z": 0.6,
+      "w": 0.06,
+      "d": 0.05,
+      "hh": 0.045,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "acUnit",
+      "cx": 0.34,
+      "cy": 0.2,
+      "z": 0.98,
+      "w": 0.055,
+      "d": 0.045,
+      "hh": 0.04,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "acUnit",
+      "cx": -0.3,
+      "cy": 0.46,
+      "z": 0.5,
+      "w": 0.05,
+      "d": 0.04,
+      "hh": 0.045,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "vent",
+      "cx": 0.36,
+      "cy": 0.435,
+      "z": 0.16,
+      "w": 0.05,
+      "hh": 0.04,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "pipe",
+      "cx": -0.41,
+      "cy": 0.26,
+      "z0": 0,
+      "z1": 0.96,
+      "r": 0.01,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "pipe",
+      "cx": 0.4,
+      "cy": 0.26,
+      "z0": 0.28,
+      "z1": 0.96,
+      "r": 0.01,
+      "pal": "ty_hangar_a"
+    },
+    {
+      "kind": "conduit",
+      "cx": 0,
+      "cy": 0.275,
+      "z": 0.34,
+      "half": 0.36,
+      "r": 0.006,
+      "pal": "infra"
+    },
+    {
+      "kind": "conduit",
+      "cx": 0,
+      "cy": 0.275,
+      "z": 0.93,
+      "half": 0.38,
+      "r": 0.006,
+      "pal": "infra"
+    },
+    {
+      "kind": "cableRun",
+      "cx": 0,
+      "cy": 0.3,
+      "z": 0.9,
+      "half": 0.36,
+      "sag": 0.055,
+      "r": 0.006,
+      "pal": "infra"
+    }
   ],
   "id": "voltage",
   "neon": "#5cd6ff",
@@ -55,10 +375,56 @@
   "pal": "ty_voltage",
   "replaces": "nightclub",
   "segs": [
-    { "kind": "box", "cx": 0, "cy": 0, "hw": 0.44, "fd": 0.43, "z0": 0, "z1": 0.26, "roof": true },
-    { "kind": "box", "cx": 0.16, "cy": 0.14, "hw": 0.26, "fd": 0.29, "z0": 0.26, "z1": 0.6, "roof": true },
-    { "kind": "box", "cx": 0, "cy": -0.08, "hw": 0.42, "fd": 0.35, "z0": 0.26, "z1": 0.98, "roof": true },
-    { "kind": "box", "cx": -0.02, "cy": -0.12, "hw": 0.33, "fd": 0.3, "z0": 0.98, "z1": 1.22, "roof": true },
-    { "kind": "box", "cx": -0.24, "cy": -0.26, "hw": 0.1, "fd": 0.1, "z0": 1.22, "z1": 1.34, "roof": true, "pal": "infra" }
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "fd": 0.43,
+      "z0": 0,
+      "z1": 0.26,
+      "roof": true
+    },
+    {
+      "kind": "box",
+      "cx": 0.16,
+      "cy": 0.14,
+      "hw": 0.26,
+      "fd": 0.29,
+      "z0": 0.26,
+      "z1": 0.6,
+      "roof": true
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": -0.08,
+      "hw": 0.42,
+      "fd": 0.35,
+      "z0": 0.26,
+      "z1": 0.98,
+      "roof": true
+    },
+    {
+      "kind": "box",
+      "cx": -0.02,
+      "cy": -0.12,
+      "hw": 0.33,
+      "fd": 0.3,
+      "z0": 0.98,
+      "z1": 1.22,
+      "roof": true
+    },
+    {
+      "kind": "box",
+      "cx": -0.24,
+      "cy": -0.26,
+      "hw": 0.1,
+      "fd": 0.1,
+      "z0": 1.22,
+      "z1": 1.34,
+      "roof": true,
+      "pal": "infra"
+    }
   ]
 }
