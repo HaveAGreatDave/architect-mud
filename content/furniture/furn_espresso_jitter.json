@@ -3,8 +3,9 @@
   "flags": {
     "aliases": "rig,espresso,espresso machine,coffee machine,cup dispenser,cups",
     "brew_tier": "barista",
-    "vends": "item_paper_cup",
-    "vend_line": "The dispenser thumps once and a paper cup drops out, seam-side up."
+    "vend_drink": "flat_white",
+    "vend_line": "The dispenser thumps once and a paper cup drops out, seam-side up.",
+    "vends": "item_paper_cup"
   },
   "hp": null,
   "hp_max": null,

@@ -64,6 +64,19 @@ export const DRINKS = {
     ceiling: 'excellent', difficulty: 4,
     blurb: 'Black, bitter, and the first honest thing of the day.',
   },
+  // The drink the whole tier ladder was written around, and it was not in the
+  // book. Grounds and nothing else: no water is poured over an espresso, the
+  // machine forces its own through under pressure, which is why this is the one
+  // coffee here with no hot_water in it. A cup is the only thing to serve it in
+  // — an espresso in a mug is a small coffee in a big cup and everyone knows it.
+  espresso: {
+    noun: 'espresso', vessels: ['cup'], hot: true,
+    needs: { coffee_base: [1, 2] },
+    optional: ['syrup'],
+    nameSlots: [],
+    ceiling: 'masterful', difficulty: 8,
+    blurb: 'Two mouthfuls, and the whole argument for owning the machine.',
+  },
   flat_white: {
     noun: 'flat white', vessels: ['cup', 'mug'], hot: true,
     needs: { coffee_base: [1, 2], dairy_cream: 1 },

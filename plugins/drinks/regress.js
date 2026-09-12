@@ -10,6 +10,7 @@ import { QUALITY_BANDS as ENGINE_BANDS } from '../../server/engine/quality-bands
 import { QUALITY_BANDS as COOKING_BANDS } from '../cooking/profiles.js';
 import { CONFIG as CONSUME_CONFIG } from '../consume/index.js';
 import { getItem } from '../../server/engine/items-cache.js';
+import { query } from '../../server/models/db.js';
 import {
   DRINKS, UNKNOWN_DRINK, GENERIC_MIXED, DRINKWARE_KINDS,
   signature, matchDrink, matchScore, drinkName, composeBand,
@@ -17,8 +18,8 @@ import {
 } from './recipes.js';
 import { DRINK_PROFILES, validateDrinkProfiles, poursOf, profileNameFor } from './profiles.js';
 import { derivePotency, servingPotency, ethanolMl, abvOf } from './alcohol.js';
-import { hotMultiplier, capacityOf, isDrinkware, drinkwareKind } from './vessel.js';
-import { POUR_ML, STANDARD_UNIT_ML, POTENCY_MIN, POTENCY_MAX, HOT_PEAK_MS, HOT_COLD_MS, HOT_COLD_PENALTY, BREW_TIERS } from './config.js';
+import { hotMultiplier, capacityOf, isDrinkware, drinkwareKind, makeDrink } from './vessel.js';
+import { POUR_ML, STANDARD_UNIT_ML, POTENCY_MIN, POTENCY_MAX, HOT_PEAK_MS, HOT_COLD_MS, HOT_COLD_PENALTY, BREW_TIERS, VEND_BANDS, VEND_CHARGE } from './config.js';
 
 // A synthetic ingredient row — the shape signature()/poursOf() actually read.
 const ing = (profile, pours = 1, abv = 0, extra = {}) => ({
@@ -247,5 +248,98 @@ export default async function regress({ run, check, getPlayer }) {
     check('drinks: every brew tier names a real ceiling band', bad.length === 0, JSON.stringify(bad));
     check('drinks: a better tier is never a worse ceiling',
       ENGINE_BANDS.indexOf(BREW_TIERS.barista.ceiling) >= ENGINE_BANDS.indexOf(BREW_TIERS.kettle.ceiling));
+  }
+
+  // ── makeDrink: the one constructor ────────────────────────────────────────
+  //
+  // Two paths stamp a drink now — a player resolving a build, and a rig pulling
+  // its own cup — so the shape is pinned here rather than in either of them. A
+  // field missing from this object is a division by zero or a NaN somewhere a
+  // long way from the thing that wrote it.
+  {
+    const d = makeDrink({ key: 'black_coffee', name: 'coffee', band: 'good', capacity: 2, hot: true, now: 1000 });
+    const want = ['key', 'name', 'band', 'servings', 'capacity', 'thirst', 'sanity', 'potency', 'hot_at', 'made_at', 'residue', 'contaminated'];
+    check('drinks: makeDrink sets every field of the shape',
+      want.every(k => k in d), want.filter(k => !(k in d)).join(', '));
+    check('drinks: a new drink is full to its capacity', d.servings === 2 && d.capacity === 2, `${d.servings}/${d.capacity}`);
+    check('drinks: hot stamps the clock it was given, cold stamps nothing',
+      d.hot_at === 1000 && makeDrink({ name: 'x', band: 'good', capacity: 1 }).hot_at === null, String(d.hot_at));
+    check('drinks: servings can never exceed capacity',
+      makeDrink({ name: 'x', band: 'good', capacity: 2, servings: 9 }).servings === 2);
+    // The band ladder has to move the restore, or every drink is the same drink.
+    check('drinks: a better band is worth more thirst',
+      makeDrink({ name: 'x', band: 'masterful', capacity: 2 }).thirst > makeDrink({ name: 'x', band: 'poor', capacity: 2 }).thirst);
+  }
+
+  // ── espresso ──────────────────────────────────────────────────────────────
+  //
+  // Grounds and nothing else. It has to be its own template because every other
+  // coffee here needs hot_water in the glass, and an espresso's water is the
+  // machine's — which also means it cannot steal a match from one of them.
+  {
+    const sig = signature([ing('coffee_base', 1)]);
+    check('drinks: grounds alone in a cup is an espresso',
+      matchDrink(sig, { kind: 'cup', hot: true })?.key === 'espresso',
+      matchDrink(sig, { kind: 'cup', hot: true })?.key);
+    check('drinks: ...and is still unreachable without heat',
+      matchDrink(sig, { kind: 'cup', hot: false })?.key !== 'espresso');
+    check('drinks: ...and not in a mug, which is a small coffee in a big cup',
+      matchDrink(sig, { kind: 'mug', hot: true })?.key !== 'espresso',
+      matchDrink(sig, { kind: 'mug', hot: true })?.key);
+    check('drinks: espresso does not steal the coffees that want water',
+      matchDrink(signature([ing('coffee_base', 1), ing('hot_water', 2)]), { kind: 'cup', hot: true })?.key === 'black_coffee');
+    check('drinks: ...nor the ones that want milk',
+      matchDrink(signature([ing('coffee_base', 1), ing('dairy_cream', 1)]), { kind: 'cup', hot: true })?.key === 'flat_white');
+  }
+
+  // ── What a machine serves, and what it charges ────────────────────────────
+  {
+    const badBand = Object.entries(VEND_BANDS).filter(([, b]) => !ENGINE_BANDS.includes(b));
+    check('drinks: every vend band is a real band', badBand.length === 0, JSON.stringify(badBand));
+    // A machine is consistent, never brilliant. If a rig could serve the top of
+    // the ladder there would be no reason to ever make anything by hand again.
+    const overreach = Object.entries(VEND_BANDS).filter(([tier, b]) =>
+      ENGINE_BANDS.indexOf(b) >= ENGINE_BANDS.indexOf(BREW_TIERS[tier].ceiling) && tier !== 'kettle');
+    check('drinks: a rig serves below the band its tier can reach by hand',
+      overreach.length === 0, JSON.stringify(overreach));
+    check('drinks: no machine ever serves masterful',
+      !Object.values(VEND_BANDS).includes('masterful'), JSON.stringify(VEND_BANDS));
+    check('drinks: a better tier never charges less',
+      VEND_CHARGE.barista >= VEND_CHARGE.machine && VEND_CHARGE.machine >= VEND_CHARGE.kettle,
+      JSON.stringify(VEND_CHARGE));
+  }
+
+  // ── The machines in the world ─────────────────────────────────────────────
+  //
+  // A rig authored against a recipe that does not exist, or pointed at something
+  // that is not a vessel, degrades to handing out an empty cup — quietly, which
+  // is exactly why it is swept here instead of being left to a player to find.
+  //
+  // AND A PRICE MAY NEVER UNDERCUT THE CUP. You keep the cup, so a machine
+  // selling ₵45 porcelain for ₵5 is a money printer with an apron on. The
+  // derived price can't do that; an authored `vend_price` can, so it is checked.
+  {
+    const { rows } = await query(
+      `SELECT id, name, flags FROM furniture WHERE flags ? 'vend_drink'`).catch(() => ({ rows: [] }));
+    const noRecipe = [], noVessel = [], underCup = [], noTier = [];
+    for (const f of rows) {
+      const key = f.flags?.vend_drink;
+      if (!DRINKS[key]) { noRecipe.push(`${f.id} → ${key}`); continue; }
+      if (!BREW_TIERS[f.flags?.brew_tier]) noTier.push(`${f.id} → ${f.flags?.brew_tier}`);
+      const item = getItem(f.flags?.vends);
+      if (!item || !isDrinkware(item)) { noVessel.push(`${f.id} → ${f.flags?.vends}`); continue; }
+      // A recipe naming vessel kinds must accept the one this machine dispenses,
+      // or the rig serves a drink out of something the book says it never comes in.
+      const kinds = DRINKS[key].vessels;
+      if (kinds && !kinds.includes(drinkwareKind(item))) noVessel.push(`${f.id} → ${key} in a ${drinkwareKind(item)}`);
+      const authored = Number(f.flags?.vend_price);
+      if (Number.isFinite(authored) && authored < Number(item.value || 0)) {
+        underCup.push(`${f.id} → ₵${authored} for a ₵${item.value} ${item.name}`);
+      }
+    }
+    check('drinks: every vending machine names a recipe that exists', noRecipe.length === 0, noRecipe.join(', '));
+    check('drinks: ...and dispenses it into a vessel the recipe accepts', noVessel.length === 0, noVessel.join(', '));
+    check('drinks: ...from an appliance tier that exists', noTier.length === 0, noTier.join(', '));
+    check('drinks: ...for at least what the vessel is worth', underCup.length === 0, underCup.join(', '));
   }
 }

@@ -3,8 +3,9 @@
   "flags": {
     "aliases": "urn, coffee, coffee machine, pot, hot water, cups, cup",
     "brew_tier": "kettle",
-    "vends": "item_paper_cup",
-    "vend_line": "You pull a paper cup off the stack beside the urn. It comes away with two others stuck inside it, and you put those back."
+    "vend_drink": "black_coffee",
+    "vend_line": "You pull a paper cup off the stack beside the urn. It comes away with two others stuck inside it, and you put those back.",
+    "vends": "item_paper_cup"
   },
   "hp": null,
   "hp_max": null,

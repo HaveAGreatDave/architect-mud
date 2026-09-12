@@ -12,7 +12,7 @@
 - `drink` and `pour`, both gated on the `drinkware` tag.
 
 ## Actions
-- Registers `drinks.finishServing`.
+- Registers `drinks.finishServing`, `drinks.serveVended`.
 - Consumes `consume.begin`, `bodily.drinkContaminated`.
 
 ## Hooks
@@ -29,6 +29,13 @@ Alcohol is computed from `abv` × pours and applied through the ordinary `drug_a
 ## Heat is derived, not ticked
 Hot drinks are appliance-gated on `flags.brew_tier`; cooling is computed from `hot_at` on read. No timer, no tick.
 
+## A rig serves; a person is better
+`drinks.serveVended` is the seam `plugins/vending` dispenses through. A machine with `flags.vend_drink` hands you a vessel with the drink already in it and charges for it — the espresso-rig case, which before this was a cup dispenser you were expected to bring your own grounds to.
+
+- **The band comes off the tier and sits below its ceiling** (`VEND_BANDS`). Pushing a button gets you a consistent cup; the top of the ladder is what a pair of hands is for, and a player brewing at the same rig with good grounds and a good roll beats it. No machine ever serves `masterful`.
+- **The price is the vessel plus the tier** (`VEND_CHARGE`). You keep the cup, so the price has to cover it — otherwise the salon's brass lever is a faucet handing out ₵30 demitasses. That is also the whole of "luxury": nothing new is authored, because the cup a rig dispenses already says what kind of place it stands in.
+- **It answers `undefined` for a machine that isn't one of ours**, the same fall-through `mix` uses when it hands a bowl to cooking. Vending never learns the vessel schema.
+
 ## Load order is load-bearing
 Specialized actions fire in **registration order**, and `drinks` must claim `drink` **before** `fillable`, or a cup holding a poured drink is treated as plain water. Alphabetical ordering already does this (d < f); the belt to that brace is the `holdsDrink()` guard inside `fillable`, which does **not** depend on ordering.
 
@@ -42,6 +49,7 @@ A vessel drink **does not** pass through `applyItemUse`, so it inherits none of 
 - A new **ingredient** needs only `tags.drink_profile` + `tags.pour_units` (+ `tags.abv` if alcoholic) to work in every recipe its profile fits — no edit here.
 - A new **appliance tier** is one entry in `config.js` `BREW_TIERS` plus the furniture flag.
 - **Drinkware** is `tags.drinkware` + `tags.drinkware_kind` + `tags.fillable` (capacity in servings).
+- A **dispenser that serves a drink** is content: furniture `flags.vend_drink` beside the `flags.vends` and `flags.brew_tier` it already has. No edit here.
 
 ## See also
 [docs/systems-drinks.md](../../docs/systems-drinks.md) — including the `fromNearby` seam that lets a kitchen hold its own pots.

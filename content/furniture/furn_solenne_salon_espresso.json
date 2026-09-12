@@ -6,6 +6,7 @@
     "interactions": [
       "examine"
     ],
+    "vend_drink": "espresso",
     "vend_line": "You push the brass tube and a demitasse comes off the stack, already warm from the boiler.",
     "vends": "item_demitasse_cup"
   },

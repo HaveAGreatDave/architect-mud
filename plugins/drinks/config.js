@@ -48,12 +48,21 @@ export const INSULATED_MULT = 3.5;           // a thermos stretches both windows
 
 // ── Appliance tiers ──────────────────────────────────────────────────────────
 // Furniture `flags.brew_tier`, mirroring cooking's stove_tier: a band bonus and
-// a hard ceiling. A kettle makes tea beautifully and can never make espresso.
+// a hard ceiling. A kettle makes tea beautifully; it can put grounds in hot
+// water and call it an espresso, and the ceiling is what stops anyone believing it.
 export const BREW_TIERS = {
   kettle:  { bonus: 0,   ceiling: 'excellent',  label: 'kettle' },
   machine: { bonus: 0.6, ceiling: 'superb',     label: 'machine' },
   barista: { bonus: 1.2, ceiling: 'masterful',  label: 'bar rig' },
 };
+
+// ── What a serving is worth ──────────────────────────────────────────────────
+// The restore arithmetic every stamped drink carries, in the one place it can
+// be tuned. Read only by vessel.js makeDrink(), which is the only thing that
+// builds a drink object.
+export const THIRST_PER_SERVING = 14;
+export const BAND_MULT_BASE = 0.6;    // what poor is worth
+export const BAND_MULT_STEP = 0.08;   // per rung up the ladder
 
 // ── Technique and state ──────────────────────────────────────────────────────
 // A shaken drink built in an actual shaker. Small, because the shaker's real
@@ -71,3 +80,30 @@ export const RESIDUE_MISMATCH_PENALTY = 1.1;
 export const SKILL_BAND_SCALE = 0.12;
 
 export const bandsList = () => QUALITY_BANDS;
+
+// ── What a machine serves, and what it charges ───────────────────────────────
+// A rig that pulls its own drink (furniture `flags.vend_drink`) hands over a cup
+// with something already in it. Two numbers per tier, and both are the tier's
+// luxury saying the same thing twice in the two places a player feels it.
+//
+// The band is DELIBERATELY a rung or two under the tier's own ceiling. Pushing a
+// button gets you a consistent cup; the top of the ladder is what a pair of
+// hands is for, and a player brewing at the same rig with good grounds and a
+// good roll can beat it. A machine that served masterful would end the argument
+// for ever making anything yourself.
+export const VEND_BANDS = {
+  kettle:  'acceptable',   // an urn. It was made at some point.
+  machine: 'good',
+  barista: 'excellent',
+};
+
+// Charged ON TOP of the cup's own `value`, because you keep the cup — a rig that
+// handed out ₵45 porcelain for the price of a coffee would be a money faucet
+// wearing an apron. Cup + charge is also why "luxury" needs nothing new
+// authored: the salon's brass lever puts a demitasse in your hand and the urn
+// at the Flashpoint puts a paper cup in it, and the price already knows.
+export const VEND_CHARGE = {
+  kettle:  2,
+  machine: 5,
+  barista: 8,
+};

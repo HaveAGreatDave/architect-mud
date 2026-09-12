@@ -1,10 +1,32 @@
 {
   "name": "vending",
   "version": "1.0.0",
-  "description": "Dispenser furniture: `vend` pulls a data-driven item (flags.vends) from a machine in the room, drops it in your bag, and coughs a line to the room. Free institutional food and the like; reusable for any dispenser.",
+  "description": "Dispenser furniture: `vend` pulls a data-driven item (flags.vends) from a machine in the room, drops it in your bag, and coughs a line to the room. A machine carrying flags.vend_drink offers the row it just made to plugins/drinks, which fills the vessel and charges for it — so an espresso rig makes the cup AND the coffee. Free institutional food and the like; reusable for any dispenser.",
   "hooks": [],
-  "commands": ["vend"],
+  "commands": [
+    "vend"
+  ],
   "objectGatedCommands": {
-    "vend": { "discoverVia": "furniture:flags.vends", "exposed": false, "note": "KNOWN GAP: furniture flag-value gate (flags.vends carries the item id). Flag values aren't tag-anchored, so availableActions can't surface it — the machine's description cues the VEND button. Same class as synthesis:cook." }
-  }
+    "vend": {
+      "discoverVia": "furniture:flags.vends",
+      "exposed": false,
+      "note": "KNOWN GAP: furniture flag-value gate (flags.vends carries the item id). Flag values aren't tag-anchored, so availableActions can't surface it — the machine's description cues the VEND button. Same class as synthesis:cook."
+    }
+  },
+  "actions": {
+    "consumes": [
+      "drinks.serveVended"
+    ]
+  },
+  "dependencies": [
+    "appliances"
+  ],
+  "extensionPoints": [
+    "A new dispenser is content: furniture flags.vends (the item id), plus flags.vend_line and flags.vend_cooldown_s.",
+    "A dispenser that FILLS what it hands over adds flags.vend_drink. This plugin knows nothing about what a drink is — it offers the new inventory row to drinks.serveVended and prints whatever comes back."
+  ],
+  "notes": [
+    "The fill seam is guarded on getRegisteredActions() because dispatchAction answers an unregistered type with an ERROR object rather than silence — an unguarded dispatch would turn every plain dispenser into a refusal the day drinks was unloaded.",
+    "A refusal from the fill (you cannot afford it) DELETES the row that was just inserted and leaves the cooldown unarmed, so a machine that would not serve you has not taken your cup back with one hand and locked you out with the other."
+  ]
 }

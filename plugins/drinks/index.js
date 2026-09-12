@@ -28,6 +28,7 @@ import { useDrug } from '../../server/engine/drugs.js';
 import { isPluggedIn } from '../appliances/index.js';
 import { applyWarmth } from '../../server/engine/warmth.js';
 import { registerFluidResolver } from '../../server/engine/topical.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 
 // A hot drink is the cheapest cold-weather gear in the game and the only kind you can carry
 // in your hands. Worth about a wool hat while it lasts, and it does not last long.
@@ -43,11 +44,11 @@ import {
   isDrinkware, drinkwareKind, isInsulated, capacityOf,
   buildOf, drinkOf, isDirty, residueOf,
   writeBuild, clearBuild, writeDrink, takeServing, rinse as rinseVessel,
-  hotMultiplier, temperatureNote,
+  hotMultiplier, temperatureNote, makeDrink,
 } from './vessel.js';
 import {
   BREW_TIERS, SHAKEN_BONUS, DIRTY_PENALTY, RESIDUE_MISMATCH_PENALTY,
-  KNOWN_RECIPE_BONUS, SKILL_BAND_SCALE, POUR_ML,
+  KNOWN_RECIPE_BONUS, SKILL_BAND_SCALE, POUR_ML, VEND_BANDS, VEND_CHARGE,
 } from './config.js';
 
 // ── What's in the glass, for anything that wants to throw it ────────────────
@@ -273,24 +274,15 @@ async function resolveBuild(player, vessel, broadcast, { hot, appliance = null }
   const capacity = capacityOf(vessel);
   const potency = derivePotency(build);
   const name = match ? drinkName(template, rows) : UNKNOWN_DRINK.noun;
-  const bandMult = 0.6 + bandIndex(band) * 0.08;   // poor 0.6 → masterful 1.24
-  const drink = {
+  const drink = makeDrink({
     key: match?.key || null,
-    name,
-    band,
-    servings: capacity,
-    capacity,
-    thirst: Math.round(14 * capacity * bandMult),
-    sanity: Math.round(2 * bandIndex(band) / 2),
-    potency,
-    hot_at: hot ? Date.now() : null,
-    made_at: Date.now(),
+    name, band, capacity, potency, hot,
     residue: composing[0]?.profile || null,
     // Foul water carries through into whatever you made with it. Two lines, and
     // it's the emergent composition the whole architecture is for: a coffee made
     // from toilet water is still a coffee made from toilet water.
     contaminated: build.some(c => c.contaminated),
-  };
+  });
   await writeDrink(vessel.inv_id, drink);
   await clearBuild(vessel.inv_id);
   if (check.success) awardSkillUse(player.id, 'cooking', check.margin).catch(() => {});
@@ -399,6 +391,91 @@ registerAction({
       type: 'use',
       message: parts.filter(Boolean).join('\n'),
       player_update: { sanity: player.sanity, thirst: player.thirst },
+    };
+  },
+});
+
+// ── a rig that pulls its own cup ─────────────────────────────────────────────
+//
+// The gap this closes was written down in systems-drinks.md as a known one:
+// vendors and dispensers insert ITEM ROWS, which have no path to the
+// custom_data.drink a vessel carries, so nothing in the world could ever hand
+// you a full cup. An espresso rig was a cup dispenser that then expected you to
+// produce your own grounds and brew them at it, which is not what a person does
+// at a coffee machine.
+//
+// The seam is one Action, and it is deliberately the drinks plugin that
+// registers it: plugins/vending dispenses the row and offers it here, and
+// everything that makes it a DRINK — the recipe, the band, the price, the heat —
+// stays behind this door. Vending never learns the vessel schema, which is the
+// invariant vessel.js is built on, and a world with the drinks plugin unloaded
+// gets an empty cup rather than an error.
+//
+// RETURNS UNDEFINED for a machine that isn't one of ours — the same
+// fall-through contract 'mix' uses when it hands a bowl to cooking.
+registerAction({
+  type: 'drinks.serveVended',
+  handler: async ({ actor: player, params }) => {
+    const machine = params.machine || {};
+    const item = params.item || {};
+    const key = machine.flags?.vend_drink;
+    if (!key) return undefined;                       // an ordinary dispenser
+
+    // Both of these are authoring errors, and both are swept at build time by
+    // the content case in regress.js — so here they degrade to the old
+    // behaviour (you get the cup, empty) rather than stranding a player in
+    // front of a machine that refuses to work.
+    const template = DRINKS[key];
+    if (!template) {
+      console.warn(`[drinks] ${machine.id} vends unknown drink "${key}"`);
+      return undefined;
+    }
+    if (!isDrinkware(item)) {
+      console.warn(`[drinks] ${machine.id} serves ${key} into ${item.id}, which isn't drinkware`);
+      return undefined;
+    }
+
+    const tier = machine.flags?.brew_tier;
+    // A machine is consistent, never brilliant — see VEND_BANDS. The template's
+    // own ceiling still wins, so a rig can never serve a drink better than the
+    // recipe goes.
+    const served = VEND_BANDS[tier] || VEND_BANDS.kettle;
+    const band = bandIndex(served) > bandIndex(template.ceiling) ? template.ceiling : served;
+
+    // THE PRICE IS THE CUP PLUS THE TIER. Nothing about luxury is authored: the
+    // salon's brass lever hands over a ₵30 demitasse and the urn hands over a ₵1
+    // paper cup, and since you keep the cup the price has to cover it or the rig
+    // is a faucet for crockery. `vend_price` overrides for a machine that isn't
+    // a business — the one in your own kitchen doesn't bill you.
+    const authored = Number(machine.flags?.vend_price);
+    const price = Number.isFinite(authored)
+      ? Math.max(0, Math.round(authored))
+      : Math.max(0, Math.round(Number(item.value) || 0)) + (VEND_CHARGE[tier] ?? VEND_CHARGE.kettle);
+
+    if (price > 0 && !(await adjustCredits(player, -price, undefined, 'drinks:vend'))) {
+      return { ok: false, price, message: `It wants ₵${price}, and you haven't got it.` };
+    }
+
+    const name = drinkName(template, []);
+    const drink = makeDrink({
+      key, name, band,
+      capacity: capacityOf(item),
+      hot: !!template.hot,
+      // What the cup smells of afterwards, off the recipe rather than authored —
+      // so a second coffee in the same unrinsed cup is forgiven and a cocktail
+      // in it isn't.
+      residue: Object.keys(template.needs || {})[0] || null,
+    });
+    await writeDrink(params.invId, drink);
+
+    // The machine's own `vend_line` already says a cup arrived; this is the
+    // second beat and nothing more, so the two read as one event rather than
+    // as a dispenser and a barista talking over each other.
+    const cost = price > 0 ? ` ${dim(`₵${price}.`)}` : '';
+    const article = /^[aeiou]/i.test(name) ? 'An' : 'A';
+    return {
+      ok: true, price, drink, name,
+      note: `${article} <span class="text-accent">${name}</span>, ${band}.${cost}`,
     };
   },
 });

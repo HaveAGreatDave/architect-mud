@@ -2,7 +2,9 @@
   "name": "drinks",
   "version": "1.0.0",
   "description": "Mixology and hot drinks. `mix` builds a drink in a REUSABLE vessel (tags.drinkware) out of ingredient PROFILES, never item ids; `brew` needs a hot-water appliance (furniture flags.brew_tier). A finished drink lives on the vessel's custom_data as a serving count and a quality band — you carry it, drink it down, decant it, and rinse it out. Alcohol is DERIVED from the ingredients' tags.abv and lands through the existing drug_alcohol laced path on each swallow, so intoxication behaves exactly as it does for a bottled cocktail. Cold mixing needs only a vessel in hand.",
-  "after": ["crafting"],
+  "after": [
+    "crafting"
+  ],
   "commands": [
     "mix",
     "brew",
@@ -14,7 +16,8 @@
   ],
   "actions": {
     "registers": [
-      "drinks.finishServing"
+      "drinks.finishServing",
+      "drinks.serveVended"
     ],
     "consumes": [
       "consume.begin",
@@ -57,10 +60,12 @@
   "extensionPoints": [
     "A new ingredient needs only tags.drink_profile + tags.pour_units (+ tags.abv if alcoholic) to work in every recipe its profile fits — no edit to this plugin.",
     "A new appliance tier is one entry in config.js BREW_TIERS plus the furniture flag.",
-    "Drinkware is tags.drinkware + tags.drinkware_kind + tags.fillable (capacity in servings)."
+    "Drinkware is tags.drinkware + tags.drinkware_kind + tags.fillable (capacity in servings).",
+    "A dispenser that hands over a FULL vessel is content: furniture flags.vend_drink (a recipe key) beside the flags.vends it already has. Price and cooldown are derived from flags.brew_tier and the vessel's own value; flags.vend_price overrides, and may never be authored below what the vessel is worth."
   ],
   "notes": [
     "LOAD ORDER IS LOAD-BEARING: specialized actions fire in registration order, and `drinks` must claim `drink` before `fillable` so a cup holding a poured drink isn't treated as plain water. Alphabetical ordering already does this (d < f); the belt to that braces is the holdsDrink() guard inside plugins/fillable, which does not depend on ordering.",
-    "A vessel drink deliberately does NOT pass through applyItemUse, so it inherits none of well_fed / restore_hp / freshness / the item.consumed hook. finishServing implements thirst, sanity and alcohol only."
+    "A vessel drink deliberately does NOT pass through applyItemUse, so it inherits none of well_fed / restore_hp / freshness / the item.consumed hook. finishServing implements thirst, sanity and alcohol only.",
+    "drinks.serveVended is the seam plugins/vending dispenses through. It answers UNDEFINED for a machine with no flags.vend_drink, so an ordinary dispenser and a world with this plugin unloaded both behave exactly as they did before it existed."
   ]
 }

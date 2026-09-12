@@ -17,7 +17,9 @@
 // fluid, which is why FLUID_RATES never had to learn about anything but water.
 
 import { query } from '../../server/models/db.js';
-import { HOT_PEAK_MS, HOT_COLD_MS, HOT_COLD_PENALTY, INSULATED_MULT } from './config.js';
+import { HOT_PEAK_MS, HOT_COLD_MS, HOT_COLD_PENALTY, INSULATED_MULT,
+         THIRST_PER_SERVING, BAND_MULT_BASE, BAND_MULT_STEP } from './config.js';
+import { bandIndex } from './profiles.js';
 
 export const isDrinkware = row => !!(row?.tags || {}).drinkware;
 export const drinkwareKind = row => {
@@ -33,6 +35,42 @@ export const isInsulated = row => !!(row?.tags || {}).insulated;
 export function capacityOf(row) {
   const n = Number((row?.tags || {}).fillable);
   return Number.isFinite(n) && n > 0 ? Math.round(n) : 2;
+}
+
+/**
+ * The one constructor for a `drink`. Two paths reach this shape now — a player
+ * resolving a build at a kettle, and a rig pulling its own cup — and the moment
+ * there were two the arithmetic had to stop living inside one of them. Every
+ * field is set here, so a caller cannot forget one and leave a drink with no
+ * `capacity` that divides by zero four files away.
+ *
+ * `now` is injected for the same reason `hotMultiplier`'s is: so a test can
+ * assert the stamp without waiting on a clock.
+ */
+export function makeDrink({
+  key = null, name, band, capacity, potency = 0,
+  hot = false, residue = null, contaminated = false, servings = null,
+  now = Date.now(),
+}) {
+  const cap = Math.max(1, Math.round(Number(capacity) || 1));
+  const bandMult = BAND_MULT_BASE + bandIndex(band) * BAND_MULT_STEP;   // poor 0.6 → masterful 1.24
+  return {
+    key,
+    name,
+    band,
+    servings: servings == null ? cap : Math.max(0, Math.min(cap, Math.round(servings))),
+    capacity: cap,
+    thirst: Math.round(THIRST_PER_SERVING * cap * bandMult),
+    // One point of sanity per rung. (The resolve path wrote this as
+    // Math.round(2 * bandIndex / 2), which is the same integer — kept as the
+    // plain form here rather than carried over as arithmetic that cancels.)
+    sanity: bandIndex(band),
+    potency,
+    hot_at: hot ? now : null,
+    made_at: now,
+    residue,
+    contaminated: !!contaminated,
+  };
 }
 
 export const readVessel = row => (row?.custom_data && typeof row.custom_data === 'object') ? row.custom_data : {};

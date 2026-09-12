@@ -60,6 +60,7 @@ at drink time, exactly as cooking derives resting from `plated_at`.
 | `mix <thing> into <vessel>` | add an ingredient to the build |
 | `mix <vessel>` | resolve the build into a drink (cold) |
 | `brew <vessel>` | the same at a `brew_tier` appliance; stamps it hot |
+| `vend` | at a rig, buy a cup with the drink already in it (see below) |
 | `drink <vessel>` | one serving, over the 12s sip sequence |
 | `pour <a> into <b>` | decant (see below) |
 | `rinse <vessel>` | clean it at a sink |
@@ -95,7 +96,9 @@ had printed its own usage.
 | `dishware` + `dishware_kind` | plates and strainers: kit with no mechanics, deliberately **not** `vessel` so nobody can cook a dinner plate |
 
 Furniture: **`brew_tier`** ∈ `kettle` · `machine` · `barista`, each a band bonus
-and a hard ceiling (a kettle can never pull espresso). Powered tiers check
+and a hard ceiling. The tier gates how GOOD a drink comes out, never which
+recipes are reachable — a kettle can put grounds in hot water and call it an
+espresso, and the ceiling is what stops anyone being fooled. Powered tiers check
 `isPluggedIn`.
 
 ## Matching and quality
@@ -303,14 +306,76 @@ brew appliances (6) and dish cabinets (6).
 as a mixer. That is the whole reason the roster and the mixology system landed
 together rather than separately.
 
+## A rig that pulls its own cup
+
+`vend` at a machine carrying **`flags.vend_drink`** hands you a vessel with the
+drink already in it. Before this an espresso rig was a cup dispenser that then
+expected you to produce your own grounds and brew them at it, which is not what a
+person does at a coffee machine — and the reason it was built that way is the
+known gap at the bottom of this page: a dispenser inserts an ITEM ROW, and an
+item row has no path to `custom_data.drink`.
+
+The seam is **one Action, `drinks.serveVended`**, registered here and dispatched
+by `plugins/vending`. That plugin inserts the row exactly as it always did,
+offers it, and prints what comes back; everything that makes it a drink stays
+behind this door, so the invariant that `vessel.js` is the only module touching
+that JSON survives. A machine with no `vend_drink` — or a world with this plugin
+unloaded — gets `undefined` back and dispenses an empty cup as before.
+
+**The band comes off the tier and sits below its own ceiling.**
+
+| tier | serves | a player at the same rig can reach |
+|---|---|---|
+| `kettle` | acceptable | excellent |
+| `machine` | good | superb |
+| `barista` | excellent | masterful |
+
+Pushing a button gets you a consistent cup. The top of the ladder is what a pair
+of hands is for, and a machine that served `masterful` would end the argument for
+ever making anything yourself — so no rig ever does, and regress asserts it.
+
+**The price is the vessel plus the tier, and that is the whole of "luxury".**
+Nothing about how plush a rig is needs authoring, because the cup it already
+dispenses says it: the Solenne salon's brass lever puts a ₵30 demitasse in your
+hand and the urn at the Flashpoint puts a ₵1 paper cup in it. Since **you keep the
+cup**, the price has to cover it or the machine is a money faucet wearing an
+apron — which is also why `flags.vend_price`, the override for a rig that is not
+a business, may never be authored below what the vessel is worth. Regress refuses
+one that is.
+
+**One minute, derived.** A rig that has to MAKE what it hands over gets a 60s
+cooldown and a machine that drops a packet keeps its 20s, off the presence of
+`vend_drink` rather than off a number typed into five files — so the sixth
+espresso rig gets the minute without anybody remembering. A coffee you can buy
+every twenty seconds is a hot-drink faucet in a cold snap, and hot drinks are
+real cold-weather gear (see the top of this page).
+
+What ships: five machines, none of them overriding anything.
+
+| machine | tier | cup | serves | ₵ |
+|---|---|---|---|---|
+| espresso rig, Battery Acid Coffee Co. | barista | paper | flat white | 9 |
+| espresso rig, the Pigeon Bar | barista | paper | coffee | 9 |
+| brass lever rig, the Solenne salon | barista | demitasse | espresso | 38 |
+| Solenne bean-to-cup, the penthouse | machine | porcelain | flat white | 50 |
+| coffee urn, the Flashpoint | kettle | paper | coffee | 3 |
+
+The salon's rig is the reason **espresso** is now in the catalogue at all. It is
+the only coffee in the book with no `hot_water` in it — an espresso's water is the
+machine's, forced through under pressure, not poured over — which is also what
+stops it stealing a match from the coffees that do want water, and it is `cup`
+only, because an espresso in a mug is a small coffee in a big cup.
+
 ## Known gaps
 
 - **`fragile` is authored but unread.** `player_inventory.condition` exists but
   nothing decrements it for a dropped cup. Tagged now so nothing needs
   backfilling later.
-- **Vendors cannot hand you a filled vessel.** `vending`/`vendor.js` insert item
-  rows, which have no path to `custom_data.drink`. Bought drinks stay ordinary
-  consumables; vessels are strictly the player-made case.
+- **A vendor NPC still cannot hand you a filled vessel.** `vendor.js` inserts an
+  item row and has no path to `custom_data.drink`, so a bartender's stock is still
+  ordinary consumables. The DISPENSER half of this gap is closed — see *A rig that
+  pulls its own cup* above — and `drinks.serveVended` is the seam a vendor would
+  go through if anyone wanted to close the rest of it.
 *(The two mis-tagged items are fixed: both now carry `laced_drug: drug_alcohol`
 plus a potency and an `abv`, so their prose and their mechanics finally agree,
 and both work as ingredients.)*

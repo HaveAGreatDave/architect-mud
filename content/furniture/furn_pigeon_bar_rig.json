@@ -3,8 +3,9 @@
   "flags": {
     "aliases": "rig,espresso,coffee machine,cup dispenser,cups",
     "brew_tier": "barista",
-    "vends": "item_paper_cup",
-    "vend_line": "The tube clunks and drops a paper cup into your hand, still warm from the machine it lives against."
+    "vend_drink": "black_coffee",
+    "vend_line": "The tube clunks and drops a paper cup into your hand, still warm from the machine it lives against.",
+    "vends": "item_paper_cup"
   },
   "hp": null,
   "hp_max": null,

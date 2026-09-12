@@ -3,8 +3,9 @@
   "flags": {
     "aliases": "coffee machine,bean-to-cup,machine,cup,cups",
     "brew_tier": "machine",
-    "vends": "item_porcelain_cup",
-    "vend_line": "A warmed porcelain cup rises out of the top of the machine on a little platform, because of course it does."
+    "vend_drink": "flat_white",
+    "vend_line": "A warmed porcelain cup rises out of the top of the machine on a little platform, because of course it does.",
+    "vends": "item_porcelain_cup"
   },
   "hp": null,
   "hp_max": null,
