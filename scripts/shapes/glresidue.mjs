@@ -44,7 +44,14 @@ for (const { key, m } of ws.shapeModelRegistry()) {
   models++;
   // Night, because that is when this renderer draws the most: the neon, the runners, the glows and
   // the lit signage are all night-gated, and a day-only census would miss most of the surface.
-  const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE' });
+  // ⚠ CLOSE, BECAUSE THE DETAIL KIT IS SCREEN-SIZE GATED AND THE DEFAULT 8 TILES IS OUTSIDE IT.
+  // `detailLayer` drops a part whose own height projects below its `DETAIL_PX` floor, so at the
+  // default distance the whole derived kit — every board, canopy, pipe, lamp and neon run, which is
+  // most of what a building wears now — was skipped before it could be counted, and the census
+  // reported a clean city while saying nothing about any of it. Measured: 0 decals at 8, 4, 3 and
+  // 2.5 tiles, 8 decals at 2. Two tiles is roughly where a cab actually sits beside a frontage,
+  // which is also the seat this whole question is asked from.
+  const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: -2 });
   if (r.threw) { threw++; byModel.set(key, { err: r.threw }); continue; }
   for (const k of Object.keys(sinks)) sinks[k] += r[k] || 0;
   const total = Object.values(r.canvas).reduce((a, b) => a + b, 0);

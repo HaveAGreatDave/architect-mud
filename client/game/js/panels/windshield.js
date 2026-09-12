@@ -9577,7 +9577,14 @@ if (typeof window !== 'undefined') {
   };
 }
 function emitFace(depth, fn) {
-  if (EMIT_TALLY) {
+  // ⚠ A CAPTURE'S QUEUE IS NOT THE FRAME'S, AND COUNTING IT INVENTS RESIDUE. `derivedTrim` asks
+  // `shapeForModel`, which re-runs this very arm with SHAPE_SINK set and the STUB camera — and in
+  // that pass `bakeSignText` returns null (it must not allocate during a capture) and the stub has
+  // no `unproj`, so every `emitSurfaceText` falls to its canvas branch and lands here. Those faces
+  // are thrown away with the capture; tallying them told `glresidue` that 294 painted signs across
+  // 13 models were stranded on the canvas, when the number is zero. The two counts were identical
+  // — 294 with no texture, 294 with no unproj — which is what named the capture as the source.
+  if (EMIT_TALLY && !SHAPE_SINK) {
     const fr = (new Error()).stack.split(String.fromCharCode(10)).slice(2, 10)
       .map((l) => { const m = l.match(/at ([A-Za-z0-9_.$<>]+)/); return m ? m[1] : "?"; });
     const keep = fr.filter((f) => f !== "?" && !/^(emitFace|emitDeco|emitFlat|Proxy|Object|Module)/.test(f));
@@ -15456,20 +15463,32 @@ export function captureModelMesh(m, opts = {}) {
 //
 // ⚠ AND NOTHING IS FLUSHED. The tally is taken at EMIT time; running the closures would paint a
 // hundred arms against a stub context for an answer already recorded.
+// ⚠ THIS MODELS A DRAW FRAME, NOT A CAPTURE, AND FOR A WHILE IT MODELLED NEITHER. Two defaults
+// between them made the census blind to the entire derived detail kit — every board, canopy, pipe,
+// lamp, sign and neon run in the city — which is most of what a building is made of now:
+//
+//   · `tier` was ADORN_RICH and `detailLayer` returns below ADORN_NEAR, so the kit never ran at all.
+//   · `MESH_SINK` was an open array, and `emitFlat`'s `paint` branch returns early when one is set
+//     (a per-tile surface is never in a mesh). So even with the tier raised, exactly the surfaces
+//     most likely to be stranded on the canvas were dropped before they could be tallied.
+//
+// A GLASS 2 frame has FLAT_OFF set and NO mesh sink — the mesh was built earlier and is being drawn
+// from. That is the frame whose leftovers this exists to count, so that is the frame it sets up. The
+// cost is the mesh tally, which is `gl:mesh`'s job anyway and was only ever incidental here.
 export function canvasResidue(m, opts = {}) {
-  const { fh = 0.4, h = 1, seed = 3, E = [0, 1], night = 1, tier = ADORN_RICH, cam = null, dx = 0, dy = -8, now = 1e6 } = opts;
+  const { fh = 0.4, h = 1, seed = 3, E = [0, 1], night = 1, tier = ADORN_NEAR, cam = null, dx = 0, dy = -8, now = 1e6 } = opts;
   const sv = {
     face: FACE_SINK, mesh: MESH_SINK, decal: DECAL_SINK, sprite: SPRITE_SINK, scatter: SCATTER_SINK, stroke: STROKE_SINK,
     cells: GL_CELLS, mass: MASS_OFF, flat: FLAT_OFF, tier: ADORN_TIER, tally: EMIT_TALLY, sign: _bladeSign,
   };
   const out = { canvas: {}, faces: 0, mesh: 0, decals: 0, sprites: 0, scatter: 0, threw: null };
   try {
-    FACE_SINK = []; MESH_SINK = []; DECAL_SINK = []; SPRITE_SINK = []; SCATTER_SINK = []; STROKE_SINK = [];
+    FACE_SINK = []; MESH_SINK = null; DECAL_SINK = []; SPRITE_SINK = []; SCATTER_SINK = []; STROKE_SINK = [];
     GL_CELLS = []; MASS_OFF = true; FLAT_OFF = true; ADORN_TIER = tier; EMIT_TALLY = out.canvas;
     const c = cam || SHAPE_STUB_CAM;
     if (m && m.arch) drawBuilding(SHAPE_STUB_CTX, c, dx, dy, fh, h, m.arch, seed, night, 1, now);
     else drawTypeModel(SHAPE_STUB_CTX, c, dx, dy, fh, h, m, seed, night, 1, now, E, opts.bn || '', opts.brd);
-    out.faces = FACE_SINK.length; out.mesh = MESH_SINK.length;
+    out.faces = FACE_SINK.length; out.mesh = 0;   // no mesh sink in a draw frame — see the ⚠ above
     out.decals = DECAL_SINK.length; out.sprites = SPRITE_SINK.length; out.scatter = SCATTER_SINK.length; out.strokes = STROKE_SINK.length;
   } catch (e) { out.threw = String(e && e.message || e); }
   finally {
@@ -16827,9 +16846,32 @@ function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
     }
     if (poly.length < 3) return;
   }
+  // ⚠ A `paint` QUAD IS NOT IN THE MESH, WHICH IS NOT THE SAME AS BEING ON THE CANVAS. The note
+  // above is right that a per-tile surface cannot live in a per-model mesh — and the conclusion
+  // drawn from it, "so it is canvas work in both renderers", is wrong, and put signage back through
+  // the city. The line below is a raw `emitFace`: no probe, no depth. Under GLASS 2 the face queue
+  // flushes AFTER the GL composite, so every `$name` board painted straight through whatever stood
+  // in front of it — measured at 1,909 px of a 9-storey warehouse wall for a civic block and 2,537
+  // for an office, against a noise floor of ~120.
+  //
+  // The decal layer is exactly the third option: depth-tested like the mesh, and built fresh every
+  // frame from the arm that knows the tile's name. So a `paint` quad goes there, and falls back to
+  // `emitDeco` — which at least PROBES — when there is no decal sink to fill.
+  //
+  // ⚠ THE HAIRLINE STROKE IS DROPPED ON THAT PATH, deliberately. A decal is a textured quad and has
+  // no outline; keeping the stroke would mean keeping the canvas copy, which is the leak. The two
+  // callers that pass one (signBoard, signGantry) use it as a 1px edge on a dark board, and losing
+  // it is not visible at the range a roof board is read from.
+  if (opts.paint && DECAL_SINK && !SHAPE_SINK && cam.unproj && TUNE.glDeco && cssRgb(fill)) {
+    emitDecoFill(ctx, cam, poly, fill, alpha, opts.lift || DETAIL_LIFT);
+    return;
+  }
   const pr = poly.map(p => cam.proj(p[0], p[1], p[2]));
   let d = 0; for (const q of pr) d += q.f; d = d / pr.length - (opts.lift || 0);
-  emitFace(d, () => {
+  // Named so the census names it: a face queued here shows up in glresidue as
+  // `paintOnCanvas`, which says what it is and what is wrong with it.
+  const paintOnCanvas = (fn) => (opts.paint ? emitDeco(pr, fn, opts.lift || DETAIL_LIFT) : emitFace(d, fn));
+  paintOnCanvas(() => {
     ctx.globalAlpha = alpha;
     ctx.beginPath(); pr.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath();
     if (fill) { ctx.fillStyle = fill; ctx.fill(); }
@@ -17131,11 +17173,19 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
 // Measured as a name board that appeared with its lettering in GLASS 1 and as a blank dark band in
 // GLASS 2, which reads exactly like a sign whose text failed to render rather than like a z-order
 // bug. A caller that paints its own board passes true and gets the 2-D path for the text as well.
-function emitSurfaceText(ctx, cam, pts, tex, vertical, alpha, lift = DECO_LIFT, onCanvas = false) {
+// ⚠ `pull` IS HOW FAR THE TEXT SITS IN FRONT OF ITS OWN BOARD, AND IT IS NOT `lift`. The default is
+// FACE_EPS — a hair — which is right for lettering painted straight onto a wall, and that is most
+// callers. It is NOT right for lettering on a board that is itself a decal: `emitFlat`'s `paint`
+// path pulls a per-tile board by DETAIL_LIFT, so text at FACE_EPS lands behind the thing it is
+// written on and the board comes out blank. A caller that owns a board says how far to clear it.
+// ⚠ AND IT MUST STAY SMALL. `lift` is the caller's SORT bias and is 0.6 of a tile by default;
+// using that as the pull would slide every sign two-thirds of a tile toward the eye and back
+// through the neighbour in front. The two are different numbers for different jobs.
+function emitSurfaceText(ctx, cam, pts, tex, vertical, alpha, lift = DECO_LIFT, onCanvas = false, pull = FACE_EPS) {
   const draw = () => drawSurfaceText(ctx, pts[0], pts[1], pts[2], pts[3], tex, vertical, alpha);
   if (onCanvas || !DECAL_SINK || !tex || SHAPE_SINK || ADORN_TIER < ADORN_RICH || !TUNE.glSign) { emitDeco(pts, draw, lift); return; }
   if (decoHidden(pts)) return;
-  const w = cam.unproj ? pts.map((p) => cam.unproj(p, FACE_EPS)) : null;
+  const w = cam.unproj ? pts.map((p) => cam.unproj(p, pull)) : null;
   if (!w || w.some((q) => !q)) { emitDeco(pts, draw, lift); return; }
   // Keyed on the baked canvas itself: bakeSignText caches by label+colour+night, so the same
   // words on twenty shopfronts are one texture and one draw call.
@@ -23344,7 +23394,7 @@ const AUTHORED_DETAIL = {
       if (w.every((q) => q.f > 0.12)) {
         // `perTile` boards are canvas-painted, so their lettering has to be too — see the ⚠ on
         // `onCanvas` in emitSurfaceText, or the board covers its own words in GLASS 2.
-        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === "$name" ? (c.name || "") : d.label, d.ink || inkFor(board), c.night ? 1 : 0, false, true, false, d), false, c.alpha, DETAIL_LIFT * 2, perTile);
+        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === "$name" ? (c.name || "") : d.label, d.ink || inkFor(board), c.night ? 1 : 0, false, true, false, d), false, c.alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
       }
     }
   },
@@ -23555,7 +23605,7 @@ const AUTHORED_DETAIL = {
     if (d.label) {
       const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
       if (w.every((q) => q.f > 0.12)) {
-        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(perTile ? c.name : d.label, d.ink || inkFor(board), c.night ? 1 : 0, false, !d.neon, false, d), false, c.alpha, DETAIL_LIFT * 2, perTile);
+        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(perTile ? c.name : d.label, d.ink || inkFor(board), c.night ? 1 : 0, false, !d.neon, false, d), false, c.alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
       }
     }
   },
