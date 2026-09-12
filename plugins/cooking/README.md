@@ -25,6 +25,101 @@ that route only reaches engine builtins).
 `heat` — the old food verb, from when synthesis owned `cook` outright — survives
 as a plain alias in `ALIAS_DEFAULTS`.
 
+## Methods — saying the word you already have in your head
+
+`cook` infers the method from the vessel: a pot of stock and meat is a stew, a
+pan holding one cut is a sear, a tray is a roast. That inference is good and
+none of it changed. What it left the player with is a vocabulary problem.
+
+To boil pasta you had to already know the sequence — find a pot, put the pasta
+in it, `fill` it at a tap, `cook` it, `drain` it — and not one of those four
+words is `boil`. Typing the word anybody would actually reach for got
+`Unknown command: boil`, which reads as *this game can't boil things* rather
+than as *this game spells it differently*. Every ingredient, every dish and
+every bit of depth was already behind a vocabulary nobody is born knowing.
+
+So a method is a **statement of intent that does the setup** — the inverse of
+the vessel inference. Name the method and it picks the pan, runs the tap and
+sets the burner, then hands over to the ordinary `cook`.
+
+```
+boil noodles          → finds a pot, fills it, cooks it, turns the burner up
+roast the shoulder    → finds a tray
+fry egg in the wok    → you named the pan; it uses that one
+toast sandwich        → naming a vessel IS the instruction
+```
+
+`boil simmer poach steam stew fry sear saute bake roast grill toast`, plus the
+spellings people use (`sauté`, `braise`, `stir fry`, `bbq`, `oven`, `brown`).
+
+> **The method decides SETUP. It never decides OUTCOME.**
+
+That line is what stops this being a second cooking system. `boil steak` works,
+and produces a grey, sad steak, because `dense_meat` wants a hard sear then a
+drop and a flat rolling boil scores badly against its heat curve — arithmetic
+that was already there. There's no table of wrong methods, no refusal, and
+nothing in [methods.js](methods.js) that knows what a steak is. Cook it wrong
+and the band says so, which is where the game already says everything else
+about how well you cooked.
+
+⚠ **The unnamed pick is what you're carrying.** `fromNearby` only reaches a dish
+cabinet when the carried set comes back empty, so asking for it here would mean
+a player with nothing at all gets the rack and a player holding one wrong pan
+doesn't — a rule that changes depending on what's in your pack. Naming the pan
+goes through the ordinary resolution and does reach the rack, and the refusal
+says so, so nothing is unreachable; it just has to be asked for. Taking a pan
+off somebody's rack because you said one word is a bigger liberty than taking
+one out of your own pack anyway.
+
+**Two things it will fetch, and a hard line under them.** It finds *equipment*
+(the pot you own but haven't got out) and it runs the *tap* — water is free, and
+`cooking_medium` means it's invisible to the finished dish anyway. It never adds
+an **ingredient**. A method that quietly tipped your last oil in because a sear
+wants fat would be spending your things on a guess, and you'd find out at the
+shop.
+
+⚠ **Nothing moves until the cheap refusals have run, and anything that moved
+anyway is said out loud.** The obvious order is load the pan, then fill it — and
+then a kitchen with no tap answers `boil penne` with an error *and* silently
+leaves the penne in the pot. You're told no, nothing appears to have happened,
+and the next `boil` reports you have no penne, because it's in a pan nobody
+mentioned. So the two refusals that cost nothing to check — is there water, is
+there a stove — run first; both are furniture lookups.
+
+`cook` can still refuse for a reason only it knows: `fry penne` in a dry pan,
+a busy burner, whole ingredients and no knife. Re-deriving those here would be
+the duplicate implementation this whole layer exists to avoid, so that case is
+handled the way `prepare` handles a half-run plan — **it reports what it did**:
+
+```
+> fry penne
+Dry test penne in a dry test pan will scorch, not cook. It needs liquid…
+The test pan is laid out ready: stow test penne in test pan.
+```
+
+An unfinished setup you were *told* about is a pan to finish or empty. The same
+pan in silence is an ingredient you can't find again.
+
+Every step is a call to **the function the matching verb calls** — `fill` is
+`fillVessel`, `cook` is `cookFood`, `stove` is `cmdStove`. There's no cooking
+logic in `runMethod` and there must never be any: the moment a method decides
+something for itself, it's a second implementation that will disagree with the
+first somewhere nobody is looking. It also prints what it typed, dim, underneath:
+
+```
+The long way round: fill stock pot · stow penne in stock pot · cook stock pot
+```
+
+Which is why this isn't just hiding the system behind one more verb. Boil pasta
+four times and you've read `fill` and `cook` four times, and every line is one
+you can type yourself.
+
+The burner is a **request**, not a requirement. A hotplate that only reaches
+`low` should still boil, badly, rather than refusing the whole sentence — so a
+refused `stove` is dropped and the step simply isn't claimed. It's also the one
+step that has to come *after* `cook`: it writes to live sessions, and before the
+cook there are none.
+
 ## The two tiers
 
 **Plain food** (`tags.needs_cooking`, no profile) works exactly as it always
@@ -135,10 +230,88 @@ equipment and survives the meal.
 bread vessel falls to `GENERIC_SANDWICH`, which names itself from its contents:
 
 ```
-stow rat haunch in flatbread
-stow onion in flatbread
+stack rat haunch on flatbread
+stack onion on rat haunch
 plate flatbread            →  "rat meat and onion sandwich"
 ```
+
+### `stack` — building one the way you'd say it
+
+Everything above worked for a long time behind one way in: `stow cheese **in**
+flatbread`. Nobody puts anything *in* a sandwich. You put it **on** the bread,
+then the next thing on **that**, and the sentence you say while doing it names
+the thing you just put down — not the plate underneath it all.
+
+```
+butter grey loaf
+stack vat cheese on loaf
+stack cured strip on cheese     ← the cheese isn't a container. It's the top.
+stack flatbread on cured strip  ← and that closes it
+plate loaf
+```
+
+Naming a **layer** resolves to the vessel it's in, which is the whole of what
+makes the second line readable. `layer` is the same verb said about a tray.
+
+⚠ **Order is read, never resolved.** `stacked_at` reaches `examine` — which
+prints the sandwich bottom to top — and nothing else: not the signature, not the
+match, not the name, not the band. That's a hard rule rather than a shortcut,
+because `stow` sets no order at all, so the moment the order meant something the
+two ways of building one sandwich would make two different sandwiches, and the
+older one would silently be the worse. Everything mechanical stays a multiset of
+profiles. There's a regress case asserting a stacked and a stowed sandwich come
+back identical.
+
+Closing one is `stack bread on <top layer>`, and the ingredient is resolved
+skipping the slice doing the containing — otherwise a search for "bread" finds
+the base and refuses to put it inside itself. With only one slice, that refusal
+is the honest answer and says so.
+
+### The breads
+
+`edible_vessel` is authored per item and only the flatbread carried it, so the
+grey loaf couldn't be made into anything at all. It can be now, and there are
+four more. Each one is a different *role* rather than a different word, and all
+of it is tags — no code knows any of these exist:
+
+| Bread | Units | Base? | Keeps | What it's for |
+|---|---|---|---|---|
+| steam bun | 0.78 | ✅ 500 | fast | Cheap, single-serve, holds the least. Goes off in hours |
+| flatbread | 1.00 | ✅ 800 | normal | The everyday one, and the cheapest base |
+| dripping bread | 1.11 | ✅ 800 | normal | **Carries its own fat** — see below |
+| ration hardtack | 0.89 | ❌ | forever | Not a base. Stacks, never spoils: the bread you travel with |
+| grey loaf | 2.33 | ✅ 1400 | slow | Feeds two, holds a lot, keeps a fortnight |
+| mother loaf | 2.89 | ✅ 1600 | slow | The good one. Fills most, costs ₵27 |
+
+**Dripping bread is `food_also: fat_or_oil`** — the same secondary-identity
+channel milk-as-dairy rides, so it satisfies a fat requirement without being
+one. `toastie` needs `{ bread, dairy, fat_or_oil }`, so dripping bread and
+cheese in a pan is a toastie with **no butter and no oil in it**, where plain
+flatbread and cheese matches nothing. It can't over-season either: seasoning
+counts rows whose *primary* profile is a modifier, and a secondary isn't one.
+
+**Hardtack is the one that isn't a vessel, on purpose.** Nobody builds a
+sandwich in a ship's biscuit. What it buys instead is the two things no other
+bread has: it **stacks**, and it **never spoils** — so it's the `bread` unit you
+carry into the waste for stews and improvised dishes without watching a clock.
+
+Two authoring traps, both gated in regress because both look completely fine in
+the item editor:
+
+- ⚠ **Weight is the unit count.** One bread is 180g and every sandwich asks for
+  `bread: [1, 2]`, so the accepted band is 108g–648g. A 700g loaf is a real,
+  sensible, edible loaf that matches **no** sandwich recipe at all, and the only
+  symptom is that a good sandwich comes out generic.
+- ⚠ **A vessel can't stack.** Contents hang off a row's identity, so a stackable
+  container merges two loaves and their fillings into one.
+
+And a third that isn't about tags: ⚠ **somebody has to sell it.** There's no
+loot table with food in it, scavenging carries only fish, and no quest hands out
+bread — the shop shelf is bread's only route into a player's hands, so a bread
+nobody stocks is a correct item that can never be cooked with. Regress sweeps
+every vendor's catalogue for that, with a reason-keyed exemption list for the
+day one is deliberately unsold. A portion of any base is itself a base, because
+`cut` keeps the item's tags.
 
 No recipe for that exists, and making it **creates none** — the generic template
 carries no `key`, and `plate` only records a discovery when the match came back
@@ -192,6 +365,35 @@ rule that replaced "unmatched ⇒ slop" is one line:
 So the only remaining route to slop is putting something with no `food_profile`
 in the pan — motor oil, mutagen, a spanner. That pot really is incoherent and
 deserves the old answer. Anything made of actual ingredients gets a name.
+
+### One resolver, so the readouts agree with the plate
+
+⚠ **`plate` was the only thing in the plugin that knew any of the above.** The
+fall-through — authored template, then improvised, then the generic sandwich,
+then slop — was written out inside `plateVessel`. Every other reader stopped at
+`matchDish`, which knows the 47 authored templates and returns null for
+everything else, and so each of them told the player their perfectly good pan
+was nothing:
+
+- `examine pot` printed **"Nothing about this adds up to a dish yet"** over a
+  pot that plates as a turnip and rat stew;
+- `taste` passed a null template and a null modifier count, so it could never
+  report seasoning on anything improvised — the one reading that exists to tell
+  you a pot is bland was silent on every pot a player invented.
+
+Those are the readouts you use to decide whether to keep going, answering *no*
+on exactly the half of the system a player cooking without a recipe is using by
+definition. `dishFor` in [dishes.js](dishes.js) is the fall-through, once, and
+`plate` is now one reader of it rather than the only place that knows. A new
+readout gets the right answer by asking, instead of by remembering to ask three
+things in the right order. Regress sweeps every vessel kind asserting that
+wherever the catalog *does* claim a pan, `dishFor` answers exactly what
+`matchDish` did — pointing the readouts at it must not change what `plate`
+makes.
+
+`isBread` isn't derivable from a signature (an edible vessel is declared per
+item) so it rides in as an option, and bread deliberately skips `inferDish`:
+`GENERIC_SANDWICH` is its own, better-named fallback.
 
 ## What an ingredient carries onto the plate (`hazards.js`)
 
@@ -727,7 +929,8 @@ discovery into data entry.
 
 | File | Holds |
 |---|---|
-| `index.js` | the `cook` router, `plate` (single + vessel), the prep verbs, `read` on recipe cards |
+| `index.js` | the `cook` router, `plate` (single + vessel), the prep verbs, `stack`, `runMethod`, `read` on recipe cards |
+| `methods.js` | **pure** — the method table (`boil`/`fry`/`roast`…): which pan, which burner, whether it happens in water |
 | `interact.js` | `flip` / `stir` — one function, two verbs |
 | `cook.js` | sessions, timers, boot catch-up, burn-off |
 | `quality.js` | **pure** timeline + scoring. No DB, no clock of its own |

@@ -147,6 +147,10 @@
       "price": 4
     },
     {
+      "item_id": "item_ration_hardtack",
+      "price": 5
+    },
+    {
       "item_id": "item_soap_block",
       "price": 5
     },

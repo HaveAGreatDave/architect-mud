@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_ration_hardtack",
+  "name": "ration hardtack",
+  "tags": {
+    "consumable": true,
+    "description": "A pale grey slab scored into four, hard enough to chip a tooth, in a sleeve that claims it keeps for eleven years. It does. Nothing about it has ever been fresh, so nothing about it can go off, and that's the whole of the argument for it.",
+    "food_noun": "bread",
+    "food_profile": "bread",
+    "restore_hunger": 11,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 3,
+  "weight": 160
+}

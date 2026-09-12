@@ -294,6 +294,12 @@
       "sourceContainer": "furn_flashpoint_shelves"
     },
     {
+      "item_id": "item_steam_bun",
+      "price": 7,
+      "restockToQty": 4,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
       "item_id": "item_salt_ration",
       "price": 4,
       "restockToQty": 4,

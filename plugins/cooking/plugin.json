@@ -43,7 +43,21 @@
     "cookbook",
     "recipe",
     "shoplist",
-    "drain"
+    "drain",
+    "boil",
+    "simmer",
+    "poach",
+    "steam",
+    "stew",
+    "fry",
+    "sear",
+    "saute",
+    "bake",
+    "roast",
+    "grill",
+    "toast",
+    "stack",
+    "layer"
   ],
   "specializedActions": [
     {

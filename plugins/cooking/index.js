@@ -36,10 +36,11 @@ import './help.js';
 import { leavesFond, makeFond, fondState, fondModifier, fondText } from './fond.js';
 import { portionOf, canChop, portionName, yieldOf } from './portions.js';
 import { timeline, finishAt, endStateAt } from './quality.js';
-import { DISHES, signature, matchDish, dishName, composeBand, seasoningBonus, seasoningIdeal, nounFor, UNKNOWN_DISH, GENERIC_SANDWICH, describeDish } from './dishes.js';
+import { DISHES, signature, dishFor, dishName, composeBand, seasoningBonus, seasoningIdeal, nounFor, describeDish } from './dishes.js';
 import { UNTRIED, cookbookState, learnRecipe, improveRecipe, recordAttempt, beatsRecorded, knownBonus, markRoutineIp,
          savedRecipes, saveRecipe, recipeBySignature, renameRecipe, forgetRecipe, improveSaved, slugify } from './knowledge.js';
-import { inferDish, recipeSignature, improvisedIp } from './improvised.js';
+import { recipeSignature, improvisedIp } from './improvised.js';
+import { methodFor, methodNames } from './methods.js';
 import { gatherHazards } from './hazards.js';
 import { cmdRecipe, learnFromWrittenCard } from './recipes.js';
 import { cmdShoplist, markShelf, markContainer } from './shoplist-cmd.js';
@@ -491,6 +492,178 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
   return { type: 'output', message: pulled + messages.join('\n') + dial };
 }
 
+// ── methods: `boil noodles`, `roast the shoulder` ────────────────────────────
+//
+// See methods.js for why these exist. Here is the composition, and the thing
+// worth not breaking about it: EVERY STEP BELOW IS A CALL TO THE FUNCTION THE
+// MATCHING VERB CALLS. `addToVessel` is what `mix x into y` runs, `fillVessel`
+// is `fill`, `cookFood` is `cook`, `cmdStove` is `stove`. There is no cooking
+// logic in this function and there must never be any: the moment a method
+// starts deciding something for itself, it is a second cooking system that will
+// disagree with the first one somewhere nobody is looking.
+//
+// It also prints what it typed, dim, under the result. That is not decoration —
+// a player who boils pasta four times has now read `fill` and `cook` four times,
+// and every line is copy-pasteable, so the long way round is learned by using
+// the short one rather than by going and looking it up.
+
+// The cookware of one kind the method may pick for itself.
+//
+// ⚠ THE UNNAMED PICK IS WHAT YOU ARE CARRYING, and that is a stated line rather
+// than an oversight. `resolveInventoryItem`'s `fromNearby` only reaches the dish
+// cabinet when the carried set comes back EMPTY, so asking for it here means a
+// player with nothing at all gets the cabinet and a player holding one wrong pan
+// does not — which is worse than a rule, because it is a rule that changes
+// depending on what is in your pack. Naming the pan (`boil penne in stock pot`)
+// goes through the ordinary `fromNearby` resolution and reaches the rack, and
+// the refusal below says so, so nothing is unreachable — it just has to be asked
+// for. Picking a pan off somebody's rack because you said one word is a bigger
+// liberty than picking one out of your own pack anyway.
+async function vesselOfKind(player, kind) {
+  const all = await resolveInventoryItem(player, { tag: 'vessel', topLevel: true, all: true });
+  const rows = Array.isArray(all) ? all : (all ? [all] : []);
+  const ofKind = rows.filter(v => tagValue(v, 'vessel_kind', null) === kind);
+  // An empty one first. Cooking into a pan that already has somebody's sauce in
+  // it is a legitimate thing to do on purpose and a miserable thing to have done
+  // for you, so the fallback is only ever reached when there is no clean one.
+  for (const v of ofKind) {
+    const contents = await vesselContents(v.inv_id);
+    if (!contents.length) return v;
+  }
+  return ofKind[0] || null;
+}
+
+async function runMethod(key, args, player, broadcast) {
+  const method = methodFor(key);
+  let nameStr = args.join(' ').trim();
+  if (!nameStr) return { type: 'error', message: `${method.gerund} what?` };
+
+  // "boil noodles in the stock pot" — the player naming the pan. Resolved
+  // against real cookware first and the split only accepted if it matches one,
+  // the same rule `cook x in y` follows, so "meat in gravy" stays a food name.
+  let vessel = null;
+  const split = nameStr.match(/^(.*?)\s+(?:in|on)\s+(?:the\s+)?(.+)$/i);
+  if (split) {
+    const named = await resolveInventoryItem(player, { tag: 'vessel', name: split[2].trim(), topLevel: true, fromNearby: true });
+    if (named) { vessel = named; nameStr = split[1].trim(); }
+  }
+
+  const steps = [];
+
+  // Naming a vessel IS the instruction — `toast sandwich`, `boil the pot`. The
+  // food is already in it and there is nothing to load.
+  let food = null;
+  if (!vessel) {
+    vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
+    if (!vessel) {
+      food = await resolveInventoryItem(player, { name: nameStr, topLevel: true });
+      if (!food) return { type: 'error', message: `You don't have "${nameStr}".` };
+      // The method's own pan. A grill and a round of toast want none at all and
+      // go straight on the stove plate, which `cook <food>` has always allowed.
+      if (method.vessel) {
+        vessel = await vesselOfKind(player, method.vessel);
+        if (!vessel) {
+          return { type: 'error', message: `${method.needs}, and you haven't got one out. `
+            + `<span class="text-dim">If there's one on the rack, name it — "${key} ${nameStr} in &lt;pan&gt;".</span>` };
+        }
+      }
+    }
+  } else if (nameStr) {
+    food = await resolveInventoryItem(player, { name: nameStr, topLevel: true });
+    // Already in the pan it belongs in — which is exactly what a method that
+    // refused halfway leaves behind, so a second attempt after fixing whatever
+    // was wrong has to find it rather than report it missing.
+    if (!food) {
+      const inside = (await vesselContents(vessel.inv_id))
+        .find(r => new RegExp(nameStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(shownName(r) || ''));
+      if (!inside) return { type: 'error', message: `You don't have "${nameStr}".` };
+    }
+  }
+
+  // ⚠ NOTHING MOVES UNTIL THE CHEAP REFUSALS HAVE RUN, AND ANYTHING THAT MOVED
+  // ANYWAY IS SAID OUT LOUD.
+  //
+  // The obvious order — load the pan, then fill it — means a kitchen with no tap
+  // answers `boil penne` with an error AND silently leaves the penne in the pot.
+  // The player is told no, nothing appears to have happened, and the next `boil`
+  // reports they have no penne, because it is in a pan nobody mentioned. That is
+  // the failure worth designing against, so the two refusals that can be checked
+  // for nothing — is there water, is there a stove — run first.
+  //
+  // `cook` can still refuse for a reason only it knows (`fry penne` in a dry
+  // pan, a busy burner, whole ingredients and no knife), and re-deriving those
+  // here would be the duplicate implementation this whole layer exists to avoid.
+  // So that one is handled the way `prepare` handles a half-run plan: it reports
+  // what it did. An unfinished setup you were TOLD about is a pan to finish or
+  // empty; the same pan in silence is a lost ingredient.
+  //
+  // Anything already wet in the pan counts, so a pot of stock is never topped up
+  // with water it did not ask for.
+  const needsWater = !!(method.medium && vessel)
+    && !hasCookingLiquid(await vesselContents(vessel.inv_id));
+  if (needsWater && !(await waterSourceIn(player.current_zone))) {
+    return { type: 'error', message: method.dry };
+  }
+  // The other free one: no heat in the room at all. `cook` says this perfectly
+  // well itself — it is checked here only so it is checked BEFORE the pan is
+  // loaded, since standing in a room with no stove is the commonest way to type
+  // a method somewhere it cannot work.
+  if (!cookStations(player.current_zone).length) {
+    return { type: 'error', message: `There's nothing here to cook on.` };
+  }
+
+  // WATER FIRST, for the reason above, and because it is the order anybody boils
+  // anything in anyway: the pan is filled and then the food goes in. `fill` is
+  // the one ingredient a method fetches — it comes out of a tap, and
+  // `cooking_medium` keeps it out of the finished dish entirely.
+  if (needsWater) {
+    const filled = await fillVessel([vessel.name], '', player);
+    // A bowl or a bread board refuses with its own better line ("for working in,
+    // not for boiling in"), and that one is worth passing straight through.
+    if (!filled || filled.type === 'error') return filled || { type: 'error', message: method.dry };
+    steps.push(`fill ${vessel.name}`);
+  }
+
+  if (food && vessel) {
+    const load = await placeInVessel(player, food, vessel);
+    if (load.type === 'error') return load;
+    steps.push(`stow ${shownName(food)} in ${vessel.name}`);
+  }
+
+  const target = vessel ? vessel.name : nameStr;
+  const cooked = await cookFood(target, player, broadcast);
+  if (cooked?.type === 'error') {
+    // Refused for a reason only `cook` knows, and the pan is already laid out.
+    // Say so — see the note above. Nothing is rolled back, because the setup is
+    // exactly what the player asked for and is one `empty` or `take` from being
+    // undone; what would actually hurt is not being told it happened.
+    return steps.length
+      ? { ...cooked, message: `${cooked.message}\n<span class="text-dim">The ${vessel.name} is laid out ready: ${steps.join(' · ')}.</span>` }
+      : cooked;
+  }
+  steps.push(`cook ${target}`);
+
+  // The burner is a REQUEST. A hotplate that only does `low` should still boil,
+  // badly, rather than refusing the whole sentence — so a refusal here is
+  // dropped and the step simply isn't claimed. `stove` is also the only step
+  // that has to come after `cook`: it writes to live sessions, and before the
+  // cook there are none.
+  const heat = await cmdStove([method.heat], '', player);
+  if (heat?.type !== 'error') steps.push(`stove ${method.heat}`);
+
+  const head = `<span class="text-bright">${method.gerund} ${vessel ? `in the ${vessel.name}` : nameStr}.</span>`;
+  const trail = steps.length
+    ? `\n<span class="text-dim">The long way round: ${steps.join(' · ')}</span>`
+    : '';
+  return { type: cooked?.type || 'output', message: `${head}\n${cooked?.message || ''}${trail}` };
+}
+
+// One closure per method so the handler knows which word it was called by
+// without reading `raw` — the verb is the whole argument to this feature.
+const methodCommands = Object.fromEntries(
+  methodNames().map(k => [k, (args, raw, player, broadcast) => runMethod(k, args, player, broadcast)]),
+);
+
 // Take it off the heat. This is where quality is decided — lazily, from the
 // session's timestamps and the acts recorded against it, at the moment the
 // player chose to stop. Nothing was simulated to get here.
@@ -655,22 +828,15 @@ async function plateVessel(vessel, player) {
   const sig = signature(inVessel, profileNameFor);
   // Named dishes anchor on a specific item id (ramen noodles, jerk paste), so
   // the matcher needs to know what's actually in the pot, not just its classes.
-  const hit = matchDish(sig, kind, new Set(inVessel.map(r => r.item_id)));
-  // Bread never makes slop. Anything sensible between two slices is a real
-  // sandwich named off its contents, so an unmatched bread vessel falls to the
-  // generic template rather than to UNKNOWN_DISH — and because that template has
-  // no key, making one teaches the cookbook nothing.
-  // No recipe claims it. That used to mean "a mess" for every vessel but bread,
-  // where GENERIC_SANDWICH had already proved the better answer: anything
-  // sensible between two slices is a real thing and should be called what it is.
-  // `inferDish` generalises that — food makes a DISH, non-food makes a mess — so
-  // slop is now the answer only for a pan with something inedible in it.
   //
-  // An improvised dish is capped below an authored one (superb, never
-  // masterful), which is what keeps the cookbook worth filling.
-  const improvised = hit ? null : (isBread ? null : inferDish(sig, kind));
-  const template = hit?.template || improvised || (isBread ? GENERIC_SANDWICH : UNKNOWN_DISH);
-  const key = hit?.key || null;
+  // The whole fall-through — authored template, then improvised, then the
+  // generic sandwich, then slop — is `dishFor` in dishes.js. It used to be
+  // written out here, which meant `plate` was the only thing in the plugin that
+  // knew a pan with no recipe behind it is still a dish. Every readout that
+  // stopped at `matchDish` told the player otherwise. Food makes a DISH,
+  // non-food makes a mess; an improvised one is capped below an authored one
+  // (superb, never masterful), which is what keeps the cookbook worth filling.
+  const { template, key, improvised } = dishFor(sig, kind, new Set(inVessel.map(r => r.item_id)), { isBread });
 
   // Have they written this exact pan down themselves? Matched on SIGNATURE, not
   // on name — a player may call it anything, and does. A saved recipe pays the
@@ -1159,13 +1325,23 @@ async function cmdTaste(args, raw, player) {
     const real = contents.filter(r => profileNameFor(r));
     if (!real.length) return { type: 'error', message: `There's nothing in the ${vessel.name} to taste.` };
     const modifiers = contents.filter(r => isModifier(r));
-    const hit = matchDish(signature(real, profileNameFor), tagValue(vessel, 'vessel_kind', null), new Set(contents.map(r => r.item_id)));
+    // The dish it's becoming, improvised ones included. Passing `null` for an
+    // unmatched pan — which is what reading `matchDish` alone did — meant
+    // seasoning could never be reported on anything without a recipe behind it,
+    // so the one reading that exists to tell you a pot is bland was silent on
+    // every pot a player invented. Slop still has no seasoning to speak of.
+    const dish = dishFor(
+      signature(real, profileNameFor),
+      tagValue(vessel, 'vessel_kind', null),
+      new Set(contents.map(r => r.item_id)),
+      { isBread: hasTag(vessel, 'edible_vessel') },
+    );
     const cooking = contents.find(r => r.custom_data?.cooking);
     const notes = tasteNotes({
       session: cooking?.custom_data?.cooking,
       profile: cooking ? sessionProfile(cooking.custom_data.cooking) : null,
-      template: hit?.template || null,
-      modifierCount: hit ? modifiers.reduce((a, r) => a + portionOf(r), 0) : null,
+      template: dish.slop ? null : dish.template,
+      modifierCount: dish.slop ? null : modifiers.reduce((a, r) => a + portionOf(r), 0),
       skill,
     });
     // A spoonful out of the pan is ONE mouthful, however many things are in it.
@@ -1547,6 +1723,21 @@ async function cmdKitchenKit(args, raw, player) {
 async function addToVessel(player, ingredientStr, vessel) {
   const row = await resolveInventoryItem(player, { name: ingredientStr, topLevel: true });
   if (!row) return { type: 'error', message: `You don't have "${ingredientStr}".` };
+  return placeInVessel(player, row, vessel);
+}
+
+// The half of `addToVessel` that has a row in hand already. Split out for
+// `stack`, which has to resolve its own ingredient (it must be able to skip over
+// the slice of bread it is stacking ON to find the second one), and which then
+// needs the identical capacity, heat and self-containment checks. Two copies of
+// those would be two chances for one route into a pan to allow what the other
+// refuses.
+//
+// `stacked` records WHEN, which is the whole of the ordering model — see
+// `cmdStack`. It is deliberately not a counter: a counter is a read, an
+// increment and a write against rows another verb also moves, and a timestamp
+// sorts the same way for nothing.
+async function placeInVessel(player, row, vessel, { stacked = false } = {}) {
   if (row.inv_id === vessel.inv_id) return { type: 'error', message: `You can't put the ${vessel.name} in itself.` };
   if (row.custom_data?.cooking) return { type: 'error', message: `Not while it's on the heat.` };
 
@@ -1557,13 +1748,109 @@ async function addToVessel(player, ingredientStr, vessel) {
     return { type: 'error', message: `The ${vessel.name} won't hold that too.` };
   }
 
-  await query('UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL WHERE id=$2', [vessel.inv_id, row.inv_id]);
+  await query(
+    stacked
+      ? `UPDATE player_inventory
+            SET container_id=$1, is_equipped=0, slot=NULL,
+                custom_data = COALESCE(custom_data, '{}'::jsonb) || jsonb_build_object('stacked_at', $3::bigint)
+          WHERE id=$2`
+      : 'UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL WHERE id=$2',
+    stacked ? [vessel.inv_id, row.inv_id, Date.now()] : [vessel.inv_id, row.inv_id],
+  );
   cookSfx(player, { action: 'stir', material: sfxMaterial(row), intensity: 0.4 });
   const contents = await vesselContents(vessel.inv_id);
   return {
     type: 'use',
     message: `You put ${shownName(row)} in the ${vessel.name}. <span class="text-dim">${contents.length} thing${contents.length === 1 ? '' : 's'} in it now — "plate ${vessel.name}" when it's right.</span>`,
   };
+}
+
+// ── stack: building a sandwich the way you'd say it ──────────────────────────
+//
+// Bread has been a vessel for a long time and everything about a sandwich
+// already worked — it is scored as an ingredient, it lends its noun to the name,
+// `plate` eats it with the rest, and an unmatched one falls to GENERIC_SANDWICH
+// and gets named off its contents instead of being called slop. What it had was
+// one way in, and it was `stow cheese IN flatbread`.
+//
+// Nobody puts anything in a sandwich. You put it ON the bread, and then you put
+// the next thing on THAT, and the sentence you say while doing it names the
+// thing you just put down, not the plate underneath it all. So:
+//
+//     stack cheese on bread
+//     stack ham on cheese          ← the cheese is not a container. It's the top.
+//     stack bread on ham           ← and that closes it
+//
+// ⚠ ORDER IS READ, NEVER RESOLVED. `stacked_at` is shown by `examine` and
+// reaches nothing else — not the signature, not the match, not the name, not the
+// band. That is a hard rule rather than a shortcut, because `stow` sets no order
+// at all: the moment the order meant something, the two ways of building the
+// same sandwich would produce two different sandwiches, and the old one would
+// silently be the worse. Everything mechanical stays a multiset of profiles.
+async function cmdStack(args, raw, player) {
+  const str = args.join(' ').trim();
+  if (!str) return { type: 'error', message: `Stack what on what? <span class="text-dim">("stack cheese on bread")</span>` };
+
+  const m = str.match(/^(.*?)\s+(?:on top of|onto|on|in)\s+(?:the\s+)?(.+)$/i);
+  if (!m) return { type: 'error', message: `Stack it on what? <span class="text-dim">("stack cheese on bread")</span>` };
+  const whatStr = m[1].trim();
+  const ontoStr = m[2].trim();
+
+  // The thing named may be the vessel itself, or it may be something already in
+  // one — "stack ham on the cheese" is the commonest way anybody says the second
+  // layer, and the cheese is not a container.
+  let vessel = await resolveInventoryItem(player, { tag: 'vessel', name: ontoStr, topLevel: true, fromNearby: true });
+  if (!vessel) {
+    const { rows } = await query(
+      `SELECT c.id AS inv_id, c.item_id, c.quantity, c.custom_data,
+              ci.name, ci.tags, ci.weight, ci.flags
+         FROM player_inventory pi
+         JOIN player_inventory c ON c.id = pi.container_id
+         JOIN items ci ON ci.id = c.item_id
+         JOIN items i  ON i.id  = pi.item_id
+        WHERE pi.player_id = $1
+          AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2)
+          AND jsonb_exists(ci.tags, 'vessel')
+        ORDER BY (pi.custom_data->>'stacked_at') DESC NULLS LAST
+        LIMIT 1`,
+      [player.id, `%${ontoStr}%`],
+    );
+    vessel = rows[0] || null;
+  }
+  if (!vessel) return { type: 'error', message: `There's no "${ontoStr}" here to stack anything on.` };
+
+  // Resolve the ingredient OURSELVES rather than through `addToVessel`, for one
+  // reason: closing a sandwich is `stack bread on ham`, and the first thing a
+  // search for "bread" finds is the slice doing the containing. Skipping it is
+  // what lets a second slice go on top; with only one, the refusal below is the
+  // honest answer rather than a confusing one about a thing being inside itself.
+  const all = await resolveInventoryItem(player, { name: whatStr, topLevel: true, all: true });
+  const candidates = (Array.isArray(all) ? all : []).filter(r => r.inv_id !== vessel.inv_id);
+  if (!candidates.length) {
+    const self = (Array.isArray(all) ? all : []).length;
+    return { type: 'error', message: self
+      ? `The only "${whatStr}" you have is the one you're stacking on.`
+      : `You don't have "${whatStr}".` };
+  }
+
+  const placed = await placeInVessel(player, candidates[0], vessel, { stacked: true });
+  if (placed.type === 'error') return placed;
+
+  const contents = await vesselContents(vessel.inv_id);
+  const layers = stackOrder(contents);
+  const edible = hasTag(vessel, 'edible_vessel');
+  const head = `You lay ${shownName(candidates[0])} on${edible ? ` the ${vessel.name}` : `to the ${vessel.name}`}.`;
+  return {
+    type: 'use',
+    message: `${head}\n<span class="text-dim">${edible ? 'Bottom to top' : 'In it'}: ${layers.map(shownName).join(', ')} — "plate ${vessel.name}" when it's right.</span>`,
+  };
+}
+
+// Bottom to top. Anything placed by `stow` carries no stamp and sits at the
+// bottom, which is true: it was already there when you started stacking.
+function stackOrder(contents) {
+  return [...contents].sort((a, b) =>
+    (Number(a.custom_data?.stacked_at) || 0) - (Number(b.custom_data?.stacked_at) || 0));
 }
 
 registerAction({
@@ -1922,6 +2209,16 @@ async function cmdCookbook(args, raw, player) {
 }
 
 export const commands = {
+  // `boil`, `fry`, `roast`… — one statement of intent that lays out the pan, the
+  // water and the burner and then hands over to `cook`. Spread FIRST so a method
+  // can never shadow a verb written below it by accident; `plugin.json` lists
+  // every one of them and the manifest sweep in regress checks that list against
+  // what actually registered.
+  ...methodCommands,
+  // Building a sandwich in the words people use for it. `layer` is the same act
+  // said about a tray.
+  stack: cmdStack,
+  layer: cmdStack,
   cook: cmdCook,
   cookbook: cmdCookbook,
   recipe: cmdRecipe,
@@ -1989,6 +2286,15 @@ async function describeVessel(vesselRow, player) {
     lines.push(`  ${shownName(row)} — ${state}${prep ? `, ${prep}` : ''}`);
   }
 
+  // A sandwich is the one thing here with a shape, so say what the shape is.
+  // Only for an EDIBLE vessel — a pan has contents and a sandwich has an order,
+  // and reading a stew out bottom-to-top would be inventing a fact about it.
+  // Ordering is `stacked_at` and is read HERE and nowhere else; see `cmdStack`.
+  if (hasTag(vesselRow, 'edible_vessel') && contents.length) {
+    const order = stackOrder(contents);
+    lines.push(`  <span class="text-dim">Bottom to top: ${vesselRow.name}, ${order.map(shownName).join(', ')}.</span>`);
+  }
+
   const fondLine = fondText(vesselRow.custom_data?.fond);
   if (fondLine) {
     lines.push(`  <span class="text-dim">${vesselRow.custom_data?.deglazed ? 'lifted — it went into the sauce' : fondLine}</span>`);
@@ -1996,13 +2302,22 @@ async function describeVessel(vesselRow, player) {
 
   // What it's on its way to being. Says the dish it would make RIGHT NOW, never
   // how to improve it — the same rule the stage prose follows.
+  //
+  // Through `dishFor`, so it answers with the same dish `plate` would produce.
+  // Reading `matchDish` alone printed "Nothing about this adds up to a dish yet"
+  // over a pot that plates as a turnip and rat stew — the readout a cook uses to
+  // decide whether to keep going, telling them the answer is no, on every pan
+  // the authored catalog doesn't name. Only a genuinely inedible pan says that
+  // now, and it says what's actually wrong with it.
   if (contents.some(r => profileNameFor(r))) {
     const kind = tagValue(vesselRow, 'vessel_kind', null);
-    const sig = signature(contents.filter(r => profileNameFor(r)), profileNameFor);
-    const hit = matchDish(sig, kind, new Set(contents.map(r => r.item_id)));
-    lines.push(hit
-      ? `  <span class="text-dim">As it stands, this is going to be ${dishName(hit.template, contents.filter(r => profileNameFor(r)), profileNameFor, tagValue)}.</span>`
-      : `  <span class="text-dim">Nothing about this adds up to a dish yet.</span>`);
+    const food = contents.filter(r => profileNameFor(r));
+    const sig = signature(food, profileNameFor);
+    const dish = dishFor(sig, kind, new Set(contents.map(r => r.item_id)),
+      { isBread: hasTag(vesselRow, 'edible_vessel') });
+    lines.push(dish.slop
+      ? `  <span class="text-dim">There's something in here that isn't food. It isn't going to add up to a dish.</span>`
+      : `  <span class="text-dim">As it stands, this is going to be ${dishName(dish.template, food, profileNameFor, tagValue)}.</span>`);
   }
 
   return lines.length ? lines.join('\n') : null;

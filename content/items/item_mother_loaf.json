@@ -1,0 +1,23 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_mother_loaf",
+  "name": "mother loaf",
+  "tags": {
+    "consumable": true,
+    "container": 1600,
+    "description": "Raised on a starter somebody's family has kept alive since before the Crash and fed every single day of it. The crust cracks when you press it, the crumb is open and sour and enormous, and the price is a hundred years of somebody not forgetting.",
+    "edible_vessel": true,
+    "food_noun": "bread",
+    "food_profile": "bread",
+    "perishable": true,
+    "restore_hunger": 30,
+    "spoil_rate": "slow",
+    "stackable": false,
+    "vessel": true,
+    "vessel_kind": "bread"
+  },
+  "type": "consumable",
+  "value": 24,
+  "weight": 520
+}

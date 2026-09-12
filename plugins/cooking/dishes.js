@@ -20,6 +20,9 @@ import { PROFILES, QUALITY_BANDS, bandIndex, instanceNoun, HANDLING_VERB } from 
 import { portionOf } from './portions.js';
 import { gearLine } from './gear.js';
 import { WORST_PULL, SLOP_CEILING, KNOWN_RECIPE_BONUS, MODIFIER_BONUS, MODIFIER_BONUS_CAP, OVER_SEASON_PENALTY, DEFAULT_SEASONING } from './config.js';
+// For `dishFor` below. One direction only — improvised.js reads profiles.js and
+// nothing else in this plugin, so this cannot cycle.
+import { inferDish } from './improvised.js';
 
 // Vessel kinds, read from the vessel's `tags.vessel_kind`. A vessel that
 // declares none is 'any' and can host any template that doesn't demand one.
@@ -1161,6 +1164,38 @@ export function matchDish(sig, vesselKind = null, itemIds = new Set()) {
     if (score > bestScore) { best = t; bestScore = score; bestKey = key; }
   }
   return best ? { key: bestKey, template: best, specificity: bestScore } : null;
+}
+
+// WHAT THIS PAN IS GOING TO BE — the one answer, for every reader.
+//
+// `matchDish` answers half the question. It knows the authored templates and
+// returns null for everything else, and `plate` has always gone on to ask
+// `inferDish` and then to fall through to GENERIC_SANDWICH or UNKNOWN_DISH — so
+// a pot of stock, rat and turnips plates as a turnip and rat stew.
+//
+// Every OTHER reader stopped at `matchDish`, and so told the player their
+// perfectly good pan was nothing. `examine pot` printed "Nothing about this adds
+// up to a dish yet" over a stew; `taste` passed a null template and could never
+// report seasoning on anything improvised. The readouts you use to decide
+// whether a pan is working denied the entire free-form half of the system, which
+// is the half a player cooking without a recipe is using by definition.
+//
+// So the fall-through lives here, once, and `plate` is now one reader of it
+// rather than the only place that knows. A new readout gets the right answer by
+// asking this, instead of by remembering to ask three things in the right order.
+//
+// `isBread` is not derivable from the signature — an edible vessel is declared
+// per item — so it rides in as an option. Bread deliberately skips `inferDish`:
+// GENERIC_SANDWICH is its own, better-named fallback.
+export function dishFor(sig, vesselKind = null, itemIds = new Set(), { isBread = false } = {}) {
+  const hit = matchDish(sig, vesselKind, itemIds);
+  if (hit) return { template: hit.template, key: hit.key, improvised: null, slop: false };
+
+  const improvised = isBread ? null : inferDish(sig, vesselKind);
+  if (improvised) return { template: improvised, key: null, improvised, slop: false };
+
+  if (isBread) return { template: GENERIC_SANDWICH, key: null, improvised: null, slop: false };
+  return { template: UNKNOWN_DISH, key: null, improvised: null, slop: true };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,27 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_dripping_bread",
+  "name": "dripping bread",
+  "tags": {
+    "consumable": true,
+    "container": 800,
+    "description": "Flatbread cooked on a plate that's had rendered fat worked into it every day for years. It comes off heavy, glossy and savoury before anything at all has been put on it, and it will leave a mark on whatever you wrap it in.",
+    "edible_vessel": true,
+    "food_also": "fat_or_oil",
+    "food_noun": "bread",
+    "food_profile": "bread",
+    "perishable": true,
+    "restore_hunger": 19,
+    "spoil_rate": "normal",
+    "stackable": false,
+    "status_chance": {
+      "food_poisoning": 0.08
+    },
+    "vessel": true,
+    "vessel_kind": "bread"
+  },
+  "type": "consumable",
+  "value": 8,
+  "weight": 200
+}

@@ -1,0 +1,26 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_steam_bun",
+  "name": "steam bun",
+  "tags": {
+    "consumable": true,
+    "container": 500,
+    "description": "Pale, damp and slightly tacky, sold three to a paper bag off a cart that's never in the same place twice. Soft enough to fold round almost anything. It goes from fresh to grim in about four hours, which the cart already knows and you're about to find out.",
+    "edible_vessel": true,
+    "food_noun": "bread",
+    "food_profile": "bread",
+    "perishable": true,
+    "restore_hunger": 12,
+    "spoil_rate": "fast",
+    "stackable": false,
+    "status_chance": {
+      "food_poisoning": 0.12
+    },
+    "vessel": true,
+    "vessel_kind": "bread"
+  },
+  "type": "consumable",
+  "value": 3,
+  "weight": 140
+}

@@ -5,13 +5,17 @@
   "name": "grey loaf",
   "tags": {
     "consumable": true,
+    "container": 1400,
     "description": "A dense brick of a loaf, crust the colour of wet cement and a crumb that holds a thumbprint. It keeps for a fortnight, which tells you most of what you need to know about it.",
+    "edible_vessel": true,
     "food_noun": "bread",
     "food_profile": "bread",
     "perishable": true,
     "restore_hunger": 22,
     "spoil_rate": "slow",
-    "stackable": false
+    "stackable": false,
+    "vessel": true,
+    "vessel_kind": "bread"
   },
   "type": "consumable",
   "value": 7,

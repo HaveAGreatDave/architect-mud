@@ -18,6 +18,7 @@ import { DISCOVERY_ATTEMPTS, cookingIpFor, ROUTINE_IP, MASTERFUL_IP, ROUTINE_IP_
 import {
   DISHES, UNKNOWN_DISH, validateDishes, signature, matchScore, matchDish,
   dishName, composeBand, nounFor, VESSEL_KINDS, seasoningIdeal, seasoningBonus, unitsOf, GENERIC_SANDWICH, ALSO,
+  UNIT_TOLERANCE_LOW, UNIT_TOLERANCE_HIGH,
   keyNounFor, ingredientLine, methodLines,
 } from './dishes.js';
 import { FLAG_PREFIX, PROGRESS_PREFIX, UNTRIED, learnRecipe, knownRecipes, cookbookState, recordAttempt, improveRecipe, beatsRecorded, knownBonus,
@@ -55,6 +56,11 @@ export default async function regress({ run, check, getPlayer }) {
   const PAN = 'item_cooking_regress_pan';
   const TURNER = 'item_cooking_regress_spatula';
   const KNIFE = 'item_cooking_regress_knife';
+  const POT = 'item_cooking_regress_pot';
+  const PASTA = 'item_cooking_regress_penne';
+  const BREAD = 'item_cooking_regress_bread';
+  const CHEESE = 'item_cooking_regress_cheese';
+  const TAP = 'furn_cooking_regress_tap';
   const STOVE = 'furn_cooking_regress_stove';
   const STOVE_POWERED = 'furn_cooking_regress_stove_powered';
   const LAB = 'furn_cooking_regress_lab';
@@ -2725,14 +2731,330 @@ export default async function regress({ run, check, getPlayer }) {
       check('an unstocked class answers no-shop rather than throwing', never.sold === false && !never.shops.length, JSON.stringify(never));
     }
 
+    // ── One answer to "what is this pan going to be" ─────────────────────────
+    //
+    // `plate` has always known that a pan with no recipe behind it is still a
+    // dish. Every other reader stopped at `matchDish` and so told the player it
+    // was nothing — which is the readout you use to decide whether to keep
+    // going, saying no, on every pan a player invented for themselves.
+    {
+      const { dishFor, matchDish, signature } = await import('./dishes.js');
+      const P = r => r.tags?.food_profile || null;
+      const row = (name, profile, weight) => ({ name, tags: { food_profile: profile }, weight, quantity: 1 });
+
+      // Stock, meat and a root, in a pot, matching no authored template.
+      const potSig = signature([
+        row('bone broth', 'liquid', 400), row('rat haunch', 'dense_meat', 250),
+        row('cellar root', 'starchy_vegetable', 200), row('turnip', 'starchy_vegetable', 200),
+        row('onion', 'soft_vegetable', 120), row('kelp', 'soft_vegetable', 120),
+        row('plum', 'fruit', 120), row('gull egg', 'egg', 60),
+      ], P);
+      const improv = dishFor(potSig, 'pot');
+      check('a pot nothing in the catalog claims is still a dish',
+        !improv.slop && !!improv.template && improv.template.improvised === true, JSON.stringify(improv.template?.noun));
+      check('...and it is the improvised one, not an authored key', improv.key === null, improv.key);
+
+      // The invariant the split exists for: an AUTHORED match must come back
+      // exactly as `matchDish` would have answered it, or pointing the readouts
+      // at `dishFor` would have quietly changed what `plate` produces.
+      let drifted = null;
+      for (const kind of VESSEL_KINDS) {
+        for (const s of [{ liquid: 1, dense_meat: 1, starchy_vegetable: 2 }, { dairy: 1, bread: 2 }, { egg: 2 }, {}]) {
+          const hit = matchDish(s, kind, new Set());
+          const got = dishFor(s, kind, new Set(), { isBread: kind === 'bread' });
+          if (hit && (got.template !== hit.template || got.key !== hit.key)) drifted = `${kind}/${JSON.stringify(s)}`;
+        }
+      }
+      check('...and wherever the catalog does claim a pan, dishFor answers identically', !drifted, drifted);
+
+      // Non-food is still the one route to a mess, and it must not become a dish
+      // by the back door — that is the whole "food makes a dish, non-food makes
+      // a mess" rule and it is the only thing keeping slop meaningful.
+      const junk = dishFor({ dense_meat: 1, unprofiled: 1 }, 'pot');
+      check('something inedible in the pan is still a mess', junk.slop === true, JSON.stringify(junk));
+
+      // Bread never reaches `inferDish` — GENERIC_SANDWICH is its own, better
+      // fallback, and it is what gives an unmatched sandwich its name.
+      const sandwich = dishFor({ bread: 1, dense_meat: 1, soft_vegetable: 1 }, 'bread', new Set(), { isBread: true });
+      check('an unmatched sandwich is a sandwich, never an improvised pot dish',
+        !sandwich.slop && sandwich.template === GENERIC_SANDWICH, JSON.stringify(sandwich.template?.noun));
+    }
+
+    // ── Methods: `boil noodles` ──────────────────────────────────────────────
+    //
+    // The rule under all of these: a method decides SETUP and never OUTCOME. It
+    // finds the pan, runs the tap and sets the burner, then hands over to the
+    // ordinary `cook`. Nothing here knows what a steak is.
+    {
+      const { METHODS, methodFor, methodNames } = await import('./methods.js');
+
+      check('every method names a real vessel kind, or none at all',
+        methodNames().every(k => METHODS[k].vessel === null || VESSEL_KINDS.includes(METHODS[k].vessel)),
+        JSON.stringify(methodNames().map(k => [k, METHODS[k].vessel])));
+      check('every method asks for a burner setting the stove verb accepts',
+        methodNames().every(k => ['low', 'mid', 'high'].includes(METHODS[k].heat)));
+      // A method that happens in water must have something to say when there
+      // is none — this is the refusal a player meets at a sink-less kitchen.
+      check('every wet method carries its own dry-pan refusal',
+        methodNames().every(k => !METHODS[k].medium || typeof METHODS[k].dry === 'string'));
+      // ...and a method that wants a pan must be able to say which.
+      check('every method wanting a vessel can name it',
+        methodNames().every(k => !METHODS[k].vessel || typeof METHODS[k].needs === 'string'));
+      check('aliases land on real methods', methodFor('sauté')?.key === 'saute' && methodFor('bbq')?.key === 'grill');
+      check('...and a word that is not a method is not one', methodFor('ferment') === null);
+
+      // ⚠ NO METHOD MAY SHADOW AN ENGINE BUILTIN. A plugin command silently
+      // BEATS a builtin — it does not collide, it does not warn, it just takes
+      // the verb — so a method named after one would break that verb everywhere
+      // in the game and the only symptom would be a bug report about something
+      // unrelated to cooking. This is the trap psionics hit three times.
+      const { builtinCommandNames } = await import('../../server/engine/commands/index.js');
+      const builtins = new Set(builtinCommandNames());
+      const shadowed = [...methodNames(), 'stack', 'layer'].filter(v => builtins.has(v));
+      check('no method verb takes a verb off the engine', !shadowed.length, JSON.stringify(shadowed));
+      // ...and the alias table is a second way in to the same verbs, so it gets
+      // the same sweep: an alias rewrites the first word BEFORE dispatch.
+      const aliased = [...methodNames(), 'stack', 'layer'].filter(v => getAlias(v));
+      check('...and no method verb is already an alias for something else', !aliased.length, JSON.stringify(aliased));
+
+      // End to end. The fixture stove is `mid`, so `boil` asking for `high` is
+      // also the case where the burner request is REFUSED and the cook goes
+      // ahead anyway — a hotplate that only does low should still boil, badly.
+      await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2)', [player.id, [POT, PASTA]]);
+      for (const [id, name, tags, weight] of [
+        [POT, 'test stockpot', { container: 3000, vessel: true, vessel_kind: 'pot', heat_distribution: 0.6, heat_retention: 0.8, unique: true }, 1200],
+        [PASTA, 'test penne', { consumable: true, needs_cooking: true, food_profile: 'dry_starch', restore_hunger: 15, stackable: true }, 125],
+      ]) {
+        await query(
+          `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,$2,$2,'misc',1,$4,$3)
+           ON CONFLICT (id) DO UPDATE SET tags=$3, weight=$4`, [id, name, JSON.stringify(tags), weight]);
+        await reloadItem(id);
+      }
+      const pastaId = randomUUID();
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [pastaId, player.id, PASTA]);
+
+      // No pot in the pack: the refusal names the pan rather than the system.
+      let rm = await run('boil test penne');
+      check('boiling with no pot to hand says so, in pot words',
+        rm?.type === 'error' && /pot/i.test(rm.message), JSON.stringify(rm));
+
+      const potId = randomUUID();
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [potId, player.id, POT]);
+
+      // Still no tap. Dry starch would be refused by `cook` anyway, but the
+      // method has to be the one that explains it, because the player asked to
+      // boil and the thing that is missing is the water.
+      rm = await run('boil test penne');
+      check('boiling with no water anywhere refuses on the water',
+        rm?.type === 'error' && /water|tap|wet/i.test(rm.message), JSON.stringify(rm));
+      // ⚠ AND IT MOVED NOTHING. The obvious order loads the pan and then fills
+      // it, so a tapless kitchen answers with an error AND leaves the pasta in
+      // the pot — the player is told no, nothing seems to have happened, and the
+      // next `boil` says they have no pasta, because it is in a pan nobody
+      // mentioned. A method prints one line and so cannot report a half-run;
+      // everything that can refuse has to refuse before anything moves.
+      const stranded = (await query('SELECT container_id FROM player_inventory WHERE id=$1', [pastaId])).rows[0];
+      check('...and a refused method leaves the pasta where it was',
+        stranded?.container_id === null, JSON.stringify(stranded));
+
+      await insertFurniture({
+        id: TAP, name: 'test tap', description: 'a test tap', object_type: 'fixture',
+        zone_id: Z, flags: JSON.stringify({ water_source: true }),
+      }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
+
+      rm = await run('boil test penne');
+      check('with a pot and a tap, one word does the whole setup', rm?.type !== 'error', JSON.stringify(rm));
+      const potRows = (await query(
+        `SELECT pi.item_id, pi.custom_data FROM player_inventory pi WHERE pi.container_id=$1`, [potId])).rows;
+      check('...the pasta went into the pot', potRows.some(r => r.item_id === PASTA), JSON.stringify(potRows.map(r => r.item_id)));
+      check('...the pot was filled at the tap', potRows.some(r => r.item_id === 'item_water'), JSON.stringify(potRows.map(r => r.item_id)));
+      check('...and the pasta is actually on the heat',
+        potRows.some(r => r.item_id === PASTA && r.custom_data?.cooking), JSON.stringify(potRows.map(r => r.custom_data)));
+      check('...and it teaches the long way round while it does it',
+        /cook test stockpot/.test(rm.message || ''), JSON.stringify(rm));
+
+      // A burner the stove cannot reach is dropped, never fatal. The fixture
+      // cooktop is `mid` and `boil` asked for `high`.
+      check('...even though the burner it asked for was above this stove',
+        !/stove high/.test(rm.message || ''), JSON.stringify(rm));
+
+      await run('plate test stockpot');
+      await query('DELETE FROM player_inventory WHERE player_id=$1 AND container_id=$2', [player.id, potId]);
+
+      // ...and the half `cook` alone can refuse. `fry` lays out a DRY pan, and
+      // dry starch is the one thing the stove won't take without liquid — a
+      // refusal only `cook` knows about, arrived at with the pan already loaded.
+      // Re-deriving that rule here would be the duplicate implementation this
+      // layer exists to avoid, so it is reported instead of prevented: an
+      // unfinished setup you were TOLD about is a pan to finish or empty, and
+      // the same pan in silence is an ingredient the player cannot find again.
+      const pastaId2 = randomUUID();
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [pastaId2, player.id, PASTA]);
+      const panId2 = randomUUID();
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [panId2, player.id, PAN]);
+      await query(`UPDATE items SET tags = tags || '{"vessel_kind":"pan"}'::jsonb WHERE id=$1`, [PAN]);
+      await reloadItem(PAN);
+      const dry = await run('fry test penne');
+      check('frying dry pasta is refused by the stove, not by the method',
+        dry?.type === 'error' && /liquid|water/i.test(dry.message), JSON.stringify(dry));
+      check('...and the method says the pan was already laid out',
+        /laid out/i.test(dry.message || ''), JSON.stringify(dry));
+      await query('DELETE FROM player_inventory WHERE id = ANY($1)', [[pastaId2, panId2]]);
+    }
+
+    // ── Stacking a sandwich ──────────────────────────────────────────────────
+    //
+    // ⚠ The load-bearing rule is that ORDER IS READ AND NEVER RESOLVED. `stow`
+    // sets no order, so the moment `stacked_at` reached the matcher, the two
+    // ways of building one sandwich would make two different sandwiches.
+    {
+      await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2)', [player.id, [BREAD, CHEESE]]);
+      for (const [id, name, tags, weight] of [
+        [BREAD, 'test slice', { consumable: true, container: 800, vessel: true, vessel_kind: 'bread', edible_vessel: true, food_profile: 'bread', food_noun: 'bread', restore_hunger: 10, stackable: false }, 180],
+        [CHEESE, 'test cheese', { consumable: true, food_profile: 'dairy', food_noun: 'cheese', restore_hunger: 8, stackable: true }, 90],
+      ]) {
+        await query(
+          `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,$2,$2,'misc',1,$4,$3)
+           ON CONFLICT (id) DO UPDATE SET tags=$3, weight=$4`, [id, name, JSON.stringify(tags), weight]);
+        await reloadItem(id);
+      }
+      const breadA = randomUUID(), breadB = randomUUID(), cheeseId = randomUUID();
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [breadA, player.id, BREAD]);
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [cheeseId, player.id, CHEESE]);
+
+      let rs = await run('stack test cheese');
+      check('stack with nothing to stack it on asks what on', rs?.type === 'error' && /on/i.test(rs.message), JSON.stringify(rs));
+
+      rs = await run('stack test cheese on test slice');
+      check('you can lay a filling on a slice of bread', rs?.type !== 'error', JSON.stringify(rs));
+      let held = (await query('SELECT container_id, custom_data FROM player_inventory WHERE id=$1', [cheeseId])).rows[0];
+      check('...it really is in the bread', held.container_id === breadA, held.container_id);
+      check('...and it recorded WHEN, which is the whole ordering model',
+        Number(held.custom_data?.stacked_at) > 0, JSON.stringify(held.custom_data));
+
+      // The sentence people actually say for a second layer names the LAYER, not
+      // the plate underneath it.
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [breadB, player.id, BREAD]);
+      rs = await run('stack test slice on test cheese');
+      check('stacking ON a filling finds the sandwich it is part of', rs?.type !== 'error', JSON.stringify(rs));
+      const lid = (await query('SELECT container_id FROM player_inventory WHERE id=$1', [breadB])).rows[0];
+      check('...and that closes the sandwich rather than starting a new one', lid.container_id === breadA, lid.container_id);
+
+      // The bread you are stacking ON must never be the bread you stack. With
+      // only one slice, the refusal has to be the honest one.
+      await query('DELETE FROM player_inventory WHERE id=$1', [breadB]);
+      rs = await run('stack test slice on test cheese');
+      check('the slice doing the containing is not a filling for itself',
+        rs?.type === 'error' && /only|itself/i.test(rs.message), JSON.stringify(rs));
+
+      // ⚠ THE INVARIANT. Two sandwiches with the same contents and different
+      // build orders must be the same sandwich.
+      {
+        const { signature, dishFor } = await import('./dishes.js');
+        const P = r => r.tags?.food_profile || null;
+        const b = { name: 'slice', tags: { food_profile: 'bread' }, weight: 180, quantity: 1, custom_data: { stacked_at: 5 } };
+        const c = { name: 'cheese', tags: { food_profile: 'dairy' }, weight: 90, quantity: 1, custom_data: { stacked_at: 1 } };
+        const stacked = dishFor(signature([b, c], P), 'bread', new Set(), { isBread: true });
+        const stowed = dishFor(signature([{ ...b, custom_data: {} }, { ...c, custom_data: {} }], P), 'bread', new Set(), { isBread: true });
+        check('build order never reaches the dish — stacked and stowed agree',
+          stacked.template === stowed.template && stacked.key === stowed.key,
+          JSON.stringify([stacked.template?.noun, stowed.template?.noun]));
+      }
+
+      // And the loaf is a base too, which is the content half of this.
+      const loaf = getItem('item_grey_loaf');
+      check('a grey loaf can be built on, not only a flatbread',
+        !!(loaf?.tags?.edible_vessel && loaf?.tags?.vessel && loaf?.tags?.vessel_kind === 'bread'),
+        JSON.stringify(loaf?.tags));
+      check('...and it still cooks and eats as the bread it always was',
+        loaf?.tags?.food_profile === 'bread' && loaf?.tags?.restore_hunger > 0, JSON.stringify(loaf?.tags));
+
+      // ── Every bread in the world, swept ────────────────────────────────────
+      //
+      // Bread is the one profile whose items are also CONTAINERS, and that makes
+      // two authoring mistakes possible that nothing else would catch, both of
+      // which look completely fine in the item editor:
+      //
+      //   • WEIGHT IS THE UNIT COUNT. One bread is 180g, and every sandwich in
+      //     the catalog asks for `bread: [1,2]`, so the accepted band is
+      //     [0.6, 3.6] units — 108g to 648g. A 700g loaf is a real, sensible,
+      //     edible loaf that silently matches NO sandwich recipe at all, and the
+      //     only symptom is that a perfectly good sandwich comes out generic.
+      //   • A VESSEL CANNOT STACK. Contents hang off a row's identity, so a
+      //     stackable container merges two loaves and their fillings together.
+      const bands = [1 * UNIT_TOLERANCE_LOW, 2 * UNIT_TOLERANCE_HIGH];
+      // World content only. Suites mint their own fixtures into the same cache,
+      // and a synthetic bread exists to exercise a code path rather than to be
+      // sold in a shop — swept in, it fails the reachability check below by
+      // definition, every run, for a reason that is not a bug.
+      const allBread = [...getItemCache().values()]
+        .filter(i => i.tags?.food_profile === 'bread' && !/regress/.test(i.id));
+      check('the world has bread in it at all', allBread.length >= 2, allBread.length);
+      const outOfBand = allBread
+        .map(i => [i.id, unitsOf({ ...i, quantity: 1 }, 'bread')])
+        .filter(([, u]) => u < bands[0] || u > bands[1]);
+      check('every bread weighs something a sandwich recipe will accept',
+        !outOfBand.length, JSON.stringify(outOfBand));
+      const stackableVessels = allBread.filter(i => i.tags?.vessel && i.tags?.stackable);
+      check('...and no bread you can build on is stackable',
+        !stackableVessels.length, JSON.stringify(stackableVessels.map(i => i.id)));
+      // A vessel needs all three tags or it is half a vessel: `edible_vessel`
+      // alone is scored and eaten but has nowhere to put anything, and
+      // `vessel` without `vessel_kind` matches no template that names a pan.
+      const halfVessels = allBread.filter(i =>
+        (i.tags?.edible_vessel || i.tags?.vessel || i.tags?.vessel_kind === 'bread')
+        && !(i.tags?.edible_vessel && i.tags?.vessel && i.tags?.vessel_kind === 'bread' && i.tags?.container > 0));
+      check('...and a bread you can build on carries the whole set of tags',
+        !halfVessels.length, JSON.stringify(halfVessels.map(i => i.id)));
+
+      // ...AND SOMEBODY HAS TO SELL IT. An item nobody stocks is an item that
+      // does not exist: there is no loot table with food in it (the directory is
+      // empty), scavenging carries only fish, and bread appears in no quest
+      // reward. So the shop shelf is bread's only route into a player's hands,
+      // and authoring one without stocking it produces a perfectly correct item
+      // that can never be cooked with — which looks like nothing at all rather
+      // than like a mistake.
+      //
+      // Exempt by REASON if a bread is ever deliberately unsold (found in a
+      // ruin, baked by an NPC, handed over in a quest). An empty list is the
+      // honest state today.
+      const UNSOLD_BREAD = {/* item_id: 'why nobody sells this' */};
+      const { rows: sold } = await query(
+        `SELECT DISTINCT e->>'item_id' AS item_id
+           FROM npcs, LATERAL jsonb_array_elements(vendor_inventory) e
+          WHERE jsonb_typeof(vendor_inventory) = 'array'`);
+      const onSale = new Set(sold.map(r => r.item_id));
+      const unreachable = allBread
+        .filter(i => !onSale.has(i.id) && !UNSOLD_BREAD[i.id])
+        .map(i => i.id);
+      check('every bread is on somebody\'s shelf, since nothing else hands one out',
+        !unreachable.length, JSON.stringify(unreachable));
+
+      // The dripping bread's entire mechanical identity: it arrives carrying the
+      // dish's fat, so a toastie works with no separate pat of butter. This is
+      // the `food_also` channel doing exactly what milk-as-dairy does, and it is
+      // worth pinning because it is one tag and invisible everywhere else.
+      {
+        const { signature: sigOf, matchScore: score, DISHES: D } = await import('./dishes.js');
+        const Pr = r => r.tags?.food_profile || null;
+        const asRow = id => { const i = getItem(id); return { ...i, tags: i.tags, weight: i.weight, quantity: 1 }; };
+        const cheeseRow = asRow('item_vat_cheese');
+        check('dripping bread and cheese is a toastie with no butter in the pan',
+          score(sigOf([asRow('item_dripping_bread'), cheeseRow], Pr), D.toastie, new Set()) > 0);
+        check('...and plain flatbread and cheese still is not, which is the point',
+          score(sigOf([asRow('item_flat_bread'), cheeseRow], Pr), D.toastie, new Set()) === -1);
+      }
+    }
+
   } finally {
-    const temps = [RAW, OVEN, STEAK, TOM, PAN, TURNER, KNIFE];
+    const temps = [RAW, OVEN, STEAK, TOM, PAN, TURNER, KNIFE, POT, PASTA, BREAD, CHEESE];
     await query('DELETE FROM player_inventory WHERE item_id = ANY($1)', [temps]).catch(() => {});
     await query('DELETE FROM items WHERE id = ANY($1)', [temps]).catch(() => {});
     for (const id of temps) deleteItemCache(id);
     await deleteFurniture(STOVE).catch(() => {});
     await deleteFurniture(STOVE_POWERED).catch(() => {});
     await deleteFurniture(LAB).catch(() => {});
+    await deleteFurniture(TAP).catch(() => {});
     player.statuses = (player.statuses || []).filter(s => s.name !== 'food_poisoning');
     player.current_zone = saved;
   }

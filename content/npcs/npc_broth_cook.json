@@ -243,6 +243,10 @@
       "price": 9
     },
     {
+      "item_id": "item_steam_bun",
+      "price": 5
+    },
+    {
       "item_id": "item_bean_sprout",
       "price": 3
     },

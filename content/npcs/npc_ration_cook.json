@@ -568,6 +568,18 @@
       "sourceContainer": "furn_ration9_shelves"
     },
     {
+      "item_id": "item_mother_loaf",
+      "price": 27,
+      "restockToQty": 2,
+      "sourceContainer": "furn_ration9_shelves"
+    },
+    {
+      "item_id": "item_ration_hardtack",
+      "price": 4,
+      "restockToQty": 16,
+      "sourceContainer": "furn_ration9_shelves"
+    },
+    {
       "item_id": "item_cellar_root",
       "price": 5,
       "restockToQty": 12,
