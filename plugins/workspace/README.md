@@ -80,7 +80,7 @@ round trip.
 {
   type: 'workspace_view', provider, title, providers: [{key,label}],
   storage:    [ { id, name, preserves, items: [Component], other } ],
-  area:       [ { id, name, place, heat, hot, contents: [Component] } ],
+  area:       [ { id, name, place, heat, hot, idle, batch, contents: [Component] } ],
   components: [ Component ],   // loose, on you
   tools:      [ Component ],
   status:     [ { label, value, state: 'ok'|'warn'|'off' } ],
@@ -90,7 +90,8 @@ round trip.
 Recipe    = { key, name, vessel, band, pct, missing: [String], equipment: [String],
               ingredients: [String], method: [String], uses: [componentId], suggestion, actions }
 Component = { id, name, qty, kind, state, notes: [String], live, actions: [Action] }
-Action    = { label, command, hint }
+Action    = { label, command, hint, role?, state?, tier?, target? }
+Batch     = { label, prefix, sep, hint } | null
 ```
 
 `command` is **the literal verb string**, never an opaque id. That is the
@@ -106,6 +107,62 @@ Two conventions the client depends on:
 - **Clicking runs `sendCmd`, not `sendCmdSilent`** — the command echoes into the
   log exactly as though it were typed, and the tooltip shows it. The panel is
   meant to *teach* the verbs, which is why using it doesn't make them redundant.
+
+### `role` — what KIND of statement an action makes
+
+An action may carry a `role`: `heat`, `water`, `handle`, `prep`, `take`, `stow`,
+`start`, `finish`, `clean`, `taste`. It says nothing about the command and adds
+no behaviour; it exists so the client can lay a pan's controls out **as
+controls** — a heat selector, a water slot — instead of as a row of identical
+chips, **without learning a single verb**.
+
+- **An unroled action is not an error.** It renders as the chip it always did, so
+  a new prep verb still appears in the HUD the day it is registered. A role is an
+  enhancement, never a registration list.
+- `state: 'on'` marks the live one in a set. The heat trio carries it, which is
+  what turns `low mid high` from three buttons into one switch that shows which
+  ring you are on. ⚠ It must be derived from the **same** read the `heat` readout
+  uses, or the panel grows two opinions about one burner.
+- `target` on a `stow` action is the vessel's id — how the client knows which pan
+  a row can go into without parsing the command it is about to send.
+
+## Ticking, and `batch` — putting several things in one pan
+
+Combining ingredients is the act this HUD exists for, and it used to be one
+hover, one hunt and one click **per ingredient**, in a different row each time —
+with one `→ pan` chip per pan on every row, which is what made rows wrap.
+
+Rows now **tick**, and one press puts everything ticked into a chosen vessel. A
+row is tickable when the server offered a way to **move** it (a `take` or `stow`
+role) — a question about the payload, not about food, so a bench whose reagents
+can be taken and stowed gets it free.
+
+A vessel that can accept a handful carries `batch`:
+
+```js
+batch: { label: '→ skillet', prefix: 'prepare cast-iron skillet with ', sep: ', ', hint }
+```
+
+The client appends the ticked rows' own names to `prefix`, joined by `sep`. It
+composes a command out of two strings the server handed it and **still holds no
+verb knowledge** — which is the whole reason this is a prefix rather than the
+client knowing the shape of `prepare … with …`.
+
+⚠ **THE BATCH IS ONE COMMAND, NOT N COMMANDS.** Firing four `stow`s from the
+browser looks identical and is wrong three ways: they interleave at every `await`
+on the server, they spend the connection's whole rate-limit burst, and — the one
+that actually bites — a step that raises a **SIFT disambiguation would have the
+rest of the batch read as answers to it**. The plan runner is serial, stops on
+the first failure, and stops dead at a prompt.
+
+⚠ **A free ring gets no `batch`.** It is a place to put a pan, not a thing with
+an inside; there is nothing to tip a handful of onions into.
+
+⚠ **The `stow` actions stay in the payload even though the panel stops drawing
+them as chips.** They are what makes a row tickable at all, they carry the vessel
+id, and the **log rung still prints them as links** — down there nothing ticks,
+so they are the only way to load a pan. The panel hides a chip; it does not
+remove an action.
 
 `workspace.view` fires with `{ view, provider, player }` before the payload
 ships, so a plugin can decorate a workspace in place — the same seam
@@ -298,6 +355,30 @@ And one rule in the kitchen planner: **it stops at a loaded vessel and does not
 cook.** Heat is where the skill is — which burner, when to turn it, when to
 plate — and a HUD that pressed those buttons would be playing the interesting
 half of the game for you.
+
+### `prepare <pan> with a, b, c` — the same runner, a different planner
+
+The batch form. A provider supplies `planLoad(player, target, items)` returning
+the same `{ label, steps, vessel }`, so the runner is untouched and every rule
+above still holds. The kitchen's resolves each name against what you carry and
+what the room's boxes hold, pulling a boxed row out first — `stow x in y` cannot
+reach into a cabinet, so a plan that skipped the pull would fail on its second
+step every time.
+
+⚠ **Each name consumes a row.** Ticking three onions sends `onion, onion, onion`,
+and that has to resolve to three *different* onions; a matcher that answered with
+the same row every time would emit three identical steps, two of which fail for a
+reason ("it's already in the pan") that reads as the HUD being broken.
+
+⚠ **The recipe form is tried first, always, and the load form is reached only on
+`plan.unknown` — never on a plain `plan.error`.** A player can rename a saved
+recipe to anything, so "Beans with Pork" is a legal name: read positionally, the
+` with ` would make it permanently unpreparable. Falling through on *any* error
+is not enough either — short of the pork, that recipe would be answered *"there's
+no beans out here to put anything in"*, an error about a pan for a sentence that
+was never about one. So `planKitchen` marks a name it has never heard of, and
+only that one falls through. Trying the recipe first costs nothing on the batch
+path: a recipe miss is a flag read and never reaches the inventory scan.
 
 ## Cost
 

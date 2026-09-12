@@ -5,7 +5,7 @@
     "quantity": 1
   },
   "category": "synthesis",
-  "description": "Cook K-Hole from crude K-Hole + industrial solvent.",
+  "description": "Cook ketamine from crude ketamine + industrial solvent.",
   "id": "cook_khole",
   "ingredients": [
     {
@@ -17,7 +17,7 @@
       "quantity": 1
     }
   ],
-  "name": "Cook K-Hole",
+  "name": "Cook Ketamine",
   "requires_station": "chem_lab",
   "skill_id": "chemistry",
   "skill_req": {

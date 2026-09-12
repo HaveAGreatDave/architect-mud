@@ -2,7 +2,6 @@
   "description": "Broadcast transmission hardware. Plays cassettes and routes live camera feeds.",
   "flags": {
     "channel_id": "ch_7_1782953079593",
-    "deck_active": "bc_1783289744953",
     "deck_cassettes": [
       "bc_1783114654023",
       "bc_1783289744953"

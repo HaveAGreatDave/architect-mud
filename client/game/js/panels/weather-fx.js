@@ -56,12 +56,17 @@ let fxClock = 0;
 // breathing belong to flight-drugfx.js (which owns the flight canvas) and to the
 // CSS `#trip-overlay`. What lives here is strictly additive.
 //
-// ⚠ Keep in step with VALID_FX in plugins/bodily/regress.js. An unknown name
-// renders nothing at all, so a typo is invisible in play and the suite is the
+// ⚠ The vocabulary itself now lives in client/shared/drug-fx.js, because THREE
+// processes read it — this renderer, the server (which decides what you are on)
+// and the lint/smoke gates — and a list restated in each was a list that drifted:
+// `VALID_FX` in plugins/bodily/regress.js was a hand-copied fourth. An unknown
+// name renders nothing at all, so a typo is invisible in play and the gate is the
 // only thing that will ever tell you.
-export const WEATHER_FX = ['rain', 'snow', 'ash', 'fog', 'wind'];
-export const DRUG_FX = ['static', 'tunnel', 'tracers', 'bloom', 'crawl', 'swim'];
-export const ALL_FX = ['none', ...WEATHER_FX, ...DRUG_FX];
+// ⚠ RELATIVE, not the `/shared/…` form most panels use: this module is imported
+// by scripts/shapes/weatherfx-smoke.mjs in node, where a root-absolute specifier
+// resolves against the filesystem root and fails. The browser resolves both.
+import { WEATHER_FX, FIELD_FX, DRUG_FX, ALL_FX } from '../../../shared/drug-fx.js';
+export { WEATHER_FX, FIELD_FX, DRUG_FX, ALL_FX };
 
 function approach(v, target, step) {
   if (v < target) return Math.min(target, v + step);
@@ -108,6 +113,10 @@ let shells = [];
 
 let particles = [];
 let fogBlobs = [];
+// `veins` grows pre-computed branching polylines rather than particles: a
+// filament has to stay the same filament between frames or it reads as noise,
+// and it creeps by revealing more of its own length, not by moving.
+let strands = [];
 let lastT = 0;
 let paneRect = { left: 0, top: 0, width: 0, height: 0 };
 
@@ -115,6 +124,8 @@ let paneRect = { left: 0, top: 0, width: 0, height: 0 };
 // light backgrounds (pale blue on dark, deep blue on light). Refreshed whenever
 // the loop (re)starts or reseeds, which covers storm-start and effect changes.
 let rainRGB = '178,203,235';
+let spiderRGB = '206,198,214';
+let veinRGB = '168,126,178';
 function bgIsLight() {
   const c = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
   const m = /^#?([0-9a-f]{6})$/i.exec(c);
@@ -124,6 +135,16 @@ function bgIsLight() {
 }
 function refreshThemeColors() {
   rainRGB = bgIsLight() ? '54,88,132' : '178,203,235';
+  // ⚠ A SHAPE AT THE EDGE OF SIGHT HAS TO BE VISIBLE. `spiders` shipped for one
+  // afternoon as `rgba(14,12,16)` — a dark form, which is what the symptom is —
+  // and every theme this game actually uses is darker than that, so the thing
+  // scuttling in your peripheral vision was black on black and drew nothing at
+  // all. It is the background's OPPOSITE now, not a fixed colour: a pale form on
+  // a dark room, a dark one on a light room. What reads as wrong is the movement
+  // either way, and a symptom nobody can see is the same bug as a symptom that
+  // renders nothing.
+  spiderRGB = bgIsLight() ? '18,16,20' : '206,198,214';
+  veinRGB   = bgIsLight() ? '58,30,62' : '168,126,178';
 }
 
 function ensureCanvas() {
@@ -177,6 +198,10 @@ function targetCount() {
   else if (active === 'static')  base = density * (2.0 + 6.0 * dispIntensity);  // dense grain, the whole field
   else if (active === 'tracers') base = density * (0.05 + 0.16 * dispIntensity); // few, and each leaves a tail
   else if (active === 'crawl')   base = density * (0.5 + 1.1 * dispIntensity);   // a lattice that will not sit still
+  else if (active === 'spiders') base = density * (0.10 + 0.25 * dispIntensity); // a handful, and a handful is plenty
+  else if (active === 'glitter') base = density * (0.3 + 1.2 * dispIntensity);   // pinpricks, popping
+  else if (active === 'smear')   base = density * (0.10 + 0.25 * dispIntensity); // long streaks; more would be a blur
+  else if (active === 'embers')  base = density * (0.25 + 0.55 * dispIntensity); // motes rising, unhurried
   const n = Math.round(base * presence);
 
   // ⚠ A SPARSE EFFECT ROUNDS TO ZERO ON A SMALL PANE, and zero is not subtle, it
@@ -190,9 +215,16 @@ function targetCount() {
   // Weather is left alone on purpose: `wind` has the same behaviour (0 particles
   // below roughly 700×400) and changing it is a visible change to ordinary
   // weather on every small screen, which is a separate decision from this one.
-  if (n === 0 && presence > 0.05 && ['static', 'tracers', 'crawl'].includes(active)) return 1;
+  if (n === 0 && presence > 0.05 && PARTICLE_SYMPTOMS.includes(active)) return 1;
   return n;
 }
+
+// Which symptoms are made of PARTICLES, as opposed to being drawn from the clock
+// (`tunnel`, `swim`, `fractal`, `shimmer`, `pulse`) or from a seeded structure
+// (`bloom`, `veins`). Named once: `targetCount`'s round-to-zero floor and the
+// smoke suite's "the pool is not empty" assertion are the same question, and when
+// they were two hand-written lists the second one went stale first.
+export const PARTICLE_SYMPTOMS = ['static', 'tracers', 'crawl', 'spiders', 'glitter', 'smear', 'embers'];
 
 function rand(a, b) { return a + Math.random() * (b - a); }
 
@@ -254,6 +286,51 @@ function spawnParticle(fromTop) {
       ox: 0, oy: 0,
     };
   }
+  if (active === 'spiders') {
+    // Something small and dark at the edge of sight. It SCUTTLES — a burst of
+    // motion, then dead still — because a thing that moves continuously is an
+    // animation and a thing that stops is a thing you think you saw. Seeded
+    // toward the pane's edges, since the whole complaint is peripheral.
+    const edge = Math.random() < 0.5;
+    return {
+      x: edge ? (Math.random() < 0.5 ? rand(0, w * 0.22) : rand(w * 0.78, w)) : rand(0, w),
+      y: edge ? rand(0, h) : (Math.random() < 0.5 ? rand(0, h * 0.25) : rand(h * 0.75, h)),
+      r: rand(1.6, 3.4), a: rand(0.3, 0.62),
+      ang: rand(0, Math.PI * 2), sp: rand(90, 260),
+      // Start still, counting down to the first dash — so a fresh field settles
+      // into motion rather than every spider bolting on the same frame.
+      moving: false, run: rand(0.2, 1.8), legs: rand(0, Math.PI * 2),
+    };
+  }
+  if (active === 'glitter') {
+    // A pinprick that is bright, brief and gone. Each carries its own age so
+    // the field twinkles out of step with itself instead of blinking together —
+    // a synchronised sparkle is a strobe, and this file does not do strobes.
+    return {
+      x: rand(0, w), y: rand(0, h), r: rand(0.8, 2.4),
+      age: rand(0, 1), life: rand(0.35, 1.3), a: rand(0.4, 0.95),
+      hue: rand(35, 70),
+    };
+  }
+  if (active === 'smear') {
+    // Light pulled sideways and left behind. Long, low-alpha, and drifting far
+    // too slowly to be the thing that made it.
+    return {
+      x: rand(-0.2 * w, w), y: rand(0, h),
+      len: rand(60, 190) * (0.5 + dispIntensity), th: rand(2, 7),
+      vx: rand(-26, 26), a: rand(0.07, 0.20), hue: rand(180, 260),
+    };
+  }
+  if (active === 'embers') {
+    // Motes going UP, which nothing in the real weather does — that is the whole
+    // tell that the room is not obeying the rules.
+    return {
+      x: rand(0, w), y: fromTop ? rand(h, h * 1.6) : rand(0, h),
+      r: rand(0.9, 2.3), vy: -rand(12, 34) * (0.6 + dispIntensity), vx: rand(-6, 6),
+      sway: rand(0.3, 1.1), phase: rand(0, Math.PI * 2),
+      a: rand(0.25, 0.6), hue: rand(18, 44),
+    };
+  }
 
   // ash
   const r = rand(0.8, 2.4);
@@ -265,10 +342,40 @@ function spawnParticle(fromTop) {
   };
 }
 
+// One filament: a run of points wandering inward from a corner, splitting as it
+// goes. Returns a flat list of {x, y, at} where `at` is how far along the strand
+// the point sits, 0..1 — that is what `grown` is compared against, so a branch
+// appears when its parent has got that far rather than all at once.
+function growStrand(x, y, dx, dy) {
+  const pts = [{ x, y, at: 0, br: 0 }];
+  const steps = 14;
+  let ang = Math.atan2(dy, dx) + rand(-0.4, 0.4);
+  for (let i = 1; i <= steps; i++) {
+    ang += rand(-0.45, 0.45);
+    const step = rand(10, 26);
+    x += Math.cos(ang) * step;
+    y += Math.sin(ang) * step;
+    pts.push({ x, y, at: i / steps, br: 0 });
+    // A side branch is its own short run hung off this point, drawn only once
+    // the trunk has reached it.
+    if (i > 3 && Math.random() < 0.35) {
+      let bx = x, by = y, ba = ang + (Math.random() < 0.5 ? 1 : -1) * rand(0.5, 1.1);
+      for (let j = 1; j <= 4; j++) {
+        ba += rand(-0.3, 0.3);
+        bx += Math.cos(ba) * rand(6, 15);
+        by += Math.sin(ba) * rand(6, 15);
+        pts.push({ x: bx, y: by, at: i / steps, br: i });
+      }
+    }
+  }
+  return pts;
+}
+
 function reseed() {
   refreshThemeColors();
   particles = [];
   fogBlobs = [];
+  strands = [];
   if (active === 'fog') {
     const n = Math.round(3 + 3 * cur.intensity);
     for (let i = 0; i < n; i++) {
@@ -294,9 +401,26 @@ function reseed() {
     }
     return;
   }
-  // `tunnel` and `swim` are whole-field and hold no state of their own — they
-  // are drawn from the clock. Nothing to seed.
-  if (active === 'tunnel' || active === 'swim') return;
+  // `veins` grows filaments in from the corners. The BRANCHING is decided once,
+  // here, and never again: a filament re-rolled per frame is grain with extra
+  // steps. What moves is how much of each one has been revealed.
+  if (active === 'veins') {
+    const n = Math.round(3 + 4 * cur.intensity);
+    for (let i = 0; i < n; i++) {
+      const fromLeft = i % 2 === 0;
+      const fromTop = (i >> 1) % 2 === 0;
+      const ox = fromLeft ? rand(-10, paneRect.width * 0.12) : rand(paneRect.width * 0.88, paneRect.width + 10);
+      const oy = fromTop ? rand(-10, paneRect.height * 0.18) : rand(paneRect.height * 0.82, paneRect.height + 10);
+      strands.push({
+        pts: growStrand(ox, oy, fromLeft ? 1 : -1, fromTop ? 1 : -1),
+        grown: 0, rate: rand(0.10, 0.30), a: rand(0.18, 0.42),
+      });
+    }
+    return;
+  }
+  // `tunnel`, `swim`, `fractal`, `shimmer` and `pulse` are whole-field and hold
+  // no state of their own — they are drawn from the clock. Nothing to seed.
+  if (['tunnel', 'swim', 'fractal', 'shimmer', 'pulse'].includes(active)) return;
 
   const n = targetCount();
   for (let i = 0; i < n; i++) particles.push(spawnParticle(false));
@@ -362,6 +486,103 @@ function drawBase(dt, w, h) {
       ctx.fillStyle = g;
       ctx.fillRect(0, y - th / 2, w, th);
     }
+    return;
+  }
+
+  if (active === 'fractal') {
+    // Geometry coming out of the middle of the room. Rings of rotating polygons
+    // that grow outward, fade, and are replaced from behind — so it reads as
+    // something unfolding rather than as a spinning logo. The sides climb with
+    // intensity, which is what makes a strong dose look BUSIER and not brighter.
+    const rings = 5;
+    const sides = 3 + Math.round(4 * dispIntensity);
+    const maxR = Math.max(w, h) * 0.62;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < rings; i++) {
+      // Each ring's own position in a shared 0..1 growth cycle, offset so they
+      // are always at five different stages of the same unfolding.
+      const t = ((fxClock * 0.16 + i / rings) % 1);
+      const r = 12 + t * maxR;
+      const spin = fxClock * 0.25 * (i % 2 ? -1 : 1) + i;
+      const a = Math.sin(t * Math.PI) * (0.10 + 0.30 * dispIntensity) * presence;
+      if (a <= 0.002) continue;
+      ctx.strokeStyle = `hsla(${(fxClock * 14 + i * 47) % 360},80%,68%,${a})`;
+      ctx.beginPath();
+      for (let s = 0; s <= sides; s++) {
+        const th = spin + (s / sides) * Math.PI * 2;
+        const px = w / 2 + Math.cos(th) * r, py = h / 2 + Math.sin(th) * r * 0.82;
+        if (s === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+    return;
+  }
+
+  if (active === 'shimmer') {
+    // Air over hot tarmac, indoors. Narrow vertical bands whose brightness runs
+    // on a travelling wave, so the whole field wavers without anything in it
+    // moving — the reason this is not `swim`, which slides.
+    const cols = Math.max(8, Math.round(w / 26));
+    const bw = w / cols;
+    for (let i = 0; i < cols; i++) {
+      const ph = fxClock * 1.6 + i * 0.55;
+      const a = (0.018 + 0.055 * dispIntensity) * presence * (0.5 + 0.5 * Math.sin(ph));
+      if (a <= 0.002) continue;
+      const off = Math.sin(ph * 0.7) * 3 * (0.4 + dispIntensity);
+      ctx.fillStyle = `rgba(214,226,236,${a})`;
+      ctx.fillRect(i * bw + off, 0, bw * 0.72, h);
+    }
+    return;
+  }
+
+  if (active === 'pulse') {
+    // Something with a heartbeat that is not the room's. A soft radial swell on
+    // a two-beat rhythm — a lub-dup, not a metronome — kept well under the rate
+    // anything could read as a flicker.
+    // ⚠ A BASELINE UNDER THE BEAT, and the smoke is why. A pure `sin³` spends most
+    // of its cycle at nothing, so between beats the effect drew literally zero
+    // paint — invisible for three quarters of every second while the game believed
+    // the player was on something, and for a whole sampled window in the harness.
+    // A wash that is always there and swells twice per beat is the symptom anyway:
+    // what you notice is not the light arriving, it is that it will not hold still.
+    const beat = fxClock * 1.15;
+    const b = 0.35 + 0.65 * (Math.max(0, Math.sin(beat)) ** 3 * 0.75 + Math.max(0, Math.sin(beat - 0.42)) ** 3 * 0.25);
+    const a = b * (0.06 + 0.16 * dispIntensity) * presence;
+    if (a > 0.002) {
+      const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.72);
+      g.addColorStop(0, `rgba(255,176,120,${a})`);
+      g.addColorStop(0.55, `rgba(255,120,90,${a * 0.45})`);
+      g.addColorStop(1, 'rgba(255,90,70,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+    }
+    return;
+  }
+
+  if (active === 'veins') {
+    // Filaments creeping in from the corners. Nothing moves — more of each one
+    // simply exists than did a second ago, which is a great deal more unpleasant
+    // than something crawling toward you.
+    if (!strands.length) reseed();
+    ctx.lineCap = 'round';
+    for (const s of strands) {
+      s.grown = Math.min(1, s.grown + s.rate * dt);
+      ctx.strokeStyle = `rgba(${veinRGB},${s.a * presence * (0.4 + 0.6 * dispIntensity)})`;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      let pen = false;
+      for (const p of s.pts) {
+        if (p.at > s.grown) { pen = false; continue; }
+        // A branch starts a new sub-path; without this every branch is joined
+        // back to the trunk by a straight line across the pane.
+        if (!pen || p.br) {
+          if (p.br && pen) { ctx.stroke(); ctx.beginPath(); }
+          ctx.moveTo(p.x, p.y); pen = true;
+        } else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
     return;
   }
 
@@ -473,6 +694,93 @@ function drawBase(dt, w, h) {
       ctx.fillStyle = `rgba(196,186,208,${Math.max(0, a)})`;
       ctx.beginPath();
       ctx.arc(p.x + p.ox, p.y + p.oy, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
+
+  if (active === 'spiders') {
+    // Dash, stop, dash. `run` is a countdown and `moving` says which of the two
+    // it is counting down — one timer, two states, so a spider that has just
+    // stopped can never also be drawn mid-stride.
+    for (const p of particles) {
+      p.run -= dt;
+      if (p.run <= 0) {
+        p.moving = !p.moving;
+        p.run = p.moving ? rand(0.12, 0.4) : rand(0.3, 2.2);
+        if (p.moving) p.ang = rand(0, Math.PI * 2);
+      }
+      if (p.moving) {
+        p.x += Math.cos(p.ang) * p.sp * dt;
+        p.y += Math.sin(p.ang) * p.sp * dt;
+        p.legs += dt * 22;
+      }
+      if (p.x < -20 || p.x > w + 20 || p.y < -20 || p.y > h + 20) { Object.assign(p, spawnParticle(false)); continue; }
+      const a = p.a * presence;
+      ctx.fillStyle = `rgba(${spiderRGB},${a})`;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, p.r, p.r * 0.72, p.ang, 0, Math.PI * 2);
+      ctx.fill();
+      // Legs: four strokes that only tick over while it is actually running, so
+      // a stopped one is a smudge and a moving one is unmistakably an animal.
+      ctx.strokeStyle = `rgba(${spiderRGB},${a * 0.8})`;
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      for (let k = 0; k < 4; k++) {
+        const th = p.ang + (k < 2 ? 1 : -1) * (0.6 + (k % 2) * 0.7) + Math.sin(p.legs + k) * 0.22;
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x + Math.cos(th) * p.r * 2.1, p.y + Math.sin(th) * p.r * 2.1);
+      }
+      ctx.stroke();
+    }
+    return;
+  }
+
+  if (active === 'glitter') {
+    // Each pinprick lives its own short life and is replaced where it lies. The
+    // brightness curve is a sine over that life, so nothing pops on — which is
+    // the difference between a sparkle and a flicker.
+    for (const p of particles) {
+      p.age += dt;
+      if (p.age >= p.life) { Object.assign(p, spawnParticle(false), { age: 0 }); continue; }
+      const t = p.age / p.life;
+      const a = p.a * Math.sin(t * Math.PI) * presence;
+      if (a <= 0.004) continue;
+      ctx.fillStyle = `hsla(${p.hue},90%,82%,${a})`;
+      const r = p.r * (0.6 + 0.8 * Math.sin(t * Math.PI));
+      // A cross rather than a dot: a point of light in the eye has rays.
+      ctx.fillRect(p.x - r * 3, p.y - r * 0.35, r * 6, r * 0.7);
+      ctx.fillRect(p.x - r * 0.35, p.y - r * 3, r * 0.7, r * 6);
+    }
+    return;
+  }
+
+  if (active === 'smear') {
+    // Horizontal pulls of light, fading along their own length toward where the
+    // thing that made them used to be.
+    for (const p of particles) {
+      p.x += p.vx * dt;
+      if (p.x - p.len > w + 40) p.x = -40; else if (p.x + p.len < -40) p.x = w + 40;
+      const g = ctx.createLinearGradient(p.x, p.y, p.x - p.len, p.y);
+      const a = p.a * presence * (0.5 + dispIntensity);
+      g.addColorStop(0, `hsla(${p.hue},60%,78%,${a})`);
+      g.addColorStop(1, `hsla(${p.hue},60%,78%,0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(p.x - p.len, p.y - p.th / 2, p.len, p.th);
+    }
+    return;
+  }
+
+  if (active === 'embers') {
+    for (const p of particles) {
+      p.phase += p.sway * dt;
+      p.x += (p.vx + Math.sin(p.phase) * 9) * dt;
+      p.y += p.vy * dt;
+      if (p.y < -6) { Object.assign(p, spawnParticle(false), { y: h + 6, x: rand(0, w) }); continue; }
+      const a = p.a * (0.6 + 0.4 * Math.sin(p.phase * 1.6)) * presence;
+      ctx.fillStyle = `hsla(${p.hue},85%,62%,${Math.max(0, a)})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       ctx.fill();
     }
     return;
@@ -876,11 +1184,17 @@ export function initWeatherFx() {
 // to the snow/ash path and quietly draws nothing recognisable. That is the whole
 // reason this hook returns a draw count rather than just "did it throw".
 export const _test = {
-  ALL_FX, WEATHER_FX, DRUG_FX,
-  runEffect(name, testCtx, { width = 320, height = 200, intensity = 0.8, frames = 12, dt = 1 / 60 } = {}) {
+  ALL_FX, WEATHER_FX, DRUG_FX, FIELD_FX, PARTICLE_SYMPTOMS,
+  // ⚠ `clearEachFrame` is what the REAL loop does — `frame()` clears the canvas
+  // before every `drawBase`. Left off by default because the headless smoke
+  // counts draw calls and needs the total, but any harness LOOKING at the result
+  // must turn it on: ninety frames stacked on one canvas turns a 0.07-alpha heat
+  // haze into solid white columns and a soft radial beat into a flat orange
+  // field, which is a picture the game never draws.
+  runEffect(name, testCtx, { width = 320, height = 200, intensity = 0.8, frames = 12, dt = 1 / 60, clearEachFrame = false } = {}) {
     const savedCtx = ctx, savedRect = paneRect, savedActive = active;
     const savedPres = presence, savedInt = dispIntensity, savedCur = cur;
-    const savedParticles = particles, savedBlobs = fogBlobs;
+    const savedParticles = particles, savedBlobs = fogBlobs, savedStrands = strands;
     try {
       ctx = testCtx;
       paneRect = { width, height, left: 0, top: 0 };
@@ -890,13 +1204,18 @@ export const _test = {
       dispIntensity = intensity;
       particles = [];
       fogBlobs = [];
+      strands = [];
       reseed();
-      for (let i = 0; i < frames; i++) { fxClock += dt; drawBase(dt, width, height); }
-      return { particles: particles.length, blobs: fogBlobs.length };
+      for (let i = 0; i < frames; i++) {
+        fxClock += dt;
+        if (clearEachFrame) testCtx.clearRect(0, 0, width, height);
+        drawBase(dt, width, height);
+      }
+      return { particles: particles.length, blobs: fogBlobs.length, strands: strands.length };
     } finally {
       ctx = savedCtx; paneRect = savedRect; active = savedActive;
       presence = savedPres; dispIntensity = savedInt; cur = savedCur;
-      particles = savedParticles; fogBlobs = savedBlobs;
+      particles = savedParticles; fogBlobs = savedBlobs; strands = savedStrands;
     }
   },
 };

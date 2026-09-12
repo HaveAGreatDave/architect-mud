@@ -28,7 +28,11 @@
       "comeup_scale": 0.4,
       "comeup_seconds": 20,
       "end_message": "<span class=\"msg-system\">The crash lands on you like a dropped ceiling.</span>",
-      "peak_message": "<span class=\"msg-system\">You're made of wire and lightning. Nothing can touch you.</span>",
+      "peak_message": [
+        "<span class=\"msg-system\">You are at the top of it and there is nothing you could not do.</span>",
+        "<span class=\"msg-system\">The whole world drops into gear and you are already moving.</span>",
+        "<span class=\"msg-system\">Everything is loud and fast and yours.</span>"
+      ],
       "peak_mods": {
         "hp_max": 15,
         "stamina_regen_per_sec": 2,

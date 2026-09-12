@@ -18,7 +18,11 @@
       "comeup_scale": 0.5,
       "comeup_seconds": 25,
       "end_message": "<span class=\"msg-system\">The warmth recedes and leaves you cold and small on the shore.</span>",
-      "peak_message": "<span class=\"msg-system\">You're floating in warm water in a dark, kind room.</span>",
+      "peak_message": [
+        "<span class=\"msg-system\">The ache stops. All of it, everywhere, at once.</span>",
+        "<span class=\"msg-system\">Warmth comes up through you and takes the pain out on the way.</span>",
+        "<span class=\"msg-system\">There is nothing wrong with you. There never was.</span>"
+      ],
       "peak_mods": {
         "hp_regen_per_sec": 2,
         "stat_cool": 2,

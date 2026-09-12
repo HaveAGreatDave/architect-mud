@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Do you know the words?",
+    "Can you hear the low one, or only the top ones?",
+    "Will you stay for the end of it?"
+  ],
+  "description": "What was standing there is a column of mouths set into old wood, one above another, all the way up. They're singing something slow with no words in it, and they're in tune.",
+  "drug_id": null,
+  "emotes": [
+    "{it} takes a breath, all the way up, and holds it.",
+    "One mouth in the middle of {it} goes quiet and the others close the gap.",
+    "The whole of {it} drops a tone, together, without being asked."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_default_choir",
+  "looks": [
+    "Each mouth is a different age. The ones at the bottom sound like they've been at it longest.",
+    "They breathe in sequence, so the note never actually stops.",
+    "The wood between them is worn smooth, the way a handrail goes."
+  ],
+  "matches": null,
+  "name": "a stack of mouths, all singing quietly",
+  "says": [
+    "We're nearly at the good part.",
+    "You're welcome to join in. Most people don't.",
+    "It's the same song. It's always been the same song."
+  ],
+  "scope": "object"
+}

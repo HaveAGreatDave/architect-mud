@@ -52,6 +52,7 @@ import { openReadWindow } from './panels/readwindow.js';
 import { openHololock } from './panels/hololock.js';
 import { openSignalHijack } from './panels/signalhijack.js';
 import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
+import { openEmergencyConsole, closeEmergencyConsole } from './panels/ebconsole.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { openPsychometry } from './panels/psychometry.js';
 import { abortMacros, receiveMacros } from './panels/smartbar-macros.js';
@@ -68,6 +69,7 @@ import { airHorn } from './panels/engine-audio.js';
 import { openTruckDepot, closeTruckDepot, isTruckDepotActive } from './panels/truck-depot.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
+import { applyDrugFx } from './panels/drug-screen-fx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openConcealKeypad } from './panels/keypad.js';
 import { openSprayCan, updateSprayShelf } from './panels/spraycan.js';
@@ -1356,6 +1358,9 @@ const handlers = {
   pirate_console: (msg) => openPirateConsole(msg),
   pirate_console_close: () => closePirateConsole(),
 
+  emergency_console: (msg) => openEmergencyConsole(msg),
+  emergency_console_close: () => closeEmergencyConsole(),
+
   hololock_game: (msg) => {
     const resolveCmd = msg.resolveCmd || 'hackresolve';
     const args = {
@@ -1676,8 +1681,13 @@ const handlers = {
 
   device_power_flash: (msg) => { flashPowerChange(msg.mode, msg.deviceType); },
 
-  trip_start: (msg) => { startTripFx(msg); setDrugFx('trip', msg.profile || 'psychedelic', msg.intensity ?? 0.6); },
-  trip_event: (msg) => { appendHtml(renderMarkup(msg.text || ''), 'trip'); if (msg.palette || msg.intensity != null) { updateTripFx(msg); if (msg.intensity != null) setDrugFx('trip', msg.profile || 'psychedelic', msg.intensity); } },
+  // ⚠ `profile` IS ABSENT when the phase engine owns this drug's FX (the usual
+  // case — anything with a `phases` block). Defaulting it here would pin the
+  // windscreen at trip strength for the whole duration and flatten the come-up →
+  // peak → comedown arc into one slide, which is exactly the bug the trip plugin
+  // stopped sending it to avoid. No profile, no window claim.
+  trip_start: (msg) => { startTripFx(msg); if (msg.profile) setDrugFx('trip', msg.profile, msg.intensity ?? 0.6); },
+  trip_event: (msg) => { appendHtml(renderMarkup(msg.text || ''), 'trip'); if (msg.palette || msg.intensity != null) { updateTripFx(msg); if (msg.profile && msg.intensity != null) setDrugFx('trip', msg.profile, msg.intensity); } },
   trip_fx:    (msg) => { updateTripFx(msg); if (msg.intensity != null) setDrugFx('trip', msg.profile || 'psychedelic', msg.intensity); },
   trip_end:   () => { endTripFx(); clearDrugFx('trip'); },
 
@@ -1698,8 +1708,27 @@ const handlers = {
   // forecast has no business showing over a corridor with no floor.
   env_unreal: (msg) => { setEnvUnreal(!!msg.unreal); },
 
-  // Drunkenness level stream (intoxication plugin) → drives the drunk flight-view warp.
-  intox_fx:   (msg) => { const lvl = Math.max(0, Math.min(100, Number(msg.level) || 0)); if (lvl <= 0) clearDrugFx('intox'); else setDrugFx('intox', 'drunk', lvl / 100); },
+  // ── What a substance is doing to your sight ────────────────────────────────
+  //
+  // ONE message, THREE surfaces, composed client-side by drug-screen-fx.js: the
+  // CSS screen layer (the only one that can warp text and UI), the room pane's
+  // particle field, and the flight windscreen. Every live source contributes —
+  // being drunk while tripping is two sources and you get both.
+  //
+  // `source` is the drug's own ledger key, so a second drug is a second entry
+  // rather than a replacement, and a phase change is a re-send on the same key.
+  // `clear` retires one source; nothing else may expire an effect, because the
+  // server is the only thing that knows when a phase ended.
+  drug_fx:    (msg) => { applyDrugFx(msg.source || 'drug', msg.clear ? null : msg); },
+
+  // Drunkenness level stream (intoxication plugin). A LEVEL, not a phase — it
+  // decays on its own clock — so it keeps its own source key and its own message.
+  intox_fx:   (msg) => {
+    const lvl = Math.max(0, Math.min(100, Number(msg.level) || 0));
+    if (lvl <= 0) { clearDrugFx('intox'); applyDrugFx('intox', null); return; }
+    setDrugFx('intox', 'drunk', lvl / 100);
+    applyDrugFx('intox', msg.fx ? { ...msg.fx, intensity: msg.fx.intensity ?? lvl / 100 } : null);
+  },
 
   blackout_start: () => { startBlackoutFx(); },
   blackout_end:   () => { endBlackoutFx(); },

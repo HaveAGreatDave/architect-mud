@@ -5,6 +5,19 @@
   "effects": {
     "comeon_message": "<span class=\"msg-system\">You put the rag over your face and breathe in. The smell is the whole world for a second.</span>",
     "diuretic": 1.2,
+    "fx": {
+      "intensity": 0.75,
+      "phases": {
+        "peak": {
+          "field": "smear",
+          "screen": [
+            "blur",
+            "desat",
+            "double"
+          ]
+        }
+      }
+    },
     "hallucination": {
       "duration_seconds": 120,
       "events": [

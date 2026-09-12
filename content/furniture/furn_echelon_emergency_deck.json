@@ -1,10 +1,11 @@
 {
-  "description": "The Echelon's Emergency Broadcast console: a slab of black glass and one hooded red switch behind armored guards. Unlike any other deck in Architect, throwing its switch seizes every tuned television in the city at once. AIREMERGENCY to go to air; ENDEMERGENCY to release the airwaves.",
+  "description": "The Echelon's Emergency Broadcast console: a slab of black glass, one hooded red switch behind armored guards, and a row of labelled keys for source and crawl. Throwing the switch seizes every tuned television in the city at once. USE it to open the console.",
   "flags": {
     "deck_active": "bc_echelon_emergency",
     "deck_cassettes": [
       "bc_echelon_emergency"
     ],
+    "eb_mode": "cassette",
     "emergency_deck": true,
     "interactions": [],
     "media_deck": true

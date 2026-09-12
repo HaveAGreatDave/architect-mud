@@ -20,8 +20,16 @@
       "comeup_message": "<span class=\"msg-system\">You spark it up and draw slow. The room exhales with you; the edges go soft and warm.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 8,
-      "end_message": "<span class=\"msg-system\">The high tapers off. The colours go back to normal and you're suddenly, urgently thinking about a sandwich.</span>",
-      "peak_message": "<span class=\"msg-system\">You're extremely stoned. Everything is faintly hilarious and the music is <em>unbelievable</em>.</span>",
+      "end_message": [
+        "<span class=\"msg-system\">You come back down, hungry and pleasantly stupid.</span>",
+        "<span class=\"msg-system\">It lets go. You are exactly where you were and fine about it.</span>",
+        "<span class=\"msg-system\">The last of it goes. Your mouth is dry and you would eat anything.</span>"
+      ],
+      "peak_message": [
+        "<span class=\"msg-system\">Everything slows down and stops needing a reason.</span>",
+        "<span class=\"msg-system\">You settle into the room like it has always been the plan.</span>",
+        "<span class=\"msg-system\">Time gets wide. Nothing in it is urgent.</span>"
+      ],
       "peak_mods": {
         "stat_reflexes": -1
       },

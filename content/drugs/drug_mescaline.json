@@ -49,6 +49,16 @@
     },
     "onset_message": "<span class=\"msg-system\">The colours arrive first, and they have opinions.</span>",
     "onset_seconds": 25,
+    "overdose": {
+      "lethal": false,
+      "message": "Your stomach turns itself inside out and the desert keeps going anyway.",
+      "mods": {
+        "hp": -8,
+        "sanity": -35,
+        "stat_cool": -5,
+        "stat_endurance": -3
+      }
+    },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The gold cools out of the air. The visions settle, unhurried, back into ordinary matter.</span>",
       "comedown_scale": 0.5,
@@ -67,6 +77,7 @@
     "take_line": "You swallow a few {name} pellets.",
     "tolerance": {
       "gain_per_dose": 0.3,
+      "lethal_gain_ratio": 0,
       "max_reduction": 0.9
     }
   },

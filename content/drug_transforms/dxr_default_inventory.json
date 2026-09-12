@@ -1,0 +1,18 @@
+{
+  "asks": [],
+  "description": "Everything in here has quietly labelled itself with what it cost, who carried it in, and how long it expects to last. The labels are in no language, and you can read all of them.",
+  "drug_id": null,
+  "emotes": [],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxr_default_inventory",
+  "looks": [
+    "The oldest label is on the floor and gives up partway through a date.",
+    "Nothing has a label saying what it's for. Only what it cost and who brought it.",
+    "Your own things have labels too. You look away from those."
+  ],
+  "matches": null,
+  "name": "the room, itemised",
+  "says": [],
+  "scope": "room"
+}

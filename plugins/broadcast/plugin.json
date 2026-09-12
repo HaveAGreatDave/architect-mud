@@ -17,6 +17,7 @@
     "air",
     "airemergency",
     "endemergency",
+    "ebs",
     "tablettune",
     "guess"
   ],
@@ -55,6 +56,11 @@
       "discoverVia": "furniture:media_deck",
       "exposed": false,
       "note": "Patches one of your own SPECTER cameras into a consumer (mini_deck) deck as its input instead of a cassette. Gated on mini_deck furniture AND the specter_installed player flag; discovery is the use/media_deck panel. Station decks refuse it — cutting a spy cam onto a city channel stays the piracy route."
+    },
+    "ebs": {
+      "discoverVia": "furniture:emergency_deck",
+      "exposed": false,
+      "note": "The Emergency Broadcast System console. Gated on emergency_deck furniture AND the admin/dev role; discovery is the use/media_deck panel, which routes an emergency_deck to its own console rather than the tape transport. The sub-verbs (on/off/source/cam/tape/ticker) are what the panel buttons send, and are the whole surface at the Display Mode log rung."
     },
     "guess": {
       "discoverVia": "broadcast:gameshow",

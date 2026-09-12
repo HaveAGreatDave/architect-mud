@@ -519,6 +519,12 @@
 <script src="/dev/js/vine/vine-schema-ai.js"></script>
 <script src="/dev/js/vine/vine-schema-broadcast.js"></script>
 <script src="/dev/js/vine/vine-schema-quest.js"></script>
+<!-- The drug FX vocabulary, for the drug editor's Look section. An ES module (the
+     game client and the server both import it), so it arrives as a global via the
+     assignment at the foot of that file rather than as another classic script. It
+     is read lazily when the modal opens, which is long after a deferred module
+     has run. -->
+<script type="module" src="/shared/drug-fx.js"></script>
 <script src="/shared/tagCatalog.js"></script>
 <script src="/shared/tagHelpers.js"></script>
 <script src="/shared/tagSupertags.js"></script>

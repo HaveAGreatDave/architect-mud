@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Do you know who I belonged to?",
+    "Have you still got the other one?",
+    "Are you keeping anything?"
+  ],
+  "description": "The thing in front of you is enormously old and it recognises you. Not your face. Something further back than that, in the way you stand.",
+  "drug_id": null,
+  "emotes": [
+    "{it} leans a fraction of a degree toward you.",
+    "The bad old repair on {it} looks, for a second, freshly done.",
+    "{it} warms slightly, the way a thing does when it has been sat against."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_default_grandparent",
+  "looks": [
+    "The grain runs in a pattern you have seen before and cannot place.",
+    "There's a repair on one side, done badly, a long time ago, by somebody in a hurry.",
+    "It has been moved a great many times and has never once been thrown away."
+  ],
+  "matches": null,
+  "name": "a piece of furniture that knew your family",
+  "says": [
+    "You have the same hands.",
+    "I was in a different room when I last saw that.",
+    "Somebody kept me. That's the whole of it."
+  ],
+  "scope": "object"
+}

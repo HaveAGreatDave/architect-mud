@@ -4,6 +4,32 @@
   "duration_seconds": 2400,
   "effects": {
     "comeon_message": "<span class=\"msg-system\">Bitter enough to close your throat. Your pulse picks up, then does something you don't like.</span>",
+    "fx": {
+      "intensity": 0.9,
+      "phases": {
+        "comedown": {
+          "field": "crawl",
+          "screen": [
+            "desat",
+            "blur"
+          ]
+        },
+        "comeup": {
+          "field": "veins",
+          "screen": [
+            "blur"
+          ]
+        },
+        "peak": {
+          "field": "fractal",
+          "screen": [
+            "breathe",
+            "melt",
+            "narrow"
+          ]
+        }
+      }
+    },
     "hallucination": {
       "duration_seconds": 1800,
       "events": [

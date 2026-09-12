@@ -14,6 +14,7 @@ import { builtinCommandNames } from '../../server/engine/commands/index.js';
 import { getRegisteredSpecializedActions } from '../../server/engine/specializedActions.js';
 import { clearFlagsByPrefix, setFlagById } from '../../server/engine/flags.js';
 import { learnRecipe, FLAG_PREFIX, SAVED_PREFIX } from '../cooking/knowledge.js';
+import { planKitchen } from '../cooking/workspace.js';
 import { DISHES } from '../cooking/dishes.js';
 
 // Every action in a payload, flattened — the panel's whole reachable surface.
@@ -427,6 +428,70 @@ export default async function regress({ run, check, getPlayer }) {
     check('an ingredient that vanished between plan and run stops it cleanly, not silently',
       r2?.type === 'error' && /short/i.test(r2.message), JSON.stringify(r2));
 
+    // ── `prepare <pan> with a, b` — the panel's batch ────────────────────────
+    //
+    // The HUD's tick-several-things-and-press-once path. It is the SAME runner
+    // as a recipe plan, which is the whole reason it is one command and not four
+    // `stow`s fired from a browser: serial, stop on the first failure, and stop
+    // dead at a disambiguation rather than feeding the rest of the batch into it
+    // as answers.
+    await query('UPDATE player_inventory SET container_id=NULL WHERE container_id=$1', [potId]);
+    const batch = await run('prepare test workspace pot with test workspace broth, test workspace cutlet');
+    check('prepare <pan> with a, b loads the pan in one act',
+      batch?.type === 'output' && /stow/.test(batch.message), JSON.stringify(batch));
+    const loaded = (await query('SELECT id FROM player_inventory WHERE container_id=$1', [potId])).rows.map(x => x.id);
+    check('...and both named rows really are in it',
+      loaded.includes(brothId) && loaded.includes(looseId), JSON.stringify(loaded));
+    // ⚠ THE LOAD FORM MUST NEVER SHADOW A RECIPE, and `unknown` is the only
+    // thing standing between them. A player can rename a saved recipe to
+    // anything, so "Beans with Pork" is a legal name; read positionally, the
+    // ` with ` would make it permanently unpreparable. Falling through on any
+    // error is not enough either — short of the pork, that recipe would be
+    // answered "there's no beans out here", which is an error about a pan.
+    //
+    // So this is pinned at the planner rather than through a fixture recipe with
+    // "with" in its name: a recipe it RECOGNISES never carries the flag, however
+    // badly the plan went, and only a name it has never heard of does.
+    await query('UPDATE player_inventory SET container_id=NULL WHERE container_id=$1', [potId]);
+    const short = await planKitchen(player, 'stew');
+    check('a recipe the planner knows is never marked unknown, however short you are',
+      !!short?.error && !short.unknown, JSON.stringify(short));
+    const nonsense = await planKitchen(player, 'wormwood surprise');
+    check('...and only a name it has never heard of falls through to the load form',
+      nonsense?.unknown === true, JSON.stringify(nonsense));
+
+    await query('UPDATE player_inventory SET container_id=NULL WHERE container_id=$1', [potId]);
+    const noSuchPan = await run('prepare test workspace bathtub with test workspace broth');
+    check('a pan that is not out is refused by name, not silently ignored',
+      noSuchPan?.type === 'error' && /bathtub/i.test(noSuchPan.message), JSON.stringify(noSuchPan));
+    const noSuchFood = await run('prepare test workspace pot with test workspace unicorn');
+    check('...and so is an ingredient nobody has',
+      noSuchFood?.type === 'error' && /unicorn/i.test(noSuchFood.message), JSON.stringify(noSuchFood));
+
+    // ── What the panel needs in the payload to offer any of that ────────────
+    let bw = await run('workspace');
+    const pot = bw.area?.find(a => a.name === 'test workspace pot');
+    // Every field the panel actually reads. A missing `label` is an empty button,
+    // which is the kind of hole a shape check that only looks at the mechanism
+    // walks straight past.
+    check('a vessel carries the batch descriptor the panel loads it through',
+      !!pot?.batch?.prefix && !!pot?.batch?.sep && !!pot?.batch?.label, JSON.stringify(pot?.batch));
+    // The client concatenates `prefix` + the ticked rows' own names. If that does
+    // not round-trip to a command the dispatcher answers, the button is a lie —
+    // so the prefix is tested by USING it rather than by matching its text.
+    const composed = pot.batch.prefix + ['test workspace broth', 'test workspace cutlet'].join(pot.batch.sep);
+    const viaPrefix = await run(composed);
+    check("...and the prefix the client would send is a command that works",
+      viaPrefix?.type === 'output' && /stow/.test(viaPrefix.message), JSON.stringify({ composed, viaPrefix }));
+    check('a free ring offers no batch — there is nothing to tip anything into',
+      (bw.area || []).filter(a => a.idle).every(a => !a.batch));
+    // A row is tickable BECAUSE the server offered a way to move it. Lose the
+    // role and the panel silently stops letting anything be ticked at all.
+    const movable = [...(bw.components || []), ...(bw.storage || []).flatMap(s => s.items || [])];
+    check('every loose row carries a take or stow role, which is what makes it tickable',
+      movable.length > 0 && movable.every(c => (c.actions || []).some(a => a.role === 'take' || a.role === 'stow')),
+      JSON.stringify(movable.map(c => [c.name, (c.actions || []).map(a => a.role)])));
+
     // ── The tap, end to end ─────────────────────────────────────────────────
     //
     // Dry starch now refuses to cook without liquid, which means the HUD has a
@@ -505,6 +570,23 @@ export default async function regress({ run, check, getPlayer }) {
 
     const wet = await run('cook test workspace pot');
     check('...and now the same pan cooks', wet?.type !== 'error', JSON.stringify(wet));
+
+    // ── The burner selector says which ring you are ON ──────────────────────
+    //
+    // Three chips reading `low mid high` beside the words "burner mid" is a
+    // control that cannot be read as one: the setting was stated in one place and
+    // offered in another, and nothing said which of the three was live. `state`
+    // is that answer, and it has to come off the SAME heat log the readout does
+    // or the panel grows two opinions about one ring.
+    await run('stove high');
+    const hw = await run('workspace');
+    const lit = hw.area?.find(a => a.name === 'test workspace pot');
+    const heats = (lit?.actions || []).filter(a => a.role === 'heat');
+    check('a lit pan offers its burner as one selector', heats.length === 3, JSON.stringify(heats.map(a => a.label)));
+    check('...with exactly one segment marked as the live tier',
+      heats.filter(a => a.state === 'on').length === 1, JSON.stringify(heats));
+    check('...and that segment is the tier the pan is actually on',
+      heats.find(a => a.state === 'on')?.tier === lit.heat, JSON.stringify({ on: heats.find(a => a.state === 'on'), heat: lit.heat }));
 
     const drained = await run('drain test workspace pot');
     check('drain takes the starch off the heat', drained?.type === 'output', JSON.stringify(drained));

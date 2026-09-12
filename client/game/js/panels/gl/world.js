@@ -24,7 +24,7 @@
 // should be 1.
 import { createGLView, MAX_LIGHTS } from './context.js';
 import { buildAtlas, faceUVs } from './atlas.js';
-import { lightMatrix } from './camera.js';
+import { lightMatrix, eyePos } from './camera.js';
 import { SHADOW_BIAS_TILES } from './shadow.js';
 
 const scenes = new Map();
@@ -101,7 +101,43 @@ let builds = 0;
 // their texture and read as lit, and the buildings with ONE modest sign (an office, a walk-up) are
 // visually unchanged — which is the check that matters, because it says the reduction bites only
 // where the saturation was.
-export const LIGHT_TUNE = { minR: 0.8, span: 3.2, gain: 0.45, wrap: 0.6, rise: 0.22, fall: 0.38 };
+//
+// ⚠ AND 0.45 → 0.70 BECAUSE THE WALLS UNDERNEATH IT CHANGED. The cut above was measured against the
+// city as it was; the neon tone pass then deepened every night wall in proportion, and the emissive
+// pass replaced punched window grids with ribbons and added roof armatures, corner blades and
+// gable-end panels. A darker wall takes more wash before it flattens, so the same number was buying
+// less than it had been — the shipping cab reading moved 17.6% → 18.9% of wall pixels with the knob
+// untouched.
+//
+// ⚠ THE KNEE IS IN THE AIR SEAT'S `worst` COLUMN, NOT IN `litPct`. Share-of-pixels-moved rises
+// smoothly and monotonically all the way to 1.4 and says nothing at all about saturation, exactly
+// as the paragraph above warns. The worst single pixel is the one that does: from the air it goes
+// 27 → 28 across 0.45 → 0.70 and then 28 → 38 across 0.70 → 1.00, so the first step costs nothing
+// and the second costs most of the headroom. Held against the picture at the same three settings,
+// 1.00 is where a block on the far side of the street starts going to one flat lavender — the same
+// failure 1.5 had, arrived at more slowly.
+//
+// Measured at 0.70: cab 22.3% of wall pixels moved (worst 13), air 20.5% (worst 28), and the DAY
+// seat 0.3% at every setting in the sweep — unchanged, because the term is scaled by the night and
+// is therefore free at noon by arithmetic rather than by a threshold.
+//
+// ⚠ AND BACK TO 0.45, ON THE EYE IN THE GAME RATHER THAN ON THE BENCH. 0.70 was chosen off the
+// sweep's knee and reported from a live cockpit as "the wash effect is too dramatic". The bench was
+// not wrong about where the knee is; it was answering the wrong question. `litPct` and `worst` say
+// how far a setting is from SATURATING a wall, and the complaint was never that walls were
+// saturating — it was that the wash reads as a light show over a city rather than as signs lighting
+// the walls they are bolted to. No number in that table is about that, and there is no obvious one
+// to add: the thing being judged is whether the effect draws attention to itself.
+//
+// ⚠ AND `wrap` IS THE ANGLE HALF, reported in the same breath: "a few things seem influenced by the
+// external camera view at certain angles". That is exactly what a wrapped diffuse does — it lights
+// faces turned AWAY from the light, so from an external camera you see walls glowing whose source
+// is round the other side of the building and nothing on screen explains them. It is measurably an
+// aerial effect: swept at a fixed gain, dropping wrap 0.6 → 0 costs the cab 4.2 points of wall
+// coverage and the air seat 7.4, so the term does close to twice as much work at the seat the
+// complaint came from. 0.35 keeps the reason it exists — the commonest light here is mounted FLUSH
+// on its wall, where a pure cosine is ~0 — and stops it reaching most of the way round a building.
+export const LIGHT_TUNE = { minR: 0.8, span: 3.2, gain: 0.45, wrap: 0.35, rise: 0.22, fall: 0.38 };
 
 // ── CONTACT OCCLUSION, AS TWO NUMBERS ───────────────────────────────────────
 //
@@ -124,6 +160,23 @@ export const AO_TUNE = { fall: 1.6 };
 // How much better a challenger has to be to take a sitting light own slot. See the ⚠ above: this
 // is the difference between a set that changes when the view does and one that changes every frame.
 const LIGHT_HOLD = 1.35;
+// How many of the MAX_LIGHTS slots are held for surface washes rather than contested by every light
+// in the frame — see the reservation at the end of pickLights. Two of twelve: enough that a lit
+// street throws something on the road opposite, few enough that the neon still owns the frame.
+const WASH_SLOTS = 2;
+// How many of the ROAD's six reflection slots are held for surface washes. Mirrors WASH_SLOTS: the
+// ground shader's own cut is the first `MAX_WET` of whatever it is handed, and pickLights puts
+// washes last, so without this a wash can never reflect in a puddle it is standing over.
+const ROAD_WASH_SLOTS = 2;
+const ROAD_LIGHTS = 6;                 // ⚠ the same six as `MAX_WET` in ground.js — two copies, kept adjacent in comment
+function roadLights(list) {
+  if (!list || list.length <= ROAD_LIGHTS) return list;
+  const wash = [], src = [];
+  for (const L of list) (L.wash ? wash : src).push(L);
+  if (!wash.length) return list;       // nothing to reserve for — the old behaviour exactly
+  const take = Math.min(ROAD_WASH_SLOTS, wash.length);
+  return wash.slice(0, take).concat(src.slice(0, ROAD_LIGHTS - take));
+}
 
 // ── ⚠ A LIGHT FADES IN AND OUT. IT MUST NEVER BE SWITCHED. ──────────────────
 //
@@ -158,8 +211,20 @@ const FADE_SLOTS = 3;
 
 function pickLights(cam, sprites, night, held) {
   if (!sprites || !sprites.length || !cam) return null;
+  // ⚠ THE NIGHT SCALE BELONGS TO THE WALL WASH, NOT TO THE LIST. Returning null in daylight meant
+  // the frame had NO LIGHTS AT ALL by day — right for a wall (a shopfront measured a pink cast over
+  // 19,000 pixels of its own wall at noon) and wrong for everything else that wants to know where
+  // the lights ARE. A wet road reflects them at four in the afternoon in a downpour, and the city's
+  // neon is certainly lit in one.
+  //
+  // So the list is always built and the night scale rides on the COLOUR the wall shader reads:
+  // 'rgb' is night-weighted and falls to zero at noon by arithmetic, 'rgbRaw' is not. The caller
+  // still hands the mass pass nothing when the gain is zero, so the wall side is unchanged.
+  //
+  // ⚠ A DAYLIGHT REFLECTION BEING FAINT IS THE SCENE, NOT A RULE. It is drawn at full strength and
+  // sits on ground that is already bright, so it washes out on its own — which is what a wet road
+  // actually looks like at four in the afternoon. Gating it would be deciding that in advance.
   const nightGain = LIGHT_TUNE.gain * Math.min(1, Math.max(0, night));
-  if (!(nightGain > 0.01)) return null;
   const { sinh, cosh, back, fx = 0, fy = 0 } = cam;
   const tx = back * sinh - fx, ty = -back * cosh - fy;
   const ox = cam.ox || 0, oy = cam.oy || 0;
@@ -181,8 +246,17 @@ function pickLights(cam, sprites, night, held) {
     out.push({
       p: [s.x + ox, s.y + oy, s.z],
       rgb: [c[0] / 255 * k, c[1] / 255 * k, c[2] / 255 * k],
+      // The same light with the NIGHT factor removed but `gain` kept, for surfaces that reflect
+      // rather than catch.
+      //
+      // ⚠ DROPPING `gain` TOO MAKES A WET ROAD BRIGHTER THAN A DRY ONE, which is backwards. `gain`
+      // is the tuning — the reflection strength downstream was swept against a night-weighted
+      // colour, so a raw one runs about 2.2x over it. Measured with gain dropped: a daylight road
+      // went 54.5 to 76.4 in the rain, when the whole point is that it darkens.
+      rgbRaw: [c[0] / 255 * s.a * LIGHT_TUNE.gain, c[1] / 255 * s.a * LIGHT_TUNE.gain, c[2] / 255 * s.a * LIGHT_TUNE.gain],
       r,
       key,
+      wash: !!s.wash,
       score: I * r / f,
     });
   }
@@ -190,6 +264,34 @@ function pickLights(cam, sprites, night, held) {
   // Incumbents carry a bonus, so a challenger has to be clearly better rather than a hair better.
   if (held) for (const e of out) if (held.has(e.key)) e.score *= LIGHT_HOLD;
   out.sort((p, q) => q.score - p.score);
+  // ── AND A FEW SLOTS ARE HELD FOR THE WASHES ─────────────────────────────────────────────────
+  //
+  // A lit facade throws light too, and until it did the city's windows were bright rectangles that
+  // lit nothing. But a wash and a sign cannot be ranked against each other on one scale: there are
+  // twelve slots against ~180 candidates, so at any brightness where a wash wins a slot it wins
+  // MANY, and it wins them from the neon. Measured both ways on the aeroplane seat — washes at full
+  // strength took the wall coverage from 13.7% of pixels to 11.5% (more lights, less light), and
+  // dimmed until they stopped evicting anything they contributed exactly nothing, 13.7% again.
+  // There is no brightness in between, because the failure is the ranking and not the value.
+  //
+  // So two of the twelve are reserved for the best washes and the rest are contested as before. A
+  // frame with no washes in it is bit-identical: the splice only runs when the top N is all sources
+  // AND there is a wash below the line waiting.
+  if (WASH_SLOTS > 0 && out.length > MAX_LIGHTS) {
+    const top = out.slice(0, MAX_LIGHTS);
+    let have = 0;
+    for (const e of top) if (e.wash) have++;
+    if (have < WASH_SLOTS) {
+      const want = out.filter((e) => e.wash && !top.includes(e)).slice(0, WASH_SLOTS - have);
+      // Drop the weakest SOURCES to make room — never another wash, or two washes trade one slot
+      // back and forth every frame and the disco is back.
+      for (let i = top.length - 1, k = 0; i >= 0 && k < want.length; i--) {
+        if (top[i].wash) continue;
+        top[i] = want[k++];
+      }
+      return top.concat(out.slice(MAX_LIGHTS));
+    }
+  }
   return out;
 }
 
@@ -265,16 +367,39 @@ function sceneGL(id, w, h, msaa = 1) {
     cv.className = 'ws-gl';
     g.canvas = cv;
   }
-  // ⚠ MSAA RIDES THE SAME REBUILD AS A RESIZE, because it is a context CREATION attribute and
-  // there is no way to change it on a live one. Dropping the view is what a resize already does,
-  // so this costs one branch rather than a mechanism. See createGLView for why it is a knob.
+  // ⚠ A RESIZE DOES NOT NEED A NEW VIEW, AND REBUILDING ONE ON EVERY RESIZE IS WHAT KILLED THE
+  // RENDERER MID-FLIGHT. This used to drop `g.view` whenever the canvas changed size, on the
+  // comment "a resized canvas loses its context state". It does not: resizing a WebGL drawing
+  // buffer clears it and resets the viewport, and leaves the context, its programs, its buffers,
+  // its textures and its VAOs entirely intact. Nothing in `createGLView` is sized at creation
+  // either — every `canvas.width/height` in it is read at DRAW time.
+  //
+  // What the rebuild did instead was recompile every program and reallocate every layer, every
+  // time, while nothing anywhere deletes the old ones — there is no dispose path in this module.
+  // A vertex buffer for an aeroplane's window is on the order of fifteen megabytes. And the thing
+  // that resizes the canvas is the adaptive RESOLUTION DIAL, which steps whenever smoothed frame
+  // time crosses a tenth — so turning to face a heavy view churns views, leaks their GPU objects,
+  // and eventually the browser force-loses the context. The frame after that reports
+  // `drew nothing — no context, a lost context, or a zero-sized host`, sets `RENDER_TUNE.gl = 0`,
+  // and the session finishes on the CPU renderer: ghost buildings, banded roads and a 4x frame.
+  //
+  // Measured: 0 buffer rebuilds over 20 frames at a steady size, 20 over 20 alternating resizes.
+  //
+  // ⚠ MSAA IS THE ONE THING THAT GENUINELY CANNOT SURVIVE, because `antialias` is a context
+  // CREATION attribute and `getContext` on a canvas that already has one hands back the original
+  // whatever you ask for. So that case needs a NEW CANVAS, and the old context is explicitly lost
+  // rather than left to the collector — which is also why the old code could not actually change
+  // MSAA at all: it rebuilt the view against the same canvas and got the same context back.
   const wantMsaa = msaa !== 0 ? 1 : 0;
-  if (g.canvas.width !== w || g.canvas.height !== h || g.msaa !== wantMsaa) {
-    g.canvas.width = w; g.canvas.height = h;
-    g.msaa = wantMsaa;
-    g.view = null;                    // a resized canvas loses its context state; rebuild it
-    g.key = '';
+  if (g.view && g.msaa !== wantMsaa) {
+    try { g.canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* nothing to lose */ }
+    const cv = document.createElement('canvas');
+    cv.className = 'ws-gl';
+    g.canvas = cv;
+    g.view = null; g.key = ''; g.atlasKey = '';
   }
+  g.msaa = wantMsaa;
+  if (g.canvas.width !== w || g.canvas.height !== h) { g.canvas.width = w; g.canvas.height = h; }
   if (!g.view) { g.view = createGLView(g.canvas, { msaa: wantMsaa }); g.atlasKey = ''; g.key = ''; }
   return g;
 }
@@ -358,6 +483,13 @@ if (typeof window !== 'undefined') {
       : { changed: 0, of: seen, note: "no building changed its footprint, height, seed or facing" };
   };
 }
+// ⚠ `RENDER_TUNE.richKit` IS DELIBERATELY NOT A TERM HERE, AND THAT MEANS IT NEEDS A RELOAD.
+// `derivedTrim` keys its own two lists on it, but this memo does not — so flipping it in the console
+// hands back the right list to a cache that already holds the wrong mesh, and the flag appears to do
+// nothing. It is not threaded through because it is a dev lever, not a property of a building, and
+// the route in would be install.js's options allowlist, which is precisely where two features have
+// shipped inert by being wired at both ends and dropped in the middle. Set it before the first paint
+// of a fresh page — the same rule every bench in the Modelshop already follows for the same reason.
 const meshParams = (it) => it.fh + ':' + it.h + ':' + it.seed + ':' + it.E[0] + ',' + it.E[1];
 
 // ── WHAT THE SUN PASS IS HANDED, OR NOTHING AT ALL ──────────────────────────
@@ -513,12 +645,58 @@ function tileMesh(deps, it) {
   if (!faces) {
     let mesh;
     try { mesh = deps.captureModelMesh(it.m, { fh: it.fh, h: it.h, seed: it.seed, E: it.E }); } catch { mesh = []; }
-    faces = mesh.map((f) => ({
-      ...f,
-      rgb: f.rgbOverride || deps.palette.get(f.pal) || [120, 126, 134],
-      uv: faceUVs(f),
-      texKey: f.pal ? (f.kind === 'roof' ? 'r:' : 'w:') + f.pal : null,
-    }));
+    // ── AND THE SAME BUILDING AFTER DARK ────────────────────────────────────────────────────────
+    //
+    // The capture above runs at `night: 0` (the default), and it always did — `meshParams` has no
+    // night term, so this memo could never invalidate on one. That was invisible while the 2-D
+    // painter drew the trim; under GLASS 2 `FLAT_OFF` is set and THE MESH IS THE ONLY SOURCE OF
+    // TRIM APPEARANCE, so every surface that paints itself differently after dark — a lit window
+    // bay, a canopy's strip light, a blade panel, a lit shopfront — was frozen at noon. Measured
+    // across the registry: 4,973 of 28,717 faces on 163 of the 173 models.
+    //
+    // ⚠ THE SECOND CAPTURE IS FOR COLOUR ONLY, AND THAT IS WHY IT IS AFFORDABLE. The two are
+    // geometrically identical face-for-face (0 of 173 models differ; `gl:mesh` asserts it), so the
+    // night pass contributes nothing but `rgbN` — no second AO bake (AO is derived from geometry,
+    // which has not moved), no second `faceUVs`, no second memo entry. Paid once per model per
+    // parameter set, inside the same memo, exactly like the AO bake below.
+    //
+    // ⚠ IT IS INDEXED, NOT MATCHED. If a future model ever made its face COUNT depend on the hour,
+    // the two lists would be misaligned and buildings would wear each other's colours. The length
+    // guard below is what stops that being silent, and `gl:mesh` fails on it outright.
+    let night = null;
+    try { night = deps.captureModelMesh(it.m, { fh: it.fh, h: it.h, seed: it.seed, E: it.E, night: 1 }); } catch { night = null; }
+    if (night && night.length !== mesh.length) night = null;
+    faces = mesh.map((f, i) => {
+      const day = f.rgbOverride || deps.palette.get(f.pal) || [120, 126, 134];
+      const nf = night && night[i];
+      const nrgb = nf && (nf.rgbOverride || deps.palette.get(nf.pal) || null);
+      return {
+        ...f,
+        rgb: day,
+        // Only a face that actually changes carries a second colour — see the ⚠ in `uploadGroups`.
+        rgbN: nrgb && (nrgb[0] !== day[0] || nrgb[1] !== day[1] || nrgb[2] !== day[2]) ? nrgb : null,
+        uv: faceUVs(f),
+        texKey: f.pal ? (f.kind === 'roof' ? 'r:' : 'w:') + f.pal : null,
+        // ── WHICH MATERIAL FAMILY THIS SURFACE IS, RESOLVED ONCE PER MODEL ────────────────
+        //
+        // Exactly the same shape of fact as `texKey` — a pure function of the palette key and
+        // whether this is a roof — so it is resolved HERE, inside the per-model memo, and not per
+        // vertex at upload. A city is one building geometry repeated at many tiles; a lookup per
+        // vertex would pay for it once per copy per rebuild for an answer that cannot have changed.
+        //
+        // ⚠ A FACE WITH NO PALETTE TAKES 0, WHICH IS THE DEFAULT FACADE AND NOT A MISSING VALUE.
+        // Those are the flat-shaded adornment surfaces, and the shader skips the whole material
+        // block for them on `solid` anyway — but the index still has to be in range, because an
+        // out-of-bounds read into a GLSL uniform array is undefined and on this driver returns
+        // zeros, which is gloss 0: `pow(x, 0.0)` is 1.0 everywhere, a mirror-bright specular over
+        // every piece of trim in the city.
+        mat: f.pal
+          ? (f.kind === 'roof'
+            ? (deps.roofMaterialId ? deps.roofMaterialId(f.pal) : 0)
+            : (deps.wallMaterialId ? deps.wallMaterialId(f.pal) : 0))
+          : 0,
+      };
+    });
     // ⚠ Inside the memo, so it is paid once per model per parameter set and never per rebuild. A
     // model whose shape will not capture gets no term at all rather than a wrong one.
     try {
@@ -626,7 +804,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     }
     // Resolved per face at fill time rather than written onto it: the face objects are SHARED between
     // every tile of that building and between scenes, and two scenes can hold two atlases.
-    g.view.uploadGroups(groups, (f) => (g.atlas && f.texKey ? g.atlas.rect.get(f.texKey) : null));
+    // ⚠ The dusk blend goes in HERE and not into `windowKey`/`meshParams`. It is already in
+    // `epoch` (via `texEpoch`), which is what forces this rebuild in the first place, so the trim
+    // colours cross dusk on the same 64 steps the wall textures do — one rebuild, not two.
+    g.view.uploadGroups(groups, (f) => (g.atlas && f.texKey ? g.atlas.rect.get(f.texKey) : null), opts.nb || 0);
     builds++;
     g.key = key;
     g.epoch = epoch;
@@ -660,8 +841,26 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // light that is only still on screen because it is fading out would keep re-electing it.
     g.litHeld = ranked ? new Set(ranked.slice(0, MAX_LIGHTS).map((e) => e.key)) : null;
   } else { g.litHeld = null; g.litW.clear(); }
-  g.view.draw(camAt, { ...(opts.draw || {}), lights: lightList, lightWrap: LIGHT_TUNE.wrap, cssH,
-    ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, shadow: sunShadowFor(g, opts) });
+  // ⚠ THE WALL PASS STILL GETS NOTHING BY DAY, and that is where the night gate moved to rather
+  // than being deleted. `pickLights` now builds the list at every hour so the road can reflect in
+  // daylight, but a wall wash at noon is the saturation bug this feature was tuned against — and
+  // twelve per-fragment distance tests on every wall pixel is not free either. `rgb` is already
+  // zero up there when the gain is, so this is belt and braces, and it keeps the daylight frame
+  // exactly the shape it was.
+  const wallLights = (LIGHT_TUNE.gain * Math.min(1, Math.max(0, opts.night || 0)) > 0.01) ? lightList : null;
+  g.view.draw(camAt, { ...(opts.draw || {}), lights: wallLights, lightWrap: LIGHT_TUNE.wrap, cssH,
+    ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),
+    // ── THE MATERIAL RESPONSE ───────────────────────────────────────────────────────────────
+    //
+    // ⚠ THE EYE COMES OFF `camAt`, THE SHIFTED CAMERA, AND THAT IS THE WHOLE OF WHAT CAN GO WRONG
+    // HERE. The vertices are in map-window tiles and `camAt` folds `ox`/`oy` into the offsets, so
+    // this is the eye in the frame the mesh is in — the same conversion `pickLights` does for the
+    // lights. Handing it the plain `cam` slides every highlight in the city by the window offset,
+    // which does not read as a bug: it reads as the sun being somewhere else.
+    eye: eyePos(camAt),
+    matStr: opts.glMat == null ? 1 : opts.glMat,
+    bumpStr: opts.glBump == null ? 1 : opts.glBump,
+    mat: deps.matTable || null });
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
   // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
   // It cost an afternoon: the result looked like a floor (the backstop wash showed through the
@@ -671,6 +870,24 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // Drawing it after costs nothing, because the floor WRITES depth and TESTS it: where a building
   // is nearer the floor loses the fragment, which is the same picture the other order would have
   // given if the clear had not been in the way.
+  // ── AND THE CITY'S LIGHTS, LYING ON THE WET ROAD ───────────────────────────────────────────
+  //
+  // The same `lightList` the wall wash takes. Nothing extra is collected and nothing is authored.
+  //
+  // ⚠ THE REFLECTIONS GO ON THE GROUND PASS, NOT THE FLOOR, AND THAT WAS MEASURED RATHER THAN
+  // CHOSEN. The floor shader looks like the right home — it owns the ground and it already knows
+  // which tiles are paved. But `GROUND_FULL` draws every road and pavement tile as an OPAQUE QUAD
+  // on top of it, so a reflection painted into the floor is covered by exactly the surface it
+  // belongs on: the floor owns 55.6% of a frame over bare ground and 17.9% over a paved street.
+  //
+  // ⚠ AND PUTTING IT HERE MAKES THE FRAME FREE. These quads are recorded at their map-window tile —
+  // the same frame `pickLights` has already shifted its lights into — so the positions go in
+  // untouched. In the floor shader they would have needed a third conversion, into tiles measured
+  // from the window centre, which is the kind of sub-tile slide that reads as art rather than as a
+  // bug. The floor keeps its `uWet` uniforms and its debug mode 5 for the day somebody wants
+  // reflections on unpaved ground, and they stay switched off.
+  const fl = opts.floor;
+  if (fl) { fl.wet = 0; fl.wetLights = null; }
   const floor = g.view.drawFloor(opts.floor);
   // ⚠ AFTER THE FLOOR AND IN THE WINDOW FRAME. The road quads are recorded at their map-window
   // tile exactly as the mesh is, so they take the SHIFTED camera; handing them the plain one
@@ -680,6 +897,47 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // No haze band: the per-quad alpha already carries drawGroundSurfaces own far fade, and
     // applying the window dissolve on top would fade the road twice.
     fog: opts.fogBand,
+    // The wet road. `lightList` is already in this pass's own frame — see the ⚠ above — and the
+    // camera's ground point is the window shift, because `camAt` is the shifted camera.
+    // ⚠ NOT GATED ON THERE BEING LIGHTS, AND IT WAS. `pickLights` hands back null in daylight, so
+    // `lightList && lightList.length` made the road dry every afternoon however hard it was raining
+    // — reported from the game in an extreme deluge at 15:07. The wetness and the reflections are
+    // two terms: the first needs only water, the second needs something to reflect. The shader
+    // skips the reflection loop on its own when `uNWet` is 0.
+    wet: opts.glWet > 0 ? opts.glWet : 0,
+    // ⚠ THE ROAD PICKS ITS OWN SIX, AND HANDING IT `lightList` RAW MEANT WASHES NEVER REACHED IT.
+    // `pickLights` satisfies `WASH_SLOTS` by replacing the WEAKEST sources, so a wash sits at
+    // position 10 or 11 of the twelve — and `MAX_WET` in ground.js takes the FIRST SIX. A facade
+    // wash was therefore always past the cut the road can see: measured at 0 road pixels moved
+    // against 4,827 of building, which is the exact opposite of what it is for.
+    //
+    // ⚠ AND WASHES DO NOT SIMPLY GO FIRST. On tarmac the hero is a neon sign's sharp streak; a
+    // facade throws a broad soft sheen. Both are wanted and the sign is the one you notice, so the
+    // road reserves two of its six for washes and fills the rest with the best sources — the same
+    // policy `WASH_SLOTS` applies one layer up, for the same reason.
+    wetLights: roadLights(lightList),
+    // ⚠ `cam.ox/oy` AND NOT A BARE `ox`. Those names are LOCAL TO `pickLights`, and reaching for
+    // them here threw `ReferenceError: ox is not defined` on every frame — which the pass catches,
+    // logs once per frame and falls back to 2-D from. So the whole feature was off, every
+    // measurement of it was measuring the 2-D renderer, and no headless gate could see any of it
+    // because none of them has a GL context. `glLastFrame()` returning null is the tell.
+    eyeX: cam.ox || 0, eyeY: cam.oy || 0,
+    // ⚠ AND HOW HIGH THE EYE IS, which is what keeps the reflections on the road instead of across
+    // the map. See the Fresnel gate in ground.js.
+    //
+    // ⚠ `cam.EH`, IN CAPITALS, AND THE LOWERCASE ONE COST THE WHOLE ALTITUDE TERM. `eh` is the
+    // name in RENDER_TUNE; the CAMERA calls it `EH`, because makeCam sums the tune value with the
+    // climb lift and floors it. So `cam.eh` is undefined at every altitude and the ?? fell through
+    // to the 0.2 literal — which is about right for a truck, and is why the cab looked correct
+    // while the Fresnel gate was a constant and the aerial green wash it was written to fix was
+    // still there. Found by `__glWet()` measuring 0.00% brighter at night and the probe that
+    // followed; no headless gate can see it, because none of them has a GL context.
+    eyeH: opts.eyeH == null ? (cam.EH == null ? 0.2 : cam.EH) : opts.eyeH,
+    // ⚠ AND THE WINDOW CENTRE, WHICH IS NOT THE FLOOR'S TO OWN. The puddle field is phased on
+    // absolute world tiles and `opts.floor` is null whenever `glFloor` is off, so taking wcx from
+    // there would leave the puddles sliding with the window on exactly the setting that is meant
+    // to change nothing but who draws the ground.
+    wcX: (opts.wc && opts.wc.x) || 0, wcY: (opts.wc && opts.wc.y) || 0,
   });
   // ⚠ THE LIGHTS ARE IN THE CAMERA'S OWN FRAME, NOT THE WINDOW'S. The mesh is built at map-window
   // tiles so it can be cached; a light is collected fresh every frame from the arm that owns it,
@@ -690,12 +948,19 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // have to be in the buffer before it is asked what stands in front of it.
   const curtains = g.view.drawCurtain(cam, opts.curtain, cssH, opts.now);
   const decals = g.view.drawDecals(cam, opts.decals, cssH);
+  // The wires — masts, rails, braces, cables, light-runners. After the mass for the same reason
+  // the Curtain and the signage are: depth-tested, writing none of its own.
+  const strokes = g.view.drawStrokes ? g.view.drawStrokes(cam, opts.strokes, cssH) : 0;
   // The scatter carries the renderer own fog curve, because the 2-D drawers tint by fogTint at
   // the anchor depth and a billboard that did not would be a different bush at every distance.
   const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand);
   // ⚠ `shadowSize` IS 0 WHEN THE DRIVER REFUSED THE DEPTH FRAMEBUFFER, and that is the only way to
   // tell that case apart from a sunny frame in which nothing happens to cast. Same argument as
   // `builds` and `cloudCards`: the picture is a correct picture either way.
-  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, scatter, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, shadowSize: g.view.shadowSize || 0, canvas: g.canvas };
+  // ⚠ `wet` IS REPORTED BECAUSE IT IS OTHERWISE UNOBSERVABLE, and that cost seven failed attempts to
+  // measure the wet road by diffing pixels. It is a product of three things that can each be zero
+  // for a different reason — the tune, the integrated wetness, and whether any light was picked —
+  // so a dry-looking road says nothing about WHICH of them it was. A number beside the frame does.
+  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, shadowSize: g.view.shadowSize || 0, canvas: g.canvas };
 }
 

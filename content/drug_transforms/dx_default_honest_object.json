@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Do you want me to keep going?",
+    "What did you think I was?",
+    "Would you rather I didn't?"
+  ],
+  "description": "It's the same object. It has given up the part where it looks like anything, and is now visibly what it always was: a shape somebody agreed on, holding itself in that shape out of habit.",
+  "drug_id": null,
+  "emotes": [
+    "{it} briefly forgets one of its own corners and then has it again.",
+    "The outline of {it} thickens, like somebody going over a pencil line.",
+    "{it} holds very still, which appears to help."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_default_honest_object",
+  "looks": [
+    "Its edges are a decision rather than a fact, and you can see the decision being made, continuously.",
+    "Where you aren't looking directly, it's a good deal vaguer.",
+    "It's doing quite a lot of work to go on being a thing."
+  ],
+  "matches": null,
+  "name": "a shape somebody agreed on",
+  "says": [
+    "You keep looking. That's what does it.",
+    "I'm as surprised as you are.",
+    "It's easier than you'd think, and harder than it looks."
+  ],
+  "scope": "object"
+}

@@ -3,6 +3,31 @@
   "description": "Little yellow tabs that turn the apocalypse into the funniest thing you have ever seen.",
   "duration_seconds": 240,
   "effects": {
+    "fx": {
+      "intensity": 0.7,
+      "phases": {
+        "comedown": {
+          "field": "bloom",
+          "screen": [
+            "desat"
+          ]
+        },
+        "comeup": {
+          "field": "glitter",
+          "screen": [
+            "oversat"
+          ]
+        },
+        "peak": {
+          "field": "tracers",
+          "screen": [
+            "oversat",
+            "jitter",
+            "breathe"
+          ]
+        }
+      }
+    },
     "hallucination": {
       "duration_seconds": 240,
       "events": [
@@ -43,6 +68,16 @@
       "sanity": 20
     },
     "onset_seconds": 0,
+    "overdose": {
+      "lethal": false,
+      "message": "You can't stop. Your ribs hurt and your face hurts and none of it is funny any more.",
+      "mods": {
+        "hp": -6,
+        "sanity": -28,
+        "stat_cool": -4,
+        "stat_endurance": -4
+      }
+    },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The laughter winds down to hiccups and a sore, happy exhaustion.</span>",
       "comedown_scale": 0.5,
@@ -60,6 +95,7 @@
     "take_line": "You chew a couple of {name}.",
     "tolerance": {
       "gain_per_dose": 0.2,
+      "lethal_gain_ratio": 0,
       "max_reduction": 0.8
     },
     "withdrawal": {

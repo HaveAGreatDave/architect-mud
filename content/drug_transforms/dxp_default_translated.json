@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Which one are you listening to?",
+    "Did that come out right?",
+    "Can you hear the other one?"
+  ],
+  "description": "They're talking, and a half-second behind their mouth the words arrive again in a better order, from slightly to the left of them. Both versions are theirs.",
+  "drug_id": null,
+  "emotes": [
+    "{it} says something, and something behind {it} says it better.",
+    "{it} stops mid-sentence and lets the rest of it arrive on its own.",
+    "The two voices of {it} land on the same word at the same time, and {it} looks pleased."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_default_translated",
+  "looks": [
+    "The second version is what they meant. The first is what they managed.",
+    "When they pause, the translation catches up and then waits, politely.",
+    "The gap between the two is exactly the length of a breath."
+  ],
+  "matches": null,
+  "name": "somebody being translated as they speak",
+  "says": [
+    "I know. I heard it too.",
+    "The second one is the real one.",
+    "It's a relief, honestly."
+  ],
+  "scope": "person"
+}

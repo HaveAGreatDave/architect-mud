@@ -4,6 +4,18 @@
   "duration_seconds": 90,
   "effects": {
     "comeon_message": "<span class=\"msg-system\">You soak the rag, cup it over your mouth, and pull. The sweetness gets there before the burn does.</span>",
+    "fx": {
+      "intensity": 0.8,
+      "phases": {
+        "comedown": {
+          "field": "static",
+          "screen": [
+            "desat",
+            "jitter"
+          ]
+        }
+      }
+    },
     "hallucination": {
       "duration_seconds": 90,
       "events": [

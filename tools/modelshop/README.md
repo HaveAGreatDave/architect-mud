@@ -182,7 +182,9 @@ for what the machine can do, `__glPhases()` for where the frame goes with the fl
 `__glStage1()` for the end-to-end saving, `__glFidelity()` for how close the two pictures are,
 `__glFloor()` and `__glFloorCost()` for the same two questions about the ground, `__glSign()` for
 whether the buildings still have their names on them, `__glLights()` for whether a sign lights the
-wall it is bolted to, `__glClouds()` for whether the deck is still the same sky,
+wall it is bolted to, `__glMaterials()` for whether the city looks like it is made
+of anything, `__glClouds()` for whether the deck is still the same sky,
+`__glLeak()` for whether anything still shows through a building,
 `__glFrame()` for where the whole frame goes
 now, and `__glBench()` for the original ceiling question.
 
@@ -633,6 +635,47 @@ With the dial pinned, five seats, 640×360:
 overlay: the distant ridge, the sky and cloud layers, weather, the dash, the glass and the badges.
 Those should stay there. They have no ordering problem to solve, they do not measure, and the HUD
 needs text — moving it means building a glyph atlas to replace something that already works.
+### Does the city look like it is made of anything? — `__glMaterials()`
+
+Every surface in GLASS answered the light identically until the material table landed: one
+half-lambert key and two overlay tints, for brick, sheet copper, curtain glass and weathered board
+alike. `RENDER_TUNE.glMat` is the master strength and `glBump` the relief half; this is the A/B on
+both, and it asks three questions because there are three ways for it to be wrong.
+
+⚠ **First, does it reach any pixels at all.** This is the fourth feature here to be wired at both
+ends and dropped in the middle — `installGL()`'s options object is an allowlist, not a spread — and
+the symptom every time is 0.0% moved at every strength, which is indistinguishable from restraint.
+
+⚠ **Second, does it stay on the buildings.** The material block multiplies by `solid`, so the flat
+adornment layer must be untouched, and the ground, sky and road are not in this pass at all. The
+off-building column is the control and wants to be ~0.
+
+⚠ **Third, is the night seat different from the day one.** The environment is the sky and the
+highlight is the sun, so both collapse after dark. A night row moving as far as noon would mean the
+terms are being driven by something that is not the light. It comes back at 0.3%, which is
+arithmetic: there is nothing left up there to reflect.
+
+⚠ **A term has to be measured against the frame it is actually added to, and the first cut had one
+baseline for everything.** Against the no-material frame the relief row came back LOWER than the row
+without relief — 25.2% against 23.7% — which reads as the term doing nothing, or worse than nothing.
+It is not: relief both brightens and darkens, so some of the pixels it touches land back *near* the
+baseline it is being compared to and the count falls while the picture changes. The relief now
+carries its own second baseline, and reads 0.3% of wall pixels at a cab and 2.0% from the air, with
+a mean of 11.5 and a worst of 79 out of 255 **on the pixels it touches**. Few pixels, big move, on
+joints and laps and rivet lines, is the profile of the term working. The same row at 25% would mean
+it had embossed the whole wall.
+
+⚠ **And this bench is what said the relief was in the wrong place.** It was written inside the
+material block, perturbing a normal the key term had already been computed from — so it reached the
+reflection and the specular and not the diffuse, which is the only place a mortar joint shows.
+
+⚠ **A specular lobe on a flat box is not a highlight.** Every face here is planar, so a lobe across
+one has a single normal and therefore a single value: it does not travel over the surface, it paints
+that whole wall lighter. Tuned by eye it took a noon cab to 23.7% moved and made The Forge uniformly
+brighter, which is precisely what that looks like; at a third of the amplitude the same frame is
+8.4% and the material read is carried by the relief, which varies per texel. **When a number here
+goes up, check it is not going up because a wall got repainted.**
+
 ### Does a sign light the wall it is bolted to? — `__glLights()`
 
 The mass shader takes the frame's own light list, so a neon sign washes the facade behind it. Two
@@ -688,6 +731,59 @@ by brightness. Ranking on the sprite's own screen radius instead (which is what 
 back when reach was derived from it) picks whatever is drawn biggest rather than whatever lights the
 most wall: the same frame went from 25.6% of its wall pixels moved to **43%** on the fix, at the same
 twelve lights and the same cost.
+
+### Does anything show through a building? — `__glLeak()`
+
+The question the depth-buffer port exists to answer, as a number rather than a screenshot somebody
+looked at. It stands a building behind a row of warehouses, renders the frame with the subject and
+without it, and counts the pixels **inside the wall's own silhouette** that change. Every one of
+them is the subject reaching the screen through a building in front of it.
+
+⚠ **THE WALL HAS TO BE LOWER THAN THE SUBJECT, AND THE FIRST DRAFT GOT THAT EXACTLY BACKWARDS.**
+Stood behind a row of thirty-storey towers every model in the city reports zero — a true answer to
+the wrong question. `decoHidden` is ALL-OR-NOTHING: it hides an adornment when the WHOLE of it is
+covered, which is exactly what a wall of towers does, and it gets that case right. What it cannot
+do is the partial one — a blade standing proud of a roofline, a mast with its tip in clear air, a
+helideck ring whose far edge clears a shed. The anchor clears, the probe answers "draw", and the
+half that is genuinely behind the building draws with it. Every leak ever reported here is that
+case, so the wall is a **nine-storey warehouse** and the subject is taller than it.
+
+⚠ **AND IT HAS A NOISE FLOOR, WHICH IT MEASURES AND PRINTS.** The same map rendered twice, under
+the same settled clock and the same pinned generator, still differs by a few pixels along the
+wall's own roofline — about 8 at night and 44 by day. Nobody has run that down. Until somebody
+does, a leak inside it is not a finding, and the floor is reported beside every row rather than
+subtracted, so a reader can see which it is.
+
+Two traps cost a working measurement each before the numbers held still:
+
+⚠ **SETTLE THE CLOCK, DO NOT MERELY FREEZE IT.** `fadeLights` ramps a light in and out over ELAPSED
+time, so under a clock that never advances no light ever reaches its slot. The same model measured
+24, then 14, then 37 leaked pixels on three consecutive runs of an identical test. See `settleFade`
+— and settle for EVERY frame, not once at the top, because the map changes between every pair here
+and the ramp is what responds to that.
+
+⚠ **PIN `Math.random`, WHICH IS NOT THE SAME THING AS FREEZING THE CLOCK.** GLASS throws a METEOR
+across a clear night sky on a random timer, and settling the fade means walking the clock forward,
+which is exactly what advances it. Two renders of the same map then differ by a streak of sky.
+
+**The result.** Twelve models, night and day, with the adornments on the canvas (`glDeco 0`, which
+is what shipped) against the same frames with them on the depth buffer:
+
+| | leaked px, all 24 cases |
+| --- | --- |
+| `glDeco 0` — on the canvas | **2,700** |
+| `glDeco 1` — on the depth buffer | **588** |
+| the harness's own noise floor over those cases | **648** |
+
+Per building, the worst of them: Halcyon Towers at night **400 → 16**, the Solenne **367 → 56**, The
+Green Room **194 → 8**, The Dynamo by day **175 → 4**, Buzzard Field by day **164 → 6**. What is left
+is inside the floor. A gate that cannot be made to fail is not a gate, which is what `glDeco 0` is for.
+
+Three regressions it found, each of which drew a plausible picture:
+
+- **A wire inside its own building is gone, not dimmed.** The Dynamo's external fire stair is bolted to a wall it is physically inside, and its wind wheel stands on the roof among the crown boxes. The painter's queue lifted both 0.6 tiles in front of their host; a depth buffer compares, the host wins every pixel, and neither was drawn at all. Every one of these paths applies the caller's own lift through `cam.unproj` now.
+- **A bake must not repeat what the quad already does.** The wind wheel is raked, and its quad is already `R` by `R · sq`; a texture drawn squashed as well came out at 0.38 of its height with the rim band clipped off its own canvas.
+- **Paint on a horizontal surface is not visible from underneath** — and that is the bug rather than the regression. The Solenne's pad markings were painted onto the side of the tower from a street-level seat a long way below the deck. Above the pad the two renderers agree pixel for pixel.
 
 ### Is the cloud deck still the same sky? — `__glClouds()`
 

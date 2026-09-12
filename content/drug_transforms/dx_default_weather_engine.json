@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Would you like it to stop?",
+    "Do you want to know what tomorrow is set to?",
+    "Shall I put a wind through it?"
+  ],
+  "description": "A brass and glass machine sits where the furniture was, and inside it the weather is happening in miniature: a whole grey afternoon, rained on, about the size of a hat.",
+  "drug_id": null,
+  "emotes": [
+    "The little afternoon inside {it} goes darker, and it starts to rain harder in there.",
+    "{it} ticks over to the next hour with a sound like a latch.",
+    "A thread of real cold comes off {it} and reaches you."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_default_weather_engine",
+  "looks": [
+    "The tiny rain falls on a tiny version of this street. You can see a tiny you in it, not looking up.",
+    "A dial on the side is set between BEARABLE and NEARLY.",
+    "The glass is cold. It's cold in there."
+  ],
+  "matches": null,
+  "name": "a small engine making the weather",
+  "says": [
+    "It's not my fault. I only run it.",
+    "I could do sunshine. There's no call for it.",
+    "Somebody has to."
+  ],
+  "scope": "object"
+}

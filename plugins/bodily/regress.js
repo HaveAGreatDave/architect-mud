@@ -741,13 +741,14 @@ export default async function regress({ run, check, getPlayer }) {
   // ignoring both the real weather and the indoor gate. Ash falling in a windowless
   // corridor is the point: it SHOWS the rules are off instead of saying so.
   check('dream rooms drive the FX canvas', await pool(`SELECT 1 FROM dream_templates WHERE fx IS NOT NULL`) >= 25);
-  // Weather + the drug symptoms added 2026-08-25. ⚠ Keep in step with WEATHER_FX
-  // / DRUG_FX in client/game/js/panels/weather-fx.js — an unknown name renders
-  // nothing at all, so a typo is invisible in play and this is the only thing
-  // that will ever say so. scripts/shapes/weatherfx-smoke.mjs proves each of
-  // these actually puts paint down.
-  const VALID_FX = ['rain', 'snow', 'ash', 'fog', 'wind', 'none',
-                    'static', 'tunnel', 'tracers', 'bloom', 'crawl', 'swim'];
+  // ⚠ IMPORTED, not restated. This was a hand-copied fourth copy of a list that
+  // also lived in the renderer, the server and the smoke suite — so the day the
+  // vocabulary grew from six symptoms to fourteen, this file would have started
+  // failing every new one as a typo while the client drew them correctly. The
+  // one list is client/shared/drug-fx.js. An unknown name renders nothing at
+  // all, so a real typo is invisible in play and this is what says so;
+  // scripts/shapes/weatherfx-smoke.mjs proves each one puts paint down.
+  const { ALL_FX: VALID_FX } = await import('../../client/shared/drug-fx.js');
   const badFx = (await q(`SELECT id, fx FROM dream_templates WHERE fx IS NOT NULL`)).rows
     .filter(r => !VALID_FX.includes(r.fx));
   // weather-fx.js silently renders nothing for an unknown effect name, so a typo

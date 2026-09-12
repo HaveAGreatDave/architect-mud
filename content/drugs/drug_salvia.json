@@ -4,6 +4,31 @@
   "duration_seconds": 90,
   "effects": {
     "comeon_message": "<span class=\"msg-system\">You hold the smoke. Nothing. Nothing. Then the room takes a step to the left.</span>",
+    "fx": {
+      "intensity": 0.95,
+      "phases": {
+        "comedown": {
+          "field": "shimmer",
+          "screen": [
+            "blur"
+          ]
+        },
+        "comeup": {
+          "field": "swim",
+          "screen": [
+            "melt"
+          ]
+        },
+        "peak": {
+          "field": "swim",
+          "screen": [
+            "melt",
+            "oversat",
+            "breathe"
+          ]
+        }
+      }
+    },
     "hallucination": {
       "duration_seconds": 70,
       "events": [
@@ -39,7 +64,12 @@
     "onset_seconds": 4,
     "overdose": {
       "lethal": false,
-      "message": "You take far too much and spend a bad four minutes convinced you're a garden fence. It passes. It always passes."
+      "message": "You take far too much and spend a bad four minutes convinced you're a garden fence. It passes. It always passes.",
+      "mods": {
+        "sanity": -30,
+        "stat_cool": -6,
+        "stat_reflexes": -4
+      }
     },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">You are put back roughly where you were found, facing about the right way.</span>",
@@ -61,6 +91,7 @@
     "take_line": "You pack a bowl of {name} and burn it hot.",
     "tolerance": {
       "gain_per_dose": 0,
+      "lethal_gain_ratio": 0,
       "max_reduction": 0
     }
   },

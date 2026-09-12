@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Have you seen me yet?",
+    "Which one did you come to speak to?",
+    "Am I still over there?"
+  ],
+  "description": "They're in front of you, and they're also further back in the room doing what they were doing an hour ago, and both of them are them. Neither seems put out by it.",
+  "drug_id": null,
+  "emotes": [
+    "{it} does something, and a moment later something at the back of the room does it too.",
+    "The earlier {it} finishes a sentence nobody started.",
+    "{it} glances back at {it} and looks away again."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_default_earlier",
+  "looks": [
+    "The earlier one is going through motions that have already finished.",
+    "They're wearing the same thing, which proves nothing, and standing the same way, which does.",
+    "Occasionally the two of them do the same gesture and it lines up exactly."
+  ],
+  "matches": null,
+  "name": "somebody who is also here earlier today",
+  "says": [
+    "I was here before. I'm still here before.",
+    "Don't talk to that one, it can't hear you.",
+    "It'll catch up."
+  ],
+  "scope": "person"
+}

@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Is it doing it again?",
+    "Can you feel where it stops?",
+    "Would you come in out of yours?"
+  ],
+  "description": "They're standing in a small and private climate. It's brighter round them than it is round you, or colder, and it moves when they move.",
+  "drug_id": null,
+  "emotes": [
+    "The air around {it} thickens and goes a shade colder.",
+    "Something falls on {it} that isn't falling anywhere else.",
+    "{it} moves, and the weather goes too, a half-step late."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_default_weather_front",
+  "looks": [
+    "The air within about a foot of them is doing something completely different to the air you're in.",
+    "There's a faint line on the floor where their weather stops and the room's starts.",
+    "Whatever it is in there, they've clearly been in it a while and stopped noticing."
+  ],
+  "matches": null,
+  "name": "somebody with their own weather",
+  "says": [
+    "It follows me. It has always followed me.",
+    "You get used to it.",
+    "Stand closer if you like. It's not catching."
+  ],
+  "scope": "person"
+}

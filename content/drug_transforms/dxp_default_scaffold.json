@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Can you see it?",
+    "Am I holding up?",
+    "Is it obvious?"
+  ],
+  "description": "You can see how they're put together. Not bones. The decisions: where they chose to stand, which expression they went with, how much of this they're finding difficult.",
+  "drug_id": null,
+  "emotes": [
+    "{it} picks an expression, tries it, and keeps it.",
+    "Something in the way {it} is standing is rebuilt, quietly, and {it} carries on.",
+    "{it} does nothing at all, visibly, and it costs {it} something."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_default_scaffold",
+  "looks": [
+    "The effort of being a person is visible on them, and it's more than you'd assumed.",
+    "Several small choices are still being made, live, and you can watch each one land.",
+    "Underneath the choosing they're doing fine, which is the reassuring part."
+  ],
+  "matches": null,
+  "name": "somebody with the working shown",
+  "says": [
+    "It's a lot, isn't it.",
+    "Everyone's doing this. You are as well.",
+    "I'd rather you didn't mention it."
+  ],
+  "scope": "person"
+}

@@ -4,6 +4,17 @@
   "duration_seconds": 50,
   "effects": {
     "comeon_message": "<span class=\"msg-system\">Cold on the teeth, sweet at the back of the throat.</span>",
+    "fx": {
+      "intensity": 0.85,
+      "phases": {
+        "comeup": {
+          "field": "tunnel",
+          "screen": [
+            "narrow"
+          ]
+        }
+      }
+    },
     "hallucination": {
       "duration_seconds": 40,
       "events": [

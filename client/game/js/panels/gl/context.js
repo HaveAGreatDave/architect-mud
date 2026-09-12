@@ -21,6 +21,7 @@ import { viewProjMatrix } from './camera.js';
 import { createSpriteLayer } from './sprites.js';
 import { createCurtainLayer } from './curtain.js';
 import { createDecalLayer } from './decals.js';
+import { createStrokeLayer } from './strokes.js';
 import { createBillboardLayer } from './billboards.js';
 import { createGroundLayer } from './ground.js';
 import { createFloorLayer } from './floor.js';
@@ -28,8 +29,14 @@ import { createCloudLayer } from './clouds.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
-// haze jitter 1.
-const STRIDE = 16;
+// haze jitter 1, baked occlusion 1, material family 1.
+const STRIDE = 17;
+
+// The material table's uniform budget, and the loop-free bound the shader's arrays are stamped
+// with. Nineteen families exist today (windshield.js's MAT_ORDER); the headroom is so that adding
+// one is a one-line change there rather than a shader edit here.
+// ⚠ AN INDEX PAST THIS IS UNDEFINED BEHAVIOUR IN GLSL ES, not a clamp — see the ⚠ on `wallMaterialId`.
+export const MAX_MATERIALS = 24;
 
 const VERT = `#version 300 es
 in vec3 aPos;
@@ -39,6 +46,10 @@ in vec2 aUV;
 in float aRamp;
 in float aAlpha;
 in float aFlat;
+// Which material family this surface belongs to, as an index into the tables below. Resolved once
+// per model in world.js from the palette key the face already carries — see the ⚠ there on why a
+// face with no palette takes 0 rather than -1.
+in float aMat;
 in float aJit;
 in float aBakedAo;
 uniform mat4 uViewProj;
@@ -51,6 +62,10 @@ out float vAlpha;
 out float vFlat;
 out float vJit;
 out float vBakedAo;
+// ⚠ FLAT, BECAUSE A MATERIAL INDEX IS NOT A QUANTITY. Interpolating it would put fragments in the
+// middle of a triangle at fractional indices, and every vertex of a face carries the same value
+// anyway — so this is both cheaper and the only spelling that cannot round to the wrong family.
+flat out float vMat;
 out vec3 vWorld;
 void main() {
   vec4 clip = uViewProj * vec4(aPos, 1.0);
@@ -63,6 +78,7 @@ void main() {
   vFlat = aFlat;
   vJit = aJit;
   vBakedAo = aBakedAo;
+  vMat = aMat;
   vWorld = aPos;                // the city own lights need a position to fall off FROM
   vDepth = clip.w;              // the camera-forward distance, in tiles — the same f GLASS sorts on
 }`;
@@ -74,6 +90,10 @@ export const MAX_LIGHTS = 12;   // uniform slots, and the per-fragment loop boun
 
 const FRAG = `#version 300 es
 precision highp float;
+// How dark a fully shadowed surface goes, before the strength knob. See the ⚠ beside its use: the
+// strength itself is already folded into shK, so this is the shape and RENDER_TUNE.glShadow is the
+// dial. 0.45 is what the flat-face term used before this covered both halves.
+const float SHADOW_DARK = 0.45;
 in vec3 vNormal;
 in vec3 vColor;
 in vec2 vUV;
@@ -83,6 +103,7 @@ in float vAlpha;
 in float vFlat;
 in float vJit;
 in float vBakedAo;
+flat in float vMat;
 in vec3 vWorld;
 uniform sampler2D uAtlas;
 uniform float uTextured;
@@ -137,7 +158,39 @@ uniform float uShadowStr;
 uniform float uShadowTexel;
 uniform float uShadowBias;
 uniform vec3 uSunDir;
+// ── WHAT THE SURFACE IS MADE OF ─────────────────────────────────────────────
+//
+// Until this existed every surface in the city answered the light identically: one half-lambert key
+// and two overlay tints, for brick, sheet copper, curtain glass and weathered board alike. Which is
+// why none of them has ever looked like the substance it is drawn as — a texture can say what a
+// material LOOKS like and cannot say how it BEHAVES, and behaviour is most of what the eye reads
+// "metal" from. Metal is view-dependence: a highlight that travels as you drive past, a reflection
+// carrying the metal's own hue. Wood is the absence of it. Frost is it with the sharpness removed.
+//
+// 'uMat' is (gloss, metal, fres, bump) per family and 'uSheen' the fifth column, both authored in
+// windshield.js beside the painters they belong to and handed over whole. 'uMatStr' is the master
+// strength and the off switch: at 0 the entire block below is skipped on a UNIFORM branch, and the
+// frame is bit-for-bit the one that shipped.
+//
+// ⚠ 'uEye' IS IN THE VERTEX FRAME, WHICH IS MAP-WINDOW TILES AND NOT WORLD TILES. world.js takes it
+// off the SHIFTED camera for exactly that reason; see the ⚠ there.
+uniform vec3 uEye;
+uniform float uMatStr;
+uniform float uBumpStr;
+uniform vec4 uMat[GLASS_MAX_MAT];
+uniform float uSheen[GLASS_MAX_MAT];
+// The two ends of the sky, for a reflection to land on. GLASS's sky IS a vertical gradient, so two
+// colours and the reflected ray's elevation reproduce it without a cube map or a probe.
+uniform vec3 uEnvUp;
+uniform vec3 uEnvDn;
+// One texel of the atlas page, for the relief taps. The page is repacked whenever the set of
+// surfaces changes, so this is written from setAtlas rather than assumed.
+uniform vec2 uAtlasTexel;
 out vec4 outColor;
+
+// Perceptual-ish luminance. The relief term reads the albedo as a height field, and a green mortar
+// joint and a red one are the same depth of joint.
+float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 
 // 1.0 where the sun cannot see this point, 0.0 where it can.
 //
@@ -182,7 +235,57 @@ float sunShadow(vec3 wp, vec3 n) {
 }
 
 void main() {
-  vec3 n = normalize(vNormal);
+  // ⚠ TWO NORMALS, AND THE DIFFERENCE IS LOAD-BEARING. 'n0' is the geometric one the face was built
+  // with; 'n' is that with the relief below folded into it. Everything that shades takes 'n'. The
+  // shadow bias takes 'n0', because a slope-scaled bias is a statement about the real surface's
+  // angle to the light and a bumped normal would jitter it into acne.
+  vec3 n0 = normalize(vNormal);
+  vec3 n = n0;
+  // 1 for a wall, 0 for the flat adornment layer — hoisted, because the relief needs it too.
+  float solid = 1.0 - clamp(vFlat, 0.0, 1.0);
+  // ── RELIEF, RECOVERED FROM THE ALBEDO'S OWN GRADIENT ────────────────────────
+  //
+  // The painters bake their own light: matPlate draws a dark line under every lap and a bright one
+  // above it, matStone shadows each joint, matConcrete rules its board lines. All of that is correct
+  // for ONE sun angle and frozen at it — the joints on a wall do not move as the day goes round, and
+  // at dusk they are lit from a direction the sky no longer is.
+  //
+  // A height field would fix it properly and there is no height field. What there is, is a texture
+  // whose bright parts are mostly the parts that stick out and whose dark parts are mostly the parts
+  // that are recessed — so the luminance gradient is a usable normal map, for free, with no second
+  // atlas page and no change to any painter.
+  //
+  // ⚠ IT IS A LIE ON ANY SURFACE WHOSE COLOUR IS NOT ITS SHAPE, which is why the strength is a
+  // per-family column rather than a constant: soot on brick, rust bleeding from under a rivet lap,
+  // the near-black openings of a lattice truss. The lattice row is 0.20 for exactly that reason.
+  //
+  // ⚠ AND IT HAS TO HAPPEN BEFORE THE KEY TERM, WHICH IS THE WHOLE POINT AND WAS GOT WRONG FIRST.
+  // It was written inside the material block below, where it perturbed a normal 'lit' had already
+  // been computed from — so it reached the reflection and the specular and NOT the diffuse shading,
+  // which is the only place a mortar joint or a plate lap actually shows. It measured as 25.2% of
+  // wall pixels moved without it and 24.1% with it: a term that is correct, tunable, wired at both
+  // ends, and inside the noise. __glMaterials() sweeps it separately for that reason.
+  //
+  // ⚠ AND textureLod, NEVER texture. This is inside a branch, and a plain texture() picks its mip
+  // from screen-space derivatives taken across a quad of fragments — put one behind a test that some
+  // of that quad fails and the result is undefined. The atlas has exactly one level, so stating it
+  // costs nothing and removes the whole class. See sunShadow for what a NaN here is worth.
+  if (uMatStr > 0.0 && uBumpStr > 0.0) {
+    float k = uMat[int(vMat + 0.5)].w * uBumpStr * clamp(uTextured, 0.0, 1.0) * solid;
+    vec3 up = vec3(0.0, 0.0, 1.0);
+    vec3 T = cross(up, n0);
+    float tl = length(T);
+    // A horizontal face — a roof, a canopy — has no horizon to take a tangent from, so it takes a
+    // fixed one. Which axis hardly matters; what it must not be is the zero vector.
+    T = tl > 0.001 ? T / tl : vec3(1.0, 0.0, 0.0);
+    vec3 B = cross(n0, T);
+    float l0 = lum(textureLod(uAtlas, vUV, 0.0).rgb);
+    float lu = lum(textureLod(uAtlas, vUV + vec2(uAtlasTexel.x, 0.0), 0.0).rgb);
+    float lv = lum(textureLod(uAtlas, vUV + vec2(0.0, uAtlasTexel.y), 0.0).rgb);
+    // Bright is proud, so the normal tilts AWAY from the brighter neighbour. v runs down the face in
+    // this atlas, which is why the B term is subtracted rather than added.
+    n = normalize(n0 - (T * (lu - l0) - B * (lv - l0)) * (k * 6.0));
+  }
   float lit = clamp(0.5 + dot(n, normalize(uKeyDir)) * 0.5, 0.0, 1.0);
   // ⚠ THE SHADOW LANDS ON the KEY TERM, AND THAT IS THE FAITHFUL PLACE FOR IT. lit is the half-lambert
   // of the key, and it is the only thing the warm top overlay, the cool base overlay and their two
@@ -193,7 +296,7 @@ void main() {
   // in the quad takes the same side of it, so nothing inside is evaluated on a lane that did not
   // run. It is also what makes the off switch free rather than merely exact: at strength 0 the four
   // samples are not taken at all.
-  float shKraw = uShadowStr > 0.0 ? sunShadow(vWorld, n) : 0.0;
+  float shKraw = uShadowStr > 0.0 ? sunShadow(vWorld, n0) : 0.0;
   // ⚠ AND THE ANSWER IS SANITISED WITH A COMPARISON, NOT WITH clamp. Every comparison against NaN
   // is false by definition, so '> 0.0' rejects one where clamp — which is min(max(x,0),1) — is
   // left to whatever the driver does with NaN, and on this one it leaks. A NaN reaching the key
@@ -209,7 +312,6 @@ void main() {
   // adornments are made of are painted by the 2-D renderer as ONE fill — no wall texture, no light
   // ramp — so a shader that helpfully textured and shaded them would not be reproducing GLASS, it
   // would be improving on it, which is the one thing a port must not do.
-  float solid = 1.0 - clamp(vFlat, 0.0, 1.0);
   vec3 surf = mix(vColor, texture(uAtlas, vUV).rgb, clamp(uTextured, 0.0, 1.0) * solid);
   // wallLit's own two overlays, per fragment instead of as a canvas gradient: a warm top tinted
   // between sky and key by the light dot, and a darker base, both at alphas that depend on that
@@ -220,12 +322,23 @@ void main() {
   float aBot = uStr * (0.30 + 0.22 * (1.0 - lit));
   vec3 shaded = mix(mix(surf, topCol, aTop), mix(surf, uShadow, aBot), clamp(vRamp, 0.0, 1.0));
   vec3 base = mix(surf, shaded, clamp(uVLight, 0.0, 1.0) * solid);
-  // ⚠ AND A FLAT FACE HAS TO BE DARKENED SEPARATELY, because the key term cannot reach it. Trim — every
-  // panel, band, louvre, sill and coping — takes its own colour with no key shading at all, on
-  // purpose (see 'solid' above). Left out of the shadow it stays at full brightness on the
-  // shadowed side of the very building it is bolted to, which reads as the trim glowing. The
-  // factor is smaller than the key swing because there is no ramp under it to fall back to.
-  base *= 1.0 - 0.45 * shK * (1.0 - solid);
+  // ⚠ THE SHADOW HAS TO DARKEN THE SURFACE, NOT ONLY STEER THE KEY TERM — and for solid faces it
+  // only did the latter, which made the whole feature nearly invisible once its wiring was fixed.
+  //
+  // Everything above reaches a wall through 'lit', and the only consumers of 'lit' are two OVERLAY
+  // ALPHAS: 'aTop' runs 0.06 to 0.20 and 'aBot' 0.30 to 0.52. So a fully shadowed wall differed
+  // from a fully lit one by a shift in how strongly a gradient is laid over it — measured end to
+  // end, strength 0 against strength 1.0 moved a cab frame by a mean of 0.72 of 255. The picture
+  // was correct, tunable, monotonic, free, and not visible.
+  //
+  // The line this replaces darkened only FLAT faces ('1.0 - solid'), which is backwards: trim is
+  // the half that was already getting a real shadow and the walls were the half that was not. One
+  // multiply now covers both, with the flat case keeping the same 0.45 it had.
+  //
+  // ⚠ 'shK' ALREADY CARRIES 'uShadowStr' — sunShadow multiplies by it before returning — so the
+  // constant is the shape of the falloff and RENDER_TUNE.glShadow is the knob. Two knobs here would
+  // multiply into a strength slider that does not mean what it says.
+  base *= 1.0 - SHADOW_DARK * shK;
   // ── CONTACT OCCLUSION ───────────────────────────────────────────────────────
   //
   // Ambient occlusion is a CONTACT effect — the ground robs a surface of sky the closer that
@@ -241,7 +354,13 @@ void main() {
   // ⚠ AND IT GOES BEFORE THE LIGHTS, DELIBERATELY. A neon sign in a dark corner should still light
   // that corner; occlusion is a statement about the SKY, not about every photon in the scene.
   // Putting it after would let a shaded plinth swallow the wash off a sign bolted to it.
-  base *= 1.0 - uAo * exp(-max(0.0, vWorld.z) * uAoFall);
+  // ⚠ COLLECTED INTO A SCALAR RATHER THAN MULTIPLIED STRAIGHT IN, because the material terms below
+  // need the same answer. A reflection is a statement about how much sky a surface can see, exactly
+  // as these two are, so an environment term that ignored them would light the inside of a recessed
+  // doorway with the open sky it cannot reach — which is how a shiny surface gets a bright corner
+  // where the matte version of it has a dark one.
+  float occ = 1.0 - uAo * exp(-max(0.0, vWorld.z) * uAoFall);
+  base *= occ;
   // ── AND THE CONCAVE HALF, WHICH IS THE ONE THE HEIGHT TERM ABOVE CANNOT SEE ────────────────
   // vBakedAo is 1 where the vertex sees open sky and falls toward 0 in a corner, sampled against
   // the building's own solid volume at mesh-capture time (gl/world.js). Interpolating it across the
@@ -249,7 +368,80 @@ void main() {
   // effect, and a per-face value would just be a differently-lit flat quad.
   // ⚠ SAME PLACEMENT ARGUMENT AS THE TERM ABOVE — before the lights. Occlusion is a statement about
   // the SKY, and a neon sign in a recessed doorway must still light the doorway.
+  occ *= 1.0 - uBakedAo * (1.0 - clamp(vBakedAo, 0.0, 1.0));
   base *= 1.0 - uBakedAo * (1.0 - clamp(vBakedAo, 0.0, 1.0));
+  // ── AND WHAT THE SURFACE IS MADE OF ─────────────────────────────────────────
+  //
+  // ⚠ THE BRANCH IS ON A UNIFORM AND NOTHING ELSE, which is the one kind that is safe here: every
+  // fragment in a quad takes the same side, so the two texture taps inside are never evaluated on a
+  // lane that did not run. A branch on 'solid' would be per fragment and is exactly the undefined
+  // behaviour sunShadow is written around — so 'solid' MULTIPLIES instead, and the adornment layer
+  // is left flat-shaded by arithmetic rather than by a jump.
+  if (uMatStr > 0.0) {
+    // ⚠ ROUNDED, NOT TRUNCATED. The attribute travels as a float and comes back through a flat
+    // varying, so 6.0 can arrive as 5.999999 and int() would take it to 5 — a building silently
+    // wearing the family next to its own.
+    int mi = int(vMat + 0.5);
+    vec4 M = uMat[mi];
+    float sheen = uSheen[mi];
+    float mk = uMatStr * solid;
+    vec3 V = normalize(uEye - vWorld);
+
+    // ── THE ENVIRONMENT ───────────────────────────────────────────────────────
+    //
+    // ⚠ OFF THE REFLECTED RAY, NEVER OFF THE NORMAL. Every facade in this city is vertical, so every
+    // wall normal has the same elevation — zero — and a sky/ground blend taken off n is one flat
+    // colour on every building, which reads as a tint somebody added. The reflection swings: stand
+    // under a glass tower and its lower floors hand you the sky while its upper floors hand you the
+    // ground, and the line between them moves as you drive. That gradient IS what glass looks like.
+    vec3 R = reflect(-V, n);
+    vec3 env = mix(uEnvDn, uEnvUp, smoothstep(-0.35, 0.55, R.z));
+    float ndv = clamp(dot(n, V), 0.0, 1.0);
+    // Schlick. Near zero face-on, one at grazing, and the fifth power is what makes it hug the
+    // silhouette instead of washing the whole wall.
+    float fres = pow(1.0 - ndv, 5.0);
+    // ⚠ A CONDUCTOR REFLECTS ITS OWN COLOUR AND A DIELECTRIC REFLECTS THE LIGHT'S. This single line
+    // is most of what separates sheet copper from plaster painted the same brown: verdigris hands
+    // back a green sky, render hands back a white one.
+    vec3 spc = mix(vec3(1.0), surf * 1.6 + 0.12, M.y);
+    float envAmt = clamp(M.z * (0.045 + 0.955 * fres) * mk, 0.0, 1.0);
+    // ⚠ AND THE DIFFUSE GOES DOWN AS THE METAL GOES UP, before the mix and not after. A conductor
+    // has almost no diffuse — what you see IS the reflection — and leaving the diffuse standing is
+    // what makes every attempt at chrome come out as light grey paint with a highlight on it.
+    vec3 diff = base * (1.0 - 0.55 * M.y * mk);
+    base = mix(diff, env * spc * occ, envAmt);
+
+    // ── THE SUN'S OWN HIGHLIGHT ───────────────────────────────────────────────
+    //
+    // ⚠ AGAINST uKeyDir AND NOT uSunDir. uSunDir is written only on the frames the shadow pass
+    // actually runs, so a term reading it would hold whatever direction it was handed last — the
+    // city carrying yesterday afternoon's highlight all night, which is the trap already recorded
+    // beside uShadowStr. uKeyDir is written every frame, and it is the direction the rest of this
+    // shader is already shading against, so the highlight lands where the lit side is.
+    vec3 Hv = normalize(normalize(uKeyDir) + V);
+    float sp = pow(max(0.0, dot(n, Hv)), max(1.0, M.x));
+    // ⚠ SCALED BY THE REFLECTIVITY COLUMN, or a matte surface gets a full-strength highlight that
+    // merely happens to be wide: pow(x, 8.0) still peaks at exactly 1.0. Stucco's 0.10 is what
+    // makes a rendered wall look damp rather than polished.
+    // ⚠ AND KILLED IN SHADOW. shK already carries uShadowStr, so at glShadow 0 this is unchanged.
+    // ⚠ AND IT IS DELIBERATELY SMALL, BECAUSE A HIGHLIGHT ON A FLAT BOX IS NOT A HIGHLIGHT. Every
+    // face in this city is planar, so a lobe evaluated across one has a single normal and therefore
+    // a single value: it does not read as a glint travelling over a surface, it reads as that whole
+    // wall being painted a lighter colour. First measured at (0.35 + 0.65·metal) — The Forge came
+    // back uniformly brighter, which is precisely what "the wall got lighter" looks like. What
+    // actually carries a material here is the RELIEF, which varies per texel; this is the small
+    // second term that tells you the relief is wet rather than dry.
+    base += uKey * (sp * M.z * (0.15 + 0.30 * M.y) * mk * (1.0 - shK) * occ);
+    // ── SHEEN ─────────────────────────────────────────────────────────────────
+    //
+    // A broad view-facing lift with no lobe at all. It is what a surface does when it is so rough
+    // that the highlight stops being a highlight and the whole thing simply brightens as it turns
+    // away from you: straw, render, cloth — and frosted glass, which is the entire trick behind the
+    // frost row. There is nothing to see through and nothing to refract (every glazed surface in
+    // this city is an opaque skin over a building), so what frost needs is a reflection that has
+    // lost its lobe and gained an even glow, which is a wide exponent beside a big number here.
+    base += mix(uEnvUp, vec3(1.0), 0.25) * (sheen * fres * mk * occ);
+  }
   // The city own lights, added on top of the key shading.
   for (int i = 0; i < GLASS_MAX_LIGHTS; i++) {
     if (i >= uNLight) break;
@@ -284,7 +476,8 @@ void main() {
 
 // The shader source carries a symbolic bound so the loop limit and the array sizes cannot drift
 // apart; there is one number and the GLSL is stamped from it.
-const withLights = (src) => src.split("GLASS_MAX_LIGHTS").join(String(MAX_LIGHTS));
+const withLights = (src) => src.split("GLASS_MAX_LIGHTS").join(String(MAX_LIGHTS))
+  .split("GLASS_MAX_MAT").join(String(MAX_MATERIALS));
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -335,6 +528,7 @@ export function createGLView(canvas, opts = {}) {
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     flat: gl.getAttribLocation(prog, 'aFlat'),
     bao: gl.getAttribLocation(prog, 'aBakedAo'),
+    mat: gl.getAttribLocation(prog, 'aMat'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     keyDir: gl.getUniformLocation(prog, 'uKeyDir'),
     key: gl.getUniformLocation(prog, 'uKey'),
@@ -368,17 +562,42 @@ export function createGLView(canvas, opts = {}) {
     shadowTexel: gl.getUniformLocation(prog, 'uShadowTexel'),
     shadowBias: gl.getUniformLocation(prog, 'uShadowBias'),
     sunDir: gl.getUniformLocation(prog, 'uSunDir'),
+    eye: gl.getUniformLocation(prog, 'uEye'),
+    matStr: gl.getUniformLocation(prog, 'uMatStr'),
+    bumpStr: gl.getUniformLocation(prog, 'uBumpStr'),
+    // Same spelling rule as the light arrays above: asked for WITHOUT the subscript, so the name is
+    // one a shader in this file actually declares and gl:glsl has something to check it against.
+    matTab: gl.getUniformLocation(prog, 'uMat'),
+    sheenTab: gl.getUniformLocation(prog, 'uSheen'),
+    envUp: gl.getUniformLocation(prog, 'uEnvUp'),
+    envDn: gl.getUniformLocation(prog, 'uEnvDn'),
+    atlasTexel: gl.getUniformLocation(prog, 'uAtlasTexel'),
   };
 
   // Scratch, filled per frame and never reallocated: the arrays are the same size every frame and
   // a fresh Float32Array per light per frame is garbage on the hot path.
   const lightP = new Float32Array(MAX_LIGHTS * 3), lightC = new Float32Array(MAX_LIGHTS * 3);
   const lightR = new Float32Array(MAX_LIGHTS);
+  // The material table, flattened once and re-flattened only when the caller hands over a different
+  // one. It is a constant of the build in practice — 19 rows that come from windshield.js — so
+  // rebuilding it per frame would be pure garbage on the hot path, and uploading it per frame is two
+  // calls that cost nothing next to the 12-light arrays already going up beside it.
+  const matTab = new Float32Array(MAX_MATERIALS * 4), sheenTab = new Float32Array(MAX_MATERIALS);
+  let matSrc = null;
+  // ⚠ A ROW NOBODY FILLED MUST STILL BE HARMLESS. The table is sized for headroom, so the tail is
+  // zeros — and gloss 0 is pow(x, 0.0) = 1.0, a full mirror everywhere. `max(1.0, M.x)` in the
+  // shader is what makes that safe, and this default is the belt to its braces.
+  for (let i = 0; i < MAX_MATERIALS; i++) matTab[i * 4] = 1;
 
   const vao = gl.createVertexArray();
   const buf = gl.createBuffer();
   let count = 0;
   let atlasTex = null, hasAtlas = false;
+  // The page's own size, for the relief taps. ⚠ It is repacked whenever the SET of surfaces in the
+  // window changes (see the banded packer in atlas.js), so a texel size cached anywhere but here
+  // would go stale the first time you drove past a building made of something new — and the failure
+  // is a relief term that quietly samples the wrong distance away, not an error.
+  let atlasW = 0, atlasH = 0;
   // The mesh's own axis-aligned box, in the frame the vertices are in. Accumulated on the way into
   // the vertex data rather than derived from the window, because the shadow projection has to
   // contain every CASTER and the only list that is certainly every caster is the buffer itself.
@@ -387,12 +606,14 @@ export function createGLView(canvas, opts = {}) {
   // with the window would reallocate on every seat change; a fixed square costs the same at every
   // seat and the projection is what tightens onto the geometry.
   let shadow = null, shadowTried = false;
+  let warnedShadowShape = false;   // once per view — see the ⚠ on `opts.shadow` in draw()
 
   // One texture for the whole city. See gl/atlas.js for why this is an atlas rather than a bind
   // per face: a draw call can hold one texture, and per-face binds would make a skyline several
   // hundred draw calls — which is the cost GL is being asked to avoid.
   function setAtlas(canvas) {
-    if (!canvas) { hasAtlas = false; return; }
+    if (!canvas) { hasAtlas = false; atlasW = atlasH = 0; return; }
+    atlasW = canvas.width; atlasH = canvas.height;
     if (!atlasTex) atlasTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, atlasTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -424,7 +645,26 @@ export function createGLView(canvas, opts = {}) {
   // ⚠ AND IT FILLS A TYPED ARRAY DIRECTLY. A plain array of a hundred and forty thousand numbers,
   // grown by `push` and then converted, was most of an eleven-millisecond rebuild on an aircraft
   // window — which is a dropped frame every time the map recentres, and invisible in a steady shot.
-  function uploadGroups(groups, rectOf) {
+  // ── `nb` IS THE DUSK BLEND, AND THE COLOUR IS RESOLVED HERE RATHER THAN IN THE SHADER ────────
+  //
+  // A flat face carries its own colour and no texture (`solid = 1 - flat`), so for the whole trim
+  // layer — 20,494 of the city's 28,717 faces — `aColor` IS the picture. `captureModelMesh` is
+  // memoised on geometry alone and was only ever run at `night: 0`, so every one of those faces was
+  // wearing its DAYTIME colour at midnight: a lit window bay, a canopy strip light, a blade panel,
+  // a lit shopfront. 4,973 faces over 163 of the 173 models, measured.
+  //
+  // The fix is a second colour, not a second mesh and not a shader channel, and the reason is that
+  // the two captures are geometrically IDENTICAL face-for-face (asserted in `gl:mesh`): only the
+  // colours differ. So the day and night colours ride along on the face and the blend happens once
+  // per vertex at upload. No stride growth, no new attribute, no varying, and nothing for
+  // `glCapabilities` to recount.
+  //
+  // ⚠ THIS IS FREE ONLY BECAUSE THE BUFFER IS ALREADY REBUILT AT EVERY DUSK STEP. `texEpoch`
+  // quantises the blend into 64 steps and world.js forces `uploadGroups` when the epoch moves, so
+  // the wall textures and the trim colours cross dusk together, on a cadence that already existed.
+  // Put `nb` in the rebuild key some other way and the city gets a rebuild per frame at sunset.
+  function uploadGroups(groups, rectOf, nb) {
+    const NB = nb > 0 ? (nb < 1 ? nb : 1) : 0;
     let verts = 0;
     for (const g of groups) for (const f of g.faces) verts += (f.p.length - 2) * 3;
     const data = new Float32Array(verts * STRIDE);
@@ -433,7 +673,13 @@ export function createGLView(canvas, opts = {}) {
     for (const grp of groups) {
       const ox = grp.ox || 0, oy = grp.oy || 0;
       for (const f of grp.faces) {
-        const [r, g, b] = f.rgb || [128, 128, 128];
+        // ⚠ A face with no `rgbN` keeps its one colour at every hour, which is right: a textured
+        // wall's day/night lives in the atlas, and a piece of unpainted metalwork genuinely does not
+        // change colour after dark — only the things that are LIT do.
+        const cD = f.rgb || [128, 128, 128], cN = f.rgbN;
+        const r = cN ? cD[0] + (cN[0] - cD[0]) * NB : cD[0];
+        const g = cN ? cD[1] + (cN[1] - cD[1]) * NB : cD[1];
+        const b = cN ? cD[2] + (cN[2] - cD[2]) * NB : cD[2];
         // ⚠ A ZERO-LENGTH NORMAL IS A NaN FACTORY, AND SOME CAPTURED FACES CARRY ONE. `f.n || …`
         // only catches a MISSING normal; `[0, 0, 0]` is a perfectly truthy array, and it comes out
         // of a degenerate face in the capture. `normalize(vec3(0.0))` is 0/0, and the NaN spreads
@@ -454,6 +700,10 @@ export function createGLView(canvas, opts = {}) {
         // surfaces and carry kind 'flat'; a barrel roof is MASS that happens to do its own shading,
         // and it has to stay mass so the mesh gate goes on comparing it against the captured shape.
         const flat = (f.flat != null ? !!f.flat : f.kind === 'flat') ? 1 : 0;
+        // Resolved per model in world.js and carried on the face, exactly as texKey is. A face that
+        // never went through that path — the Modelshop preview, the bench — has none, and 0 is the
+        // default facade rather than a missing value: see the out-of-range note on wallMaterialId.
+        const mat = f.mat ? f.mat : 0;
         const jit = grp.jit || 0;
         // The ramp is the vertex's height within its OWN face, 0 at the top: the 2-D renderer paints
         // its light as a gradient down each wall, so a shader that wants the same picture needs to
@@ -481,6 +731,7 @@ export function createGLView(canvas, opts = {}) {
             // rather than 0 — an absent term must be "not occluded", or every surface the bake
             // could not reach goes black instead of simply staying as it was.
             data[o + 15] = f.ao ? f.ao[k] : 1;
+            data[o + 16] = mat;
             o += STRIDE;
           }
         }
@@ -510,6 +761,7 @@ export function createGLView(canvas, opts = {}) {
     if (loc.flat >= 0) { gl.enableVertexAttribArray(loc.flat); gl.vertexAttribPointer(loc.flat, 1, gl.FLOAT, false, S, 52); }
     if (loc.jit >= 0) { gl.enableVertexAttribArray(loc.jit); gl.vertexAttribPointer(loc.jit, 1, gl.FLOAT, false, S, 56); }
     if (loc.bao >= 0) { gl.enableVertexAttribArray(loc.bao); gl.vertexAttribPointer(loc.bao, 1, gl.FLOAT, false, S, 60); }
+    if (loc.mat >= 0) { gl.enableVertexAttribArray(loc.mat); gl.vertexAttribPointer(loc.mat, 1, gl.FLOAT, false, S, 64); }
     gl.bindVertexArray(null);
     return count;
   }
@@ -528,7 +780,7 @@ export function createGLView(canvas, opts = {}) {
   // Returns the uniform values the fragment shader needs, or null — and null is a full answer: the
   // strength goes to 0, the comparison is skipped, and the frame is the one that shipped.
   function sunPass(opts) {
-    const s = opts.shadow;
+    const s = opts.sunShadow;
     if (!s || !(s.str > 0) || !s.lightVP || !count) return null;
     if (!shadow && !shadowTried) {
       shadowTried = true;                     // one attempt per view; a driver that refused once will refuse again
@@ -565,7 +817,32 @@ export function createGLView(canvas, opts = {}) {
     gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, opts.cssH || H)));
     const k = opts.keyDir || [-0.7, 0.35, -0.7];
     gl.uniform3f(loc.keyDir, k[0], k[1], k[2]);
-    const key = opts.key || [0.78, 0.59, 0.33], sh = opts.shadow || [0.13, 0.16, 0.21];
+    // ⚠ `shadow` IS THE VERTEX-LIGHT BASE COLOUR AND `sunShadow` IS THE SUN. They were both called
+    // `shadow`, and world.js built its options as `{ ...opts.draw, shadow: sunShadowFor(…) }` — the
+    // spread first, the sun second — so the sun descriptor OVERWROTE the colour on every frame, in
+    // two different ways depending on a flag:
+    //
+    //   glShadow 0 (what shipped) — `sunShadowFor` returns null, `sh` falls back to the literal
+    //     below, and that literal is `#222836`: `RENDER_TUNE.vlShadowDay`. So `vlShadowNight`
+    //     (`#0a0c1a`, indigo-black) had NEVER reached GLASS 2, and since `aBot` is a 0.30-0.52
+    //     overlay, every wall in the night city was being shaded with the DAYTIME base shadow —
+    //     about three times too light, and the wrong hue.
+    //   glShadow > 0 with the sun up — `sh` is the descriptor OBJECT, `sh[0]` is `undefined`, and
+    //     `uniform3f` converts that to NaN without throwing. `mix(surf, vec3(NaN), aBot)` is NaN,
+    //     so every solid fragment came out black at full alpha with a correct silhouette.
+    //
+    // That second one is the whole of the bug report above `RENDER_TUNE.glShadow` — bit-identical
+    // at 0.35 and 1.0 (NaN does not vary), `getUniform` reading the strength back correctly (the
+    // strength was never the broken uniform), skipping the depth pass changing nothing (the bug is
+    // not on the sun path), and a black city. The ground was untouched because `floor.js` is a
+    // separate program that never reads `uShadow`.
+    //
+    // The guard below is the cheap insurance: this class of collision is silent in both directions,
+    // and a shape check is the only thing that would have caught it.
+    const key = opts.key || [0.78, 0.59, 0.33];
+    let sh = opts.shadow;
+    if (sh && !Array.isArray(sh)) { if (!warnedShadowShape) { warnedShadowShape = true; console.warn('GLASS 2: draw({shadow}) wants an [r,g,b]; got', sh, '— the sun descriptor belongs in sunShadow'); } sh = null; }
+    sh = sh || [0.13, 0.16, 0.21];
     const skyC = opts.skyTint || [0.59, 0.62, 0.59];
     gl.uniform3f(loc.key, key[0], key[1], key[2]);
     gl.uniform3f(loc.shadow, sh[0], sh[1], sh[2]);
@@ -602,6 +879,41 @@ export function createGLView(canvas, opts = {}) {
       gl.uniform3fv(loc.lightP, lightP); gl.uniform3fv(loc.lightC, lightC); gl.uniform1fv(loc.lightR, lightR);
       gl.uniform1f(loc.lightWrap, opts.lightWrap == null ? 0 : opts.lightWrap);
     }
+    // ── THE MATERIAL RESPONSE ───────────────────────────────────────────────────
+    //
+    // ⚠ THE STRENGTH IS WRITTEN ON EVERY FRAME, INCLUDING THE FRAMES WITH NO TABLE, for the same
+    // reason the shadow strength is: a uniform holds its last value, so a pass that only wrote this
+    // when it had something to say would leave the previous caller's strength standing — and this
+    // view object is shared by the game, the Modelshop preview and the bench.
+    const matStr = opts.mat && opts.mat.length ? (opts.matStr == null ? 1 : opts.matStr) : 0;
+    gl.uniform1f(loc.matStr, matStr);
+    if (matStr > 0) {
+      gl.uniform1f(loc.bumpStr, opts.bumpStr == null ? 1 : opts.bumpStr);
+      if (opts.mat !== matSrc) {
+        matSrc = opts.mat;
+        for (let i = 0; i < MAX_MATERIALS; i++) {
+          const r = opts.mat[i];
+          // ⚠ A ROW PAST THE END OF THE TABLE KEEPS THE HARMLESS DEFAULT rather than going to zero
+          // — gloss 0 is a mirror, not a matte. See the fill above.
+          matTab[i * 4] = r ? r.gloss : 1;
+          matTab[i * 4 + 1] = r ? r.metal : 0;
+          matTab[i * 4 + 2] = r ? r.fres : 0;
+          matTab[i * 4 + 3] = r ? r.bump : 0;
+          sheenTab[i] = r ? r.sheen : 0;
+        }
+      }
+      gl.uniform4fv(loc.matTab, matTab);
+      gl.uniform1fv(loc.sheenTab, sheenTab);
+      const eye = opts.eye || [0, 0, 0];
+      gl.uniform3f(loc.eye, eye[0], eye[1], eye[2]);
+      const eu = opts.envUp || skyC, ed = opts.envDn || sh;
+      gl.uniform3f(loc.envUp, eu[0], eu[1], eu[2]);
+      gl.uniform3f(loc.envDn, ed[0], ed[1], ed[2]);
+      // ⚠ ZERO WHEN THERE IS NO PAGE, which makes the relief taps land on the same texel they
+      // started from and the gradient exactly 0 — the right answer for a frame drawing flat palette
+      // colours, and one that needs no second branch in the shader to say so.
+      gl.uniform2f(loc.atlasTexel, atlasW ? 1 / atlasW : 0, atlasH ? 1 / atlasH : 0);
+    }
     const textured = hasAtlas && opts.textured !== false;
     gl.uniform1f(loc.textured, textured ? 1 : 0);
     if (textured) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(loc.atlas, 0); }
@@ -609,12 +921,12 @@ export function createGLView(canvas, opts = {}) {
     // its last value, so a pass that only set this when it had a shadow would leave the previous
     // frame's strength standing after sunset, against a depth texture belonging to an hour ago —
     // the city wearing yesterday afternoon's shadows all night.
-    gl.uniform1f(loc.shadowStr, sun ? opts.shadow.str : 0);
+    gl.uniform1f(loc.shadowStr, sun ? opts.sunShadow.str : 0);
     if (sun) {
-      gl.uniformMatrix4fv(loc.lightVP, false, new Float32Array(opts.shadow.lightVP));
+      gl.uniformMatrix4fv(loc.lightVP, false, new Float32Array(opts.sunShadow.lightVP));
       gl.uniform1f(loc.shadowTexel, sun.texel);
-      gl.uniform1f(loc.shadowBias, opts.shadow.bias);
-      const d = opts.shadow.sunDir;
+      gl.uniform1f(loc.shadowBias, opts.sunShadow.bias);
+      const d = opts.sunShadow.sunDir;
       gl.uniform3f(loc.sunDir, d[0], d[1], d[2]);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, sun.tex);
@@ -681,6 +993,17 @@ export function createGLView(canvas, opts = {}) {
     return L.draw(cam, cssH || canvas.height);
   }
 
+  // The wires, on the same depth buffer. Lazy like the others: a view with no mast, no rail and
+  // no light-runner in it never compiles the program.
+  let strokes = null;
+  const strokeLayer = () => (strokes || (strokes = createStrokeLayer(gl)));
+  function drawStrokes(cam, list, cssH) {
+    if (!list || !list.length) return 0;
+    const L = strokeLayer();
+    L.upload(list);
+    return L.draw(cam, canvas.width, canvas.height, cssH);
+  }
+
   // Ground scatter, on the same depth buffer. Lazy like the others.
   let bbs = null;
   const bbLayer = () => (bbs || (bbs = createBillboardLayer(gl)));
@@ -710,7 +1033,7 @@ export function createGLView(canvas, opts = {}) {
   const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
   function drawFloor(state) { return state ? floorLayer().draw(state) : 0; }
 
-  return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, setAtlas, lost: () => gl.isContextLost(),
+  return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

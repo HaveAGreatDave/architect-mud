@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Are you leaving anything?",
+    "Shall I put you down as collecting, or as forgetting?",
+    "What did you come in here holding?"
+  ],
+  "description": "A book the size of a door lies open on a stand that wasn't there, and it's keeping a list. Every item anybody has ever put down in this room is in it, in a hand that changes with the century.",
+  "drug_id": null,
+  "emotes": [
+    "A page turns itself, {it} makes a small note, and turns back.",
+    "{it} underlines something and looks pleased about it.",
+    "The stand under {it} adjusts its height, politely, to yours."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_default_ledger",
+  "looks": [
+    "The current page is today. Your own name is on it, twice, and you have only put down one thing.",
+    "Earlier entries are in languages the room has forgotten. The handwriting gets better going back.",
+    "There's a column for what was left and a column for whether it was collected. The second column is mostly empty."
+  ],
+  "matches": null,
+  "name": "a ledger of everything left here",
+  "says": [
+    "Nothing is ever really lost. It's filed.",
+    "You'd be amazed what people walk away from.",
+    "I don't judge. I just record."
+  ],
+  "scope": "object"
+}

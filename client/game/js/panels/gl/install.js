@@ -8,10 +8,10 @@
 // This module is that call, and it is the only place that knows both halves: it hands the GL pass
 // the renderer's own mesh capture, its own baked textures and its own palette, so nothing here has
 // an opinion about what a building is made of.
-import { installGLWorld, installGLClouds, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, glLightState, RENDER_TUNE } from '../windshield.js';
+import { installGLWorld, installGLClouds, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
 import { glWorldPass, glCloudPass } from './world.js';
 import { NEAR, FAR } from './camera.js';
-import { MAX_LIGHTS } from './context.js';   // the uniform budget the light pass asks for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
+import { MAX_LIGHTS, MAX_MATERIALS } from './context.js';   // the uniform budgets the light pass and the material table ask for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
 
 // What the last GL frame actually drew. A diagnostic rather than state: reading pixels back off a
 // composited canvas is unreliable (the drawing buffer is not preserved by default), so the pass
@@ -66,12 +66,16 @@ export function glCapabilities() {
   }
   // ⚠ THESE ARE COUNTED BY HAND AND HAVE TO BE RECOUNTED WHEN A SHADER GAINS A VARYING. The mass
   // pass carries vNormal 3 + vColor 3 + vUV 2 + vRamp 1 + vDepth 1 + vAlpha 1 + vFlat 1 + vJit 1 +
-  // vWorld 3 = 16, against a WebGL2 guarantee of 60. It is not close, which is exactly why the
-  // number is easy to leave stale — nothing fails when it is wrong, the report just stops being
-  // the answer to "will this machine run it".
-  // Point lights add uniforms rather than varyings: 3 arrays of MAX_LIGHTS plus a count and a wrap,
-  // 37 vectors against a guarantee of 224.
-  out.needs = { attribs: 8, varyingComponents: 16, fragUniformVectors: 3 * MAX_LIGHTS + 1 };
+  // vBakedAo 1 + vMat 1 + vWorld 3 = 18, against a WebGL2 guarantee of 60. It is not close, which is
+  // exactly why the number is easy to leave stale — nothing fails when it is wrong, the report just
+  // stops being the answer to "will this machine run it". ⚠ AND IT HAD GONE STALE: it read 16 and 8
+  // with vBakedAo already in the shader, so the baked occlusion term had been uncounted since it
+  // landed. Recount when you add one; there is nothing here that can do it for you.
+  // Uniforms rather than varyings: the point lights are 3 arrays of MAX_LIGHTS plus a count and a
+  // wrap, and the material table is 2 arrays of MAX_MATERIALS plus the eye, two environment colours,
+  // a texel size and two strengths — ~91 vectors against a guarantee of 224.
+  out.needs = { attribs: 9, varyingComponents: 18,
+    fragUniformVectors: 3 * MAX_LIGHTS + 1 + 2 * MAX_MATERIALS + 6 };
   out.ok = out.maxAttribs >= out.needs.attribs && out.maxVarying >= out.needs.varyingComponents;
   out.atlasWorstCase = out.maxTexture >= 4096
     ? 'every surface fits, textured'
@@ -103,6 +107,11 @@ export function installGL(hostFor) {
     const u = (c) => [c[0] / 255, c[1] / 255, c[2] / 255];
     return (lastStats = glWorldPass(opts.id || host.id || 'ws', host, cells, cam, {
       captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
+      // Which of the nineteen families a surface belongs to, and how each of them answers the
+      // light. Both come from windshield.js because that is where the families are DECLARED — a
+      // second table here would be a second opinion about what brick is, and the one thing this
+      // module is for is not having one.
+      wallMaterialId, roofMaterialId, matTable: wallMaterialTable(),
     }, {
       // ⚠ THIS LIST IS AN ALLOWLIST, NOT A SPREAD, so a new option added at the windshield end and
       // not added here is silently dropped one hop before the shader that reads it. Contact
@@ -113,12 +122,23 @@ export function installGL(hostFor) {
       // swept before anybody read this paragraph, and reported exactly the same 0.0% at every
       // strength. The note is the only reason that took minutes instead of an afternoon.
       sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, glBakedAo: opts.glBakedAo, msaa: opts.msaa, cssW: opts.cssW, cssH: opts.cssH,
+      // ⚠ AND `glWet` HAS TO BE HERE. This object is an ALLOWLIST, not a spread — two features have
+      // shipped inert by being wired at both ends and dropped in the middle, which is exactly what
+      // a missing line here produces: the tune key exists, the shader is correct, nothing happens.
+      glWet: opts.glWet,
+      // ⚠ AND SO DO THESE TWO, for the same reason and with the same failure. A material response
+      // wired at the windshield end and dropped here reports 0.0% of wall pixels moved at every
+      // strength — which is the third time that sentence has had to be written in this file.
+      glMat: opts.glMat, glBump: opts.glBump,
+      // And the map window's centre, for the same reason — the ground shader phases its puddles on
+      // absolute world tiles off it, and dropped here they would silently crawl along the road.
+      wc: opts.wc,
       // The sun's own depth pass. Both halves are needed and neither is derivable from the other:
       // `glShadow` is the strength the player set, `sun` is the frame's own light — the same two
       // numbers (`dir`, `len`) the ground hulls have always cast with, so the shadow on a wall and
       // the shadow on the pavement come from one source rather than two.
       glShadow: opts.glShadow, sun: opts.sun,
-      curtain: opts.curtain, decals: opts.decals, scatter: opts.scatter, ground: opts.ground,
+      curtain: opts.curtain, decals: opts.decals, strokes: opts.strokes, scatter: opts.scatter, ground: opts.ground,
       floor: opts.floor, now: opts.now,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,
       night: opts.night, nb: opts.nb,
@@ -135,6 +155,22 @@ export function installGL(hostFor) {
         // WINDOW rather than a constant: a truck asks for 15 tiles and an aeroplane for 34.
         fog: opts.fog ? u(opts.fog.col) : null,
         fogAmt: opts.fog ? opts.fog.amt : 0,
+        // ── WHAT A REFLECTION FINDS, AS TWO COLOURS ─────────────────────────────────────────
+        //
+        // An environment term needs somewhere for the reflected ray to land, and this renderer has
+        // no cube map, no probe and no reason to grow one: the sky in GLASS is a vertical gradient,
+        // so two colours and the ray's own elevation reproduce it. Up is the fog colour, which by
+        // contract tracks the sky (pale by day, dark blue at night); down is the vertex light's own
+        // base shadow, which is already the colour this renderer paints ground-side darkness.
+        //
+        // ⚠ WALLS ARE VERTICAL, SO THE GRADIENT HAS TO COME FROM THE REFLECTED RAY AND NOT FROM THE
+        // NORMAL. Every facade in the city has the same normal elevation — zero — so a sky/ground
+        // blend taken off `n` would be one flat colour on every wall and would look like a tint. It
+        // is the REFLECTION that swings: the top of a tower bounces the ground into your eye and the
+        // bottom bounces the sky, which is the gradient that makes a glass building read as glass
+        // and which moves as you drive past it.
+        envUp: opts.fog ? u(opts.fog.col) : u(L.sky),
+        envDn: u(L.shadow),
         hazeFar: opts.far, hazeNear: opts.far == null ? null : opts.far - (opts.haze || 0),
       },
     }));

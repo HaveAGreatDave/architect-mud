@@ -9,8 +9,16 @@
     },
     "onset_message": "<span class=\"msg-system\">It catches, a cheap bright little jolt behind the eyes.</span>",
     "onset_seconds": 3,
+    "overdose": {
+      "lethal": true,
+      "message": "Your chest clamps shut around a heart going far too fast to be doing any good."
+    },
     "phases": {
-      "comedown_message": "The jitter drains out of you.",
+      "comedown_message": [
+        "<span class=\"msg-system\">It drops you. The cheap ones always drop you.</span>",
+        "<span class=\"msg-system\">The bottom goes out of it and takes the afternoon with it.</span>",
+        "<span class=\"msg-system\">You get the bill for the last twenty minutes.</span>"
+      ],
       "comedown_mods": {
         "stat_cool": -1,
         "stat_reflexes": -1
@@ -20,6 +28,11 @@
       "comeup_message": "Your hands stop feeling like yours. Everything speeds up.",
       "comeup_scale": 0.5,
       "comeup_seconds": 10,
+      "peak_message": [
+        "<span class=\"msg-system\">The jitter arrives all at once and you go with it.</span>",
+        "<span class=\"msg-system\">Everything speeds up to meet you.</span>",
+        "<span class=\"msg-system\">Cheap and fast, exactly as advertised.</span>"
+      ],
       "peak_mods": {
         "stat_reflexes": 2
       },

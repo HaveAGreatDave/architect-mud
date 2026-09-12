@@ -48,6 +48,10 @@
     },
     "onset_message": "<span class=\"msg-system\">It doesn't ease in. It kicks the door off its hinges.</span>",
     "onset_seconds": 10,
+    "overdose": {
+      "lethal": true,
+      "message": "Your heart goes past what a heart does and the screaming turns out to have been yours."
+    },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The worst of it drains away, leaving you shaking and drenched and unconvinced it's really gone.</span>",
       "comedown_scale": 0.6,

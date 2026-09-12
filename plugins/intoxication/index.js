@@ -28,6 +28,7 @@ import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { applyMods, reverseMods } from '../../server/engine/statmods.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { wantsDrugFx } from '../../server/engine/drugs.js';
 
 // --- tunables ----------------------------------------------------------------
 const SLUR_MIN     = 30;   // speech starts slurring at/above this
@@ -148,13 +149,47 @@ function drainPending(player, amount) {
   return taken;
 }
 
-// Stream the drunkenness level to the client (drives the drunk flight-view warp).
-// Change-gated so it's near-silent while sober or steady, then follows the meter.
+// ── What being drunk LOOKS like ──────────────────────────────────────────────
+//
+// The meter is the authority on this, not the drug's phase arc. A pint's phases
+// run for half an hour whatever else you have had; the meter knows you are eight
+// drinks in, and eight drinks is the thing you can see. So the screen symptoms
+// ladder off the same three bands the speech, movement and blackout rules use —
+// no fourth set of thresholds to keep in step.
+//
+//   tipsy    the room leans and lets go
+//   drunk    ...and you cannot fix your eyes on it
+//   wasted   ...and there are two of everything, and the edges are going
+//
+// ⚠ NO `profile` in this payload. The windscreen warp is claimed by the separate
+// `setDrugFx('intox', 'drunk', …)` call the client already makes off `level`, and
+// two claims on one surface is the arc-flattening bug the trip plugin hit.
+function drunkScreenFx(lvl) {
+  if (lvl < SLUR_MIN) return null;
+  const screen = ['sway'];
+  if (lvl >= WOBBLE_MIN) screen.push('blur');
+  if (lvl >= BLACKOUT_MIN) screen.push('double', 'narrow');
+  return {
+    screen,
+    field: 'swim',
+    // Scaled from the band it STARTS at, not from zero, so crossing into tipsy
+    // is a visible change rather than an invisible one that ramps up later.
+    intensity: Math.max(0.2, Math.min(1, (lvl - SLUR_MIN) / (100 - SLUR_MIN))),
+    palette: 'blue',
+  };
+}
+
+// Stream the drunkenness level to the client (drives the drunk flight-view warp
+// and the screen FX above). Change-gated so it's near-silent while sober or
+// steady, then follows the meter.
 function pushIntoxFx(player) {
   const lvl = Math.round(player?.intoxication || 0);
   if (lvl === (player._intoxFxSent ?? -1)) return;
   player._intoxFxSent = lvl;
-  sendToPlayer(player.id, { type: 'intox_fx', level: lvl });
+  // The log rung gets the level (the flight warp is the client's own call off it)
+  // but never the screen symptoms — see `wantsDrugFx` in engine/drugs.js for why
+  // blurring and ghosting the log is the one thing that rung must not do.
+  sendToPlayer(player.id, { type: 'intox_fx', level: lvl, fx: wantsDrugFx(player) ? drunkScreenFx(lvl) : null });
 }
 
 on('player.drugUsed', ({ player, drug, potency }) => {

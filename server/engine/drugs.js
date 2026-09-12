@@ -31,6 +31,8 @@ import { emit } from './events.js';
 import { getTimeScale } from './gametime.js';
 import { STIM_FATIGUE_RELIEF, STIM_FATIGUE_INTEREST, adjustSanity } from './condition.js';
 import { sendToPlayer } from './messaging.js';
+import { feelText } from './drug-feel.js';
+import { resolveDrugFx } from '../../client/shared/drug-fx.js';
 
 let DRUG_CACHE = {};
 // The same rows, indexed by the ITEM they sit on. Built in the same pass as
@@ -450,6 +452,73 @@ function withdrawalPhase(sinceOnset, wd) {
 
 export const WITHDRAWAL_PHASES = ['onset', 'rising', 'peak', 'easing', 'tail'];
 
+// ── ONE MESSAGE OR MANY ──────────────────────────────────────────────────────
+//
+// Every authored line in the drug schema — `peak_message`, `comedown_message`,
+// `end_message`, `comeup_message`, `onset_message`, `comeon_message`, every
+// `withdrawal.stages` beat and every `overdose.message` — accepts EITHER a
+// string or an ARRAY OF STRINGS, and an array is rolled.
+//
+// The reason is that these fire on a schedule. A regular smoker sees the same
+// five sentences in the same order several times a day, and prose read for the
+// fortieth time stops being read at all — which is a real cost, because these
+// lines are the only place most drugs ever tell you what they are doing. One
+// helper at every read site rather than a second "messages" field beside every
+// "message" one, so nothing already authored changes shape and a drug that wants
+// variety gets it by turning its string into a list.
+//
+// ⚠ Non-strings in the list are dropped rather than stringified: a `null` left
+// behind by an editor would otherwise print the word "null" at somebody's peak.
+export function pickLine(v) {
+  if (Array.isArray(v)) {
+    const opts = v.filter(s => typeof s === 'string' && s.length);
+    return opts.length ? opts[Math.floor(Math.random() * opts.length)] : null;
+  }
+  return typeof v === 'string' && v.length ? v : null;
+}
+
+// ── PUSHING THE LOOK OF A DRUG AT THE CLIENT ─────────────────────────────────
+//
+// The FX arc rides the phase engine that already exists: `tickDrugs` knows the
+// exact moment a drug moves come-up → peak → comedown, so a substance's visual
+// signature follows its own curve with no second clock, no new tick and nothing
+// to keep in sync. `resolveDrugFx` is the law (client/shared/drug-fx.js) and is
+// shared with the renderer, so the server cannot name an effect the client does
+// not draw.
+//
+// `source` is the ledger key, not the drug id, so two spliced compounds off the
+// same carrier row are two sources rather than one overwriting the other.
+function pushDrugFx(player, drug, phase, potency, stateKey) {
+  const fx = wantsDrugFx(player) ? resolveDrugFx(drug, phase, potency) : null;
+  const source = `drug:${stateKey}`;
+  sendToPlayer(player.id, fx
+    ? { type: 'drug_fx', source, ...fx }
+    : { type: 'drug_fx', source, clear: true });
+}
+
+// ⚠ THE LOG RUNG GETS NO FX AT ALL, and this is a requirement rather than a
+// nicety. That rung's whole promise is that every panel comes off and what is
+// left is the log — so blurring the view, ghosting duplicates off every line and
+// closing a dark vignette over the one thing the player is reading is the exact
+// opposite of what they asked for. The prose still tells them everything: the
+// phase messages fire, and `feelText` says what the drug is doing to the body.
+//
+// Sync by contract: `player.displayRung` is LATCHED on the live player object by
+// `setDisplayRung`, precisely so a hot path can ask without an await. This runs
+// on the one-second tick, so it may never become a flag read.
+export function wantsDrugFx(player) {
+  return player?.displayRung !== 'log';
+}
+
+// ⚠ Clearing is NOT optional and has no timeout behind it. The client holds a
+// source until it is told otherwise — deliberately, because only the server
+// knows when a phase ended — so every path that stops a drug has to come through
+// here or the player is left tripping over a sober room for the rest of the
+// session. The paths are: expiry (tickDrugs), overdose, death and logout.
+function clearDrugFxFor(player, stateKey) {
+  sendToPlayer(player.id, { type: 'drug_fx', source: `drug:${stateKey}`, clear: true });
+}
+
 export async function loadDrugs() {
   const { rows } = await query('SELECT * FROM drugs');
   const cache = {};
@@ -668,7 +737,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     // A spliced compound's inline blob carries no take_line, so fall back to the
     // carrier drug's — otherwise the authored line would be dead for every splice.
     : (() => {
-        const authored = eff.take_line || drug.effects?.take_line;
+        const authored = pickLine(eff.take_line) || pickLine(drug.effects?.take_line);
         return authored ? String(authored).replace(/\{name\}/g, displayName) : `You take ${displayName}.`;
       })();
   let message = opts.takeLine != null
@@ -727,6 +796,9 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   if (overdosed) {
     // Cancel any active buff + trip for this drug.
     reverseMods(player, `drug:${stateKey}`);
+    // The look goes with the buff. An overdose that left the come-up's FX running
+    // would be a player watching the world breathe through a blackout.
+    clearDrugFxFor(player, stateKey);
     if (player.activeDrugs) player.activeDrugs = player.activeDrugs.filter(a => a.drugId !== stateKey);
     // ...and any dose of it still waiting to land. Without this, a non-lethal OD on
     // an onset drug still gets hit by the deferred instant it just cancelled.
@@ -743,7 +815,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
       : '';
 
     if (eff.overdose?.lethal) {
-      const odMsg = eff.overdose.message || "You've taken too much. Everything stops.";
+      const odMsg = pickLine(eff.overdose.message) || "You've taken too much. Everything stops.";
       return { success: true, overdose_death: true, message: `${message}${addictedLine}\n<span class="overdose-warning">⚠ ${odMsg}</span>${cause}` };
     }
     // Non-lethal overdose: burst of penalty (legacy behaviour + new overdose.mods).
@@ -789,9 +861,10 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
       halluc: eff.hallucination ? { potency: effPotency } : null,
       drug: drugForHooks,
       broadcast,
-      landMessage: eff.onset_message || null,
+      landMessage: eff.onset_message || null,   // rolled at LANDING, not here — see tickOnsets
     });
-    if (eff.comeon_message) result.message += `\n${eff.comeon_message}`;
+    const comeon = pickLine(eff.comeon_message);
+    if (comeon) result.message += `\n${comeon}`;
   } else {
     result = applyEffects(player, scaledInstant, message, diuretic);
     if (eff.hallucination) {
@@ -806,7 +879,15 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     // Timed-consumption callers (the consume plugin) narrate the whole physical
     // act themselves and suppress the come-up line, which would otherwise read as
     // "you light up" AFTER a 15-second smoke has already finished.
-    if (phases.comeup_message && !opts.suppressComeupMessage) result.message += `\n${phases.comeup_message}`;
+    if (!opts.suppressComeupMessage) {
+      const cu = pickLine(phases.comeup_message);
+      if (cu) result.message += `\n${cu}`;
+      // The come-up's own share of the peak block, described. Scaled down by
+      // `comeup_scale`, so this is usually the faintest band — "you might be
+      // imagining it" — which is exactly what a come-up is.
+      const feel = feelText(scaleMods(buffModsOf(phases.peak_mods || {}), (phases.comeup_scale ?? 1) * effPotency), { limit: 2 });
+      if (feel) result.message += `\n${feel}`;
+    }
   }
 
   return result;
@@ -825,7 +906,11 @@ export function tickOnsets(player) {
     const r = applyEffects(player, o.deltas, '', o.diuretic);
     if (Object.keys(r.player_update).length) sendToPlayer(player.id, { type: 'player_update', ...r.player_update });
     if (o.halluc) fireHook('drug.used', { player, drug: o.drug, potency: o.halluc.potency, broadcast: o.broadcast }).catch(e => console.error('[drugs] delayed drug.used hook failed (no trip):', e.message));
-    if (o.landMessage) messages.push(o.landMessage);
+    // Rolled HERE rather than at dose time: an onset message is written for the
+    // moment it arrives, and a list stored on the pending entry would have picked
+    // its line before the come-up even started.
+    const land = pickLine(o.landMessage);
+    if (land) messages.push(land);
     return false;
   });
   return messages;
@@ -904,10 +989,19 @@ function startPhasedDrug(player, drug, phases, potency, stateKey) {
     comeup_scale: phases.comeup_scale ?? 1,
     comedown_scale: phases.comedown_scale ?? 1,
     messages: { peak: phases.peak_message, comedown: phases.comedown_message, end: phases.end_message },
+    // The drug row itself, so the phase tick can resolve this drug's FX without
+    // a cache lookup that a spliced compound would miss — a splice has no `drugs`
+    // row at all and carries its whole composed blob on the entry.
+    drug,
     tickAcc: {},
   };
   applyMods(player, `drug:${stateKey}`, scaleMods(buffModsOf(entry.peak_mods), entry.comeup_scale * potency));
   player.activeDrugs.push(entry);
+  // The come-up is a phase like any other, and it is the one the player is
+  // actually watching for. `tickDrugs` only fires on a CHANGE of phase, and the
+  // entry is born in 'comeup', so without this the first act of every drug in the
+  // game would be the only one with no look at all.
+  pushDrugFx(player, drug, 'comeup', potency, stateKey);
 }
 
 // Called once per second from the game loop. Advances each active drug through
@@ -925,7 +1019,9 @@ export function tickDrugs(player) {
 
     if (elapsed >= total) {
       reverseMods(player, source);
-      if (entry.messages.end) messages.push(entry.messages.end);
+      clearDrugFxFor(player, entry.drugId);
+      const endLine = pickLine(entry.messages.end);
+      if (endLine) messages.push(endLine);
       // You rode it all the way out, so you now know how long it holds you.
       // Someone who tops up before the end never finds out.
       learnDrugFact(player.id, entry.drugId, DRUG_FACTS.DURATION);
@@ -950,9 +1046,20 @@ export function tickDrugs(player) {
 
     if (phase !== entry.phase) {
       entry.phase = phase;
-      applyMods(player, source, scaleMods(buffModsOf(modsNow), scale * entry.potency));
-      const m = phase === 'peak' ? entry.messages.peak : phase === 'comedown' ? entry.messages.comedown : null;
+      const applied = scaleMods(buffModsOf(modsNow), scale * entry.potency);
+      applyMods(player, source, applied);
+      // The LOOK of the drug moves with its own arc — the phase engine is the
+      // only clock that knows this moment, so the FX rides it rather than growing
+      // a timer of its own.
+      pushDrugFx(player, entry.drug, phase, entry.potency, entry.drugId);
+      const m = pickLine(phase === 'peak' ? entry.messages.peak : phase === 'comedown' ? entry.messages.comedown : null);
       if (m) messages.push(m);
+      // ...and the body says what the numbers just did to it. Derived from the
+      // block that was actually applied (tolerance, dose strength and phase scale
+      // already in it), so it can never promise something the mods do not do —
+      // and so every drug that has ever existed got this without being authored.
+      const feel = feelText(applied);
+      if (feel) messages.push(feel);
       // A full peak is where the compound actually shows you what it does — the
       // come-up is scaled down and the comedown is it leaving. Reach the peak and
       // the stat effects stop being a mystery.
@@ -1102,7 +1209,7 @@ function applyWithdrawal(player, states, now, writes, allRows = states) {
       const phase = withdrawalPhase(elapsed - onset, wd);
       if (phase && player._withdrawalPhase.get(state.drug_id) !== phase) {
         player._withdrawalPhase.set(state.drug_id, phase);
-        const line = wd.stages?.[phase] ?? (phase === 'onset' ? wd.message : null);
+        const line = pickLine(wd.stages?.[phase]) ?? (phase === 'onset' ? pickLine(wd.message) : null);
         if (line) messages.push(`<span class="withdrawal-warning">${line}</span>`);
         // On the BEAT, never per minute — severity drifts every tick, and a
         // subscriber woken sixty times an hour would have to debounce a clock it
@@ -1260,7 +1367,7 @@ export async function getDrugStatus(player) {
         ? Math.max(1, Math.round((drug?.overdose_threshold ?? 3) * (1 + toleranceLethal * OD_TOLERANCE_BONUS)))
         : null,
       addictive: (known & DRUG_FACTS.ADDICTION) ? true : null,
-      withdrawal: (known & DRUG_FACTS.WITHDRAWAL) ? (wd.message || 'It takes something back.') : null,
+      withdrawal: (known & DRUG_FACTS.WITHDRAWAL) ? (pickLine(wd.message) || 'It takes something back.') : null,
     };
 
     return {
@@ -1331,6 +1438,11 @@ export function clearActiveDrugBuffs(player) {
   if (!player) return;
   for (const source of Object.keys(player._modLedger || {}))
     if (/^(drug|withdrawal):/.test(source)) reverseMods(player, source);
+  // ⚠ Before activeDrugs is emptied, because the list IS the record of which FX
+  // sources are live. The client holds a source until it is told otherwise (only
+  // the server knows when a phase ends), so a death or a logout that skipped this
+  // hands the next session a screen that is still on something.
+  for (const a of player.activeDrugs || []) clearDrugFxFor(player, a.drugId);
   player.activeDrugs = [];
   player.pendingOnsets = [];
   player._visibleDrug = null;      // a fresh clone doesn't wear the last one's pupils

@@ -1490,8 +1490,8 @@ Note the split: the USE action gates on the **tag** `tv`, while `doUseTv` then l
 | `selectcassette <broadcastId>` | Switches the deck's active cassette among ones already in its library, without needing to carry the tape (used by panel row clicks) |
 
 The plugin also owns the **media-deck piracy** verbs (`pirate`, `pirateresolve`, `air`) and the
-emergency-broadcast verbs (`airemergency`, `endemergency`) — see the broadcast row in
-[docs/plugins.md](plugins.md) for what each does.
+**Emergency Broadcast System** verbs (`ebs`, `airemergency`, `endemergency`, below) — see the
+broadcast row in [docs/plugins.md](plugins.md) for what each does.
 
 ---
 
@@ -1503,6 +1503,7 @@ Implemented in `plugins/broadcast/index.js` (search `Media Deck`).
 - While a deck has `deck_active` set, its messages **override** the linked channel's own programming for any zone-tuned viewers (`_getDeckMessage()` takes priority over `getCurrentMessage()` in `broadcastTick()`). Ejecting clears `deck_active` and removes that broadcast from `deck_cassettes`, so the deck goes idle and the channel falls through to its own programming — if the channel has nothing else scheduled, `broadcastTick()`'s existing off-air logic kicks in and viewers see static / the channel's offline graphic, exactly as it would for any other no-content channel state. A deck-message lookup cache (`_deckCache`, 10s TTL) is explicitly invalidated on load/eject so this transition isn't delayed by the cache.
 - Cassette items are `items` rows with a deterministic id `item_cassette_<showname>` (broadcast name, slugified) and `tags.media_cassette = true` / `tags.broadcast_id`. The same id convention is used both by the dev-panel BSM import flow (`POST /broadcast/cassette`) and by `eject`, so the two paths always converge on one item definition per broadcast rather than creating duplicates. Only one cassette can exist per broadcast — if a *different* broadcast's name slugifies to the same id, `_ensureCassetteItem` throws (`CASSETTE_NAME_COLLISION`) instead of overwriting; `POST /broadcast/cassette` returns `409` and `eject`'s fallback-create path returns an in-game error.
 - The media deck panel (`client/game/js/panels/mediadeck.js`, markup in `client/game/index.html`) shows a cartridge "slot" that slides a cartridge graphic into view when a cassette is active, a scrollable library list (click a row to `selectcassette`), a read-only schedule preview, and a LOAD / EJECT button row (LOAD sends `load cassette`, EJECT sends `eject`).
+
 
 ### Small-format players (`flags.mini_deck`) — the betamax
 
@@ -1610,6 +1611,107 @@ set to a real station — and while that NPC is in the room, they will put it ba
 Scoped to zones that currently contain a **player**: a tape reverting in an empty room is both
 unobservable and a pointless write, and sweeping ~5,800 zones a minute to find out would cost
 more than the feature is worth. (This is the broadcast plugin's only engine hook.)
+
+
+---
+
+## The Emergency Broadcast System
+
+*Built.* `plugins/broadcast/index.js` (search `Emergency Broadcast System`), client console in
+`client/game/js/panels/ebconsole.js`. The Echelon's Emergency Broadcast Console
+(`furn_echelon_emergency_deck`, in `zone_echelon_broadcast`) is the only machine in Architect
+that can seize every tuned television at once.
+
+It is a media deck by flag (`media_deck`) and nothing like one in use: no channel, no schedule,
+no transport. `use <console>` routes it to its own surface, and the whole surface is `ebs`
+sub-verbs.
+
+| Command | Behaviour |
+|---|---|
+| `ebs` / `ebs status` | Opens the console (or prints its readout at the Display Mode `log` rung) |
+| `ebs on` | Throws the switch. Every tuned set in the city carries the console's source |
+| `ebs off` | Releases the airwaves; normal programming resumes |
+| `ebs source cassette` \| `ebs source live` | Which source goes to air |
+| `ebs cam <n\|name>` | Cuts the live feed to one of the studio's cameras |
+| `ebs tape <n\|name>` | Loads one of the console's bulletins |
+| `ebs ticker <text\|off>` | The crawl along the bottom of every screen in the city |
+| `airemergency [id]` / `endemergency` | The older way in. Same switch, same rules |
+
+Admin/dev only, on every sub-verb but `close`.
+
+### The four rules
+
+**The switch is the only RAM-only part.** What the console is set up to DO — source, camera,
+ticker — is configuration and lives on the deck's own furniture flags (`eb_mode`, `eb_cam`,
+`eb_ticker`), exactly where the pirate console keeps `pirate_crawl`. Whether the switch is
+currently THROWN is not: a city-wide hijack that survives a restart is a thing nobody in the
+room did, so a reboot releases the air and remembers the bulletin.
+
+**The system is its own transmitter, and the test lives in one function.** A seized channel is
+not putting out its own programme, so asking whether its gallery still has power is asking about
+a station that is no longer transmitting. ⚠ Before this, `channelTransmitterLive` sent a dark
+channel off_air BEFORE the override was ever consulted, and the hijack missed exactly the screens
+a hijack is for. `if (emergencyOverride) return true` is the first line of that function rather
+than a test at each of its three call sites, because a fourth call site is one more chance for
+two expressions to disagree.
+
+**LIVE puts the ROOM on air, not a picture of it.** A camera in a room with people in it should
+carry what those people do, which is the same audience seam the studio relay already is, pointed
+at every set in the city instead of one channel's. So somebody stands in front of the camera and
+speaks, and the city hears it. ⚠ What a camera can see is decided once, in `_relayableAir`, shared
+by both relays — never re-air the show's own performance, foot traffic is not television, and a
+room event is HTML that has to shed its transport on the way to a screen that escapes. ⚠ And the
+studio relay **stands down entirely** while the air is seized: no channel is carrying its own
+content, and if the emergency camera happened to be a channel's studio both relays would serve
+the same line to the same viewer.
+
+**An edit made while the switch is thrown has to reach the air.** The override snapshots its
+source when it is engaged, so writing the flag alone would leave the console reporting LIVE while
+the city went on watching the tape. `ebs source` and `ebs tape` re-engage through the one engage
+path, so a source that cannot go to air (live, no camera) refuses there in the same words it
+refuses anywhere else. ⚠ `ebs cam` deliberately does NOT re-engage — re-engaging restarts the
+bulletin, and a vision mix during a live address should not interrupt the address.
+
+### ⚠ A beat that repeats its key takes the channel off air
+
+The tick runs at 1s and every beat the system emits lasts longer than that: a bulletin line holds
+for its six-second `message_interval`, a ticker or a camera cut for its five-second slot.
+`broadcastTick` treats `result.key === state.lastMsgKey` **exactly as it treats no content at all**
+— `wasActive` goes false and the off-air static card is pushed to every viewer. So a beat emitted
+on all of its ticks showed content for one second and static for the rest. Measured before the fix:
+**5 content lines and 5 off-air cards over 20 seconds.**
+
+`_emergencyMessage` speaks only when the beat actually CHANGES, and answers `live_relay` on every
+other tick — the style the tick already understands as "the channel is up and carrying nothing of
+its own", and which the tablet tuner, the deck preview and catch-up all already skip. ⚠ The last
+beat is remembered **per channel** (`state._ebKey` on the runtime object), never on the override:
+the override is one object shared by every channel in the city, and a marker on it would hand the
+beat to whichever channel the tick reached first. ⚠ And it cannot read `state.lastMsgKey`, because
+the tick overwrites that with the hold's own key on the very next line.
+
+⚠ **The pirate console's `live` mode and its crawl have the same shape and are NOT fixed** — both
+key on a five-second slot (`pirlive:`, `pircrawl:`), so a seized station flickers the same way.
+
+### The ticker
+
+`style: 'ticker'` beats, which the TV panel already renders into the marquee strip along the
+bottom of the set (`_startTickerAnimation` in `client/game/js/panels/tv.js`). The crawl rides
+**one five-second slot in three**, the cadence the pirate crawl uses, so it re-scrolls alongside
+the content instead of replacing it. Clamped to `EB_TICKER_MAX` (200 chars) rather than rejected.
+
+### The studio
+
+Two cameras (`cam_echelon_eb_1`, `cam_echelon_eb_2`) and a gallery monitor
+(`furn_echelon_eb_monitor`, an ordinary `broadcast_receiver` tuned to 7). The monitor needs no
+special case: while the system is off it carries channel 7 like any other set, and while it is on
+it carries the hijack like any other set, which is the point of the hijack being a channel-level
+override rather than a delivery of its own.
+
+A camera can be NAMED by content — `media_cameras.flags.camera_label`, read by the roster in
+`loadChannelRuntimes`, the same field a camera droid already uses. Without it the only name a
+bolted-down unit can have is one derived from its id (`_cameraLabel` pulls the crew number out of
+`cam_<channel>_3_<ts>`), so "Camera 2" has to be smuggled into the primary key.
+
 
 ## Game Client — Passive vs Active
 

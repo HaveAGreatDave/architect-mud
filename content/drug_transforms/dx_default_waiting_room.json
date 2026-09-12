@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Would you like to wait?",
+    "Do you know what you're here for?",
+    "Have you been called yet?"
+  ],
+  "description": "The furniture has resolved into a row of hard chairs, bolted together, worn shiny in the middle of each seat. All of them are facing a door that isn't in this wall.",
+  "drug_id": null,
+  "emotes": [
+    "{it} creaks, all along the row, as though somebody just shifted.",
+    "The clean chair at the end of {it} stays clean.",
+    "Something on the far side of {it} settles in for another hour."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_default_waiting_room",
+  "looks": [
+    "The wear on the seats is from people, and there have been a great many people.",
+    "One chair at the end is clean and unworn. It's the only one that's never been sat in.",
+    "There are marks on the floor where feet have moved, back and forth, for a long time."
+  ],
+  "matches": null,
+  "name": "a row of chairs that have been waiting longer than you",
+  "says": [
+    "You can sit. It doesn't speed anything up.",
+    "They'll call you.",
+    "Everyone says that, and then they sit down."
+  ],
+  "scope": "object"
+}

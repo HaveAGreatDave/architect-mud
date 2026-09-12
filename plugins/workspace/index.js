@@ -339,16 +339,46 @@ async function runPlan(plan, player, broadcast) {
   return { type: 'output', message: lines.join('\n') };
 }
 
+// `prepare <target> with <a>, <b>, <c>` — lay several things into one container
+// in a single act. Same runner, same rules; only the planner differs.
+//
+// ⚠ THE RECIPE FORM IS TRIED FIRST, ALWAYS, and the load form is reached only
+// when the recipe planner did not RECOGNISE the name — `plan.unknown`, never
+// merely `plan.error`.
+//
+// A player can rename a saved recipe to anything, so "Beans with Pork" is a legal
+// recipe name, and a positional read of ` with ` would make it permanently
+// unpreparable. Falling through on any error is not enough either: short of the
+// pork, that recipe would be answered "there's no beans out here to put anything
+// in" — an error about a pan, for a sentence that was never about one.
+//
+// Trying the recipe first costs nothing on the batch path: a recipe miss is a
+// flag read and never reaches the provider's inventory scan.
+const WITH_FORM = /^(.+?)\s+with\s+(.+)$/i;
+
 async function cmdPrepare(args, raw, player, broadcast) {
   const providers = await providersFor(player);
   const provider = providers.find(p => typeof p.plan === 'function');
-  if (!provider) return { type: 'error', message: `There's nothing here that prepares anything.` };
+  const loader = providers.find(p => typeof p.planLoad === 'function');
+  if (!provider && !loader) return { type: 'error', message: `There's nothing here that prepares anything.` };
 
-  const plan = await provider.plan(player, args.join(' '));
-  if (!plan || plan.error) return { type: 'error', message: plan?.error || `Nothing to prepare.` };
-  if (!plan.steps?.length) return { type: 'error', message: `Nothing to do — it's already laid out.` };
+  const argStr = args.join(' ');
+  const plan = provider ? await provider.plan(player, argStr) : null;
+  if (plan && !plan.error) {
+    if (!plan.steps?.length) return { type: 'error', message: `Nothing to do — it's already laid out.` };
+    return runPlan(plan, player, broadcast);
+  }
 
-  return runPlan(plan, player, broadcast);
+  const m = WITH_FORM.exec(argStr);
+  if (m && loader && (!plan || plan.unknown)) {
+    const items = m[2].split(',').map(s => s.trim()).filter(Boolean);
+    const load = await loader.planLoad(player, m[1].trim(), items);
+    if (!load || load.error) return { type: 'error', message: load?.error || `Nothing to put in.` };
+    if (!load.steps?.length) return { type: 'error', message: `Nothing to do — it's already laid out.` };
+    return runPlan(load, player, broadcast);
+  }
+
+  return { type: 'error', message: plan?.error || `Nothing to prepare.` };
 }
 
 export const commands = {

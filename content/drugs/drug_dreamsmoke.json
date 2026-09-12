@@ -4,6 +4,30 @@
   "duration_seconds": 300,
   "effects": {
     "diuretic": 0.85,
+    "fx": {
+      "intensity": 0.7,
+      "phases": {
+        "comedown": {
+          "field": "embers",
+          "screen": [
+            "blur"
+          ]
+        },
+        "comeup": {
+          "field": "embers",
+          "screen": [
+            "breathe"
+          ]
+        },
+        "peak": {
+          "field": "bloom",
+          "screen": [
+            "breathe",
+            "melt"
+          ]
+        }
+      }
+    },
     "hallucination": {
       "duration_seconds": 300,
       "events": [
@@ -33,6 +57,15 @@
       "sanity": 12,
       "thirst": 6
     },
+    "overdose": {
+      "lethal": false,
+      "message": "The smoke keeps coming and you can't find the part of the night where you stop.",
+      "mods": {
+        "sanity": -30,
+        "stat_cool": -3,
+        "stat_reflexes": -4
+      }
+    },
     "phases": {
       "comedown_scale": 0.5,
       "comedown_seconds": 80,
@@ -49,6 +82,7 @@
     "take_line": "You pack a bowl of {name} and burn it down.",
     "tolerance": {
       "gain_per_dose": 0.15,
+      "lethal_gain_ratio": 0,
       "max_reduction": 0.7
     },
     "withdrawal": {

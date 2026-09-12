@@ -4,6 +4,9 @@
   "duration_seconds": 1800,
   "effects": {
     "diuretic": 2,
+    "fx": {
+      "intensity": 0.22
+    },
     "instant": {
       "hunger": 3,
       "sanity": 3,
@@ -15,7 +18,11 @@
       "message": "You've had far too much, far too fast. The room spins hard, your stomach heaves, and then everything just… stops. Alcohol poisoning."
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">Somewhere in the last while your mouth turned to paper and the lights got louder.</span>",
+      "comedown_message": [
+        "<span class=\"msg-system\">The warmth pulls back in and leaves your head heavy.</span>",
+        "<span class=\"msg-system\">You come down the far side of it, and the far side is dry and loud.</span>",
+        "<span class=\"msg-system\">The good half is over. The rest of it is still in you.</span>"
+      ],
       "comedown_mods": {
         "sanity_regen_per_sec": -0.004,
         "stat_brains": -2,
@@ -29,7 +36,11 @@
       "comeup_scale": 0.3,
       "comeup_seconds": 240,
       "end_message": "<span class=\"msg-system\">It finishes with you, and leaves you tired in a way that sleeping has already failed to fix.</span>",
-      "peak_message": "<span class=\"msg-system\">The warmth catches up with you all at once. The room is friendly. Your opinions are excellent.</span>",
+      "peak_message": [
+        "<span class=\"msg-system\">The warmth gets all the way out to your hands.</span>",
+        "<span class=\"msg-system\">Everything in the room becomes easier to be in.</span>",
+        "<span class=\"msg-system\">The drink arrives properly. You are, briefly, excellent company.</span>"
+      ],
       "peak_mods": {
         "sanity_regen_per_sec": 0.015
       },

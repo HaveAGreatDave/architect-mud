@@ -36,6 +36,27 @@
 //       consistent in direction, and only on machines with no WebGL2 or a lost context.
 //   ⚠ One machine, discrete NVIDIA card. "Falls back correctly" is not "is fast on an integrated
 //   GPU", and integrated hardware is exactly where GLASS 1 is most likely to be the one running.
+//
+// 288,869 → 307,309 (+6.4%) — the three institutional arms rebuilt, plus the cab's glazing tier and
+//   the derived neon run. `models:quality`'s worst-first board is dominated by buildings that are a
+//   box and a lid in ONE palette, and `police` (civic 18
+//   + police 2 + Precinct 9 = 21 tiles), `clinic` (16) and `office` (8) were the three biggest by
+//   reach: 45 tiles between them, more than every other arm on that board combined. Each gained a
+//   base course, a second and third mass in a second palette, and one shape that says what the
+//   building IS — a portico, a service wing, a lift core. Score: "more than one wall palette"
+//   151 → 158 of 173, all-four 140 → 147, box-and-lid 26 → 21.
+//   Timed on a street made ENTIRELY of those three archetypes, ten deep both sides, cab seat at
+//   night — a deliberate worst case, since a real street is mixed. 70 frames after 25 warm-up,
+//   adaptive dials pinned, two runs per setting, against main HEAD on the same machine:
+//     GLASS 2 (ships):    2.8/2.3 ms → 4.0/3.3 ms
+//     GLASS 1 (fallback): 55.0/53.5 ms → 58.5/56.7 ms  (+6.5%, which AGREES with the call count —
+//       the proxy and the clock do not disagree here, so there is nothing to adjudicate)
+//   ⚠ THE GLASS 2 FIGURE IS NOT ATTRIBUTABLE TO THE ARMS ALONE. The tree it was measured in also
+//   carries the GL adornment phase, the derived kit's banding and the glazing tier, none of which
+//   exist at HEAD — so +1.1 ms is an upper bound on the arms and not a measurement of them. What it
+//   does establish is the frame that ships is still under 4 ms on the worst street in the city.
+//   ⚠ AND THE FALLBACK WAS ALREADY 54 ms ON THIS SCENE. A 6.5% rise on a renderer that is at 18 fps
+//   before the change is not the number that should decide whether a city looks like a city.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';

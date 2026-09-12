@@ -937,7 +937,7 @@ async function loadChannelRuntimes() {
       'SELECT id, zone_id, streaming_channel_id FROM media_cameras WHERE is_streaming = 1 AND is_powered = 1'
     );
     const { rows: allCams } = await query(
-      'SELECT id, zone_id, direction, is_powered, is_damaged FROM media_cameras ORDER BY zone_id, id'
+      'SELECT id, zone_id, direction, is_powered, is_damaged, flags FROM media_cameras ORDER BY zone_id, id'
     );
     cameraZoneStatus.clear();
     zoneCameras.clear();
@@ -947,7 +947,13 @@ async function loadChannelRuntimes() {
       else if (!cameraZoneStatus.has(cam.zone_id)) cameraZoneStatus.set(cam.zone_id, false);
       if (!working) continue;
       const list = zoneCameras.get(cam.zone_id) || [];
-      list.push({ id: cam.id, direction: cam.direction || 'all', label: _cameraLabel(cam.id, list.length) });
+      // A fixed camera may be NAMED by content (`flags.camera_label`), exactly as a
+      // camera droid already is in _camerasIn. Without it the only name a bolted-down
+      // unit can have is one derived from its id, so 'Camera 2' has to be smuggled
+      // into the primary key — which is how the studio builder does it and is not
+      // something a hand-authored camera should have to imitate.
+      const cflags = (cam.flags && typeof cam.flags === 'object') ? cam.flags : {};
+      list.push({ id: cam.id, direction: cam.direction || 'all', label: cflags.camera_label || _cameraLabel(cam.id, list.length) });
       zoneCameras.set(cam.zone_id, list);
     }
     // An ad is a BROADCAST, not a list of lines: its graph is what carries the title
@@ -4642,6 +4648,21 @@ function _playDeckItem(item, state, nowMs) {
     }
     if (item.playback_mode === 'sports') {
       if (!sportsAiring(item.sportsScript)) return null;   // between featured games — dark
+      // ⚠ A TAPE MAY NOT SHADOW A DIFFERENT LEAGUE'S SCHEDULED GAME, and the reason is
+      // that both walk the SAME channel blackboard. The deck outranks the schedule
+      // (_resolveTickMessage is `deckResult || getCurrentMessage`), and a cassette carries
+      // no day mask — only its script's airSlots — so a Deadball tape left in KSAB's own
+      // deck offered a ballgame in the 18:00 block on the three nights that belong to
+      // Cluster Puck. The deck answered on the ticks the schedule was mid-hold and the
+      // schedule answered on the rest, tickBroadcastGraph reset and re-sought on every
+      // change of _broadcastId, and neither show ever got past its title card. The null
+      // ticks that produced then read as the off-air card, so the symptom was a DEAD
+      // CHANNEL rather than "the wrong programme is on" — which is the hard part to
+      // diagnose and the reason this is a guard rather than a note. Same sport, no
+      // conflict: on a Deadball night the tape and the slot are one broadcast, which is
+      // exactly why only the hockey nights broke.
+      const scheduledSport = sportOnChannel(state.channelId);
+      if (scheduledSport && scheduledSport !== sportOf(item.sportsScript).id) return null;
       const g = getSportsGraph(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
       return g ? tickBroadcastGraph(state.channelId, g, state, nowMs, sportsSegElapsedSec()) : null;
     }
@@ -4660,20 +4681,114 @@ function _playDeckItem(item, state, nowMs) {
 // override is active, every channel plays the emergency feed instead of its own
 // content, and normal programming resumes the instant it's cleared. Only ONE feed,
 // city-wide — this is the single global counterpart to the per-deck pirate override.
-let emergencyOverride = null; // { broadcastId, item } | null
+//
+// THE SYSTEM IS A SWITCH, AND THE SWITCH IS THE ONLY PART THAT IS RAM-ONLY. What the
+// console is SET UP to do — which source, which camera, what the ticker says — is
+// configuration, and it lives on the deck's own furniture flags (`eb_mode`, `eb_cam`,
+// `eb_ticker`), exactly where the pirate console keeps `pirate_crawl`. Whether the
+// switch is currently THROWN is not: a city-wide hijack that survives a restart is a
+// thing nobody in the room did, and the honest fail-safe is that the airwaves come
+// back. So a reboot releases the air and remembers the bulletin.
+let emergencyOverride = null; // { broadcastId, item, mode, ticker, camZoneId, camLabel, deckId } | null
 
 const _EMERGENCY_COLS = 'playback_mode, messages, message_interval, broadcast_graph, fallback_messages, weather_pools, sports_pools';
 
-export async function startEmergency(broadcastId) {
-  if (!broadcastId) return { ok: false, error: 'no broadcast id' };
-  const { rows } = await query(`SELECT ${_EMERGENCY_COLS} FROM media_broadcasts WHERE id=$1`, [broadcastId]).catch(() => ({ rows: [] }));
-  if (!rows[0]) return { ok: false, error: `no such broadcast: ${broadcastId}` };
-  emergencyOverride = { broadcastId, item: _deckItemFrom(broadcastId, rows[0]) };
+// A ticker rides ONE five-second slot in three, the cadence the pirate crawl already
+// uses, so the strip along the bottom of the set keeps re-scrolling alongside the
+// content instead of replacing it.
+const _EB_TICKER_SLOT = 3;
+const EB_TICKER_MAX = 200;
+
+// `opts`: { mode: 'cassette'|'live', ticker, camZoneId, camLabel, deckId }. A live
+// feed needs no tape, so the broadcast id is optional in that mode — which is the
+// whole reason this takes an options bag rather than a second positional argument.
+export async function startEmergency(broadcastId, opts = {}) {
+  const mode = opts.mode === 'live' ? 'live' : 'cassette';
+  let item = null;
+  if (mode === 'cassette' || broadcastId) {
+    if (!broadcastId) return { ok: false, error: 'no broadcast id' };
+    const { rows } = await query(`SELECT ${_EMERGENCY_COLS} FROM media_broadcasts WHERE id=$1`, [broadcastId]).catch(() => ({ rows: [] }));
+    if (!rows[0]) return { ok: false, error: `no such broadcast: ${broadcastId}` };
+    item = _deckItemFrom(broadcastId, rows[0]);
+  }
+  if (mode === 'live' && !opts.camZoneId) return { ok: false, error: 'no camera to cut to' };
+  // Every channel's "what did I last say" marker (see _emergencyMessage). Cleared on
+  // engage so a re-cut speaks immediately instead of holding for one tick on a beat
+  // key the previous engagement happened to end on.
+  for (const st of channelRuntime.values()) st._ebKey = null;
+  emergencyOverride = {
+    broadcastId: item ? broadcastId : null,
+    item,
+    mode,
+    ticker: opts.ticker ? String(opts.ticker).slice(0, EB_TICKER_MAX) : null,
+    camZoneId: opts.camZoneId || null,
+    camLabel: opts.camLabel || null,
+    deckId: opts.deckId || null,
+  };
   return { ok: true };
 }
 
 export function stopEmergency() { const was = !!emergencyOverride; emergencyOverride = null; return { ok: true, wasActive: was }; }
 export function emergencyActive() { return !!emergencyOverride; }
+// What the seized air is currently carrying. Read by the console (so its readout is
+// the live override rather than a second guess at it) and by regress.
+export function emergencyStatus() {
+  if (!emergencyOverride) return null;
+  const { broadcastId, mode, ticker, camZoneId, camLabel, deckId } = emergencyOverride;
+  return { broadcastId, mode, ticker, camZoneId, camLabel, deckId };
+}
+
+// Re-point a live override without releasing the air. A config edit made while the
+// switch is thrown has to reach the thing that is actually transmitting, or the
+// console reports one state and the city watches another.
+function _syncOverride(patch) {
+  if (emergencyOverride) Object.assign(emergencyOverride, patch);
+}
+
+// One beat of the seized air. Cassette mode plays the loaded bulletin exactly as a
+// deck would; live mode cuts to a camera and renders what it is pointed at through
+// the same `buildCameraSnapshot` every other live feed in the game uses.
+function _emergencyBeat(eo, state, nowMs) {
+  const slot = Math.floor(nowMs / 5000);
+  if (eo.ticker && slot % _EB_TICKER_SLOT === _EB_TICKER_SLOT - 1) {
+    return { text: eo.ticker, style: 'ticker', key: `ebticker:${slot}` };
+  }
+  if (eo.mode === 'live') {
+    if (!eo.camZoneId) return null;
+    const snap = buildCameraSnapshot(eo.camZoneId);
+    if (!snap) return null;
+    return { text: `[LIVE · ${eo.camLabel || 'STUDIO CAM'}] ${snap}`, style: 'raw', key: `eblive:${slot}` };
+  }
+  if (!eo.item) return null;
+  return _playDeckItem(eo.item, state, nowMs);
+}
+
+// ⚠ A BEAT THAT REPEATS ITS KEY TAKES THE CHANNEL OFF AIR, and every beat here lasts
+// longer than a tick. The tick runs at 1s and treats `result.key === state.lastMsgKey`
+// exactly as it treats no content at all: `wasActive` goes false and the off-air
+// static card is pushed to every viewer. A bulletin line holds for its six-second
+// `message_interval`, and a ticker or a camera cut holds for its five-second slot — so
+// emitted on all of their ticks, the seized air showed content for one second and
+// static for the rest. Measured before the fix: **5 content lines and 5 off-air cards
+// over 20 seconds.**
+//
+// The fix is to speak only when the beat actually CHANGES and to answer `live_relay`
+// on every other tick — the style the tick already understands as "the channel is up
+// and carrying nothing of its own", which every downstream pass (tablet tuner, deck
+// preview, catch-up) already skips. The last beat is remembered per CHANNEL on the
+// runtime object rather than on the override, because the override is one object
+// shared by every channel in the city and a marker on it would hand the beat to
+// whichever channel the tick reached first.
+//
+// ⚠ It cannot read `state.lastMsgKey`: the tick overwrites that with the hold's own
+// key on the very next line, so the beat would look new again one tick later.
+function _emergencyMessage(state, nowMs) {
+  const beat = _emergencyBeat(emergencyOverride, state, nowMs);
+  if (!beat) return null;
+  if (state && beat.key === state._ebKey) return { style: 'live_relay', key: `ebhold:${nowMs}` };
+  if (state) state._ebKey = beat.key;
+  return beat;
+}
 
 // The one place channel content is resolved for a tick. While an emergency override
 // is live it wins over everything (deck cassette, pirate, scheduled programming);
@@ -4684,7 +4799,7 @@ export function emergencyActive() { return !!emergencyOverride; }
 // the TV is standing rather than the channel's transmitter zone: there a deck may
 // only answer for the channel it is plugged into. See _zoneDeck.
 async function _resolveTickMessage(deckZoneId, state, nowMs, strict = false) {
-  if (emergencyOverride) return _playDeckItem(emergencyOverride.item, state, nowMs);
+  if (emergencyOverride) return _emergencyMessage(state, nowMs);
   const deckResult = deckZoneId ? await _getDeckMessage(deckZoneId, nowMs, state, strict) : null;
   return deckResult || await getCurrentMessage(state, nowMs);
 }
@@ -4716,6 +4831,15 @@ async function _resolveTickMessage(deckZoneId, state, nowMs, strict = false) {
 // and a channel counted as transmitting purely because a deck ROW existed for it. Ask
 // getZonePowerStatus, the same way _portableDeckLive now does.
 function channelTransmitterLive(state) {
+  // ⚠ THE EMERGENCY SYSTEM IS ITS OWN TRANSMITTER, AND THE TEST BELONGS HERE RATHER
+  // THAN AT EACH CALL SITE. A seized channel is not putting out its own programme —
+  // the Echelon is putting out the Echelon's, on that channel's frequency — so
+  // asking whether KSAB's gallery still has power is asking about a station that is
+  // no longer transmitting. Without this a dark channel went off_air BEFORE the
+  // override was ever consulted, and the hijack silently missed exactly the screens
+  // a hijack is for. There are three callers and a fourth would be one more chance
+  // for the expressions to disagree, so the answer lives in the one function.
+  if (emergencyOverride) return true;
   if (state.deckZoneId && getZone(state.deckZoneId)
       && getZonePowerStatus(state.deckZoneId) !== 'offline') return true;
   return (state.portableDeckZones || []).some(_portableDeckLive);
@@ -5832,23 +5956,20 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   // a working camera in the room to have a picture at all.
   const acted = state.channelType === 'live' || state.graphBlackboard?.activeBroadcastId;
   if (!acted || !state.wasActive) return;
+  // ⚠ THE AIR IS SEIZED — STAND DOWN. While an emergency override is up, no channel
+  // is carrying its own content, so a studio floor's chatter is going out over a
+  // frequency the Echelon now owns. This is also the dedup: the emergency's own
+  // relay already puts a live camera's room on every set in the city, and if that
+  // camera happens to be a channel's studio both relays would serve the same line
+  // to the same viewer.
+  if (emergencyOverride) return;
   if (!_camerasIn(zoneId).length) return;
-  // Never re-air the show's own performance — those lines reach air by the graph.
-  if (msg._fromBroadcast) return;
-  // Foot traffic is not television. A busy studio floor generates an arrive/depart
-  // line for every player and every NPC on a schedule, which buries the narration
-  // and the moments that actually matter. The camera stays on what people DO.
-  if (msg._movement) return;
-  // Only relay player-visible events (speech, say, zone_event) — not combat or system messages
-  if (msg.type !== 'output' && msg.type !== 'zone_event' && msg.type !== 'say') return;
-  if (!msg.message) return;
-  // A room event is HTML — the game log renders it with innerHTML, so speech arrives
-  // here as `<span class="speech-line">Name says, "…"</span>`. Every downstream screen
-  // (TV panel, deck preview, tablet tuner) runs its lines through `renderMarkup`, which
-  // HTML-ESCAPES first; the tags then air as literal text across the picture. Strip the
-  // markup once, here, so what goes to air is the line a viewer would have heard —
-  // and so a cassette records the line rather than the transport.
-  const airText = _plainAir(msg.message);
+  // What a camera can see is decided ONCE, in _relayableAir — never re-air the show's
+  // own performance, foot traffic is not television, and a room event is HTML that has
+  // to shed its transport on the way to a screen that escapes. The emergency system's
+  // relay asks the same question, and two copies of it would drift into disagreeing
+  // about what a camera can see.
+  const airText = _relayableAir(msg);
   if (!airText) return;
   const sentDeck = new Set();
   const sentTv = new Set();
@@ -5879,6 +6000,63 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   }
   state.wasActive = true;
 });
+
+// ── The emergency system's own relay ──────────────────────────────────────────
+// LIVE mode puts a camera on air, and a camera in a room with people in it should
+// carry what those people DO — which is the same audience seam the studio relay is,
+// pointed at every set in the city instead of one channel's. Everything about which
+// room events are televisable is decided once, in `_relayableAir` below, so the two
+// relays cannot drift into disagreeing about what a camera can see.
+function _relayableAir(msg) {
+  // Never re-air a show's own performance: those lines reach air by the graph.
+  if (msg._fromBroadcast) return null;
+  // Foot traffic is not television — an arrive/depart line for every body on a
+  // schedule buries the moments that actually matter.
+  if (msg._movement) return null;
+  if (msg.type !== 'output' && msg.type !== 'zone_event' && msg.type !== 'say') return null;
+  if (!msg.message) return null;
+  // A room event is HTML (the log renders it with innerHTML); every screen escapes,
+  // so the transport has to be shed on the way to air or the tags read as text.
+  return _plainAir(msg.message) || null;
+}
+
+// Put one line on EVERY receiver in the world, which is what the seized air means.
+// A player's set is on a channel and the client fans a line out to the views on that
+// channel, so each line is tagged with the channel that player is actually watching
+// rather than with a channel of the Echelon's own — the Echelon has none.
+function _airEmergencyLine(text, style = 'raw') {
+  if (!text) return;
+  const sent = new Set();
+  for (const [viewZoneId, channelMap] of zoneTunings) {
+    const players = getZonePlayers(viewZoneId);
+    if (!players.length) continue;
+    for (const player of players) {
+      if (sent.has(player.id)) continue;
+      const chId = tvWatchers.get(player.id) || [...channelMap.keys()][0];
+      if (!chId) continue;
+      sent.add(player.id);
+      const toLog = loggedPanelsSync(player);
+      sendToPlayer(player.id, { type: 'broadcast', message: text, channel: chId, style, ...(toLog ? { toLog: true } : {}) });
+      if (deckWatchers.get(player.id) === chId) {
+        sendToPlayer(player.id, { type: 'deck_broadcast', message: text, channel: chId, style });
+      }
+    }
+  }
+  // A tablet is a receiver like any other; skip anyone a tuned room already served.
+  for (const [playerId, tunedId] of tabletTuners) {
+    if (sent.has(playerId)) continue;
+    sent.add(playerId);
+    sendToPlayer(playerId, { type: 'broadcast', message: text, channel: tunedId, style });
+  }
+}
+
+on('zone.broadcast', ({ zoneId, msg }) => {
+  const eo = emergencyOverride;
+  if (!eo || eo.mode !== 'live' || eo.camZoneId !== zoneId) return;
+  const airText = _relayableAir(msg);
+  if (airText) _airEmergencyLine(airText);
+});
+
 
 // Display name for an anchor whose npc_id has no NPC row — a scripted show's
 // fictional cast (`npc_vic` → "Vic"). Both the live path and the mid-show seek
@@ -8252,7 +8430,10 @@ async function cmdAir(args, raw, player) {
       break;
     }
     case 'crawl': {
-      const text = args.slice(1).join(' ').trim();
+      // From `raw` — `args` is built off `raw.toLowerCase()`, and a breaking-news
+      // crawl that arrives in lower case is not the taunt anybody typed. Same rule
+      // the emergency console's ticker follows.
+      const text = String(raw || '').replace(/^\s*air\s+\S+\s*/i, '').trim();
       dflags.pirate_crawl = (!text || text.toLowerCase() === 'off') ? null : text.slice(0, 200);
       break;
     }
@@ -9008,7 +9189,15 @@ async function doUseMediaDeck(args, raw, player) {
   const lock = _deckLockError(dflags, player);
   if (lock) return lock;
   // The captor gets the pirate console; an admin/dev gets the legacy management panel.
+  // ⚠ THE PIRATE CHECK STAYS FIRST. The Echelon's console carries `media_deck`, so it
+  // has always been a legal target for `pirate`, and a captor holding it must go on
+  // getting the console their seizure earned them rather than an admin surface they
+  // cannot work.
   if (dflags.pirate_owner === player.id) return buildPirateConsole({ ...deck, zone_id: player.current_zone }, player);
+  // The emergency console is a different machine wearing the same flag: no channel, no
+  // schedule, no transport, and every control on it is about what the city sees when
+  // the switch is thrown. It gets its own surface.
+  if ('emergency_deck' in dflags) return _emergencyReply(deck, player);
   return buildMediaDeckPanel(deck.id, player);
 }
 
@@ -9455,28 +9644,263 @@ registerAction({
   handler: ({ params = {} } = {}) => getZoneNowPlaying(params.zoneId) || {},
 });
 
-// ── Emergency broadcast verbs (the Echelon's special MediaDeck) ────────────────
-async function cmdAirEmergency(args, raw, player, broadcast) {
-  if (!_isDeckAdmin(player)) return { type: 'error', message: 'Only station administrators can seize the airwaves.' };
-  // Key presence off the world.furniture Map, exactly what the old
-  // `flags::text LIKE '%"emergency_deck"%'` scan tested.
-  const deckFurn = getZoneFurniture(player.current_zone).find(f => f.flags && 'emergency_deck' in f.flags);
-  if (!deckFurn) return { type: 'error', message: "There's no emergency broadcast deck here. This can only be done from the Echelon." };
-  const dflags = deckFurn.flags || {};
-  const broadcastId = args?.[0] || dflags.deck_active || dflags.emergency_broadcast_id;
+// ── Emergency Broadcast System (the Echelon's special MediaDeck) ───────────────
+//
+// One console, one switch, and everything else on it is set-up for what happens
+// when the switch is thrown. The whole surface is `ebs` sub-verbs and the panel is a
+// skin over them: every control the client draws sends a string a player could have
+// typed, which is what keeps the Display Mode rungs honest — at the bottom rung the
+// verbs ARE the console and nothing has to be re-implemented for them.
+//
+// SOURCE is the interesting half. CASSETTE plays the loaded bulletin, which is what
+// the deck has always done. LIVE cuts to a camera on the studio floor and airs both
+// the picture and the ROOM, so somebody has to stand in front of it and speak, and
+// what they say goes out over every set in Architect. That is deliberately not a
+// recording: the price of speaking to the city live is that the city hears whatever
+// actually happens in the room.
+const EB_SOURCES = ['cassette', 'live'];
+
+// The console's deck. Key presence off the world.furniture Map, exactly what the old
+// `flags::text LIKE '%"emergency_deck"%'` scan tested.
+function _emergencyDeckIn(zoneId) {
+  return (getZoneFurniture(zoneId) || []).find(f => f.flags && 'emergency_deck' in f.flags) || null;
+}
+
+// The cameras this console can cut to. A studio is WIRED: its cameras are on the end
+// of a cable that reaches the gallery, and the gallery is this room, so the console
+// offers the cameras standing in the room with it and nothing else. A camera across
+// the city is a location shoot, which is the portable mediadeck's job and not this
+// machine's. `_camerasIn` is the one roster reader in the plugin, so a camera droid
+// that walks in is offered here for free.
+function _emergencyCameras(deck) {
+  return _camerasIn(deck.zone_id).map((c, i) => ({
+    key: c.id,
+    label: c.label || `Camera ${i + 1}`,
+    direction: c.direction || 'all',
+    zoneId: deck.zone_id,
+    droid: !!c.droid,
+  }));
+}
+
+// Which camera the console is cut to: the one the operator chose if it is still
+// there, else whatever is left. A camera that has been unplugged or smashed falls
+// back rather than taking the feed down, because the alternative is a console that
+// reports a source it cannot air.
+function _emergencyCamera(deck, dflags) {
+  const cams = _emergencyCameras(deck);
+  if (!cams.length) return null;
+  return cams.find(c => c.key === dflags.eb_cam) || cams[0];
+}
+
+function _ebMode(dflags) { return dflags.eb_mode === 'live' ? 'live' : 'cassette'; }
+
+// Assemble the console payload. The on-air half is read from the LIVE override, so
+// the readout can never be a second guess at what the city is watching.
+async function buildEmergencyConsole(deck) {
+  const dflags = _deckFlags(deck);
+  const live = emergencyStatus();
+  const mode = _ebMode(dflags);
+  const cams = _emergencyCameras(deck);
+  const cam = _emergencyCamera(deck, dflags);
+  const lib = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
+  let cassettes = [];
+  if (lib.length) {
+    const { rows } = await query('SELECT id, name FROM media_broadcasts WHERE id = ANY($1)', [lib]).catch(() => ({ rows: [] }));
+    cassettes = lib.map(id => rows.find(r => r.id === id)).filter(Boolean);
+  }
+  const activeName = cassettes.find(c => c.id === dflags.deck_active)?.name || null;
+  return {
+    type: 'emergency_console',
+    deckId: deck.id,
+    deckName: deck.name,
+    on: !!live,
+    mode,
+    // What the switch is SET to do against what it is DOING. The two differ for
+    // exactly as long as it takes to throw it, and the console says so rather than
+    // pretending an edit went to air on its own.
+    airingMode: live?.mode || null,
+    airingSource: live
+      ? (live.mode === 'live' ? (live.camLabel || 'STUDIO CAM') : (activeName || live.broadcastId || 'bulletin'))
+      : null,
+    ticker: dflags.eb_ticker || '',
+    airingTicker: live?.ticker || '',
+    cameras: cams,
+    camera: cam?.key || null,
+    cassettes,
+    activeCassetteId: dflags.deck_active || null,
+    activeCassetteName: activeName,
+    tickerMax: EB_TICKER_MAX,
+  };
+}
+
+// The written form, for the Display Mode `log` rung. The panel is a skin over the
+// verbs, so at this rung the verbs are all there is and the readout has to carry
+// everything the panel would have drawn.
+function _emergencyConsoleText(c) {
+  const L = [];
+  const camLabel = c.cameras.find(x => x.key === c.camera)?.label;
+  L.push('<span class="msg-system">▓▓ EMERGENCY BROADCAST SYSTEM ▓▓</span>');
+  L.push(`  SYSTEM   ${c.on ? '<b>● ON AIR</b> — every set in Architect' : '○ OFF — carrying nothing'}`);
+  L.push(`  SOURCE   ${c.mode === 'live' ? 'LIVE CAMERA' : 'CASSETTE'}`);
+  L.push(`  FEED     ${escAttr(c.mode === 'live' ? (camLabel || 'no camera in this room') : (c.activeCassetteName || 'nothing loaded'))}`);
+  L.push(`  TICKER   ${c.ticker ? `"${escAttr(c.ticker)}"` : '(none)'}`);
+  if (c.cameras.length) {
+    L.push(`  CAMERAS  ${c.cameras.map((x, i) => `${i + 1}. ${escAttr(x.label)}${x.key === c.camera ? ' &lt;' : ''}`).join('   ')}`);
+  }
+  if (c.cassettes.length) {
+    L.push(`  TAPES    ${c.cassettes.map((x, i) => `${i + 1}. ${escAttr(x.name)}${x.id === c.activeCassetteId ? ' &lt;' : ''}`).join('   ')}`);
+  }
+  L.push('<span class="msg-dim">  ebs on | ebs off | ebs source cassette|live | ebs cam &lt;n&gt; | ebs tape &lt;n&gt; | ebs ticker &lt;text|off&gt;</span>');
+  return { type: 'output', message: L.join('<br>') };
+}
+
+// Either the panel or its written form, decided once so every sub-verb inherits it.
+async function _emergencyReply(deck, player) {
+  const c = await buildEmergencyConsole(deck);
+  return loggedPanelsSync(player) ? _emergencyConsoleText(c) : c;
+}
+
+// Throw the switch. ONE implementation, shared by `ebs on` and the older
+// `airemergency`: two ways in, never two sets of rules about what goes to air.
+async function _engageEmergency(deck, player, broadcast, broadcastIdArg) {
+  const dflags = _deckFlags(deck);
+  const ticker = dflags.eb_ticker || null;
+  if (_ebMode(dflags) === 'live') {
+    const cam = _emergencyCamera(deck, dflags);
+    if (!cam) return { type: 'error', message: 'No camera answers in here. Put one in the studio, or cut the source back to the tape: <b>ebs source cassette</b>.' };
+    const r = await startEmergency(null, { mode: 'live', ticker, camZoneId: cam.zoneId, camLabel: cam.label, deckId: deck.id });
+    if (!r.ok) return { type: 'error', message: `Can't go to air: ${r.error}.` };
+    broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} throws the EMERGENCY BROADCAST switch. The ON AIR lamp floods the room red and ${cam.label} swings round to face it.` }, player.id);
+    return { type: 'system', message: `⚠ EMERGENCY BROADCAST ENGAGED — LIVE on ${cam.label}. Every tuned television in Architect is watching this room, and hearing it. Type ENDEMERGENCY to release the airwaves.` };
+  }
+  const broadcastId = broadcastIdArg || dflags.deck_active || dflags.emergency_broadcast_id;
   if (!broadcastId) return { type: 'error', message: 'Load an emergency bulletin into the deck first, or name one: airemergency <broadcast id>.' };
-  const r = await startEmergency(broadcastId);
+  const r = await startEmergency(broadcastId, { mode: 'cassette', ticker, deckId: deck.id });
   if (!r.ok) return { type: 'error', message: `Can't go to air: ${r.error}.` };
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} throws the EMERGENCY BROADCAST switch. The ON AIR lamp floods the room red.` }, player.id);
   return { type: 'system', message: '⚠ EMERGENCY BROADCAST ENGAGED. Every tuned television in Architect now carries your feed. Type ENDEMERGENCY to release the airwaves.' };
 }
 
-function cmdEndEmergency(args, raw, player, broadcast) {
-  if (!_isDeckAdmin(player)) return { type: 'error', message: 'Only station administrators can release the airwaves.' };
+function _releaseEmergency(player, broadcast) {
   const r = stopEmergency();
   if (!r.wasActive) return { type: 'system', message: 'No emergency broadcast is currently on air.' };
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} cuts the emergency feed. The ON AIR lamp dies.` }, player.id);
   return { type: 'system', message: 'Emergency broadcast ended. Normal programming resumes across the city.' };
+}
+
+async function cmdAirEmergency(args, raw, player, broadcast) {
+  if (!_isDeckAdmin(player)) return { type: 'error', message: 'Only station administrators can seize the airwaves.' };
+  const deck = _emergencyDeckIn(player.current_zone);
+  if (!deck) return { type: 'error', message: "There's no emergency broadcast deck here. This can only be done from the Echelon." };
+  return _engageEmergency(deck, player, broadcast, args?.[0]);
+}
+
+function cmdEndEmergency(args, raw, player, broadcast) {
+  if (!_isDeckAdmin(player)) return { type: 'error', message: 'Only station administrators can release the airwaves.' };
+  return _releaseEmergency(player, broadcast);
+}
+
+// ebs [open|on|off|source <cassette|live>|cam <n|name>|tape <n|name>|ticker <text|off>|close]
+async function cmdEbs(args, raw, player, broadcast) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const sub = (args[0] || 'open').toLowerCase();
+  if (sub === 'close') return { type: 'emergency_console_close' };
+  if (!_isDeckAdmin(player)) return { type: 'error', message: 'Only station administrators can work the emergency broadcast system.' };
+  const deck = _emergencyDeckIn(player.current_zone);
+  if (!deck) return { type: 'error', message: "There's no emergency broadcast console here. This can only be done from the Echelon." };
+  const dflags = _deckFlags(deck);
+  let touched = false;
+
+  switch (sub) {
+    case 'open': case 'status': break;
+    case 'on': case 'air': {
+      const r = await _engageEmergency(deck, player, broadcast, null);
+      if (r.type === 'error') return r;
+      sendToPlayer(player.id, r);
+      break;
+    }
+    case 'off': case 'end':
+      sendToPlayer(player.id, _releaseEmergency(player, broadcast));
+      break;
+    case 'source': {
+      const want = (args[1] || '').toLowerCase();
+      if (!EB_SOURCES.includes(want)) return { type: 'error', message: 'Source: <b>ebs source cassette</b> or <b>ebs source live</b>.' };
+      dflags.eb_mode = want;
+      touched = true;
+      // ⚠ AN EDIT MADE WHILE THE SWITCH IS THROWN HAS TO REACH THE AIR. The override
+      // snapshots its source when it is engaged, so writing the flag alone would
+      // leave the console reporting LIVE while the city went on watching the tape.
+      // Re-engaging is the whole of the fix and it reuses the one engage path, so a
+      // source that cannot go to air (live, no camera) refuses here in the same
+      // words it refuses in anywhere else.
+      if (emergencyActive()) {
+        const re = await _engageEmergency({ ...deck, flags: dflags }, player, broadcast, null);
+        if (re.type === 'error') return re;
+      }
+      break;
+    }
+    case 'cam': case 'camera': {
+      const cams = _emergencyCameras(deck);
+      if (!cams.length) return { type: 'error', message: 'No camera answers in here.' };
+      const hint = args.slice(1).join(' ').trim().toLowerCase();
+      const byNum = /^\d+$/.test(hint) ? cams[parseInt(hint, 10) - 1] : null;
+      const cam = byNum || cams.find(c => c.key.toLowerCase() === hint || c.label.toLowerCase().includes(hint));
+      if (!cam) return { type: 'error', message: `No camera matches "${escAttr(hint) || '(nothing)'}". Cameras: ${cams.map((c, i) => `${i + 1}. ${c.label}`).join(', ')}.` };
+      dflags.eb_cam = cam.key;
+      dflags.eb_mode = 'live';
+      touched = true;
+      // Cutting between cameras is the one edit that must NOT re-engage: re-engaging
+      // restarts the bulletin, and a vision mix during a live address should not
+      // interrupt the address. The live override carries the source as plain fields,
+      // so re-pointing it is the whole operation.
+      _syncOverride({ mode: 'live', camZoneId: cam.zoneId, camLabel: cam.label });
+      break;
+    }
+    case 'tape': case 'cassette': {
+      const lib = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
+      if (!lib.length) return { type: 'error', message: 'The console holds no bulletin.' };
+      const hint = args.slice(1).join(' ').trim().toLowerCase();
+      const { rows } = await query('SELECT id, name FROM media_broadcasts WHERE id = ANY($1)', [lib]).catch(() => ({ rows: [] }));
+      const named = lib.map(id => rows.find(r => r.id === id)).filter(Boolean);
+      const byNum = /^\d+$/.test(hint) ? named[parseInt(hint, 10) - 1] : null;
+      const pick = byNum || named.find(b => b.id.toLowerCase() === hint || b.name.toLowerCase().includes(hint));
+      if (!pick) return { type: 'error', message: `No bulletin matches "${escAttr(hint) || '(nothing)'}".` };
+      dflags.deck_active = pick.id;
+      dflags.eb_mode = 'cassette';
+      touched = true;
+      if (emergencyActive()) {
+        const re = await _engageEmergency({ ...deck, flags: dflags }, player, broadcast, null);
+        if (re.type === 'error') return re;
+      }
+      break;
+    }
+    case 'ticker': case 'crawl': {
+      // ⚠ FROM `raw`, NEVER FROM `args`. The dispatcher builds `args` off
+      // `raw.toLowerCase()`, so a crawl taken from there goes out over every screen
+      // in the city as "stay indoors. this is not a drill." — which reads as a
+      // shouted sentence somebody muttered, and is not a thing a console could do
+      // wrong in life. Everything else here is an enum or an index and does not care.
+      const text = String(raw || '').replace(/^\s*ebs\s+\S+\s*/i, '').trim();
+      const off = !text || text.toLowerCase() === 'off';
+      dflags.eb_ticker = off ? null : text.slice(0, EB_TICKER_MAX);
+      touched = true;
+      // The ticker is the one setting that can be re-cut without re-engaging: it
+      // rides its own slot rather than being baked into the source.
+      _syncOverride({ ticker: dflags.eb_ticker || null });
+      sendToPlayer(player.id, { type: 'system', message: off
+        ? 'Ticker cleared. The strip along the bottom goes dark.'
+        : `Ticker set: "${escAttr(dflags.eb_ticker)}"${emergencyActive() ? ' — it is scrolling across the city now.' : ' — it scrolls the moment the system goes to air.'}` });
+      break;
+    }
+    default:
+      return { type: 'error', message: 'ebs [open|on|off|source &lt;cassette|live&gt;|cam &lt;n&gt;|tape &lt;n&gt;|ticker &lt;text|off&gt;|close]' };
+  }
+
+  if (touched) {
+    await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
+    deck.flags = dflags;   // reflect the edit in the console payload below
+  }
+  return _emergencyReply(deck, player);
 }
 
 export const commands = {
@@ -9501,6 +9925,7 @@ export const commands = {
   tv:    cmdTv,
   airemergency: cmdAirEmergency,
   endemergency: cmdEndEmergency,
+  ebs:   cmdEbs,
   load:  (args, raw, player) => {
     // A surveillance chip is a mini-cassette (media_cassette tag + a hidden
     // scripted broadcast of its footage), so `load chip`/`load footage …` plays a
@@ -9574,7 +9999,13 @@ export const _test = {
   channelTransmitterLive, absentReaction: _absentReaction, ABSENT_HOUSE, dispatchDroid: _dispatchDroid, shotOrder: _shotOrder, channelDroids: _channelDroids, locationCallState: _locationCallState, preshowActTick, maybeStartTangent: _maybeStartTangent,
   TANGENT_FLOOR, TANGENT_CHANCE,
   cameraLabel: _cameraLabel, pickCamera: _pickCamera, anyCastPresent: _anyCastPresent, zoneCameras,
-  plainAir: _plainAir,
+  plainAir: _plainAir, relayableAir: _relayableAir,
+  // The Emergency Broadcast System. `emergencyMessage` is the only way to assert what
+  // the seized air is actually carrying without standing a player in front of a set,
+  // and the ticker cadence is arithmetic that no amount of watching would prove.
+  emergencyMessage: _emergencyMessage, emergencyDeckIn: _emergencyDeckIn,
+  emergencyCameras: _emergencyCameras, emergencyCamera: _emergencyCamera,
+  buildEmergencyConsole, EB_TICKER_MAX,
   graphCastIds: _graphCastIds, stampOnAirCast: _stampOnAirCast, isOnAirNow: _isOnAirNow, ON_AIR_CAST_HOLD_MS,
   seekGraph: _seekGraph, nodeHoldMs, broadcastDuration, filmBlocksNeeded, filmRunElapsed,
   graphLapSec: _graphLapSec, actedSeekSec: _actedSeekSec,
@@ -9605,6 +10036,10 @@ export const _test = {
   // do with the code. The suite now sets this and restores it.
   seasonCaches: _seasonCaches,
   zoneDeck: _zoneDeck,
+  // The cassette player itself. Exposed because the only other way to see a tape
+  // shadowing the schedule is to watch a channel at the right hour on the right
+  // weekday, on the one surface that resolves against the deck's own room.
+  playDeckItem: _playDeckItem, sportOnChannel,
 };
 
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────

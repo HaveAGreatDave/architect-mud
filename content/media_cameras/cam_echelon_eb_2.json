@@ -1,0 +1,13 @@
+{
+  "direction": "all",
+  "flags": {
+    "camera_label": "Camera 2 (wide)"
+  },
+  "id": "cam_echelon_eb_2",
+  "is_damaged": 0,
+  "is_powered": 1,
+  "permissions": "crew",
+  "storage_limit": 200,
+  "streaming_channel_id": null,
+  "zone_id": "zone_echelon_broadcast"
+}

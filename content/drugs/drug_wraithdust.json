@@ -56,6 +56,10 @@
     },
     "onset_message": "<span class=\"msg-system\">The quiet finishes settling. You're no longer sure you're alone in here.</span>",
     "onset_seconds": 40,
+    "overdose": {
+      "lethal": true,
+      "message": "Your skin is burning dry and nothing in the room is where it was. You don't find the door."
+    },
     "phases": {
       "comedown_message": "The air thins out. You're alone again. You think.",
       "comedown_scale": 0.5,

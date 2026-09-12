@@ -24,7 +24,11 @@
       "comeup_scale": 0.5,
       "comeup_seconds": 30,
       "end_message": "<span class=\"msg-system\">The calm thins out. The sharp things are still there, waiting exactly where you left them.</span>",
-      "peak_message": "<span class=\"msg-system\">Nothing can reach you in here. Nothing wants to. It's almost restful.</span>",
+      "peak_message": [
+        "<span class=\"msg-system\">The room gets further away and stops mattering.</span>",
+        "<span class=\"msg-system\">You sink a long way into whatever you are sitting on.</span>",
+        "<span class=\"msg-system\">Everything soft-edges. Nothing needs deciding.</span>"
+      ],
       "peak_mods": {
         "sanity_regen_per_sec": 1,
         "stat_cool": 3,

@@ -1,17 +1,44 @@
 // PREPARATION WORKSPACE — the client half of the `workspace` HUD.
 //
 // A text panel, not an inventory screen. Monospace, rules, tables, status
-// readouts. No icons, no drag-and-drop, no cards. The point is density: the
-// whole working area on one screen, so the answer to "what am I actually doing"
-// is a glance instead of five examines.
+// readouts. No icons, no drag-and-drop, no rounded cards. The point is density:
+// the whole working area on one screen, so the answer to "what am I actually
+// doing" is a glance instead of five examines.
 //
 // This file holds NO game knowledge. It does not know what a pan is, what
 // "raw" means, or which verb chops an onion. It renders whatever the server put
 // in the payload — which is what lets a chemistry bench reuse it untouched.
 //
-// Phase 1 is read-only. There is nothing to click but Refresh and Close, and
-// the panel keeps no state the server needs to hear about: closing it is a
-// purely local act, refreshing it is one more `workspace`.
+// ── THE TWO HALVES ───────────────────────────────────────────────────────────
+//
+// The panel is a WORKING AREA beside a SUPPLY. Left is what is happening — the
+// pans, the heat, the water, the things going round in them; right is what you
+// could put into it. That split is the whole layout and it is not a decoration:
+// the first draft was one flat column in which a cooling fridge, a cupboard full
+// of crockery and a pan that was actively burning all had the same weight, and
+// the only thing on the panel with a clock was in the middle of it.
+//
+// ── TICKING, AND WHY IT IS NOT DRAG AND DROP ─────────────────────────────────
+//
+// Combining things is the act this HUD exists for and it used to be one hover,
+// one hunt and one click PER INGREDIENT, in a different row each time. Rows now
+// tick, and one press puts everything ticked into a chosen pan.
+//
+// It is a checkbox rather than a drag because a drag cannot be done with a
+// keyboard, cannot be done reliably on a touchscreen, and has no reading in the
+// log rung at all. A tick is a real `<input type="checkbox">` with a real
+// `<label>`, so the name is the hit target and the whole thing is operable by
+// Tab and Space.
+//
+// ⚠ THE BATCH IS ONE COMMAND, NOT N COMMANDS. See `sendBatch`.
+//
+// ── WHAT MAKES THIS SAFE TO KEEP GENERIC ─────────────────────────────────────
+//
+// Every control below is built from a ROLE the server stamped on an action, not
+// from a verb this file recognises. `heat` becomes a selector, `water` gets its
+// own slot, `take`/`stow` make a row tickable. An action with no role renders as
+// the chip it always did, so a new prep verb still appears the day it is
+// registered and nothing here has to learn its name.
 import { sendCmd, sendCmdSilent } from '../net.js';
 import { makeDraggable } from './confirm.js';
 
@@ -39,6 +66,15 @@ let wanted = new Map();
 let ordinals = new Map();
 // Set while a cook is in progress somewhere on the panel. See scheduleTick.
 let tickTimer = null;
+// The rows the player has TICKED, by id — what "put these together" operates on.
+// It survives a refresh (the panel re-asks after every action and on the cook
+// tick), and rows that have gone are dropped, the same way a stale recipe
+// highlight is: a tick against something that is no longer there would compose a
+// batch command naming food nobody has.
+let picked = new Set();
+// id -> the row, rebuilt every render. The batch command is composed from the
+// ticked rows' own names, so it needs somewhere to look them up.
+let rowIndex = new Map();
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -70,6 +106,7 @@ export function closeWorkspacePanel() {
   active = false;
   selected = new Set();
   wanted = new Map();
+  picked = new Set();
   if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; }
   el('workspace-panel')?.classList.remove('active');
 }
@@ -103,13 +140,40 @@ function scheduleTick(data) {
 // A `command` ending in a space is a PREFIX: the verb needs a second object the
 // HUD can't choose (`marinate steak in …`). Those fill the input line instead of
 // firing, which is the honest thing to do with a half-formed command.
+function actionBtn(a, cls = '') {
+  const partial = a.command.endsWith(' ');
+  return `<button class="wsp-act${partial ? ' wsp-act-partial' : ''}${a.state === 'on' ? ' wsp-on' : ''}${cls ? ` ${cls}` : ''}"`
+    + ` data-cmd="${esc(a.command)}"${a.state === 'on' ? ' aria-pressed="true"' : ''}`
+    + ` title="${esc(a.command.trim())}${a.hint ? ` — ${esc(a.hint)}` : ''}">${esc(a.label)}</button>`;
+}
+
 function actionStrip(actions) {
   if (!(actions || []).length) return '';
-  return `<span class="wsp-acts">` + actions.map(a => {
-    const partial = a.command.endsWith(' ');
-    return `<button class="wsp-act${partial ? ' wsp-act-partial' : ''}" data-cmd="${esc(a.command)}"`
-      + ` title="${esc(a.command.trim())}${a.hint ? ` — ${esc(a.hint)}` : ''}">${esc(a.label)}</button>`;
-  }).join('') + `</span>`;
+  return `<span class="wsp-acts">` + actions.map(a => actionBtn(a)).join('') + `</span>`;
+}
+
+// Split an action list by role. `rest` keeps declaration order and keeps
+// everything this file has no opinion about, which is what stops an unknown role
+// from vanishing off the panel.
+function byRole(actions, ...roles) {
+  const want = new Set(roles);
+  const taken = [], rest = [];
+  for (const a of actions || []) (want.has(a.role) ? taken : rest).push(a);
+  return { taken, rest };
+}
+
+// A LABELLED BANK OF CONTROLS on a station — `HEAT low [MID] high`.
+//
+// The label is what turns three chips into one control: without it the heat trio
+// read as three more buttons in a row of eight, and nothing said which of them
+// you were already on. `role="group"` so a screen reader announces it the same
+// way.
+function controlBank(label, actions) {
+  if (!(actions || []).length) return '';
+  return `<div class="wsp-bank" role="group" aria-label="${esc(label)}">`
+    + `<span class="wsp-bank-label">${esc(label)}</span>`
+    + actions.map(a => actionBtn(a, 'wsp-seg')).join('')
+    + `</div>`;
 }
 
 // The cook meter. PIPS, not a bar and never a countdown: `stage` is which beat
@@ -126,6 +190,28 @@ function cookMeter(cook) {
   const pips = Array.from({ length: cook.stages }, (_, i) => (i < cook.stage ? '●' : '○')).join('');
   return `<span class="wsp-pips${cook.phase === 'thaw' ? ' wsp-thaw' : ''}">${pips}</span>`;
 }
+
+// A row is TICKABLE when the server offered a way to MOVE it — take it out of a
+// box, or put it into a vessel. That is the whole test, and it is deliberately a
+// question about the payload rather than about food: a chemistry bench whose
+// reagents can be taken and stowed gets the tick for free, and a pan already on
+// the heat never gets one because there is nowhere left to put it.
+const canPick = (c) => (c.actions || []).some(a => a.role === 'take' || a.role === 'stow');
+
+// Set per render: does any station offer to take a handful of ticked rows?
+// While it does, the per-row `→ skillet` / `→ saucepan` chips are NOT drawn.
+//
+// They were one chip PER PAN PER ROW — a two-pan kitchen put two of them on
+// every raw ingredient, and they were what made a row wrap onto a second line —
+// and the tick does strictly more than they did: it works for one thing or six,
+// and it works on something still in the fridge, which `stow` cannot even reach.
+//
+// ⚠ THEY STAY IN THE PAYLOAD. They are what makes a row tickable at all (see
+// `canPick`), they carry the vessel id, and the LOG rung still prints them as
+// links — down there nothing ticks, so they are the only way to load a pan.
+// This hides a chip; it does not remove an action.
+let hasBatch = false;
+const shownActions = (c) => (hasBatch ? (c.actions || []).filter(a => a.role !== 'stow') : c.actions);
 
 function componentLine(c, indent = 0) {
   const notes = (c.notes || []).length ? `<span class="wsp-note"> · ${esc(c.notes.join(' · '))}</span>` : '';
@@ -149,9 +235,20 @@ function componentLine(c, indent = 0) {
     ? `<span class="wsp-mark">▸</span>`
       + (selected.size > 1 ? `<span class="wsp-ord">${[...by].sort().join('')}</span>` : '')
     : '';
-  return `<div class="wsp-row${c.live ? ' wsp-live' : ''}${by ? ' wsp-wanted' : ''}" style="padding-left:${indent * 14}px">`
-    + `${mark}<span class="wsp-name">${esc(c.name)}</span>${qty}${state}${meter}${notes}`
-    + actionStrip(c.actions) + `</div>`;
+  // A tickable row gets a real checkbox and a real label, so the NAME is the hit
+  // target and Tab/Space reach it. An untickable one keeps the plain span it
+  // always had — a disabled checkbox on every line in a pan would be a column of
+  // dead controls saying nothing.
+  const tick = canPick(c)
+    ? `<input type="checkbox" class="wsp-tick" id="wsp-pick-${esc(c.id)}" data-pick="${esc(c.id)}"${picked.has(c.id) ? ' checked' : ''}>`
+    : '';
+  const name = canPick(c)
+    ? `<label class="wsp-name" for="wsp-pick-${esc(c.id)}">${esc(c.name)}</label>`
+    : `<span class="wsp-name">${esc(c.name)}</span>`;
+  return `<div class="wsp-row${c.live ? ' wsp-live' : ''}${by ? ' wsp-wanted' : ''}${picked.has(c.id) ? ' wsp-picked' : ''}"`
+    + ` style="padding-left:${indent * 14}px">`
+    + `${mark}${tick}${name}${qty}${state}${meter}${notes}`
+    + actionStrip(shownActions(c)) + `</div>`;
 }
 
 function section(label, bodyHtml, emptyText) {
@@ -161,24 +258,59 @@ function section(label, bodyHtml, emptyText) {
     + `</div>`;
 }
 
+// ONE STATION — a pan, or a ring with nothing on it.
+//
+// A bordered block rather than a row, because a pan is the thing this panel is
+// about and a row is what everything else is. Inside, the controls come FIRST
+// and the contents second: what you are about to do to the pan is the decision,
+// and what is in it is the evidence for it.
+//
+// The control banks are built from roles, so this function names no verb. What
+// it does know is the ORDER a cook thinks in — heat, then water, then everything
+// else — and that ordering is the only opinion in it.
+function renderStation(v) {
+  const heatBank = byRole(v.actions, 'heat');
+  const waterBank = byRole(heatBank.rest, 'water');
+  // The badge is the FALLBACK, not a companion to the selector. Where there is a
+  // selector it already shows which ring is lit, and printing "burner mid" beside
+  // a highlighted MID is the same fact twice — which reads as two settings.
+  const heat = (v.heat && !heatBank.taken.length)
+    ? `<span class="wsp-heat">burner ${esc(v.heat)}</span>` : '';
+  const head = `<div class="wsp-row wsp-vessel${v.hot ? ' wsp-hot' : ''}${v.idle ? ' wsp-idle' : ''}">`
+    + `<span class="wsp-name">${esc(v.name)}</span>`
+    + `<span class="wsp-state"> — ${esc(v.place)}</span> ${heat}</div>`;
+
+  // A free burner is a place to put a pan, not a container: it has no inside, so
+  // it gets no "empty" line, no controls and no bank. The row IS the whole
+  // statement.
+  if (v.idle) return `<div class="wsp-station wsp-station-idle">${head}</div>`;
+
+  const controls = controlBank('Heat', heatBank.taken) + controlBank('Water', waterBank.taken);
+
+  const inner = (v.contents || []).length
+    ? v.contents.map(c => componentLine(c, 1)).join('')
+    : `<div class="wsp-row wsp-empty" style="padding-left:14px">empty</div>`;
+
+  // What is left over — cook, plate, taste, deglaze, scour, and anything with a
+  // role this file has never heard of. It sits under the contents because every
+  // one of them is a judgement about what is in the pan.
+  const foot = waterBank.rest.length
+    ? `<div class="wsp-row wsp-vessel-foot">${actionStrip(waterBank.rest)}</div>` : '';
+
+  // "Put the ticked things in THIS one." Only while something is ticked — an
+  // always-present button would be a control that does nothing most of the time.
+  const drop = (v.batch && picked.size)
+    ? `<div class="wsp-row wsp-drop"><button class="wsp-act wsp-drop-btn" data-batch="${esc(v.id)}"`
+      + ` title="${esc(v.batch.hint || v.batch.label)}">${esc(v.batch.label)} (${picked.size})</button></div>`
+    : '';
+
+  return `<div class="wsp-station${v.hot ? ' wsp-station-hot' : ''}">`
+    + head + controls + inner + foot + drop + `</div>`;
+}
+
 function renderArea(area) {
   if (!area.length) return '';
-  return area.map(v => {
-    // A vessel on the heat is the only thing on this panel that is moving, so
-    // it is the only thing that gets a colour.
-    const heat = v.heat ? `<span class="wsp-heat">burner ${esc(v.heat)}</span>` : '';
-    const head = `<div class="wsp-row wsp-vessel${v.hot ? ' wsp-hot' : ''}${v.idle ? ' wsp-idle' : ''}">`
-      + `<span class="wsp-name">${esc(v.name)}</span>`
-      + `<span class="wsp-state"> — ${esc(v.place)}</span> ${heat}`
-      + actionStrip(v.actions) + `</div>`;
-    // A free burner is a place to put a pan, not a container: it has no inside,
-    // so it gets no "empty" line under it. The row IS the whole statement.
-    if (v.idle) return head;
-    const inner = (v.contents || []).length
-      ? v.contents.map(c => componentLine(c, 1)).join('')
-      : `<div class="wsp-row wsp-empty" style="padding-left:14px">empty</div>`;
-    return head + inner;
-  }).join('');
+  return area.map(renderStation).join('');
 }
 
 // Everything highlighted that is currently sitting in a room container — i.e.
@@ -388,9 +520,101 @@ function selectRecipe(key) {
   if (lastData) render(lastData);
 }
 
+// ── Ticking, and the tray it fills ───────────────────────────────────────────
+
+// Rebuild id -> row, and drop ticks that no longer mean anything. A row that has
+// gone into a pan stops being tickable (there is nowhere left to put it), so a
+// successful batch unticks exactly what it moved and leaves behind whatever it
+// could not — which is the right thing to still have ticked.
+function indexRows(data) {
+  rowIndex = new Map();
+  const eat = (list) => { for (const c of list || []) if (c && c.id != null) rowIndex.set(c.id, c); };
+  eat(data?.components);
+  eat(data?.tools);
+  for (const v of data?.area || []) eat(v.contents);
+  for (const s of data?.storage || []) eat(s.items);
+  for (const id of [...picked]) {
+    const r = rowIndex.get(id);
+    if (!r || !canPick(r)) picked.delete(id);
+  }
+}
+
+// THE TRAY — what is ticked, and the one press that acts on all of it.
+//
+// It lives outside the scrolling body on purpose. A player ticks four things in
+// the fridge, scrolls up to the pans, and the whole point is that the button is
+// still there when they arrive.
+function renderTray(data) {
+  if (!picked.size) return '';
+  const rows = [...picked].map(id => rowIndex.get(id)).filter(Boolean);
+  if (!rows.length) return '';
+  const takeable = rows.filter(r => (r.actions || []).some(a => a.role === 'take'));
+  const btns = [];
+  // Only when some of them are still in a box. Once everything ticked is in your
+  // hands the button has nothing to do, and a dead control beside a live one is
+  // worse than no control.
+  if (takeable.length) {
+    btns.push(`<button class="wsp-act" id="wsp-tray-take" title="take them out, and leave them ticked">`
+      + `take ${takeable.length}</button>`);
+  }
+  for (const v of (data.area || [])) {
+    if (!v.batch || v.idle) continue;
+    btns.push(`<button class="wsp-act wsp-drop-btn" data-batch="${esc(v.id)}"`
+      + ` title="${esc(v.batch.hint || v.batch.label)}">${esc(v.batch.label)}</button>`);
+  }
+  btns.push(`<button class="wsp-act" id="wsp-tray-clear" title="untick everything">clear</button>`);
+  return `<div class="wsp-tray-in">`
+    + `<span class="wsp-tray-count">${rows.length} ticked</span>`
+    + `<span class="wsp-tray-names">${esc(rows.map(r => r.name).join(', '))}</span>`
+    + `<span class="wsp-tray-acts">${btns.join('')}</span></div>`;
+}
+
+// ⚠ THE BATCH IS ONE COMMAND, NOT ONE PER ROW.
+//
+// Firing four `stow`s from the browser looks identical and is wrong in three
+// ways: they interleave at every await on the server, they spend the
+// connection's whole rate-limit burst, and — the one that actually bites — a
+// step that raises a SIFT disambiguation would have the REST OF THE BATCH read
+// as answers to it. The server's plan runner is serial, stops on the first
+// failure and stops dead at a prompt, so the batch goes through that.
+//
+// This file still holds no verb knowledge: `prefix` and `sep` came off the
+// payload and the names came off the rows. It concatenates; it does not compose.
+function sendBatch(vesselId) {
+  const v = (lastData?.area || []).find(a => String(a.id) === String(vesselId));
+  if (!v?.batch) return;
+  // Insertion order — the order the player ticked them, which is the order they
+  // go in the pan. In a kitchen where the method is half the dish, that is not
+  // an arbitrary order to preserve.
+  const names = [...picked].map(id => rowIndex.get(id)?.name).filter(Boolean);
+  if (!names.length) return;
+  sendCmd(v.batch.prefix + names.join(v.batch.sep || ', '));
+  sendCmdSilent('workspace');
+}
+
+// Several id-addressed commands in a row, paced so the connection's token bucket
+// never sees a burst. `pullid` cannot raise a disambiguation — that is the whole
+// reason it is id-shaped — so unlike the batch above these are safe to send one
+// at a time from here.
+const DRIP_MS = 250;
+function drip(cmds) {
+  cmds.forEach((c, i) => setTimeout(() => { if (active) sendCmd(c); }, i * DRIP_MS));
+  setTimeout(() => { if (active) sendCmdSilent('workspace'); }, cmds.length * DRIP_MS);
+}
+
+function takePicked() {
+  drip([...picked]
+    .map(id => (rowIndex.get(id)?.actions || []).find(a => a.role === 'take')?.command)
+    .filter(Boolean));
+}
+
 function render(data) {
   lastData = data;
+  // Before anything is drawn: a row's chip strip depends on whether the panel has
+  // a better way to load a pan than a chip per pan.
+  hasBatch = (data?.area || []).some(v => v.batch && !v.idle);
   recomputeWanted(data);
+  indexRows(data);
   scheduleTick(data);
 
   el('workspace-title').textContent = data.title || 'WORKSPACE';
@@ -402,7 +626,12 @@ function render(data) {
     ? others.map(p => `<button class="wsp-act" data-cmd="workspace ${esc(p.key)}" title="workspace ${esc(p.key)}">${esc(p.key)}</button>`).join('')
     : (data.provider ? `[${esc(data.provider)}]` : '');
 
-  const body = [];
+  // TWO COLUMNS: the working area, and what you could put into it. Everything
+  // with a clock in it is on the left; everything you pick from is on the right.
+  const work = [];
+  work.push(section('On the surface', renderArea(data.area || []), 'nothing out — no pan, no free ring'));
+
+  const supply = [];
   // One button for the whole highlighted shelf. It fires the same `pullid` the
   // per-row Take button does, once each — a convenience over existing verbs, not
   // a new mechanic, which is why it needs nothing on the server.
@@ -410,13 +639,22 @@ function render(data) {
   const pullAll = toPull.length
     ? `<div class="wsp-row wsp-pullall"><button class="wsp-act" id="wsp-take-marked">take the ${toPull.length} marked</button></div>`
     : '';
-  body.push(section('Storage', renderStorage(data.storage || []) + pullAll, 'no storage in reach'));
-  body.push(section('Preparation Area', renderArea(data.area || []), 'nothing out'));
-  body.push(section('Components',
+  supply.push(section('To hand',
     (data.components || []).map(c => componentLine(c)).join(''), 'nothing to hand'));
+  supply.push(section('In reach', renderStorage(data.storage || []) + pullAll, 'no storage in reach'));
   if ((data.tools || []).length) {
-    body.push(section('Tools', data.tools.map(c => componentLine(c)).join(''), ''));
+    // Tools are the one list you never pick FROM — they are a statement about
+    // what the room lets you do. One line, not a column of rows.
+    supply.push(section('Tools',
+      `<div class="wsp-row wsp-toolline">${data.tools.map(c => esc(c.name)).join(' · ')}</div>`, ''));
   }
+
+  const body = [`<div class="wsp-grid"><div class="wsp-col">${work.join('')}</div>`
+    + `<div class="wsp-col">${supply.join('')}</div></div>`];
+
+  // The recipes run the full width under both columns. They are reference, not
+  // the working area, and a recipe card is prose — it reads badly in a half
+  // column beside a pan.
   if (data.assistant) {
     body.push(section('Recipe Assistant', renderAssistant(data.assistant), 'nothing to suggest'));
     // ...and the card for each recipe you have open, below it. Nothing is open
@@ -432,6 +670,7 @@ function render(data) {
 
   el('workspace-body').innerHTML = body.join('');
   el('workspace-status').innerHTML = renderStatus(data.status || []);
+  el('workspace-tray').innerHTML = renderTray(data);
 }
 
 // ── wiring ───────────────────────────────────────────────────────────────────
@@ -462,18 +701,51 @@ export function initWorkspacePanel() {
   });
   // Delegated: the body is rewritten on every refresh, so per-button listeners
   // would leak one set per build.
+  // A tick is state, not a command — it changes nothing on the server, so it
+  // re-renders locally and sends nothing at all. `change` rather than `click`, so
+  // Space on a focused checkbox counts the same as a mouse.
+  el('workspace-body').addEventListener('change', (e) => {
+    const box = e.target.closest('.wsp-tick');
+    if (!box) return;
+    const id = box.getAttribute('data-pick');
+    // The id came out of the DOM as a string and the payload's ids are numbers
+    // for inventory rows — so it is matched back against the index rather than
+    // trusted, or every tick would be a key nothing else in the panel knows.
+    const key = [...rowIndex.keys()].find(k => String(k) === id);
+    if (key === undefined) return;
+    if (box.checked) picked.add(key); else picked.delete(key);
+    if (lastData) render(lastData);
+  });
   el('workspace-body').addEventListener('click', (e) => {
     if (e.target.id === 'wsp-take-marked') {
-      for (const id of wantedInStorage(lastData)) sendCmd(`pullid ${id}`);
-      sendCmdSilent('workspace');
+      drip(wantedInStorage(lastData).map(id => `pullid ${id}`));
       return;
     }
+    // The "put the ticked things in this pan" button that sits on a station,
+    // beside the pan it names. The tray carries the same button for the case
+    // where the pans have scrolled out of sight.
+    const dropBtn = e.target.closest('[data-batch]');
+    if (dropBtn) { sendBatch(dropBtn.getAttribute('data-batch')); return; }
     // `.wsp-run` is a whole runbook step; `.wsp-act` is a chip on a row. Both
     // carry one command in `data-cmd`, and both run the same way.
     const btn = e.target.closest('.wsp-act, .wsp-run');
     if (btn) { runAction(btn.getAttribute('data-cmd')); return; }
+    // A tick is a label click, and a label click is not a recipe click. Without
+    // this, ticking an onion inside an open recipe's row would also close the
+    // recipe underneath it.
+    if (e.target.closest('.wsp-tick, label.wsp-name')) return;
     const recipe = e.target.closest('[data-recipe]');
     if (recipe) selectRecipe(recipe.getAttribute('data-recipe'));
+  });
+  el('workspace-tray').addEventListener('click', (e) => {
+    if (e.target.id === 'wsp-tray-clear') {
+      picked = new Set();
+      if (lastData) render(lastData);
+      return;
+    }
+    if (e.target.id === 'wsp-tray-take') { takePicked(); return; }
+    const dropBtn = e.target.closest('[data-batch]');
+    if (dropBtn) sendBatch(dropBtn.getAttribute('data-batch'));
   });
   // The provider switcher lives in the header, and is the same kind of button.
   el('workspace-provider').addEventListener('click', (e) => {

@@ -32,6 +32,15 @@
       "sanity": -12
     },
     "onset_seconds": 0,
+    "overdose": {
+      "lethal": false,
+      "message": "You are shown the whole of it at once, and you weren't built to hold the whole of it.",
+      "mods": {
+        "sanity": -42,
+        "stat_brains": -5,
+        "stat_cool": -6
+      }
+    },
     "phases": {
       "comedown_scale": 0.4,
       "comedown_seconds": 40,
@@ -48,6 +57,7 @@
     "take_line": "You take a single breath of {name}.",
     "tolerance": {
       "gain_per_dose": 0.2,
+      "lethal_gain_ratio": 0,
       "max_reduction": 0.6
     }
   },

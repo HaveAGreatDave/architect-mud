@@ -1,0 +1,18 @@
+{
+  "asks": [],
+  "description": "The room is where it was, but you're seeing what it's built on: the older room under this one, and the older one under that, all of them still faintly in use.",
+  "drug_id": null,
+  "emotes": [],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxr_default_underneath",
+  "looks": [
+    "Three sets of doorways overlap in the same wall, at three different heights.",
+    "There's a floor about a foot below the floor, and it's worn in different places.",
+    "The oldest one is barely a shape, and it's the one everything else has agreed to sit on."
+  ],
+  "matches": null,
+  "name": "the room, with the room taken off",
+  "says": [],
+  "scope": "room"
+}

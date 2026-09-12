@@ -3,10 +3,14 @@
   "description": "A soft pack of cheap cigarettes. Each one shaves a little off your lungs and hands it to your image.",
   "duration_seconds": 300,
   "effects": {
+    "fx": {
+      "none": true
+    },
     "instant": {
       "sanity": 3
     },
     "overdose": {
+      "message": "Your head goes light and grey at the edges and your mouth tastes of pennies.",
       "mods": {
         "hp": -5,
         "sanity": -8
@@ -21,8 +25,16 @@
       "comeup_message": "<span class=\"msg-system\">You light up and draw deep. Your shoulders drop; the edge comes off your hunger.</span>",
       "comeup_scale": 0.6,
       "comeup_seconds": 4,
-      "end_message": "<span class=\"msg-system\">The cigarette burns down to the filter. The cool goes with it; the craving stays.</span>",
-      "peak_message": "<span class=\"msg-system\">Nicotine hums through you. You feel, briefly, extremely cool and very slightly winded.</span>",
+      "end_message": [
+        "<span class=\"msg-system\">Down to the filter. You think about the next one.</span>",
+        "<span class=\"msg-system\">Nothing left but the taste, and the taste is not why you did it.</span>",
+        "<span class=\"msg-system\">Gone. You already know how long it is until the next one.</span>"
+      ],
+      "peak_message": [
+        "<span class=\"msg-system\">The nicotine gets where it was going. Your shoulders come down an inch.</span>",
+        "<span class=\"msg-system\">First drag lands. The wanting stops, which is most of the point.</span>",
+        "<span class=\"msg-system\">Your hands have something to do and your head goes quiet about it.</span>"
+      ],
       "peak_mods": {
         "stamina_max": -15,
         "stat_cool": 2

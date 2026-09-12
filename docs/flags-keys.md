@@ -214,6 +214,7 @@ nothing, silently; wire a reader first.
 | `bulletin` | leaderboard | READ shows the server leaderboard — **also carries bounty sheets** (bounty treats it as a board) |
 | `wanted_board` | bounty | a WANTED board: `bounty` posts here, `redeem` pays out here, `read` lists the open contracts |
 | `camera_id` | broadcast | media_cameras row this camera feeds |
+| `camera_label` | broadcast | MEDIA_CAMERAS (and NPC, for a `camera_droid`). The name a camera goes out under — "Camera 2 (wide)". Read by the roster in `loadChannelRuntimes`; without it the only name a bolted-down unit can have is one `_cameraLabel` derives from its id, so the crew number has to be smuggled into the primary key |
 | `channel_id` | broadcast | channel a deck/TV is tuned to |
 | `chargen` | prologue | character-generation terminal |
 | `concealed` | surveillance / concealment | hidden from the room's furniture list entirely (`commands/describe.js`). A planted spy device sets it at plant time; a concealment cabinet flips it on the piece it hides |
@@ -232,6 +233,7 @@ nothing, silently; wire a reader first.
 | `deck_active` / `deck_cassettes` / `deck_ejected_slots` | broadcast | media deck state |
 | `deck_cam_source` | broadcast | on a `mini_deck` only: the SPECTER camera patched into its spare input instead of a tape — `{ deviceId, label, zoneId }`. Exclusive with `deck_active`; cleared lazily when the camera dies. See [systems-broadcast.md](systems-broadcast.md) |
 | `emergency_deck` | broadcast | the Echelon's emergency MediaDeck — overrides every tuned TV in the city |
+| `eb_mode` / `eb_cam` / `eb_ticker` | broadcast | FURNITURE, on an `emergency_deck` only: what the Emergency Broadcast System is SET UP to do — source (`cassette` or `live`), which studio camera the live feed is cut to, and the crawl along the bottom of every screen in the city. Written by the `ebs` verbs. ⚠ Whether the switch is currently THROWN is deliberately NOT here: that is RAM-only, so a restart releases the airwaves and remembers the bulletin. See [systems-broadcast.md](systems-broadcast.md) |
 | `tuned_channel` | broadcast | channel **number** a TV/receiver is tuned to (joined against `media_channels.number`) — distinct from `channel_id` |
 | `charge_sheet` | jail | the booking form clipped to the cell bars — `read <sheet>` prints the reader's own detention record (charge, stars, time remaining, held property) |
 | `destructible` | combat | can be attacked (uses hp/hp_max) |

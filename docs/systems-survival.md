@@ -212,6 +212,29 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   `*_regen_per_sec` drip is **capped by the engine on the way up** (at `<stat>_max`) and **floored only at
   zero on the way down** — a −0.6/sec sanity bleed across a 45-minute comedown is −1600 sanity. Author the
   comedown outright instead.
+- **Every authored line takes a string OR a list.** `comeup/peak/comedown/end_message`,
+  `onset_message`, `comeon_message`, `take_line`, every `withdrawal.stages` beat and
+  `overdose.message` all go through **`pickLine()`**, which rolls a list and passes a string
+  through untouched. These fire on a schedule — a regular smoker sees the same peak line several
+  times a day — and prose read for the fortieth time stops being read at all, which matters because
+  these lines are the only place most drugs ever say what they are doing. ⚠ Non-strings in a list
+  are **dropped, not stringified**: a `null` left behind by an editor would otherwise print the word
+  "null" at somebody's peak. The dev-panel editor renders these as textareas, one line per variant,
+  and **saves a single line back as a string** so nothing already authored changes shape.
+- **The stat effects describe themselves** ([drug-feel.js](../server/engine/drug-feel.js)). Every
+  drug moves stats and none of them ever said so: you could ride a peak that took five off your
+  reflexes and the only evidence was that you started missing, which reads as bad luck rather than
+  as the pill you swallowed. `feelText()` takes **the block the engine is about to apply** and
+  describes it in the body's own words ("Your hands arrive a little after you send them"), at each
+  phase change and on the come-up. Derived, never authored beside the numbers — so all 39 rows got
+  it at once with no content edit, a retuned drug re-describes itself, and a **spliced compound**,
+  whose mods nobody could have written prose for, describes itself too. Three magnitude bands per
+  direction, the three biggest movers only (six sentences in one beat reads as a status screen),
+  and **deterministic**: the line *is* the band, so a player can learn the difference between "a
+  little after you send them" and "the whole of it". Resources the HUD already draws a bar for —
+  `hp`, `sanity`, `hunger`, `thirst` — deliberately get no sentence; the number moved on screen.
+  ⚠ **A stat a drug moves with no sentence for it is a build failure** (`drugs` regress +
+  `drugfx:smoke`) — the same rule mutations ended up with, for the same reason.
 - **Laced consumables** (`tags.laced_drug` + optional `tags.laced_potency`) — any **consumable** item
   (a drink or food, not a `drug`-type item) can carry a drug that fires when it's used: the consumable
   path applies the item's own restores, then calls `useDrug(laced_drug, { potencyMult: laced_potency,
@@ -417,6 +440,67 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   messages, the `[trip]` markup tag, `#trip-overlay` + `.tripping` CSS, and inline trip audio). Trips
   (and phantoms) are in-memory; a login rescue in `server/index.js` bounces anyone stranded in a dream
   zone by a restart back to their anchor.
+
+### What a drug LOOKS like
+
+The vocabulary is [client/shared/drug-fx.js](../client/shared/drug-fx.js), read by the renderer, the
+server and the gates. **Three surfaces**, and they are not interchangeable — each does a thing the
+other two physically cannot:
+
+| surface | where | what only it can do |
+| --- | --- | --- |
+| `field` | [weather-fx.js](../client/game/js/panels/weather-fx.js) over the room pane | additive particles and haze. 14 names: `static tunnel tracers bloom crawl swim fractal shimmer spiders glitter smear veins embers pulse` |
+| `screen` | `dfx-*` body classes, [drug-screen-fx.js](../client/game/js/panels/drug-screen-fx.js) + styles.css | the only surface that can warp the **text and UI**: `breathe sway blur double melt narrow jitter halo desat oversat` |
+| `window` | [flight-drugfx.js](../client/game/js/panels/flight-drugfx.js) | the only surface that can bend the 3-D world out of a windscreen. `psychedelic drunk dissociative opiate stimulant deliriant` |
+
+**The look is DERIVED from `flags.drug_family`, and it is a three-act arc rather than one slide.**
+`FX_BY_FAMILY` gives each family its own come-up, peak and comedown, so a psychedelic looks like a
+psychedelic with nothing authored and its visuals move with the drug — the arc rides the phase
+engine (`tickDrugs`), which is the only clock that knows those moments, so there is no second timer
+to keep in step. `effects.fx` overrides per row and `fx.none` switches it off outright (a cigarette,
+which `VISIBLE_BY_CLASS` already refuses to show a bystander). Intensity is
+`authored × phase scale × potency`, so **tolerance dulls the view as well as the high**.
+
+Four rules worth knowing before you touch any of it:
+
+- ⚠ **A `phantom` hallucination resolves to `null` and must.** The whole illusion is that there is
+  no drug; a screen announcing you are high deletes it. One `if` in a shared law, asserted by both
+  the regress suite and `drugfx:smoke`, so an author cannot re-open the hole with an `fx` block.
+- ⚠ **One owner per element.** `#main` was already contested — `.tripping`, `.unhinged` and
+  `.insane` each declared their own `transform` + `filter` on it, a CSS animation beats an inline
+  style, and the last rule in the sheet wins outright, so any two live at once meant one silently
+  did nothing. Symptoms resolve to **amplitudes** (`--dfx-sway`, `--dfx-blur`, …) and the stylesheet
+  carries **one rule per element**, in which a symptom that is not live contributes a zero rather
+  than a competing declaration. That is what makes drunk-and-tripping one animation. The old
+  `body.tripping #main` / `#output` rules are gone; `#trip-overlay` is an element of its own and
+  stays.
+- ⚠ **The client holds a source until it is told otherwise**, because only the server knows when a
+  phase ended — there is no timeout behind it. Every path that stops a drug clears: expiry,
+  overdose, death and logout. A missed clear is a player tripping over a sober room for the session.
+- ⚠ **Two claims on one surface flatten the arc.** `trip_start` sends **no `profile`** for a drug
+  the phase engine drives, and the drunk meter sends **no `profile`** either (the client already
+  claims the window off `level`). Sources otherwise **compose** — drunk while tripping is two
+  sources and you get both; screen symptoms union, field and window take the strongest.
+
+⚠ **NO STROBE, at any dose.** A hard light flicker is a photosensitive-seizure risk. Every track
+modulates on a curve slow enough to read as breathing, and `pulse` carries a **baseline under the
+beat** — a pure `sin³` drew literally zero paint between beats, which the smoke caught.
+
+⚠ **`drug_transforms.fx` / `fx_intensity` were authored and read by nothing.** The columns had
+existed since the transforms shipped and no code path had ever looked at either — the weather
+stopped behaving in PROSE while the field over the room pane went on rendering the real drizzle.
+The **weather scope** reads it now (that is where all four authored values already sat, and a
+particle field *is* weather), as its own FX source contributing only a field, so a warped sky
+composes with the drug's arc rather than restyling the client. Validated against `ALL_FX`, not just
+the symptoms: every authored value is a weather name, and ash falling in a windowless corridor is
+the point.
+
+`npm run drugfx:smoke` is the gate ([scripts/shapes/drugfx-smoke.mjs](../scripts/shapes/drugfx-smoke.mjs),
+in `pretest:regress` and `shapes:smoke`): every screen symptom has a composer branch *and* a
+stylesheet hook, every window profile has a renderer branch, and every drug resolves to names that
+exist. `weatherfx:smoke` separately proves each field name puts paint down. **The failure being
+hunted is silence** — an unknown name renders nothing at all and looks exactly like a deliberate
+blank, which is how a dream template shipped with `fx: ''` and went unnoticed for months.
 
 ### Alcohol — two clocks, and which owns what
 

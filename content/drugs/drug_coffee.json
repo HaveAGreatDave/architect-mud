@@ -4,6 +4,24 @@
   "duration_seconds": 900,
   "effects": {
     "diuretic": 2.5,
+    "fx": {
+      "intensity": 0.2,
+      "phases": {
+        "comedown": {
+          "field": null,
+          "screen": []
+        },
+        "comeup": {
+          "screen": []
+        },
+        "peak": {
+          "field": "glitter",
+          "screen": [
+            "halo"
+          ]
+        }
+      }
+    },
     "instant": {
       "sanity": 4,
       "thirst": 15
@@ -14,7 +32,11 @@
       "message": "Your heart trips, stutters, and seizes. Too much caffeine, too fast: your chest goes tight and cold, and the world tips over."
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The edge comes off, and takes a little more with it than it brought.</span>",
+      "comedown_message": [
+        "<span class=\"msg-system\">The lift goes out of it. You could do with another.</span>",
+        "<span class=\"msg-system\">The edge comes off, and the tiredness it was covering is still there.</span>",
+        "<span class=\"msg-system\">Whatever that bought you, you have spent it.</span>"
+      ],
       "comedown_mods": {
         "stat_brains": -1,
         "stat_cool": -1
@@ -25,7 +47,11 @@
       "comeup_scale": 0.4,
       "comeup_seconds": 120,
       "end_message": "<span class=\"msg-system\">Whatever that was, it's finished, and you're further behind than when you started.</span>",
-      "peak_message": "<span class=\"msg-system\">Everything sharpens up a notch. You could get the whole list done.</span>",
+      "peak_message": [
+        "<span class=\"msg-system\">The caffeine lands. The day sharpens up a notch.</span>",
+        "<span class=\"msg-system\">Somewhere behind your eyes a light comes on.</span>",
+        "<span class=\"msg-system\">The fog lifts off the front of your head and stays off.</span>"
+      ],
       "peak_mods": {
         "stamina_regen_per_sec": 0.3,
         "stat_brains": 1,

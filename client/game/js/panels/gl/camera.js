@@ -53,6 +53,34 @@ export function viewMatrix(cam) {
   return out;
 }
 
+// ── WHERE THE EYE IS, IN THE FRAME THE VERTICES ARE IN ──────────────────────
+//
+// Every view-dependent term — a specular lobe, a fresnel edge, a reflected ray — is a function of
+// the direction from a surface to the eye, and until this existed the fragment shader had no way to
+// ask. It is not a new camera: it is `viewMatrix`'s own translation, solved for the point that lands
+// at the origin of camera space.
+//
+//   l = (dx + tx)·cosh + (dy + ty)·sinh        tx =  back·sinh − fx
+//   f = (dx + tx)·sinh − (dy + ty)·cosh        ty = −back·cosh − fy
+//   u = wz − EH
+//
+// l = f = u = 0 has exactly one solution, and the rotation is orthonormal so it falls out without
+// inverting anything: dx = −tx, dy = −ty, wz = EH.
+//
+// ⚠ PITCH DOES NOT MOVE IT. `viewMatrix` applies pitch as a rotation of the (forward, up) plane
+// ABOUT the eye, so the origin of camera space is the same point tilted or level — which is why
+// there is no pitch term here and why a pitched camera must not get its own derivation.
+//
+// ⚠ AND IT IS IN THE CALLER'S FRAME, WHATEVER THAT IS. `cam.fx`/`fy` are the "subtract this from
+// the world position" terms, so handing this the SHIFTED camera (`camAt` in world.js, which folds
+// `ox`/`oy` in) returns the eye in map-window tiles — the frame the mesh and the lights are already
+// in. Handing it the plain one returns world tiles. Mixing the two slides every highlight in the
+// city by the window offset, which reads as the sun being in the wrong place.
+export function eyePos(cam) {
+  const { sinh, cosh, back = 0, fx = 0, fy = 0, EH } = cam;
+  return [fx - back * sinh, fy + back * cosh, EH];
+}
+
 // The projection, in the same column-major layout, mapping camera space to clip space.
 //
 //   x_ndc = (2·FL/W)·(l/f)

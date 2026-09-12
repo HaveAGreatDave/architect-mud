@@ -5,7 +5,7 @@
 ## Commands
 **Watching:** `tune` · `watch` · `listen` · `tv` · `tablettune`
 **Decks:** `load` · `eject` · `selectcassette`
-**Airing:** `air` · `airemergency` · `endemergency`
+**Airing:** `air` · `ebs` · `airemergency` · `endemergency`
 **Piracy:** `pirate` · `pirateresolve`
 **Game shows:** `guess`
 
@@ -24,6 +24,7 @@ Almost every verb is furniture-gated and discovered through a panel rather than 
 - `tune` gates on `broadcast_receiver` furniture. `use` and `watch` are registered against tag `tv` **or** flag `broadcast_receiver`, so either marker alone surfaces them; the handler is additionally lenient about furniture merely *named* like a television.
 - `load` / `eject` / `selectcassette` gate on `media_deck` furniture, discovered through the `use`/media_deck panel.
 - `tablettune` needs no furniture at all — the tablet is its own receiver. Sent by the TV app's viewport, never typed.
+- `ebs` gates on `emergency_deck` furniture AND the admin/dev role. `use` on that console routes to its own surface rather than the tape transport; the sub-verbs are what the panel buttons send, and they are the whole surface at the Display Mode `log` rung.
 - `guess` is inert everywhere except a channel's `studio_zone_id` while a game-show round is open. **The studio floor and the live round are the gate**, not furniture; discovery is the host's on-air invitation, which carries the `teachVerb` shimmer.
 
 ## Reading an episode without a television
@@ -46,3 +47,4 @@ At ~8k lines this is the plugin most in need of being split by concern (channels
 ## See also
 [docs/systems-broadcast.md](../../docs/systems-broadcast.md) — channels, playlists, VINE scripts, NPC hosts, camera feeds, the five live-assembled show modes, and the two-sport pipeline.
 [docs/bsm-format.md](../../docs/bsm-format.md) — read before touching any `data/scripts/*.bsm`.
+[docs/systems-broadcast.md#the-emergency-broadcast-system](../../docs/systems-broadcast.md#the-emergency-broadcast-system) — the Echelon console that seizes every set in the city, and the four rules it rests on.

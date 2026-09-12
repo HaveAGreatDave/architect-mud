@@ -844,13 +844,22 @@ const LIGHT_SEATS = [
 // The settings swept. An empty `set` is whatever LIGHT_TUNE currently holds, so the shipping row is
 // always in the table beside the alternatives rather than being a number in a comment somebody
 // wrote down once.
+// ⚠ A ROW NAMED AS A MULTIPLE AND WRITTEN AS AN ABSOLUTE GOES STALE SILENTLY. 'gain x1.5' held a
+// literal 2.25, which was x1.5 of the 1.5 that shipped when it was written — and after the gain was
+// cut to 0.45 the same row was x5, still printing "x1.5" above a number nobody would have chosen.
+// The gain rows are named by their VALUE now, because the value is what is being decided.
 const LIGHT_SWEEP = [
   { tag: 'lambert (wrap 0)', set: { wrap: 0 } },
   { tag: 'shipping', set: {} },
   { tag: 'wrap 1.0', set: { wrap: 1 } },
+  { tag: 'wrap 0.45', set: { wrap: 0.45 } },
+  { tag: 'wrap 0.35', set: { wrap: 0.35 } },
+  { tag: 'wrap 0.25', set: { wrap: 0.25 } },
   { tag: 'span x1.5', set: { span: 4.8 } },
   { tag: 'minR 2.0', set: { minR: 2 } },
-  { tag: 'gain x1.5', set: { gain: 2.25 } },
+  { tag: 'gain 0.70', set: { gain: 0.70 } },
+  { tag: 'gain 1.00', set: { gain: 1.00 } },
+  { tag: 'gain 1.40', set: { gain: 1.40 } },
 ];
 
 // ── A FROZEN CLOCK HIDES THE LIGHTS, AND EVERY LIGHT MEASUREMENT HERE WAS BLIND ────────────────
@@ -1714,3 +1723,616 @@ export function runShadow({ W = 640, H = 360, frames = 30, warm = 10 } = {}) {
 }
 
 if (typeof window !== 'undefined') window.__glShadow = runShadow;
+
+// ── DOES ANYTHING SHOW THROUGH A WALL? ──────────────────────────────────────
+//
+// `__glLeak()` — the question the depth-buffer port exists to answer, as a number that can be
+// re-run rather than a screenshot somebody looked at.
+//
+// ⚠ THE WALL HAS TO BE LOWER THAN THE SUBJECT, AND THE FIRST DRAFT GOT THAT EXACTLY BACKWARDS.
+// Stood behind a row of thirty-storey towers, every model in the city reports zero — and that is a
+// true answer to the wrong question. `decoHidden` is ALL-OR-NOTHING: it hides an adornment when the
+// WHOLE of it is covered, which is precisely the case a wall of towers makes, and it gets that case
+// right. What it cannot do is the partial one: a blade standing proud of a roofline, a mast whose
+// tip is in clear air, a helideck ring whose far edge clears a shed. The anchor clears, the probe
+// answers "draw", and the half that is genuinely behind the building draws with it. Every leak
+// anybody has ever reported here is that case, so the wall is a NINE-STOREY WAREHOUSE and the
+// subject is taller than it. The comments in windshield.js that quote leak figures all say
+// "behind a nine-storey warehouse" for this reason.
+//
+// The measurement is then exact and needs no threshold:
+//
+//   mask   = the pixels the WALL covers          (wall-only frame vs bare ground)
+//   leak   = pixels INSIDE that mask that change when the subject is added behind it
+//   crown  = pixels OUTSIDE it that change       (the subject peeking over — legitimate, the control)
+//
+// A leak pixel is the subject reaching the screen through a building that is in front of it. Zero
+// is the whole of the answer.
+//
+// ⚠ AND THE CROWN IS HALF THE MEASUREMENT. "0 leaked" is also what a subject that drew nothing at
+// all reports — a model that failed to resolve, a night whose lights never came on, a camera
+// pointing the wrong way. A row with a big crown and no leak is a pass; a row with neither measured
+// nothing and proves nothing, which is why they are counted separately and reported.
+//
+// ⚠ AND THE CLOCK IS FROZEN, for the reason every bench here freezes it: two renders of the same
+// EMPTY scene differ by tens of thousands of pixels, because the clouds drift, the birds fly and
+// the water moves. On a live clock the sky reports as a leak.
+//
+//   __glLeak()                                            // every model, at night
+//   __glLeak({ keys: ['named:solenneresidences'] })
+//   __glLeak({ hours: [2, 13] })
+export function runLeak({ keys = null, hours = [2], W = 640, H = 360, top = 16, wallFlr = 9, subjFlr = 16 } = {}) {
+  const realNow = performance.now.bind(performance);
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+
+  const LR = 16, LN = 33;
+  // ⚠ THREE ROWS DEEP, AND THAT IS NOT BELT AND BRACES. A building is 0.88 of its tile, so a wall of
+  // them has a 0.12-tile SLOT between every pair — nine screen pixels at three tiles. Rays diverge,
+  // so a ray through the slot at x = ±0.5 in the first row lands at ±0.67 in the second, which is
+  // solid wall. One row leaks legitimately and would bury the finding in noise; three seal it.
+  const WALL_Y = [LR - 3, LR - 4, LR - 5];
+  const SUBJ_Y = LR - 8;
+  const all = shapeModelRegistry().filter((r) => r.key.startsWith('named:') || r.key.startsWith('type:'));
+  const subjects = keys ? all.filter((r) => keys.includes(r.key)) : all;
+
+  const cell = (r) => (r.key.startsWith('named:')
+    ? { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6), ent: 'south', flr: subjFlr }
+    : { kind: 'land', biome: 'citycore', bt: r.key.slice(5), ent: 'south', flr: subjFlr });
+
+  const build = (subj, withWall) => Array.from({ length: LN }, (_, y) => Array.from({ length: LN }, (_, x) => {
+    if (withWall && WALL_Y.includes(y)) return { kind: 'land', biome: 'citycore', bt: 'warehouse', ent: 'south', flr: wallFlr };
+    if (subj && y === SUBJ_Y && x === LR) return subj;
+    return { kind: 'land', biome: 'citycore', flr: 0 };
+  }));
+
+  const rows = [];
+  let restoreRandom = () => {};
+  try {
+    RENDER_TUNE.gl = 1;
+    const id = '__leak' + (runLeak.n = (runLeak.n || 0) + 1);
+    el.id = id;
+    const view = (map, hour) => ({
+      cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.24, hour,
+      weather: 'clear', speed: 0, map, heading: 0, mapCenter: { x: 100, y: 100 },
+      mapOffset: { x: 0, y: 0 }, resFloor: 1, tune: { gl: 1, perfDS: 0 },
+    });
+    // ⚠ SETTLED, NOT MERELY FROZEN — see settleFade. `fadeLights` ramps a light in and out over
+    // ELAPSED time, so under a clock that never advances no light ever reaches its slot: the frame
+    // caught mid-ramp differs from the next one for reasons that have nothing to do with the map,
+    // and the same model measured 24, then 14, then 37 leaked pixels on three consecutive runs. The
+    // clock is walked forward until the ramp is done and frozen there, so A and B differ only by the
+    // thing under test. And the map changes between every pair here, which is exactly what the ramp
+    // responds to — so it is settled for EVERY frame, not once at the top.
+    // ⚠ AND Math.random IS PINNED, WHICH IS NOT THE SAME THING AS FREEZING THE CLOCK. GLASS throws a
+    // METEOR across a clear night sky on a random timer, and lightning on a random one in a storm —
+    // and settling the fade means walking the clock forward, which is exactly what advances them. So
+    // two renders of the same map differ by a streak of sky, and the same model measured 25 and then
+    // 63 leaked pixels on consecutive runs of an otherwise identical test. A seeded generator, reset
+    // before every frame, makes the sky the same sky in all four.
+    let rngS = 0;
+    const realRandom = Math.random;
+    Math.random = () => { rngS = (rngS * 1664525 + 1013904223) >>> 0; return rngS / 4294967296; };
+    restoreRandom = () => { Math.random = realRandom; };
+    const paint = (map, hour) => { rngS = 12345; settleFade(() => { rngS = 12345; paintWindshield(id, view(map, hour)); }); return shot(); };
+    for (const hour of hours) {
+      const bare = paint(build(null, false), hour);
+      const wallOnly = paint(build(null, true), hour);
+      // ⚠ AND THE HARNESS MEASURES ITS OWN NOISE FLOOR, because it HAS one and it is not zero. The
+      // same map rendered twice under the same settled clock and the same pinned generator still
+      // differs by a few pixels along the wall own roofline — a handful at night, a few dozen by
+      // day. Nobody has run that down, and until somebody does, a leak inside it is not a finding.
+      // Reported beside every row rather than subtracted, so the reader can see which it is.
+      const wallAgain = paint(build(null, true), hour);
+      // The mask, built ONCE per hour: it is a property of the wall, and the wall never changes.
+      const mask = new Uint8Array(bare.length >> 2);
+      let maskN = 0;
+      for (let i = 0, k = 0; i < bare.length; i += 4, k++) {
+        if (Math.abs(wallOnly[i] - bare[i]) + Math.abs(wallOnly[i + 1] - bare[i + 1]) + Math.abs(wallOnly[i + 2] - bare[i + 2]) >= 12) { mask[k] = 1; maskN++; }
+      }
+      let noise = 0;
+      for (let i = 0, k = 0; i < wallOnly.length; i += 4, k++) {
+        if (!mask[k]) continue;
+        if (Math.abs(wallAgain[i] - wallOnly[i]) + Math.abs(wallAgain[i + 1] - wallOnly[i + 1]) + Math.abs(wallAgain[i + 2] - wallOnly[i + 2]) >= 12) noise++;
+      }
+      for (const r of subjects) {
+        const withSubj = paint(build(cell(r), true), hour);
+        let leak = 0, crown = 0;
+        for (let i = 0, k = 0; i < wallOnly.length; i += 4, k++) {
+          const d = Math.abs(withSubj[i] - wallOnly[i]) + Math.abs(withSubj[i + 1] - wallOnly[i + 1]) + Math.abs(withSubj[i + 2] - wallOnly[i + 2]);
+          if (d < 12) continue;
+          if (mask[k]) leak++; else crown++;
+        }
+        rows.push({ model: r.key, hour, leakPx: leak, noisePx: noise, crownPx: crown, wallPx: maskN });
+      }
+    }
+  } finally { RENDER_TUNE.gl = 0; performance.now = realNow; restoreRandom(); uninstall(); holder.remove(); }
+
+  // Above the floor, not merely above zero — see the ⚠ on the noise floor.
+  const bad = rows.filter((x) => x.leakPx > x.noisePx * 2 + 8).sort((a, b) => b.leakPx - a.leakPx);
+  const blind = rows.filter((x) => x.crownPx < 40);
+  console.table(bad.slice(0, top));
+  console.log(`   ${rows.length} case(s) · ${bad.length} leaking above the noise floor (${Math.max(0, ...rows.map((x) => x.noisePx))} px) · worst ${bad.length ? bad[0].leakPx : 0} px` +
+    (blind.length ? ` · ⚠ ${blind.length} drew almost nothing over the wall and prove nothing` : ''));
+  return { rows, bad, blind, leaks: bad.reduce((a, b) => a + b.leakPx, 0) };
+}
+if (typeof window !== 'undefined') window.__glLeak = runLeak;
+
+// ── DOES THE NEON TONE ACTUALLY CHANGE THE NIGHT CITY, AND LEAVE THE DAY ALONE? ────────────────
+//
+// `RENDER_TUNE.neon` widens one ratio: how dark an unlit wall is against how bright the lit things
+// on it are. It reaches the baked wall textures (the night dim, the lit-pane fraction, the lit-pane
+// colour, and the accent each palette burns), so the honest test is a whole street rather than one
+// surface — the effect is supposed to be a property of the skyline, not of a swatch.
+//
+// Two columns, and the SECOND one is what makes the first mean anything:
+//   night  — how much of the frame moves between neon 0 and neon 1 at 23:00. Should be large.
+//   noon   — the same pair at 13:00. Should be ZERO. The tone is a night grade; if this is not
+//            flat, something has reached the day texture and the change is bigger than intended.
+//
+// ⚠ THE TEXTURE CACHE IS KEYED ON THE TONE, WHICH IS THE ONLY REASON AN A/B IS POSSIBLE AT ALL.
+// `wallTex` memoises one canvas per palette for the life of the page; before the tone went into
+// that key (and into `texEpoch`, which is what the GL atlas copies on), flipping the knob between
+// two renders would have measured the same cached pixels twice and reported a confident 0.0%.
+//
+// ⚠ SETTLED, NOT MERELY FROZEN, and Math.random PINNED — see settleFade and the ⚠ in runLeak. The
+// same two traps: a light that never ramps reads as a feature switched off, and a meteor across a
+// clear night sky reads as a finding.
+export function runNeon({ W = 640, H = 360, hours = [23, 13] } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__neon' + (runNeon.n = (runNeon.n || 0) + 1);
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const realNow = performance.now, realRandom = Math.random;
+  const was = RENDER_TUNE.neon, wasGl = RENDER_TUNE.gl;
+  const map = scene(true);
+  const rows = [];
+  let rngS = 0;
+  try {
+    RENDER_TUNE.gl = 1;
+    Math.random = () => { rngS = (rngS * 1664525 + 1013904223) >>> 0; return rngS / 4294967296; };
+    // ⚠ Eye height 0 and the truck class: this is tuned for the cab, which is the seat the tone was
+    // authored against and the one the reference boards are all shot from.
+    const view = (hour) => ({
+      cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.24, hour,
+      weather: 'clear', speed: 0, map, heading: 0, mapCenter: { x: 100, y: 100 },
+      mapOffset: { x: 0, y: 0 }, resFloor: 1, tune: { gl: 1, perfDS: 0 },
+    });
+    const paint = (neon, hour) => {
+      RENDER_TUNE.neon = neon;
+      rngS = 12345;
+      settleFade(() => { rngS = 12345; paintWindshield(el.id, view(hour)); });
+      return shot();
+    };
+    for (const hour of hours) {
+      const a = paint(0, hour), b = paint(1, hour);
+      // The noise floor this harness has of its own: the same setting rendered twice. Reported
+      // rather than subtracted, for the reason runLeak gives — a reader can see which it is.
+      const a2 = paint(0, hour);
+      let moved = 0, sum = 0, noise = 0, dark = 0, lit = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        const d = Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+        if (d >= 12) moved++;
+        sum += d / 3;
+        if (Math.abs(a[i] - a2[i]) + Math.abs(a[i + 1] - a2[i + 1]) + Math.abs(a[i + 2] - a2[i + 2]) >= 12) noise++;
+        const lA = a[i] * 0.299 + a[i + 1] * 0.587 + a[i + 2] * 0.114;
+        const lB = b[i] * 0.299 + b[i + 1] * 0.587 + b[i + 2] * 0.114;
+        if (lB < lA - 6) dark++; else if (lB > lA + 6) lit++;
+      }
+      const px = a.length / 4;
+      rows.push({
+        hour: hour + ':00',
+        'moved': (100 * moved / px).toFixed(2) + '%',
+        'mean Δ': (sum / px).toFixed(2),
+        'darker': (100 * dark / px).toFixed(2) + '%',
+        'brighter': (100 * lit / px).toFixed(2) + '%',
+        'noise floor': (100 * noise / px).toFixed(2) + '%',
+      });
+    }
+  } finally {
+    RENDER_TUNE.neon = was; RENDER_TUNE.gl = wasGl;
+    performance.now = realNow; Math.random = realRandom;
+    uninstall && uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   neon 0 → 1. The night row is the feature; the noon row is the control and wants to be ~0.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glNeon = runNeon;
+
+// ── DOES A RESIZE THROW THE RENDERER AWAY? ─────────────────────────────────────────────────────
+//
+// `sceneGL` used to drop `g.view` whenever the canvas changed size, which rebuilt every program,
+// buffer, texture and layer in the view — and nothing in gl/ deletes the old ones, because there is
+// no dispose path in the module at all. The canvas is resized by the ADAPTIVE RESOLUTION DIAL,
+// which steps whenever smoothed frame time crosses a tenth, so turning toward a heavy view churned
+// views and leaked their GPU objects until the browser force-lost the context. The frame after that
+// reports `drew nothing — no context, a lost context, or a zero-sized host`, sets RENDER_TUNE.gl
+// to 0, and the session finishes on the CPU renderer.
+//
+// ⚠ NOTHING ELSE CAN SEE THIS. It is not a picture — every frame is correct right up until the
+// context dies — and it is not headless, because there is no GL context in node. It is a COUNTER,
+// and `glLastFrame().builds` is the only place it shows.
+//
+// ⚠ AND THE STEADY-SIZE ROW IS HALF THE TEST. A run that reported 0 rebuilds across resizes would
+// also report 0 if the pass had stopped drawing, so the control is that a MOVING WINDOW still
+// rebuilds: the buffer is keyed on the tile set, and that genuinely changes when the world scrolls.
+export function runResize({ W = 600, H = 300, n = 40 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__resize' + (runResize.n = (runResize.n || 0) + 1);
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor };
+  const realNow = performance.now;
+  const rows = [];
+  try {
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+    const map = scene(true);
+    let t = 1e6;
+    const paint = (w, h, centre) => {
+      el.width = w; el.height = h; el.style.width = w + 'px'; el.style.height = h + 'px';
+      t += 33; performance.now = () => t;
+      paintWindshield(el.id, { cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.2,
+        hour: 22, weather: 'clear', speed: 0, map, heading: 0, mapCenter: centre || { x: 100, y: 100 },
+        mapOffset: { x: 0, y: 0 }, resFloor: 1, tune: { gl: 1, perfDS: 0 } });
+      return glLastFrame();
+    };
+    for (let i = 0; i < 12; i++) paint(W, H);
+    const at = () => (glLastFrame() || {}).builds || 0;
+    let b = at(); for (let i = 0; i < n; i++) paint(W, H); rows.push({ case: 'steady size', frames: n, rebuilds: at() - b });
+    b = at(); for (let i = 0; i < n; i++) paint(i % 2 ? W : W - 4, i % 2 ? H : H - 2); rows.push({ case: 'alternating resize', frames: n, rebuilds: at() - b });
+    b = at(); for (let i = 0; i < n; i++) paint(W - 40 + (i % 8) * 10, H - 20 + (i % 8) * 5); rows.push({ case: 'size ramp', frames: n, rebuilds: at() - b });
+    // The control: a moving window MUST still rebuild, or "0 rebuilds" means the pass died.
+    b = at(); for (let i = 0; i < 8; i++) paint(W, H, { x: 100 + i * 3, y: 100 + i * 3 });
+    rows.push({ case: 'CONTROL: window moves', frames: 8, rebuilds: at() - b });
+    const f = glLastFrame();
+    rows.push({ case: 'alive at the end', frames: '-', rebuilds: f ? 'yes, ' + f.faces + ' faces' : 'NO — the pass died' });
+  } finally {
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor;
+    performance.now = realNow; uninstall && uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   a resize must NOT rebuild the vertex buffer; a moving window MUST. Both rows matter.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glResize = runResize;
+
+// ── `__glWet()` ────────────────────────────────────────────────────────────────────────────────
+//
+// The wet road, and specifically whether it reads as PUDDLES or as a tint. Phase 6's four
+// confounded measurement attempts are all recorded in the plan and they share one cause: there was
+// no way to switch the wetness on. It is integrated from live precipitation the SERVER sends, so a
+// Modelshop scene sits at 0 for ever and every A/B of it compares two dry roads — a correctly wired
+// feature and a harness with no switch look the same from here. `RENDER_TUNE.wetForce` is that
+// switch and exists for this function.
+//
+// Four columns, and the last one is the one the feature is actually about:
+//   moved   — share of the frame that differs from a dry road. The road is roughly a third of this
+//             frame, so this saturates well below 100%.
+//   darker  — wet tarmac scatters less light back. Should dominate 'brighter' by day.
+//   neon    — the reflections, isolated by SATURATION rather than by brightness. A first cut
+//             counted pixels that got brighter and reported 0.00% at every setting, because the
+//             wetness darkens the whole road and a streak on a darkened road is still darker than
+//             dry tarmac: the reflection was there and the metric could not see it. Wet tarmac
+//             darkens near-neutrally and a neon streak is coloured, so the colour is the signal.
+//             ⚠ AND IT READS 0 AT NIGHT, WHICH IS NOT THE REFLECTIONS BEING ABSENT. Zeroing the
+//             light list moves 73.4% of the drawn ground at 23:00, so they are there and large;
+//             saturation just does not RISE, because the same lights already colour that tarmac
+//             through the wall bounce and the ambient. The column is a day instrument and the
+//             honest night measure is the gain A/B. Left in rather than deleted: a metric with a
+//             known blind spot beats one whose blind spot nobody has found yet.
+//   puddles — connected components of the DEEP-water mask, which is not the same as the darkened
+//             mask: the whole road is damp when it rains, so 'darker than dry' is the road and
+//             reports one component the size of it. The deep mask takes the pixels darkened more
+//             than 55% of the 90th percentile, which is the standing water. ONE enormous component
+//             is a sheet and is the failure this term was rewritten to fix.
+//
+// ⚠ THE wetForce 0 ROW IS THE CONTROL AND MUST BE ~0. It is the same code path with the water level
+// above every hollow, so anything it moves is the harness's own noise, not the term.
+//
+// ⚠ AND IT READS THE GL CANVAS, NOT THE COMPOSITED FRAME, WHICH IS THE WHOLE REASON IT WORKS. A
+// low eye puts every mirror image close to the viewer — angle of incidence equals angle of
+// reflection, so a sign three storeys up images about a tile from the truck — and the near road in
+// a cab is behind the DASH, which the 2-D pass paints on afterwards. Read from the finished frame
+// this bench reported 0.00% coloured pixels at every wetness and every hour while the term was
+// covering three quarters of the drawn ground: measured against the GL canvas, zeroing the light
+// list moves 73.4% of it at 23:00 and 57.8% at 13:00, most of it in the near half of the frame.
+// The dash is not a bug and the picture is right; it is the INSTRUMENT that was pointed at the
+// wrong surface, and that cost four rounds of chasing a shader that was already correct.
+//
+// ⚠ SETTLED, NOT MERELY FROZEN, and Math.random PINNED — the neon streaks are drawn from the light
+// list, which ramps over ELAPSED time, so an unsettled clock measures a road with nothing to
+// reflect. Same trap as runLeak and runNeon.
+export function runWet({ W = 640, H = 360, hours = [23, 13], levels = [0, 0.35, 1] } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__wet' + (runWet.n = (runWet.n || 0) + 1);
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  // The world pass's own buffer, copied off before the 2-D overlay goes on top of it.
+  const scratch = document.createElement('canvas');
+  const shot = () => {
+    const g = glLastFrame() && glLastFrame().canvas;
+    if (!g) throw new Error('__glWet: the GL pass drew nothing — RENDER_TUNE.gl is ' + RENDER_TUNE.gl);
+    scratch.width = g.width; scratch.height = g.height;
+    const c = scratch.getContext('2d'); c.drawImage(g, 0, 0);
+    return new Uint8ClampedArray(c.getImageData(0, 0, g.width, g.height).data);
+  };
+  const realNow = performance.now, realRandom = Math.random;
+  const wasForce = RENDER_TUNE.wetForce, wasWet = RENDER_TUNE.glWet, wasGl = RENDER_TUNE.gl;
+  const map = scene(true);
+  const rows = [];
+  let rngS = 0;
+  try {
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glWet = 1;
+    Math.random = () => { rngS = (rngS * 1664525 + 1013904223) >>> 0; return rngS / 4294967296; };
+    // Eye height 0 and the truck class: a reflection is a grazing-angle effect and the Fresnel gate
+    // in ground.js all but deletes it from a cockpit. This is the seat it is for.
+    const view = (hour) => ({
+      cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.24, hour,
+      weather: 'clear', speed: 0, map, heading: 0, mapCenter: { x: 100, y: 100 },
+      mapOffset: { x: 0, y: 0 }, resFloor: 1, tune: { gl: 1, perfDS: 0 },
+    });
+    const paint = (wet, hour) => {
+      RENDER_TUNE.wetForce = wet;
+      rngS = 12345;
+      settleFade(() => { rngS = 12345; paintWindshield(el.id, view(hour)); });
+      return shot();
+    };
+    // ⚠ SIZED FROM THE SHOT, NOT FROM W/H. The GL buffer is in DEVICE pixels and the canvas is in
+    // CSS ones; they agree at dpr 1, which is every machine this has been run on and not a promise.
+    let GW = 0, GH = 0;
+    // 4-connected components over a boolean mask, so 'is this a sheet or a scatter of puddles' is
+    // a number rather than a look at a screenshot.
+    const components = (mask) => {
+      const seen = new Uint8Array(GW * GH), sizes = [], stack = [];
+      for (let i = 0; i < GW * GH; i++) {
+        if (!mask[i] || seen[i]) continue;
+        let n = 0; stack.length = 0; stack.push(i); seen[i] = 1;
+        while (stack.length) {
+          const q = stack.pop(); n++;
+          const qx = q % GW, qy = (q / GW) | 0;
+          if (qx > 0 && mask[q - 1] && !seen[q - 1]) { seen[q - 1] = 1; stack.push(q - 1); }
+          if (qx < GW - 1 && mask[q + 1] && !seen[q + 1]) { seen[q + 1] = 1; stack.push(q + 1); }
+          if (qy > 0 && mask[q - GW] && !seen[q - GW]) { seen[q - GW] = 1; stack.push(q - GW); }
+          if (qy < GH - 1 && mask[q + GW] && !seen[q + GW]) { seen[q + GW] = 1; stack.push(q + GW); }
+        }
+        if (n >= 4) sizes.push(n);   // a 3-pixel speck is aliasing, not a puddle
+      }
+      sizes.sort((a, b) => a - b);
+      return { n: sizes.length, med: sizes.length ? sizes[sizes.length >> 1] : 0, max: sizes.length ? sizes[sizes.length - 1] : 0 };
+    };
+    const sat = (a, i) => Math.max(a[i], a[i + 1], a[i + 2]) - Math.min(a[i], a[i + 1], a[i + 2]);
+    for (const hour of hours) {
+      const dry = paint(0, hour);
+      GW = scratch.width; GH = scratch.height;
+      const dry2 = paint(0, hour);
+      let noise = 0, opaque = 0;
+      for (let i = 0; i < dry.length; i += 4) {
+        if (dry[i + 3] < 200) continue;
+        opaque++;
+        if (Math.abs(dry[i] - dry2[i]) + Math.abs(dry[i + 1] - dry2[i + 1]) + Math.abs(dry[i + 2] - dry2[i + 2]) >= 12) noise++;
+      }
+      for (const lv of levels) {
+        const b = paint(lv, hour);
+        const drop = new Float32Array(GW * GH);
+        let moved = 0, darker = 0, neon = 0, sum = 0;
+        for (let i = 0, q = 0; i < dry.length; i += 4, q++) {
+          if (dry[i + 3] < 200) continue;
+          const d = Math.abs(dry[i] - b[i]) + Math.abs(dry[i + 1] - b[i + 1]) + Math.abs(dry[i + 2] - b[i + 2]);
+          if (d >= 12) moved++;
+          sum += d / 3;
+          const lA = dry[i] * 0.299 + dry[i + 1] * 0.587 + dry[i + 2] * 0.114;
+          const lB = b[i] * 0.299 + b[i + 1] * 0.587 + b[i + 2] * 0.114;
+          if (lB < lA - 6) darker++;
+          drop[q] = Math.max(0, lA - lB);
+          if (sat(b, i) - sat(dry, i) >= 8) neon++;
+        }
+        // The deep end of the darkening, which is the standing water. A fixed threshold would be a
+        // guess about how dark a road is; the distribution's own 90th percentile is not.
+        const sorted = Float32Array.from(drop).sort();
+        const p90 = sorted[Math.floor(sorted.length * 0.9)] || 0;
+        const deep = new Uint8Array(GW * GH);
+        if (p90 > 1) for (let i = 0; i < deep.length; i++) deep[i] = drop[i] > p90 * 0.55 ? 1 : 0;
+        const cc = components(deep);
+        rows.push({
+          hour: hour + ':00',
+          wet: lv.toFixed(2),
+          moved: (100 * moved / opaque).toFixed(2) + '%',
+          'mean Δ': (sum / opaque).toFixed(2),
+          darker: (100 * darker / opaque).toFixed(2) + '%',
+          neon: (100 * neon / opaque).toFixed(2) + '%',
+          puddles: cc.n,
+          'median px': cc.med,
+          'largest px': cc.max,
+          'noise floor': (100 * noise / opaque).toFixed(2) + '%',
+        });
+      }
+    }
+  } finally {
+    RENDER_TUNE.wetForce = wasForce; RENDER_TUNE.glWet = wasWet; RENDER_TUNE.gl = wasGl;
+    performance.now = realNow; Math.random = realRandom;
+    uninstall && uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   wet 0.00 is the control and wants to be flat. `puddles` is the feature: one huge');
+  console.log('   component is a sheet of water, a few dozen is a street with puddles in it.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glWet = runWet;
+
+// ── DOES THE CITY LOOK LIKE IT IS MADE OF ANYTHING? ─────────────────────────
+//
+// `__glMaterials()`. Every surface in GLASS answered the light identically until the material table
+// landed: one half-lambert key and two overlay tints, for brick, sheet copper, curtain glass and
+// weathered board alike. This is the A/B on that — the same street with `RENDER_TUNE.glMat` at 0 and
+// at each step of a sweep — and it asks the three questions that have caught every previous term in
+// this file out.
+//
+// ⚠ FIRST, DOES IT REACH ANY PIXELS AT ALL. This is the fourth feature here to be wired at both ends
+// and dropped in the middle (see the allowlist note in install.js), and the symptom every time is
+// 0.0% moved at every strength — which is indistinguishable from restraint if nobody sweeps it.
+//
+// ⚠ SECOND, DOES IT STAY ON THE BUILDINGS. The material block multiplies by `solid`, so the flat
+// adornment layer — most of the faces in the city — must be untouched, and the ground, the sky and
+// the road are not in this pass at all. The off-building number is the one that has to be ~0.
+//
+// ⚠ THIRD, IS THE NIGHT SEAT DIFFERENT FROM THE DAY ONE. A specular lobe keyed off `uKeyDir` and an
+// environment taken off the sky both collapse after dark, so a night seat that moved exactly as far
+// as a noon seat would mean the terms are being driven by something that is not the light.
+//
+// ⚠ AND THE DIALS ARE PINNED, as in every bench here: a loose resolution step sheds pixels exactly
+// where the frame is expensive and gets read as the feature under test.
+const MAT_SEATS = [
+  { tag: 'cab, noon', R: 14, density: 0.20, hour: 12.5, cls: 'truck' },
+  { tag: 'cab, night', R: 14, density: 0.20, hour: 23, cls: 'truck' },
+  { tag: 'air, afternoon', R: 34, density: 0.06, hour: 15.5, cls: 'prop' },
+];
+const MAT_SWEEP = [0.35, 0.7, 1];
+
+export function runMaterials({ W = 640, H = 360, frames = 26, warm = 8 } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const mid = (a) => { const b = [...a].sort((p, q) => p - q); return b[b.length >> 1]; };
+  // ⚠ THE BUILDINGS COME FROM THE NAMED REGISTRY AND NOT FROM ONE TYPE, which is the whole point of
+  // this particular bench: a city of `citycore` boxes is ONE material, and a material system
+  // measured against one material measures nothing. Cycling the registry gives the street sheet
+  // metal, curtain glass, brick, riveted plate and weathered board in the proportions the city has.
+  const mk = (R, density) => {
+    const N = R * 2 + 1;
+    let k = 0;
+    return Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+      const dx = x - R;
+      if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+      if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+      const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (density && (h % 1000) / 1000 < density) {
+        const r = named[(k++) % named.length];
+        return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6),
+          ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 3) };
+      }
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+  };
+
+  const rows = [], realNow = performance.now.bind(performance);
+  const heldMat = RENDER_TUNE.glMat, heldBump = RENDER_TUNE.glBump;
+  try {
+    for (const seat of MAT_SEATS) {
+      const ID = '__mat' + MAT_SEATS.indexOf(seat) + '_' + (runMaterials.n = (runMaterials.n || 0) + 1);
+      el.id = ID;
+      const built = mk(seat.R, seat.density), bare = mk(seat.R, 0);
+      const view = (map) => ({
+        cls: seat.cls, phase: 'cruise', worldBlend: 1,
+        height: seat.cls === 'prop' ? 0.5 : 0, eyeH: seat.cls === 'prop' ? undefined : 0.12,
+        hour: seat.hour, weather: 'clear', speed: 0.4, map, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        resFloor: 1, tune: { gl: 1, perfDS: 0 },
+      });
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+      const paint2 = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
+      // ⚠ SETTLED, NOT MERELY FROZEN. The wall wash ramps over ELAPSED time, so under a clock that
+      // never advances no light ever reaches its slot — and the night seat would be compared against
+      // a city with no lights on it, which is not the city. That is the bug that had every row of
+      // __glLights() reading 0.0% for weeks.
+      settleFade(() => paintWindshield(ID, view(built)));
+
+      RENDER_TUNE.glMat = 0; RENDER_TUNE.glBump = heldBump;
+      paint2(view(bare)); const empty = shot();
+      paint2(view(built)); const off = shot();
+      // What the buildings cover. Everything outside it is ground, sky, road and cab, none of which
+      // this term is allowed to touch.
+      const isWall = new Uint8Array(off.length >> 2);
+      let mask = 0, ground = 0;
+      for (let i = 0; i < off.length; i += 4) {
+        const d = Math.abs(off[i] - empty[i]) + Math.abs(off[i + 1] - empty[i + 1]) + Math.abs(off[i + 2] - empty[i + 2]);
+        if (d > 18) { isWall[i >> 2] = 1; mask++; } else ground++;
+      }
+      // ⚠ THE BASELINE IS AN ARGUMENT, AND THE FIRST CUT HAD ONE BASELINE FOR EVERYTHING. Measured
+      // against the no-material frame, the relief row came back LOWER than the row without it —
+      // 25.2% against 23.7% — which reads as the term doing nothing, or worse than nothing. It is
+      // not: relief both brightens and darkens, so some of the pixels it touches land back NEAR the
+      // baseline it is being compared to, and the count goes down while the picture changes. A term
+      // has to be measured against the frame it is actually added to.
+      const measure = (label, from, capture) => {
+        paint2(view(built)); const on = shot();
+        let moved = 0, sum = 0, worst = 0, outside = 0;
+        for (let i = 0; i < on.length; i += 4) {
+          const d = (Math.abs(on[i] - from[i]) + Math.abs(on[i + 1] - from[i + 1]) + Math.abs(on[i + 2] - from[i + 2])) / 3;
+          if (!isWall[i >> 2]) { if (d >= 2) outside++; continue; }
+          if (d >= 2) { moved++; sum += d; }
+          if (d > worst) worst = d;
+        }
+        rows.push({ seat: seat.tag, setting: label, wallPx: mask,
+          movedPct: mask ? +(moved / mask * 100).toFixed(1) : null,
+          meanOnMoved: moved ? +(sum / moved / 255 * 100).toFixed(1) : null,
+          worst: Math.round(worst),
+          offBuildingPct: ground ? +(outside / ground * 100).toFixed(2) : null });
+        return capture ? on : null;
+      };
+      for (const s of MAT_SWEEP) { RENDER_TUNE.glMat = s; measure('glMat ' + s + ' vs none', off); }
+      // ── AND THE RELIEF ON ITS OWN ─────────────────────────────────────────────────────────
+      //
+      // Swept separately because it is the half most likely to be silently doing nothing: it needs
+      // an atlas, a texel size and a per-family strength, and any one of the three missing leaves
+      // every other term working perfectly. It was also written in the wrong PLACE first — inside
+      // the material block, perturbing a normal the key shading had already finished with, so it
+      // reached the reflection and not the diffuse. This row is what said so.
+      //
+      // ⚠ EXPECT FEW PIXELS AND A BIG MOVE ON THEM. A brick wall is mostly flat brick with thin
+      // joints, so the luminance gradient is near zero almost everywhere and large on the joint, the
+      // lap and the rivet line. A row here reading 2% moved at mean 5 is the term working; the same
+      // row reading 25% would mean it had embossed the whole wall.
+      RENDER_TUNE.glMat = heldMat; RENDER_TUNE.glBump = 0;
+      const matOnly = measure('glMat ' + heldMat + ', no relief', off, true);
+      RENDER_TUNE.glBump = heldBump; measure('relief ' + heldBump + ' vs no relief', matOnly);
+
+      // Cost, clock live.
+      performance.now = realNow;
+      const t = (m, b) => {
+        RENDER_TUNE.glMat = m; RENDER_TUNE.glBump = b;
+        const v = view(built);
+        for (let i = 0; i < warm; i++) paintWindshield(ID, v);
+        const a = [];
+        for (let i = 0; i < frames; i++) { const t0 = performance.now(); paintWindshield(ID, v); a.push(performance.now() - t0); }
+        return mid(a);
+      };
+      const msOff = t(0, 0), msMat = t(heldMat, 0), msBoth = t(heldMat, heldBump);
+      rows.push({ seat: seat.tag, setting: 'cost off -> mat -> +bump', wallPx: null,
+        movedPct: null, meanOnMoved: null, worst: null, offBuildingPct: null,
+        ms: msOff.toFixed(2) + ' -> ' + msMat.toFixed(2) + ' -> ' + msBoth.toFixed(2) });
+    }
+  } finally {
+    performance.now = realNow;
+    RENDER_TUNE.glMat = heldMat; RENDER_TUNE.glBump = heldBump;
+    uninstall && uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   offBuildingPct is the control and wants to be ~0: this term may only touch mass.');
+  console.log('   the night row moving LESS than noon is correct — the lobe and the sky both go with the light.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glMaterials = runMaterials;

@@ -121,7 +121,17 @@ const kindOf = r => (isVessel(r) ? 'vessel' : isTool(r) ? 'tool' : isFood(r) ? '
 // Targets are NAMES, not ids, for the same reason: the command shown is the
 // command a player could type, ambiguity resolves through SIFT the way it
 // always does, and reading the payload tells you the HUD can't exceed the verbs.
-const act = (label, command, hint = null) => ({ label, command, hint });
+// `extra` carries the action's ROLE, and nothing else about it changes. A role is
+// what KIND of statement the action makes — heat, water, handling, prep, take —
+// and it exists so the client can lay a pan's controls out as controls (a heat
+// selector, a water slot) instead of as a row of identical chips, WITHOUT
+// learning a single verb. The command string is still the whole mechanism; the
+// role only says where to put the button.
+//
+// An unroled action is not an error: it renders as the chip it always did. So a
+// new prep verb still appears in the HUD the day it is registered, exactly as
+// before, and roles are an enhancement rather than a registration list.
+const act = (label, command, hint = null, extra = null) => ({ label, command, hint, ...(extra || {}) });
 
 function foodActions(row, ctx, { inVessel = false } = {}) {
   const cd = row.custom_data || {};
@@ -133,16 +143,16 @@ function foodActions(row, ctx, { inVessel = false } = {}) {
     // Mid-cook. The handling verb is the profile's, not a guess — a soup wants
     // stirring and telling you to flip it is how you learn that the hard way.
     const wanted = HANDLING_VERB[cd.cooking.profile] || 'flip';
-    if (!cd.cooking.microwave && ctx.handling[wanted]) out.push(act(wanted, `${wanted} ${name}`));
-    out.push(act('taste', `taste ${name}`, 'costs you a mouthful of the finished dish'));
-    out.push(act('plate', `plate ${name}`));
+    if (!cd.cooking.microwave && ctx.handling[wanted]) out.push(act(wanted, `${wanted} ${name}`, null, { role: 'handle' }));
+    out.push(act('taste', `taste ${name}`, 'costs you a mouthful of the finished dish', { role: 'taste' }));
+    out.push(act('plate', `plate ${name}`, null, { role: 'finish' }));
     return out;
   }
 
   if (cd.dish || cd.cooked) {
     out.push(act('eat', `eat ${name}`));
     if (ctx.blade) out.push(act('cut', `cut ${name}`, 'halves it to share'));
-    out.push(act('taste', `taste ${name}`));
+    out.push(act('taste', `taste ${name}`, null, { role: 'taste' }));
     return out;
   }
 
@@ -150,31 +160,35 @@ function foodActions(row, ctx, { inVessel = false } = {}) {
   // always press — the hints say what it costs, because the panel making them
   // look free would be the panel lying about the system.
   if (profile === 'dense_meat') {
-    if (!cd.scored && !cd.minced) out.push(act('score', `score ${name}`, 'wider window; dries out faster past it'));
-    if (!cd.tenderised && !cd.minced) out.push(act('tenderise', `tenderise ${name}`, 'faster and forgiving; one rung off the ceiling'));
-    if (!cd.minced && ctx.blade) out.push(act('mince', `mince ${name}`, 'a third of the cook; two rungs off the ceiling, forever'));
+    if (!cd.scored && !cd.minced) out.push(act('score', `score ${name}`, 'wider window; dries out faster past it', { role: 'prep' }));
+    if (!cd.tenderised && !cd.minced) out.push(act('tenderise', `tenderise ${name}`, 'faster and forgiving; one rung off the ceiling', { role: 'prep' }));
+    if (!cd.minced && ctx.blade) out.push(act('mince', `mince ${name}`, 'a third of the cook; two rungs off the ceiling, forever', { role: 'prep' }));
   }
-  if (ctx.blade && canChop(row)) out.push(act('chop', `chop ${name}`, 'faster cook, proportionally smaller meal'));
+  if (ctx.blade && canChop(row)) out.push(act('chop', `chop ${name}`, 'faster cook, proportionally smaller meal', { role: 'prep' }));
   if (profile === 'bread' && !cd.buttered && ctx.spreadable) {
-    out.push(act('butter', `butter ${name}`, 'counts as the dish fat'));
+    out.push(act('butter', `butter ${name}`, 'counts as the dish fat', { role: 'prep' }));
   }
   // Marinating names a second object, so the HUD can only get you as far as the
   // verb — the bath is yours to pick.
   if (canMarinate(profile) && !cd.marinated_at) {
-    out.push(act('marinate…', `marinate ${name} in `, 'name what to steep it in; costs the marinade and real time'));
+    out.push(act('marinate…', `marinate ${name} in `, 'name what to steep it in; costs the marinade and real time', { role: 'prep' }));
   }
 
   if (!inVessel) {
     // The line this whole HUD exists to delete. One entry per vessel in play,
     // which is why the Preparation Area is where a pan has to be before it
     // shows up here.
-    for (const v of ctx.vessels) out.push(act(`→ ${v.short}`, `stow ${name} in ${v.name}`));
-    if (ctx.stoves.length) out.push(act('cook', `cook ${name}`, 'bare on the heat — a vessel cooks it better'));
+    //
+    // `target` is the vessel's id, and it is the only reason the panel can offer
+    // "put the four ticked things in THAT pan" — it lets the client match a row
+    // against a vessel without parsing the command it is about to send.
+    for (const v of ctx.vessels) out.push(act(`→ ${v.short}`, `stow ${name} in ${v.name}`, null, { role: 'stow', target: v.id }));
+    if (ctx.stoves.length) out.push(act('cook', `cook ${name}`, 'bare on the heat — a vessel cooks it better', { role: 'start' }));
   }
   return out;
 }
 
-function vesselActions(v, contents, ctx) {
+function vesselActions(v, contents, ctx, heat = null) {
   const cd = v.custom_data || {};
   const name = shownName(v);
   const out = [];
@@ -193,36 +207,69 @@ function vesselActions(v, contents, ctx) {
   if (boilable && ctx.taps?.length && !wet && !anyCooking) {
     out.push(act('fill', `fill ${name}`, contents.some(r => profileNameFor(r) === 'dry_starch')
       ? "pasta and rice won't cook without it"
-      : 'water from the tap, to boil in'));
+      : 'water from the tap, to boil in', { role: 'water' }));
   }
   if (boilable && !anyCooking && contents.some(isMedium)) {
-    out.push(act('empty', `empty ${name}`, 'tips the water back out'));
+    out.push(act('empty', `empty ${name}`, 'tips the water back out', { role: 'water' }));
   }
 
   if (onHeat) {
     // A stove's tier is a CEILING, not its only setting — riding the burner is
     // the single largest quality lever in the system, so it gets three flat
     // actions rather than being buried behind a submenu.
-    for (const tier of ['low', 'mid', 'high']) out.push(act(tier, `stove ${tier}`));
+    //
+    // ⚠ WHICH ONE IS LIT IS PART OF THE ACTION, not a separate readout. Three
+    // identical chips beside the words "burner mid" is a control that cannot be
+    // read as a control: the setting was stated in one place and offered in
+    // another, and the panel never said which of the three you were already on.
+    // `state: 'on'` is that answer, and the client renders the trio as one
+    // selector because of it.
+    for (const tier of ['low', 'mid', 'high']) {
+      out.push(act(tier, `stove ${tier}`, null, { role: 'heat', tier, state: heat === tier ? 'on' : null }));
+    }
   } else if (ctx.stoves.length && contents.length) {
-    out.push(act('cook', `cook ${name}`));
+    out.push(act('cook', `cook ${name}`, null, { role: 'start' }));
   }
   if (anyCooking) {
-    out.push(act('plate', `plate ${name}`, 'ends it and decides the quality'));
-    if (contents.some(r => profileNameFor(r) === 'dry_starch')) out.push(act('drain', `drain ${name}`));
+    out.push(act('plate', `plate ${name}`, 'ends it and decides the quality', { role: 'finish' }));
+    if (contents.some(r => profileNameFor(r) === 'dry_starch')) out.push(act('drain', `drain ${name}`, null, { role: 'water' }));
   }
-  if (contents.length) out.push(act('taste', `taste ${name}`, 'one spoonful, however much is in it'));
+  if (contents.length) out.push(act('taste', `taste ${name}`, 'one spoonful, however much is in it', { role: 'taste' }));
 
   // Fond: the one place a cook can see the last one. Fresh is worth lifting;
   // dried on is worth scrubbing, and leaving it is worse than a clean pan.
   const fond = fondState(cd.fond);
   if (fond === 'fresh' && !cd.deglazed && contents.some(r => profileNameFor(r) === 'liquid')) {
-    out.push(act('deglaze', `deglaze ${name}`, "beats any seasoning — it's a technique"));
+    out.push(act('deglaze', `deglaze ${name}`, "beats any seasoning — it's a technique", { role: 'clean' }));
   }
   if (fond === 'residue' || (fond !== 'none' && !contents.length)) {
-    out.push(act('scour', `scour ${name}`, 'a pan you browned in and ignored is worse than a clean one'));
+    out.push(act('scour', `scour ${name}`, 'a pan you browned in and ignored is worse than a clean one', { role: 'clean' }));
   }
   return out;
+}
+
+// "PUT EVERYTHING I HAVE TICKED IN THAT PAN", as two strings.
+//
+// The client appends the ticked rows' own names to `prefix`, joined by `sep`,
+// and sends the result. It composes a command out of pieces the server handed
+// it and still holds no verb knowledge — which is the whole reason this is a
+// prefix rather than the client knowing the shape of `prepare … with …`.
+//
+// It goes through `prepare` — the plan runner — rather than firing one `stow`
+// per row from the browser, and that is a correctness decision, not a tidiness
+// one. A loose burst of commands interleaves at every await, spends the
+// connection's whole rate-limit burst, and — the real one — a step that raises a
+// SIFT disambiguation would have the REST OF THE BATCH eaten as answers to it.
+// `runPlan` is serial, stops on the first failure, and stops dead at a prompt.
+function batchFor(v, ctx) {
+  const name = shownName(v);
+  const short = tagValue(v, 'vessel_kind', null) || name;
+  return {
+    label: `→ ${short}`,
+    prefix: `prepare ${name} with `,
+    sep: ', ',
+    hint: `puts everything ticked into the ${name}, one step at a time`,
+  };
 }
 
 // ── Recipe Assistant ─────────────────────────────────────────────────────────
@@ -813,13 +860,21 @@ export async function buildKitchen(player) {
     return { place: 'in hand', heat: null, hot: false };
   };
 
-  const area = vessels.map(v => ({
-    id: v.id,
-    name: shownName(v),
-    ...placeOf(v),
-    contents: contentsOf(v.id),
-    actions: vesselActions(v, childrenOf.get(v.id) || [], ctx),
-  }));
+  const area = vessels.map(v => {
+    const where = placeOf(v);
+    return {
+      id: v.id,
+      name: shownName(v),
+      ...where,
+      contents: contentsOf(v.id),
+      // The heat tier is passed in rather than looked up a second time: `placeOf`
+      // has already read the session's heat log, and a second read is a second
+      // chance for the selector and the readout to disagree about which ring is
+      // lit — which is the exact defect the selector exists to fix.
+      actions: vesselActions(v, childrenOf.get(v.id) || [], ctx, where.heat),
+      batch: batchFor(v, ctx),
+    };
+  });
   // A pan on the heat first, then one you are holding, then the crockery — the
   // order the player's attention is actually in.
   area.sort((a, b) => (b.hot - a.hot) || (a.place === 'in hand' ? -1 : 0));
@@ -845,6 +900,9 @@ export async function buildKitchen(player) {
       idle: true,
       contents: [],
       actions: [],
+      // A free ring is a place to put a pan, not a thing with an inside — there
+      // is nothing to tip a handful of ticked onions into.
+      batch: null,
     });
   }
 
@@ -885,7 +943,7 @@ export async function buildKitchen(player) {
       // id-shaped command here, and it earns the exception — it is a real verb
       // the container panel already uses, and "take the onion" is genuinely
       // ambiguous when three boxes in the room hold one.
-      items: shown.map(r => component(r, kindOf(r), [act('take', `pullid ${r.id}`)])),
+      items: shown.map(r => component(r, kindOf(r), [act('take', `pullid ${r.id}`, null, { role: 'take' })])),
       other: inside.length - shown.length,
     };
   }).filter(s => s.items.length || s.other);
@@ -1120,7 +1178,71 @@ export async function planKitchen(player, argStr) {
     return plan;
   }
 
-  return { error: `"${argStr}" isn't a recipe you know. The workspace lists the ones you do.` };
+  // ⚠ `unknown` IS THE DISCRIMINATOR, and it is what keeps `prepare X with Y`
+  // from ever speaking for a recipe. Every other error out of this function means
+  // "I know that dish and here is what is wrong" — you are short, you have no
+  // pot, it is already laid out — and the caller must report it verbatim. Only
+  // this one means "that is not a dish at all", which is the single case where
+  // falling through to the load form is the right thing to do.
+  //
+  // Without it, a saved recipe called "Beans with Pork" that you are short of
+  // pork for would be answered "there's no beans out here to put anything in":
+  // the load form would pick up an error that was never about a pan.
+  return { unknown: true, error: `"${argStr}" isn't a recipe you know. The workspace lists the ones you do.` };
+}
+
+// ── Loading a pan: the batch behind `prepare <pan> with a, b, c` ─────────────
+//
+// The same plan shape `planFor` returns, so `runPlan` is untouched: an ordered
+// list of ordinary commands, typed one at a time, stopping on the first failure.
+// Nothing is reserved and nothing is claimed, which is what makes it safe when a
+// housemate takes the onion between the tick and the press.
+//
+// ⚠ EACH NAME CONSUMES A ROW. Ticking three onions and sending "onion, onion,
+// onion" has to resolve to three DIFFERENT onions; a matcher that answers with
+// the same row every time would emit three identical steps, two of which fail
+// for a reason ("it's already in the pan") that reads as the HUD being broken.
+// `used` is that guarantee, and it is why resolution happens here rather than
+// being left to three separate `stow`s to work out between themselves.
+//
+// A row inside a room box is pulled first, exactly as the recipe planner does
+// it — `stow x in y` cannot reach into a cabinet, so a plan that skipped the
+// pull would be a plan that fails on its second step every time.
+export async function planLoadKitchen(player, targetStr, itemStrs) {
+  const target = String(targetStr || '').trim().toLowerCase();
+  if (!target) return { error: `Load what? Name the pan.` };
+  const items = (itemStrs || []).map(s => String(s || '').trim()).filter(Boolean);
+  if (!items.length) return { error: `Put what in it?` };
+
+  const c = await collect(player);
+  const norm = s => String(s || '').toLowerCase();
+  const vessel = c.vessels.find(v => norm(shownName(v)) === target)
+    || c.vessels.find(v => norm(tagValue(v, 'vessel_kind', null)) === target)
+    || c.vessels.find(v => norm(shownName(v)).includes(target));
+  if (!vessel) return { error: `There's no ${targetStr} out here to put anything in.` };
+
+  // Anything already inside a vessel is spoken for, and the pan cannot go inside
+  // itself. Everything else you own or can reach in this room is fair game — the
+  // verb re-checks each one anyway.
+  const pool = c.all.filter(r => r.id !== vessel.id && !c.vesselIds.has(r.container_id));
+  const used = new Set();
+  const steps = [];
+  const missing = [];
+  if (c.boxIds.has(vessel.container_id)) steps.push(`pullid ${vessel.id}`);
+  for (const want of items) {
+    const n = norm(want);
+    const row = pool.find(r => !used.has(r.id) && norm(shownName(r)) === n)
+      || pool.find(r => !used.has(r.id) && norm(shownName(r)).includes(n));
+    if (!row) { missing.push(want); continue; }
+    used.add(row.id);
+    if (c.boxIds.has(row.container_id)) steps.push(`pullid ${row.id}`);
+    steps.push(`stow ${shownName(row)} in ${shownName(vessel)}`);
+  }
+  if (missing.length) {
+    return { error: `You haven't got ${missing.join(', ')} — the workspace has moved on since you ticked that.` };
+  }
+  if (!steps.length) return { error: `It's all in there already.` };
+  return { label: `Loading the ${shownName(vessel)}`, steps, vessel: shownName(vessel) };
 }
 
 // The provider descriptor the workspace plugin gathers. `priority` is what
@@ -1135,6 +1257,7 @@ export function workspaceProvider(player) {
     priority: stoves.length ? 20 : 10,
     build: buildKitchen,
     plan: planKitchen,
+    planLoad: planLoadKitchen,
   };
 }
 

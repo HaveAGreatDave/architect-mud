@@ -133,7 +133,38 @@ this surface: **the visual form already IS the text form.** A middle-rung varian
 monospace re-implementation of a monospace panel, which is the duplicate implementation this
 whole layer exists to avoid.
 
-Four presentation rules the built panel settled on, each of which had a wrong answer first:
+**The panel is two columns: a working area, and a supply.** Everything with a
+clock in it — the pans, the heat, the water, what is going round in them — is on
+the left; everything you pick from is on the right, and the recipes run full
+width underneath both. The first build was one flat column in which a cooling
+fridge, a cupboard full of crockery and a pan that was actively burning all had
+the same weight, and the only thing on the panel with a clock was in the middle
+of it. It collapses to one column below 820px.
+
+**A pan is a station, not a row.** A bordered block with its controls FIRST and
+its contents second: what you are about to do to the pan is the decision, and
+what is in it is the evidence for it. The controls are built from the `role` the
+server stamped on each action, so the client names no verb — `heat` becomes a
+selector, `water` gets its own slot, everything else stays a chip. ⚠ **Which ring
+is lit is part of the action, not a separate readout**: three identical chips
+beside the words "burner mid" is a control that cannot be read as one, because
+the setting was stated in one place and offered in another. `state: 'on'` is that
+answer, and where the selector exists the badge is dropped — the same fact twice
+reads as two settings.
+
+**Rows tick, and one press puts everything ticked in a pan.** Combining
+ingredients is the act this HUD exists for and it was one hover, one hunt and one
+click *per ingredient*. It is a checkbox rather than a drag because a drag cannot
+be done with a keyboard, is unreliable on a touchscreen, and has no reading in
+the log rung at all — a tick is a real `<input type="checkbox">` with a real
+`<label>`, so the name is the hit target. The tray that collects them sits
+**outside the scrolling body**: you tick four things in the fridge, scroll up to
+the pans, and the button has to still be there when you arrive. See
+[plugins/workspace/README.md](../../plugins/workspace/README.md) for `batch`, for
+why it is ONE command rather than one per row, and for why the per-row `→ pan`
+chips stay in the payload after the panel stops drawing them.
+
+Four more presentation rules the built panel settled on, each of which had a wrong answer first:
 
 - **Status lives in the header, not the foot.** It is the shortest block and the one most
   likely to decide whether you can start at all; a cut supply belongs where you look first,

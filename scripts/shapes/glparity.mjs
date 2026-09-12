@@ -15,7 +15,7 @@
 // they agree to floating-point dust; anything bigger is a real difference in the camera, not noise.
 // A tolerance loose enough to absorb a genuine mistake is a gate that passes the day it matters.
 import { loadWindshield } from './dom-stub.mjs';
-import { viewProjMatrix, projectThrough } from '../../client/game/js/panels/gl/camera.js';
+import { viewProjMatrix, projectThrough, viewMatrix, eyePos } from '../../client/game/js/panels/gl/camera.js';
 
 const ws = await loadWindshield();
 const { makeCam } = ws;
@@ -144,6 +144,54 @@ for (const dpr of DPRS) {
     }
   }
 }
+// ── AND WHERE THE EYE IS, WHICH IS THE SAME CAMERA ASKED A DIFFERENT WAY ────────────────────
+//
+// Every view-dependent term in the shader — a specular lobe, a fresnel edge, a reflected ray — is a
+// function of the direction from a surface to the eye, and `eyePos` is where that comes from. It is
+// not a second derivation: it is `viewMatrix`'s own translation solved for the point that lands at
+// the origin of camera space, so the check is exactly that and nothing looser.
+//
+// ⚠ AND IT IS CHECKED UNDER PITCH, because pitch rotates the view ABOUT the eye and must therefore
+// not move it. A derivation that grew a pitch term would still project correctly — the matrix is
+// unchanged — and would slide every highlight in the city as the nose came up, which reads as the
+// sun moving rather than as a bug.
+let eyeChecks = 0, eyeBad = 0, worstEye = 0;
+for (const heading of HEADINGS) {
+  for (const eyeH of EYES) {
+    for (const pitch of PITCHES) {
+      for (const chase of CHASES) {
+        const cam = makeCam(W, HORIZON, DEPTH, { heading, height: 0, eyeH, map: null, camPitch: pitch }, chase || undefined);
+        const m = viewMatrix(cam);
+        const [x, y, z] = eyePos(cam);
+        // World → camera, by hand: the eye must land at the origin, in all three axes.
+        const l = m[0] * x + m[4] * y + m[8] * z + m[12];
+        const u = m[1] * x + m[5] * y + m[9] * z + m[13];
+        const f = m[2] * x + m[6] * y + m[10] * z + m[14];
+        const off = Math.max(Math.abs(l), Math.abs(u), Math.abs(f));
+        eyeChecks++;
+        if (off > worstEye) worstEye = off;
+        if (off > 1e-9) {
+          eyeBad++;
+          if (eyeBad <= 6) console.log(`  ✗ eye: hdg ${heading} eyeH ${eyeH} pitch ${pitch} lands at (${l.toExponential(1)}, ${u.toExponential(1)}, ${f.toExponential(1)}), not the origin`);
+        }
+        // The pitch-independence half, stated separately so a failure says which of the two broke.
+        if (pitch) {
+          const flat = makeCam(W, HORIZON, DEPTH, { heading, height: 0, eyeH, map: null }, chase || undefined);
+          const e0 = eyePos(flat);
+          eyeChecks++;
+          if (Math.max(Math.abs(e0[0] - x), Math.abs(e0[1] - y), Math.abs(e0[2] - z)) > 1e-12) {
+            eyeBad++;
+            if (eyeBad <= 6) console.log(`  ✗ eye: pitch ${pitch} MOVED the eye (hdg ${heading}) — pitch rotates about it and must not`);
+          }
+        }
+      }
+    }
+  }
+}
+if (eyeBad) {
+  console.error(`✗ glparity: ${eyeBad} of ${eyeChecks} eye positions are not the origin of their own camera.`);
+  process.exit(1);
+}
 if (bad) {
   console.error(`✗ glparity: ${bad} of ${checks} projections disagree — the GL camera is not GLASS's camera.`);
   process.exit(1);
@@ -153,3 +201,4 @@ console.log(`✓ glparity: ${checks} projections identical to cam.proj across `
   + `(worst disagreement ${worst.px.toExponential(1)} px).`);
 console.log(`  …of which ${shifted} were drawn from the MAP WINDOW's frame with the sub-tile offset moved onto the camera,`);
 console.log(`  and ${dprChecks} through a DEVICE-pixel viewport at dpr ${DPRS.join('/')} — the split that put the city 38 px off the ground.`);
+console.log(`  …and ${eyeChecks} eye positions land on the origin of their own camera (worst ${worstEye.toExponential(1)} tiles), pitch included.`);

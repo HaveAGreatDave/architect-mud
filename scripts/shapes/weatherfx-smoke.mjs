@@ -60,12 +60,18 @@ export function weatherFxSmoke() {
   const out = [];
   const ok = (name, cond, detail) => out.push({ name, ok: !!cond, detail: detail == null ? '' : String(detail) });
 
-  // The vocabulary itself, so a name added in one place and not the other shows up.
-  ok('the fx vocabulary is 5 weather + 6 drug + none',
-    _test.ALL_FX.length === 12 && _test.WEATHER_FX.length === 5 && _test.DRUG_FX.length === 6,
+  // The vocabulary itself, so a name added in one place and not the other shows
+  // up. ⚠ Counted, not listed: the list now lives in client/shared/drug-fx.js
+  // and this file imports the renderer, so an assertion naming the members would
+  // be asserting that an import worked.
+  ok('the fx vocabulary is 5 weather + 14 drug + none',
+    _test.ALL_FX.length === 20 && _test.WEATHER_FX.length === 5 && _test.DRUG_FX.length === 14,
     `${_test.ALL_FX.length} total / ${_test.WEATHER_FX.length} weather / ${_test.DRUG_FX.length} drug`);
   ok('no name appears in both halves',
     !_test.WEATHER_FX.some((w) => _test.DRUG_FX.includes(w)));
+  ok('every particle symptom is a real symptom',
+    _test.PARTICLE_SYMPTOMS.every((s) => _test.DRUG_FX.includes(s)),
+    _test.PARTICLE_SYMPTOMS.filter((s) => !_test.DRUG_FX.includes(s)).join(', '));
 
   // Every named effect must put paint down at a normal intensity.
   for (const fx of [..._test.WEATHER_FX, ..._test.DRUG_FX]) {
@@ -77,10 +83,12 @@ export function weatherFxSmoke() {
     if (threw) continue;
     ok(`${fx}: actually draws`, paint(ctx._n) > 0, JSON.stringify(ctx._n));
     // A particle effect with an empty pool draws nothing however many frames run.
-    if (['rain', 'snow', 'ash', 'wind', 'static', 'tracers', 'crawl'].includes(fx))
+    if (['rain', 'snow', 'ash', 'wind'].includes(fx) || _test.PARTICLE_SYMPTOMS.includes(fx))
       ok(`${fx}: seeded a particle pool`, seeded.particles > 0, `${seeded.particles} particles`);
     if (['fog', 'bloom'].includes(fx))
       ok(`${fx}: seeded blobs`, seeded.blobs > 0, `${seeded.blobs} blobs`);
+    if (fx === 'veins')
+      ok('veins: seeded filaments', seeded.strands > 0, `${seeded.strands} strands`);
   }
 
   // ⚠ The bug this file exists for. An unknown name must not silently paint.
@@ -114,7 +122,7 @@ export function weatherFxSmoke() {
 
   // A whole-field effect holds no state, so it must still draw on a fresh pane
   // with nothing seeded — that is the case reseed() deliberately skips.
-  for (const fx of ['tunnel', 'swim']) {
+  for (const fx of ['tunnel', 'swim', 'fractal', 'shimmer', 'pulse']) {
     const ctx = countingCtx();
     _test.runEffect(fx, ctx, { intensity: 0.6, frames: 3 });
     ok(`${fx}: draws with nothing seeded`, paint(ctx._n) > 0, JSON.stringify(ctx._n));

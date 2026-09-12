@@ -48,6 +48,15 @@
     },
     "onset_message": "<span class=\"msg-system\">The nausea lifts and the world steps forward to be looked at.</span>",
     "onset_seconds": 30,
+    "overdose": {
+      "lethal": false,
+      "message": "You have gone through the bottom of it. There is no floor and nobody built one.",
+      "mods": {
+        "sanity": -38,
+        "stat_brains": -3,
+        "stat_cool": -5
+      }
+    },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The eyes on the walls close, one by one. The world softens back toward ordinary.</span>",
       "comedown_scale": 0.5,
@@ -66,6 +75,7 @@
     "take_line": "You chew the mushrooms down, stems and all.",
     "tolerance": {
       "gain_per_dose": 0.3,
+      "lethal_gain_ratio": 0,
       "max_reduction": 0.9,
       "recovery_per_sec": 0.0003
     }

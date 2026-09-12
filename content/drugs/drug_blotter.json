@@ -60,6 +60,15 @@
     },
     "onset_message": "<span class=\"msg-system\">The paper wasn't a lie. The walls take their first slow breath.</span>",
     "onset_seconds": 20,
+    "overdose": {
+      "lethal": false,
+      "message": "Far, far too much. The part of you that was enjoying this is not answering.",
+      "mods": {
+        "sanity": -45,
+        "stat_brains": -4,
+        "stat_cool": -6
+      }
+    },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The peak loosens its grip. The world starts remembering how to be ordinary.</span>",
       "comedown_scale": 0.5,
@@ -78,6 +87,7 @@
     "take_line": "You lay the square of {name} on your tongue and wait.",
     "tolerance": {
       "gain_per_dose": 0.4,
+      "lethal_gain_ratio": 0,
       "max_reduction": 0.95,
       "recovery_per_sec": 0.0002
     }

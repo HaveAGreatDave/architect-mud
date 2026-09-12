@@ -88,8 +88,21 @@ const WIND_FX_KPH = 40;          // gust streaks only show in genuinely windy we
 // second.
 let dreamFx = null;   // { effect, intensity } | null
 
+// A DRUG's own field symptom, from the `drug_fx` message. Held separately from
+// `dreamFx` and ranked BELOW it: inside a dreamzone the room is the dream's to
+// describe, and a drug that put you there has already had its say. Outside one
+// they never both exist, so the ordering only ever settles the dissociatives.
+let drugFieldFx = null;   // { effect, intensity } | null
+
 export function setDreamFx(fx) {
   dreamFx = fx && fx.effect && fx.effect !== 'none'
+    ? { effect: fx.effect, intensity: Math.max(0, Math.min(1, Number(fx.intensity) || 0.5)) }
+    : null;
+  refreshWeatherFx();
+}
+
+export function setDrugFieldFx(fx) {
+  drugFieldFx = fx && fx.effect && fx.effect !== 'none'
     ? { effect: fx.effect, intensity: Math.max(0, Math.min(1, Number(fx.intensity) || 0.5)) }
     : null;
   refreshWeatherFx();
@@ -98,6 +111,7 @@ export function setDreamFx(fx) {
 function resolveWeatherFx() {
   // Wins over everything, including the indoor gate.
   if (dreamFx) return { effect: dreamFx.effect, intensity: dreamFx.intensity, windKph: 0 };
+  if (drugFieldFx) return { effect: drugFieldFx.effect, intensity: drugFieldFx.intensity, windKph: 0 };
   // Real weather cannot fall in an unreal room. A scripted override (dreamFx, above)
   // still can — that's a thing the corridor is DOING, not the city leaking in.
   if (envUnreal) return { effect: 'none', intensity: 0, windKph: 0 };

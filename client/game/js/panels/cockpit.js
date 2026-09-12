@@ -1304,6 +1304,11 @@ const FSIM_TUNE = [
   // always shipped — no canvas is created and no GL context is asked for — and a throw inside the
   // pass switches this back to 0 and finishes the frame in 2-D.
   ['gl', 'GLASS 2 (WebGL)', 0, 1, 1],
+  // Everything a building wears that is not mass, a light or a sign — masts, lattice towers,
+  // rails, guy wires, jibs, light-runners, blades, helideck markings, dishes, price boards — on
+  // the depth buffer instead of painted over the finished city. 0 puts every one of them back on
+  // the canvas, probe and all, which is what shipped before and is what draws them through walls.
+  ['glDeco', 'GL adornments', 0, 1, 1],
   // Multisampling on the GL canvas. A creation attribute, so moving it rebuilds the context and the
   // vertex buffer — one visible hitch, then the new setting. Worth a slider because the 2-D canvas
   // underneath has no AA at all, so this is a cost nobody chose to pay.

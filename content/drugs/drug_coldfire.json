@@ -5,6 +5,9 @@
   "effects": {
     "comeon_message": "<span class=\"msg-system\">It hits your blood cold. Somewhere behind your sternum, something starts winding up.</span>",
     "diuretic": 1.5,
+    "fx": {
+      "intensity": 0.9
+    },
     "instant": {
       "hunger": -12,
       "sanity": 6

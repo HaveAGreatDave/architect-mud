@@ -111,16 +111,45 @@ const DERIVED_Z1 = { barrel: 'archH', sawtooth: 'rh' };
 // `px` is the per-kind screen-size floor in pixels: below it the part is not queued at all. That
 // is what makes ten times the parts affordable at range, and it is per KIND rather than global
 // because a parapet reads from twenty tiles and a vent reads from three.
+// ── `face`: WHICH WALL A BOLTED-ON PART IS ON ──────────────────────────────────────────────────
+//
+// Two values, and only two. Absent (or anything else) means the part mounts on a y wall — the front
+// or the back — and `'x'` means it mounts on a flank. WHICH front and WHICH flank is the sign of the
+// part's own `cy`, exactly as it always was: positive is the +y/+x side, negative the −y/−x side. So
+// four walls out of one key and one sign, rather than four names to get wrong.
+//
+// ⚠ IT WAS DECLARED HERE AND READ BY NOTHING until the flank kit was written. Every painter took its
+// plane from the sign of `cy` alone, so only two of the four walls were reachable and `derivedKit`
+// put its entire kit on one of them. `detailLayer` now rotates the local frame for `'x'` — see the
+// ⚠ there — which is why `face` needs no support in any of the 23 painters, and why it is declared
+// only on the kinds where it MEANS something. A parapet, a roof tank, an antenna cluster, a stack, a
+// tank frame, a lamp post and a bollard are positioned in the volume or on a deck, not against a
+// wall, and giving them the key would put it back in the state this paragraph is about.
 export const DETAIL_SCHEMA = {
   // A vertical pipe run with brackets, down a face. The commonest thing on any industrial wall.
   pipe: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', r: 'fh' }, required: ['z0', 'z1', 'r'],
     plain: { pal: 'string', face: 'string' }, px: 6 },
+  // ⚠ `facadeGlow` IS NOT IN HERE, ON PURPOSE. `derivedKit` emits one per lit window grid and
+  // `facadeLights` in windshield.js reads it straight off the derived list — it is a LIGHT, it draws
+  // no geometry, and it is not something to author into a model file. It was declared here for one
+  // afternoon and `authoredDetailSmoke` refused it correctly: that gate runs a part with the mesh
+  // sink open and no sprite sink, so a light-only part records nothing and every required field it
+  // declares "changes nothing when removed". A kind with no drawer is skipped by `detailLayer`,
+  // which is the behaviour wanted.
   // A rooftop or wall-mounted mechanical box: condensers, plant, the thing on every flat roof.
   acUnit: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', d: 'fh', hh: 'h' }, required: ['z', 'w'],
-    plain: { pal: 'string' }, px: 8 },
+    plain: { pal: 'string', face: 'string' }, px: 8 },
   // A louvred vent panel, flat against a face.
   vent: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', hh: 'h' }, required: ['z', 'w'],
     plain: { pal: 'string', face: 'string' }, px: 6 },
+  // A run of neon tube across a face, with optional vertical returns down each end (`drop`). A
+  // dark mounting channel by day and a lit line after dark — see the ⚠ on neonRun in
+  // windshield.js for why it is two things rather than one. `color` defaults to the model's own
+  // `neon`, so a building that already names an accent needs nothing authored to wear it.
+  // ⚠ NOT A SIGN, AND THAT IS THE POINT. It spells nothing, so it goes on the 107 buildings with
+  // no name worth setting in type — which is most of a city and all of the boring half of it.
+  neonRun: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', drop: 'h' }, required: ['z', 'half'],
+    plain: { color: 'string', pal: 'string', face: 'string' }, px: 5 },
   // A balcony slab with an optional railing, projecting from a face.
   balcony: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', out: 'fh', rail: 'h' }, required: ['z', 'half', 'out'],
     plain: { pal: 'string', face: 'string' }, px: 10 },
@@ -205,8 +234,12 @@ export const DETAIL_SCHEMA = {
     plain: { pal: 'string', color: 'string', ink: 'string', label: 'string', trim: 'string', neon: 'boolean', font: 'string', picto: 'string' }, px: 9 },
   // A sign panel hung proud of a wall, with a visible edge return. Not `neonBlade`, whose
   // half-width is in SCREEN pixels and which therefore never foreshortens — this is world geometry.
+  // ⚠ `face` WORKS HERE AND NEEDED NO PAINTER CHANGE. The flank rotation turns the local frame
+  // rather than the painters, so declaring the key is the whole of it — and a gable end is where a
+  // real city puts its largest advertisement, which is the one surface a wall texture cannot make
+  // interesting. 'x' is a flank; absent is front/back, and which of those is still the sign of `cy`.
   bladePanel: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', half: 'fh', out: 'fh' }, required: ['z0', 'z1', 'half'],
-    plain: { pal: 'string', color: 'string', ink: 'string', label: 'string', font: 'string', picto: 'string' }, px: 8 },
+    plain: { pal: 'string', color: 'string', ink: 'string', label: 'string', face: 'string', font: 'string', picto: 'string' }, px: 8 },
 
   // ── THE INDUSTRIAL FOUR ─────────────────────────────────────────────────────
   // The machinery bolted to the outside of a working building. `pipe` and `vent` are the
@@ -215,7 +248,7 @@ export const DETAIL_SCHEMA = {
   // Big external ducting: a ribbed trunk up a face, an elbow, and an arm running along the wall.
   // `run` is signed, so the arm can turn either way; omit it for a plain riser.
   ductRun: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', r: 'fh', run: 'fh' }, required: ['z0', 'z1', 'r'],
-    plain: { pal: 'string' }, px: 7 },
+    plain: { pal: 'string', face: 'string' }, px: 7 },
   // An extract stack with a cowl. The cowl is what makes the silhouette read as extract not mast.
   stack: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h' }, required: ['z', 'r', 'hh'],
     plain: { pal: 'string' }, px: 7 },

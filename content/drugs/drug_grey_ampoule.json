@@ -3,6 +3,30 @@
   "description": "Nobody sells this under a name. It's described, when it's described at all, by what people have noticed afterwards, and the noticing is always secondhand, always cheerful, and never complete.",
   "duration_seconds": 900,
   "effects": {
+    "fx": {
+      "palette": "cyan",
+      "phases": {
+        "comedown": {
+          "field": "veins",
+          "screen": [
+            "narrow",
+            "desat"
+          ]
+        },
+        "comeup": {
+          "field": "static",
+          "screen": []
+        },
+        "peak": {
+          "field": "static",
+          "screen": [
+            "halo",
+            "desat"
+          ]
+        }
+      },
+      "window": "stimulant"
+    },
     "instant": {
       "sanity": 2,
       "thirst": -8
@@ -10,7 +34,13 @@
     "onset_seconds": 40,
     "overdose": {
       "lethal": false,
-      "message": "Your whole body cramps at once, from the inside out, and something low in you feels wrung dry. It passes. You're fairly sure it passes."
+      "message": "Your whole body cramps at once, from the inside out, and something low in you feels wrung dry. It passes. You're fairly sure it passes.",
+      "mods": {
+        "hp": -10,
+        "sanity": -20,
+        "stat_brains": -5,
+        "stat_brawn": -4
+      }
     },
     "phases": {
       "comedown_message": "The heaviness fades. Something about it lingers anyway.",

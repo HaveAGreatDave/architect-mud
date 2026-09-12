@@ -101,8 +101,33 @@ uniform vec2  uDC;         // the craft's ground point, for the downwash disc
 uniform float uZA;
 uniform float uZB;
 
+// ── WET TARMAC: THE CITY'S OWN LIGHTS, REFLECTED ───────────────────────────────────────────────
+//
+// Every one of the reference boards this was built from has neon lying on wet asphalt, and this
+// shader already holds all three things that needs: the world point under the pixel, how far away
+// it is, and — in uLut1.b — whether it is PAVED. The lights are the same list the mass shader takes
+// for its wall wash, so nothing new is collected and nothing new is authored.
+//
+// ⚠ SIX, NOT TWELVE. The brightest few are the whole effect, and this is per-pixel over the entire
+// lower half of the frame rather than over the walls.
+//
+// ⚠ AND IT IS SWITCHED OFF, BECAUSE THIS SHADER CANNOT SEE MOST OF THE ROAD. Measured: on bare
+// ground the floor is 55.6% of the frame, and on a paved street it is 17.9% — GROUND_FULL draws
+// every road and pavement tile as an opaque quad at SURF_EPS, ON TOP of the floor, so the surface
+// this term is gated to (pavedW) is precisely the surface the ground pass then covers. The term is
+// correct and invisible. Finishing it means putting the same reflection in gl/ground.js's shader,
+// or stopping the tile fill from being opaque over the floor — a design decision, not a tune.
+const int MAX_WET = 6;
+uniform int   uNWet;
+uniform vec3  uWetP[MAX_WET];   // ground point x,y in THIS shader's frame + the light's height
+uniform vec3  uWetC[MAX_WET];   // colour, 0-1
+uniform float uWetR[MAX_WET];   // reach in tiles, the same figure pickLights gives the wall wash
+uniform float uWet;             // how wet the ground is, 0-1
+
 // A term-by-term readout, because a floor that is 25% dark says nothing about WHICH factor did it.
-// 0 = the picture; 1 = the raw LUT colour; 2 = tex as grey; 3 = the haze weight; 4 = shade as grey.
+// 0 = the picture; 1 = the raw LUT colour; 2 = tex as grey; 3 = the haze weight; 4 = shade as grey;
+// 5 = a marker at each light's ground point, which is how the FRAME was settled — see the ⚠ in
+// world.js. Reading the conversion off the code gets you a sub-tile error that looks like art.
 uniform int uDebug;
 
 out vec4 outColor;
@@ -349,6 +374,51 @@ void main() {
     float lh = dryW * clamp((d - 10.0) / 44.0, 0.0, 1.0) * 0.6;
     col = col * (1.0 - lh) + uHor * uNm * lh;
   }
+  // ── THE REFLECTIONS, BEFORE THE FOG ────────────────────────────────────────────────────────
+  //
+  // A reflection is part of the SURFACE, so it has to recede with it — put this after the fog and a
+  // neon streak stays crisp on ground that has already dissolved into the horizon.
+  //
+  // ⚠ IT IS A SMEAR TOWARD THE VIEWER, NOT A MIRRORED IMAGE. A mirror reflection would be a second
+  // copy of the light below the horizon, which is what a still puddle does; wet tarmac is a rough
+  // surface, so what you actually see is the light drawn out along the line between its own ground
+  // point and your eye, narrow across and long toward you. Two Gaussians in that frame, which is
+  // three dot products and no square roots per light.
+  //
+  // ⚠ AND IT IS GATED ON pavedW, WHICH THE SHADER ALREADY HAD. Neon on wet road is the picture;
+  // neon on wet grass is a bug. Nothing new is authored to get that — the LUT has carried a paved
+  // weight since it was written.
+  if (uWet > 0.001 && pavedW > 0.02 && uNWet > 0) {
+    vec2 here = vec2(wx, wy);
+    vec3 wetAdd = vec3(0.0);
+    for (int i = 0; i < MAX_WET; i++) {
+      if (i >= uNWet) break;
+      vec2 gp = uWetP[i].xy;
+      vec2 toEye = uA - gp;
+      float el = length(toEye);
+      if (el < 0.001) continue;
+      toEye /= el;
+      vec2 rel = here - gp;
+      // Along the eye direction the streak is long and scales with how high the light is — a sign
+      // three storeys up throws further than a kerb lamp. Across it, it is tight.
+      float along = dot(rel, toEye);
+      float lat = dot(rel, vec2(-toEye.y, toEye.x));
+      float len = max(0.35, uWetP[i].z * 1.9);
+      // Behind the light (away from the eye) there is a short stub, not nothing: a rough surface
+      // scatters both ways. A quarter of the length reads right and costs one more multiply.
+      float a = along >= 0.0 ? along / len : along / (len * 0.25);
+      float t = lat / max(0.08, uWetR[i] * 0.10);
+      float amp = exp(-a * a) * exp(-t * t);
+      // And it fades with how far the light is from the patch at all, on the same reach the wall
+      // wash uses, so a light that is not lighting anything does not lie on the road either.
+      float reach = clamp(1.0 - el / max(0.001, uWetR[i] * 2.2), 0.0, 1.0);
+      wetAdd += uWetC[i] * (amp * reach * reach);
+    }
+    // ⚠ SCALED BY THE NIGHT AS WELL AS BY THE WET. Signage is drawn by day too, and a pink streak
+    // down a road at noon is not a reflection, it is a decal.
+    col += wetAdd * (uWet * pavedW * 1.35 * clamp(uNight, 0.0, 1.0));
+  }
+
   // N64 distance fog, last and uniformly over every material, so the far field recedes into the
   // sky. A squared ramp: a crisp foreground thickening into the far.
   if (uFogAmt > 0.001) {
@@ -367,6 +437,17 @@ void main() {
   if (uDebug == 2) { outColor = vec4(vec3(tex * 0.5), 1.0); return; }
   if (uDebug == 3) { outColor = vec4(vec3(haze * 4.0), 1.0); return; }
   if (uDebug == 4) { outColor = vec4(vec3(shadeW * 0.5), 1.0); return; }
+  // 5 — a disc at each light's own ground point, in THIS shader's frame. The only honest way to
+  // settle the frame conversion: if the discs do not sit under the lights, the conversion is wrong,
+  // and every other symptom of that is a reflection sitting beside its sign, which reads as art.
+  if (uDebug == 5) {
+    vec3 mark = vec3(0.04);
+    for (int i = 0; i < MAX_WET; i++) {
+      if (i >= uNWet) break;
+      if (length(vec2(wx, wy) - uWetP[i].xy) < 0.18) mark = uWetC[i] * 4.0 + vec3(0.2);
+    }
+    outColor = vec4(clamp(mark, 0.0, 1.0), 1.0); return;
+  }
   outColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
@@ -381,6 +462,16 @@ function compile(gl, type, src, label) {
   }
   return sh;
 }
+
+// ⚠ THE SAME SIX AS THE SHADER'S `MAX_WET`, AND THEY HAVE TO AGREE. The GLSL one is inside a
+// template literal and cannot be read from here, so this is the second copy — the shader would
+// happily accept a longer array and silently ignore the tail, which is a reflection that is there
+// on one machine and missing on another. Kept adjacent so a change to one is a visible diff on both.
+const MAX_WET = 6;
+const WET_P = new Float32Array(MAX_WET * 3);
+const WET_C = new Float32Array(MAX_WET * 3);
+const WET_R = new Float32Array(MAX_WET);
+const EMPTY_WET = [];
 
 export function createFloorLayer(gl) {
   const prog = gl.createProgram();
@@ -401,6 +492,7 @@ export function createFloorLayer(gl) {
     moonDir: U('uMoonDir'), moonElev: U('uMoonElev'), night: U('uNight'),
     heliDown: U('uHeliDown'), rotor: U('uRotor'), dc: U('uDC'),
     zA: U('uZA'), zB: U('uZB'), debug: U('uDebug'),
+    nWet: U('uNWet'), wetP: U('uWetP'), wetC: U('uWetC'), wetR: U('uWetR'), wet: U('uWet'),
   };
 
   const vao = gl.createVertexArray();   // nothing bound: the triangle is synthesised from gl_VertexID
@@ -460,6 +552,24 @@ export function createFloorLayer(gl) {
     gl.uniform1f(loc.heliDown, s.heliDown || 0); gl.uniform1f(loc.rotor, s.rotor || 0);
     gl.uniform2f(loc.dc, s.dcx || 0, s.dcy || 0);
     gl.uniform1i(loc.debug, s.debug | 0);
+    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO REFLECTION. A uniform holds its last
+    // value, so a pass that only set these when it had lights would leave yesterday's streaks on
+    // the road after the signs went out — the same rule the sun strength above it follows.
+    const wl = (s.wet > 0 ? s.wetLights : null) || EMPTY_WET;
+    const nw = Math.min(MAX_WET, wl.length);
+    gl.uniform1f(loc.wet, nw ? (s.wet || 0) : 0);
+    gl.uniform1i(loc.nWet, nw);
+    if (nw) {
+      for (let i = 0; i < nw; i++) {
+        const L = wl[i];
+        WET_P[i * 3] = L.p[0]; WET_P[i * 3 + 1] = L.p[1]; WET_P[i * 3 + 2] = L.p[2];
+        WET_C[i * 3] = L.rgb[0]; WET_C[i * 3 + 1] = L.rgb[1]; WET_C[i * 3 + 2] = L.rgb[2];
+        WET_R[i] = L.r;
+      }
+      gl.uniform3fv(loc.wetP, WET_P.subarray(0, nw * 3));
+      gl.uniform3fv(loc.wetC, WET_C.subarray(0, nw * 3));
+      gl.uniform1fv(loc.wetR, WET_R.subarray(0, nw));
+    }
     const near = 0.06, far = 400.0;
     gl.uniform1f(loc.zA, (far + near) / (far - near));
     gl.uniform1f(loc.zB, -2.0 * far * near / (far - near));

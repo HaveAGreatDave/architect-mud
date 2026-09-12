@@ -426,5 +426,143 @@ export default async function regress({ run, check, getPlayer }) {
     //    your own body and still shoot straight.
     const noArc = dosed.filter(d => !d.effects?.phases).map(d => d.id);
     check('every dosed drug has a phase arc', noArc.length === 0, noArc.join(', '));
+
+    // 7. ...and a ceiling with something behind it. Nine rows had no `overdose`
+    //    block at all, so passing the threshold applied an empty `{}` and printed
+    //    the generic "your body revolts" line. A survivable overdose with no
+    //    `mods` is the same hole wearing a sentence.
+    const noOd = dosed.filter(d => !d.effects?.overdose).map(d => d.id);
+    check('every dosed drug says what too much does', noOd.length === 0, noOd.join(', '));
+    const emptyOd = dosed.filter(d => {
+      const od = d.effects?.overdose;
+      return od && !od.lethal && !Object.keys(od.mods || {}).length;
+    }).map(d => d.id);
+    check('a survivable overdose actually costs something', emptyOd.length === 0, emptyOd.join(', '));
+
+    // ⚠ A non-lethal overdose runs through applyEffects, which caps HP at the max
+    // but floors it only at ZERO — so a big enough `hp` here kills on a block
+    // that declared itself survivable, and the death path never hears about it.
+    const secretlyLethal = dosed.filter(d => {
+      const od = d.effects?.overdose;
+      return od && !od.lethal && (od.mods?.hp ?? 0) <= -60;
+    }).map(d => d.id);
+    check('no "survivable" overdose is quietly lethal', secretlyLethal.length === 0, secretlyLethal.join(', '));
+  }
+
+  // --- one line, or several -------------------------------------------------
+  //
+  // Every authored message takes a string OR a list. The list form is the whole
+  // reason a regular smoker does not read the same five sentences for a year,
+  // and the string form has to keep behaving exactly as it always did.
+  {
+    const { pickLine } = await import('../../server/engine/drugs.js');
+    check('a plain string comes back whole', pickLine('one line') === 'one line');
+    check('an empty string is nothing', pickLine('') === null);
+    check('undefined is nothing', pickLine(undefined) === null);
+    const pool = ['a', 'b', 'c'];
+    const seen = new Set();
+    for (let i = 0; i < 200; i++) seen.add(pickLine(pool));
+    check('a list is rolled across its whole pool', seen.size === 3, [...seen].join(','));
+    check('...and never answers with anything outside it', [...seen].every(s => pool.includes(s)));
+    // ⚠ A null left behind by an editor would otherwise print the word "null" at
+    // somebody's peak, which is the failure mode of stringifying instead of filtering.
+    check('a list of junk is nothing, not the word null', pickLine([null, undefined, 0]) === null);
+    check('junk beside a real line picks the real line', pickLine([null, 'real']) === 'real');
+  }
+
+  // --- what it is DOING to you ----------------------------------------------
+  //
+  // Every drug moves stats and none of them ever said so: you could ride a peak
+  // that took five off your reflexes and the only evidence was that you started
+  // missing. These lines are DERIVED from the block being applied, which is why
+  // all 39 rows got them at once and why a retune cannot leave stale prose behind.
+  {
+    const { feelLines, FEELABLE_KEYS } = await import('../../server/engine/drug-feel.js');
+    check('a buff and a debuff of the same stat read differently',
+      feelLines({ stat_reflexes: 4 })[0] !== feelLines({ stat_reflexes: -4 })[0]);
+    check('a bigger move reads differently from a small one',
+      feelLines({ stat_brains: -1 })[0] !== feelLines({ stat_brains: -8 })[0]);
+    check('the same block always reads the same way',
+      feelLines({ stat_cool: -6 })[0] === feelLines({ stat_cool: -6 })[0]);
+    check('nothing moved, nothing said', feelLines({ stat_brawn: 0, hp: -5 }).length === 0);
+    check('at most three at once, so it is a feeling and not a status screen',
+      feelLines({ stat_brawn: 9, stat_reflexes: 8, stat_brains: 7, stat_cool: 6 }).length === 3);
+    check('the biggest mover is the one you mention first',
+      feelLines({ stat_cool: 1, stat_brawn: 9 })[0] === feelLines({ stat_brawn: 9 })[0]);
+
+    // The build-failure rule, pointed at the drug corpus: a stat a real drug
+    // moves with no sentence behind it is a drug that changes you in silence,
+    // which is the exact hole this exists to close.
+    const HUD = ['hp', 'sanity', 'hunger', 'thirst', 'radiation', 'horniness_increase', 'stamina'];
+    const moved = new Set();
+    for (const d of Object.values(getDrugCache())) {
+      const e = d.effects || {};
+      for (const b of [e.phases?.peak_mods, e.phases?.comedown_mods, e.withdrawal?.mods, e.overdose?.mods]) {
+        for (const [k, v] of Object.entries(b || {})) if (Number(v)) moved.add(k);
+      }
+    }
+    const silent = [...moved].filter(k => !FEELABLE_KEYS.includes(k) && !HUD.includes(k));
+    check('every stat a drug moves has a body line for it', silent.length === 0, silent.join(', '));
+  }
+
+  // --- the look of a drug ---------------------------------------------------
+  //
+  // Derived from `flags.drug_family`, so a psychedelic looks like a psychedelic
+  // with nothing authored, and three acts rather than one slide because the phase
+  // engine already walks them. scripts/shapes/drugfx-smoke.mjs proves the names
+  // reach a renderer; these are the rules the game depends on.
+  {
+    const { resolveDrugFx, FIELD_FX, SCREEN_FX } = await import('../../client/shared/drug-fx.js');
+    const cache = getDrugCache();
+    const acid = cache['drug_blotter'], tar = cache['drug_blacktar'];
+
+    const peak = resolveDrugFx(acid, 'peak', 1);
+    const comeup = resolveDrugFx(acid, 'comeup', 1);
+    check('an unauthored psychedelic still has a look', !!peak && !!peak.field, JSON.stringify(peak?.field));
+    check('...and its come-up is not its peak', comeup?.field !== peak?.field, `${comeup?.field} / ${peak?.field}`);
+    check('...and comes up weaker than it peaks', comeup.intensity < peak.intensity, `${comeup.intensity} < ${peak.intensity}`);
+    check('a downer does not look like a psychedelic',
+      resolveDrugFx(tar, 'peak', 1)?.field !== peak.field);
+
+    // Potency is tolerance and dose strength already worked out, so a saturated
+    // user's fourth pill genuinely looks fainter than their first.
+    check('tolerance dulls the view as well as the high',
+      resolveDrugFx(acid, 'peak', 0.3).intensity < peak.intensity);
+    check('a fully-tolerant dose shows nothing at all', resolveDrugFx(acid, 'peak', 0) === null);
+
+    // ⚠ THE PHANTOM RULE. A deliriant's whole illusion is that there is no drug —
+    // fake people walk into the real room and behave — and a screen announcing
+    // that you are high deletes it. One `if` in a shared law, so nothing else
+    // would notice if it went.
+    for (const id of ['drug_glasshollow', 'drug_wraithdust']) {
+      const d = cache[id];
+      if (!d) continue;
+      check(`${id}: a phantom trip is invisible`,
+        ['comeup', 'peak', 'comedown'].every(p => resolveDrugFx(d, p, 1) === null));
+    }
+
+    // Nothing may name an effect no renderer draws — an unknown name renders
+    // NOTHING and reads exactly like a deliberate blank.
+    const bad = [];
+    for (const d of Object.values(cache)) {
+      for (const p of ['comeup', 'peak', 'comedown']) {
+        const fx = resolveDrugFx(d, p, 1);
+        if (!fx) continue;
+        if (fx.field && !FIELD_FX.includes(fx.field)) bad.push(`${d.id}/${p} field=${fx.field}`);
+        for (const s of fx.screen) if (!SCREEN_FX.includes(s)) bad.push(`${d.id}/${p} screen=${s}`);
+      }
+    }
+    check('every drug resolves to effects the client can actually draw', bad.length === 0, bad.join(', '));
+
+    // ⚠ THE LOG RUNG GETS NOTHING. That rung's whole promise is that the panels
+    // come off and what is left is the log, so blurring the view, ghosting
+    // duplicates off every line and closing a vignette over the one thing being
+    // read is the exact opposite of what the player asked for. The prose still
+    // carries it: the phase messages fire and the body lines say what is
+    // happening. Sync by contract — `player.displayRung` is latched on the live
+    // player object, and this is asked on the one-second tick.
+    const { wantsDrugFx } = await import('../../server/engine/drugs.js');
+    check('a log-rung player is sent no drug FX', wantsDrugFx({ displayRung: 'log' }) === false);
+    check('...but every other rung is', ['visual', 'textgames', undefined].every(r => wantsDrugFx({ displayRung: r })));
   }
 }

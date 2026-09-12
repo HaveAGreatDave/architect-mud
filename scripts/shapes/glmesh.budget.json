@@ -1,0 +1,6 @@
+{
+  "total": 38585,
+  "perModel": 2692,
+  "worstKey": "named:themeridianlobby",
+  "note": "npm run gl:mesh -- --write re-blesses this. Say why in the commit."
+}

@@ -4,6 +4,9 @@
   "duration_seconds": 240,
   "effects": {
     "diuretic": 1.7,
+    "fx": {
+      "intensity": 0.85
+    },
     "instant": {
       "sanity": -6
     },

@@ -4,9 +4,9 @@
 // that an off-shift studio actor walks out of the studio building.
 import { readFileSync, readdirSync } from 'fs';
 import { getRegisteredAINodes, tickEntityAI, initBlackboard } from '../../server/engine/ai-behaviour.js';
-import { world, getZone, getZoneFurniture, moveNpcToZone } from '../../server/engine/world.js';
+import { world, getZone, getZoneFurniture, moveNpcToZone, updateFurniture } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
-import { ensureClipBroadcast, _test, _piracyTest, startEmergency, stopEmergency, emergencyActive, getTvChannelList, getTabletTunedChannel, isDeckInputChannel } from './index.js';
+import { ensureClipBroadcast, _test, _piracyTest, startEmergency, stopEmergency, emergencyActive, emergencyStatus, getTvChannelList, getTabletTunedChannel, isDeckInputChannel } from './index.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
 const tabletTunersClear = (id) => _test.tabletTuners.delete(id);
@@ -51,6 +51,56 @@ export default async function regress({ check, run, getPlayer }) {
         check('vcr: a room VCR does NOT answer for a real station',
           _test.zoneDeck(z, real[0].id, true) === null, `${z} leaked onto ${real[0].id}`);
       }
+    }
+  }
+
+  // ── A TAPE MAY NOT SHADOW ANOTHER LEAGUE'S SCHEDULED GAME ───────────────────
+  // The deck outranks the schedule and a cassette carries no day mask, only its
+  // script's airSlots — so a Deadball tape left in KSAB's own deck offered a ballgame
+  // in the 18:00 block on the three nights that belong to Cluster Puck. Both walk the
+  // SAME channel blackboard, which tickBroadcastGraph resets and re-seeks on every
+  // change of _broadcastId, so the two flipped tick by tick and neither ever got past
+  // its title card. What reached the viewer was the OFF-AIR card — a dead channel
+  // rather than the wrong programme, which is why it read as an engine fault.
+  //
+  // Empty airSlots means continuous, so these two fixtures are airing at any slot and
+  // the case does not depend on the world clock (regress boots no environment).
+  //
+  // ⚠ THE BLACKBOARD IS THE ASSERTION, NOT THE RETURN VALUE. Both outcomes answer null
+  // here — a refused tape because the guard returned early, an accepted one because the
+  // walker's first tick seeks and yields nothing — so a check on the result passes
+  // whatever the guard does. `activeBroadcastId` is stamped only once a graph reaches
+  // tickBroadcastGraph, which is exactly the question: did the tape get near the
+  // channel's blackboard at all.
+  {
+    const chId = 'regress-deck-shadow';
+    const mkScript = (sport) => ({ sport, teams: ['A', 'B', 'C', 'D'], players: [], pools: {}, airSlots: [] });
+    const mkItem = (sport) => ({ playback_mode: 'sports', sportsScript: mkScript(sport), messages: [], message_interval: 5 });
+    const freshBB = () => ({ currentNode: null, waitUntil: null, npcAnchor: null, npcAnchorId: null,
+      activeBroadcastId: null, hostAbsent: false, absentDetectedAt: null, techDiffMode: false,
+      standbyCardUp: false, airedAny: false });
+    const state = { channelId: chId, playlist: [mkItem('hockey')], graphBlackboard: freshBB(),
+      channelType: 'playlist', scheduleMode: 'daily' };
+    _test.channelRuntime.set(chId, state);
+    try {
+      check('deck: the channel reports the sport its own schedule has on air',
+        _test.sportOnChannel(chId) === 'hockey', String(_test.sportOnChannel(chId)));
+
+      _test.playDeckItem(mkItem('baseball'), state, Date.now());
+      check('deck: a baseball tape never reaches the blackboard on a hockey night',
+        state.graphBlackboard.activeBroadcastId === null,
+        `the tape took the channel as '${state.graphBlackboard.activeBroadcastId}'`);
+
+      // Same sport, no conflict: on a Deadball night the tape and the slot are one
+      // broadcast, which is why only the hockey nights broke. The guard must not
+      // swallow that case too.
+      state.graphBlackboard = freshBB();
+      _test.playDeckItem(mkItem('hockey'), state, Date.now());
+      check('deck: a hockey tape still plays on a hockey night',
+        String(state.graphBlackboard.activeBroadcastId || '').startsWith('hockey:'),
+        String(state.graphBlackboard.activeBroadcastId));
+    } finally {
+      _test.channelRuntime.delete(chId);
     }
   }
 
@@ -1216,6 +1266,195 @@ export default async function regress({ check, run, getPlayer }) {
   check('startEmergency refuses an unknown bulletin', bad?.ok === false);
   const stop = stopEmergency();
   check('stopEmergency releases the airwaves', stop?.wasActive === true && emergencyActive() === false, JSON.stringify(stop));
+
+  // ── The Emergency Broadcast System console ───────────────────────────────────
+  // The console is a skin over `ebs` sub-verbs, so everything below drives the real
+  // verbs through the real dispatcher. The fake player is a plain 'player' and the
+  // whole surface is admin-gated, so the role is borrowed and handed straight back.
+  {
+    const EBZONE = 'zone_echelon_broadcast';
+    const player = getPlayer();
+    const savedZone = player.current_zone;
+    const savedRole = player.role;
+
+    const ebsDenied = await run('ebs');
+    check('ebs: refused for a non-admin', ebsDenied?.type === 'error' && /administrators/i.test(ebsDenied.message || ''), JSON.stringify(ebsDenied));
+
+    player.role = 'admin';
+    try {
+      const nowhere = await run('ebs');
+      check('ebs: says so in a room with no console',
+        nowhere?.type === 'error' && /no emergency broadcast console/i.test(nowhere.message || ''), JSON.stringify(nowhere));
+
+      player.current_zone = EBZONE;
+      // ⚠ Re-read the row every time: updateFurniture re-caches the RETURNING row and
+      // REPLACES the object in world.furniture, so a reference held from before a
+      // command is a stale copy asserting against the old flags.
+      const deckNow = () => (getZoneFurniture(EBZONE) || []).find(f => f?.flags && 'emergency_deck' in f.flags);
+      const authored = structuredClone(deckNow()?.flags || {});
+      check('ebs: the Echelon console is real content, not a fixture', !!deckNow(), 'no emergency_deck furniture in ' + EBZONE);
+
+      // The cameras are content too — a console with no camera can never air a live
+      // address, and the whole live half would pass vacuously.
+      const cams = _test.emergencyCameras(deckNow());
+      check('ebs: the studio has cameras on the floor', cams.length >= 2, JSON.stringify(cams.map(c => c.label)));
+      check('ebs: a camera authored with flags.camera_label wears that name',
+        cams.some(c => /rostrum/i.test(c.label)), JSON.stringify(cams.map(c => c.label)));
+
+      const open = await run('ebs');
+      check('ebs: opens the console', open?.type === 'emergency_console', JSON.stringify(open?.type));
+      check('ebs: the console starts off air', open?.on === false, JSON.stringify(open?.on));
+      check('ebs: and reports the authored source', open?.mode === 'cassette' && !!open?.activeCassetteId, JSON.stringify({ mode: open?.mode, tape: open?.activeCassetteId }));
+
+      // ── Ticker ────────────────────────────────────────────────────────────────
+      const tk = await run('ebs ticker STAY INDOORS. THIS IS NOT A DRILL.');
+      // ⚠ CASE. The dispatcher builds `args` off `raw.toLowerCase()`, so a crawl read
+      // from there goes out over every screen in the city in lower case. The mixed-case
+      // fixture is the assertion, not decoration.
+      check('ebs ticker: the text is stored on the console, in the case it was typed', deckNow()?.flags?.eb_ticker === 'STAY INDOORS. THIS IS NOT A DRILL.', JSON.stringify(deckNow()?.flags?.eb_ticker));
+      check('ebs ticker: and the console reads it back', tk?.ticker === 'STAY INDOORS. THIS IS NOT A DRILL.', JSON.stringify(tk?.ticker));
+      const longTicker = 'x'.repeat(_test.EB_TICKER_MAX + 80);
+      await run(`ebs ticker ${longTicker}`);
+      check('ebs ticker: a long crawl is clamped, never rejected',
+        (deckNow()?.flags?.eb_ticker || '').length === _test.EB_TICKER_MAX, String((deckNow()?.flags?.eb_ticker || '').length));
+      await run('ebs ticker STAY INDOORS. THIS IS NOT A DRILL.');
+
+      // ── The switch ────────────────────────────────────────────────────────────
+      check('ebs: nothing is on air before the switch is thrown', emergencyActive() === false);
+      const onCassette = await run('ebs on');
+      check('ebs on: the system takes the air', emergencyActive() === true && onCassette?.on === true, JSON.stringify(onCassette?.on));
+      const stC = emergencyStatus();
+      check('ebs on: carrying the loaded bulletin', stC?.mode === 'cassette' && stC?.broadcastId === authored.deck_active, JSON.stringify(stC));
+      check('ebs on: and carrying the ticker with it', stC?.ticker === 'STAY INDOORS. THIS IS NOT A DRILL.', JSON.stringify(stC?.ticker));
+
+      // ── THE TICKER RIDES ONE SLOT IN THREE ────────────────────────────────────
+      // Arithmetic, and the only way to see it is to ask for the beat at a known
+      // millisecond: a ticker that took every slot would replace the bulletin rather
+      // than scroll under it, and a ticker that took none would look like a feature
+      // that was never wired up. Both draw a plausible picture on a live set.
+      {
+        const fake = { channelId: 'ch_test_eb', currentFallbackMessages: [] };
+        const styles = [];
+        for (let slot = 0; slot < 9; slot++) {
+          const m = _test.emergencyMessage(fake, slot * 5000);
+          styles.push(m?.style === 'ticker' ? 'T' : (m ? '.' : '-'));
+        }
+        check('ebs ticker: rides exactly one five-second slot in three',
+          styles.filter(s => s === 'T').length === 3, styles.join(''));
+        check('ebs ticker: and never two in a row', !styles.join('').includes('TT'), styles.join(''));
+      }
+
+      // ── THE SEIZED AIR MUST NOT FLICKER TO STATIC ─────────────────────────────
+      // The tick runs at 1s and every beat here lasts longer than that: a bulletin
+      // line holds for its six-second interval, a ticker or a camera cut for its
+      // five-second slot. A REPEATED KEY is treated by the tick exactly as no content
+      // at all — `wasActive` goes false and the off-air static card is pushed — so
+      // emitting a beat on all of its ticks showed content for one second and static
+      // for the rest. Measured before the fix: 5 lines and 5 off-air cards over 20
+      // seconds. This replays the tick's own dedup rule against the real beats.
+      {
+        const fake = { channelId: 'ch_test_eb_flicker', currentFallbackMessages: [] };
+        let lastKey = null, wasActive = false, offAir = 0, lines = 0;
+        for (let t = 0; t < 20; t++) {
+          const m = _test.emergencyMessage(fake, t * 1000);
+          if (!m || m.key === lastKey) { if (wasActive) { offAir++; wasActive = false; } continue; }
+          wasActive = true; lastKey = m.key;
+          if (m.style !== 'live_relay') lines++;
+        }
+        check('ebs: the seized air never drops to the off-air card between beats', offAir === 0, `${offAir} off-air transition(s) in 20 ticks`);
+        check('ebs: ...while still putting real content out', lines >= 4, `${lines} line(s) in 20 ticks`);
+      }
+
+      // ── THE HIJACK REACHES A CHANNEL WHOSE OWN TRANSMITTER IS DARK ────────────
+      // The point of the whole system. A seized channel is not putting out its own
+      // programme, so asking whether its gallery still has power is asking about a
+      // station that is no longer transmitting — and before this the dark channel
+      // went off_air BEFORE the override was ever consulted, which missed exactly
+      // the screens a hijack is for.
+      const darkChannel = { channelId: 'ch_test_dark', deckZoneId: null, portableDeckZones: [] };
+      check('ebs: a channel with no transmitter at all still carries the hijack',
+        _test.channelTransmitterLive(darkChannel) === true);
+
+      // ── Live from the studio floor ────────────────────────────────────────────
+      const live = await run('ebs source live');
+      check('ebs source live: the console re-cuts without being switched off',
+        emergencyActive() === true && emergencyStatus()?.mode === 'live', JSON.stringify(emergencyStatus()));
+      check('ebs source live: and names the camera it cut to', !!emergencyStatus()?.camLabel, JSON.stringify(emergencyStatus()?.camLabel));
+      check('ebs source live: the console agrees', live?.mode === 'live', JSON.stringify(live?.mode));
+      {
+        const fake = { channelId: 'ch_test_eb', currentFallbackMessages: [] };
+        // Slot 0 is a content slot (the ticker takes slot 2 of every 3).
+        const m = _test.emergencyMessage(fake, 0);
+        check('ebs source live: the air carries a live camera feed',
+          m?.style === 'raw' && /^\[LIVE · /.test(m.text || ''), JSON.stringify(m));
+      }
+
+      // Cutting between cameras must NOT re-engage — a vision mix during a live
+      // address should not restart the address.
+      const secondCam = cams[1];
+      await run('ebs cam 2');
+      check('ebs cam: re-points the live feed', emergencyStatus()?.camLabel === secondCam.label, JSON.stringify(emergencyStatus()?.camLabel));
+      check('ebs cam: without releasing the air', emergencyActive() === true);
+      check('ebs cam: and remembers the choice on the console', deckNow()?.flags?.eb_cam === secondCam.key, JSON.stringify(deckNow()?.flags?.eb_cam));
+      const badCam = await run('ebs cam 99');
+      check('ebs cam: refuses a camera that is not there', badCam?.type === 'error' && /no camera matches/i.test(badCam.message || ''), JSON.stringify(badCam));
+      check('ebs cam: and the refusal did not take the feed down', emergencyActive() === true);
+
+      // ── The live relay: the room goes out with the picture ────────────────────
+      // The camera is pointed at this room, so what happens in it is televisable.
+      // `_relayableAir` is the ONE place that decides what a camera can see, shared
+      // with the studio relay; assert the shape rather than a delivery, which needs
+      // a player standing in front of a tuned set.
+      check('ebs live: a spoken line in shot is televisable',
+        _test.relayableAir({ type: 'say', message: '<span class="speech-line">Vess says, "Remain where you are."</span>' })
+          === 'Vess says, "Remain where you are."');
+      check('ebs live: the show\'s own performance is never re-aired',
+        _test.relayableAir({ type: 'output', message: 'a line', _fromBroadcast: true }) === null);
+      check('ebs live: foot traffic is not television',
+        _test.relayableAir({ type: 'output', message: 'someone walks in', _movement: true }) === null);
+
+      // ── Off ───────────────────────────────────────────────────────────────────
+      const off = await run('ebs off');
+      check('ebs off: releases the airwaves', emergencyActive() === false && off?.on === false, JSON.stringify(off?.on));
+      check('ebs off: and the transmitter gate goes back to telling the truth',
+        _test.channelTransmitterLive(darkChannel) === false);
+
+      // A live source with no camera can never go to air, and the refusal has to come
+      // from the one engage path rather than from a second opinion about cameras.
+      {
+        const saved = structuredClone(deckNow().flags);
+        // A console standing in a room with no camera: the deck is real, the roster
+        // is not. Drive it through the same helper the verb uses.
+        const camless = { ...deckNow(), zone_id: 'zone_nonexistent_room', flags: { ...saved, eb_mode: 'live' } };
+        check('ebs: a live console with no camera in the room has nothing to cut to',
+          _test.emergencyCamera(camless, camless.flags) === null);
+      }
+
+      await run('ebs source cassette');
+      const onAgain = await run('ebs on');
+      check('ebs: the cassette source goes back to air', emergencyActive() === true && emergencyStatus()?.mode === 'cassette', JSON.stringify(emergencyStatus()));
+      check('ebs: and the console says which tape', onAgain?.airingSource, JSON.stringify(onAgain?.airingSource));
+      await run('ebs off');
+
+      // `airemergency` is the older way in and must obey the same rules — one engage
+      // path, never two sets of them.
+      await run('airemergency');
+      check('airemergency: still throws the same switch', emergencyActive() === true);
+      await run('endemergency');
+      check('endemergency: still releases it', emergencyActive() === false);
+
+      // Leave the console exactly as content authored it.
+      // ⚠ Through updateFurniture, never a bare UPDATE: the world.furniture Map is the
+      // write funnel every reader here goes through, and a raw statement leaves the
+      // cache holding the test's own edits for the rest of the suite.
+      await updateFurniture(deckNow().id, { flags: JSON.stringify(authored) });
+      
+    } finally {
+      stopEmergency();
+      player.role = savedRole;
+      player.current_zone = savedZone;
+    }
+  }
 
   // ── Tablet TV: the portable tuner ────────────────────────────────────────────
   // The Tablet TV app is its own receiver — `tablettune` must resolve a channel

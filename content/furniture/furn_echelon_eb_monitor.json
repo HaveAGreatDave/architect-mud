@@ -1,0 +1,26 @@
+{
+  "description": "A studio monitor on a swing arm over the console, angled so the operator can see what the city sees. With the emergency system cold it carries channel 7 like any other set. With the switch thrown it shows the Echelon its own face.",
+  "flags": {
+    "aliases": "monitor,tv,television,set,screen",
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "flatscreen"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_eb_monitor",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Gallery Monitor",
+  "object_type": "tv",
+  "power_draw_kw": 0.12,
+  "price": 0,
+  "zone_id": "zone_echelon_broadcast"
+}

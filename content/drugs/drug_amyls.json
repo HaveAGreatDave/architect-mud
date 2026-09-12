@@ -3,6 +3,25 @@
   "description": "Two dozen amyls in a rattling little box. A brief, roaring rush.",
   "duration_seconds": 60,
   "effects": {
+    "fx": {
+      "intensity": 0.9,
+      "phases": {
+        "comedown": {
+          "field": null,
+          "screen": [
+            "desat"
+          ]
+        },
+        "peak": {
+          "field": "pulse",
+          "screen": [
+            "oversat",
+            "halo",
+            "jitter"
+          ]
+        }
+      }
+    },
     "instant": {
       "horniness_increase": 25,
       "sanity": 6

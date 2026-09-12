@@ -52,6 +52,55 @@ function _eventRow(at = '', text = '') {
     <button type="button" class="action-btn" onclick="_dgRemoveRow(this)">×</button>
   </div>`;
 }
+// ── One message, or several ─────────────────────────────────────────────────
+//
+// Every authored line in the drug schema takes a string OR a list, and a list is
+// rolled per firing (`pickLine` in server/engine/drugs.js). These fire on a
+// schedule, so a regular user sees the same peak line several times a day and
+// stops reading it.
+//
+// ONE LINE PER ROW in a textarea, which keeps the common case — a single
+// sentence — looking and behaving exactly as the single input it replaces. ⚠ And
+// it must SAVE BACK AS A STRING when there is only one, or every drug in the
+// game quietly becomes a one-element array the next time somebody opens it.
+function _lines(id, label, val, hint = '') {
+  const text = Array.isArray(val) ? val.join('\n') : (val ?? '');
+  const rows = Math.min(6, Math.max(2, String(text).split('\n').length + 1));
+  return `<div class="field"><label>${label}</label>
+    <textarea id="dg-${id}" rows="${rows}" placeholder="One line per variant — several means one is picked at random each time">${_esc(text)}</textarea>
+    ${hint ? `<div style="font-size:10px;color:var(--text-dim)">${hint}</div>` : ''}</div>`;
+}
+function _vLines(id) {
+  const raw = _v(id).split('\n').map(s => s.trim()).filter(Boolean);
+  return raw.length === 0 ? undefined : raw.length === 1 ? raw[0] : raw;
+}
+
+// ── The Look ────────────────────────────────────────────────────────────────
+//
+// ⚠ Every name here comes from `window.DrugFX` (client/shared/drug-fx.js), never
+// from a list typed into this file. A symptom the renderer has never heard of
+// draws NOTHING and looks exactly like a deliberate blank, so the one thing this
+// editor must never do is let somebody invent one — which is also why the screen
+// symptoms are checkboxes rather than a text field.
+function _fxVocab() {
+  const v = (typeof window !== 'undefined' && window.DrugFX) || {};
+  return {
+    field: v.FIELD_FX || [], screen: v.SCREEN_FX || [],
+    window: v.WINDOW_PROFILES || [], palettes: Object.keys(v.PALETTES || {}),
+  };
+}
+function _fxPhaseRow(phase, act, vocab) {
+  const boxes = vocab.screen.map(s =>
+    `<label style="display:inline-flex;gap:3px;align-items:center;margin-right:8px;font-size:11px;cursor:pointer">
+      <input type="checkbox" class="dg-fx-screen" data-phase="${phase}" value="${s}" ${(act.screen || []).includes(s) ? 'checked' : ''} style="width:auto"> ${s}</label>`).join('');
+  const opts = ['', ...vocab.field].map(f =>
+    `<option value="${f}"${(act.field ?? '') === f ? ' selected' : ''}>${f || '(inherit)'}</option>`).join('');
+  return `<div style="margin:6px 0;padding:6px;border:1px solid var(--border);border-radius:3px">
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <div class="field" style="flex:0 0 150px"><label>${phase} — field</label><select id="dg-fx_${phase}_field">${opts}</select></div>
+      <div style="flex:1">${boxes}</div>
+    </div></div>`;
+}
 function _dgRemoveRow(btn) { btn.closest('.dg-mod-row,.dg-evt-row')?.remove(); }
 function _dgAddMod(id) { document.getElementById(id).insertAdjacentHTML('beforeend', _modRow()); }
 function _dgAddEvt(id) { document.getElementById(id).insertAdjacentHTML('beforeend', _eventRow()); }
@@ -100,6 +149,7 @@ function openDrugEditorModal(rec, isNew) {
   const wd = e.withdrawal || {};
   const od = e.overdose || {};
   const hal = e.hallucination || {};
+  const fx = e.fx || {};
 
   const overlay = document.createElement('div');
   overlay.id = 'drug-editor-overlay';
@@ -171,10 +221,11 @@ function openDrugEditorModal(rec, isNew) {
         <div style="font-size:11px;color:var(--text-dim);margin:4px 0">Peak modifiers — buffs (stat_*, hp_max, sanity_max) + <code>*_regen_per_sec</code> drip keys:</div>
         <div id="dg-peakmods"></div>
         <button type="button" class="action-btn" onclick="_dgAddMod('dg-peakmods')">+ mod</button>
-        ${_txt('p_comeup_message', 'Come-up message', ph.comeup_message)}
-        ${_txt('p_peak_message', 'Peak message', ph.peak_message)}
-        ${_txt('p_comedown_message', 'Comedown message', ph.comedown_message)}
-        ${_txt('p_end_message', 'Wear-off message', ph.end_message)}
+        ${_lines('p_comeup_message', 'Come-up message', ph.comeup_message)}
+        ${_lines('p_peak_message', 'Peak message', ph.peak_message)}
+        ${_lines('p_comedown_message', 'Comedown message', ph.comedown_message)}
+        ${_lines('p_end_message', 'Wear-off message', ph.end_message)}
+        <div style="font-size:11px;color:var(--text-dim);margin:4px 0">The stat effects describe themselves — every phase change prints what the mods above are doing to the body, derived from the numbers rather than authored here. Don't write that twice.</div>
       </div>
 
       ${_hdr('🔄 Tolerance')}
@@ -190,14 +241,15 @@ function openDrugEditorModal(rec, isNew) {
         ${_num('w_addiction_per_dose', 'Addiction / dose', wd.addiction_per_dose, 0.01)}
         ${_num('w_addiction_recovery_per_sec', 'Addiction recovery / sec', wd.addiction_recovery_per_sec, 0.000001)}
       </div>
-      ${_txt('w_message', 'Withdrawal message', wd.message)}
+      ${_lines('w_message', 'Withdrawal message', wd.message, 'Fires at onset for a drug with no per-stage lines below.')}
+      ${WD_STAGES.map(s => _lines(`w_stage_${s}`, `Stage: ${s}`, wd.stages?.[s])).join('')}
       <div style="font-size:11px;color:var(--text-dim);margin:4px 0">Withdrawal modifiers (debuffs):</div>
       <div id="dg-wdmods"></div>
       <button type="button" class="action-btn" onclick="_dgAddMod('dg-wdmods')">+ mod</button>
 
       ${_hdr('💀 Overdose')}
       ${_chk('od_lethal', 'Overdose is LETHAL (exceeding threshold kills)', !!od.lethal)}
-      ${_txt('od_message', 'Overdose message', od.message)}
+      ${_lines('od_message', 'Overdose message', od.message)}
       <div style="font-size:11px;color:var(--text-dim);margin:4px 0">Non-lethal overdose burst modifiers:</div>
       <div id="dg-odmods"></div>
       <button type="button" class="action-btn" onclick="_dgAddMod('dg-odmods')">+ mod</button>
@@ -206,15 +258,33 @@ function openDrugEditorModal(rec, isNew) {
       ${_chk('hal_on', 'Enable hallucination', !!e.hallucination)}
       <div id="dg-hal-box">
         <div class="field-row">
-          ${_sel('hal_mode', 'Mode', hal.mode || 'overlay', ['overlay', 'dreamzone'])}
-          ${_sel('hal_palette', 'Palette', hal.palette || 'green', ['green', 'purple', 'red', 'gold', 'cyan', 'magenta', 'blue'])}
+          ${_sel('hal_mode', 'Mode', hal.mode || 'overlay', ['overlay', 'dreamzone', 'transform', 'phantom'])}
+          ${_sel('hal_palette', 'Palette', hal.palette || 'green', _fxVocab().palettes)}
           ${_num('hal_intensity', 'Intensity (0–1)', hal.intensity, 0.05)}
           ${_num('hal_duration_seconds', 'Duration (s)', hal.duration_seconds)}
         </div>
-        <div style="font-size:11px;color:var(--text-dim);margin:4px 0"><b>dreamzone</b> mode builds a private, throwaway dreamscape for that one tripper — there's no room to name, and nobody else can walk into it.</div>
+        <div style="font-size:11px;color:var(--text-dim);margin:4px 0"><b>dreamzone</b> mode builds a private, throwaway dreamscape for that one tripper — there's no room to name, and nobody else can walk into it. <b>transform</b> keeps you in the real room and makes the furniture misbehave. <b>phantom</b> puts fake people in the real room and shows <i>no</i> screen FX at all, deliberately: the illusion is that there is no drug.</div>
         <div style="font-size:11px;color:var(--text-dim);margin:4px 0">Timed events:</div>
         <div id="dg-events"></div>
         <button type="button" class="action-btn" onclick="_dgAddEvt('dg-events')">+ event</button>
+      </div>
+
+      ${_hdr('🌈 The Look (FX)')}
+      <div style="font-size:11px;color:var(--text-dim);margin:4px 0">
+        Leave this off and the look is DERIVED from <code>flags.drug_family</code>: every family has a
+        three-act arc already (come-up → peak → comedown), so a psychedelic looks like a psychedelic
+        with nothing authored. Switch it on only where the family answer is wrong for this particular
+        substance. A blank field select inherits that phase from the family.
+      </div>
+      ${_chk('fx_on', 'Custom look for this drug', !!e.fx)}
+      <div id="dg-fx-box">
+        ${_chk('fx_none', 'No visual effects at all (a cigarette, a coffee)', !!fx.none)}
+        <div class="field-row">
+          ${_sel('fx_palette', 'Palette', fx.palette || '', ['', ..._fxVocab().palettes])}
+          ${_sel('fx_window', 'Windscreen profile', fx.window || '', ['', ..._fxVocab().window])}
+          ${_num('fx_intensity', 'Intensity (0–1)', fx.intensity, 0.05)}
+        </div>
+        ${['comeup', 'peak', 'comedown'].map(p => _fxPhaseRow(p, fx.phases?.[p] || {}, _fxVocab())).join('')}
       </div>
 
       <div style="display:flex;gap:8px;margin-top:20px">
@@ -238,6 +308,7 @@ function openDrugEditorModal(rec, isNew) {
   };
   toggle('dg-phases_on', 'dg-phases-box');
   toggle('dg-hal_on', 'dg-hal-box');
+  toggle('dg-fx_on', 'dg-fx-box');
 
   document.getElementById('dg-save').onclick = _dgSave;
 }
@@ -260,8 +331,31 @@ function _collectMods(containerId) {
 }
 function _pruneUndef(o) { for (const k in o) if (o[k] === undefined) delete o[k]; return o; }
 
+// ⚠ THE FORM IS NOT THE SCHEMA, AND IT USED TO EAT THE DIFFERENCE.
+//
+// This function built `effects` from scratch out of the fields on screen, so
+// every authored key the modal has no widget for was DELETED on save: a drug's
+// `onset_seconds`, `onset_message`, `comeon_message`, `take_line`,
+// `phases.comedown_mods`, `tolerance.lethal_gain_ratio` and (now) `fx` all
+// vanished the first time anybody opened the editor and pressed Save. Silent,
+// irreversible, and indistinguishable from the drug never having had them.
+//
+// So the save MERGES over what was there. `_own` names the keys this form
+// actually owns — those are cleared first, so emptying a field still empties it
+// — and everything else on the block survives untouched.
+const WD_STAGES = ['onset', 'rising', 'peak', 'easing', 'tail'];
+function _merge(existing, owned, values) {
+  const out = { ...(existing || {}) };
+  for (const k of owned) delete out[k];
+  for (const [k, v] of Object.entries(values)) if (v !== undefined) out[k] = v;
+  return out;
+}
+
 async function _dgSave() {
-  const effects = {};
+  // Start from what the row already has, not from nothing — see above.
+  const prev = _dgRec?.effects || {};
+  const prevStructured = ['instant', 'phases', 'tolerance', 'withdrawal', 'overdose', 'hallucination', 'fx'].some(k => k in prev);
+  const effects = _merge(prevStructured ? prev : {}, ['instant', 'phases', 'tolerance', 'withdrawal', 'overdose', 'hallucination', 'fx', 'diuretic'], {});
 
   const instant = _pruneUndef({ hp: _n('i_hp'), sanity: _n('i_sanity'), hunger: _n('i_hunger'), thirst: _n('i_thirst'), radiation: _n('i_radiation'), horniness_increase: _n('i_horniness_increase') });
   if (Object.keys(instant).length) effects.instant = instant;
@@ -272,26 +366,65 @@ async function _dgSave() {
 
   if (document.getElementById('dg-phases_on').checked) {
     const peak_mods = _collectMods('dg-peakmods');
-    effects.phases = _pruneUndef({
+    effects.phases = _merge(prev.phases,
+      ['comeup_seconds', 'peak_seconds', 'comedown_seconds', 'comeup_scale', 'comedown_scale',
+       'peak_mods', 'comeup_message', 'peak_message', 'comedown_message', 'end_message'], {
       comeup_seconds: _n('p_comeup_seconds'), peak_seconds: _n('p_peak_seconds'), comedown_seconds: _n('p_comedown_seconds'),
       comeup_scale: _n('p_comeup_scale'), comedown_scale: _n('p_comedown_scale'),
       peak_mods: Object.keys(peak_mods).length ? peak_mods : undefined,
-      comeup_message: _v('p_comeup_message') || undefined, peak_message: _v('p_peak_message') || undefined,
-      comedown_message: _v('p_comedown_message') || undefined, end_message: _v('p_end_message') || undefined,
+      comeup_message: _vLines('p_comeup_message'), peak_message: _vLines('p_peak_message'),
+      comedown_message: _vLines('p_comedown_message'), end_message: _vLines('p_end_message'),
     });
   }
 
-  const tol = _pruneUndef({ gain_per_dose: _n('t_gain_per_dose'), recovery_per_sec: _n('t_recovery_per_sec'), max_reduction: _n('t_max_reduction') });
+  const tol = _merge(prev.tolerance, ['gain_per_dose', 'recovery_per_sec', 'max_reduction'],
+    { gain_per_dose: _n('t_gain_per_dose'), recovery_per_sec: _n('t_recovery_per_sec'), max_reduction: _n('t_max_reduction') });
   if (Object.keys(tol).length) effects.tolerance = tol;
 
   const wdMods = _collectMods('dg-wdmods');
-  const wd = _pruneUndef({ onset_seconds: _n('w_onset_seconds'), addiction_per_dose: _n('w_addiction_per_dose'), addiction_recovery_per_sec: _n('w_addiction_recovery_per_sec'), message: _v('w_message') || undefined, mods: Object.keys(wdMods).length ? wdMods : undefined });
+  const stages = {};
+  for (const s of WD_STAGES) { const v = _vLines(`w_stage_${s}`); if (v !== undefined) stages[s] = v; }
+  const wd = _merge(prev.withdrawal,
+    ['onset_seconds', 'addiction_per_dose', 'addiction_recovery_per_sec', 'message', 'mods', 'stages'], {
+    onset_seconds: _n('w_onset_seconds'), addiction_per_dose: _n('w_addiction_per_dose'),
+    addiction_recovery_per_sec: _n('w_addiction_recovery_per_sec'), message: _vLines('w_message'),
+    mods: Object.keys(wdMods).length ? wdMods : undefined,
+    stages: Object.keys(stages).length ? stages : undefined,
+  });
   if (Object.keys(wd).length) effects.withdrawal = wd;
 
   const odMods = _collectMods('dg-odmods');
   const odLethal = document.getElementById('dg-od_lethal').checked;
-  const od = _pruneUndef({ lethal: odLethal || undefined, message: _v('od_message') || undefined, mods: Object.keys(odMods).length ? odMods : undefined });
+  const od = _merge(prev.overdose, ['lethal', 'message', 'mods'],
+    { lethal: odLethal || undefined, message: _vLines('od_message'), mods: Object.keys(odMods).length ? odMods : undefined });
   if (Object.keys(od).length) effects.overdose = od;
+
+  if (document.getElementById('dg-fx_on')?.checked) {
+    const noneAtAll = document.getElementById('dg-fx_none')?.checked;
+    if (noneAtAll) {
+      // A flat refusal, and nothing else: the phase rows below would be a set of
+      // controls that provably do nothing, which is worse than not saving them.
+      effects.fx = { none: true };
+    } else {
+      const phases = {};
+      for (const p of ['comeup', 'peak', 'comedown']) {
+        const field = _v(`fx_${p}_field`);
+        const screen = [...document.querySelectorAll(`.dg-fx-screen[data-phase="${p}"]:checked`)].map(el => el.value);
+        // ⚠ An act with NOTHING set is omitted rather than written as an empty
+        // object, because an empty object still overrides: `screen: []` is a real
+        // instruction to show no screen symptoms, and an author who touched
+        // nothing meant "inherit this phase from the family".
+        if (field || screen.length) phases[p] = { ...(field ? { field } : {}), ...(screen.length ? { screen } : {}) };
+      }
+      const block = _pruneUndef({
+        palette: _v('fx_palette') || undefined,
+        window: _v('fx_window') || undefined,
+        intensity: _n('fx_intensity'),
+        phases: Object.keys(phases).length ? phases : undefined,
+      });
+      if (Object.keys(block).length) effects.fx = block; else delete effects.fx;
+    }
+  } else delete effects.fx;
 
   if (document.getElementById('dg-hal_on').checked) {
     const events = [];
@@ -300,7 +433,8 @@ async function _dgSave() {
       const text = row.querySelector('.dg-evt-text').value.trim();
       if (text) events.push({ atSec: at || 0, text });
     }
-    effects.hallucination = _pruneUndef({
+    effects.hallucination = _merge(prev.hallucination,
+      ['mode', 'palette', 'intensity', 'duration_seconds', 'events'], {
       mode: _v('hal_mode'), palette: _v('hal_palette'), intensity: _n('hal_intensity'),
       duration_seconds: _n('hal_duration_seconds'),
       events: events.length ? events : undefined,

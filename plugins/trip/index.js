@@ -41,6 +41,7 @@ import { on } from '../../server/engine/events.js';
 import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, addNpcTransform, addPlayerTransform, getNpcTransforms, clearTransforms, clearTransformsForRedress, beginTransformFade, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
 import { buildDreamscape, dissolveDreamscape, isDreamZone } from '../../server/engine/dreamscape.js';
 import { getRelation, relationTier } from '../../server/engine/relations.js';
+import { resolveDrugFx, ALL_FX } from '../../client/shared/drug-fx.js';
 
 // playerId -> { drugId, name, mode, endsAt, realZone, transformZone, timers[], intervals[], broadcast }
 const activeTrips = new Map();
@@ -92,6 +93,34 @@ function resolveEvents(hallu, durationSec) {
   return out;
 }
 
+// The particle field a WEATHER transform asks for, or a clear.
+//
+// ⚠ `drug_transforms.fx` / `fx_intensity` were authored on four rows and read by
+// NOTHING. The columns have existed since the transforms shipped and no code
+// path had ever looked at either — the weather stopped behaving in PROSE while
+// the field over the room pane went on rendering the real drizzle.
+//
+// It belongs on the weather scope rather than the room scope because that is
+// where all four authored values already sit, and because it is the right home:
+// a particle field IS weather, and `setWeatherWarp` is the line that says the
+// sky has stopped making sense.
+//
+// ⚠ Validated against ALL_FX, not just the drug symptoms: every authored value
+// is a WEATHER name (`ash`, `wind`, `fog`), and ash falling in a windowless
+// corridor is the whole point — the same precedent `dream_templates.fx` set.
+// An unknown name renders nothing at all, so it is checked rather than trusted.
+//
+// ⚠ Its own FX source, contributing ONLY a field (`intensity: 0` keeps it out of
+// the screen-symptom and palette maxima), so it composes with the drug's phase
+// arc rather than restyling the client. The stronger field wins; an author who
+// wants the warped weather to take over says so with `fx_intensity`.
+function pushWeatherFieldFx(playerId, t) {
+  const field = t?.fx && ALL_FX.includes(t.fx) && t.fx !== 'none' ? t.fx : null;
+  sendToPlayer(playerId, field
+    ? { type: 'drug_fx', source: 'trip:weather', field, fieldIntensity: t.fx_intensity ?? 0.5, screen: [], intensity: 0 }
+    : { type: 'drug_fx', source: 'trip:weather', clear: true });
+}
+
 // ── Trip lifecycle ──────────────────────────────────────────────────────────
 
 async function startTrip({ player, drug, potency, broadcast }) {
@@ -121,8 +150,25 @@ async function startTrip({ player, drug, potency, broadcast }) {
   // text, no warped audio bed. The illusion is that there IS no drug — the fake
   // people and animals just walk in and act, dressed as real room life. So the
   // client-side "you are tripping" treatment is reserved for overlay/dreamzone.
+  // ⚠ WHO OWNS THE SCREEN. A drug with a `phases` block has its FX driven by the
+  // phase engine (engine/drugs.js → `drug_fx`), which walks come-up → peak →
+  // comedown and is the only clock that knows those moments. Sending a profile
+  // from here as well would pin the windscreen at trip strength for the whole
+  // duration and flatten that arc into one slide — so the trip hands the window
+  // over and keeps only what is its own: the colour wash, the audio bed and the
+  // timed events. A hallucinogen with NO phases (a spliced compound, which has no
+  // drugs row and therefore no family) still needs somebody to drive it, and that
+  // is this branch.
+  const engineDriven = !!drug.effects?.phases;
   if (mode !== 'phantom') {
-    sendToPlayer(player.id, { type: 'trip_start', mode, palette, profile, intensity, duration_seconds: durationSec });
+    sendToPlayer(player.id, {
+      type: 'trip_start', mode, palette, intensity, duration_seconds: durationSec,
+      profile: engineDriven ? null : profile,
+    });
+    if (!engineDriven) {
+      const fx = resolveDrugFx(drug, 'peak', potency ?? 1);
+      if (fx) sendToPlayer(player.id, { type: 'drug_fx', source: 'trip', ...fx });
+    }
     sendToPlayer(player.id, { type: 'audio_sfx', def: TRIP_RUSH, gain: 0.8 });
     sendToPlayer(player.id, { type: 'audio_ambience', def: TRIP_BED });
 
@@ -260,7 +306,8 @@ async function applyTransformsHere(player, state) {
   if (weatherPool.length) {
     const wt = one(weatherPool);
     setWeatherWarp(player.id, player.current_zone, arr(wt.looks).length ? one(arr(wt.looks)) : wt.description);
-  }
+    pushWeatherFieldFx(player.id, wt);
+  } else pushWeatherFieldFx(player.id, null);
 
   // ── 1. The room itself ─────────────────────────────────────────────────────
   const roomPool = scoped('room');
@@ -846,6 +893,14 @@ function endTrip(playerId, { reason } = {}) {
     // at. The unexplained absence is the intended come-down.
     if (state.mode !== 'phantom') {
       sendToPlayer(playerId, { type: 'trip_end' });
+      // Only the trip's OWN FX source, and unconditionally rather than only when
+      // it was opened: the client holds a source until told otherwise, and a
+      // clear for a source that was never set is a no-op, while a missed clear is
+      // a player left tripping over a sober room for the session. The phase
+      // engine's `drug:<key>` source is not this plugin's to retire — the drug is
+      // very often still running when the hallucination stops.
+      sendToPlayer(playerId, { type: 'drug_fx', source: 'trip', clear: true });
+      sendToPlayer(playerId, { type: 'drug_fx', source: 'trip:weather', clear: true });
       if (reason !== 'death') sendToPlayer(playerId, { type: 'output', message: '<span class="msg-system">The colours drain back to grey. You come down.</span>' });
     }
     // Re-look so the comedown is WATCHED rather than discovered. Without this the
