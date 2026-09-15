@@ -3346,6 +3346,17 @@ export default async function regress({ run, check, getPlayer }) {
         check('...and the measure is gone',
           !(await query('SELECT 1 FROM player_inventory WHERE id=$1', [measureId])).rows.length);
 
+        // ⚠ AND THE PAN GOES WITH IT, or the next block has two of them. Every
+        // pan in this suite is an identically-named `test dial pan`, so leaving
+        // this one in inventory makes the weighed case's `pour … into test dial
+        // pan` ambiguous: it resolved to THIS pan, the cream landed here, and
+        // the two checks that look inside the new pan found nothing — while the
+        // carton's own check passed, because the pour itself was correct. A
+        // red that names the measure is the last place you would look for a
+        // fixture that outlived its block.
+        await query('DELETE FROM player_inventory WHERE container_id=$1', [panA]).catch(() => {});
+        await query('DELETE FROM player_inventory WHERE id=$1', [panA]).catch(() => {});
+
         // ⚠ AND THE WEIGHED SIDE, END TO END. The unit cases above pin
         // `measureOf`; this pins what the WRITE does with it, which is where the
         // two classes get confused. A modifier's measure carries no `portion` at
