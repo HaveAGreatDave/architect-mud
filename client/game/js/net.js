@@ -440,20 +440,20 @@ export async function doResendVerification() {
 }
 
 export async function doForgotPassword() {
-  const email = state.send_password;
-  // Send the username too — it's unique, so the server can pick the right
-  // account when several characters share one email address.
+  // The username and nothing else. The address is read off that account row on
+  // the server and never travels in either direction — the client used to send
+  // one back, which meant the server had to have handed it over first.
   const username = document.getElementById('forgot-username').value.trim();
   const msgEl = document.getElementById('forgot-message');
   const btn   = document.getElementById('forgot-submit');
-  if (!email) { msgEl.textContent = "That email address isn't associated with that username."; msgEl.style.color = 'var(--red)'; return; }
+  if (!username) { msgEl.textContent = 'Enter your username.'; msgEl.style.color = 'var(--red)'; return; }
   btn.disabled = true;
   btn.textContent = 'Sending...';
   try {
     const data = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, username }),
+      body: JSON.stringify({ username }),
     }).then(r => r.json());
     if (data.error) {
       msgEl.textContent = data.error;

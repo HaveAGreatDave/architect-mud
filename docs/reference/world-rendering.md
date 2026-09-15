@@ -68,6 +68,14 @@ unless noted.
      (manicured grove/pond/benches/flowerbeds/path, chosen by `pf` or a position-hash), and a tile
      carrying `cur` → `drawCurtainWall` (the shimmering energy wall).
 
+   ⚠ **The Curtain's arms are DATA, and the collision reads the same list.** `curtainSegs(cur)`
+   returns the wall's segments as offsets from the tile centre; `drawCurtainWall` walks it to paint
+   and `curtainTopZAt` walks it to answer "is the wall in my way here". That is the same
+   draw/collide contract `floorHeight` holds for a building, and it exists for the same reason —
+   until 2026-09-15 the wall was picture-only, both sims collided against building mass alone, and
+   a truck or a low aircraft went straight through the perimeter. The `perimeter_gate` tile carries
+   `cur` too (so the flanking wall butts into its pylons) and is skipped by BOTH on `mark === 'gate'`.
+
 3. **`drawTypeModel`** is a big `switch (m.type)`. Each `case` composes a building out of
    `draw3DBoxAt` calls plus decoration helpers. This is where every landmark's look lives
    (`luxtower` = Halcyon Towers, `hangar` = airports, `power`, `clone`, `office`, …).
@@ -728,6 +736,26 @@ the truck is not stopped by one, NPCs do not cross roads. It is deliberately nev
 line, a camera or a ticket, and it goes **dark** rather than flashing amber in a blackout — a
 flashing signal is a real-world instruction to treat the junction as a stop, and this system
 enforces nothing.
+
+⚠ **THE NEAR CLIP IS AGAINST THE CAMERA AND NOT AGAINST THE VEHICLE, AND ALL FOUR GROUND PASSES HAD
+IT WRONG UNTIL 2026-09-15.** `f = dx·sinh − dy·cosh` is the forward distance from the **craft**, and
+in the external chase view the camera sits `cam.fwdOff` tiles further back — so a lamp, a signal, a
+pedestrian or the corridor's hitcher that has passed the vehicle is still most of the way up the
+frame while its craft-relative `f` has already gone negative. Near-clipping on the raw number
+deleted it there, which reads exactly as reported: street furniture blinking out at the moment you
+are looking straight at it. `drawWorldObjects` has carried the correction for the buildings for as
+long as the chase camera has existed and says so in as many words ("clipping on the raw craft
+distance popped it out the instant it passed the tail"); the passes that stand ON the ground never
+got it. **Far still tests on `f`**, exactly as it does for the buildings. The same mistake was inside
+`groundHidden`, which took an `f` from each of its five callers and had a craft-relative one from
+every single one — it reads `cam.proj`'s own depth now, because a projection and the distance you
+size its probe by belong to the same frame.
+
+⚠ **And nothing in this directory could see it**, because `fwdOff` is 0 in a cockpit and in a cab —
+`framecost` measures both of those seats and no others, so the two numbers were the same number in
+every frame anything had ever counted. `scripts/shapes/chaseclip.mjs` renders the same dressed street
+at three camera distances and holds the recovered band against the setback; the cab leg must measure
+**zero**, which is what says the change is arithmetically a no-op at the seat players drive from.
 
 ⚠ **Two sizing traps, both of which shipped silently in a first pass.** `signalHead`/
 `drawStreetLamp` still gate on `s = K / p.f`, and **`p.f` is projection space, not tile distance** — a

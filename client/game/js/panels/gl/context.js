@@ -29,6 +29,7 @@ import { createCloudLayer } from './clouds.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
 import { createSSAOLayer } from './ssao.js';
 import { createHDRLayer } from './hdr.js';
+import { createMirrorLayer } from './mirror.js';
 // The clip range the matrix is built with. The SSAO pass inverts the depth buffer back to tiles and
 // has to use the same two constants the vertices went through.
 import { NEAR, FAR } from './camera.js';
@@ -1248,6 +1249,55 @@ export function createGLView(canvas, opts = {}) {
     return L.draw(cam, canvas.width, canvas.height, cssH, fog);
   }
 
+  // ── THE PUDDLE REFLECTION, AS A PREPASS ────────────────────────────────────
+  //
+  // The third of them, and it plays by the same rule the other two do: it binds its own
+  // framebuffer and restores to null, so `beginTarget` a moment later is unaffected. See the ⚠ on
+  // `beginTarget` — anything bound before these prepasses is gone by the time the city is drawn,
+  // which is exactly why the reflection has to be taken BEFORE rather than squeezed in after.
+  //
+  // ⚠ IT RE-UPLOADS, AND THE ALTERNATIVE IS WORSE. The sprite and decal buffers are filled again by
+  // the ordinary passes further down, so this frame fills each one twice. Skipping the second fill
+  // would mean this prepass silently owning the buffer state the main pass depends on — a coupling
+  // that breaks the moment somebody reorders a layer or turns the reflection off. Measured, the two
+  // uploads are a few hundred microseconds against a fill cost that is the real expense here.
+  let mirror = null;
+  const mirrorLayer = () => (mirror || (mirror = createMirrorLayer(gl)));
+  function drawMirror(cam, opts = {}) {
+    const sp = opts.sprites, dc = opts.decals;
+    if (!(sp && sp.length) && !(dc && dc.length)) return null;
+    let M;
+    try { M = mirrorLayer(); } catch { return null; }
+    if (!M.bind(canvas.width, canvas.height, opts.scale)) return null;
+    // The water's plane, in the frame each layer's own vertices are in. Both are at ground level,
+    // which is z = 0 in every frame this renderer has — see the eps ladder: the road sits
+    // thousandths of a tile above it, which is nothing to a reflection.
+    const mcam = { ...cam, mirrorZ: opts.plane || 0 };
+    const cssH = opts.cssH || canvas.height;
+    try {
+      // Signage first and lights over it, which is the order the frame itself uses — a sign is
+      // artwork and a glow is the light coming off it.
+      if (dc && dc.length) { const L = decalLayer(); L.upload(dc); L.draw(mcam, cssH); }
+      // ⚠ INTENSITY 1, NOT THE EMISSIVE GAIN. The gain exists to push an emitter above 1.0 so the
+      // bright-pass can find it in the float buffer; this buffer is eight bits and is read back as
+      // a reflection, so the gain would only clip the brightest signs to flat white — which is
+      // precisely the legibility this pass exists to gain.
+      // ⚠ AND THE VIEWPORT STAYS THE CANVAS'S, THOUGH THIS BUFFER IS HALF ITS SIZE. `aRadius` is in
+      // device pixels but what the vertex shader computes from it is an NDC offset — 2·R/viewport —
+      // and NDC is the one frame that does not care what resolution it is rasterised at. Handing it
+      // the half-size buffer makes 2·R/(W/2), so every light in the water comes out at twice its
+      // width: a reflection blurrier than the surface, which reads as the effect being too strong
+      // rather than as a wrong divisor.
+      if (sp && sp.length) { const L = spriteLayer(); L.upload(sp); L.draw(mcam, canvas.width, canvas.height, cssH, 1); }
+    } catch { M.release(); return null; }
+    M.release();
+    return M.texture;
+  }
+
+  // What the reflection buffer actually holds — a bench probe, not a frame report. See the ⚠ on
+  // peak() in mirror.js: an empty buffer and a dead read-back are the same picture from the road.
+  const mirrorPeak = (step) => (mirror && mirror.peak ? mirror.peak(step) : null);
+
   // The road surface. Lazy like the others; a view over open water never compiles it.
   let grd = null;
   const groundLayer = () => (grd || (grd = createGroundLayer(gl)));
@@ -1263,7 +1313,7 @@ export function createGLView(canvas, opts = {}) {
   const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
   function drawFloor(state) { return state ? floorLayer().draw(state) : 0; }
 
-  return { gl, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, setAtlas, lost: () => gl.isContextLost(),
+  return { gl, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, drawMirror, mirrorPeak, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

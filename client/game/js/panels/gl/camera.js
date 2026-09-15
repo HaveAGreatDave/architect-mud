@@ -21,7 +21,7 @@
 // not need to be: the projection matrix below is written for this space and nothing else consumes
 // it.
 export function viewMatrix(cam) {
-  const { sinh, cosh, back, fx = 0, fy = 0, EH, pitch = 0 } = cam;
+  const { sinh, cosh, back, fx = 0, fy = 0, EH, pitch = 0, mirrorZ } = cam;
   // World → camera, exactly as `proj` does it:
   //   bx = dx + back·sinh − fx      by = dy − back·cosh − fy
   //   f  = bx·sinh − by·cosh        l  = bx·cosh + by·sinh        u = wz − EH
@@ -38,7 +38,7 @@ export function viewMatrix(cam) {
     0, 1, 0, 0,
     tx * cosh + ty * sinh, -EH, tx * sinh - ty * cosh, 1,
   ];
-  if (!pitch) return m;
+  if (!pitch) return mirrorZ == null ? m : multiply(m, reflectZ(mirrorZ));
   // Pitch rotates the (forward, up) plane about the lateral axis, positive tipping the view down:
   //   f' = f·cos − u·sin        u' = u·cos + f·sin
   const cp = Math.cos(pitch), sp = Math.sin(pitch);
@@ -50,7 +50,31 @@ export function viewMatrix(cam) {
     out[c * 4 + 2] = f * cp - u * sp;
     out[c * 4 + 3] = w;
   }
-  return out;
+  return mirrorZ == null ? out : multiply(out, reflectZ(mirrorZ));
+}
+
+// ── THE WORLD, FLIPPED THROUGH A PUDDLE ─────────────────────────────────────
+//
+// Standing water is a flat horizontal mirror, and a flat mirror has an exact answer that needs no
+// ray march and no second guess: render the scene with the world REFLECTED about the water's plane,
+// and for any point ON that plane the reflected view direction lands on the same screen pixel it
+// would have. So the reflection is read back at the fragment's own screen position — which is also
+// why it does not matter that the lights are collected in the camera's frame and the road quads in
+// the map window's. Screen space is the one frame both already agree on.
+//
+// ⚠ IT IS A WORLD REFLECTION, NOT A CAMERA AT A DIFFERENT HEIGHT, AND THAT IS NOT THE SAME THING.
+// Reflecting about z = h gives u = (2h − z) − EH = −(z − (2h − EH)), so it is a camera at 2h − EH
+// with the UP AXIS NEGATED as well. Moving the eye alone and leaving up alone renders the city the
+// right way up from underneath the road, which looks like a reflection until anything in it has a
+// top and a bottom — and every sign in this city does.
+//
+// ⚠ AND IT FLIPS THE WINDING. The determinant is −1, so a front face becomes a back face. Nothing
+// in the GL passes enables CULL_FACE (see the ⚠ in context.js: a building here is not guaranteed
+// closed), but `decals.js` decides a sign's facing ITSELF, in the fragment shader, off
+// gl_FrontFacing — so a mirrored decal pass has to be told, or every sign in the reflection is the
+// set of signs pointing away from you, reading backwards.
+export function reflectZ(h) {
+  return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 2 * h, 1];
 }
 
 // ── WHERE THE EYE IS, IN THE FRAME THE VERTICES ARE IN ──────────────────────
@@ -76,6 +100,10 @@ export function viewMatrix(cam) {
 // `ox`/`oy` in) returns the eye in map-window tiles — the frame the mesh and the lights are already
 // in. Handing it the plain one returns world tiles. Mixing the two slides every highlight in the
 // city by the window offset, which reads as the sun being in the wrong place.
+// ⚠ AND `mirrorZ` DOES NOT MOVE IT EITHER, WHICH IS A LIMIT RATHER THAN A PROPERTY. A mirrored
+// camera's real eye is below the water, and nothing that needs a view vector — the material
+// response, the specular lobe, the Fresnel gate — is drawn in the mirror pass, which carries only
+// the emissive layers. If one ever is, it needs the reflected eye, not this one.
 export function eyePos(cam) {
   const { sinh, cosh, back = 0, fx = 0, fy = 0, EH } = cam;
   return [fx - back * sinh, fy + back * cosh, EH];

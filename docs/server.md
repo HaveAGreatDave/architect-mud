@@ -252,7 +252,29 @@ room/movement payloads.
 
 ## REST and the Dev Panel
 
-The dev panel communicates exclusively via REST, not WebSocket. All routes are handled by `api/routes.js`, dispatched through the HTTP server's `handleApiRequest()`. Authenticated via a base64 token issued at WebSocket login for users with `dev`/`admin`/`builder`/`designer` roles.
+The dev panel communicates exclusively via REST, not WebSocket. All routes are handled by `api/routes.js`, dispatched through the HTTP server's `handleApiRequest()`. Authenticated via a token issued at login for users with `dev`/`admin`/`builder`/`designer` roles.
+
+⚠ **That token is HMAC-signed, and it was not always.** It used to be
+`base64(playerId:role:issuedAt)` and nothing more — no signature — so the `role`
+in it was simply whatever the holder had typed, and anybody who knew a player id
+could mint themselves `admin` and be believed by every route on this page.
+Minting, verification and revocation live in
+[server/engine/auth-tokens.js](../server/engine/auth-tokens.js); the secret comes
+from `AUTH_SECRET` where it is set, and is otherwise generated once and kept in
+`server_settings` (⚠ generate it per boot instead and every token dies at every
+restart, which on a free Render service is constantly).
+
+⚠ **Verification is SYNC BY CONTRACT** — it runs on every HTTP request, so the
+per-player revocation cutoff a password reset writes is held in a Map rather than
+read from the DB. The Map is hydrated once in `boot()` by `loadAuthSecret()`,
+because a Map alone would resurrect every revoked token at the next restart.
+
+Passwords are scrypt ([server/engine/passwords.js](../server/engine/passwords.js)).
+⚠ The old unsalted `sha256` rows still verify and must — there is no way to
+re-hash one without the plaintext, which only arrives at a login — so
+`verifyAndUpgrade` re-hashes a row on the way through and accounts migrate as
+their owners sign in. **Both** login paths use it: `apiLogin` and the WebSocket
+`handleAuth`, and most players arrive through the second one.
 
 Dev panel writes (zone saves, enemy edits, etc.) go to Postgres first and then call the appropriate `world.reload*()` function to patch the in-memory cache — changes are live for all connected players immediately without a restart.
 

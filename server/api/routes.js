@@ -16,7 +16,10 @@ import { getCrimeList, reloadCrimes, CRIME_DEFAULTS } from '../engine/crimes.js'
 import { getAliasList, reloadAliases, ALIAS_DEFAULTS } from '../engine/commands/aliases.js';
 import { loadMutations } from '../engine/mutations.js';
 import { reloadItem, deleteItemCache, getItemCache } from '../engine/items-cache.js';
-import { randomUUID, createHash, randomBytes } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
+import { hashPassword, verifyAndUpgrade } from '../engine/passwords.js';
+import { signToken, verifyToken, revokeTokensFor } from '../engine/auth-tokens.js';
+import { checkRateLimit, clientKey } from './rate-limit.js';
 import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { CORE_SEAM_FILES, coreIntensityTier, gitAuthorKey } from '../engine/dev-history.js';
@@ -89,8 +92,6 @@ function getActiveDevAdmins() {
   return active;
 }
 
-const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
-const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
 const CATALOG_PATH = fileURLToPath(new URL('../../client/shared/tagCatalog.js', import.meta.url));
 const SUPERTAGS_PATH = fileURLToPath(new URL('../../client/shared/tagSupertags.js', import.meta.url));
 
@@ -137,15 +138,19 @@ schedule('1m', async () => {
   }
 });
 
-function verifyToken(headers) {
-  const token = (headers?.authorization||'').replace('Bearer ','');
-  if (!token) return null;
-  try {
-    const [playerId, role, ts] = Buffer.from(token,'base64').toString().split(':');
-    if (Date.now() - parseInt(ts) > 86400000) return null;
-    return { playerId, role };
-  } catch { return null; }
-}
+// Per-route caps for the unauthenticated /auth surface. Sized for a human who
+// mistypes a password, not for a script: the login window is short so a locked-
+// out player is back in minutes, while the mail-sending routes are hourly
+// because each one costs a real message to somebody's inbox.
+const AUTH_LIMITS = {
+  '/auth/login':               { limit: 20, windowMs:  5 * 60_000, globalLimit: 600 },
+  '/auth/register':            { limit: 10, windowMs: 60 * 60_000, globalLimit: 200 },
+  '/auth/forgot-password':     { limit:  5, windowMs: 60 * 60_000, globalLimit: 200 },
+  '/auth/reset-password':      { limit: 10, windowMs: 60 * 60_000, globalLimit: 200 },
+  '/auth/resend-verification': { limit:  5, windowMs: 60 * 60_000, globalLimit: 200 },
+  '/auth/verify-email':        { limit: 30, windowMs: 60 * 60_000, globalLimit: 600 },
+};
+
 function requireDev(auth, fn) {
   if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
   return fn();
@@ -220,6 +225,21 @@ async function dispatchApiRequest(url, method, body, headers) {
   const path = url.replace(/^\/api/,'').split('?')[0];
   const auth = verifyToken(headers);
 
+  // Ahead of every other gate, because the point is to answer cheaply: a route
+  // that has already decided to refuse shouldn't cost a password hash or a
+  // lookup first.
+  const authLimit = AUTH_LIMITS[path];
+  if (authLimit && method === 'POST') {
+    const gate = checkRateLimit(path, clientKey(headers), authLimit);
+    if (!gate.ok) {
+      return {
+        status: 429,
+        headers: { 'Retry-After': String(gate.retryAfter) },
+        body: { error: 'Too many attempts. Wait a few minutes and try again.' },
+      };
+    }
+  }
+
   if (contentReadonlyBlocks(path, method)) {
     return { status: 403, body: { error: 'Content is read-only on production — author locally and ship via git (content:export → commit → push).' } };
   }
@@ -280,7 +300,12 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/auth/resend-verification' && method==='POST') return apiResendVerification(body);
   if (path==='/auth/forgot-password' && method==='POST') return apiForgotPassword(body);
   if (path==='/auth/reset-password'  && method==='POST') return apiResetPassword(body);
-  if (path.startsWith('/auth/email-hint') && method==='GET') return apiEmailHint(new URL('http://x'+url).searchParams.get('username'));
+  // /auth/email-hint is deliberately gone. It took a username with no
+  // credentials and answered with the account's email address in plaintext
+  // (beside a masked `hint` the real value made pointless), so it was a
+  // username → inbox oracle for anybody who could spell a URL. Nothing replaced
+  // it: any endpoint that tells a stranger which addresses exist is the same
+  // hole with a smaller window.
   if (path==='/auth/gen-switch-token' && method==='POST') {
     if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
     const { rows } = await query('SELECT id, username, handle, role FROM players WHERE id=$1', [auth.playerId]);
@@ -531,6 +556,9 @@ async function apiRegister(body) {
     // Stats start blank (0 — see stat_brawn etc. below); hp/hp_max derive from
     // endurance 0 (see maxHpForEndurance). The prologue teaches growth from here.
     const startHp = maxHpForEndurance(0);
+    // Hoisted out of the parameter array below: hashing is async now, and an
+    // un-awaited call there binds a Promise as the password hash.
+    const passwordHash = await hashPassword(password);
     // New souls spawn into the prologue (zone_the_inbetween), not the clone vat.
     // anchor_zone is left to its schema DEFAULT ('zone_start'), so once they leave
     // the prologue every death respawns them at the clone facility — the prologue
@@ -540,7 +568,7 @@ async function apiRegister(body) {
         (id,username,password_hash,handle,role,bonus_xp,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,
          biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality,current_zone)
        VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},0,0,0,0,0,0,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'zone_the_inbetween')`,
-      [id, username.toLowerCase(), hashPassword(password), handle, bonusXp,
+      [id, username.toLowerCase(), passwordHash, handle, bonusXp,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
        app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
        'Female']
@@ -578,7 +606,7 @@ async function apiRegister(body) {
       }
     }
     await query('UPDATE players SET email_verified=TRUE WHERE id=$1', [id]);
-    return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
+    return {status:201,body:{token:signToken(id,'player'),playerId:id,handle,role:'player'}};
   } catch(e) {
     if (e.code === '23505') return {status:409,body:{error:'Username or handle already taken'}};
     console.error('[register] unexpected error:', e.message);
@@ -590,11 +618,14 @@ async function apiLogin(body) {
   const {username,password} = body||{};
   if (!username||!password) return {status:400,body:{error:'username and password required'}};
   const {rows} = await query('SELECT * FROM players WHERE username=$1',[username.toLowerCase()]);
-  if (!rows.length||rows[0].password_hash!==hashPassword(password)) return {status:401,body:{error:'Invalid credentials'}};
+  // verifyAndUpgrade, not a comparison: it accepts the old unsalted sha256 rows
+  // and re-hashes them to scrypt on the way through, so accounts migrate as
+  // their owners sign in rather than all at once.
+  if (!rows.length || !(await verifyAndUpgrade(rows[0], password))) return {status:401,body:{error:'Invalid credentials'}};
   const p = rows[0];
   if (isEmailVerificationEnabled() && !p.email_verified) return {status:403,body:{error:'Please verify your email before logging in.',needsVerification:true}};
   fireHook('player.login', { id: p.id, handle: p.handle, role: p.role }).catch(() => {});
-  return {status:200,body:{token:makeToken(p.id,p.role),playerId:p.id,handle:p.handle,role:p.role}};
+  return {status:200,body:{token:signToken(p.id,p.role),playerId:p.id,handle:p.handle,role:p.role}};
 }
 
 async function apiVerifyEmail(body) {
@@ -609,7 +640,7 @@ async function apiVerifyEmail(body) {
   await query('UPDATE email_verification_tokens SET used=TRUE WHERE id=$1', [row.id]);
   const { rows: pRows } = await query('SELECT id, handle, role FROM players WHERE id=$1', [row.player_id]);
   const p = pRows[0];
-  return { status:200, body:{ token:makeToken(p.id,p.role), playerId:p.id, handle:p.handle, role:p.role } };
+  return { status:200, body:{ token:signToken(p.id,p.role), playerId:p.id, handle:p.handle, role:p.role } };
 }
 
 async function apiResendVerification(body) {
@@ -640,30 +671,38 @@ async function apiResendVerification(body) {
   return { status:200, body:{ sent:true } };
 }
 
-async function apiEmailHint(username) {
-  if (!username) return { status:200, body:{ email: '' } };
-  const { rows } = await query('SELECT email FROM players WHERE username=$1', [username.toLowerCase().trim()]);
-  if (!rows.length || !rows[0].email) return { status:200, body:{ hint: '', email: '' } };
-  const real = rows[0].email;
-  const [local, domain] = real.split('@');
-  const hint = local.length <= 4 ? '*'.repeat(local.length) : local.slice(0,2) + '*'.repeat(local.length - 4) + local.slice(-2);
-  return { status:200, body:{ hint: `${hint}@${domain}`, email: real } };
-}
+// ⚠ ONE ANSWER, WHATEVER HAPPENED. Every path out of here that isn't a
+// malformed request returns this same 200, because the alternative is an oracle:
+// "no account found" tells a stranger which usernames are real, and so does a
+// 502 from the mailer, since only an account that exists ever gets as far as
+// sending. apiResendVerification already worked this way; this is the flow
+// catching up with it. The cost is that a player who mistypes their username
+// gets a reassuring message and no email, which is the accepted trade — the
+// alternative is telling everyone else which usernames are worth attacking.
+const FORGOT_REPLY = {
+  status: 200,
+  body: { message: "If that account exists, a reset link is on its way to the email address on file." },
+};
 
 async function apiForgotPassword(body) {
   const { email, username } = body||{};
-  console.log('[forgot-password] request for', username ? `username: ${username}` : `email: ${email}`);
+  if (!username && !email) return { status:400, body:{ error:'username or email required' } };
+
+  // A mailer that isn't configured at all is a fact about the server, not about
+  // any account, so saying so leaks nothing and saves a player waiting on an
+  // email that was never going to arrive. Per-send failures below stay quiet.
+  if (!isMailerConfigured()) {
+    return { status:503, body:{ error:"Password reset is unavailable right now — the server can't send email." } };
+  }
+
   // Prefer the username: it's unique, whereas several characters can share one
   // email address, and an email-only lookup resets an arbitrary one of them.
   // The address we mail is then read off that row, never taken from the client.
   const { rows } = username
     ? await query('SELECT id, email FROM players WHERE username=$1', [username.toLowerCase().trim()])
-    : email
-      ? await query('SELECT id, email FROM players WHERE email=$1 ORDER BY id ASC', [email.toLowerCase().trim()])
-      : { rows: [] };
-  if (!username && !email) return { status:400, body:{ error:'username or email required' } };
-  console.log('[forgot-password] db lookup rows:', rows.length);
-  if (!rows.length || !rows[0].email) return { status:404, body:{ error:'No account found with that email address.' } };
+    : await query('SELECT id, email FROM players WHERE email=$1 ORDER BY id ASC', [email.toLowerCase().trim()]);
+  if (!rows.length || !rows[0].email) return FORGOT_REPLY;
+
   const playerId = rows[0].id;
   const toEmail = rows[0].email.toLowerCase().trim();
   await query('UPDATE password_reset_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [playerId]);
@@ -677,10 +716,11 @@ async function apiForgotPassword(body) {
   try {
     await sendPasswordResetEmail(toEmail, resetUrl);
   } catch (e) {
-    // Don't claim we sent it when we didn't (the mailer already logged detail).
-    return { status:502, body:{ error:e.message } };
+    // Swallowed on purpose (see FORGOT_REPLY) — but loudly, because this is now
+    // the only place a broken send shows up at all.
+    console.error('[forgot-password] send failed for player', playerId, '—', e.message);
   }
-  return { status:200, body:{ message:'Reset link sent. Check your email.' } };
+  return FORGOT_REPLY;
 }
 
 async function apiResetPassword(body) {
@@ -692,8 +732,18 @@ async function apiResetPassword(body) {
   const row = rows[0];
   if (row.used)                    return { status:400, body:{ error:'This reset link has already been used.' } };
   if (Date.now() > row.expires_at) return { status:400, body:{ error:'This reset link has expired.' } };
-  await query('UPDATE players SET password_hash=$1 WHERE id=$2', [hashPassword(password), row.player_id]);
+  // email_verified goes TRUE in the same statement: clicking a link we mailed to
+  // that address IS the proof verification asks for. Without it an unverified
+  // player who forgot their password is in a closed loop — the reset works, and
+  // then login refuses them for not having verified.
+  await query(
+    'UPDATE players SET password_hash=$1, email_verified=TRUE WHERE id=$2',
+    [await hashPassword(password), row.player_id]
+  );
   await query('UPDATE password_reset_tokens SET used=TRUE WHERE id=$1', [row.id]);
+  // Whoever prompted this reset may well be signed in right now. A new password
+  // that leaves their session alive hasn't taken the account back.
+  await revokeTokensFor(row.player_id);
   return { status:200, body:{ message:'Password updated. You can now log in.' } };
 }
 

@@ -4,7 +4,9 @@ import { brotliCompressSync, gzipSync, constants } from "zlib";
 import { join, extname, dirname } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
-import { createHash, randomUUID } from "crypto";
+import { randomUUID } from "crypto";
+import { verifyAndUpgrade } from "./engine/passwords.js";
+import { loadAuthSecret, onRevoke, signToken } from "./engine/auth-tokens.js";
 
 import {
 	initWorld,
@@ -133,6 +135,29 @@ function issueReconnectToken(playerId) {
 	});
 	return token;
 }
+
+// ⚠ A PASSWORD RESET HAS TO REACH THE LIVE SESSION, NOT JUST THE TOKEN.
+// auth-tokens.js can revoke what it issued, and that is the smaller half: whoever
+// prompted the reset is most likely signed in RIGHT NOW, on a socket that was
+// authenticated once and never asks again, plus a one-shot reconnect token good
+// for ten minutes. Revoke the API token alone and they simply keep playing.
+// Registered here rather than reached for from routes.js because this file owns
+// both maps and nothing else should be given them.
+onRevoke((playerId) => {
+	for (const [token, entry] of reconnectTokens) {
+		if (entry.playerId === playerId) reconnectTokens.delete(token);
+	}
+	for (const [ws, session] of clients) {
+		if (session.playerId !== playerId) continue;
+		try {
+			ws.send(JSON.stringify({
+				type: "error",
+				message: "Your password was changed. Please log in again.",
+			}));
+			ws.close();
+		} catch { /* socket already gone; the close path cleans up either way */ }
+	}
+});
 
 setInterval(
 	() => {
@@ -386,7 +411,13 @@ const httpServer = createServer(async (req, res) => {
 		}
 		let result;
 		try {
-			result = await handleApiRequest(url, req.method, body, req.headers);
+			// x-remote-addr is stamped AFTER the real headers are spread, so a
+			// caller cannot supply their own — it's what the rate limiter falls
+			// back to when there's no proxy in front of us setting X-Forwarded-For.
+			result = await handleApiRequest(url, req.method, body, {
+				...req.headers,
+				"x-remote-addr": req.socket?.remoteAddress || "",
+			});
 		} catch (err) {
 			console.error("API error:", url, err);
 			result = {
@@ -1024,13 +1055,14 @@ async function handleGhostRefresh(ws, session) {
 }
 
 async function handleAuth(ws, session, msg) {
-	const hash = createHash("sha256")
-		.update(msg.password || "")
-		.digest("hex");
 	const { rows } = await query("SELECT * FROM players WHERE username=$1", [
 		msg.username?.toLowerCase(),
 	]);
-	if (!rows.length || rows[0].password_hash !== hash) {
+	// The second of the game's two password gates (apiLogin is the other), and it
+	// has to migrate hashes as well — most players arrive through this one, so a
+	// WebSocket login that only VERIFIED the legacy format would leave the bulk
+	// of the table on unsalted sha256 for ever.
+	if (!rows.length || !(await verifyAndUpgrade(rows[0], msg.password))) {
 		ws.send(
 			JSON.stringify({
 				type: "auth_fail",
@@ -1373,10 +1405,14 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 		envHUD = { ...getHUDPayload(), tempC: getZoneTemperature(livePlayer.current_zone) };
 	} catch {}
 	const DEV_ROLES = ["admin", "dev", "builder", "designer"];
+	// ⚠ signToken, NEVER a hand-rolled base64. This is the FOURTH minter and the
+	// one the signed-token migration missed, because it is the only one that
+	// doesn't live in routes.js. An unsigned token still DECODES on the client, so
+	// the dev panel auto-auths off it and paints a green badge while every write
+	// route 403s — reads need no auth, so the panel looks perfectly logged in and
+	// simply cannot change anything.
 	const apiToken = DEV_ROLES.includes(player.role)
-		? Buffer.from(`${player.id}:${player.role}:${Date.now()}`).toString(
-				"base64",
-			)
+		? signToken(player.id, player.role)
 		: null;
 	const reconnectToken = issueReconnectToken(player.id);
 	ws.send(
@@ -1898,6 +1934,10 @@ async function boot() {
 	await loadMisSettings();
 	await loadEmailVerificationSetting();
 	await loadRegistrationSettings();
+	// Before anything can serve a request: this loads the token-signing secret
+	// and the per-player revocation cutoffs, and verifyToken() answers null for
+	// everything until it has run.
+	await loadAuthSecret();
 	if (!areRegistrationsOpen()) console.log("[boot] Registrations are LOCKED — existing accounts can still log in.");
 	// A verification gate with no working mailer locks every new account out, so
 	// say so at boot rather than letting registrations quietly strand.

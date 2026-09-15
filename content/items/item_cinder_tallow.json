@@ -9,6 +9,7 @@
     "food_noun": "tallow",
     "food_profile": "fat_or_oil",
     "restore_hunger": 8,
+    "spreadable": true,
     "stackable": true
   },
   "type": "consumable",

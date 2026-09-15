@@ -146,6 +146,13 @@ export function installGL(hostFor) {
       // shipped inert by being wired at both ends and dropped in the middle, which is exactly what
       // a missing line here produces: the tune key exists, the shader is correct, nothing happens.
       glWet: opts.glWet,
+      // ⚠ AND THESE TWO. The puddle reflection is the loudest possible version of this failure,
+      // because it fails in a way that looks deliberate: `drawMirror` is never called, `reflTex`
+      // stays null, the ground shader's `uReflOn` goes to 0 — and the road still reflects, using
+      // the smear it has always used. So there is no missing picture to notice, only a feature that
+      // appears to have been a no-op. `glLastFrame().mirror` reading 0 with the tune at 1 is the
+      // tell, and it is reported for exactly this reason.
+      glMirror: opts.glMirror, glMirrorRes: opts.glMirrorRes,
       // ⚠ AND SO DO THESE TWO, for the same reason and with the same failure. A material response
       // wired at the windshield end and dropped here reports 0.0% of wall pixels moved at every
       // strength — which is the third time that sentence has had to be written in this file.

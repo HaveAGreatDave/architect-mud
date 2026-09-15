@@ -1139,9 +1139,25 @@ export async function buildKitchen(player) {
   // a glance, and until now the only answer was an aggregate count at the very
   // bottom of Status — which tells you a burner is free and not WHICH, in a
   // kitchen where they cook at different tiers. A free ring is listed as what it
-  // is: a place to put a pan, with no contents and nothing to do to it, because
-  // every verb that uses one names the FOOD (`cook steak`), never the stove.
+  // is: a place to put a pan.
+  //
+  // ⚠ AND IT NOW OFFERS TO TAKE ONE, which it deliberately did not before. The
+  // reasoning was that "every verb that uses one names the FOOD (`cook steak`),
+  // never the stove" — true when a stove was nothing but a tier and two of them
+  // were interchangeable. With a dial they are not: two rings can sit at
+  // different settings under different ceilings, and pre-setting one is the whole
+  // point of being able to. `cook` still picks for you when you don't say, and
+  // only asks when the KINDS differ (a range and a microwave), so without this
+  // the panel could not express the one thing the dial made worth saying.
+  //
+  // It is the ordinary verb with its ordinary tail — `cook stockpot on the
+  // range` is a sentence `cookFood` already parses.
   const nowMs = Date.now();
+  const onAHob = new Set(appliances.map(f => f.flags?.vessel_id).filter(Boolean).map(String));
+  const loadable = vessels.filter(v =>
+    !onAHob.has(String(v.id))
+    && !boxIds.has(v.container_id)
+    && (childrenOf.get(v.id) || []).some(r => profileNameFor(r) && !isMedium(r)));
   for (const f of appliances) {
     if (f.flags?.vessel_id && vesselIds.has(f.flags.vessel_id)) continue;
     if (Number(f.flags?.busy_until) > nowMs) continue;   // bare food straight on the heat
@@ -1153,7 +1169,11 @@ export async function buildKitchen(player) {
       hot: false,
       idle: true,
       contents: [],
-      actions: [],
+      actions: loadable.map(v => act(
+        `cook ${tagValue(v, 'vessel_kind', null) || shownName(v)}`,
+        `cook ${shownName(v)} on ${f.name}`,
+        'puts it on THIS ring, at the setting you left it',
+        { role: 'start' })),
       // A free ring is a place to put a pan, not a thing with an inside — there
       // is nothing to tip a handful of ticked onions into.
       batch: null,

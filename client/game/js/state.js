@@ -9,7 +9,6 @@ export const state = {
   authPending: false,
   authTimeout: null,
   myRole: 'player',
-  send_password: '',
   echoNextLook: false,
   // Desktop WASD movement armed via the d-pad centre button: W/A/S/D drive
   // N/W/S/E and hold keyboard focus away from the command box.

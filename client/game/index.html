@@ -726,14 +726,18 @@
 							display: none;
 						"></div>
 				</div>
-				<div class="auth-field" style="margin: 0">
-					<label for="forgot-email">Email address</label>
-					<input
-						type="email"
-						id="forgot-email"
-						placeholder="your@email.com"
-						autocomplete="email"
-						style="width: 100%; box-sizing: border-box" />
+				<!-- No email field, and no live lookup behind one either. Both used
+				     to be here: you typed a username and the server answered with
+				     the address on that account, which made this window a
+				     username → inbox lookup for anybody who opened it. The link
+				     goes to the address on file; we don't say what it is. -->
+				<div
+					style="
+						font-size: 0.6875rem;
+						color: var(--text-dim);
+						line-height: 1.5;
+					">
+					We'll send a reset link to the email address on this account.
 				</div>
 				<button class="auth-btn" id="forgot-submit" style="margin: 0">
 					Send Reset Link

@@ -11,6 +11,7 @@
     "perishable": true,
     "restore_hunger": 8,
     "spoil_rate": "slow",
+    "spreadable": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.3

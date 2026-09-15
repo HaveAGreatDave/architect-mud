@@ -2210,6 +2210,251 @@ export function runWet({ W = 640, H = 360, hours = [23, 13], levels = [0, 0.35, 
 }
 if (typeof window !== 'undefined') window.__glWet = runWet;
 
+// ── `__glMirror()` ─────────────────────────────────────────────────────────────────────────────
+//
+// Is there a CITY in the puddles, or only a smear?
+//
+// The wet road has reflected the lights since the wet-tarmac pass shipped, as two Gaussians drawn
+// out along the line from each light's ground point to the eye. That is what rough damp tarmac
+// does. Standing water is a mirror and holds an IMAGE — the lettering, the frame, the row of bulbs
+// — and a smear cannot become one by being tuned, because it has never seen any of that: it is a
+// colour and a radius. So the signage and the lights are rendered a second time through a camera
+// that reflects the world about the water's plane (gl/mirror.js), and this is the A/B of that.
+//
+// ⚠ IT READS THE GL CANVAS, NOT THE COMPOSITED FRAME, FOR THE REASON runWet RECORDS ABOVE. A
+// reflection is a grazing-angle effect, so the image of a sign three storeys up lands about a tile
+// in front of a truck — which is behind the DASH. Pointed at the finished frame this measures the
+// dashboard.
+//
+// ⚠ AND IT REPORTS `decals` AND `lights`, WHICH IS NOT DECORATION. The whole pass reflects exactly
+// two layers, and a synthetic scene assembled out of bare `bt` tiles carries almost no signage —
+// `modelFor` prefers a building NAME over a type, and the named models are where the marquees, the
+// blades and the lettered boards live. A scene with nothing to reflect reports a weak effect and
+// looks exactly like a weak effect, which is the confound runWet needed four attempts to escape.
+// Named models, therefore, and the counts printed so the reader can see there was something there.
+//
+// ⚠ AND THE MASK IS THE WET ROAD, TAKEN FROM A DRY RENDER. Measured over the whole frame the answer
+// is divided by a sky, a set of buildings and a verge that the water is not allowed to touch, and
+// it falls as the window grows — a number measuring coverage rather than the term, which is the
+// trap runFidelity is written around.
+//
+// Columns:
+//   roadPx  — how many pixels the wetness itself moves. The denominator, and the sanity check.
+//   touched — share of those the mirror moves at all. Climbs steadily with the gain and is the
+//             wrong column to tune on: it counts a pixel that moved by one level.
+//   visible — share it moves by 8/255 or more. THE number, and the one that caught the first cut
+//             shipping at a gain sixteen times too low: 2.1% touched against 0.01% visible.
+//   roadLum — the road's own mean brightness. The guard against tuning into a wash — across a
+//             sixteen-fold gain change this moves under half a level, which is what makes a large
+//             gain safe here.
+//   worst   — the brightest single contribution. ⚠ It pins near 60 whatever the gain, which is the
+//             HDR tonemap compressing highlights and not a clamp in this pass.
+//   dryCtl  — the same gain with the road DRY. Must be ~0: the reflection lives in the water, and
+//             anything here is the prepass leaking into a frame that has no puddles in it.
+// ⚠ THE ROWS BRACKET THE SHIPPING VALUE ON BOTH SIDES, which is the rule LIGHT_SWEEP had to learn
+// the hard way: a sweep entirely above or entirely below what ships answers "how much headroom is
+// left" and cannot answer "should this move".
+const MIRROR_GAINS = [0, 4, 8, 16, 32];
+
+// ── THE TEST STREET, DEFINED ONCE ──────────────────────────────────────────────────────────────
+//
+// ⚠ A STREET CANYON, NOT A SCATTER, AND SHARED BY THE TABLE AND THE PICTURE. `runLights` builds its
+// map by firing a hash at every tile, which at any sane density is a handful of sheds set well back
+// from a road running through open ground — and a reflection needs something STANDING OVER THE
+// WATER to reflect. Copied into this pass it produced a table of flat zeros beside a picture with
+// two visible reflections in it, because the table and the shot had each grown their own street and
+// only one of them was a street. Shoulder to shoulder on both kerbs, which is the arrangement every
+// reference board for this work is of, and ONE builder so they cannot drift again.
+function mirrorStreet(R, named) {
+  const N = R * 2 + 1;
+  let k = 0, n = 0;
+  const m = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+    const dx = x - R;
+    if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+    if (Math.abs(dx) === 1) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+    const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+    if (Math.abs(dx) >= 2 && Math.abs(dx) <= 4) {
+      const r = named[(k++) % named.length];
+      n++;
+      return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6), ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 4) };
+    }
+    return { kind: 'land', biome: 'citycore', flr: 0 };
+  }));
+  m._buildings = n;
+  return m;
+}
+
+export function runMirror({ W = 640, H = 360, hour = 23, R = 14, density = 0.18, gains = MIRROR_GAINS } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__mirror' + (runMirror.n = (runMirror.n || 0) + 1);
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+
+  const scratch = document.createElement('canvas');
+  const shot = () => {
+    const g = glLastFrame() && glLastFrame().canvas;
+    if (!g) throw new Error('__glMirror: the GL pass drew nothing — RENDER_TUNE.gl is ' + RENDER_TUNE.gl);
+    scratch.width = g.width; scratch.height = g.height;
+    const c = scratch.getContext('2d'); c.drawImage(g, 0, 0);
+    return new Uint8ClampedArray(c.getImageData(0, 0, g.width, g.height).data);
+  };
+
+  // A street of NAMED buildings, which is where the signage is — see the ⚠ above.
+  const realNow = performance.now, realRandom = Math.random;
+  const was = { force: RENDER_TUNE.wetForce, wet: RENDER_TUNE.glWet, gl: RENDER_TUNE.gl, mir: RENDER_TUNE.glMirror };
+  const map = mirrorStreet(R, named);
+  const rows = [];
+  let rngS = 0, stats = {}, probe = null;
+  try {
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glWet = 1;
+    Math.random = () => { rngS = (rngS * 1664525 + 1013904223) >>> 0; return rngS / 4294967296; };
+    const view = () => ({
+      cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.24, hour,
+      weather: 'clear', speed: 0, map, heading: 0, mapCenter: { x: 100, y: 100 },
+      mapOffset: { x: 0, y: 0 }, resFloor: 1, tune: { gl: 1, perfDS: 0 },
+    });
+    // ⚠ SETTLED AFTER EACH SETTING, NOT ONCE AT THE TOP. The light list ramps over ELAPSED time, so
+    // a settle taken before the setting under test ramps nothing and every row reports 0.0% — the
+    // same trap that made runLights report the lights costing nothing at a seat with no lights.
+    const paint = (wet, gain) => {
+      RENDER_TUNE.wetForce = wet; RENDER_TUNE.glMirror = gain;
+      rngS = 12345;
+      settleFade(() => { rngS = 12345; paintWindshield(el.id, view()); });
+      return shot();
+    };
+
+    const dry = paint(0, 0);
+    const off = paint(1, 0);
+    // The wet road: whatever the water itself changes. Buildings, sky and verge are excluded by
+    // construction rather than by a guess at where the road is on screen.
+    const isRoad = new Uint8Array(off.length >> 2);
+    let roadPx = 0;
+    for (let i = 0; i < off.length; i += 4) {
+      const d = Math.abs(off[i] - dry[i]) + Math.abs(off[i + 1] - dry[i + 1]) + Math.abs(off[i + 2] - dry[i + 2]);
+      if (d >= 9) { isRoad[i >> 2] = 1; roadPx++; }
+    }
+
+    for (const gain of gains) {
+      const on = paint(1, gain);
+      // ⚠ TAKEN ON A LIVE ROW, NOT ON THE CONTROL. Read after the gain-0 paint this says `mirror 0`
+      // every time — which is correct for that row and is indistinguishable from the pass never
+      // running, and it is the number the reader is going to use to decide exactly that.
+      if (gain > 0) { stats = glLastFrame() || stats; probe = (stats.mirrorPeak && stats.mirrorPeak()) || probe; }
+      let moved = 0, sum = 0, worst = 0, vis = 0, lum = 0;
+      for (let i = 0; i < on.length; i += 4) {
+        if (!isRoad[i >> 2]) continue;
+        lum += (on[i] + on[i + 1] + on[i + 2]) / 3;
+        const d = (Math.abs(on[i] - off[i]) + Math.abs(on[i + 1] - off[i + 1]) + Math.abs(on[i + 2] - off[i + 2])) / 3;
+        if (d >= 2) { moved++; sum += d; }
+        // ⚠ THE COLUMN THAT DECIDES THE GAIN. 'touched' counts anything over the noise floor and
+        // climbs steadily with the gain; what a player can actually SEE is a pixel that moved by a
+        // reasonable fraction of a level, and that is the one that separates a reflection from a
+        // tint. At gain 1 the first read 2.1% touched and 0.01% visible — a feature that measured
+        // as present and could not be found on screen.
+        if (d >= 8) vis++;
+        if (d > worst) worst = d;
+      }
+      // The control, on the same gain: a dry road must not acquire a reflection.
+      const dctl = paint(0, gain);
+      let dm = 0;
+      for (let i = 0; i < dctl.length; i += 4) {
+        const d = Math.abs(dctl[i] - dry[i]) + Math.abs(dctl[i + 1] - dry[i + 1]) + Math.abs(dctl[i + 2] - dry[i + 2]);
+        if (d >= 9) dm++;
+      }
+      rows.push({
+        gain: gain.toFixed(2) + (gain === was.mir ? ' (shipping)' : ''),
+        roadPx,
+        touched: roadPx ? (moved / roadPx * 100).toFixed(2) + '%' : '—',
+        visible: roadPx ? (vis / roadPx * 100).toFixed(2) + '%' : '—',
+        roadLum: roadPx ? (lum / roadPx).toFixed(2) : '—',
+        mean: moved ? (sum / moved / 255 * 100).toFixed(1) : '0.0',
+        worst: Math.round(worst),
+        dryCtl: ((dm / (dctl.length >> 2)) * 100).toFixed(2) + '%',
+      });
+    }
+  } finally {
+    RENDER_TUNE.wetForce = was.force; RENDER_TUNE.glWet = was.wet;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glMirror = was.mir;
+    performance.now = realNow; Math.random = realRandom;
+    uninstall && uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log(`   scene: ${map._buildings} named buildings, ${stats.decals || 0} signage quads, `
+    + `${stats.lights || 0} lights, mirror ${stats.mirror || 0}`);
+  console.log('   reflection buffer: ' + (probe ? `${probe.w}x${probe.h}, peak ${probe.max}/255, ${probe.litPct}% of it lit` : 'NOT PROBED'));
+  console.log('   gain 0 is the control and wants to be flat — it is the smear that shipped.');
+  console.log('   ⚠ decals 0 means there was nothing to reflect and every row below is measuring the lights alone.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glMirror = runMirror;
+
+// ── `__glMirrorShot()` ─────────────────────────────────────────────────────────────────────────
+//
+// The same street, painted into a canvas you can actually look at.
+//
+// ⚠ BECAUSE THE AGGREGATE IS THE WRONG INSTRUMENT FOR THIS ONE, and the table above proves it. A
+// mirror image is a few BRIGHT PATCHES — a sign, legible, in one puddle — and "share of road pixels
+// moved" divides that by a whole street of tarmac that has nothing over it to reflect. The first
+// sweep read 94.3% at every gain from 0.35 to 3.0, which is not the reflection at all: it is the
+// streak reweighting, which flips once and then stops caring. The same mistake `__glLights` records
+// one system over — the bench was answering a question nobody had asked.
+//
+// So this paints and stops. `wet`, `gain` and `hour` are the three knobs worth moving, the canvas is
+// left on the page at 2x so it can be read, and nothing is measured.
+export function paintMirrorShot({ W = 640, H = 360, hour = 23, gain = null, wet = 1, R = 14, density = 0.18, zoom = 2, eyeH = 0.24, height = 0, cls = 'truck', resFloor = 1, off = 0, superSample = 1, resFloorPx = null } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  let holder = document.getElementById('__mirshot');
+  if (!holder) {
+    holder = document.createElement('div');
+    holder.id = '__mirshot';
+    holder.style.cssText = 'position:fixed;left:0;top:0;z-index:99999;background:#000;padding:0;line-height:0';
+    document.body.append(holder);
+  }
+  holder.innerHTML = '';
+  const el = document.createElement('canvas');
+  el.id = '__mirshotC' + (paintMirrorShot.n = (paintMirrorShot.n || 0) + 1);
+  el.width = W; el.height = H;
+  el.style.cssText = `width:${W * zoom}px;height:${H * zoom}px;image-rendering:pixelated`;
+  holder.append(el);
+  const uninstall = installGL(() => el);
+  const realNow = performance.now, realRandom = Math.random;
+  const was = { force: RENDER_TUNE.wetForce, gl: RENDER_TUNE.gl, wet: RENDER_TUNE.glWet, mir: RENDER_TUNE.glMirror };
+  let rngS = 0;
+  try {
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glWet = 1;
+    RENDER_TUNE.wetForce = wet;
+    if (gain != null) RENDER_TUNE.glMirror = gain;
+    Math.random = () => { rngS = (rngS * 1664525 + 1013904223) >>> 0; return rngS / 4294967296; };
+    const map = mirrorStreet(R, named);
+
+    const view = {
+      cls, phase: 'cruise', worldBlend: 1, height, eyeH, hour,
+      weather: 'clear', speed: 0, map, heading: 0, mapCenter: { x: 100, y: 100 },
+      mapOffset: { x: 0, y: off }, resFloor, resFloorPx, superSample, tune: { gl: 1, perfDS: 0 },
+    };
+    rngS = 12345;
+    settleFade(() => { rngS = 12345; paintWindshield(el.id, view); });
+    const st = glLastFrame() || {};
+    const p = st.mirrorPeak && st.mirrorPeak();
+    console.log(`__glMirrorShot: hour ${hour}, wet ${wet}, gain ${RENDER_TUNE.glMirror}, `
+      + `${st.decals || 0} signage quads, ${st.lights || 0} lights`
+      + (p ? ` — buffer ${p.w}x${p.h}, peak ${p.max}/255, ${p.litPct}% lit` : ' — no reflection buffer'));
+    return { canvas: el, stats: st, probe: p };
+  } finally {
+    RENDER_TUNE.wetForce = was.force; RENDER_TUNE.gl = was.gl;
+    RENDER_TUNE.glWet = was.wet; RENDER_TUNE.glMirror = was.mir;
+    performance.now = realNow; Math.random = realRandom;
+    uninstall && uninstall();
+    // ⚠ THE CANVAS STAYS. This function exists to be looked at, so the holder is deliberately not
+    // removed — call it again to replace it, or remove '#__mirshot' by hand when you are done.
+  }
+}
+if (typeof window !== 'undefined') window.__glMirrorShot = paintMirrorShot;
+
 // ── DOES THE CITY LOOK LIKE IT IS MADE OF ANYTHING? ─────────────────────────
 //
 // `__glMaterials()`. Every surface in GLASS answered the light identically until the material table

@@ -1120,6 +1120,24 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // zero up there when the gain is, so this is belt and braces, and it keeps the daylight frame
   // exactly the shape it was.
   const wallLights = (LIGHT_TUNE.gain * Math.min(1, Math.max(0, opts.night || 0)) > 0.01) ? lightList : null;
+  // ── THE CITY, UPSIDE DOWN, BEFORE ANY OF IT IS DRAWN THE RIGHT WAY UP ──────────────────────
+  //
+  // ⚠ A PREPASS, BECAUSE THE ROAD IS DRAWN FOURTH OF TEN. The ground goes down before the lights,
+  // the Curtain, the signage and the wires, so at the moment it needs something to reflect, none of
+  // the neon exists yet — sampling the frame there returns the building mass and nothing else, which
+  // is a wet road reflecting the one thing in the city that does not glow. Taking the reflection
+  // first also means there is nothing to restore: `draw()` binds the real target and clears it a
+  // line later, exactly as it already does after the sun and occlusion prepasses unbind.
+  //
+  // ⚠ AND IT IS THE PLAIN CAMERA, NOT `camAt`. The lights and the signage are collected in the
+  // camera's own frame (see the ⚠ on drawSprites below); the road quads are in the map window's.
+  // They disagree about where the origin is and agree exactly about where the SCREEN is, which is
+  // the only frame a screen-space read-back cares about — so this takes the frame its own layers
+  // are in and the ground shader looks the reflection up by pixel.
+  const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
+  const reflTex = (mirrorGain > 0 && opts.glWet > 0 && g.view.drawMirror)
+    ? g.view.drawMirror(cam, { sprites: opts.sprites, decals: opts.decals, cssH, scale: opts.glMirrorRes })
+    : null;
   g.view.draw(camAt, { ...(opts.draw || {}), lights: wallLights, lightWrap: LIGHT_TUNE.wrap, cssH,
     ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),
     // ── THE MATERIAL RESPONSE ───────────────────────────────────────────────────────────────
@@ -1225,6 +1243,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // there would leave the puddles sliding with the window on exactly the setting that is meant
     // to change nothing but who draws the ground.
     wcX: (opts.wc && opts.wc.x) || 0, wcY: (opts.wc && opts.wc.y) || 0,
+    // The reflected city, and the viewport to read it in. ⚠ THE CANVAS'S OWN SIZE, not the
+    // reflection buffer's — gl_FragCoord is in the pixels of the target being drawn into, and the
+    // reflection is rendered smaller on purpose. See the ⚠ on `uReflVP`.
+    reflTex, reflGain: mirrorGain,
+    vpW: g.canvas ? g.canvas.width : 0, vpH: g.canvas ? g.canvas.height : 0,
   });
   // ⚠ THE LIGHTS ARE IN THE CAMERA'S OWN FRAME, NOT THE WINDOW'S. The mesh is built at map-window
   // tiles so it can be cached; a light is collected fresh every frame from the arm that owns it,
@@ -1264,6 +1287,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // paid every frame by every seat to answer a question only a bench asks. What it answers is the
   // one a bright-pass cannot: whether there is anything in the buffer above 1.0 at all. See hdr.js.
   if (graded) graded.peak = () => g.view.hdrPeak();
+  // Same shape, same reason: the probe is a closure the caller may or may not pay for.
+  const mirrorProbe = reflTex && g.view.mirrorPeak ? ((step) => g.view.mirrorPeak(step)) : null;
   // ⚠ `shadowSize` IS 0 WHEN THE DRIVER REFUSED THE DEPTH FRAMEBUFFER, and that is the only way to
   // tell that case apart from a sunny frame in which nothing happens to cast. Same argument as
   // `builds` and `cloudCards`: the picture is a correct picture either way.
@@ -1275,6 +1300,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // The float path can be absent for three unrelated reasons — the knob is 0, the device has no
   // renderable float format, or a framebuffer would not complete — and every one of them draws a
   // correct picture. Null beside a knob that is set is the only way to tell them apart.
-  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  // ⚠ `mirror` IS REPORTED FOR THE SAME REASON `wet` IS: it is otherwise unobservable. It is a
+  // product of three things that can each be zero for a different reason — the tune, the wetness,
+  // and whether the framebuffer was accepted — and a reflection that silently never ran looks
+  // exactly like one that ran and was too faint to see.
+  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 

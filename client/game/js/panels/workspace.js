@@ -425,9 +425,15 @@ function renderStation(v) {
     + `<span class="wsp-state"> — ${esc(v.place)}</span> ${heat}</div>`;
 
   // A free burner is a place to put a pan, not a container: it has no inside, so
-  // it gets no "empty" line, no controls and no bank. The row IS the whole
-  // statement.
-  if (v.idle) return `<div class="wsp-station wsp-station-idle">${head}</div>`;
+  // it gets no "empty" line, no controls and no bank. What it can have is an
+  // offer to TAKE a pan — see the note in the provider about why a ring became
+  // worth naming once it had a dial — and that is a flat strip, because there is
+  // nothing to group it against.
+  if (v.idle) {
+    return `<div class="wsp-station wsp-station-idle">${head}`
+      + ((v.actions || []).length ? `<div class="wsp-row wsp-vessel-foot">${actionStrip(v.actions)}</div>` : '')
+      + `</div>`;
+  }
 
   const controls = controlBank('Heat', heatBank.taken) + controlBank('Water', waterBank.taken);
 

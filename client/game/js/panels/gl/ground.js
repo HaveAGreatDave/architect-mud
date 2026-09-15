@@ -108,6 +108,20 @@ uniform float uWet;             // how wet the ground is, 0-1
 uniform vec2  uEye;             // the camera's ground point, in vWorld's frame
 uniform float uEyeH;            // and how high it is — see the Fresnel gate on the reflections
 uniform vec2  uWc;              // window centre in WORLD tiles, so a puddle stays on its bit of road
+// ── AND THE IMAGE IN THE STANDING WATER ────────────────────────────────────────────────────────
+//
+// The city, rendered a second time through a camera that reflects the world about this plane — see
+// gl/mirror.js. Read back at the fragment's own screen position, which is exact for a flat mirror
+// and needs no ray march: the mirrored camera puts a reflected point on the same pixel the
+// reflection belongs on.
+//
+// ⚠ AND IT IS READ IN THE CANVAS'S PIXELS, NOT THE BUFFER'S. gl_FragCoord is in the pixels of the
+// framebuffer being drawn into, the reflection is rendered at a fraction of that size, and dividing
+// by the smaller one slides the whole reflected city up and to the right by the difference.
+uniform sampler2D uRefl;
+uniform float uReflOn;
+uniform float uReflGain;
+uniform vec2  uReflVP;
 
 out vec4 outColor;
 void main() {
@@ -153,22 +167,78 @@ void main() {
   // shower. That is a street with puddles in it rather than a flooded street.
   float pud = 0.0;
   if (uWet > 0.001) {
-    vec2 pw = (vWorld.xy + uWc) * 0.9;
-    // Two octaves of cheap value noise. Enough for a hollow to have a shape rather than be a disc,
-    // and not enough to read as a texture.
+    // ⚠ 1.5, AND THE SCALE IS THE ONLY THING THAT SETS HOW BIG A PUDDLE IS. Swept over a 28-tile
+    // patch with the field labelled into connected pools: 0.9 gives 149 pools of median 0.76 tiles²
+    // with one of 3.7, 1.5 gives 357 of median 0.36 with the largest 1.68, 1.9 gives 550 of median
+    // 0.19. Past 1.5 they stop reading as puddles and start reading as a speckle.
+    vec2 pw = (vWorld.xy + uWc) * 1.5;
+    // ⚠ AND A DOMAIN WARP DOES NOTHING HERE, WHICH IS A MEASURED RESULT AND NOT AN OMISSION. A
+    // product of sines is separable, so the obvious complaint about this field is that its contours
+    // are a plaid of lozenges on the world axes — and the obvious fix is to offset the sample point
+    // by a second, slower wave. It was written, and then swept at amplitudes 0 to 2.0 across warp
+    // frequencies from a quarter of the field's to its own: coverage, pool count, median size,
+    // largest pool and perimeter-to-area were IDENTICAL to three figures at every setting. Warping
+    // the domain of a stationary field gives another stationary field — it moves each pool and
+    // leaves the statistics of the set exactly where they were. Two sines a fragment for a picture
+    // nothing could tell apart. If the plaid ever needs breaking it needs a different FIELD, not a
+    // distorted one.
     float nA = sin(pw.x * 1.7 + sin(pw.y * 1.3) * 1.9) * sin(pw.y * 1.5 + sin(pw.x * 1.1) * 1.7);
     float nB = sin(pw.x * 4.1 + 2.0) * sin(pw.y * 3.7 - 1.0);
-    float hollow = nA * 0.68 + nB * 0.32;          // -1..1, low ground is high here
-    float level = mix(0.92, 0.05, uWet);
-    pud = smoothstep(level, level + 0.30, hollow);
+    // A third octave, for the EDGE and not for the body: it is what stops a shoreline being a
+    // smooth oval once the transition below is narrow enough to show one. Measured, it carries the
+    // pools to about 1.8x a disc's perimeter for their area — ragged like water in a hollow rather
+    // than stamped out with a cutter.
+    float nC = sin(pw.x * 9.3 - 1.1) * sin(pw.y * 8.7 + 2.2);
+    float hollow = nA * 0.62 + nB * 0.27 + nC * 0.11;   // -1..1, low ground is high here
+    // ⚠ AND THE FLOOR IS 0.30 BECAUSE THAT IS WHERE A DOWNPOUR STOPS, NOT WHERE IT STARTS. The
+    // level is what the rain raises, so this number is only ever reached at uWet 1 and the whole
+    // shower happens above it: 0.2 of a shower wets 0.3% of the road, 0.35 wets 1.1%, 0.6 wets
+    // 5.4%, and a full downpour 25%. A few damp hollows, then real puddles, then a street with
+    // water lying in it — and never a sheet, which is what the level floor is guarding.
+    float level = mix(0.94, 0.24, uWet);
+    // ── ⚠ A SHORELINE, NOT A GRADIENT ───────────────────────────────────────────────────────────
+    //
+    // The transition used to be 0.30 wide against a field that only spans −1..1, so a "puddle" was
+    // most of a slow ramp and the road read as mottled damp rather than as water lying in shapes.
+    // Water has an EDGE — it fills a hollow to a level and stops — and that edge is most of what
+    // makes a puddle look like an object rather than a stain.
+    //
+    // ⚠ AND THE EDGE IS WIDENED BY THE SCREEN, NOT BY A CONSTANT. A hard threshold on a world-space
+    // field is the classic shimmer: at the far end of a street one pixel spans several tiles of
+    // 'hollow', the test lands on a different side of the line every frame the camera moves, and
+    // the road crawls. 'fwidth' is how much this fragment's own neighbours differ, so the band is
+    // always about a pixel wide wherever it is — crisp underfoot, anti-aliased at the horizon, and
+    // never narrower than the 0.045 that keeps a near shoreline from looking cut with scissors.
+    float band = max(0.045, fwidth(hollow) * 1.6);
+    pud = smoothstep(level, level + band, hollow);
   }
   // ⚠ TWO NUMBERS OUT OF ONE FIELD, because a road in the rain is not dry between its puddles. The
   // whole surface is damp and darker; what the hollows add is STANDING water, which is a different
   // thing optically — damp tarmac scatters, a puddle mirrors. So the darkening is mostly there
   // everywhere and the REFLECTION is almost entirely in the hollows, which is what puts the neon in
   // the puddles rather than smeared evenly down the street.
-  float damp   = uWet * mix(0.40, 1.00, pud);
-  float mirror = uWet * mix(0.08, 1.00, pud);
+  float damp   = uWet * mix(0.34, 1.00, pud);
+  // ⚠ 0.02, NOT 0.08 — THE REFLECTION IS THE PUDDLE'S AND ALMOST NOTHING ELSE'S. Eight per cent
+  // across the whole wet road is a sheen on every square foot of tarmac, which is the even smear
+  // the hollows exist to replace: with a soft-edged field it read as the road reflecting and the
+  // puddles being slightly more so. At two per cent the tarmac between them keeps just enough to
+  // say it is wet, and what actually mirrors the city is the standing water.
+  float mirror = uWet * mix(0.02, 1.00, pud);
+  // ⚠ AND THE SMEAR IS NOT REWEIGHTED WHEN THE MIRROR IS ON, WHICH WAS TRIED AND MEASURED AND TAKEN
+  // BACK OUT. The model says it should be: damp tarmac SCATTERS (that is the two-Gaussian smear
+  // below) and standing water MIRRORS, they are one surface at two roughnesses, and running both at
+  // full strength over the same pixel lights a puddle twice. So a first cut moved the smear onto the
+  // tarmac between the puddles and handed the water to the image.
+  //
+  // Measured, that is a net LOSS. The reflection is real and it is SMALL — on a night street it
+  // lands on about 1-2% of the frame, because it only reaches pixels that are road AND have
+  // something standing over them to reflect. The smear reaches the whole wet road. Trading all of
+  // the second for a sliver of the first took the road's mean luminance from 29.9 to 27.0 and put
+  // nothing where the light had been: the street got darker and no reflection appeared.
+  //
+  // So the mirror is PURELY ADDITIVE, and 'glMirror 0' is the exact picture that shipped rather than
+  // a variant of it. The split is still the right model and it becomes worth making the day the
+  // image covers enough of the road to pay for the smear it would be replacing.
   if (damp > 0.001) {
     // ⚠ 0.45 AND mix(0.40, 1.00) TOGETHER ARE THE PUDDLE'S CONTRAST AGAINST THE ROAD AROUND IT,
     // and the first pair (0.38 over mix(0.55, 1.00)) was 21% — enough to measure and not enough to
@@ -190,13 +260,28 @@ void main() {
   // it and you see a mirror. A cab's eye is a fifth of a tile up and ten tiles down a street, so cosI is
   // ~0.02 and the term is ~1. A cockpit twenty tiles up looking twenty out gives cosI ~0.71 and the
   // term is ~0.02. The reflections are a thing you see from the road, which is where they belong.
+  // ⚠ NO LONGER GATED ON THERE BEING LIGHTS IN THE SIX. The streak loop needs a 'uWetP' entry to
+  // smear; the mirror needs only the buffer, and the two share this term. With 'uNWet' 0 the loop
+  // below breaks on its first iteration and adds nothing, so the old picture is unchanged.
   float refl = 0.0;
-  if (mirror > 0.001 && uNWet > 0) {
+  if (mirror > 0.001) {
     float dEye = length(vWorld.xy - uEye);
     float cosI = uEyeH / max(0.001, sqrt(dEye * dEye + uEyeH * uEyeH));
     refl = 0.02 + 0.98 * pow(1.0 - cosI, 5.0);
   }
-  if (refl > 0.01) {
+  // ── THE REFLECTED CITY ─────────────────────────────────────────────────────────────────────
+  //
+  // One texture fetch, through the same three modulations the smear already earned: the water
+  // ('mirror', so it is in the puddles and barely on the tarmac), the Fresnel term (so it is a
+  // thing you see from the road and not from a cockpit) and the headroom (so daylight washes it
+  // out by arithmetic rather than by a threshold). Nothing here is a second tuning of those.
+  if (uReflOn > 0.5 && refl > 0.01) {
+    // Premultiplied, like everything else on this canvas, so the colour is already scaled by its
+    // own coverage and an empty pixel of the reflection buffer contributes exactly nothing.
+    vec3 img = texture(uRefl, gl_FragCoord.xy / uReflVP).rgb;
+    c += img * (mirror * uReflGain * refl) * max(vec3(0.0), 1.0 - c);
+  }
+  if (refl > 0.01 && uNWet > 0) {
     vec3 add = vec3(0.0);
     for (int i = 0; i < MAX_WET; i++) {
       if (i >= uNWet) break;
@@ -306,6 +391,10 @@ export function createGroundLayer(gl) {
     wc: gl.getUniformLocation(prog, 'uWc'),
     hazeNear: gl.getUniformLocation(prog, 'uHazeNear'),
     hazeFar: gl.getUniformLocation(prog, 'uHazeFar'),
+    refl: gl.getUniformLocation(prog, 'uRefl'),
+    reflOn: gl.getUniformLocation(prog, 'uReflOn'),
+    reflGain: gl.getUniformLocation(prog, 'uReflGain'),
+    reflVP: gl.getUniformLocation(prog, 'uReflVP'),
   };
 
   const vao = gl.createVertexArray();
@@ -414,6 +503,21 @@ export function createGroundLayer(gl) {
     }
     gl.uniform1f(loc.hazeNear, opts.hazeNear == null ? 1e9 : opts.hazeNear);
     gl.uniform1f(loc.hazeFar, opts.hazeFar == null ? 1e9 : opts.hazeFar);
+    // ⚠ WRITTEN EVERY FRAME LIKE THE WETNESS ABOVE, AND FOR THE SAME REASON. A uniform holds its
+    // last value, so a dry frame that simply skipped this would go on sampling the last wet frame's
+    // reflection — a city lying in a road that stopped being wet ten minutes ago.
+    // ⚠ AND THE TEXTURE UNIT IS BOUND WHATEVER HAPPENS. Sampling an incomplete unit is undefined
+    // rather than black on some drivers, so the `off` branch has to leave `uReflOn` at 0 AND still
+    // leave a valid binding: the shader's branch is what saves the fetch, not an unbound sampler.
+    const rt = opts.wet > 0 ? opts.reflTex : null;
+    const on = rt && opts.reflGain > 0;
+    gl.uniform1f(loc.reflOn, on ? 1 : 0);
+    gl.uniform1f(loc.reflGain, on ? opts.reflGain : 0);
+    gl.uniform2f(loc.reflVP, opts.vpW || 1, opts.vpH || 1);
+    gl.uniform1i(loc.refl, 1);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, on ? rt : null);
+    gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.DEPTH_TEST);
     // ── ⚠ THE EPS LADDER IS A WORLD LIFT AND THE DEPTH BUFFER IS NOT LINEAR ───
     //

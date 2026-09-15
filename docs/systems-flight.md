@@ -117,7 +117,25 @@ Five things that are each a way to get it silently wrong:
   every parked frame AND the first airborne one, because it gates on `reportedAirborne`, latched
   further down the same frame. So the climb-out cleared the latch one frame before the capture could
   read it, flew into the pad's own column on the next, and was set straight back down. For ever.
-  It now reads `roofProx && !roofArmed`: a pad is in view and we are outside its window.
+  Departure has to mean what it says — a pad is in view and we are outside its window (and see
+  the next bullet, which is the rest of that sentence).
+- ⚠ **AND A LATCH ALONE COULD NEVER TELL A CLIMB-OUT FROM AN ARRIVAL**, which is the same bug again
+  one layer up. The latch cleared the instant you were outside the column — and the column is
+  `ROOF_CATCH_R` (0.45 tiles) wide and, on the Solenne, **318 ft tall**, so a helicopter climbing
+  out at 800 fpm is inside it for **24 seconds** and at 400 fpm for 48. Nobody holds half a tile of
+  station that long: you drift out, the latch says departed, you drift back, and the deck grabs the
+  climb-out and puts you on the roof. The decision moved to
+  [pad-catch.js](../client/game/js/panels/pad-catch.js) — pure, so it can be gated — and carries two
+  buffers the latch could not. **A climb is not an arrival** (`ROOF_CATCH_VS`, 150 fpm): a descent
+  or a level hover onto a deck is somebody landing and going up is somebody leaving, and that is a
+  fact about the aircraft rather than a latch a stray frame can flip. And **departure needs margin**
+  (`ROOF_DEPART_R`/`_FT` — 1.8× the radius, or 60 ft over the ceiling), because if the edge you arm
+  on is also the edge you depart across then cyclic wander alone re-arms the column. The latch is
+  read **positively** now as well: `roofDeparted` is *undefined* on any frame where the
+  parked-on-a-deck seed never ran, and the old `!== false` read that as clearance to grab.
+  `npm run shapes:smoke` flies the profiles — a wandering climb-out, an approach, a descent down the
+  column, a hover, an overflight, a pass below the deck — at three real pad heights, against the
+  renderer's own column numbers.
 - **Ground effect and the climb-out threshold are heights above the DECK**, not altitudes. An
   absolute `peakAltSinceLift >= 25` is true before the skids are clear when the deck opens at 1,718 ft,
   which arms the hard-landing write-off on the very bounce it exists to forgive.

@@ -16,7 +16,8 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
-import { glWorldInstalled, glDecision, glLastError, lastViewState, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { glWorldInstalled, glDecision, glLastError, lastViewState, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { padCatchStep } from './pad-catch.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
 // hook is never called and no context is asked for. It is imported HERE rather than from
@@ -1244,7 +1245,15 @@ function buildingCollisionAt(F, s) {
     // Roof altitude in real feet AT THIS POINT — the tallest captured segment actually under the
     // aircraft, not the tile's single storey-stack roof. A miss between a tower and its low wing
     // returns 0 and is flown through, which is the point.
-    const roofFt = buildingRoofFtAt(wx, wy, map[ry][rx], px, py);
+    // …and the Curtain, which is not building mass and so answers 0 to the probe above. Taken as a
+    // MAX against it rather than as a second sweep, so everything below — the overhead rule, the
+    // climb-out shield, the must-be-visible-to-collide window, bounce-vs-write-off — reaches it
+    // with no clause of its own. ⚠ It is a low obstacle in the ALTITUDE frame (0.9 world-z is
+    // ~27 ft through altForRoofZ, against a 6-storey office's 184), and that is the right answer
+    // rather than a bug: the eye climbs far above the shimmer plane by a few hundred feet, so a
+    // pilot who can see over the wall flies over it. What this stops is going THROUGH it.
+    const roofFt = Math.max(buildingRoofFtAt(wx, wy, map[ry][rx], px, py),
+                            curtainRoofFtAt(wx, wy, map[ry][rx], px, py));
     if (roofFt <= 0) continue;
     const dx = wx - px, dy = wy - py, f = dx * sinh - dy * cosh, lat = dx * cosh + dy * sinh;
     // Must be inside the renderer's own near/far visibility window — a building the windshield
@@ -4203,28 +4212,22 @@ function fsimFrame(now) {
   // because the tower we're descending onto is the destination, not an obstacle.
   const roofProx = (F.heli && !F.landed && !F.deckCine && F.reportedAirborne) ? padProximity(F) : null;
   const roofCeil = roofProx ? padCeilFt(roofProx.padZ, roofProx.padFt) : 0;
-  const roofArmed = !!(roofProx && !s.onGround && roofProx.dist <= ROOF_CATCH_R
-    && s.altitude <= roofProx.padFt + roofCeil && s.altitude >= roofProx.padFt - 40);
+  // Arrival or departure — the whole decision, in pad-catch.js so it can be held to a headless
+  // gate. The departure latch is the Echelon's contract (lifting off a pad flies you straight up
+  // through its own catch column, and without a latch the climb-out is grabbed and set back down);
+  // what that file adds is the two buffers a boolean latch could never carry — see its header.
+  const roofStep = padCatchStep(F.roofDeparted, roofProx, roofCeil, s, ROOF_CATCH_R);
+  F.roofDeparted = roofStep.departed;
+  const roofArmed = roofStep.armed;
   F.roofPadShow = !!(roofProx && roofProx.dist <= 3.5);   // the column is drawn from a way out — it's guidance
-  F.roofPadArmed = roofArmed;
-  if (roofProx && !F.roofLock && !roofArmed && !F.roofNoticed
+  F.roofPadArmed = roofArmed;   // the column only lights when it will actually take you — on the way up it stays dark
+  if (roofProx && !F.roofLock && !roofArmed && !F.roofNoticed && F.roofDeparted === true
       && roofProx.dist <= ROOF_CATCH_R * 1.6 && s.altitude > roofProx.padFt + roofCeil
       && s.altitude <= roofProx.padFt + roofCeil + 160) {
     F.roofNoticed = true;
     if (F.toast) F.toast('⚠ PAD GUIDANCE — descend into the green column and the deck will bring you down.');
   }
-  // Departure latch, exactly as the Echelon has one: lifting off a pad flies you straight up through
-  // its own catch column, and without this the climb-out is grabbed and set back down. You've
-  // departed once you leave the radius or climb clear of the ceiling.
-  // ⚠ ONLY AGAINST A PAD WE CAN ACTUALLY SEE. This used to read "not armed ⇒ departed", which is a
-  // statement about nothing on every frame with no pad in the window — and padProximity returns
-  // null on each parked frame AND on the first airborne one, because it gates on `reportedAirborne`
-  // and that is latched further down this same frame. So a helicopter lifting off a rooftop pad
-  // cleared the latch one frame before the capture could read it, flew into the pad's own catch
-  // column on the next, and was set straight back down. For ever: it could never leave the roof.
-  // Departure now means what it says — a pad is in view and we are outside its window.
-  if (roofProx && !roofArmed) F.roofDeparted = true;   // outside the radius or clear of the ceiling → armed again
-  if (roofArmed && !F.roofLock && F.roofDeparted !== false) startRoofLanding(F, s, now, roofProx);
+  if (roofArmed && !F.roofLock) startRoofLanding(F, s, now, roofProx);
   if (F.roofLock) { stepRoofLanding(F, s, now); F.cfitCd = Math.max(F.cfitCd || 0, 1); }
   else if (!roofProx) F.roofNoticed = false;
 

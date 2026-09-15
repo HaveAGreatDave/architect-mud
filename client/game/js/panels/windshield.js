@@ -263,6 +263,54 @@ export const RENDER_TUNE = {
   // How wet the ground is, forced: null follows the weather (always, in the game) and a number
   // 0-1 pins it. Purely a bench and eyeball seam — see the ⚠ on `wetGround`.
   wetForce: null,
+  // ── THE REFLECTED CITY IN THE STANDING WATER ───────────────────────────────────────────────
+  //
+  // The wet road has always reflected the city as a SMEAR — each light drawn out along the line
+  // from its ground point to the eye. That is what rough damp tarmac does, and it is not what a
+  // puddle does: a puddle is a mirror and holds an IMAGE, which a smear cannot become by being
+  // tuned, because it has never seen the lettering, the frame or the bulbs. So the signage and the
+  // lights are rendered a second time through a camera that flips the world about the water's
+  // plane, and the road reads that back — see gl/mirror.js.
+  //
+  // The number is the gain, and it is PURELY ADDITIVE: 0 takes the whole prepass out — no
+  // framebuffer, no second draw — and leaves the exact picture that shipped before it. See the ⚠ in
+  // ground.js on why the smear is no longer reweighted underneath it.
+  //
+  // ⚠ THIRTY-TWO IS NOT A TYPO AND IT WAS SWEPT, NOT CHOSEN. It multiplies a term that has already
+  // been through the water weight and the Fresnel gate, and inside a puddle at a typical reflection
+  // site those are 1.0 and 0.18 — and OUTSIDE one the water weight is 0.02, which is the whole point
+  // of the number being large. A mirror image also lands NEAR THE EYE (the image of a sign three
+  // storeys up sits about a tile in front of a truck) and near the eye is exactly where the Fresnel
+  // term is weakest. A gain of 1 measured 0.2% of the frame touched at a mean of 2/255, which is a
+  // feature nobody can find. `__glMirror()` over the road of a night street, against the same street
+  // with the mirror off:
+  //
+  //     gain        0      8     16     32     64
+  //     touched   0.00%  0.31%  0.75%  1.35%  2.07%   ← share of road pixels moved at all
+  //     visible   0.00%  0.06%  0.12%  0.29%  0.69%   ← moved by 8/255 or more
+  //     roadLum   61.84  61.87  61.91  61.99  62.10   ← the road's own mean brightness
+  //     worst        0     47     93    173    185
+  //
+  // ⚠ THE roadLum ROW IS WHY A BIG NUMBER IS SAFE HERE. It moves 1.3 of 255 across an eight-fold
+  // gain change, because the term reaches a few per cent of the road and the headroom factor holds
+  // down whatever it does reach. There is no wash to guard against; the failure mode is
+  // invisibility, and the first cut sat at the wrong end of it.
+  //
+  // ⚠ AND THE REFLECTION IS IN THE PUDDLES AND ALMOST NOWHERE ELSE, WHICH IS WHY IT REACHES UNDER
+  // ONE PER CENT OF THE ROAD. The water weight off-puddle is 0.02 (see ground.js), so what mirrors
+  // the city is the standing water: it is the nearest lit frontages lying in the pools in front of
+  // them, not a sheen down the whole street. Confining it cost the reach an order of magnitude —
+  // 1.65% of the road visibly moved when the sheen was 0.08, 0.12% now at the same gain — and that
+  // IS the change that was asked for. The gain went up to pay some of it back inside the pools.
+  //
+  // ⚠ IT COSTS A SECOND DRAW OF THE TWO EMISSIVE LAYERS AND NOTHING ELSE — the mass is not
+  // re-rendered, so a sign standing behind a tower still reaches the water. That is the one visible
+  // compromise, and closing it is a second mass pass rather than a tweak.
+  glMirror: 32,
+  // How large the reflection buffer is against the canvas. Water is not mirror-smooth and nothing
+  // downstream blurs, so half resolution is the softness the surface wants as well as a quarter of
+  // the fill — the only real cost this pass has.
+  glMirrorRes: 0.5,
   // A lit facade as a light of its own, so a street of lit windows throws something on the road and
   // on the building opposite. One `facadeGlow` per lit window grid, tagged `wash` so `pickLights`
   // reserves it a slot against the neon rather than making it compete — see `WASH_SLOTS`.
@@ -7129,6 +7177,13 @@ export function modelSolid(m, seed, fh, h) {
 // thing you hit, and `forecourtDriveSmoke` asserts both halves of that.
 export const TRUCK_STEP_Z = 0.011;
 export function groundObstructionAt(wx, wy, cell, px, py, clearZ = 0.01, stepZ = 0) {
+  // THE CURTAIN, FIRST, BECAUSE EVERY BRANCH BELOW STARTS FROM BUILDING MASS AND IT HAS NONE.
+  // `buildingHeightZ` answers 0 on a perimeter tile, so without this the function returns "clear
+  // road" for a floor-to-sky sheet of hard light. It goes through the shared probe rather than
+  // being tested here, so the wall a rig stops at is the wall the windscreen is drawing. See
+  // curtainTopZAt — including why the gate tile is the one that stays open.
+  const curZ = curtainTopZAt(wx, wy, cell, px, py);
+  if (curZ > 0) return curZ;
   // ⚠ THE ONE HOLE IN A BUILDING, and it is named rather than general: a depot bay is a shed you
   // drive into, so at ground level it is open. Everything about this is deliberately narrow — it
   // is keyed on a mark the world derivation only puts on a tile authored `flags.vehicle_bay`, it
@@ -9309,10 +9364,16 @@ function emitWire(ctx, cam, A, B, wPx, css, alpha, opts = {}) {
   }, opts.lift == null ? DECO_LIFT : opts.lift);
 }
 
-function groundHidden(cam, dx, dy, f) {
+// ⚠ THE DEPTH IS THE PROJECTION'S OWN, NOT A NUMBER HANDED IN. This took an `f` from each caller,
+// and every one of the five had a CRAFT-relative one — which is the same number only while the
+// camera sits on the craft. In the external chase it is `fwdOff` tiles out, and for anything that
+// has passed the vehicle it is NEGATIVE, so `propS` clamped the probe to its floor and sized a
+// 3-pixel box for a lamp filling a third of the frame. `cam.proj` already resolves the camera
+// distance two lines down; asking it is what keeps the probe and the point in one frame.
+function groundHidden(cam, dx, dy) {
   if (!GL_CELLS) return false;
   const p = cam.proj(dx, dy, 0);
-  return decoHidden([p], propS(34, f, 3, 64) * 0.95);
+  return decoHidden([p], propS(34, p.f, 3, 64) * 0.95);
 }
 
 // A LANDMARK IS THE ONE THING IN THE WORLD PASS WITH NO OCCLUSION TEST AT ALL. A statue, a
@@ -10349,7 +10410,73 @@ function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
 // is ONLY that, on every screen: there is no move gate on it (grep registerMoveGate). The actual seal
 // is 133 authored walls between the frontier tiles (`blocked: true`, named "the Architect's Curtain"),
 // so the wall you can see and the wall you cannot walk through are two separate facts about one place.
-const CURTAIN_H = 0.9;   // world-z — taller than any district building, an imposing barrier
+export const CURTAIN_H = 0.9;   // world-z — taller than any district building, an imposing barrier
+
+// ── THE WALL YOU CAN SEE, AND THE WALL A VEHICLE CANNOT DRIVE THROUGH ────────
+//
+// The note above says `flags.curtain` is a landmark and nothing else, and that the real seal is
+// 133 authored `blocked: true` walls. Both halves are true and together they left a hole: an exit
+// block stops a WALKER, and the sims collide against BUILDING MASS, which the Curtain has none of.
+// So a rig drove straight through the Architect's perimeter and out into the waste, past a wall
+// that was visibly there the whole way.
+//
+// The arms are a list now instead of six inlined `seg` calls, because the probes below read the
+// same list the renderer draws from. That is the rule the rest of this file runs on — what you can
+// see is what you can hit — and it is what stops the picture and the barrier drifting the next
+// time somebody changes how a corner is drawn.
+//
+// Offsets from the TILE CENTRE. A straight run pairs opposite arms into one clean span; a corner
+// carries an L and never pokes a stub into empty air; an endpoint carries a single arm.
+export function curtainSegs(axis) {
+  const n = axis.indexOf('n') >= 0, s = axis.indexOf('s') >= 0, e = axis.indexOf('e') >= 0, w = axis.indexOf('w') >= 0;
+  const out = [];
+  if (n && s) out.push([0, -0.5, 0, 0.5]);        // full N–S span
+  else if (n) out.push([0, 0, 0, -0.5]);          // reach north only
+  else if (s) out.push([0, 0, 0, 0.5]);           // reach south only
+  if (e && w) out.push([-0.5, 0, 0.5, 0]);        // full E–W span
+  else if (e) out.push([0, 0, 0.5, 0]);           // reach east only
+  else if (w) out.push([0, 0, -0.5, 0]);          // reach west only
+  return out;
+}
+// How thick the field is to the things that have to stop at it. ~3 m at a tile of ~50 m, which is
+// under the width of the shimmer plane's own crown line — you stop AT the wall, not short of it.
+export const CURTAIN_HALF_W = 0.06;
+
+// Is the Curtain in the way at this world point, and how tall is it in render world-z? Shaped like
+// `groundObstructionAt` so a caller that already asks one can ask the other.
+//
+// ⚠ THE GATE IS THE ONE BREAK AND IT STAYS OPEN. `deriveSurfaceCell` hands a `perimeter_gate` tile
+// the run of its Curtain neighbours so the flanking wall butts into the pylons instead of stopping
+// a tile short — which means the gate tile carries `cur` and is the one tile that must never be
+// solid. The renderer already makes that call: `mark === 'gate'` takes the drawSouthGate branch and
+// never reaches drawCurtainWall. Reading the same mark keeps the way through decided in one place.
+//
+// ⚠ A POINT TEST WITH A THICKNESS, LIKE EVERY OTHER COLLISION HERE. Both sweeps sample four points
+// along a frame's movement, so a zero-thickness plane is a plane you pass through the moment one
+// frame covers more ground than the sampling. At this half-width the samples only straddle it past
+// 0.48 tiles in a single frame, which neither sim comes near — a truck flat out is 0.86 tiles per
+// SECOND (`tileMph`), and an airliner on the deck is a few hundredths of a tile per frame.
+export function curtainTopZAt(wx, wy, cell, px, py) {
+  if (!cell || !cell.cur || cell.mark === 'gate') return 0;
+  const lx = px - wx, ly = py - wy, R2 = CURTAIN_HALF_W * CURTAIN_HALF_W;
+  for (const [ax, ay, bx, by] of curtainSegs(cell.cur)) {
+    const vx = bx - ax, vy = by - ay, L2 = vx * vx + vy * vy;
+    const t = L2 > 0 ? clamp(((lx - ax) * vx + (ly - ay) * vy) / L2, 0, 1) : 0;
+    const qx = lx - (ax + vx * t), qy = ly - (ay + vy * t);
+    if (qx * qx + qy * qy <= R2) return CURTAIN_H;
+  }
+  return 0;
+}
+// The same answer in the altitude frame, for the aircraft's CFIT sweep.
+//
+// ⚠ DELIBERATELY NOT FOLDED INTO `modelTopAt`. That probe is also what the helicopter roof-catch
+// and the rooftop-pad guidance column read, and an energy field is not a deck you put skids on. A
+// second exported function is the cost of keeping "you hit it" and "you can land on it" apart.
+export function curtainRoofFtAt(wx, wy, cell, px, py) {
+  const z = curtainTopZAt(wx, wy, cell, px, py);
+  return z > 0 ? altForRoofZ(z) : 0;
+}
+
 function drawCurtainWall(ctx, cam, dx, dy, axis, alpha, now) {
   const NEAR = 0.08;
   const rawF = (x, y) => (x - (cam.ex || 0)) * cam.sinh - (y - (cam.ey || 0)) * cam.cosh;
@@ -10418,15 +10545,8 @@ function drawCurtainWall(ctx, cam, dx, dy, axis, alpha, now) {
       ctx.restore();
     });
   };
-  // Pair opposite arms into one clean span where both neighbours exist (no centre seam on a
-  // straight run); otherwise reach a half-arm only toward the neighbour that's actually there.
-  const n = axis.indexOf('n') >= 0, s = axis.indexOf('s') >= 0, e = axis.indexOf('e') >= 0, w = axis.indexOf('w') >= 0;
-  if (n && s) seg(dx, dy - 0.5, dx, dy + 0.5);   // full N–S span
-  else if (n) seg(dx, dy, dx, dy - 0.5);          // reach north only
-  else if (s) seg(dx, dy, dx, dy + 0.5);          // reach south only
-  if (e && w) seg(dx - 0.5, dy, dx + 0.5, dy);   // full E–W span
-  else if (e) seg(dx, dy, dx + 0.5, dy);          // reach east only
-  else if (w) seg(dx, dy, dx - 0.5, dy);          // reach west only
+  // The arms, from the one list the collision probes also read — see curtainSegs.
+  for (const [ax, ay, bx, by] of curtainSegs(axis)) seg(dx + ax, dy + ay, dx + bx, dy + by);
 }
 
 const CLIFF_H = 0.52;   // world-z of the tableland top. Roughly a 4-storey building: it has to clear the scatter and read as a landform from the air, without becoming a wall of the Curtain's height.
@@ -11739,11 +11859,11 @@ function drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR) {
   if (!hh) return;
   const dx = (hh.x - wcx) - cam.ox, dy = (hh.y - wcy) - cam.oy;
   const f = dx * cam.sinh - dy * cam.cosh;
-  if (f <= VISIBLE_NEAR_F || f > FAR) return;
+  if (f + (cam.fwdOff || 0) <= VISIBLE_NEAR_F || f > FAR) return;   // camera-relative near clip — see the ⚠ in drawStreetLamps
   const a = smoothstep((FAR - f) / 5) * (v.worldBlend ?? 1);
   if (a <= 0.03) return;
   const tok = hh.t || 'hh';
-  if (groundHidden(cam, dx, dy, f)) return;
+  if (groundHidden(cam, dx, dy)) return;
   emitFace(f + (cam.fwdOff || 0), () => {
     drawActorFigure(ctx, cam, dx, dy, a, tok, 0, false, night);
     // The hand. Drawn after the body so it sits over the shoulder rather than under it, and sized
@@ -11792,14 +11912,14 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     const { ox, oy } = vergeOffset(cell, h, t);
     const dx = (px + ox - wcx) - cam.ox, dy = (py + oy - wcy) - cam.oy;
     const f = dx * cam.sinh - dy * cam.cosh;
-    if (f <= VISIBLE_NEAR_F || f > FAR) continue;
+    if (f + (cam.fwdOff || 0) <= VISIBLE_NEAR_F || f > FAR) continue;   // camera-relative near clip — see the ⚠ in drawStreetLamps
     // Same thin far-edge dissolve the buildings use, so a figure ghosts up out of the haze with
     // the street it is standing in rather than popping in crisp against a fogged block.
     const a = fade * smoothstep((FAR - f) / 5) * (v.worldBlend ?? 1);
     if (a <= 0.03) continue;
     // Gait runs on wall-clock, offset per figure, so a pavement of people is not a chorus line.
     const phase = now * 0.011 + actorHash(t, 5) * 7;
-    if (groundHidden(cam, dx, dy, f)) continue;
+    if (groundHidden(cam, dx, dy)) continue;
     emitFace(f + (cam.fwdOff || 0), () => drawActorFigure(ctx, cam, dx, dy, a, t, phase, p.moving, night));
   }
 }
@@ -12264,7 +12384,13 @@ function drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     if (!c || c.sl == null || c.bt || c.mark) continue;
     const wx = Math.round((rx - R) + wcx), wy = Math.round((ry - R) + wcy);
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
-    if (f <= VISIBLE_NEAR_F || f > FAR) continue;
+    // ⚠ NEAR-CLIP AGAINST THE CAMERA, NOT THE CRAFT — the same correction the building pass carries
+    // (see drawWorldObjects). `f` is CRAFT-relative and the external chase camera sits `fwdOff`
+    // tiles further back, so clipping on the raw `f` deleted every lamp that had passed the vehicle
+    // while it was still most of the way up the frame: in the truck's chase view that is two or
+    // three tiles of street furniture blinking out at the point you are looking straight at it.
+    // Far stays on `f`, exactly as it does for the buildings.
+    if (f + (cam.fwdOff || 0) <= VISIBLE_NEAR_F || f > FAR) continue;
     const alpha = clamp((FAR - f) / 5, 0, 1) * (v.worldBlend ?? 1);
     if (alpha <= 0.03) continue;
     // Stand it on the pavement: perpendicular to the road's own axis, at VERGE — the same one
@@ -12302,7 +12428,7 @@ function drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
 function drawStreetLampQueued(ctx, cam, dx, dy, inward, lit, alpha, night, seed) {
   const f = dx * cam.sinh - dy * cam.cosh;
   if (STROKE_SINK && TUNE.glDeco) { drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed); return; }
-  if (groundHidden(cam, dx, dy, f)) return;
+  if (groundHidden(cam, dx, dy)) return;
   emitFace(f + (cam.fwdOff || 0), () => drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed));
 }
 
@@ -12319,7 +12445,10 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     const dirs = c.rd || '';
     if (!isJunction(dirs)) continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
-    if (f <= VISIBLE_NEAR_F || f > FAR) continue;
+    // Camera-relative near clip — see the ⚠ in drawStreetLamps. A junction is a whole tile wide and
+    // its two masts stand most of a tile off centre, so a chase camera watching a rig pull away
+    // from a crossroads had the signals vanish while the mast was still beside the trailer.
+    if (f + (cam.fwdOff || 0) <= VISIBLE_NEAR_F || f > FAR) continue;
     const alpha = clamp((FAR - f) / 5, 0, 1) * (v.worldBlend ?? 1);
     if (alpha <= 0.03) continue;
     const off = junctionOffset(Math.round((rx - R) + wcx), Math.round((ry - R) + wcy));
@@ -12358,7 +12487,7 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
       // open during this pass, so anything painting straight to ctx here is painted OVER by every
       // building in the flush that follows.
       const hf = mx * cam.sinh - my * cam.cosh;
-      if (groundHidden(cam, mx, my, hf)) continue;
+      if (groundHidden(cam, mx, my)) continue;
       emitFace(hf + (cam.fwdOff || 0), () => drawSignalMast(ctx, cam, mx, my, arm, lamp, alpha, night, !dead && night > 0.35));
     }
   }
@@ -14812,8 +14941,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     const ROFF = RA ? -(c.rt || 0) : 0;
     const RK = RA ? (c.rw || 0.5) / 0.5 : 1;
     const stripeA = (A, off, hw, aLo, aHi, style) => {
-      const Px = A[1], Py = -A[0];
-      // ⚠ RECORDED IN THE MAP WINDOW’S FRAME, not the camera’s. `dx`/`dy` are already camera-
+      const Px = A[1], Py = -A[0];      // ⚠ RECORDED IN THE MAP WINDOW’S FRAME, not the camera’s. `dx`/`dy` are already camera-
       // relative, so the sub-tile offset is added back — the same frame the building mesh is
       // built in, which is what lets one shifted camera draw both and keeps a kerb under the wall
       // that stands on it.
@@ -27652,7 +27780,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // Everything below this line stands ON the ground rather than being one — see groundHidden.
     // Cliffs and the Curtain are excluded because they are world-scale masses, and a screen box
     // sized for a bush would under-measure them into being culled while still visible.
-    if (!it.c.bt && !it.c.hi && !it.c.cur && groundHidden(cam, it.dx, it.dy, it.f)) continue;
+    if (!it.c.bt && !it.c.hi && !it.c.cur && groundHidden(cam, it.dx, it.dy)) continue;
     // ⚠ AND A CLIFF STILL HAS NO OCCLUSION TEST, WHICH IS MEASURED RATHER THAN OVERLOOKED. It
     // draws through the city exactly as the landmarks did — 246 px of 326 behind a wall of
     // 24-storey towers, against GLASS 1 one pixel — and markHidden cannot fix it. A massif
@@ -27864,7 +27992,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     pBegin('world:gl');
     try {
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, glWet: wetGround(), glMat: TUNE.glMat, glBump: TUNE.glBump, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glLightSlots: TUNE.glLightSlots, glHdr: TUNE.glHdr, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, glWet: wetGround(), glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glBump: TUNE.glBump, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glLightSlots: TUNE.glLightSlots, glHdr: TUNE.glHdr, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, ground: GROUND_MESH, floor: FLOOR_STATE, now,
         // The map window's centre tile. The ground pass phases its puddles on absolute world
         // coordinates off this, and it must not come from FLOOR_STATE, which is null at glFloor 0.

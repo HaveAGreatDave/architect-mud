@@ -14,7 +14,7 @@
 //
 // Run: node scripts/a11y/focus-smoke.mjs   (also wired into pretest:regress)
 import { readFileSync } from 'node:fs';
-import { isModalCandidate, topmostOf, looksLikeClose, findCloseControl, nameGlyphControls, nameDialog, nameField } from '../../client/game/js/a11y-focus.js';
+import { isModalCandidate, topmostOf, looksLikeClose, findCloseControl, nameGlyphControls, nameDialog, nameField, survivesDisconnect } from '../../client/game/js/a11y-focus.js';
 
 let failed = 0;
 const bad = (m) => { console.error(`  ✗ ${m}`); failed++; };
@@ -322,6 +322,27 @@ for (const [name, node] of NOT_CLOSERS) {
 
   const sift = readFileSync(new URL('../../client/game/js/panels/sift-select.js', import.meta.url), 'utf8');
   is(/setAttribute\('role', 'dialog'\)/.test(sift), true, 'the SIFT picker declares itself a dialog');
+}
+
+// ── The pre-login windows SURVIVE a disconnect ──────────────────────────────
+//
+// closeAllModals() fires on `game-disconnect` and closes every open dialog by
+// clicking its own ✕, because an in-game panel is showing a world you are no
+// longer in. That reasoning does not reach the three windows you can only be
+// looking at while logged OUT, and it broke the one that matters: arriving on a
+// password-reset link, the client's first connect attempt fails on a cold
+// instance, `game-disconnect` fires, and the reset form closes itself about a
+// second after it opened — which is the whole of "the reset link doesn't work".
+// Measured in a browser before this list existed.
+{
+  // Stands in for an element's own `matches`, which is the same predicate
+  // closeAllModals hands it.
+  const asEl = (...sels) => (sel) => sels.includes(sel);
+  is(survivesDisconnect(asEl('#reset-screen')), true, 'a password-reset window is not closed by a dropped socket');
+  is(survivesDisconnect(asEl('#verify-screen')), true, 'nor is the email-verification window');
+  is(survivesDisconnect(asEl('#forgot-window')), true, 'nor is the forgot-password window');
+  is(survivesDisconnect(asEl('#map-panel')), false, 'an in-game panel still closes on a disconnect');
+  is(survivesDisconnect(asEl()), false, 'an unnamed panel still closes on a disconnect');
 }
 
 if (failed) {

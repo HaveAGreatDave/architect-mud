@@ -190,12 +190,28 @@ function bootSplashDone() {
 }
 
 // Auto-auth if a Bearer token was passed via sessionStorage (e.g. from the game client).
-// Token format: base64("playerId:role:timestamp") — decode to get role without a round-trip.
+// Token format: base64url("playerId:role:timestamp") + "." + HMAC — read the BODY
+// for the role so the badge needs no round-trip. The signature is not checked here
+// and cannot be: only the server holds the secret, and it re-verifies every request.
+// This decode is for what the panel DRAWS, never for what it is allowed to do.
+//
+// ⚠ A TOKEN THIS CANNOT PARSE MUST NOT AUTH — it falls through to the login overlay.
+// The unsigned tokens that shipped before the signing migration still decode
+// cleanly (they are the same colon-separated body, just bare base64), so an older
+// accept-anything decode auto-authed off one, painted a green badge, and then 403d
+// every write in the panel: reads need no auth, so it looked entirely logged in and
+// could not change a thing. Requiring the signature's presence is what turns that
+// silent half-session into a login prompt.
 (() => {
   const stored = sessionStorage.getItem('devpanel-token');
   if (!stored) return;
+  const dot = stored.lastIndexOf('.');
+  if (dot < 1) return;                        // unsigned/legacy — the server will refuse it
   let role = '';
-  try { [devPlayerId, role] = atob(stored).split(':'); } catch { return; }
+  try {
+    const body = stored.slice(0, dot).replace(/-/g, '+').replace(/_/g, '/');
+    [devPlayerId, role] = atob(body).split(':');
+  } catch { return; }
   if (!['admin','dev','builder','designer'].includes(role)) return;
   token = stored;
   devRole = role;

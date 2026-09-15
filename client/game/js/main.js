@@ -512,48 +512,26 @@ function _makeDraggable(window, handle) {
 const _forgotWindow = document.getElementById("forgot-window");
 _makeDraggable(_forgotWindow, document.getElementById("forgot-drag-handle"));
 
-function fetchEmailForUsername(username) {
-	const errEl = document.getElementById("forgot-username-error");
-	const btn = document.getElementById("forgot-submit");
-	if (!username) {
-		document.getElementById("forgot-email").value = "";
-		state.send_password = "";
-		errEl.style.display = "none";
-		btn.disabled = true;
-		return;
-	}
-	fetch(`/api/auth/email-hint?username=${encodeURIComponent(username)}`)
-		.then((r) => r.json())
-		.then((data) => {
-			if (data.email) {
-				state.send_password = data.email;
-				document.getElementById("forgot-email").value = data.hint || "";
-				errEl.style.display = "none";
-				btn.disabled = false;
-			} else {
-				state.send_password = "";
-				document.getElementById("forgot-email").value = "";
-				errEl.textContent = "Username not found.";
-				errEl.style.display = "";
-				btn.disabled = true;
-			}
-		})
-		.catch(() => {});
+// The Send button only ever asks "has a username been typed". It used to ask the
+// SERVER whether that username existed — which is what made this window an
+// account-enumeration tool — and the answer decided both the button state and a
+// masked address shown below it. Now the window can't tell you whether an
+// account is real, and neither can the reply when you submit.
+function syncForgotSubmit() {
+	const username = document.getElementById("forgot-username").value.trim();
+	document.getElementById("forgot-submit").disabled = !username;
 }
 
 function openForgotWindow() {
 	document.getElementById("forgot-message").textContent = "";
-	document.getElementById("forgot-email").value = "";
-	state.send_password = "";
 	document.getElementById("forgot-username-error").style.display = "none";
-	document.getElementById("forgot-submit").disabled = true;
 	_forgotWindow.style.display = "";
 	_forgotWindow.style.transform = "translateX(-50%)";
 	_forgotWindow.style.left = "50%";
 	_forgotWindow.style.top = "20%";
-	const username = document.getElementById("auth-username").value.trim();
-	document.getElementById("forgot-username").value = username;
-	fetchEmailForUsername(username);
+	document.getElementById("forgot-username").value =
+		document.getElementById("auth-username").value.trim();
+	syncForgotSubmit();
 }
 
 document
@@ -565,18 +543,9 @@ document.getElementById("forgot-close-btn").addEventListener("click", () => {
 document
 	.getElementById("forgot-submit")
 	.addEventListener("click", doForgotPassword);
-document.getElementById("forgot-email").addEventListener("keydown", (e) => {
-	if (e.key === "Enter") doForgotPassword();
-});
-
-// Look up email whenever username is typed in the forgot window
-let _forgotUsernameTimer = null;
-document.getElementById("forgot-username").addEventListener("input", (e) => {
-	clearTimeout(_forgotUsernameTimer);
-	_forgotUsernameTimer = setTimeout(
-		() => fetchEmailForUsername(e.target.value.trim()),
-		400,
-	);
+document.getElementById("forgot-username").addEventListener("input", syncForgotSubmit);
+document.getElementById("forgot-username").addEventListener("keydown", (e) => {
+	if (e.key === "Enter" && e.target.value.trim()) doForgotPassword();
 });
 
 // Reset password window
@@ -584,12 +553,21 @@ const _resetWindow = document.getElementById("reset-screen");
 _makeDraggable(_resetWindow, document.getElementById("reset-drag-handle"));
 document.getElementById("reset-close-btn").addEventListener("click", () => {
 	_resetWindow.style.display = "none";
-	history.replaceState({}, "", location.pathname);
+	// ⚠ PUT THE LOGIN BACK. Arriving on a reset link hides #auth-screen, so
+	// hiding this window without restoring it left a blank page that only a
+	// reload recovered from. The success path below and the verify screen's back
+	// link both already did this; the ✕ was the one way out that didn't.
+	document.getElementById("auth-screen").style.display = "flex";
 });
 
 // Detect reset token in URL
 const _resetToken = new URLSearchParams(location.search).get("reset_token");
 if (_resetToken) {
+	// Stripped immediately rather than on the way out: until this runs the token
+	// sits in the address bar, in history, and in the Referer of anything the
+	// page fetches. doResetPassword uses the captured value, not the URL, so
+	// taking it out of the URL now costs nothing.
+	history.replaceState({}, "", location.pathname);
 	document.getElementById("auth-screen").style.display = "none";
 	_resetWindow.style.display = "";
 }

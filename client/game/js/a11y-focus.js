@@ -46,6 +46,24 @@ const NEVER_TRAP = [
   '[data-a11y-no-trap]',
 ];
 
+// ⚠ THE PRE-LOGIN WINDOWS SURVIVE A DISCONNECT, AND THEY ARE THE ONLY THINGS
+// THAT DO. closeAllModals() exists because an in-game panel is showing a world
+// you are no longer in — true of all forty of them, and false of these three.
+// You reach a password-reset link precisely when you are NOT logged in, so the
+// socket has nothing to say about whether the form is still valid; on a free
+// Render instance the first connect after a cold start routinely fails, which
+// fired `game-disconnect` and closed the reset window a second after it opened.
+// That is the whole of "the reset link doesn't work".
+const NEVER_CLOSE_ON_DISCONNECT = ['#reset-screen', '#verify-screen', '#forgot-window'];
+
+// ⚠ ONE READER OF THAT LIST. It takes a `matches(selector)` predicate rather than
+// an element so that closeAllModals and the smoke ask the same question — the
+// alternative is the list being walked by two expressions that have to agree, and
+// the one in the test is the one that keeps passing after the real one drifts.
+export function survivesDisconnect(matches) {
+  return NEVER_CLOSE_ON_DISCONNECT.some(sel => matches(sel));
+}
+
 // ── Pure predicates, exported so scripts/a11y/focus-smoke.mjs can drive them
 // with plain objects instead of needing a real browser. ──────────────────────
 
@@ -469,6 +487,7 @@ export function closeAllModals() {
   entries.sort((a, b) => ((b.z || 0) - (a.z || 0)) || (b.order - a.order));
   for (const { el } of entries) {
     if (!el.isConnected) continue;
+    if (survivesDisconnect(sel => !!el.matches?.(sel))) continue;
     const btn = findCloseControl([...el.querySelectorAll('button,[role="button"],a,span,div,[data-a11y-close]')]);
     try { btn?.click(); } catch { /* the panel's own handler threw; not ours to fix */ }
   }

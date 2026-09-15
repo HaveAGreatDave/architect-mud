@@ -47,6 +47,7 @@ in vec2 vUV;
 in float vAlpha;
 uniform sampler2D uTex;
 uniform float uCull;
+uniform float uFlip;
 out vec4 outColor;
 void main() {
   // ⚠ A SIGN HAS A FRONT. Lettering is PAINT ON A SURFACE, and paint does not read from behind the
@@ -62,7 +63,13 @@ void main() {
   // two-sided by default and CULL_FACE stays off), so this is the one place that polarity is
   // decided; it is stated here rather than inferred, because inverting it hides every sign in the
   // city and shows only the ones you are behind.
-  if (uCull > 0.5 && gl_FrontFacing) discard;
+  //
+  // ⚠ AND A MIRROR REVERSES THAT POLARITY, WHICH IS WHY IT IS A UNIFORM AND NOT A LITERAL. The
+  // puddle pass renders the world reflected about the water's plane; the reflection matrix has
+  // determinant −1, so every quad's winding flips and the test above selects the exact complement —
+  // the reflection would hold only the signs facing AWAY from you, mirrored, which is the
+  // "ƎƆATJOV" bug a second time and in a surface where nobody would think to read it.
+  if (uCull > 0.5 && gl_FrontFacing != (uFlip > 0.5)) discard;
   // The texture is uploaded PREMULTIPLIED, so scaling by alpha is one multiply and the blend is
   // the canvas's own (ONE, ONE_MINUS_SRC_ALPHA).
   vec4 t = texture(uTex, vUV) * vAlpha;
@@ -99,6 +106,7 @@ export function createDecalLayer(gl) {
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     tex: gl.getUniformLocation(prog, 'uTex'),
     cull: gl.getUniformLocation(prog, 'uCull'),
+    flip: gl.getUniformLocation(prog, 'uFlip'),
   };
 
   const vao = gl.createVertexArray();
@@ -177,6 +185,9 @@ export function createDecalLayer(gl) {
     if (!batches.length) return 0;
     gl.useProgram(prog);
     gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, H)));
+    // Whether this camera reflects the world — see the ⚠ on `uFlip`. Read off the camera itself so
+    // a caller cannot hand over a mirrored matrix and forget to say so.
+    gl.uniform1f(loc.flip, cam.mirrorZ == null ? 0 : 1);
     gl.uniform1i(loc.tex, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.DEPTH_TEST);

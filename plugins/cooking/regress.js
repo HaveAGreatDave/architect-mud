@@ -3429,6 +3429,42 @@ export default async function regress({ run, check, getPlayer }) {
       }
     }
 
+    // ⚠ EVERY SPREADABLE IS A FAT, AND IT HAS TO BE.
+    //
+    // `butter` stamps `buttered` on whatever it spread onto, and `signature`
+    // adds a unit of `fat_or_oil` for a buttered row UNCONDITIONALLY — it never
+    // looks at what was actually spread, because there is nothing on the row that
+    // says. That is fine while every spreadable IS a fat, and quietly wrong the
+    // day somebody tags a jam or a paste: bread and jam would satisfy a dish's
+    // fat requirement with sugar, and a toastie would score as having been
+    // buttered.
+    //
+    // The tag is cheap to add and the consequence is invisible, which is exactly
+    // the combination worth a check. Widening it means teaching `signature` what
+    // was spread — a second stamp on the row — rather than relaxing this.
+    {
+      // ⚠ `.values()` — ITEM_CACHE is a MAP, and `Object.values` on a Map returns
+      // an EMPTY ARRAY. The first cut of this used it, and the check below passed
+      // VACUOUSLY: an empty set has no counterexample in it, so "nothing is
+      // wrong" was true of nothing at all.
+      //
+      // The line after it is what caught that, and it is the general lesson —
+      // any sweep that asserts an ABSENCE wants a partner asserting a PRESENCE,
+      // or it cannot tell an empty world from a clean one.
+      const all = [...getItemCache().values()];
+      const bad = all
+        .filter(i => (i.tags || {}).spreadable !== undefined && i.tags.food_profile !== 'fat_or_oil')
+        .map(i => `${i.id}(${i.tags.food_profile || 'none'})`);
+      check('every spreadable item is a fat — buttering credits the dish one either way',
+        !bad.length, JSON.stringify(bad));
+      // ...and the two the wasteland would actually spread on bread are among
+      // them. A game with an item called `dripping bread` that cannot spread
+      // dripping is a game missing one tag.
+      const spread = all.filter(i => (i.tags || {}).spreadable !== undefined).map(i => i.id);
+      check('...and dripping and tallow are spreadable, not just the butter-analog',
+        spread.includes('item_rendered_fat') && spread.includes('item_cinder_tallow'), JSON.stringify(spread));
+    }
+
     // ── BOILING DRY ────────────────────────────────────────────────────────
     //
     // The reader water never had. `cooking_medium` keeps it out of the dish by
