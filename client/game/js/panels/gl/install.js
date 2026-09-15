@@ -146,6 +146,10 @@ export function installGL(hostFor) {
       // shipped inert by being wired at both ends and dropped in the middle, which is exactly what
       // a missing line here produces: the tune key exists, the shader is correct, nothing happens.
       glWet: opts.glWet,
+      glPuddle: opts.glPuddle,
+      glGroundBias: opts.glGroundBias,
+      glRipple: opts.glRipple,
+      glMirrorMass: opts.glMirrorMass,
       // ⚠ AND THESE TWO. The puddle reflection is the loudest possible version of this failure,
       // because it fails in a way that looks deliberate: `drawMirror` is never called, `reflTex`
       // stays null, the ground shader's `uReflOn` goes to 0 — and the road still reflects, using

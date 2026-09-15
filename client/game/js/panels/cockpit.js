@@ -16,7 +16,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
-import { glWorldInstalled, glDecision, glLastError, lastViewState, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { padCatchStep } from './pad-catch.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
@@ -33,7 +33,7 @@ if (typeof window !== 'undefined') {
   window.__glass2 = () => {
     let caps = null;
     try { caps = glCapabilities(); } catch (e) { caps = { error: String(e && e.message || e) }; }
-    return { caps, installed: glWorldInstalled(), gl: RENDER_TUNE.gl, frame: glLastFrame(), lastError: glLastError(), view: lastViewState(), decision: glDecision() };
+    return { caps, installed: glWorldInstalled(), gl: RENDER_TUNE.gl, frame: glLastFrame(), lastError: glLastError(), view: lastViewState(), decision: glDecision(), floor: lastFloorState() };
   };
 }
 import { suppressWeatherFx } from './weather-fx.js';
@@ -1327,6 +1327,12 @@ const FSIM_TUNE = [
   // 'Shape shadows' switch and are unaffected either way.
   ['glShadow', 'Sun shadows', 0, 1, 0.05],
   ['glAO', 'Contact occlusion', 0, 1, 0.02],
+  // ⚠ BIGGER IS SMALLER — it is the puddle field's FREQUENCY, so turning it up cuts the same
+  // water into more and smaller pools. 1.5 is the picture that shipped; 1.9 is the default now.
+  ['glPuddle', 'Puddle density', 0.6, 3, 0.05],
+  ['glMirrorMass', 'Buildings in water', 0, 1, 1],
+  ['glRipple', 'Puddle ripple', 0, 8, 0.1],
+  ['glGroundBias', 'Road depth bias', -64, 0, 1],
   ['occlude', 'Occlusion cull', 0, 1, 1],
   ['shapeShadow', 'Shape shadows', 0, 1, 1],
   // The hero model's own per-pixel sun shadow and lamp spill (model-raster.js). Both double as an

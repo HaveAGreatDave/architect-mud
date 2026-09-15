@@ -105,6 +105,7 @@ uniform vec3  uWetP[MAX_WET];   // light ground point xy + its height
 uniform vec3  uWetC[MAX_WET];   // colour, 0-1
 uniform float uWetR[MAX_WET];   // reach in tiles
 uniform float uWet;             // how wet the ground is, 0-1
+uniform float uPudScale;        // the puddle field's frequency — bigger is smaller and more of them
 uniform vec2  uEye;             // the camera's ground point, in vWorld's frame
 uniform float uEyeH;            // and how high it is — see the Fresnel gate on the reflections
 uniform vec2  uWc;              // window centre in WORLD tiles, so a puddle stays on its bit of road
@@ -122,6 +123,8 @@ uniform sampler2D uRefl;
 uniform float uReflOn;
 uniform float uReflGain;
 uniform vec2  uReflVP;
+uniform float uTime;            // seconds, the frame's own clock — see the ripple below
+uniform float uRipple;          // how far the water bends what it reflects, in PIXELS of the canvas
 
 out vec4 outColor;
 void main() {
@@ -167,11 +170,20 @@ void main() {
   // shower. That is a street with puddles in it rather than a flooded street.
   float pud = 0.0;
   if (uWet > 0.001) {
-    // ⚠ 1.5, AND THE SCALE IS THE ONLY THING THAT SETS HOW BIG A PUDDLE IS. Swept over a 28-tile
-    // patch with the field labelled into connected pools: 0.9 gives 149 pools of median 0.76 tiles²
-    // with one of 3.7, 1.5 gives 357 of median 0.36 with the largest 1.68, 1.9 gives 550 of median
-    // 0.19. Past 1.5 they stop reading as puddles and start reading as a speckle.
-    vec2 pw = (vWorld.xy + uWc) * 1.5;
+    // ⚠ THE SCALE IS THE ONLY THING THAT SETS HOW BIG A PUDDLE IS, and it is a SLIDER now rather
+    // than a constant. Swept over a 28-tile patch with the field labelled into connected pools:
+    // 0.9 gives 149 pools of median 0.76 tiles² with one of 3.7, 1.5 gives 357 of median 0.36 with
+    // the largest 1.68, 1.9 gives 550 of median 0.19.
+    //
+    // ⚠ THE "PAST 1.5 IT READS AS SPECKLE" NOTE THAT USED TO BE HERE WAS A JUDGEMENT MADE AT A
+    // DIFFERENT GAIN. It was written when the reflection was clipping (glMirror 32, since halved),
+    // and a saturated pool reads as a blob whatever size it is — so "speckle" was partly the clip
+    // talking. Asked for smaller and more numerous from a cab, the default moved to 1.9; 1.5 is the
+    // old picture and the slider still reaches it.
+    //
+    // It is a knob because this is a look decision and this renderer's own rule is that those get
+    // made by eye. Hard-coding it meant nobody could compare two settings without a rebuild.
+    vec2 pw = (vWorld.xy + uWc) * max(0.2, uPudScale);
     // ⚠ AND A DOMAIN WARP DOES NOTHING HERE, WHICH IS A MEASURED RESULT AND NOT AN OMISSION. A
     // product of sines is separable, so the obvious complaint about this field is that its contours
     // are a plaid of lozenges on the world axes — and the obvious fix is to offset the sample point
@@ -275,11 +287,85 @@ void main() {
   // ('mirror', so it is in the puddles and barely on the tarmac), the Fresnel term (so it is a
   // thing you see from the road and not from a cockpit) and the headroom (so daylight washes it
   // out by arithmetic rather than by a threshold). Nothing here is a second tuning of those.
+  // How strongly the water is acting as a mirror at this pixel. Hoisted out of the block below
+  // because the STREAK term at the bottom needs it: a surface cannot both mirror and scatter.
+  float mirK = 0.0;
   if (uReflOn > 0.5 && refl > 0.01) {
-    // Premultiplied, like everything else on this canvas, so the colour is already scaled by its
-    // own coverage and an empty pixel of the reflection buffer contributes exactly nothing.
-    vec3 img = texture(uRefl, gl_FragCoord.xy / uReflVP).rgb;
-    c += img * (mirror * uReflGain * refl) * max(vec3(0.0), 1.0 - c);
+    // ── ⚠ IT REPLACES WHAT IS UNDER IT. IT USED TO ADD TO IT. ───────────────────────────────────
+    //
+    // This was 'c += img * (...) * max(0, 1 - c)', and an ADDITIVE reflection can only ever show
+    // you things BRIGHTER than the road. A neon sign is brighter, so signs reflected. A building
+    // facade at night is darker, so buildings did not — the mass was genuinely in the buffer and
+    // adding near-black to tarmac is a no-op. Reported as "why are signs reflecting but not
+    // buildings", and as puddles that are grey: what did come through was pushed up by a gain of 16
+    // until it clipped toward white, which throws the hue away. Both are the same line.
+    //
+    // ⚠ AND THE NOTE THAT CHOSE ADDITIVE NAMED THE CONDITION FOR CHANGING IT. It is on 'mirror'
+    // above: a mix was "tried and measured and taken back out" because the image only covered a
+    // sliver of road, so trading the smear for it took the road's mean luminance 29.9 → 27.0 and
+    // "put nothing where the light had been" — and it closes with "it becomes worth making the day
+    // the image covers enough of the road to pay for the smear it would be replacing". Putting the
+    // MASS in the reflection buffer is that day: the image went from 1.65% of the road to 5.73%,
+    // and from a handful of signs to the city.
+    //
+    // ⚠ PREMULTIPLIED 'OVER', NOT A LERP. The buffer is premultiplied — 'im.rgb' is already scaled
+    // by its own coverage — so an empty pixel has alpha 0 and leaves the road exactly as it was.
+    // A naive mix toward 'im.rgb' would darken every wet pixel that has nothing above it to
+    // reflect, which is the flat-tint failure this whole pass exists to avoid.
+    //
+    // ⚠ AND THE HEADROOM TERM IS GONE WITH IT. 'max(0, 1 - c)' was an additive guard against
+    // blowing past white, and it was a DESATURATOR: it is per-channel, so on a road that is already
+    // bright in one channel it clamped that channel hardest and pulled the reflection toward grey.
+    // A composite cannot exceed its own inputs, so nothing here needs holding down.
+    // ── AND THE WATER MOVES ─────────────────────────────────────────────────────────────────────
+    //
+    // A flat mirror in a hollow in a road is the one thing standing water never is: there is always
+    // rain landing on it, wind across it, or a truck going past. The reflection is read at a screen
+    // position, so bending it is a small offset on that lookup — the cheapest possible version of
+    // the effect, and the only one this pass can afford.
+    //
+    // ⚠ THE WAVES ARE IN WORLD SPACE AND THE OFFSET IS IN SCREEN SPACE, and mixing those up is the
+    // whole trap. Drive the phase from the SCREEN and the ripples swim across the road as the
+    // camera turns, which reads as a dirty lens rather than as water; drive it from the world, as
+    // the puddle field itself already is, and a pool ripples in place while you drive past it.
+    //
+    // ⚠ SCALED BY 'pud', SO ONLY THE WATER MOVES. The damp tarmac between the pools reflects
+    // through the same term at 2% weight, and bending that as well would wobble the whole street.
+    //
+    // ⚠ AND IT IS DIVIDED BY THE VIEWPORT, so the amplitude is PIXELS rather than UV. A constant in
+    // UV is a bend that doubles when somebody halves the resolution dial, which is a look that
+    // changes with the performance settings. Both axes use the same divisor, or the ripple is
+    // squashed on whichever axis the canvas is longer.
+    vec2 ruv = gl_FragCoord.xy / uReflVP;
+    if (uRipple > 0.0 && pud > 0.01) {
+      vec2 q = (vWorld.xy + uWc) * 2.7;
+      float w1 = sin(q.x * 1.9 + uTime * 1.7) * cos(q.y * 2.3 - uTime * 1.3);
+      float w2 = sin(q.y * 3.1 - uTime * 2.1) * cos(q.x * 2.7 + uTime * 1.1);
+      ruv += vec2(w1, w2) * (uRipple * pud / uReflVP.y);
+    }
+    vec4 im = texture(uRefl, ruv);
+    // ── ⚠ AND WHERE THERE IS NO CITY OVERHEAD, THE WATER IS LOOKING AT THE SKY ──────────────────
+    //
+    // The reflection buffer holds the CITY and nothing else — it is cleared transparent, so a pixel
+    // with no building or sign above it comes back with alpha 0. Composited straight, that left the
+    // road exactly as it was: a puddle under open sky reflected NOTHING, and all you saw in it was
+    // the warm streak from the lamps. Reported as puddles that are yellow, which they were, because
+    // the only thing in them was sodium light.
+    //
+    // A mirror shows whatever is above it, and above most of a street is sky. So the buffer is
+    // composited over the sky first and the result is what the water reflects.
+    //
+    // ⚠ 'uFog' IS THE RIGHT SKY HERE, AND NOT AN APPROXIMATION OF ONE. The reflection this pass
+    // draws is a GRAZING one — the Fresnel gate above sees to that — and a grazing reflection shows
+    // the sky near the HORIZON, which is exactly the haze band this uniform already carries. The
+    // zenith would be the wrong colour to reach for even if it were plumbed. It also defaults to a
+    // neutral grey rather than black, so a frame with no fog band still reflects something.
+    vec3 img = im.rgb + uFog * (1.0 - im.a);
+    // The water's own weight. 'uReflGain' is a 0…32 strength where 32 means standing water reflects
+    // exactly as hard as the Fresnel term says it should, which at a cab's grazing angle is very
+    // nearly a perfect mirror — what the reference boards actually show.
+    mirK = clamp(mirror * refl * uReflGain * (1.0 / 32.0), 0.0, 1.0);
+    c = c * (1.0 - mirK) + img * mirK;
   }
   if (refl > 0.01 && uNWet > 0) {
     vec3 add = vec3(0.0);
@@ -345,7 +431,24 @@ void main() {
     // ⚠ 'mirror', NOT 'uWet' — a reflection belongs in the standing water. Scaled by the global
     // wetness it put neon on the damp tarmac between the puddles as strongly as in them, which is
     // the flat even smear the puddles exist to replace.
-    c += add * (mirror * 4.5 * refl) * max(vec3(0.0), 1.0 - c);
+    // ── ⚠ AND A SURFACE CANNOT BOTH MIRROR AND SCATTER ─────────────────────────────────────────
+    //
+    // Damp tarmac SCATTERS — that is this streak — and standing water MIRRORS. They are one surface
+    // at two roughnesses, and running both at full strength over the same pixel lights a puddle
+    // twice: the note on 'mirror' above records that the split was tried and taken back out, and it
+    // was right to at the time, because the image covered a sliver of road and trading the streak
+    // for it left the street darker with nothing in its place.
+    //
+    // What changed is that the image now covers the puddle: the mass is in the buffer and the empty
+    // sky is filled, so there IS something there to cede to. So the streak is scaled by what the
+    // mirror has already taken — full strength on the damp tarmac between the pools, where 'mirK'
+    // is near zero, and handed over inside them. That is also what stops the pools reading yellow:
+    // what is in a puddle becomes sky and city, not sodium.
+    //
+    // ⚠ AND IT IS TIED TO 'mirK', SO 'glMirror 0' RESTORES THE OLD STREAK EXACTLY. With no mirror
+    // there is nothing to cede to and this term is untouched, which is what keeps that setting an
+    // honest baseline rather than a variant.
+    c += add * (mirror * 4.5 * refl * (1.0 - mirK)) * max(vec3(0.0), 1.0 - c);
   }
   outColor = vec4(c * vAlpha, vAlpha);   // premultiplied, like every other layer on this canvas
 }`;
@@ -386,6 +489,7 @@ export function createGroundLayer(gl) {
     wetC: gl.getUniformLocation(prog, 'uWetC'),
     wetR: gl.getUniformLocation(prog, 'uWetR'),
     wet: gl.getUniformLocation(prog, 'uWet'),
+    pudScale: gl.getUniformLocation(prog, 'uPudScale'),
     eye: gl.getUniformLocation(prog, 'uEye'),
     eyeH: gl.getUniformLocation(prog, 'uEyeH'),
     wc: gl.getUniformLocation(prog, 'uWc'),
@@ -395,6 +499,8 @@ export function createGroundLayer(gl) {
     reflOn: gl.getUniformLocation(prog, 'uReflOn'),
     reflGain: gl.getUniformLocation(prog, 'uReflGain'),
     reflVP: gl.getUniformLocation(prog, 'uReflVP'),
+    time: gl.getUniformLocation(prog, 'uTime'),
+    ripple: gl.getUniformLocation(prog, 'uRipple'),
   };
 
   const vao = gl.createVertexArray();
@@ -513,7 +619,10 @@ export function createGroundLayer(gl) {
     const on = rt && opts.reflGain > 0;
     gl.uniform1f(loc.reflOn, on ? 1 : 0);
     gl.uniform1f(loc.reflGain, on ? opts.reflGain : 0);
+    gl.uniform1f(loc.pudScale, opts.pudScale > 0 ? opts.pudScale : 1.9);
     gl.uniform2f(loc.reflVP, opts.vpW || 1, opts.vpH || 1);
+    gl.uniform1f(loc.time, opts.time || 0);
+    gl.uniform1f(loc.ripple, on ? (opts.ripple > 0 ? opts.ripple : 0) : 0);
     gl.uniform1i(loc.refl, 1);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, on ? rt : null);
@@ -558,7 +667,18 @@ export function createGroundLayer(gl) {
     // already resolution-independent and is the whole reason a polygon offset beats a world lift.
     // Four steps is comfortably more than the 0.3 the eps ladder is worth at eighty tiles, and
     // cannot grow with the angle.
-    gl.polygonOffset(0, -4);
+    // ⚠ A KNOB, BECAUSE THE FOUR WAS A CALCULATION AND THE CAB DISAGREED WITH IT. The reasoning
+    // above prices four depth-buffer steps against what the eps ladder is worth at eighty tiles,
+    // and it is sound at altitude. Reported from a truck cab: the whole ground layer — tile fills,
+    // kerbs AND lane markings — lost to the floor and the driver saw terrain green everywhere,
+    // while the same city from an external camera was perfect. Both views report floor 1 and ~2500
+    // ground quads, so the quads are built and drawn; they are simply not winning.
+    //
+    // ⚠ WHY A CAB IS THE HARD CASE. The floor recovers its depth from f = EH / p, and EH is the
+    // EYE HEIGHT: a cab sits at 0.24 tiles, so the entire road compresses into a few screen rows
+    // near the horizon and d gets very large very fast. A fixed number of steps that is generous
+    // at an aeroplane s eye height is not obviously generous at a fifth of a tile.
+    gl.polygonOffset(0, opts.groundBias != null ? opts.groundBias : -4);
     gl.depthMask(true);         // the road is a surface — see the ⚠ at the top
     gl.disable(gl.CULL_FACE);   // a road is looked at from above and from a cab at kerb height
     gl.enable(gl.BLEND);

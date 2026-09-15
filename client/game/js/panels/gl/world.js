@@ -1120,25 +1120,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // zero up there when the gain is, so this is belt and braces, and it keeps the daylight frame
   // exactly the shape it was.
   const wallLights = (LIGHT_TUNE.gain * Math.min(1, Math.max(0, opts.night || 0)) > 0.01) ? lightList : null;
-  // ── THE CITY, UPSIDE DOWN, BEFORE ANY OF IT IS DRAWN THE RIGHT WAY UP ──────────────────────
-  //
-  // ⚠ A PREPASS, BECAUSE THE ROAD IS DRAWN FOURTH OF TEN. The ground goes down before the lights,
-  // the Curtain, the signage and the wires, so at the moment it needs something to reflect, none of
-  // the neon exists yet — sampling the frame there returns the building mass and nothing else, which
-  // is a wet road reflecting the one thing in the city that does not glow. Taking the reflection
-  // first also means there is nothing to restore: `draw()` binds the real target and clears it a
-  // line later, exactly as it already does after the sun and occlusion prepasses unbind.
-  //
-  // ⚠ AND IT IS THE PLAIN CAMERA, NOT `camAt`. The lights and the signage are collected in the
-  // camera's own frame (see the ⚠ on drawSprites below); the road quads are in the map window's.
-  // They disagree about where the origin is and agree exactly about where the SCREEN is, which is
-  // the only frame a screen-space read-back cares about — so this takes the frame its own layers
-  // are in and the ground shader looks the reflection up by pixel.
-  const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
-  const reflTex = (mirrorGain > 0 && opts.glWet > 0 && g.view.drawMirror)
-    ? g.view.drawMirror(cam, { sprites: opts.sprites, decals: opts.decals, cssH, scale: opts.glMirrorRes })
-    : null;
-  g.view.draw(camAt, { ...(opts.draw || {}), lights: wallLights, lightWrap: LIGHT_TUNE.wrap, cssH,
+  const drawOpts = { ...(opts.draw || {}), lights: wallLights, lightWrap: LIGHT_TUNE.wrap, cssH,
     ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),
     // ── THE MATERIAL RESPONSE ───────────────────────────────────────────────────────────────
     //
@@ -1165,7 +1147,27 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // preview reach this function too, and a bench that silently got a term it did not ask for
     // cannot measure it.
     ssao: opts.glSsao || 0, ssaoRadius: SSAO_TUNE.radius, ssaoBias: SSAO_TUNE.bias,
-    mat: deps.matTable || null });
+    mat: deps.matTable || null };
+  // ── THE CITY, UPSIDE DOWN, BEFORE ANY OF IT IS DRAWN THE RIGHT WAY UP ──────────────────────
+  //
+  // ⚠ A PREPASS, BECAUSE THE ROAD IS DRAWN FOURTH OF TEN. The ground goes down before the lights,
+  // the Curtain, the signage and the wires, so at the moment it needs something to reflect, none of
+  // the neon exists yet — sampling the frame there returns the building mass and nothing else, which
+  // is a wet road reflecting the one thing in the city that does not glow. Taking the reflection
+  // first also means there is nothing to restore: `draw()` binds the real target and clears it a
+  // line later, exactly as it already does after the sun and occlusion prepasses unbind.
+  //
+  // ⚠ AND IT IS THE PLAIN CAMERA, NOT `camAt`. The lights and the signage are collected in the
+  // camera's own frame (see the ⚠ on drawSprites below); the road quads are in the map window's.
+  // They disagree about where the origin is and agree exactly about where the SCREEN is, which is
+  // the only frame a screen-space read-back cares about — so this takes the frame its own layers
+  // are in and the ground shader looks the reflection up by pixel.
+  const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
+  const reflTex = (mirrorGain > 0 && opts.glWet > 0 && g.view.drawMirror)
+    ? g.view.drawMirror(cam, { sprites: opts.sprites, decals: opts.decals, cssH, scale: opts.glMirrorRes,
+        massCam: camAt, mass: opts.glMirrorMass == null ? 1 : opts.glMirrorMass, massOpts: drawOpts })
+    : null;
+  g.view.draw(camAt, drawOpts);
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
   // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
   // It cost an afternoon: the result looked like a floor (the backstop wash showed through the
@@ -1246,7 +1248,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // The reflected city, and the viewport to read it in. ⚠ THE CANVAS'S OWN SIZE, not the
     // reflection buffer's — gl_FragCoord is in the pixels of the target being drawn into, and the
     // reflection is rendered smaller on purpose. See the ⚠ on `uReflVP`.
-    reflTex, reflGain: mirrorGain,
+    reflTex, reflGain: mirrorGain, pudScale: opts.glPuddle, time: tNow, ripple: opts.glRipple,
+    groundBias: opts.glGroundBias,
     vpW: g.canvas ? g.canvas.width : 0, vpH: g.canvas ? g.canvas.height : 0,
   });
   // ⚠ THE LIGHTS ARE IN THE CAMERA'S OWN FRAME, NOT THE WINDOW'S. The mesh is built at map-window

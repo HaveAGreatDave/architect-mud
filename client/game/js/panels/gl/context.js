@@ -999,11 +999,28 @@ export function createGLView(canvas, opts = {}) {
   function hdrPeak() { return hdr && hdr.peak ? hdr.peak() : null; }
 
   function draw(cam, opts = {}) {
-    const sun = sunPass(opts);
-    const W = canvas.width, H = canvas.height;
-    const ssaoTex = ssaoPass(cam, opts, W, H);
-    beginTarget(opts);
-    gl.viewport(0, 0, W, H);
+    // ── ⚠ AND THE MIRROR PASS RE-ENTERS THIS WHOLE FUNCTION ─────────────────────────────────────
+    //
+    // `intoTarget` is `[w, h]` when somebody else has already bound a framebuffer and cleared it —
+    // today only `drawMirror`, drawing the city's mass into the reflection buffer. It changes three
+    // things and nothing else: the size the pass works in, that the target is NOT rebound or
+    // cleared (doing so would wipe the caller's buffer and hand the frame back to the canvas), and
+    // that the two SCREEN-SPACE prepasses are skipped.
+    //
+    // ⚠ THE SUN AND SSAO PASSES MUST NOT RUN HERE, AND SKIPPING THEM IS NOT AN OPTIMISATION. Both
+    // bind framebuffers of their own, which would unbind the caller's; and both are screen-space
+    // against the REAL camera, so their buffers describe a city that is the right way up. Handing
+    // the mirror a shadow map built for the unreflected view would put every shadow in the water in
+    // a place no light could have put it. Both are null-guarded downstream already.
+    //
+    // Everything else — the materials, the atlas, the lights, the fog, the bevel, the dusk blend —
+    // is reused verbatim, which is the only way the city in the puddle cannot disagree with the
+    // city above it about what it is made of.
+    const into = opts.intoTarget || null;
+    const sun = into ? null : sunPass(opts);
+    const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
+    const ssaoTex = into ? null : ssaoPass(cam, opts, W, H);
+    if (!into) { beginTarget(opts); gl.viewport(0, 0, W, H); }
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     // ⚠ NO BACKFACE CULL. The mesh carries every face of every solid, and a building here is not
@@ -1014,8 +1031,13 @@ export function createGLView(canvas, opts = {}) {
     // ⚠ PREMULTIPLIED, WHICH IS WHAT THE CANVAS IS. A transparent clear carrying a colour is not a
     // valid premultiplied pixel and fringes; a fully faded fragment must contribute nothing at all.
     const ca = opts.clearAlpha == null ? 1 : opts.clearAlpha;
-    gl.clearColor(sky[0] * ca, sky[1] * ca, sky[2] * ca, ca);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    // ⚠ NOT WHEN DRAWING INTO SOMEBODY ELSE'S TARGET. The mirror buffer is cleared transparent by
+    // its own `bind()` — a sky-coloured clear here would fill the water with a rectangle of sky and
+    // the ground shader would add it to every wet pixel in the frame.
+    if (!into) {
+      gl.clearColor(sky[0] * ca, sky[1] * ca, sky[2] * ca, ca);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    }
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     if (!count) return 0;
@@ -1273,9 +1295,36 @@ export function createGLView(canvas, opts = {}) {
     // which is z = 0 in every frame this renderer has — see the eps ladder: the road sits
     // thousandths of a tile above it, which is nothing to a reflection.
     const mcam = { ...cam, mirrorZ: opts.plane || 0 };
+    // ⚠ THE MASS IS IN A DIFFERENT FRAME AND NEEDS ITS OWN MIRRORED CAMERA. The lights and the
+    // signage are collected in the camera's own frame; the MESH is built at map-window tiles so it
+    // can be cached, which is why world.js hands `draw` the shifted `camAt`. Reflecting the plain
+    // camera and drawing the mesh through it slides every building in the water by the window
+    // offset — and it would not read as a bug, it would read as the reflection being of somewhere
+    // else. The two frames disagree about the origin and agree exactly about the SCREEN and the
+    // view distance, so a reflection built from each lands on the same pixels at the same depth,
+    // which is what lets them share one buffer and one depth test.
+    const mMassCam = opts.massCam ? { ...opts.massCam, mirrorZ: opts.plane || 0 } : mcam;
     const cssH = opts.cssH || canvas.height;
     try {
-      // Signage first and lights over it, which is the order the frame itself uses — a sign is
+      // ── THE BUILDINGS, FIRST, BECAUSE THEY ARE WHAT THE OTHER TWO STAND ON ────────────────────
+      //
+      // ⚠ THE MASS GOES DOWN BEFORE THE EMISSIVE LAYERS AND IT IS THE ONLY ORDER THAT WORKS. It
+      // writes the depth the sign and the glow are then tested against, which is the whole reason
+      // the buffer grew a depth attachment: draw it after and it paints over the very signage it
+      // is supposed to be standing behind.
+      //
+      // ⚠ AND IT IS OPTIONAL, because it is the one part of this pass with a real cost. A puddle
+      // reflecting only light is what shipped; `glMirrorMass 0` is exactly that picture, and on a
+      // machine where the second draw is too dear it is the knob to reach for before `glMirrorRes`.
+      const size = M.size;
+      if (opts.mass !== 0 && count) {
+        draw(mMassCam, { ...(opts.massOpts || {}), intoTarget: size, cssH,
+          // ⚠ NO SHADOWS, NO SSAO AND NO BLOOM IN THE WATER. All three are screen-space against the
+          // real camera, so their buffers describe a city the right way up; `draw` skips the two
+          // prepasses under `intoTarget` and these make the strengths agree with that.
+          sunShadow: null, ssao: 0, hdr: 0 });
+      }
+      // Signage next and lights over it, which is the order the frame itself uses — a sign is
       // artwork and a glow is the light coming off it.
       if (dc && dc.length) { const L = decalLayer(); L.upload(dc); L.draw(mcam, cssH); }
       // ⚠ INTENSITY 1, NOT THE EMISSIVE GAIN. The gain exists to push an emitter above 1.0 so the

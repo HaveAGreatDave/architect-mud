@@ -306,7 +306,100 @@ export const RENDER_TUNE = {
   // ⚠ IT COSTS A SECOND DRAW OF THE TWO EMISSIVE LAYERS AND NOTHING ELSE — the mass is not
   // re-rendered, so a sign standing behind a tower still reaches the water. That is the one visible
   // compromise, and closing it is a second mass pass rather than a tweak.
+  // ⚠ 32 → 16, AND THE TABLE ABOVE IS WHAT CONDEMNS IT. Read the `worst` row as a response curve
+  // rather than as a size: 8→16 doubles the gain and the worst pixel moves ×1.98, 16→32 moves
+  // ×1.86, and 32→64 moves ×1.07. That last number is not a tuning choice, it is a CLIP — twice the
+  // light for seven per cent more picture. 32 is already past the knee.
+  //
+  // Reported from a cab in the rain as "this puddle looks like pee and the reflections look a
+  // little off", which is one fault wearing two faces. A clipped warm reflection saturates R and G
+  // before B, so amber street lighting in standing water goes yellow; and a clipped image has no
+  // detail left, so the reflected frontages read as flat white bars. This pass exists to put a
+  // LEGIBLE sign in the water, and past the knee it puts a blob there.
+  //
+  // ⚠ THE roadLum ROW IS WHY IT WAS SET TO 32, AND IT IS THE WRONG STATISTIC FOR THE QUESTION. The
+  // road's MEAN brightness moving 1.3 of 255 cannot see saturation confined to the one per cent of
+  // pixels that are puddle — a mean is the one measurement guaranteed to miss it. The `worst` row
+  // was carrying the answer the whole time.
+  // ⚠ THIS IS A 0…32 WEIGHT NOW, NOT AN ADDITIVE MULTIPLIER, and the sweep table above is the
+  // OLD units — it measured an add that clipped, which is why its worst-pixel row flattens. The
+  // composite in ground.js cannot exceed its own inputs, so there is no clipping to tune against:
+  // 32 means standing water reflects exactly as hard as the Fresnel term says, which at a cab's
+  // grazing angle is very nearly a perfect mirror. 0 is still exactly the picture that shipped.
   glMirror: 32,
+  // ── HOW BIG A PUDDLE IS, AND HOW MANY ─────────────────────────────────────
+  //
+  // The frequency of the puddle field in ground.js, and the ONLY thing that sets pool size. It was
+  // a constant at 1.5; asked from a cab for smaller and more numerous, it is a slider at 1.9.
+  // Swept over a 28-tile patch with the field labelled into connected pools:
+  //
+  //     scale      0.9     1.5     1.9
+  //     pools      149     357     550
+  //     median    0.76    0.36    0.19   <- tiles of surface, per pool
+  //     largest    3.7    1.68     ~1
+  //
+  // ⚠ BIGGER IS SMALLER. It is a field frequency, so turning this up shrinks each pool and makes
+  // more of them; 0.6 is a few wide sheets and 3 is a fine stipple. How WET the road is remains a
+  // separate thing entirely (the weather sets that), and this does not change coverage much — it
+  // changes what the same amount of water is cut into.
+  glPuddle: 1.9,
+  // ── THE BUILDINGS IN THE WATER, NOT JUST THE LIGHT OFF THEM ───────────────
+  //
+  // 0 is the picture the mirror pass shipped with: a puddle holding signs and glows and no facades,
+  // which is why it read as white shapes in the water rather than as a city — the two layers it
+  // drew were the EMISSIVE ones and a facade is neither. 1 draws the mass into the reflection
+  // buffer as well, which also gives that buffer a depth test and so closes the limit mirror.js
+  // stated about itself: a sign reaching the water from behind a tower.
+  //
+  // ⚠ WHAT IT BUYS, measured by `__glMirror()` at the shipping gain of 16 — the share of road that
+  // reflects at all, and the share that moves by 8/255 or more:
+  //
+  //             touched   visible
+  //     mass 0    1.65%     0.14%
+  //     mass 1    5.73%     1.41%   ← ×3.5 and ×10
+  //
+  // ⚠ AND WHAT IT COSTS, by `__glFrame()` with the road forced wet, in ms a frame:
+  //
+  //     cab sparse  1.9 → 1.7 (noise)      air sparse  4.4 → 5.1
+  //     cab dense   2.2 → 3.0              air dense   5.6 → 6.0
+  //     cab day     2.2 → 3.2
+  //
+  // So about +0.4 to +1.0 ms where there is a city to reflect, and nothing where there is not —
+  // which is the shape a second mass draw should have. It is also only ever paid while the road is
+  // wet: `reflTex` is null at `glWet 0`, so a dry frame builds no reflection buffer at all.
+  //
+  // ⚠ THE DAY ROW IS THE UNCOMFORTABLE ONE AND IS LEFT ALONE DELIBERATELY. A daylight reflection
+  // washes out against bright ground by arithmetic, so +1.0 ms buys the least visible frame in the
+  // table. Gating it on night would fix that and would also be the thing `pickLights` has a ⚠
+  // against — "a daylight reflection being faint is the SCENE, not a rule" — and a wet road at four
+  // in the afternoon genuinely does reflect. If this ever needs to come back, the honest lever is
+  // `glMirrorRes` (quarter the buffer again) rather than a clock.
+  // ── HOW HARD THE ROAD LAYER PUSHES OFF THE FLOOR ──────────────────────────
+  //
+  // Depth-buffer steps of polygon offset toward the eye, for every quad on the ground plane: the
+  // tile fills, the kerbs, the lane markings and the shape shadows. It was hardcoded at -4, priced
+  // against what the eps ladder is worth at eighty tiles from an aircraft.
+  //
+  // ⚠ A CAB IS THE CASE IT WAS NOT PRICED FOR, and it is a slider so the next person does not have
+  // to rebuild to find that out. More negative pushes the road harder toward the eye; 0 removes the
+  // bias entirely and leaves only the eps ladder, which is what the layer had before the offset
+  // existed.
+  glGroundBias: -4,
+  glMirrorMass: 1,
+  // ── AND THE WATER MOVES ───────────────────────────────────────────────────
+  //
+  // How far standing water bends what it reflects, in PIXELS of the canvas. A puddle in a road is
+  // never a flat mirror — there is rain landing on it, wind across it, or a truck going past — and
+  // now that the reflection holds an IMAGE rather than a smear, a perfectly rigid one is the thing
+  // that gives it away.
+  //
+  // ⚠ ONLY THE WATER MOVES. It is scaled by the puddle field, so the damp tarmac between the pools
+  // (which reflects through the same term at 2% weight) does not wobble with them.
+  //
+  // ⚠ AND THE WAVES ARE IN WORLD SPACE. Phase driven from the SCREEN makes the ripples swim across
+  // the road as the camera turns, which reads as a dirty lens; driven from the world, as the puddle
+  // field already is, a pool ripples in place while you drive past it.
+  glRipple: 2.2,
   // How large the reflection buffer is against the canvas. Water is not mirror-smooth and nothing
   // downstream blurs, so half resolution is the softness the surface wants as well as a quarter of
   // the fill — the only real cost this pass has.
@@ -1427,6 +1520,97 @@ export function windshieldHTML(id, label = 'FWD VIEW') {
 
 export function disposeWindshield(id) { _scenes.delete(id); }
 
+// ── A CAMERA WITH NOTHING UNDER IT ──────────────────────────────────────────
+//
+// Every seat in this renderer is welded to a vehicle: the cab sits at 0.24 tiles above the road
+// facing where the truck faces, the cockpit rides the aircraft's attitude, the helm follows the
+// boat. That is right for playing and it is the wrong tool for looking at the city — a bug like
+// "the traffic lights show through buildings" is a bug about ONE ANGLE, and finding it meant
+// driving a truck to the spot and hoping the angle came up.
+//
+// So: a debug camera that takes the view a seat was about to be painted with and moves it.
+//
+// ⚠ IT INTERCEPTS ONE FUNCTION AND NOT SIX. `paintWindshield` is the single door every seat goes
+// through — cab-view, cockpit (three call sites), helm — and the view object is the whole of what
+// they hand it. Overriding here means the free camera cannot drift out of step with a seat, and no
+// seat needs to know it exists.
+//
+// ⚠ AND IT IS RELATIVE, NOT ABSOLUTE. Turning it on puts you exactly where you already were, which
+// is the only behaviour that makes it useful for "look at THAT" — an absolute camera would drop you
+// somewhere else and you would have to fly back to the thing you were pointing at.
+//
+// ⚠ THE LOADED WINDOW IS THE EDGE OF THE WORLD, AND THAT IS A REAL LIMIT RATHER THAN AN OVERSIGHT.
+// `map` arrives with the view and covers a window the SERVER chose around the vehicle — 30 tiles
+// for a cab. Move `mapCenter` and the tiles do not follow, so this moves `mapOffset` instead and
+// stays inside what is loaded. Flying past the edge does not crash, it runs out of city. Going
+// further needs the client to ask the server for a window somewhere else, which is a different and
+// much larger job than a camera.
+//
+// ⚠ NO PITCH, DELIBERATELY. `makeCam` takes a `camPitch` and it is exact (freecam.mjs asserts it),
+// but the horizon is drawn as a horizontal line, the sky and ground are two rectangles split at
+// `horizonY`, and the cloud and fog placement all assume it never moves. Tilting before that work
+// is done gives a broken sky, which would be a worse debugging surface than no tilt at all.
+const FREE = { on: false, dx: 0, dy: 0, dz: 0, yaw: 0, bound: false };
+
+function freeCamView(v) {
+  const off = v.mapOffset || { x: 0, y: 0 };
+  return { ...v,
+    mapOffset: { x: off.x + FREE.dx, y: off.y + FREE.dy },
+    height: (v.height || 0) + FREE.dz,
+    heading: (v.heading || 0) + FREE.yaw,
+    // ⚠ THE CHASE RIG COMES OFF. `chase` frames the vehicle from behind, so leaving it on means the
+    // free camera is still orbiting the truck rather than flying — the one thing it exists not to do.
+    chase: null };
+}
+
+function freeCamKey(e) {
+  if (!FREE.on) return;
+  // ⚠ NEVER WHILE SOMEBODY IS TYPING. This game is played through a command line, so WASD is a
+  // sentence far more often than it is a direction. Anything with a caret in it keeps its keys.
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  const k = e.key.toLowerCase();
+  const step = e.shiftKey ? 2 : 0.5, turn = e.shiftKey ? 15 : 5;
+  // Heading is degrees clockwise from north, and the view's own frame is x east / y south — the
+  // same basis `mapOffset` is in, so forward is (sin, -cos) of the heading being flown.
+  const rad = ((FREE.yaw) * Math.PI) / 180;
+  const fx = Math.sin(rad), fy = -Math.cos(rad);
+  let used = true;
+  if (k === 'w') { FREE.dx += fx * step; FREE.dy += fy * step; }
+  else if (k === 's') { FREE.dx -= fx * step; FREE.dy -= fy * step; }
+  else if (k === 'a') { FREE.dx += fy * step; FREE.dy -= fx * step; }
+  else if (k === 'd') { FREE.dx -= fy * step; FREE.dy += fx * step; }
+  else if (k === 'r') FREE.dz += step;
+  else if (k === 'f') FREE.dz -= step;
+  else if (k === 'q') FREE.yaw -= turn;
+  else if (k === 'e') FREE.yaw += turn;
+  else if (k === 'x') { FREE.dx = FREE.dy = FREE.dz = FREE.yaw = 0; }
+  else used = false;
+  if (used) { e.preventDefault(); e.stopPropagation(); }
+}
+
+// `__freecam()` toggles, `__freecam(false)` stops, `__freecam(true)` starts. The listener is only
+// attached while it is on, so a session that never asks for it never has one.
+export function freeCam(on) {
+  FREE.on = on == null ? !FREE.on : !!on;
+  if (FREE.on && !FREE.bound && typeof window !== 'undefined') {
+    window.addEventListener('keydown', freeCamKey, true);
+    FREE.bound = true;
+  } else if (!FREE.on && FREE.bound && typeof window !== 'undefined') {
+    window.removeEventListener('keydown', freeCamKey, true);
+    FREE.bound = false;
+  }
+  if (!FREE.on) { FREE.dx = FREE.dy = FREE.dz = FREE.yaw = 0; }
+  if (FREE.on) {
+    console.log('%c__freecam ON', 'font-weight:bold',
+      '\n  W/S forward+back   A/D strafe   R/F up+down   Q/E turn   X recentre'
+      + '\n  Shift = 4x        __freecam(false) to stop'
+      + '\n  Bounded by the loaded map window (a cab loads 30 tiles) — past that you run out of city.');
+  } else console.log('__freecam OFF');
+  return FREE.on;
+}
+export function freeCamState() { return { ...FREE }; }
+
 export function paintWindshield(id, view) {
   const cv = document.getElementById(id); if (!cv || !cv.getContext) return;
   const cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
@@ -1438,7 +1622,9 @@ export function paintWindshield(id, view) {
   GL_HOST = cv; GL_ID = id;
   GL_DREW = false;   // per frame: set only when a GL canvas is actually blitted (see the cloud deck)
   const st = sceneFor(id, cw, ch);
-  const v = view || {};
+  // ⚠ THE ONE DOOR THE FREE CAMERA COMES THROUGH — see freeCam above. Every seat hands its view
+  // to this function, so overriding it here reaches all six call sites and none of them know.
+  const v = FREE.on ? freeCamView(view || {}) : (view || {});
   // Who is standing near a depot door this frame — collected ONCE, here, before the world pass
   // that draws the sheds, so the picture and the collision sweep both read the same list. See
   // setBayVehicles: a door is opened by trucks, never by the eye.
@@ -5698,8 +5884,27 @@ function groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st) {
 
 // `xExt` — half-width, in local px either side of screen centre, that the caller needs covered.
 // Defaults to the old unconditional 1.5*W so any other caller behaves exactly as before.
-function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chase, hazeMax = 0.32, st = null, xExt = 1.5 * W) {
+function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, chase, hazeMax = 0.32, st = null, xExt = 1.5 * W) {
   v._wildFill = null;   // per-tile gap classification (sea|scrub|redrock) for drawWorldObjects; set once the LUT is built
+  // ── ⚠ THE SAME VERTICAL SCALE `makeCam` USES, NOT THE UNSCALED ONE IT WAS HANDED ──────────
+  //
+  // Sibling of the eye-height note below, and the same bug one axis over. `makeCam` does
+  // `depth = depth0 * (v.fovMul || 1)` and its own ⚠ says why that must live there: `cam.depth`
+  // is the vertical scale for BOTH renderers, so scaling it once keeps them in step. The FLOOR is
+  // the THIRD reader and it takes the number as a PARAMETER, from a call site that runs before
+  // `makeCam` — so it was rasterising from `focal` while every building, kerb and lane marking
+  // was projected from `focal * fovMul`.
+  //
+  // On the canvas that was invisible: the floor is only biome colour and the road is PAINTED over
+  // it in queue order, so nothing compared the two. Once GROUND_FULL put the road on the GPU it
+  // became a depth fight. At a given screen row the floor calls the ground `EH*depth/(sy-horizonY)`
+  // and the camera puts the quad at `fovMul` times that, so the quad is FURTHER at every pixel and
+  // loses the depth test everywhere: no tile fill, no kerb, no lane marking, just the biome green.
+  // The truck cab is the only seat that passes `fovMul` (1.22), which is why it was cab-only and
+  // why the external chase view of the same road was correct.
+  //
+  // ⚠ Unset `fovMul` is `* 1`, so every aircraft seat is bit-identical.
+  const depth = depth0 * (v.fovMul || 1);
   if (depth <= 2) return;
   // AUTHENTIC Mode 7: sample the ground PER PIXEL into a low-res buffer, then blit it
   // up with nearest-neighbour — that's the chunky, shimmering look, most visible when
@@ -5835,6 +6040,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       heliDown, rotor, dcx, dcy,
       debug: RENDER_TUNE.glFloorDebug | 0,
     };
+    LAST_FLOOR = FLOOR_STATE;   // the frame clears FLOOR_STATE in its finally; this is what __glass2() reads
     return;
   }
   for (let by = 0; by < usedH; by++) {
@@ -9017,6 +9223,7 @@ let GROUND_MESH = null;
 // transparent over the ground, so a road left on the canvas shows through exactly as it always
 // has; move it early and the kerb strokes drawn on top of it get blitted over instead.
 let GROUND_FULL = false;
+let LAST_FLOOR = null;   // see lastFloorState()
 // THE OWN SHIP SHADOW CANNOT REACH DECAL_SINK DIRECTLY, and the reason is ordering rather than
 // taste: it is painted outside the worldBlend block (a parked craft reads as planted the instant
 // you embark) and therefore BEFORE drawWorldObjects opens the sinks. Filling a sink that is still
@@ -9257,6 +9464,17 @@ export function glLastError() { return GL_LAST_ERROR; }
 // frame so anybody looking at something odd can ask what the frame was.
 let LAST_VIEW = null;
 export function lastViewState() { return LAST_VIEW; }
+// ── WHAT THE FLOOR WAS ACTUALLY HANDED ──────────────────────────────────────
+// The GPU floor and the software raster are fed from the SAME block of terms, so when the two
+// disagree about where the road is, the question is which term the shader reads differently —
+// and none of them was observable from outside. The LUT planes are megabytes and are omitted;
+// what is here is every scalar the inversion uses, plus the sizes of the planes it samples.
+export function lastFloorState() {
+  const f = LAST_FLOOR;
+  if (!f) return null;
+  const { lut0, lut1, ...rest } = f;
+  return { ...rest, lut0Bytes: lut0 ? lut0.length : 0, lut1Bytes: lut1 ? lut1.length : 0 };
+}
 const _rgbTriple = new Map();
 function rgbTriple(c) {
   let v = _rgbTriple.get(c);
@@ -9987,6 +10205,12 @@ if (typeof window !== 'undefined') {
   // The live render knobs, for console experiments (`__wsTune.wallLodPx = 400`). Every one takes
   // effect on the very next frame — same object the ⚙ sliders mutate.
   window.__wsTune = RENDER_TUNE;
+  // ⚠ AND THE FREE CAMERA, WHICH WAS EXPORTED AND NOT EXPOSED. `freeCam` is a debug surface — it is
+  // reached from a console, not from a module — so an `export` alone left it unreachable by the one
+  // caller it has. Caught by opening the game and asking for it: `typeof __freecam` was 'undefined'
+  // after it had already been written up as the way to use the thing.
+  window.__freecam = freeCam;
+  window.__freecamState = freeCamState;
 }
 
 // ── SHAPE CAPTURE ────────────────────────────────────────────────────────────
@@ -27992,7 +28216,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     pBegin('world:gl');
     try {
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, glWet: wetGround(), glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glBump: TUNE.glBump, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glLightSlots: TUNE.glLightSlots, glHdr: TUNE.glHdr, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, glWet: wetGround(), glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glGroundBias: TUNE.glGroundBias, glRipple: TUNE.glRipple, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glBump: TUNE.glBump, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glLightSlots: TUNE.glLightSlots, glHdr: TUNE.glHdr, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, ground: GROUND_MESH, floor: FLOOR_STATE, now,
         // The map window's centre tile. The ground pass phases its puddles on absolute world
         // coordinates off this, and it must not come from FLOOR_STATE, which is null at glFloor 0.

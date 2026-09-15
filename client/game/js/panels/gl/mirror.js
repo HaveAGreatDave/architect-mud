@@ -39,15 +39,35 @@
 export const MIRROR_SCALE = 0.5;
 
 export function createMirrorLayer(gl) {
-  let tex = null, fbo = null, tw = 0, th = 0;
+  let tex = null, fbo = null, tw = 0, th = 0, depth = null;
   let prevVP = null;
 
-  // ⚠ NO DEPTH ATTACHMENT, AND THAT IS A STATED LIMIT. The mass is not re-rendered into this
-  // buffer, so there is nothing for a depth test to test against — every sign reaches the water,
-  // including one standing behind a tower. Adding the mass would fix it and would also double the
-  // largest buffer in the frame for a surface that is already multiplied down to a few per cent.
-  // The honest version of that trade is: a puddle can show you a sign the building in front of you
-  // is hiding. Fixing it is a second mass draw, not a tweak.
+  // ── AND THE MASS, WHICH IS WHY THERE IS A DEPTH BUFFER NOW ──────────────────
+  //
+  // This said "NO DEPTH ATTACHMENT, AND THAT IS A STATED LIMIT" and named its own fix: the mass is
+  // not re-rendered, so there is nothing for a depth test to test against, every sign reaches the
+  // water including one standing behind a tower, and "fixing it is a second mass draw, not a
+  // tweak". This is that second mass draw.
+  //
+  // It was asked for from the other end — a puddle reflecting a white shape rather than a building,
+  // because the only things in here were the two EMISSIVE layers and a facade is neither. Both
+  // complaints have the same answer, and it turned out to be much cheaper than the note feared:
+  //
+  // ⚠ THE MESH IS ALREADY UPLOADED AND THE SHADER ALREADY EXISTS. A planar reflection is the same
+  // geometry through a different matrix, so this is one more `drawArrays` over a buffer that is
+  // filled this frame anyway — no new vertex data, no second idea of what a building looks like.
+  // `draw()` takes an `intoTarget` now and skips its own binding and clearing; everything else in
+  // its 169 lines is reused exactly, which is the only way the reflection cannot disagree with the
+  // city about materials, lighting or fog.
+  //
+  // ⚠ AND THE WINDING FLIP COSTS NOTHING, which is the part that looked risky. `reflectZ` inverts
+  // handedness and `glmirror.mjs` asserts it does — but the mass pass runs with CULL_FACE DISABLED
+  // (a building here is not a closed solid: a wall with no back, a soffit, a canopy underside), so
+  // there is no front face to get the wrong way round.
+  //
+  // ⚠ DEPTH16 AND NOT 24. This is a quarter-area buffer read back through water at a few per cent;
+  // the ladder that made ground.js need 24 bits is about separating a road from a kerb from a
+  // shadow at forty tiles, and none of that is in here. 16 halves the largest new allocation.
   function bind(cw, ch, scale) {
     const s = scale > 0 ? scale : MIRROR_SCALE;
     const w = Math.max(1, Math.round(cw * s)), h = Math.max(1, Math.round(ch * s));
@@ -63,12 +83,17 @@ export function createMirrorLayer(gl) {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       fbo = gl.createFramebuffer();
+      depth = gl.createRenderbuffer();
     }
     if (w !== tw || h !== th) {
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, null);
       const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       if (!ok) { tw = th = 0; return false; }
@@ -81,12 +106,28 @@ export function createMirrorLayer(gl) {
     // water, not a second picture of the city composited over it — so an empty pixel has to
     // contribute exactly nothing rather than a sky colour, and the buffer is premultiplied like
     // every other surface here.
+    // ── ⚠ AND THE READ-BACK HAS TO LET GO OF THIS TEXTURE FIRST ────────────────────────────────
+    //
+    // `ground.js` samples this buffer as `uRefl` on unit 1 and LEAVES IT BOUND — which was harmless
+    // for as long as nothing drew into the buffer afterwards. The mass pass does, so the sampler and
+    // the render target became the same texture and every draw call in here failed with
+    // GL_INVALID_OPERATION: "Feedback loop formed between Framebuffer and active Texture". 256 of
+    // them in a frame, and a failed draw draws NOTHING — so the reflection quietly emptied.
+    //
+    // ⚠ IT IS CLEARED HERE RATHER THAN AFTER THE SAMPLE, because this is the function that knows the
+    // buffer is about to become a target. Unbinding at the end of `drawGround` would work today and
+    // would be one more thing for the next pass that renders in here to remember.
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
     gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    // ⚠ DEPTH TEST OFF, NOT JUST UNWRITTEN. There is no depth attachment, so a test here reads
-    // undefined state; the sprite and decal layers both enable it themselves and both are left
-    // believing they are testing against the mass.
-    gl.disable(gl.DEPTH_TEST);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    // ⚠ DEPTH TEST ON, AND THE ATTACHMENT IS WHY. This read: no depth attachment, so a test here
+    // reads undefined state, and the sprite and decal layers both enable it themselves and are both
+    // left believing they are testing against the mass. They are testing against it now — a sign
+    // behind a reflected tower is behind it in the water, which was the stated limit of this pass.
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     return true;
