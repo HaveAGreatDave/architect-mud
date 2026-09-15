@@ -6,7 +6,7 @@
 //   {
 //     mixing:  [ { item_id, name, profile, pours, abv, band } ],  // the build
 //     drink:   { key, name, band, servings, capacity, thirst,
-//                sanity, potency, hot_at, made_at, contaminated },
+//                sanity, potency, caffeine, hot_at, made_at, contaminated },
 //     dirty:   true,          // set on the last swallow
 //     residue: 'coffee_base', // what it last held
 //     fluid_amount / fluid_type — NOT ours. plugins/fillable owns those.
@@ -48,7 +48,7 @@ export function capacityOf(row) {
  * assert the stamp without waiting on a clock.
  */
 export function makeDrink({
-  key = null, name, band, capacity, potency = 0,
+  key = null, name, band, capacity, potency = 0, caffeine = 0,
   hot = false, residue = null, contaminated = false, servings = null,
   now = Date.now(),
 }) {
@@ -66,6 +66,9 @@ export function makeDrink({
     // plain form here rather than carried over as arithmetic that cancels.)
     sanity: bandIndex(band),
     potency,
+    // The other thing a drink can do to you. Derived like the alcohol and
+    // applied down the same per-serving path — see caffeine.js.
+    caffeine,
     hot_at: hot ? now : null,
     made_at: now,
     residue,

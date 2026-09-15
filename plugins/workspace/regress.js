@@ -14,6 +14,7 @@ import { builtinCommandNames } from '../../server/engine/commands/index.js';
 import { getRegisteredSpecializedActions } from '../../server/engine/specializedActions.js';
 import { clearFlagsByPrefix, setFlagById } from '../../server/engine/flags.js';
 import { learnRecipe, FLAG_PREFIX, SAVED_PREFIX } from '../cooking/knowledge.js';
+import { buildWorkspaceView } from './index.js';
 import { planKitchen } from '../cooking/workspace.js';
 import { DISHES } from '../cooking/dishes.js';
 
@@ -205,6 +206,35 @@ export default async function regress({ run, check, getPlayer }) {
     check('every action is a verb a player could have typed', unknown.length === 0, [...new Set(unknown)].join(', '));
     check('...and every action carries a literal command, never an opaque id',
       acts.every(x => typeof x.command === 'string' && x.command.length), JSON.stringify(acts.slice(0, 3)));
+
+    // ── HOW TO COOK IT, offered rather than known ───────────────────────────
+    //
+    // The panel's only cooking offer used to be a bare `cook`, whose own hint
+    // says a vessel would do it better — so the one route the HUD proposed was
+    // the worst one available, and the twelve method verbs that lay the pan out
+    // for you appeared nowhere at all.
+    //
+    // They arrive as ordinary roled actions, which is the whole trick: the
+    // visual panel collapses everything roled `method` behind one control, and
+    // both lower Display Mode rungs go on printing them flat as the links they
+    // already were. Nothing nests, so nothing downstream needed changing.
+    {
+      const loose = a.components.find(c => c.id === looseId);
+      const methods = (loose?.actions || []).filter(x => x.role === 'method');
+      check('a raw ingredient is offered ways to cook it', methods.length > 0,
+        JSON.stringify((loose?.actions || []).map(x => x.label)));
+      check('...each one a real command naming the food', methods.every(m =>
+        m.command.split(/\s+/).length >= 2 && known.has(m.command.trim().split(/\s+/)[0])),
+        JSON.stringify(methods.map(m => m.command)));
+      // ⚠ SHORT ON PURPOSE. The lower rungs print a row's actions FLAT, so
+      // twelve methods on every ingredient is a wall of links for the player who
+      // cannot collapse anything. `methodsForProfile` keeps it to a handful.
+      check('...and few enough that the log rung stays readable', methods.length <= 6, methods.length);
+      // They are an ADDITION. Bare `cook` is still there, because cooking
+      // something straight on the ring is a real (bad) thing to do.
+      check('...without taking the bare cook away',
+        (loose?.actions || []).some(x => x.role === 'start'), JSON.stringify((loose?.actions || []).map(x => x.role)));
+    }
 
     // ── The gates are coarse, but they are not absent ───────────────────────
     const looseActs = labels(a.components.find(c => c.id === looseId)?.actions);
@@ -570,6 +600,32 @@ export default async function regress({ run, check, getPlayer }) {
 
     const wet = await run('cook test workspace pot');
     check('...and now the same pan cooks', wet?.type !== 'error', JSON.stringify(wet));
+
+    // ⚠ THE VIEW IS AN ALLOWLIST, NOT A SPREAD.
+    //
+    // `buildWorkspaceView` names the fields it copies out of a provider's build,
+    // and a field it does not name is dropped ONE HOP short of the panel. The
+    // symptom is indistinguishable from a feature that was never written: the
+    // provider returns it, the client reads it, and it is `undefined` on arrival
+    // — so the suite goes green, the panel shows nothing, and the search starts
+    // in the wrong file. That cost two full runs the day `dials` was added.
+    //
+    // The allowlist itself is right and stays: it is what keeps a provider from
+    // posting arbitrary keys into a shared payload. What was missing is anything
+    // that notices when the two lists disagree.
+    {
+      const { gatherHook } = await import('../../server/engine/plugins.js');
+      const found = (await gatherHook('workspace.provider', player)) || [];
+      const provider = found.filter(p => p && typeof p.build === 'function')
+        .sort((a, b) => (b.priority || 0) - (a.priority || 0))[0];
+      if (provider) {
+        const built = await provider.build(player);
+        const view = await buildWorkspaceView(player, provider.key);
+        const dropped = Object.keys(built || {}).filter(k => !(k in (view || {})));
+        check('every field a provider returns reaches the view', !dropped.length,
+          `dropped by buildWorkspaceView: ${JSON.stringify(dropped)}`);
+      }
+    }
 
     // ── The burner selector says which ring you are ON ──────────────────────
     //

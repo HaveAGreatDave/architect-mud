@@ -20,8 +20,12 @@ Three rules fall out of that:
 
 The cooldown default is **derived from whether the machine makes anything**: 60s for a rig that has to pull a cup, 20s for one that drops a packet. A sixth espresso rig authored next year gets the minute without anybody remembering to type it, and `flags.vend_cooldown_s` still overrides both.
 
-## Discovery gap (known)
-This is a **flag-value** gate, not a tag, and `availableActions` cannot surface flag values — so the machine's description has to cue the VEND button. Same structural class as `synthesis`'s `cook`.
+## VEND shows on examine
+One declaration-only specialized action (`requiredFlag: 'vends'`) puts VEND in the machine's action list and on its examine line, so a dispenser no longer only works for a player who already knows the word.
+
+This sat filed as a permanent KNOWN GAP for a long time, on the grounds that `availableActions` cannot read flag VALUES. That is true and beside the point: **`requiredFlag` gates on the flag KEY**, which is all a dispenser needs. Worth remembering next time something is filed as ungateable — `synthesis`'s `cook` was filed as the same structural class and may not be one either.
+
+A rig that serves a drink says more than the verb: `plugins/drinks` hangs a `furniture.describe` line off it naming the drink, the band and the price, quoted by the same function that takes the money.
 
 ## Depends on
 **appliances** — an unplugged machine does nothing.

@@ -9,10 +9,12 @@ import {
   BASE_OFFSET, HEAT_SCORE, PRECISION_WEIGHT, VESSEL_WEIGHT, SKILL_WEIGHT,
   TURN_IDEAL_BONUS, TURN_SPACING_BONUS, TURN_MISS_PENALTY, FUSS_PENALTY,
   SCORE_FLOOR, BARE_VESSEL, HEAT_CURVE_WEIGHT, SMOKER_PEAK_MULT, MINCE_CEILING_DROP, PEAK_LINES, SLIPPING_LINES, FADING_LINES, lineFor,
+  SCORCH_GRACE_MS, SCORCH_CEILING_DROP,
   MICROWAVE_CEILING, MICROWAVE_PEAK_MULT, MICROWAVE_BURN_MULT,
 } from './config.js';
 import { QUALITY_BANDS, bandIndex, donenessAt } from './profiles.js';
 import { prepCeilingDrop, prepWindowMult, prepBurnMult, prepBonus } from './prep.js';
+import { apparentNow } from './heat.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const HEAT_ORDER = ['low', 'mid', 'high'];
@@ -41,7 +43,15 @@ export function timeline(session, profile) {
   const overMs = Math.max(1, cookMs * profile.burnFraction * (0.6 + 0.8 * v.d) * prepBurnMult(session)
     * (session.microwave ? MICROWAVE_BURN_MULT : 1));
   const peakEnd = doneAt + peakMs;
-  return { startedAt, thawMs, cookMs, doneAt, peakMs, overMs, peakEnd, burnAt: peakEnd + overMs, mult };
+  // ⚠ A SCORCHED PAN BURNS ON ITS OWN CLOCK. Once the water has gone, what is
+  // left is catching on dry metal, and the generous window a wet pot earns no
+  // longer applies — so the burn point comes forward to a grace measured in
+  // seconds. It can only ever pull the burn IN: a pan that was already past
+  // `burnAt` when it dried is not given extra time by having dried.
+  const burnAt = session.scorched != null
+    ? Math.min(peakEnd + overMs, session.scorched + SCORCH_GRACE_MS)
+    : peakEnd + overMs;
+  return { startedAt, thawMs, cookMs, doneAt, peakMs, overMs, peakEnd, burnAt, mult };
 }
 
 // THE ONE WAY TO ASK when a cook finishes. Profiled food finishes where its
@@ -63,11 +73,22 @@ export function finishAt(session, profile = null) {
   return session.plainDoneAt ?? session.doneAt;
 }
 
+// ⚠ THIS TAKES REAL TIME AND CONVERTS INSIDE, and so does every other entry
+// point in this file. A caller therefore never has to know the burner can be
+// turned down — and, more to the point, can never convert twice. `apparentNow`
+// is the identity for a session nobody has retuned, so for all of those this is
+// the function it always was.
 export function endStateAt(session, profile, now = Date.now()) {
+  return stateAt(session, profile, apparentNow(session, now));
+}
+
+// The same question asked in the session's own clock. Private: everything
+// outside this file goes through `endStateAt`.
+function stateAt(session, profile, app) {
   const tl = timeline(session, profile);
-  if (now < tl.doneAt) return 'raw';
-  if (now < tl.peakEnd) return 'peak';
-  if (now < tl.burnAt) return 'over';
+  if (app < tl.doneAt) return 'raw';
+  if (app < tl.peakEnd) return 'peak';
+  if (app < tl.burnAt) return 'over';
   return 'burnt';
 }
 
@@ -115,6 +136,29 @@ export function heatSpans(session) {
   return marks
     .map((m, i) => ({ from: m.at, to: i + 1 < marks.length ? Math.min(end, marks[i + 1].at) : end, tier: m.tier }))
     .filter(s => s.to > s.from);
+}
+
+// WHAT THIS PAN WANTS RIGHT NOW, as a tier — the live half of `desiredTierAt`.
+//
+// The curve has always been in here and has never been sayable. A player could
+// only learn that a steak wants a hard sear and then a drop by cooking several
+// of them badly, because the only channel the knowledge ever came down was the
+// band at the end. This is the same arithmetic asked at `now` instead of at
+// plating, so the burner readout and the score cannot disagree: there is one
+// curve and one reader of it.
+//
+// Null once the cook is past its finish line — there is no "wanted" heat for a
+// pan that is sitting in its window, only a decision about when to pull it, and
+// that decision stays the player's.
+export function wantedTierAt(session, profile, now = Date.now()) {
+  if (!profile) return null;
+  const app = apparentNow(session, now);
+  const tl = timeline(session, profile);
+  if (app >= tl.doneAt) return null;
+  const cookStart = session.startedAt + (session.thawMs || 0);
+  if (app < cookStart) return null;                  // still thawing
+  const f = clamp((app - cookStart) / Math.max(1, session.cookMs), 0, 1);
+  return desiredTierAt(profile, f);
 }
 
 // What the profile wanted at a given fraction through the cook.
@@ -181,10 +225,10 @@ function curveHeatScore(session, profile, spans, totalMs) {
 
 // How centred in the peak window you pulled it. Only meaningful if you pulled it
 // in the peak window at all.
-function precisionScore(session, profile, now) {
+function precisionScore(session, profile, app) {
   const tl = timeline(session, profile);
-  if (now < tl.doneAt || now >= tl.peakEnd) return 0;
-  const through = (now - tl.doneAt) / tl.peakMs;   // 0..1 across the window
+  if (app < tl.doneAt || app >= tl.peakEnd) return 0;
+  const through = (app - tl.doneAt) / tl.peakMs;   // 0..1 across the window
   return PRECISION_WEIGHT * (1 - Math.abs(through * 2 - 1));
 }
 
@@ -196,12 +240,17 @@ function vesselScore(session) {
 // The whole evaluation. `skillMargin` comes from the caller's skillCheck so this
 // stays pure and testable — pass 0 for a neutral read (examine).
 export function evaluate(session, profile, now = Date.now(), skillMargin = 0) {
-  const endState = endStateAt(session, profile, now);
+  const app = apparentNow(session, now);
+  const endState = stateAt(session, profile, app);
   // Mince cooks fast and pays for it here: no crust, no texture, nothing to
   // rest — a full band off whatever it could otherwise have reached. Floored at
   // 1 so it can still be food, just never the best food.
   const base = bandIndex(profile.targets[endState]);
-  const drop = prepCeilingDrop(session);
+  // Scorching is charged on the CEILING, beside the prep drops, because it is the
+  // same kind of statement: no amount of skill, seasoning or timing gets a good
+  // meal out of something that caught on a dry pan. Floored at 1 so it is still
+  // food, just never good food.
+  const drop = prepCeilingDrop(session) + (session.scorched != null ? SCORCH_CEILING_DROP : 0);
   let ceiling = drop ? Math.max(1, base - drop) : base;
   // A microwave agitates water; it does not brown, crust or sear. So the cap
   // lands on the CEILING rather than the score — no skill, no prep, no vessel
@@ -212,7 +261,7 @@ export function evaluate(session, profile, now = Date.now(), skillMargin = 0) {
   const parts = {
     turn: turnScore(session, profile),
     heat: heatScore(session, profile),
-    precision: precisionScore(session, profile, now),
+    precision: precisionScore(session, profile, app),
     vessel: vesselScore(session),
     skill: SKILL_WEIGHT * clamp(skillMargin / 20, -1, 1),
     prep: prepBonus(session, now),
@@ -231,13 +280,14 @@ export function evaluate(session, profile, now = Date.now(), skillMargin = 0) {
 // get about WHERE in the window you are — the difference between a cook who
 // reads the pan and one who is counting.
 export function overStageText(session, profile, now = Date.now()) {
+  const app = apparentNow(session, now);
   const tl = timeline(session, profile);
-  if (now < tl.peakEnd) {
-    const through = (now - tl.doneAt) / tl.peakMs;
+  if (app < tl.peakEnd) {
+    const through = (app - tl.doneAt) / tl.peakMs;
     return lineFor(through > 0.6 ? SLIPPING_LINES : PEAK_LINES, session.profile);
   }
-  if (now < tl.burnAt) {
-    const through = (now - tl.peakEnd) / tl.overMs;
+  if (app < tl.burnAt) {
+    const through = (app - tl.peakEnd) / tl.overMs;
     return through > 0.5 ? 'starting to char, smoke curling off it' : 'past its best, going dry';
   }
   return 'burnt black — nothing to be done about it now';

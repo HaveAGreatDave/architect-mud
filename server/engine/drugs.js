@@ -368,19 +368,64 @@ export function isWired(player) {
   return stimulantPotency(player) > 0;
 }
 
+// HOW HARD a drug holds your eyes open, 0–1, as a share of what a real upper does.
+//
+// ⚠ THIS IS NOT `drug_class` AND MUST NOT BECOME IT. `drug_class` is the ADDITIVE
+// OVERDOSE POOL — see classBurden, where everything sharing a class is weighed
+// against everything else sharing it. Putting coffee in the stimulant class to
+// make it keep you awake would also make a pot of coffee and a Redline count
+// toward one ceiling, which is a different claim about the body entirely.
+//
+// ⚠ NOR CAN IT READ `drug_family`. Coffee, cigarettes, loose tobacco and amyls
+// are all family `stimulant` with no class at all, so a family rule hands a
+// cigarette the same night of wakefulness as speed. There is no sub-family that
+// separates them, which is why this is authored per drug rather than derived.
+//
+// The DEFAULT is the behaviour that shipped before it existed — a real upper is
+// 1 and everything else is 0 — so every row that doesn't declare it is untouched.
+function wakefulnessOf(drug) {
+  const authored = Number(drug?.flags?.wakefulness);
+  if (Number.isFinite(authored)) return Math.max(0, Math.min(1, authored));
+  return drug?.flags?.drug_class === 'stimulant' ? 1 : 0;
+}
+
 // ...and HOW HARD it's driving them, 0 when nothing is. Potency is already
 // `1 − tolerance × max_reduction`, so this is the seam through which tolerance
 // reaches the fatigue clock: a habit doesn't just dull the high, it stops the
 // drug holding your eyes open. Without it a saturated user got a barely-there
 // buff and the FULL night of wakefulness, which is the wrong way round — the
 // third day of a bender is supposed to be the expensive one.
+//
+// Weighted by wakefulnessOf, so a coffee is worth a fraction of a Redline and
+// the strongest thing in you wins rather than the most recent.
 export function stimulantPotency(player) {
   let best = 0;
   for (const a of player?.activeDrugs || []) {
-    if (DRUG_CACHE[String(a.drugId).replace(/:.*$/, '')]?.flags?.drug_class !== 'stimulant') continue;
-    best = Math.max(best, Number(a.potency) || 0);
+    const drug = DRUG_CACHE[String(a.drugId).replace(/:.*$/, '')];
+    const wake = wakefulnessOf(drug);
+    if (wake <= 0) continue;
+    best = Math.max(best, (Number(a.potency) || 0) * wake);
   }
   return best;
+}
+
+// Why you can't lie down, or null if you can. Lives here rather than in the
+// sleep command for the reason that command already gives — it asks the drug
+// system a question instead of growing its own pharmacology — and it says
+// something proportionate, because "your heart makes it clear that isn't
+// happening" is the wrong sentence about a cup of coffee.
+// Calibrated to sit ABOVE one ordinary coffee (0.6 here: potency 1 at coffee’s
+// authored 0.6) and at or below a real upper (1.0). So a cup gets the mild line,
+// a double espresso earns the other one, and a stimulant dulled by tolerance
+// drops to the mild line too — which is correct, because at that point the drug
+// is barely working.
+const WIRED_HARD = 0.8;
+export function wiredSleepRefusal(player) {
+  const driving = stimulantPotency(player);
+  if (driving <= 0) return null;
+  return driving >= WIRED_HARD
+    ? `You lie down, and your heart makes it clear that isn't happening. Whatever you took is still driving.`
+    : `You lie down and stare at the ceiling with your eyes wide open. Whatever you drank hasn't finished with you yet.`;
 }
 
 // What the player's OTHER same-class drugs are already doing to them; the caller

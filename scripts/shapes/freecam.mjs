@@ -300,18 +300,34 @@ if (pbad) process.exit(1);
 
   // 1. At the pane it was tuned in, the answer is the one that shipped — exactly, not nearly.
   ck(Object.is(viewFocal(1200, 560), 560 * 0.55), 'the reference pane is not bit-identical to H*0.55');
-  // 2. A pane WIDER than the reference is untouched: this may only ever remove stretch, never add.
-  for (const [W, H] of [[1400, 400], [1000, 300], [1920, 600]]) {
-    ck(Object.is(viewFocal(W, H), H * 0.55), `a wider-than-tuned pane ${W}x${H} was changed`);
+  // 2. EVERY pane shape holds the tuned ratio, wide ones included.
+  //
+  // ⚠ THIS USED TO SAY THE OPPOSITE FOR WIDE PANES — `viewFocal` kept `H * 0.55` above the reference
+  // aspect, on the reasoning that the correction may only ever REMOVE stretch and never add it.
+  // That was the safe way to land it and it left the bug standing on exactly the pane shape the
+  // flight sim uses: a windscreen is wider than 1200x560 and gets wider on full screen, so the
+  // vertical scale followed the height while the lateral one followed the width and the world was
+  // stretched by however much wider the pane happened to be. Reported from the game as the aspect
+  // changing between windowed and full screen.
+  for (let W = 240; W <= 2400; W += 37) for (let H = 200; H <= 1600; H += 53) {
+    ck(Math.abs(ratio(W, H) - REF) < 1e-12, `${W}x${H} does not hold the tuned ratio`);
   }
-  // 3. A pane TALLER than the reference keeps the reference proportions rather than stretching.
-  for (const [W, H] of [[375, 471], [375, 812], [500, 900], [1200, 1400]]) {
-    ck(Math.abs(ratio(W, H) - REF) < 1e-12, `a tall pane ${W}x${H} does not hold the tuned ratio`);
+  // 3. And a SEAT cannot change the proportions either, whatever field of view it asks for.
+  //
+  // ⚠ `fovMul` MULTIPLIED THE LATERAL FOCAL LENGTH AND NOTHING ELSE, so the cab's interior-only
+  // 1.22 made the world 22% wider through the windscreen than it is over the bonnet — a stretch
+  // rather than a field of view. makeCam scales the vertical focal length by the same number now,
+  // which is what makes the two axes a focal length instead of two independent scales.
+  {
+    const shape = (fovMul) => {
+      const c = makeCam(1200, 235, viewFocal(1200, 560), { heading: 0, map: null, fovMul });
+      return (1200 * (2 * c.FL / 1200)) / (560 * (2 * c.depth / 560));   // lateral px per unit ÷ vertical px per unit
+    };
+    const ext = shape(undefined);
+    for (const mul of [1.22, 0.7, 1, 2.5]) {
+      ck(Math.abs(shape(mul) - ext) < 1e-12, `fovMul ${mul} changes the world's proportions — a seat may change its field of view, not its shape`);
+    }
   }
-  // 4. And the general statement of both: nothing anywhere is stretched past the tuned look.
-  for (let W = 240; W <= 2000; W += 37) for (let H = 200; H <= 1600; H += 53) {
-    ck(ratio(W, H) <= REF + 1e-12, `${W}x${H} projects taller than the tuned ratio`);
-  }
-  console.log(`  ${bad ? '✗' : '✓'} aspect — the world keeps its tuned proportions on every pane shape`);
+  console.log(`  ${bad ? '✗' : '✓'} aspect — the world keeps its tuned proportions on every pane shape and at every seat`);
   if (bad) process.exit(1);
 }

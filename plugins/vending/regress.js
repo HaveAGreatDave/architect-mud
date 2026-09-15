@@ -4,6 +4,9 @@ import { query } from '../../server/models/db.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { insertFurniture, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { VEND_CHARGE, VEND_BANDS } from '../drinks/config.js';
+import { availableActions } from '../../server/engine/specializedActions.js';
+import { dispatchAction } from '../../server/engine/actions.js';
+import { isWired, stimulantPotency } from '../../server/engine/drugs.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const player = getPlayer();
@@ -78,6 +81,16 @@ export default async function regress({ run, check, getPlayer }) {
       await deleteFurniture(FURN2).catch(() => {});
     }
 
+    // VEND shows on examine. This was filed as a permanent KNOWN GAP on the
+    // grounds that availableActions can't read flag VALUES — true, and beside
+    // the point: `requiredFlag` gates on the flag KEY. Before it, a dispenser
+    // only worked for a player who already knew the word.
+    check('vend is an affordance a dispenser advertises',
+      availableActions({ flags: { vends: ITEM } }).includes('vend'),
+      JSON.stringify(availableActions({ flags: { vends: ITEM } })));
+    check('...and a thing that dispenses nothing advertises nothing',
+      !availableActions({ flags: { container: 1 } }).includes('vend'),
+      JSON.stringify(availableActions({ flags: { container: 1 } })));
     // ── A DISPENSER THAT FILLS WHAT IT HANDS YOU ──────────────────────────────
     //
     // The espresso-rig case, end to end through the real verb: the machine makes
@@ -142,6 +155,41 @@ export default async function regress({ run, check, getPlayer }) {
       check('a rig that makes something holds you for the minute',
         r?.type === 'error' && /needs a moment/.test(r.message || ''), JSON.stringify(r)?.slice(0, 160));
 
+
+      // ── AND DRINKING IT KEEPS YOU AWAKE ──────────────────────────────────
+      //
+      // The whole chain in one go: the rig made the cup, drinks put a coffee in
+      // it, and swallowing it has to reach the caffeine arc. Driven through the
+      // real `drinks.finishServing` — the action plugins/consume calls at the end
+      // of the sip sequence — rather than through the 12s timer.
+      //
+      // ⚠ This is the seam most likely to be silently wrong: a typo in the drug
+      // id applies nothing, prints nothing and fails nothing.
+      {
+        const row = (await query(
+          'SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 ORDER BY id LIMIT 1',
+          [player.id, CUP])).rows[0];
+        player.activeDrugs = [];
+        await query('DELETE FROM player_drug_state WHERE player_id=$1', [player.id]);
+
+        await dispatchAction({
+          type: 'drinks.finishServing', actor: player,
+          params: { invId: row.id, takeLine: 'You drink it.' },
+          context: { broadcast: () => {} },
+        });
+
+        const caffeinated = (player.activeDrugs || []).some(a => String(a.drugId).startsWith('drug_coffee'));
+        check('drinking it actually doses you with the caffeine',
+          caffeinated, JSON.stringify(player.activeDrugs)?.slice(0, 160));
+        check('...and that is what stops you lying down on it',
+          isWired(player) === true, String(stimulantPotency(player)));
+
+        // The cup is still yours, one serving lighter — the whole point of a vessel.
+        const left = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [row.id])).rows[0];
+        check('...and you still have the cup, one serving down',
+          Number(left?.custom_data?.drink?.servings) === 1, JSON.stringify(left?.custom_data?.drink)?.slice(0, 120));
+      }
+
       // BROKE. The dispense is undone, so you are not left holding an empty cup
       // you did not ask for — and the minute never starts, so a machine that
       // would not serve you has not locked you out of the one next to it.
@@ -163,7 +211,9 @@ export default async function regress({ run, check, getPlayer }) {
       await deleteFurniture(RIG).catch(() => {});
       await deleteFurniture(RIG2).catch(() => {});
       await query('DELETE FROM items WHERE id=$1', [CUP]).catch(() => {});
+      await query('DELETE FROM player_drug_state WHERE player_id=$1', [player.id]).catch(() => {});
       await query('DELETE FROM players WHERE id=$1', [player.id]).catch(() => {});
+      player.activeDrugs = [];
       player.credits = 0;
       deleteItemCache(CUP);
       player.current_zone = Z;

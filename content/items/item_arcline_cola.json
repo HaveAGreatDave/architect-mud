@@ -4,6 +4,7 @@
   "id": "item_arcline_cola",
   "name": "can of Arcline cola",
   "tags": {
+    "caffeine_mg": 11,
     "consumable": true,
     "description": "Sweet, dark and faintly medicinal. The formula has been reverse-engineered so many times that nobody is sure which version is the original.",
     "drink_noun": "cola",

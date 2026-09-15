@@ -289,6 +289,20 @@ export const isModifier = invRow => isModifierProfile(profileNameFor(invRow));
 // "penne and two bottles of water" comes straight back as a valid pan of sauce.
 export const isMedium = invRow => !!(invRow?.tags?.cooking_medium);
 
+// ── FLUIDS ───────────────────────────────────────────────────────────────────
+//
+// The wet things: the water `fill` put in the pan, a measure of oil somebody
+// poured, a carton of stock that went in whole. Tipping a pan tips these and
+// leaves the solids, which is what tipping a pan does.
+//
+// ⚠ `POURABLE` is the same set MINUS the medium. Water is `cooking_medium` and
+// invisible to the dish by design, so an amount of it would be state nothing
+// reads — `fill` and `empty` are its whole vocabulary, deliberately without a
+// quantity. Everything else is sold by the carton and pours by the measure.
+export const FLUID_PROFILES = new Set(['liquid', 'fat_or_oil']);
+export const POURABLE = FLUID_PROFILES;
+export const isFluid = row => isMedium(row) || FLUID_PROFILES.has(profileNameFor(row));
+
 // A per-INSTANCE noun beats the class one: meat butchered off a feral dog is
 // tagged with what it came off, so it cooks into "feral dog and potato stew"
 // rather than the generic "meat and potato stew". Set by plugins/butchering.

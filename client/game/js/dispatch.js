@@ -15,7 +15,7 @@ import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChann
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openWardrobePanel, refreshWardrobePanel, getActiveWardrobeId, showWardrobeNotify } from './panels/wardrobe.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
-import { openWorkspacePanel, refreshWorkspacePanel, isWorkspaceOpen } from './panels/workspace.js';
+import { openWorkspacePanel, refreshWorkspacePanel, isWorkspaceOpen, workspaceClaimsContainerView } from './panels/workspace.js';
 import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel, closeMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
@@ -736,6 +736,12 @@ const handlers = {
 
   container_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
+    // A `pullid` fired from the workspace's own "out" or "take" button answers
+    // with a container view, which is right when you typed it at a cupboard and
+    // wrong when the panel that sent it is already showing you that cupboard.
+    // The claim is counted and consumed, so an `open fridge` the player actually
+    // typed still opens the fridge.
+    if (workspaceClaimsContainerView()) return;
     openContainerPanel(msg);
   },
 

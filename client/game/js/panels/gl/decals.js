@@ -46,8 +46,23 @@ precision highp float;
 in vec2 vUV;
 in float vAlpha;
 uniform sampler2D uTex;
+uniform float uCull;
 out vec4 outColor;
 void main() {
+  // ⚠ A SIGN HAS A FRONT. Lettering is PAINT ON A SURFACE, and paint does not read from behind the
+  // thing it is painted on — but a textured quad drawn two-sided does, mirrored, and it glows
+  // through its own board like printing on glass. Voltage's roof sign read "ƎƆATJOV" from the back
+  // of its own building. What belongs there is whatever the paint is on, which is already drawn and
+  // already opaque: the board is in the mesh, the wall is in the mesh, a per-tile board is a flat
+  // decal of its own. So the lettering simply stops at the surface and the surface answers.
+  //
+  // ⚠ AND THE FRONT OF A SIGN IS gl_FrontFacing == FALSE. The quads arrive as TL,TR,BR,BL — a sign's
+  // own reading order — which walks clockwise in NDC when the sign faces the camera, and clockwise
+  // is the BACK face under the default CCW winding. Nothing is culled by the pipeline (these are
+  // two-sided by default and CULL_FACE stays off), so this is the one place that polarity is
+  // decided; it is stated here rather than inferred, because inverting it hides every sign in the
+  // city and shows only the ones you are behind.
+  if (uCull > 0.5 && gl_FrontFacing) discard;
   // The texture is uploaded PREMULTIPLIED, so scaling by alpha is one multiply and the blend is
   // the canvas's own (ONE, ONE_MINUS_SRC_ALPHA).
   vec4 t = texture(uTex, vUV) * vAlpha;
@@ -83,6 +98,7 @@ export function createDecalLayer(gl) {
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     tex: gl.getUniformLocation(prog, 'uTex'),
+    cull: gl.getUniformLocation(prog, 'uCull'),
   };
 
   const vao = gl.createVertexArray();
@@ -117,7 +133,11 @@ export function createDecalLayer(gl) {
     const byKey = new Map();
     for (const d of list) {
       if (!d || !d.img || !d.p || d.p.length !== 4) continue;
-      let a = byKey.get(d.key); if (!a) byKey.set(d.key, a = { img: d.img, items: [] });
+      // ⚠ `cull` IS IN THE GROUPING KEY, NOT JUST CARRIED ON THE BATCH. It is a uniform, so it is
+      // set once per draw call — two decals sharing a texture and disagreeing about it would be one
+      // batch, and one of them would silently get the other’s answer.
+      const gk = (d.cull ? 'B:' : 'F:') + d.key;
+      let a = byKey.get(gk); if (!a) byKey.set(gk, a = { img: d.img, key: d.key, cull: !!d.cull, items: [] });
       a.items.push(d);
     }
     let quads = 0;
@@ -131,14 +151,16 @@ export function createDecalLayer(gl) {
       data[o + 3] = u; data[o + 4] = v; data[o + 5] = a;
       o += STRIDE;
     };
-    for (const [key, a] of byKey) {
+    for (const a of byKey.values()) {
       for (const d of a.items) {
         const [TL, TR, BR, BL] = d.p, al = d.alpha == null ? 1 : d.alpha;
         put(TL, 0, 0, al); put(TR, 1, 0, al); put(BR, 1, 1, al);
         put(TL, 0, 0, al); put(BR, 1, 1, al); put(BL, 0, 1, al);
       }
       const n = a.items.length * 6;
-      batches.push({ tex: textureFor(key, a.img), first, count: n });
+      // The TEXTURE cache is keyed on the appearance alone — the same artwork culled and unculled
+      // is one upload — so `a.key` and not the grouping key.
+      batches.push({ tex: textureFor(a.key, a.img), first, count: n, cull: a.cull });
       first += n;
     }
     gl.bindVertexArray(vao);
@@ -165,6 +187,7 @@ export function createDecalLayer(gl) {
     gl.bindVertexArray(vao);
     let n = 0;
     for (const b of batches) {
+      gl.uniform1f(loc.cull, b.cull ? 1 : 0);
       gl.bindTexture(gl.TEXTURE_2D, b.tex);
       gl.drawArrays(gl.TRIANGLES, b.first, b.count);
       n += b.count / 6;

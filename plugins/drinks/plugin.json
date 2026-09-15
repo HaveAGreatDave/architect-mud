@@ -12,7 +12,8 @@
     "recipes"
   ],
   "hooks": [
-    "item.describeVessel"
+    "item.describeVessel",
+    "furniture.describe"
   ],
   "actions": {
     "registers": [

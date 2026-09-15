@@ -4,6 +4,7 @@
   "id": "item_chicory_sachet",
   "name": "chicory brew sachet",
   "tags": {
+    "caffeine_mg": 0,
     "consumable": true,
     "description": "Roasted root, ground to look like coffee.",
     "drink_noun": "chicory",

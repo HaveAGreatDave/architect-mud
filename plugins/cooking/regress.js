@@ -7,7 +7,7 @@ import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js'
 import { insertFurniture, deleteFurniture, getFurnitureById } from '../../server/engine/world.js';
 import { furnitureVerbs } from '../../server/engine/furnitureActions.js';
 import { computeDuration, checkCooking, _test as cookTest } from './cook.js';
-import { THAW_STAGES, COOK_STAGES, STOVE_SPEED, COOK_SECONDS_PER_KG, MIN_COOK_MS, stageText, BARE_VESSEL, PEAK_LINES, SLIPPING_LINES, FADING_LINES, STAGE_LINES, lineFor, stagesFor } from './config.js';
+import { THAW_STAGES, COOK_STAGES, STOVE_SPEED, COOK_SECONDS_PER_KG, MIN_COOK_MS, stageText, BARE_VESSEL, DEFAULT_VESSEL, PEAK_LINES, SLIPPING_LINES, FADING_LINES, STAGE_LINES, lineFor, stagesFor } from './config.js';
 import { PROFILES, LEGACY_BAND_INDEX, profileNameFor, profileNeedsPrep, needsPrep, validateProfiles, QUALITY_BANDS, bandIndex, donenessLevels, donenessLevel, donenessAt, achievedDoneness } from './profiles.js';
 import { leavesFond, makeFond, fondState, fondModifier, fondText, fondBelongs } from './fond.js';
 import { prepWindowMult, prepBurnMult, prepCeilingDrop, prepBonus, marinadeStrength, canMarinate, prepText } from './prep.js';
@@ -15,6 +15,7 @@ import { tasteNotes, tasteTier, flavourLines } from './taste.js';
 import { portionOf, isWhole, canChop, portionName, yieldOf } from './portions.js';
 import { FOND_BONUS, FOND_RESIDUE_PENALTY, FOND_NEGLECT_PENALTY, FOND_LIFE_MS, MODIFIER_BONUS_CAP, MIN_PORTION, MINCE_RATE, MARINATE_MIN_MS, MARINATE_FULL_MS, MARINATE_PROFILES, TASTE_TIERS, MINCE_CEILING_DROP, BAND_SCALE, BASE_OFFSET, FOND_MIN_BAND, DISCOVERY_MIN_BAND, SLOP_CEILING, BAND_REWARDS, rewardFor, restMultiplier, restText, RESTS_WELL, REST_MIN_MS, REST_PEAK_MS, REST_COLD_MS, REST_COLD_PENALTY } from './config.js';
 import { DISCOVERY_ATTEMPTS, cookingIpFor, ROUTINE_IP, MASTERFUL_IP, ROUTINE_IP_COOLDOWN_MS, DISCOVERY_IP, RECIPE_MASTERY_IP } from './config.js';
+import { POUR_PORTION, FLUID_MEASURE_G, SCORCH_GRACE_MS, SCORCH_CEILING_DROP } from './config.js';
 import {
   DISHES, UNKNOWN_DISH, validateDishes, signature, matchScore, matchDish,
   dishName, composeBand, nounFor, VESSEL_KINDS, seasoningIdeal, seasoningBonus, unitsOf, GENERIC_SANDWICH, ALSO,
@@ -98,8 +99,27 @@ export default async function regress({ run, check, getPlayer }) {
   // of glassberries at ~1 SECOND.
   const tiny = computeDuration(70 * 0.125, STOVE_SPEED.high, false, 0.5 * 0.35);
   check('a tiny minced portion is floored, not instant', tiny.cookMs === MIN_COOK_MS, tiny);
-  check('...and the floor leaves the tightest profile a playable window',
-    MIN_COOK_MS * 0.25 >= 5000, MIN_COOK_MS);
+  // ── PLAYABILITY, MEASURED RATHER THAN ASSERTED ────────────────────────────
+  //
+  // This read `MIN_COOK_MS * 0.25 >= 5000` — a hardcoded 0.25 standing in for
+  // "the tightest peakFraction in the catalog", against a 5-second bar. Both
+  // halves were quietly wrong to lean on: the 0.25 is a copy of a number that
+  // lives in profiles.js and would not follow it, and five seconds turned out
+  // not to be playable at all (batter peaked for 5.7s on a high ring, which is
+  // a reflex test, not a decision about when to plate).
+  //
+  // So it asks the real question of every profile through the real `timeline`:
+  // at the floor, in an ordinary pan, how long is the window actually open? A
+  // profile authored next month is covered the day it lands, and dropping the
+  // floor back to where it was fails here rather than in somebody's kitchen.
+  const PLAYABLE_MS = 8000;
+  const tightest = Object.entries(PROFILES)
+    .filter(([, p]) => !p.modifier)
+    .map(([name, p]) => [name, timeline(
+      { startedAt: 0, thawMs: 0, cookMs: MIN_COOK_MS, vessel: DEFAULT_VESSEL, acts: [] }, p).peakMs])
+    .sort((a, b) => a[1] - b[1])[0];
+  check('...and at the floor every profile still has a window you can act inside',
+    tightest[1] >= PLAYABLE_MS, `tightest is ${tightest[0]} at ${(tightest[1] / 1000).toFixed(1)}s`);
   check('the floor never LENGTHENS an ordinary cook',
     computeDuration(1000, STOVE_SPEED.low, false).cookMs
       === Math.round(COOK_SECONDS_PER_KG / STOVE_SPEED.low * 1000));
@@ -2969,6 +2989,67 @@ export default async function regress({ run, check, getPlayer }) {
       check('...and it still cooks and eats as the bread it always was',
         loaf?.tags?.food_profile === 'bread' && loaf?.tags?.restore_hunger > 0, JSON.stringify(loaf?.tags));
 
+      // ── Pouring a jug, rather than tipping it in ───────────────────────────
+      //
+      // A jug of oil weighs 600g and is five dishes' worth. Tipping the whole
+      // thing into a pan to fry one egg was the only thing you could do with it,
+      // and `plate` ate the jug.
+      {
+        const { POUR_PORTION } = await import('./config.js');
+        const OIL = 'item_cooking_regress_oil';
+        await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, OIL]);
+        await query(
+          `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,'test oil jug','test oil jug','misc',1,600,$2)
+           ON CONFLICT (id) DO UPDATE SET tags=$2, weight=600`,
+          [OIL, JSON.stringify({ consumable: true, food_profile: 'fat_or_oil', food_noun: 'oil', stackable: false })]);
+        await reloadItem(OIL);
+        // ⚠ ONE POT, OR THE RESOLVER PICKS THE OTHER ONE. The methods block above
+        // leaves its own "test stockpot" in the pack, and `pour x into test
+        // stockpot` resolves by NAME — so the measure landed in a pan this block
+        // had never heard of and the check read as the insert not happening.
+        const oldPots = (await query(
+          'SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, POT])).rows.map(r => r.id);
+        if (oldPots.length) {
+          await query('DELETE FROM player_inventory WHERE container_id = ANY($1)', [oldPots]);
+          await query('DELETE FROM player_inventory WHERE id = ANY($1)', [oldPots]);
+        }
+        const oilId = randomUUID(), potId2 = randomUUID();
+        await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [oilId, player.id, OIL]);
+        await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [potId2, player.id, POT]);
+
+        let rp = await run('pour test oil jug into test stockpot');
+        check('pouring a jug into a pan works', rp?.type !== 'error', JSON.stringify(rp));
+        const inPot = (await query('SELECT item_id, custom_data FROM player_inventory WHERE container_id=$1', [potId2])).rows;
+        check('...a measure landed in the pan as an ordinary row',
+          inPot.some(r => r.item_id === OIL), JSON.stringify(inPot.map(r => r.item_id)));
+        check('...reading as a measure rather than as a whole jug',
+          /measure/i.test(inPot.find(r => r.item_id === OIL)?.custom_data?.name || ''),
+          JSON.stringify(inPot.map(r => r.custom_data)));
+        const jug = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [oilId])).rows[0];
+        check('...and THE JUG SURVIVED, one measure down',
+          jug && Math.abs(Number(jug.custom_data?.portion) - (1 - POUR_PORTION)) < 1e-9,
+          JSON.stringify(jug?.custom_data));
+        // ⚠ A measure is a full DOSE. A modifier's unit count is its portion, so
+        // a fifth-portion measure would mean five pours to season one pan.
+        check('...and the measure is one whole dose, not a fifth of one',
+          !inPot.find(r => r.item_id === OIL)?.custom_data?.portion,
+          JSON.stringify(inPot.find(r => r.item_id === OIL)?.custom_data));
+
+        // ⚠ THE FALL-THROUGH. Specialized actions fire alphabetically, so this
+        // handler sees `pour` before drinks and fillable do — for every canteen
+        // and cup in the game. Claiming one would break pouring water between
+        // containers everywhere, and the symptom would be nothing to do with
+        // cooking.
+        rp = await run('pour test steak into test stockpot');
+        check('pouring something that is not a fat is not cooking\'s business',
+          rp?.type === 'error' && !/measure/i.test(rp.message || ''), JSON.stringify(rp));
+
+        await query('DELETE FROM player_inventory WHERE container_id=$1', [potId2]);
+        await query('DELETE FROM player_inventory WHERE id = ANY($1)', [[oilId, potId2]]);
+        await query('DELETE FROM items WHERE id=$1', [OIL]).catch(() => {});
+        deleteItemCache(OIL);
+      }
+
       // ── Every bread in the world, swept ────────────────────────────────────
       //
       // Bread is the one profile whose items are also CONTAINERS, and that makes
@@ -3044,6 +3125,456 @@ export default async function regress({ run, check, getPlayer }) {
         check('...and plain flatbread and cheese still is not, which is the point',
           score(sigOf([asRow('item_flat_bread'), cheeseRow], Pr), D.toastie, new Set()) === -1);
       }
+    }
+
+
+    // ── THE BURNER DIAL ────────────────────────────────────────────────────
+    //
+    // Eleven positions with the three old words as notches on them. The whole
+    // claim this rests on is that nothing moved for anybody who does not touch
+    // it, so the first case is the identity that guarantees it.
+    {
+      const H = await import('./heat.js');
+
+      // ⚠ THE LOAD-BEARING ONE. `LEVEL_SPEED` at each notch IS `STOVE_SPEED` for
+      // that tier, and a stove nobody has touched sits at the notch of its own
+      // ceiling — so every cook that has ever run, and every case above this
+      // one, runs at exactly the speed it always did. Two tables, one fact:
+      // without this check they drift the first time either is retuned.
+      check('the named tiers are exactly the old stove speeds',
+        ['low', 'mid', 'high'].every(t => H.LEVEL_SPEED[H.levelOfTier(t)] === STOVE_SPEED[t]),
+        JSON.stringify(['low', 'mid', 'high'].map(t => [t, H.levelOfTier(t), H.LEVEL_SPEED[H.levelOfTier(t)], STOVE_SPEED[t]])));
+      check('...and a dial has one speed per position', H.LEVEL_SPEED.length === H.MAX_LEVEL + 1);
+      check('...rising the whole way up',
+        H.LEVEL_SPEED.every((v, i) => i === 0 || v > H.LEVEL_SPEED[i - 1]), JSON.stringify(H.LEVEL_SPEED));
+
+      // OFF is a fourth answer, not a quieter low. Everything reading a tier has
+      // to handle the null, so it is pinned rather than assumed.
+      check('zero is off, and off is not a tier', H.tierOfLevel(0) === null);
+      check('the bands are where the notches say they are',
+        H.tierOfLevel(1) === 'low' && H.tierOfLevel(3) === 'low'
+        && H.tierOfLevel(4) === 'mid' && H.tierOfLevel(7) === 'mid'
+        && H.tierOfLevel(8) === 'high' && H.tierOfLevel(10) === 'high',
+        JSON.stringify([1, 3, 4, 7, 8, 10].map(H.tierOfLevel)));
+      check('a stove ceiling is the TOP of its tier, not its notch',
+        H.ceilingLevel('low') === 3 && H.ceilingLevel('mid') === 7 && H.ceilingLevel('high') === H.MAX_LEVEL);
+
+      // ── The clock ────────────────────────────────────────────────────────
+      //
+      // The identity is the reason none of the thousands of cases above needed
+      // touching: a session nobody has retuned reads the wall clock.
+      const plain = session('dense_meat', { cookMs: 10000 });
+      const t = Date.now();
+      check('an untouched session runs on the wall clock', H.apparentNow(plain, t) === t);
+      check('...and asks for its beats at the times it always did', H.realTimeFor(plain, t + 5000, t) === t + 5000);
+
+      // Half speed: real time advances twice as fast as the session's own clock.
+      const slow = session('dense_meat', { cookMs: 10000, startedAt: t - 4000 });
+      H.retuneSession(slow, 0.5, t);
+      check('halving the rate halves how fast the clock runs',
+        Math.abs(H.apparentNow(slow, t + 1000) - (t + 500)) < 1,
+        JSON.stringify({ app: H.apparentNow(slow, t + 1000), want: t + 500 }));
+      check('...and doubles how long a beat is away',
+        Math.abs(H.realTimeFor(slow, H.apparentNow(slow, t) + 1000, t) - (t + 2000)) < 1);
+
+      // ⚠ TRANSLATION PRESERVES FRACTIONS. A turn made 40% of the way through the
+      // cook has to still be 40% of the way through it after the gas goes down,
+      // or riding the burner would silently re-weight the handling you had
+      // already done — invisible, and it changes the band.
+      const turned = session('dense_meat', { cookMs: 10000, startedAt: t - 4000 });
+      turned.acts = [{ at: turned.startedAt + 4000 }];   // 40% through, by construction
+      const fracBefore = (turned.acts[0].at - turned.startedAt) / turned.cookMs;
+      H.retuneSession(turned, 0.25, t);
+      const fracAfter = (turned.acts[0].at - turned.startedAt) / turned.cookMs;
+      check('turning the gas down does not move a turn you already made',
+        Math.abs(fracBefore - fracAfter) < 1e-9, JSON.stringify({ fracBefore, fracAfter }));
+
+      // Rate 0 is a real state. The clock stops and no beat is ever reached,
+      // which is what makes "off" a pause rather than a very slow simmer.
+      const off = session('liquid', { cookMs: 10000, startedAt: t - 3000 });
+      H.retuneSession(off, 0, t);
+      check('a ring turned off stops the clock', H.apparentNow(off, t + 60000) === H.apparentNow(off, t));
+      check('...and nothing is ever due again', H.realTimeFor(off, H.apparentNow(off, t) + 1, t) === null);
+      check('...so the food does not move on', endStateAt(off, PROFILES.liquid, t + 3600000) === 'raw');
+    }
+
+    // ── `stove`, end to end ────────────────────────────────────────────────
+    {
+      const H = await import('./heat.js');
+      const DSTOVE = 'furn_cooking_regress_dial';
+      const DPAN = 'item_cooking_regress_dialpan';
+      const DMEAT = 'item_cooking_regress_dialmeat';
+      const OIL = 'item_cooking_regress_dialoil';
+      const made = [];
+      try {
+        await insertFurniture({
+          id: DSTOVE, name: 'test dial range', description: 'a test dial range', object_type: 'fixture',
+          zone_id: Z, flags: JSON.stringify({ stove_tier: 'mid' }),
+        }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id, power_draw_kw=NULL');
+        await deleteFurniture(STOVE).catch(() => {});
+        player.current_zone = Z;
+
+        for (const [id, name, tags, weight] of [
+          [DPAN, 'test dial pan', { container: 3000, vessel: true, vessel_kind: 'pan', heat_distribution: 0.7, heat_retention: 0.5, unique: true }, 900],
+          [DMEAT, 'test dial haunch', { consumable: true, needs_cooking: true, food_profile: 'dense_meat', restore_hunger: 30 }, 400],
+          [OIL, 'test dial oil', { consumable: true, food_profile: 'fat_or_oil', food_noun: 'fried', stackable: true }, 600],
+        ]) {
+          await query(
+            `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,$2,$2,'misc',1,$4,$3)
+             ON CONFLICT (id) DO UPDATE SET tags=$3, weight=$4`, [id, name, JSON.stringify(tags), weight]);
+          await reloadItem(id);
+        }
+
+        // Bare `stove` READS THE DIAL BACK. A control whose current position
+        // cannot be read is most of what was wrong with the old three words.
+        const readout = await run('stove');
+        check('bare stove reads the dial back',
+          readout?.type !== 'error' && /test dial range/.test(readout?.message || ''), JSON.stringify(readout));
+
+        // ⚠ A COLD RING IS A LEGAL TARGET. The dial decides the SPEED a cook
+        // starts at, so pre-setting one is the whole point of being able to; the
+        // old verb refused with "you've got nothing on the heat here".
+        const cold = await run('stove 2');
+        check('a cold ring can be set before anything goes on it', cold?.type !== 'error', JSON.stringify(cold));
+        check('...and the dial actually moved', H.burnerLevel(DSTOVE, 'mid') === 2, H.burnerLevel(DSTOVE, 'mid'));
+
+        const tooHigh = await run('stove 9');
+        check('a mid cooktop refuses a high setting, and names its ceiling',
+          tooHigh?.type === 'error' && /mid/.test(tooHigh.message), JSON.stringify(tooHigh));
+        check('...and nonsense is refused with the range spelled out',
+          /0 to 10/.test((await run('stove sideways'))?.message || ''));
+
+        // THE DIAL REACHES THE COOK RATE. Two identical cuts, one started on a
+        // low ring and one on a working flame: the low one takes longer. Before
+        // this the burner changed the score and nothing else, so turning it down
+        // was a control with no effect anybody could see.
+        const cookMsAt = async (level) => {
+          H.setBurnerLevel(DSTOVE, level);
+          const id = randomUUID();
+          made.push(id);
+          await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [id, player.id, DMEAT]);
+          const r = await run('cook test dial haunch');
+          const row = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [id])).rows[0];
+          const ms = row?.custom_data?.cooking?.cookMs ?? null;
+          await run('plate test dial haunch').catch(() => {});
+          await query('DELETE FROM player_inventory WHERE id=$1', [id]).catch(() => {});
+          return { ms, r };
+        };
+        const slowCook = await cookMsAt(2);
+        const fastCook = await cookMsAt(7);
+        check('a ring set low cooks the same cut slower',
+          !!slowCook.ms && !!fastCook.ms && slowCook.ms > fastCook.ms,
+          JSON.stringify({ low: slowCook.ms, mid: fastCook.ms, r: slowCook.r?.message }));
+
+        // ── OFF ──────────────────────────────────────────────────────────
+        H.setBurnerLevel(DSTOVE, 5);
+        const cookId = randomUUID();
+        made.push(cookId);
+        await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [cookId, player.id, DMEAT]);
+        await run('cook test dial haunch');
+        const offRes = await run('stove off');
+        check('a ring with a pan on it can be turned off', offRes?.type !== 'error', JSON.stringify(offRes));
+        const paused = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [cookId])).rows[0];
+        check('...and the session records the stop', paused?.custom_data?.cooking?.rate === 0,
+          JSON.stringify(paused?.custom_data?.cooking?.rate));
+        const stateNow = checkCooking({ custom_data: paused.custom_data });
+        check('...and examine says so rather than counting on',
+          stateNow?.paused === true && stateNow?.phase === 'paused', JSON.stringify(stateNow));
+
+        // Back on, and the clock picks up where it stopped rather than where it
+        // would have been — which is the whole reason a rate change translates
+        // the session instead of just writing a number down.
+        const before = stateNow?.stage;
+        await run('stove 5');
+        const resumed = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [cookId])).rows[0];
+        check('turning it back on resumes rather than restarts',
+          checkCooking({ custom_data: resumed.custom_data })?.stage === before,
+          JSON.stringify({ before, after: checkCooking({ custom_data: resumed.custom_data })?.stage }));
+        await run('plate test dial haunch').catch(() => {});
+        await query('DELETE FROM player_inventory WHERE id=$1', [cookId]).catch(() => {});
+
+        // ⚠ RELIGHTING A RING TAKES WHAT IS ALREADY ON IT WITH IT.
+        //
+        // `cook` lights a ring somebody left off, and staging puts a second
+        // ingredient into a pan already on a burner — so pausing a pan and then
+        // adding to it is a relight with a live session underneath. A relight
+        // that moved only the KNOB would leave the first lot frozen under a
+        // burner that is visibly roaring, which reads as "my stew stopped
+        // cooking" and has nothing on screen to explain it.
+        {
+          const stagePan = randomUUID(), first = randomUUID(), second = randomUUID();
+          made.push(stagePan, first, second);
+          await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
+            [stagePan, player.id, DPAN]);
+          await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,container_id,condition)
+                       VALUES ($1,$2,$3,1,$4,1.0),($5,$2,$3,1,NULL,1.0)`,
+            [first, player.id, DMEAT, stagePan, second]);
+          H.setBurnerLevel(DSTOVE, 5);
+          await run('cook test dial pan');
+          await run('stove off');
+          const frozen = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [first])).rows[0];
+          check('staging fixture: the first lot is paused', frozen?.custom_data?.cooking?.rate === 0,
+            JSON.stringify(frozen?.custom_data?.cooking?.rate));
+          // Stage the second cut in and light it again.
+          await query('UPDATE player_inventory SET container_id=$1 WHERE id=$2', [stagePan, second]);
+          await run('cook test dial pan');
+          const thawed = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [first])).rows[0];
+          check('...and relighting the ring starts it going again',
+            (thawed?.custom_data?.cooking?.rate ?? 1) > 0, JSON.stringify(thawed?.custom_data?.cooking?.rate));
+          await run('plate test dial pan').catch(() => {});
+          await query('DELETE FROM player_inventory WHERE id = ANY($1)', [[stagePan, first, second]]).catch(() => {});
+        }
+
+        // ── Fluids out ───────────────────────────────────────────────────
+        const panA = randomUUID(), oilId = randomUUID();
+        made.push(panA, oilId);
+        await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [panA, player.id, DPAN]);
+        await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [oilId, player.id, OIL]);
+        // The jug is not the pan: `pour` draws one measure and leaves the rest.
+        const poured = await run('pour test dial oil into test dial pan');
+        check('oil pours into a pan by the measure', poured?.type === 'use', JSON.stringify(poured));
+        const inPan = (await query('SELECT id FROM player_inventory WHERE item_id=$1 AND container_id=$2', [OIL, panA])).rows;
+        check('...and the measure is an ordinary row inside it', inPan.length === 1, JSON.stringify(inPan));
+        const measureId = inPan[0]?.id;
+        if (measureId) made.push(measureId);
+
+        // OUT AGAIN — the half that did not exist. `empty` threw the water away
+        // and nothing else, so a measure of oil in the wrong pan was there until
+        // the pan was plated.
+        const tipped = await run('empty test dial pan');
+        check('tipping a pan pours the oil out too, not just water', tipped?.type === 'use', JSON.stringify(tipped));
+        check('...and the measure is gone',
+          !(await query('SELECT 1 FROM player_inventory WHERE id=$1', [measureId])).rows.length);
+
+        // ⚠ AND THE WEIGHED SIDE, END TO END. The unit cases above pin
+        // `measureOf`; this pins what the WRITE does with it, which is where the
+        // two classes get confused. A modifier's measure carries no `portion` at
+        // all (a 0.2 on it is a fifth of a DOSE, which the oil case above
+        // catches); a weighed fluid's carries exactly the portion that makes it
+        // the right number of grams.
+        {
+          const CREAM = 'item_cooking_regress_dialcream';
+          await query(
+            `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,$2,$2,'misc',1,400,$3)
+             ON CONFLICT (id) DO UPDATE SET tags=$3, weight=400`,
+            [CREAM, 'test dial cream', JSON.stringify({ consumable: true, food_profile: 'liquid', food_noun: 'cream', stackable: true })]);
+          await reloadItem(CREAM);
+          const panC = randomUUID(), cartonId = randomUUID();
+          made.push(panC, cartonId);
+          await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
+            [panC, player.id, DPAN]);
+          await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
+            [cartonId, player.id, CREAM]);
+
+          const splash = await run('pour test dial cream into test dial pan');
+          check('a carton of cream pours by the measure too, not just oil',
+            splash?.type === 'use', JSON.stringify(splash));
+          const inPan = (await query(
+            'SELECT id, custom_data FROM player_inventory WHERE item_id=$1 AND container_id=$2', [CREAM, panC])).rows[0];
+          made.push(inPan?.id);
+          check('...and the measure carries the portion that makes it 100g',
+            Math.abs((inPan?.custom_data?.portion ?? 1) * 400 - FLUID_MEASURE_G) < 1e-9,
+            JSON.stringify(inPan?.custom_data));
+          check('...so it counts as a quarter of a liquid unit in the signature',
+            Math.abs(unitsOf({ weight: 400, custom_data: inPan?.custom_data || {} }, 'liquid') - 0.25) < 1e-9);
+          const carton = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [cartonId])).rows[0];
+          check('...and the carton survived with the rest still in it',
+            Math.abs((carton?.custom_data?.portion ?? 1) - 0.75) < 1e-9, JSON.stringify(carton?.custom_data));
+
+          await query('DELETE FROM player_inventory WHERE item_id=$1', [CREAM]).catch(() => {});
+          await query('DELETE FROM items WHERE id=$1', [CREAM]).catch(() => {});
+          deleteItemCache(CREAM);
+        }
+
+        // ── The HUD's hob ────────────────────────────────────────────────
+        //
+        // ⚠ Through the VERB, not through `workspaceProvider` — that function
+        // returns the provider DESCRIPTOR (key, priority, build), never a
+        // payload, so asking it for a hob quietly answers undefined and every
+        // check below it reads as a missing feature rather than a wrong call.
+        const view = await run('workspace');
+        const burner = (view?.dials || []).find(b => b.id === DSTOVE);
+        check('the workspace payload carries the hob as a generic dial',
+          !!burner, JSON.stringify((view?.dials || []).map(b => b.id)));
+        check('...with every dial position on it', burner?.levels?.length === H.MAX_LEVEL + 1, burner?.levels?.length);
+        // ⚠ THE RULE THIS WHOLE LAYER RUNS ON: an action is a verb string a
+        // player could have typed. The client composes nothing, so every
+        // position has to arrive as a literal command the verb accepts.
+        check('...each one a literal stove command naming its own hob',
+          (burner?.levels || []).every(l => typeof l.command === 'string' && /^stove \S+ on /.test(l.command) && l.command.includes(burner.name)),
+          JSON.stringify((burner?.levels || []).slice(0, 3).map(l => l.command)));
+        check('...and the ceiling is marked rather than hidden',
+          (burner?.levels || []).filter(l => l.over).length === H.MAX_LEVEL - H.ceilingLevel('mid'),
+          JSON.stringify((burner?.levels || []).filter(l => l.over).map(l => l.level)));
+        check('the ribbon says which beat the job is on',
+          view?.stages?.steps?.length === 4 && typeof view.stages.at === 'number', JSON.stringify(view?.stages));
+      } finally {
+        if (made.length) await query('DELETE FROM player_inventory WHERE id = ANY($1)', [made]).catch(() => {});
+        await query('DELETE FROM player_inventory WHERE item_id = ANY($1)', [[DPAN, DMEAT, OIL]]).catch(() => {});
+        await query('DELETE FROM items WHERE id = ANY($1)', [[DPAN, DMEAT, OIL]]).catch(() => {});
+        for (const id of [DPAN, DMEAT, OIL]) deleteItemCache(id);
+        await deleteFurniture(DSTOVE).catch(() => {});
+        H._resetBurners();
+      }
+    }
+
+    // ── BOILING DRY ────────────────────────────────────────────────────────
+    //
+    // The reader water never had. `cooking_medium` keeps it out of the dish by
+    // design, which left the AMOUNT with nothing consuming it — and state with no
+    // reader is how a codebase ends up with two ideas of how full a pot is. This
+    // is the consequence that gives it one, and the thing the new dial is
+    // dangerous ABOUT: the same hard ring that cooks a stew fast boils it dry.
+    {
+      const B = await import('./boil.js');
+      const H = await import('./heat.js');
+      const t = Date.now();
+      const wet = (level, sinceAgoMs = 0) => {
+        const s = session('liquid', { cookMs: 600000, startedAt: t - sinceAgoMs });
+        s.wet = { since: s.startedAt };
+        s.heats = [{ at: s.startedAt, tier: H.tierOfLevel(level), level }];
+        return s;
+      };
+
+      // ⚠ IT READS THE FINE LEVEL, NOT THE TIER. Everywhere else the tier is the
+      // scoring axis and the fine position buys only speed and prose; here the
+      // level is exactly right, because this is a physical rate rather than a
+      // score — a ring wound past the stop boils harder than one at the notch.
+      const at = l => B.dryOutSeconds(l);
+      check('a pot on the high notch runs dry in five minutes', at(9) === 300, at(9));
+      check('...on mid, nine', at(5) === 540, at(5));
+      check('...on low, twenty-two', at(2) === 1350, at(2));
+      check('...and a ring wound past the stop boils it away faster still', at(10) < at(9));
+      check('a ring that is off never boils anything away', at(0) === Infinity);
+
+      // THE NUMBER IS SET AGAINST THE BURN CLOCK. `autoPlate` ends every cook at
+      // `burnAt` and frees the ring, so a pot can only run dry if drying beats
+      // burning — which is what decides whether the mechanic exists at all.
+      // Pasta does not boil dry in three minutes; a stock pot on a rolling boil
+      // does, and that is the shape anybody would expect.
+      {
+        const pasta = session('dry_starch', { cookMs: 50000 });
+        const stew = session('liquid', { cookMs: 216000 });
+        const burnIn = (s, p) => timeline(s, p).burnAt - s.startedAt;
+        check('pasta on high burns long before it could run dry',
+          burnIn(pasta, PROFILES.dry_starch) < B.dryOutSeconds(9) * 1000,
+          JSON.stringify({ burn: burnIn(pasta, PROFILES.dry_starch), dry: B.dryOutSeconds(9) * 1000 }));
+        check('...while a stew on high runs dry well before it burns',
+          B.dryOutSeconds(9) * 1000 < burnIn(stew, PROFILES.liquid),
+          JSON.stringify({ burn: burnIn(stew, PROFILES.liquid), dry: B.dryOutSeconds(9) * 1000 }));
+      }
+
+      // Integration over the burner log, which is the only state it has.
+      const hot = wet(9, 150000);                         // half of five minutes
+      check('half the boil time takes half the water',
+        Math.abs(B.boiledFraction(hot, t) - 0.5) < 0.02, B.boiledFraction(hot, t));
+      check('...and it says so in words rather than in millilitres',
+        typeof B.waterText(B.boiledFraction(hot, t)) === 'string');
+
+      // ⚠ A PAN OFF THE HEAT IS A PAN NOT BOILING, and that falls out of running
+      // on the session's own clock rather than being a special case.
+      const off = wet(9, 150000);
+      H.retuneSession(off, 0, t);
+      const before = B.boiledFraction(off, t);
+      check('a ring turned off stops the water going',
+        Math.abs(B.boiledFraction(off, t + 600000) - before) < 1e-9,
+        JSON.stringify({ before, later: B.boiledFraction(off, t + 600000) }));
+      check('...and nothing is ever due to run dry', B.dryAt(off, t) === null);
+
+      // ⚠ AND THE STAMP TRANSLATES WITH THE SESSION. `wet.since` is in the
+      // session's frame, so a rate change has to move it with every other mark —
+      // otherwise turning the gas down would silently change how much water had
+      // already gone.
+      const tuned = wet(9, 150000);
+      const goneBefore = B.boiledFraction(tuned, t);
+      H.retuneSession(tuned, 0.5, t);
+      check('turning the gas down does not change the water already boiled away',
+        Math.abs(B.boiledFraction(tuned, t) - goneBefore) < 1e-9,
+        JSON.stringify({ goneBefore, after: B.boiledFraction(tuned, t) }));
+
+      // What going dry COSTS. Charged on the ceiling beside the prep drops, and
+      // the burn point comes forward to a grace measured in seconds — a pan of
+      // dry metal has none of the window a wet pot earns.
+      const scorched = session('liquid', { cookMs: 600000, startedAt: t - 600000 });
+      const clean = session('liquid', { cookMs: 600000, startedAt: t - 600000 });
+      scorched.scorched = t;
+      check('scorching brings the burn point forward', timeline(scorched, PROFILES.liquid).burnAt < timeline(clean, PROFILES.liquid).burnAt);
+      check('...to the grace it was given', timeline(scorched, PROFILES.liquid).burnAt === t + SCORCH_GRACE_MS);
+      const sBand = evaluate(scorched, PROFILES.liquid, t, 0);
+      const cBand = evaluate(clean, PROFILES.liquid, t, 0);
+      check('...and costs a rung off the ceiling',
+        bandIndex(sBand.ceiling) === Math.max(1, bandIndex(cBand.ceiling) - SCORCH_CEILING_DROP),
+        JSON.stringify({ scorched: sBand.ceiling, clean: cBand.ceiling }));
+      // ⚠ It can only ever pull the burn IN. A pan already past its burn point
+      // when the water went must not be handed extra time by having gone dry.
+      const late = session('liquid', { cookMs: 10000, startedAt: t - 3600000 });
+      const lateBurn = timeline(late, PROFILES.liquid).burnAt;
+      late.scorched = t;
+      check('...and a pan already past burning is not given more time for drying',
+        timeline(late, PROFILES.liquid).burnAt === lateBurn);
+    }
+
+    // ── A MEASURE OF A FLUID ───────────────────────────────────────────────
+    //
+    // `pour` was gated on `fat_or_oil`, so the other twenty-two liquids in the
+    // game — broth, stock, cream, gin, vinegar, tomato paste — went into a pan
+    // whole or not at all. The catalog had already flinched from it: penne alla
+    // gin asked for `liquid: [2,3]` until "penne, gin and two bottles of water"
+    // turned out to be a valid pan of sauce, and the fix was to stop counting
+    // liquids. A dish cannot ask for a sensible amount of something that only
+    // arrives by the bottle.
+    {
+      const { measureOf } = cookTest2;
+      const row = (weight, portion) => ({ weight, custom_data: portion ? { portion } : {} });
+
+      // ⚠ THE TWO CLASSES ARE COUNTED DIFFERENTLY, AND SO ARE THEIR MEASURES.
+      // `unitsOf` counts a modifier by DOSE and everything else by WEIGHT, so a
+      // fraction is right for the first and a fixed mass for the second. A fifth
+      // of a 600g soup base and a fifth of a 200g tin of paste are 120g and 40g,
+      // and calling both "a measure" would make the word mean three times as
+      // much depending on which bottle it came out of.
+      const oil = measureOf(row(600), 'fat_or_oil');
+      check('a measure of oil is a DOSE, as it always was', oil.portion === POUR_PORTION && oil.grams === 0,
+        JSON.stringify(oil));
+
+      for (const [w, want] of [[400, 0.25], [500, 0.2], [200, 0.5]]) {
+        const m = measureOf(row(w), 'liquid');
+        check(`a measure of a ${w}g fluid is ${FLUID_MEASURE_G}g of it`,
+          Math.abs(m.portion * w - FLUID_MEASURE_G) < 1e-9 && Math.abs(m.portion - want) < 1e-9,
+          JSON.stringify({ w, portion: m.portion, grams: m.portion * w }));
+      }
+
+      // ...which is the whole point: the same word is the same amount whatever
+      // it came out of, so a dish can count them again.
+      const gin = measureOf(row(400), 'liquid'), stock = measureOf(row(500), 'liquid');
+      check('...so a measure out of one bottle equals a measure out of another',
+        Math.abs(gin.portion * 400 - stock.portion * 500) < 1e-9);
+
+      // And it counts proportionally where it lands. `unitsOf` already
+      // multiplied by `portion`; nothing produced a partial liquid until now.
+      const whole = unitsOf({ weight: 400, custom_data: {} }, 'liquid');
+      const quarter = unitsOf({ weight: 400, custom_data: { portion: 0.25 } }, 'liquid');
+      check('a poured measure counts as its share of a unit, not as a whole one',
+        Math.abs(whole - 1) < 1e-9 && Math.abs(quarter - 0.25) < 1e-9,
+        JSON.stringify({ whole, quarter }));
+
+      // A bottle with less than a measure in it pours the lot and keeps its own
+      // name — "a measure of" something there was not a measure of is a lie, and
+      // a row too small to pour again is a row nobody can use.
+      const dregs = measureOf(row(400, 0.05), 'liquid');
+      check('what is left below a measure goes in whole', dregs.spentAll === true, JSON.stringify(dregs));
+      const small = measureOf(row(90), 'liquid');
+      check('...and so does a bottle smaller than one measure', small.spentAll === true, JSON.stringify(small));
+    }
+
+    // Seasoning in a fat is an infusion; seasoning on its own is still herbs in
+    // a pot. The gate is the fat, which is what keeps the older rule true.
+    {
+      check('oil and an aromatic make a named thing', inferDish({ fat_or_oil: 1, aromatic: 1 }, 'pan')?.family === 'oil');
+      check('...and it is capped well below a meal',
+        bandIndex(inferDish({ fat_or_oil: 1, aromatic: 1 }, 'pan')?.ceiling) < bandIndex('excellent'));
+      check('...while a dry pot of herbs is still not a dish', inferDish({ aromatic: 2 }, 'pot') === null);
+      check('...and neither is oil on its own', inferDish({ fat_or_oil: 1 }, 'pan') === null);
     }
 
   } finally {

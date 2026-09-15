@@ -8,9 +8,9 @@
   ],
   "objectGatedCommands": {
     "vend": {
-      "discoverVia": "furniture:flags.vends",
-      "exposed": false,
-      "note": "KNOWN GAP: furniture flag-value gate (flags.vends carries the item id). Flag values aren't tag-anchored, so availableActions can't surface it — the machine's description cues the VEND button. Same class as synthesis:cook."
+      "discoverVia": "vends",
+      "exposed": true,
+      "note": "A declaration-only specializedAction with requiredFlag 'vends' surfaces VEND on examine and in the room pane's action list. This was filed as a KNOWN GAP for a long time on the grounds that availableActions cannot read flag VALUES — true, and beside the point: requiredFlag gates on the flag KEY, which is all a dispenser needs."
     }
   },
   "actions": {

@@ -857,9 +857,13 @@ const LIGHT_SWEEP = [
   { tag: 'wrap 0.25', set: { wrap: 0.25 } },
   { tag: 'span x1.5', set: { span: 4.8 } },
   { tag: 'minR 2.0', set: { minR: 2 } },
-  { tag: 'gain 0.70', set: { gain: 0.70 } },
+  // ⚠ AND THE GAIN ROWS HAVE TO BRACKET THE SHIPPING VALUE ON BOTH SIDES. They were 0.70/1.00/1.40
+  // — every one of them brighter than what ships — which is fine while the question is "how much
+  // headroom is left" and useless the moment the answer is another cut. The shipping row is 0.18.
+  { tag: 'gain 0.12', set: { gain: 0.12 } },
+  { tag: 'gain 0.30', set: { gain: 0.30 } },
+  { tag: 'gain 0.45', set: { gain: 0.45 } },
   { tag: 'gain 1.00', set: { gain: 1.00 } },
-  { tag: 'gain 1.40', set: { gain: 1.40 } },
 ];
 
 // ── A FROZEN CLOCK HIDES THE LIGHTS, AND EVERY LIGHT MEASUREMENT HERE WAS BLIND ────────────────
@@ -1761,6 +1765,21 @@ if (typeof window !== 'undefined') window.__glShadow = runShadow;
 //   __glLeak()                                            // every model, at night
 //   __glLeak({ keys: ['named:solenneresidences'] })
 //   __glLeak({ hours: [2, 13] })
+// ⚠ AND IT CANNOT SEE THE DERIVED DETAIL KIT AT ALL, WHICH IS MOST OF WHAT A BUILDING WEARS. The
+// 2-D painter runs `detailLayer` only within `RENDER_TUNE.detailNear` — THREE tiles — and the
+// subject here stands at eight, so not one board, blade, canopy, pipe, lamp or neon run in the city
+// is ever emitted into a frame this sweep measures. That is the same blindness `glresidue` was
+// carrying one layer up, and it is why a blade painting straight down the front of its own bar
+// survived a green 173-model run of this.
+//
+// ⚠ AND IT IS NOT A PARAMETER, WHICH WAS TRIED. Moving the subject inside three tiles was measured
+// and it is degenerate at every value the geometry can express: the wall is THREE rows deep, so a
+// subject close enough for the kit lands IN the wall rather than behind it, and pulled back one row
+// the wall no longer covers it (98 of 173 subjects then draw almost nothing over it and prove
+// nothing). Restoring the bug and re-running finds zero. Seeing this class needs a different
+// arrangement — ONE low occluder between the camera and a subject two tiles out — rather than a
+// knob on this one, and until somebody builds that, the picture is the instrument: put the sign on
+// the far face (`ent` reversed) and look.
 export function runLeak({ keys = null, hours = [2], W = 640, H = 360, top = 16, wallFlr = 9, subjFlr = 16 } = {}) {
   const realNow = performance.now.bind(performance);
   const holder = document.createElement('div');
@@ -1843,14 +1862,28 @@ export function runLeak({ keys = null, hours = [2], W = 640, H = 360, top = 16, 
         if (Math.abs(wallAgain[i] - wallOnly[i]) + Math.abs(wallAgain[i + 1] - wallOnly[i + 1]) + Math.abs(wallAgain[i + 2] - wallOnly[i + 2]) >= 12) noise++;
       }
       for (const r of subjects) {
-        const withSubj = paint(build(cell(r), true), hour);
-        let leak = 0, crown = 0;
+        const map = build(cell(r), true);
+        const withSubj = paint(map, hour);
+        // ⚠ AND THE FLOOR IS MEASURED WITH THE SUBJECT IN THE SCENE, NOT WITHOUT IT. The wall-only
+        // pair above is a floor for the WALL, and nothing the subject makes vary is in it — a blink
+        // light's phase, a stack's smoke, a wind wheel's step, and whatever the decal and billboard
+        // caches were holding when this row came up. Measured the old way the floor reads 0 while
+        // the same sweep re-run on a fresh page moves between 0 and 300 px, which is a reading that
+        // invites the one mistake this column exists to stop: quoting it. One extra render per row,
+        // and the floor is the row's own.
+        // ⚠ THE FLOOR ITSELF STILL MOVES — two fresh-page runs of the same sweep measured it at 65
+        // and 79 px, and the four rows the first called leaks (44-47) were gone in the second. So a
+        // row just over its floor is a QUESTION, and the answer is a screenshot. Nobody has run down
+        // what is unpinned; it is not the clock and it is not Math.random, both of which are.
+        const again = paint(map, hour);
+        let leak = 0, crown = 0, own = 0;
         for (let i = 0, k = 0; i < wallOnly.length; i += 4, k++) {
+          if (mask[k] && Math.abs(again[i] - withSubj[i]) + Math.abs(again[i + 1] - withSubj[i + 1]) + Math.abs(again[i + 2] - withSubj[i + 2]) >= 12) own++;
           const d = Math.abs(withSubj[i] - wallOnly[i]) + Math.abs(withSubj[i + 1] - wallOnly[i + 1]) + Math.abs(withSubj[i + 2] - wallOnly[i + 2]);
           if (d < 12) continue;
           if (mask[k]) leak++; else crown++;
         }
-        rows.push({ model: r.key, hour, leakPx: leak, noisePx: noise, crownPx: crown, wallPx: maskN });
+        rows.push({ model: r.key, hour, leakPx: leak, noisePx: Math.max(noise, own), crownPx: crown, wallPx: maskN });
       }
     }
   } finally { RENDER_TUNE.gl = 0; performance.now = realNow; restoreRandom(); uninstall(); holder.remove(); }
@@ -2336,3 +2369,396 @@ export function runMaterials({ W = 640, H = 360, frames = 26, warm = 8 } = {}) {
   return rows;
 }
 if (typeof window !== 'undefined') window.__glMaterials = runMaterials;
+
+// `__glBevel()`. The shading bevel, in pixels.
+//
+// The BEVEL is the answer to a sentence already in the material shader: "a highlight on a flat box
+// is not a highlight". Every model here is boxes and drums, every edge is a hard 90°, and there is
+// no surface anywhere on a building turned part-way toward the light. Real corners carry a chamfer,
+// and that chamfer is the bright line down the edge of every masonry building ever photographed. It
+// is normals only — not one vertex moves and the face budget does not change — so the ONLY way to
+// see whether it is doing anything is in pixels, which is what this is for.
+//
+// ⚠ FIRST QUESTION, AS ALWAYS: DOES IT REACH ANY PIXELS. This is the fifth feature to go through
+// the allowlist in install.js, and that note now records four separate occasions where a term was
+// wired at both ends, correct in the shader, swept — and dropped one hop short, reporting 0.0% at
+// every strength. A sweep with every row at zero is that signature, not a disappointment.
+//
+// ⚠ SECOND: IT BELONGS ON THE BUILDINGS. It rides the same mass pass the material block does, so
+// the ground, the road, the sky and the cab are not in this pass at all and must not move.
+//
+// ⚠ THIRD: EXPECT THE NIGHT ROW TO BE NEAR ZERO, AND THAT IS THE SCENE RATHER THAN A FAULT. The
+// bevel reaches the picture through the key term, and after dark there is barely a key to steer —
+// which is the same arithmetic that makes the material rows collapse at night.
+//
+// ⚠ AND AN EMISSION CHANNEL WAS SWEPT HERE TOO, AND REMOVED. It read 0.0% at every seat because
+// every emissive face in the city is flat and a flat face is already unshaded. See world.js.
+//
+// ⚠ AND A SETTLED CLOCK, not merely a frozen one — the whole reason __glLights() read 0.0% for
+// weeks. The night seat has to be compared against a city whose lights reached their slots.
+const BEV_SEATS = [
+  { tag: 'cab, noon', R: 14, density: 0.20, hour: 12.5, cls: 'truck' },
+  { tag: 'cab, night', R: 14, density: 0.20, hour: 23, cls: 'truck' },
+  { tag: 'air, afternoon', R: 34, density: 0.06, hour: 15.5, cls: 'prop' },
+];
+const BEV_SWEEP = [0.01, 0.02, 0.04];
+
+export function runBevel({ W = 640, H = 360, frames = 26, warm = 8 } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const mid = (a) => { const b = [...a].sort((p, q) => p - q); return b[b.length >> 1]; };
+  // The named registry rather than one building type, for the reason __glMaterials gives: a street
+  // of one model is one shape, and an edge treatment measured on one shape measures nothing.
+  const mk = (R, density) => {
+    const N = R * 2 + 1;
+    let k = 0;
+    return Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+      const dx = x - R;
+      if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+      if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+      const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (density && (h % 1000) / 1000 < density) {
+        const r = named[(k++) % named.length];
+        return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6),
+          ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 3) };
+      }
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+  };
+
+  const rows = [], realNow = performance.now.bind(performance);
+  const heldBevel = RENDER_TUNE.glBevel;
+  try {
+    for (const seat of BEV_SEATS) {
+      const ID = '__bev' + BEV_SEATS.indexOf(seat) + '_' + (runBevel.n = (runBevel.n || 0) + 1);
+      el.id = ID;
+      const built = mk(seat.R, seat.density), bare = mk(seat.R, 0);
+      const view = (map) => ({
+        cls: seat.cls, phase: 'cruise', worldBlend: 1,
+        height: seat.cls === 'prop' ? 0.5 : 0, eyeH: seat.cls === 'prop' ? undefined : 0.12,
+        hour: seat.hour, weather: 'clear', speed: 0.4, map, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        resFloor: 1, tune: { gl: 1, perfDS: 0 },
+      });
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+      const paint2 = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
+      settleFade(() => paintWindshield(ID, view(built)));
+
+      RENDER_TUNE.glBevel = 0;
+      paint2(view(bare)); const empty = shot();
+      paint2(view(built)); const off = shot();
+      const isWall = new Uint8Array(off.length >> 2);
+      let mask = 0, ground = 0;
+      for (let i = 0; i < off.length; i += 4) {
+        const d = Math.abs(off[i] - empty[i]) + Math.abs(off[i + 1] - empty[i + 1]) + Math.abs(off[i + 2] - empty[i + 2]);
+        if (d > 18) { isWall[i >> 2] = 1; mask++; } else ground++;
+      }
+      const measure = (label, from) => {
+        paint2(view(built)); const on = shot();
+        let moved = 0, sum = 0, worst = 0, outside = 0;
+        for (let i = 0; i < on.length; i += 4) {
+          const d = (Math.abs(on[i] - from[i]) + Math.abs(on[i + 1] - from[i + 1]) + Math.abs(on[i + 2] - from[i + 2])) / 3;
+          if (!isWall[i >> 2]) { if (d >= 2) outside++; continue; }
+          if (d >= 2) { moved++; sum += d; }
+          if (d > worst) worst = d;
+        }
+        rows.push({ seat: seat.tag, setting: label, wallPx: mask,
+          movedPct: mask ? +(moved / mask * 100).toFixed(1) : null,
+          meanOnMoved: moved ? +(sum / moved / 255 * 100).toFixed(1) : null,
+          worst: Math.round(worst),
+          offBuildingPct: ground ? +(outside / ground * 100).toFixed(2) : null });
+      };
+      for (const s of BEV_SWEEP) { RENDER_TUNE.glBevel = s; measure('glBevel ' + s + ' vs none', off); }
+
+      performance.now = realNow;
+      const t = (b) => {
+        RENDER_TUNE.glBevel = b;
+        const v = view(built);
+        for (let i = 0; i < warm; i++) paintWindshield(ID, v);
+        const a = [];
+        for (let i = 0; i < frames; i++) { const t0 = performance.now(); paintWindshield(ID, v); a.push(performance.now() - t0); }
+        return mid(a);
+      };
+      const msOff = t(0), msBev = t(heldBevel);
+      rows.push({ seat: seat.tag, setting: 'cost off -> bevel', wallPx: null,
+        movedPct: null, meanOnMoved: null, worst: null, offBuildingPct: null,
+        ms: msOff.toFixed(2) + ' -> ' + msBev.toFixed(2) });
+    }
+  } finally {
+    performance.now = realNow;
+    RENDER_TUNE.glBevel = heldBevel;
+    uninstall && uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   offBuildingPct is the control and wants to be ~0: this term may only touch mass.');
+  console.log('   a near-zero NIGHT row is correct — the bevel steers the key term, and there is barely a key.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glBevel = runBevel;
+
+// `__glSsao()`. The occlusion neither of the other two terms can see.
+//
+// `glAO` is a height above the ground and `glBakedAo` is sampled against a model's OWN solid, so
+// both stop at the edge of the building they belong to. What neither answers is the gap between two
+// DIFFERENT buildings — an alley, a canopy over a neighbour's frontage, a light well — which is
+// most of what a dense street is made of. This is the A/B on that.
+//
+// ⚠ THE SEATS ARE CHOSEN TO SEPARATE IT FROM THE TERMS IT SITS ON TOP OF. A dense street is where
+// it should do most of its work and an isolated building is where it should do almost none, so the
+// pair is the measurement: a term that moved both equally would be a vignette rather than occlusion.
+//
+// ⚠ AND THE OTHER TWO OCCLUSION TERMS ARE HELD AT THEIR SHIPPED VALUES, not zeroed. This lands on
+// top of them, so the frame it is actually added to is the one with them in it — the lesson the
+// relief row cost in __glMaterials, where a term measured against a baseline it is not added to
+// came back LOWER than the term without it.
+//
+// ⚠ FIRST QUESTION, AS ALWAYS: DOES IT REACH ANY PIXELS. Sixth feature through the allowlist in
+// install.js. This one has more ways to silently do nothing than any of the others — a framebuffer
+// the driver will not complete, a depth texture it will not allocate, three programs that have to
+// link, a resize that failed — and every one of them is caught and turned into "strength 0", which
+// is correct behaviour and indistinguishable from the term being pointless.
+const SSAO_SEATS = [
+  { tag: 'cab, dense street', R: 12, density: 0.42, hour: 12.5, cls: 'truck' },
+  { tag: 'cab, one building', R: 12, density: 0.0, hour: 12.5, cls: 'truck', solo: true },
+  { tag: 'cab, dense, night', R: 12, density: 0.42, hour: 23, cls: 'truck' },
+  { tag: 'air, afternoon', R: 30, density: 0.12, hour: 15.5, cls: 'prop' },
+];
+const SSAO_SWEEP = [0.25, 0.5, 1];
+
+export function runSsao({ W = 640, H = 360, frames = 26, warm = 8 } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const mid = (a) => { const b = [...a].sort((p, q) => p - q); return b[b.length >> 1]; };
+  const mk = (R, density, solo) => {
+    const N = R * 2 + 1;
+    let k = 0;
+    return Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+      const dx = x - R, dy = y - R;
+      // One building on open ground, for the control seat: nothing near it to be occluded by.
+      if (solo) {
+        if (dx >= 0 && dx <= 1 && dy >= -4 && dy <= -3) {
+          return { kind: 'land', biome: 'citycore', bt: 'shop', bn: named[3].name || named[3].key.slice(6), ent: 'south', flr: 6 };
+        }
+        return { kind: 'land', biome: 'citycore', road: dx === -1 ? 1 : 0, rd: 'ns', flr: 0, pw: 1 };
+      }
+      if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+      if (Math.abs(dx) === 1) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+      const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (density && (h % 1000) / 1000 < density) {
+        const r = named[(k++) % named.length];
+        return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6),
+          ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 5) };
+      }
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+  };
+
+  const rows = [], realNow = performance.now.bind(performance);
+  const held = RENDER_TUNE.glSsao;
+  try {
+    for (const seat of SSAO_SEATS) {
+      const ID = '__ssao' + SSAO_SEATS.indexOf(seat) + '_' + (runSsao.n = (runSsao.n || 0) + 1);
+      el.id = ID;
+      const built = mk(seat.R, seat.density, seat.solo), bare = mk(seat.R, 0);
+      const view = (map) => ({
+        cls: seat.cls, phase: 'cruise', worldBlend: 1,
+        height: seat.cls === 'prop' ? 0.5 : 0, eyeH: seat.cls === 'prop' ? undefined : 0.12,
+        hour: seat.hour, weather: 'clear', speed: 0.4, map, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        resFloor: 1, tune: { gl: 1, perfDS: 0 },
+      });
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+      const paint2 = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
+      settleFade(() => paintWindshield(ID, view(built)));
+
+      RENDER_TUNE.glSsao = 0;
+      paint2(view(bare)); const empty = shot();
+      paint2(view(built)); const off = shot();
+      const isWall = new Uint8Array(off.length >> 2);
+      let mask = 0, ground = 0;
+      for (let i = 0; i < off.length; i += 4) {
+        const d = Math.abs(off[i] - empty[i]) + Math.abs(off[i + 1] - empty[i + 1]) + Math.abs(off[i + 2] - empty[i + 2]);
+        if (d > 18) { isWall[i >> 2] = 1; mask++; } else ground++;
+      }
+      const measure = (label) => {
+        paint2(view(built)); const on = shot();
+        let moved = 0, sum = 0, worst = 0, outside = 0, darker = 0;
+        for (let i = 0; i < on.length; i += 4) {
+          const s = (on[i] - off[i]) + (on[i + 1] - off[i + 1]) + (on[i + 2] - off[i + 2]);
+          const d = Math.abs(s) / 3;
+          if (!isWall[i >> 2]) { if (d >= 2) outside++; continue; }
+          if (d >= 2) { moved++; sum += d; if (s < 0) darker++; }
+          if (d > worst) worst = d;
+        }
+        rows.push({ seat: seat.tag, setting: label, wallPx: mask,
+          movedPct: mask ? +(moved / mask * 100).toFixed(1) : null,
+          meanOnMoved: moved ? +(sum / moved / 255 * 100).toFixed(1) : null,
+          darkerPct: moved ? +(darker / moved * 100).toFixed(0) : null,
+          worst: Math.round(worst),
+          offBuildingPct: ground ? +(outside / ground * 100).toFixed(2) : null });
+      };
+      for (const s of SSAO_SWEEP) { RENDER_TUNE.glSsao = s; measure('glSsao ' + s + ' vs none'); }
+
+      performance.now = realNow;
+      const t = (s) => {
+        RENDER_TUNE.glSsao = s;
+        const v = view(built);
+        for (let i = 0; i < warm; i++) paintWindshield(ID, v);
+        const a = [];
+        for (let i = 0; i < frames; i++) { const t0 = performance.now(); paintWindshield(ID, v); a.push(performance.now() - t0); }
+        return mid(a);
+      };
+      const msOff = t(0), msOn = t(held);
+      rows.push({ seat: seat.tag, setting: 'cost off -> ssao', wallPx: null,
+        movedPct: null, meanOnMoved: null, darkerPct: null, worst: null, offBuildingPct: null,
+        ms: msOff.toFixed(2) + ' -> ' + msOn.toFixed(2) });
+    }
+  } finally {
+    performance.now = realNow;
+    RENDER_TUNE.glSsao = held;
+    uninstall && uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   darkerPct wants to be ~100: occlusion only ever removes light.');
+  console.log('   the dense seat must move MORE than the one-building seat, or this is a vignette, not occlusion.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glSsao = runSsao;
+
+// `__glHdr()`. The float target, the bloom and the tone curve — and the three separate ways this
+// one managed to be correct, wired, measurable and completely inert.
+//
+// ⚠ THE HEADROOM IS REAL AND THE CITY DOES NOT USE IT. That is the finding the whole feature turns
+// on, and `peak` is the column that says so: every shader in GLASS was written against an 8-bit
+// target and saturates by construction, so before the emissive gain the brightest pixel in a night
+// street measured **1.016**, with 0.01% of the frame over 1.0. A bright-pass at 1.0 therefore found
+// nothing — not because the buffer was wrong, not because the chain was wrong, but because there was
+// nothing above white to find.
+//
+// ⚠ AND LOWERING THE THRESHOLD IS NOT THE FIX, WHICH THE PICTURE SAID AND THE NUMBERS DID NOT. At
+// 0.72 the bloom came back — on the ROAD MARKINGS, which in a dark street are the palest thing in
+// frame and are not lights. A bloom that cannot tell a neon sign from painted tarmac is worse than
+// no bloom. The emitters are pushed past white instead (EMISSIVE_GAIN in world.js) and the
+// threshold means what it says again.
+//
+// ⚠ WHICH COSTS A LOOK CHANGE, and the 'bloom 0' row is where to watch it. The composite clamps, so
+// a glow already at 1.0 is unchanged — but one BELOW 1.0 is brighter now, and that row measures
+// exactly that and nothing else. It is a deliberate trade and not a free one.
+//
+// ⚠ AND THE DIALS ARE PINNED AND THE CLOCK SETTLED, as in every bench here.
+const HDR_SEATS = [
+  { tag: 'cab, night', R: 12, density: 0.34, hour: 23, cls: 'truck' },
+  { tag: 'cab, noon', R: 12, density: 0.34, hour: 12.5, cls: 'truck' },
+  { tag: 'air, dusk', R: 28, density: 0.12, hour: 19.5, cls: 'prop' },
+];
+
+export function runHdr({ W = 640, H = 360, frames = 26, warm = 8 } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const mid = (a) => { const b = [...a].sort((p, q) => p - q); return b[b.length >> 1]; };
+  const mk = (R, density) => {
+    const N = R * 2 + 1;
+    let k = 0;
+    return Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+      const dx = x - R;
+      if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+      if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+      const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (density && (h % 1000) / 1000 < density) {
+        const r = named[(k++) % named.length];
+        return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6),
+          ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 4) };
+      }
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+  };
+
+  const rows = [], realNow = performance.now.bind(performance);
+  const held = { h: RENDER_TUNE.glHdr, b: RENDER_TUNE.glBloom, t: RENDER_TUNE.glTonemap };
+  try {
+    for (const seat of HDR_SEATS) {
+      const ID = '__hdr' + HDR_SEATS.indexOf(seat) + '_' + (runHdr.n = (runHdr.n || 0) + 1);
+      el.id = ID;
+      const built = mk(seat.R, seat.density);
+      const view = {
+        cls: seat.cls, phase: 'cruise', worldBlend: 1,
+        height: seat.cls === 'prop' ? 0.5 : 0, eyeH: seat.cls === 'prop' ? undefined : 0.12,
+        hour: seat.hour, weather: 'clear', speed: 0.4, map: built, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        resFloor: 1, tune: { gl: 1, perfDS: 0 },
+      };
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+      const paint2 = () => { paintWindshield(ID, view); paintWindshield(ID, view); };
+      settleFade(() => paintWindshield(ID, view));
+
+      RENDER_TUNE.glHdr = 0; paint2(); const off = shot();
+      const cmp = (label) => {
+        settleFade(() => paintWindshield(ID, view));
+        paint2(); const on = shot();
+        let moved = 0, up = 0, sum = 0, worst = 0;
+        for (let i = 0; i < on.length; i += 4) {
+          const d = ((on[i] - off[i]) + (on[i + 1] - off[i + 1]) + (on[i + 2] - off[i + 2])) / 3;
+          if (Math.abs(d) >= 2) { moved++; sum += Math.abs(d); if (d > 0) up++; }
+          if (Math.abs(d) > worst) worst = Math.abs(d);
+        }
+        const st = glLastFrame() || {};
+        rows.push({ seat: seat.tag, setting: label,
+          movedPct: +(moved / (on.length / 4) * 100).toFixed(1),
+          brighterPct: moved ? +(up / moved * 100).toFixed(0) : null,
+          mean: +(sum / Math.max(1, moved)).toFixed(1), worst: Math.round(worst),
+          peak: st.hdr && st.hdr.peak ? st.hdr.peak().maxUnpremult : null,
+          overOnePct: st.hdr && st.hdr.peak ? st.hdr.peak().overOnePct : null });
+      };
+      RENDER_TUNE.glHdr = 1; RENDER_TUNE.glTonemap = 0;
+      RENDER_TUNE.glBloom = 0;   cmp('hdr on, bloom 0 (the emitter gain alone)');
+      RENDER_TUNE.glBloom = 0.4; cmp('bloom 0.4');
+      RENDER_TUNE.glBloom = 0.8; cmp('bloom 0.8');
+      RENDER_TUNE.glBloom = 0;   RENDER_TUNE.glTonemap = 0.25; cmp('curve 0.25, no bloom');
+      RENDER_TUNE.glTonemap = 0.6; cmp('curve 0.60, no bloom');
+
+      performance.now = realNow;
+      const t = (hdr, bloom) => {
+        RENDER_TUNE.glHdr = hdr; RENDER_TUNE.glBloom = bloom; RENDER_TUNE.glTonemap = hdr ? 0.25 : 0;
+        for (let i = 0; i < warm; i++) paintWindshield(ID, view);
+        const a = [];
+        for (let i = 0; i < frames; i++) { const t0 = performance.now(); paintWindshield(ID, view); a.push(performance.now() - t0); }
+        return mid(a);
+      };
+      const msOff = t(0, 0), msBuf = t(1, 0), msAll = t(1, 0.6);
+      rows.push({ seat: seat.tag, setting: 'cost off -> buffer -> +bloom', movedPct: null,
+        brighterPct: null, mean: null, worst: null, peak: null, overOnePct: null,
+        ms: msOff.toFixed(2) + ' -> ' + msBuf.toFixed(2) + ' -> ' + msAll.toFixed(2) });
+    }
+  } finally {
+    performance.now = realNow;
+    RENDER_TUNE.glHdr = held.h; RENDER_TUNE.glBloom = held.b; RENDER_TUNE.glTonemap = held.t;
+    uninstall && uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   peak is the whole argument: under 1.0 and a bright-pass at 1.0 has nothing to find.');
+  console.log('   the "bloom 0" row is the emitter gain\'s own look change, measured on its own.');
+  console.log('   a noon seat blooming nothing is correct — the additive lights are night-gated.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glHdr = runHdr;

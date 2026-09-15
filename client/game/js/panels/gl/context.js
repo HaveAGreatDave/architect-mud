@@ -27,10 +27,15 @@ import { createGroundLayer } from './ground.js';
 import { createFloorLayer } from './floor.js';
 import { createCloudLayer } from './clouds.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
+import { createSSAOLayer } from './ssao.js';
+import { createHDRLayer } from './hdr.js';
+// The clip range the matrix is built with. The SSAO pass inverts the depth buffer back to tiles and
+// has to use the same two constants the vertices went through.
+import { NEAR, FAR } from './camera.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
-// haze jitter 1, baked occlusion 1, material family 1.
-const STRIDE = 17;
+// haze jitter 1, baked occlusion 1, material family 1, edge distances 4.
+const STRIDE = 21;
 
 // The material table's uniform budget, and the loop-free bound the shader's arrays are stamped
 // with. Nineteen families exist today (windshield.js's MAT_ORDER); the headroom is so that adding
@@ -52,6 +57,10 @@ in float aFlat;
 in float aMat;
 in float aJit;
 in float aBakedAo;
+// How far this vertex is from each of its own face's four edges, in tiles, ordered (-T, +T, -B, +B)
+// against the tangent frame the fragment shader rebuilds from the normal. Linear in position, so
+// barycentric interpolation reproduces the true distance field exactly — see faceEdges in world.js.
+in vec4 aEdge;
 uniform mat4 uViewProj;
 out vec3 vNormal;
 out vec3 vColor;
@@ -67,6 +76,7 @@ out float vBakedAo;
 // anyway — so this is both cheaper and the only spelling that cannot round to the wrong family.
 flat out float vMat;
 out vec3 vWorld;
+out vec4 vEdge;
 void main() {
   vec4 clip = uViewProj * vec4(aPos, 1.0);
   gl_Position = clip;
@@ -79,6 +89,7 @@ void main() {
   vJit = aJit;
   vBakedAo = aBakedAo;
   vMat = aMat;
+  vEdge = aEdge;
   vWorld = aPos;                // the city own lights need a position to fall off FROM
   vDepth = clip.w;              // the camera-forward distance, in tiles — the same f GLASS sorts on
 }`;
@@ -86,7 +97,16 @@ void main() {
 // The shading GLASS already does, per fragment instead of per face: a key-light dot that warms the
 // lit side and cools the shadow side, and a distance fade into the sky. `uKey`/`uSky`/`uShadow` are
 // RENDER_TUNE's own vertex-light palette, handed in rather than restated.
-export const MAX_LIGHTS = 12;   // uniform slots, and the per-fragment loop bound
+// ⚠ THIS IS THE COMPILED CEILING, NOT THE WORKING COUNT. The loop breaks on 'uNLight', so what a
+// frame actually costs is the number of lights it HAS, not this — raising the ceiling costs a frame
+// with twelve lights in it exactly nothing, and the uniform budget it asks for (3 arrays of this,
+// ~151 vectors all told) is still a third of the WebGL2 guarantee of 224.
+//
+// The working count is 'RENDER_TUNE.glLightSlots', and it is separate for a reason worth knowing:
+// this number is stamped into the shader source, so sweeping it would mean recompiling the program
+// and there would be no way to measure the choice. A runtime cap can be swept, which is how its
+// default was picked — see the note on that knob in windshield.js.
+export const MAX_LIGHTS = 32;   // uniform slots, and the per-fragment loop CEILING
 
 const FRAG = `#version 300 es
 precision highp float;
@@ -94,6 +114,11 @@ precision highp float;
 // strength itself is already folded into shK, so this is the shape and RENDER_TUNE.glShadow is the
 // dial. 0.45 is what the flat-face term used before this covered both halves.
 const float SHADOW_DARK = 0.45;
+// How hard the chamfer's own key-term delta lands on the surface, before the width knob. Same shape
+// as SHADOW_DARK and for the same reason — see the ⚠ beside its use, where a term that only steered
+// 'lit' came out monotonic, correct and invisible. Signed, so a chamfer turned toward the light
+// brightens by the same amount one turned away darkens.
+const float BEVEL_SHADE = 0.9;
 in vec3 vNormal;
 in vec3 vColor;
 in vec2 vUV;
@@ -105,6 +130,7 @@ in float vJit;
 in float vBakedAo;
 flat in float vMat;
 in vec3 vWorld;
+in vec4 vEdge;
 uniform sampler2D uAtlas;
 uniform float uTextured;
 uniform vec3 uKeyDir;
@@ -177,6 +203,18 @@ uniform vec3 uSunDir;
 uniform vec3 uEye;
 uniform float uMatStr;
 uniform float uBumpStr;
+// How wide the shading bevel is, in tiles. 0 makes the whole term unreachable — the branch is on
+// this uniform, so at 0 not one of the four comparisons below is evaluated.
+uniform float uBevel;
+// And how far the normal leans over across that width. Separate from the width because they say
+// different things: the width is how big the chamfer is, this is how sharply it turns.
+uniform float uBevelTilt;
+// The screen-space occlusion resolved before this pass ran, and how hard it lands. 0 makes the
+// lookup unreachable — the guard is on the strength, which is a uniform, so every fragment takes
+// the same side of it and the term is provably absent rather than multiplying by a white texture.
+uniform highp sampler2D uSsao;
+uniform float uSsaoStr;
+uniform vec2 uViewport;
 uniform vec4 uMat[GLASS_MAX_MAT];
 uniform float uSheen[GLASS_MAX_MAT];
 // The two ends of the sky, for a reflection to land on. GLASS's sky IS a vertical gradient, so two
@@ -270,21 +308,68 @@ void main() {
   // from screen-space derivatives taken across a quad of fragments — put one behind a test that some
   // of that quad fails and the result is undefined. The atlas has exactly one level, so stating it
   // costs nothing and removes the whole class. See sunShadow for what a NaN here is worth.
+  // ⚠ THE TANGENT FRAME IS HOISTED BECAUSE TWO TERMS NEED IT AND THEY MUST AGREE. The relief below
+  // reads the atlas along T and B; the bevel under it leans the normal along T and B; and
+  // 'faceEdges' in world.js measured the edge distances in this same frame. Three copies of one
+  // convention, and the one that can go wrong silently is the bevel — a frame that disagreed with
+  // the JS would put the near edge on one axis and the lean on the other, which does not read as a
+  // broken bevel, it reads as walls lit from a direction the sun is not.
+  vec3 up = vec3(0.0, 0.0, 1.0);
+  vec3 T = cross(up, n0);
+  float tl = length(T);
+  // A horizontal face — a roof, a canopy — has no horizon to take a tangent from, so it takes a
+  // fixed one. Which axis hardly matters; what it must not be is the zero vector.
+  T = tl > 0.001 ? T / tl : vec3(1.0, 0.0, 0.0);
+  vec3 B = cross(n0, T);
   if (uMatStr > 0.0 && uBumpStr > 0.0) {
     float k = uMat[int(vMat + 0.5)].w * uBumpStr * clamp(uTextured, 0.0, 1.0) * solid;
-    vec3 up = vec3(0.0, 0.0, 1.0);
-    vec3 T = cross(up, n0);
-    float tl = length(T);
-    // A horizontal face — a roof, a canopy — has no horizon to take a tangent from, so it takes a
-    // fixed one. Which axis hardly matters; what it must not be is the zero vector.
-    T = tl > 0.001 ? T / tl : vec3(1.0, 0.0, 0.0);
-    vec3 B = cross(n0, T);
     float l0 = lum(textureLod(uAtlas, vUV, 0.0).rgb);
     float lu = lum(textureLod(uAtlas, vUV + vec2(uAtlasTexel.x, 0.0), 0.0).rgb);
     float lv = lum(textureLod(uAtlas, vUV + vec2(0.0, uAtlasTexel.y), 0.0).rgb);
     // Bright is proud, so the normal tilts AWAY from the brighter neighbour. v runs down the face in
     // this atlas, which is why the B term is subtracted rather than added.
     n = normalize(n0 - (T * (lu - l0) - B * (lv - l0)) * (k * 6.0));
+  }
+  // ── THE CHAMFER ON EVERY EDGE IN THE CITY ───────────────────────────────────
+  //
+  // Nothing here is built with an arris. Every box meets its neighbour at a hard 90°, so there is
+  // no surface anywhere on a building turned part-way toward the light — which is why the specular
+  // note above had to conclude that a highlight on a flat box is not a highlight. A real building
+  // has a few centimetres of chamfer on every corner, and that chamfer is the bright line running
+  // down the edge of every masonry corner ever photographed.
+  //
+  // ⚠ NORMALS ONLY. Not one vertex moves, so the mesh still agrees face-for-face with the shape the
+  // building COLLIDES as ('gl:mesh'), the occluder hull is untouched, and the face budget does not
+  // move at all. A real inset chamfer costs about five times the faces and breaks that agreement.
+  //
+  // ⚠ AND IT IS BRANCHLESS INSIDE THE UNIFORM GUARD. 't' is 0 for every fragment further from an
+  // edge than the bevel is wide, so the added term is the zero vector and 'n' comes back untouched
+  // — which is the same arithmetic off-switch the two occlusion terms use, rather than a per
+  // fragment jump. At uBevel 0 the guard is a uniform and nothing inside is reached at all.
+  float bevelK = 0.0;
+  if (uBevel > 0.0) {
+    float d = min(min(vEdge.x, vEdge.y), min(vEdge.z, vEdge.w));
+    // Squared, so the lean eases in rather than creasing at the inner limit of the chamfer.
+    float t = clamp(1.0 - d / uBevel, 0.0, 1.0);
+    // Which edge is nearest decides which way the surface turns. ⚠ Selected by comparison rather
+    // than by a chain of ifs, which also handles a CORNER correctly for free: where two distances
+    // tie, both terms fire and the normal leans diagonally, which is what a real corner does.
+    vec3 dir = (-T) * step(vEdge.x, d) + T * step(vEdge.y, d)
+             + (-B) * step(vEdge.z, d) + B * step(vEdge.w, d);
+    vec3 nb = normalize(n + dir * (t * t * uBevelTilt));
+    // ⚠ AND THE CHAMFER HAS TO DARKEN AND BRIGHTEN THE SURFACE, NOT ONLY STEER THE KEY TERM. This
+    // is the trap already written up on uShadowStr, one term along, and it caught this one too:
+    // everything a normal does here reaches a wall through 'lit', whose only consumers are two
+    // OVERLAY ALPHAS running 0.06-0.20 and 0.30-0.52. Measured end to end that way, a full 45°
+    // chamfer moved 1.1% of a cab frame's wall pixels by a mean of 3 of 255 — correct, monotonic,
+    // free, and very nearly invisible, which is word for word what the sun's shadow did.
+    //
+    // So the key-term DELTA the chamfer causes is applied to 'base' directly, the way the shadow
+    // and both occlusion terms already are. ⚠ Signed, unlike those three: an edge turned toward the
+    // light gets brighter and one turned away gets darker, and a chamfer that could only darken
+    // would read as a dirty line down every corner rather than as a cut one.
+    bevelK = (dot(nb, normalize(uKeyDir)) - dot(n, normalize(uKeyDir))) * 0.5;
+    n = nb;
   }
   float lit = clamp(0.5 + dot(n, normalize(uKeyDir)) * 0.5, 0.0, 1.0);
   // ⚠ THE SHADOW LANDS ON the KEY TERM, AND THAT IS THE FAITHFUL PLACE FOR IT. lit is the half-lambert
@@ -339,6 +424,10 @@ void main() {
   // constant is the shape of the falloff and RENDER_TUNE.glShadow is the knob. Two knobs here would
   // multiply into a strength slider that does not mean what it says.
   base *= 1.0 - SHADOW_DARK * shK;
+  // The chamfer's own contribution, on the surface rather than on an overlay alpha — see the ⚠ in
+  // the bevel block. Exactly 1.0 when the width is 0, because bevelK is initialised to 0 and the
+  // block that writes it is guarded by that same uniform.
+  base *= 1.0 + BEVEL_SHADE * bevelK;
   // ── CONTACT OCCLUSION ───────────────────────────────────────────────────────
   //
   // Ambient occlusion is a CONTACT effect — the ground robs a surface of sky the closer that
@@ -370,6 +459,27 @@ void main() {
   // the SKY, and a neon sign in a recessed doorway must still light the doorway.
   occ *= 1.0 - uBakedAo * (1.0 - clamp(vBakedAo, 0.0, 1.0));
   base *= 1.0 - uBakedAo * (1.0 - clamp(vBakedAo, 0.0, 1.0));
+  // ── AND THE HALF NEITHER OF THOSE CAN SEE: THE BUILDING NEXT DOOR ──────────
+  //
+  // Both terms above are LOCAL by construction. 'uAo' is a height above the ground and 'vBakedAo'
+  // is sampled against THE MODEL'S OWN solid at capture time, so a narrow gap between two different
+  // buildings, a canopy over a neighbour's frontage and an alley are all invisible to them — and a
+  // city is largely made of those. The baked pass could not answer it either: the neighbours change
+  // with the camera, so it could not live in the per-model memo that makes it affordable.
+  //
+  // ⚠ SAME PLACEMENT ARGUMENT AS THE TWO ABOVE, AND IT MATTERS MORE HERE. Occlusion is a statement
+  // about the SKY, so it goes before the lights: a neon sign in an alley must still light the alley.
+  // It also multiplies 'occ', because the environment reflection is the same statement about how
+  // much sky a surface can see — a shiny wall in a gap must not reflect the open sky it cannot see.
+  if (uSsaoStr > 0.0) {
+    float ss = texture(uSsao, gl_FragCoord.xy / uViewport).r;
+    // ⚠ SANITISED WITH A COMPARISON, NOT A CLAMP — the rule established beside sunShadow. A NaN or
+    // an unbound sampler reaching an occlusion multiply is not a missing shadow, it is a BLACK
+    // CITY, and every comparison against NaN is false by definition so this rejects one.
+    float k = ss >= 0.0 && ss <= 1.0 ? 1.0 - uSsaoStr * (1.0 - ss) : 1.0;
+    occ *= k;
+    base *= k;
+  }
   // ── AND WHAT THE SURFACE IS MADE OF ─────────────────────────────────────────
   //
   // ⚠ THE BRANCH IS ON A UNIFORM AND NOTHING ELSE, which is the one kind that is safe here: every
@@ -459,6 +569,10 @@ void main() {
     float diff = max(0.0, (dot(n, d / max(0.001, dist)) + uLightWrap) / (1.0 + uLightWrap));
     base += uLightC[i] * (att * att * diff);
   }
+  // ⚠ AND THERE IS NO EMISSION TERM HERE, WHICH WAS MEASURED RATHER THAN ASSUMED. One sat on this
+  // line and moved 0.0% of wall pixels at every seat: everything above IS light arriving at a wall,
+  // and every emissive surface in the city is a FLAT face, which 'solid' has already excused from
+  // all of it. The account is beside faceEdges in world.js.
   // GLASS's own fog curve, squared, scaled by the same amount its slider sets — see fogWeight.
   float ff = clamp((vDepth - uFogNear) / max(0.001, uFogFar - uFogNear), 0.0, 1.0);
   float fog = ff * ff * uFogAmt;
@@ -529,6 +643,7 @@ export function createGLView(canvas, opts = {}) {
     flat: gl.getAttribLocation(prog, 'aFlat'),
     bao: gl.getAttribLocation(prog, 'aBakedAo'),
     mat: gl.getAttribLocation(prog, 'aMat'),
+    edge: gl.getAttribLocation(prog, 'aEdge'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     keyDir: gl.getUniformLocation(prog, 'uKeyDir'),
     key: gl.getUniformLocation(prog, 'uKey'),
@@ -565,6 +680,11 @@ export function createGLView(canvas, opts = {}) {
     eye: gl.getUniformLocation(prog, 'uEye'),
     matStr: gl.getUniformLocation(prog, 'uMatStr'),
     bumpStr: gl.getUniformLocation(prog, 'uBumpStr'),
+    bevel: gl.getUniformLocation(prog, 'uBevel'),
+    bevelTilt: gl.getUniformLocation(prog, 'uBevelTilt'),
+    ssao: gl.getUniformLocation(prog, 'uSsao'),
+    ssaoStr: gl.getUniformLocation(prog, 'uSsaoStr'),
+    viewport: gl.getUniformLocation(prog, 'uViewport'),
     // Same spelling rule as the light arrays above: asked for WITHOUT the subscript, so the name is
     // one a shader in this file actually declares and gl:glsl has something to check it against.
     matTab: gl.getUniformLocation(prog, 'uMat'),
@@ -606,6 +726,8 @@ export function createGLView(canvas, opts = {}) {
   // with the window would reallocate on every seat change; a fixed square costs the same at every
   // seat and the projection is what tightens onto the geometry.
   let shadow = null, shadowTried = false;
+  let ssao = null, ssaoTried = false;
+  let hdr = null, hdrTried = false;
   let warnedShadowShape = false;   // once per view — see the ⚠ on `opts.shadow` in draw()
 
   // One texture for the whole city. See gl/atlas.js for why this is an atlas rather than a bind
@@ -732,6 +854,13 @@ export function createGLView(canvas, opts = {}) {
             // could not reach goes black instead of simply staying as it was.
             data[o + 15] = f.ao ? f.ao[k] : 1;
             data[o + 16] = mat;
+            // ⚠ A FACE WITH NO EDGE FIELD GETS A DISTANCE NO BEVEL CAN REACH, NOT A ZERO. Zero is
+            // "on the edge", so a drum cap, a roof polygon or a degenerate quad — every face
+            // `faceEdges` declines — would come back fully chamfered over its whole area, which
+            // reads as the model having gone soft rather than as a term being missing.
+            const ed = f.edge;
+            data[o + 17] = ed ? ed[k * 4] : 1e6; data[o + 18] = ed ? ed[k * 4 + 1] : 1e6;
+            data[o + 19] = ed ? ed[k * 4 + 2] : 1e6; data[o + 20] = ed ? ed[k * 4 + 3] : 1e6;
             o += STRIDE;
           }
         }
@@ -762,6 +891,7 @@ export function createGLView(canvas, opts = {}) {
     if (loc.jit >= 0) { gl.enableVertexAttribArray(loc.jit); gl.vertexAttribPointer(loc.jit, 1, gl.FLOAT, false, S, 56); }
     if (loc.bao >= 0) { gl.enableVertexAttribArray(loc.bao); gl.vertexAttribPointer(loc.bao, 1, gl.FLOAT, false, S, 60); }
     if (loc.mat >= 0) { gl.enableVertexAttribArray(loc.mat); gl.vertexAttribPointer(loc.mat, 1, gl.FLOAT, false, S, 64); }
+    if (loc.edge >= 0) { gl.enableVertexAttribArray(loc.edge); gl.vertexAttribPointer(loc.edge, 4, gl.FLOAT, false, S, 68); }
     gl.bindVertexArray(null);
     return count;
   }
@@ -791,9 +921,68 @@ export function createGLView(canvas, opts = {}) {
     return shadow;
   }
 
+  // ── AND THE SCREEN-SPACE OCCLUSION, ON THE SAME TERMS ──────────────────────
+  //
+  // ⚠ IT LIVES HERE FOR THE REASON WRITTEN ABOVE sunPass: both passes bind their own framebuffer
+  // and both must therefore run BEFORE the clear at the top of draw(), or they are drawn and then
+  // wiped. A pass that leaves a framebuffer bound is worse — it draws the whole city into a texture
+  // nobody looks at and the canvas stays empty.
+  //
+  // ⚠ AND IT TAKES THE CAMERA'S OWN FRAME HEIGHT, NOT THE CANVAS'S. The projection constants it
+  // inverts are built from `cam.W`, `cam.depth` and `cam.horizonY`, which `makeCam` works out in
+  // CSS pixels; handing it the device-pixel height puts the whole vertical axis out by 1/dpr, which
+  // is the bug that once lifted the city 38 px off the ground and is exactly zero at dpr 1 — that
+  // is to say, invisible in every synthetic scene and every headless test.
+  function ssaoPass(cam, opts, W, H) {
+    if (!(opts.ssao > 0) || !count || !cam) return null;
+    if (!ssao && !ssaoTried) {
+      ssaoTried = true;                       // one attempt per view; a driver that refused once will refuse again
+      try { ssao = createSSAOLayer(gl, loc.pos); } catch { ssao = null; }
+    }
+    if (!ssao) return null;
+    const camH = opts.cssH || cam.H || H;
+    const vp = viewProjMatrix({ ...cam, H: camH }, camH);
+    const A = (FAR + NEAR) / (FAR - NEAR), B = -2 * FAR * NEAR / (FAR - NEAR);
+    try {
+      return ssao.render(vao, count, new Float32Array(vp), { ...cam, H: camH }, W, H,
+        { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02 });
+    } catch { return null; }
+  }
+
+  // ── THE FLOAT TARGET, OR THE CANVAS ────────────────────────────────────────
+  //
+  // ⚠ IT IS BOUND HERE AND NOWHERE EARLIER, BECAUSE THE TWO PREPASSES UNBIND. Both the sun's depth
+  // pass and the occlusion pass bind their own framebuffer and restore to null when they are done,
+  // so anything bound before them is gone by the time the city is drawn. Everything after this line
+  // — the floor, the ground, the sprites, the curtain, the decals, the strokes, the billboards and
+  // later the cloud deck — renders into whatever this leaves bound, which is the whole point.
+  //
+  // Returns whether the float path is live, so the caller knows whether a composite is owed.
+  function beginTarget(opts) {
+    if (!(opts.hdr > 0)) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
+    if (!hdr && !hdrTried) {
+      hdrTried = true;                        // one attempt per view; a driver that refused once will refuse again
+      try { hdr = createHDRLayer(gl); } catch { hdr = null; }
+    }
+    if (!hdr || !hdr.bind(canvas.width, canvas.height)) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
+    return true;
+  }
+
+  // And the other end of it. A no-op when the float path is not live, which is what makes the
+  // caller free to call it unconditionally.
+  function composite(opts = {}) {
+    return hdr ? hdr.composite(opts) : null;
+  }
+
+  // The peak in the float target, for a bench asking why a bright-pass found nothing. Null when
+  // there is no float path — see hdr.js.
+  function hdrPeak() { return hdr && hdr.peak ? hdr.peak() : null; }
+
   function draw(cam, opts = {}) {
     const sun = sunPass(opts);
     const W = canvas.width, H = canvas.height;
+    const ssaoTex = ssaoPass(cam, opts, W, H);
+    beginTarget(opts);
     gl.viewport(0, 0, W, H);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
@@ -867,6 +1056,9 @@ export function createGLView(canvas, opts = {}) {
     // in the same camera-relative tile frame the vertices are, and already the strongest few — see
     // world.js for why the selection lives there and not here.
     const lights = opts.lights || [];
+    // ⚠ CAPPED BY THE CALLER AS WELL AS BY THE CEILING. world.js has already trimmed the list to
+    // the working count, so this is belt and braces — but it is also the only thing standing between
+    // a caller that hands over a longer list and a write past the end of the uniform arrays.
     const nL = Math.min(lights.length, MAX_LIGHTS);
     for (let i = 0; i < nL; i++) {
       const L = lights[i];
@@ -887,6 +1079,12 @@ export function createGLView(canvas, opts = {}) {
     // view object is shared by the game, the Modelshop preview and the bench.
     const matStr = opts.mat && opts.mat.length ? (opts.matStr == null ? 1 : opts.matStr) : 0;
     gl.uniform1f(loc.matStr, matStr);
+    // ⚠ WRITTEN EVERY FRAME AND NEVER CONDITIONALLY, for the reason two comments up: a uniform holds
+    // its last value and this view is shared by the game, the Modelshop preview and the bench, so a
+    // pass that wrote these only when it had something to say would hand the next caller whatever
+    // the last one set. That is the trap already recorded beside uShadowStr and uSunDir.
+    gl.uniform1f(loc.bevel, opts.bevel > 0 ? opts.bevel : 0);
+    gl.uniform1f(loc.bevelTilt, opts.bevelTilt == null ? 1 : opts.bevelTilt);
     if (matStr > 0) {
       gl.uniform1f(loc.bumpStr, opts.bumpStr == null ? 1 : opts.bumpStr);
       if (opts.mat !== matSrc) {
@@ -932,6 +1130,19 @@ export function createGLView(canvas, opts = {}) {
       gl.bindTexture(gl.TEXTURE_2D, sun.tex);
       gl.uniform1i(loc.shadowMap, 1);
     }
+    // ⚠ WRITTEN EVERY FRAME FOR THE SAME REASON THE SHADOW STRENGTH IS — a uniform holds its last
+    // value, and a frame whose SSAO pass declined (a driver that would not complete the framebuffer,
+    // a resize that failed) must not go on multiplying by a texture belonging to a camera that has
+    // since moved. Zero here is the exact off switch: the guard in the shader is on this uniform.
+    gl.uniform1f(loc.ssaoStr, ssaoTex ? (opts.ssao > 1 ? 1 : opts.ssao) : 0);
+    if (ssaoTex) {
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, ssaoTex);
+      gl.uniform1i(loc.ssao, 2);
+      // The BACKING-STORE size, not the camera's — this is divided into gl_FragCoord, which is in
+      // device pixels, and the occlusion texture was rendered at that same size.
+      gl.uniform2f(loc.viewport, W, H);
+    }
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
@@ -946,11 +1157,11 @@ export function createGLView(canvas, opts = {}) {
   // (CSS px, what `horizonY` and `depth` are measured in — see the ⚠ in world.js); the viewport
   // wants the CANVAS's (device px), because a sprite's radius arrives already scaled by the
   // frame's dpr. Passing one for the other lifts every light off the building it sits on.
-  function drawSprites(cam, list, cssH) {
+  function drawSprites(cam, list, cssH, intensity) {
     if (!list || !list.length) return 0;
     const L = spriteLayer();
     L.upload(list);
-    return L.draw(cam, canvas.width, canvas.height, cssH);
+    return L.draw(cam, canvas.width, canvas.height, cssH, intensity);
   }
 
   // The fly-through cloud deck, drawn in a SECOND pass over the same buffer. See gl/clouds.js:
@@ -1033,7 +1244,7 @@ export function createGLView(canvas, opts = {}) {
   const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
   function drawFloor(state) { return state ? floorLayer().draw(state) : 0; }
 
-  return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, setAtlas, lost: () => gl.isContextLost(),
+  return { gl, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

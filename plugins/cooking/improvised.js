@@ -38,6 +38,8 @@ function reader(sig) {
   return {
     u,
     has: p => u(p) >= PRESENT,
+    // Seasoning present, in a pan with nothing else in it. See INFUSIONS.
+    mods: Object.keys(sig).filter(k => PROFILES[k]?.modifier && (Number(sig[k]) || 0) >= PRESENT),
     // Every profile actually present, modifiers excluded — seasoning is not an
     // ingredient, which is the same call `seasoningBonus` makes.
     kinds: Object.keys(sig).filter(k => k !== 'unprofiled' && !PROFILES[k]?.modifier && (Number(sig[k]) || 0) >= PRESENT),
@@ -99,6 +101,28 @@ const V = {
   ],
 };
 
+// ── Seasoning in a fat, which IS a thing ─────────────────────────────────────
+//
+// `kinds` excludes modifiers, so a pan holding nothing but oil and garlic has a
+// complexity of zero and used to fall to slop. Garlic oil is not slop; it is one
+// of the most ordinary things anybody makes, and it is the only case the
+// "seasoning alone isn't a dish" rule got wrong.
+//
+// ⚠ IT NEEDS THE FAT, AND THAT IS THE WHOLE GATE. Two aromatics in a dry pot are
+// still not a dish — they are herbs in a pot, and there is nothing for them to
+// go into. An infusion is seasoning IN something, so the fat is the dish and the
+// aromatic is what it is named after.
+//
+// Capped low on purpose: it is a component, not a meal, and a ceiling above
+// `decent` would make a pan of oil competitive with a stew.
+const INFUSIONS = {
+  pot: 'infusion',
+  pan: 'oil',
+  tray: 'oil',
+  bowl: 'dressing',
+};
+const INFUSION_CEILING = 'decent';
+
 // ── Complexity, and what it buys ─────────────────────────────────────────────
 //
 // The ceiling climbs with how many DIFFERENT things you balanced, not how much
@@ -138,7 +162,20 @@ export function improvisedIp(complexity, band) {
 export function inferDish(sig, vesselKind = null) {
   const r = reader(sig);
   if (r.junk) return null;          // non-food in the pan. That really is a mess.
-  if (!r.kinds.length) return null; // nothing but seasoning is not a dish.
+  if (!r.kinds.length) {
+    // Seasoning in a fat is an infusion; seasoning on its own is still herbs in
+    // a pot. A bare stove is excluded — there is no vessel for it to be in.
+    const noun = INFUSIONS[vesselKind];
+    if (!noun || !r.has('fat_or_oil') || !r.mods.some(m => m !== 'fat_or_oil')) return null;
+    return {
+      noun, vessel: vesselKind, needs: {}, optional: [],
+      nameSlots: ['aromatic'],
+      ceiling: INFUSION_CEILING,
+      difficulty: 3,
+      blurb: 'Seasoning, steeped in fat.',
+      improvised: true, family: noun, complexity: 1,
+    };
+  }
 
   const family = (V[vesselKind || 'none'] || V.none).find(f => f.when(r));
   if (!family) return null;

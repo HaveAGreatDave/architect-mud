@@ -87,7 +87,8 @@
     "legal": true,
     "skin_permeability": 0.05,
     "sober_amount": 30,
-    "sobering": true
+    "sobering": true,
+    "wakefulness": 0.6
   },
   "id": "drug_coffee",
   "item_id": "item_drug_coffee",

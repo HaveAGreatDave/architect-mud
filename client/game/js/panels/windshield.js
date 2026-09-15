@@ -88,7 +88,23 @@ const VIEW_ASPECT = 1200 / 560;
 // throws, nothing is missing, the city is simply the wrong shape — which is how a phone shipped at
 // nearly five times the tuned stretch without anything noticing. See the ⚠ at the call site for
 // what the `min` is doing; `scripts/shapes/freecam.mjs` holds it to the reference.
-export function viewFocal(W, H) { return Math.min(H, W / VIEW_ASPECT) * 0.55; }
+// ⚠ IT WAS `Math.min(H, W / VIEW_ASPECT)`, AND THE `min` WAS A ONE-DIRECTIONAL CORRECTION. It took
+// the stretch out of panes TALLER than the reference and deliberately left panes WIDER than it
+// alone, on the reasoning that this may only ever remove stretch and never add it — which was the
+// safe way to land the fix and is not a shape anybody wants. On the wide side the vertical scale
+// went on following the height alone while the lateral one follows the width, so the two are
+// independent again and the world is stretched by exactly however much wider than 1200x560 the
+// pane happens to be. A flight-sim windscreen IS a wide pane, and it gets wider on full screen, so
+// that is the whole of "the aspect changes when I go full screen".
+//
+// Following the width on both sides makes the ratio the tuned one on EVERY pane shape. At the
+// reference pane the two arms already agreed, so this is bit-identical there and the desktop frame
+// that shipped does not move.
+//
+// ⚠ AND IT MEANS A WIDE PANE SHOWS LESS VERTICALLY RATHER THAN MORE HORIZONTALLY. That is the
+// trade, and it is the one that keeps a circle a circle: the alternative is the anamorphic squash
+// this replaces. `freecam.mjs` holds it, and holds the cockpit against the external seat.
+export function viewFocal(W, H) { return (W / VIEW_ASPECT) * 0.55; }
 
 // ── ⚠ GROUND SCATTER IS SIZED IN PIXELS, AND A PIXEL IS NOT A UNIT OF THE WORLD ────────────
 //
@@ -341,6 +357,155 @@ export const RENDER_TUNE = {
   // texel and the relief goes blocky. That is the right trade — a 16×32 tile stretched over a whole
   // facade has no fine geometry to recover up close anyway — but it is why this is its own knob.
   glBump: 1,
+  // ── THE SHADING BEVEL, AS A WIDTH IN TILES ──────────────────────────────────
+  //
+  // Every edge in this city is a hard 90°, because every model is made of boxes and drums and a box
+  // has no arris. That is a bigger part of how a rendered building reads than it looks: the
+  // specular note in gl/context.js concludes that "a highlight on a flat box is not a highlight",
+  // and the reason is that there is no surface anywhere on the building turned part-way toward the
+  // light. Real corners carry a few centimetres of chamfer, and the bright line down that chamfer is
+  // in every photograph of a building ever taken.
+  //
+  // ⚠ IT IS NORMALS ONLY AND NOT ONE VERTEX MOVES — so the mesh still agrees face-for-face with the
+  // shape the building COLLIDES as, the occluder hull is untouched, CFIT is untouched, and the face
+  // budget `gl:mesh` holds does not move. A real inset chamfer is about five times the faces and
+  // breaks the first of those, which is the agreement that gate exists to defend.
+  //
+  // ⚠ GL ONLY. There is no per-fragment normal on a 2-D canvas, which is the same reason the sun's
+  // own shadows are GL only; at `gl: 0` this does nothing whatever and the city is what it was.
+  //
+  // 0.02 of a tile. A wall is 0.88 tiles across, so this is a chamfer a bit over two per cent of a
+  // facade's width — small enough to read as an edge treatment rather than as a rounded-off model,
+  // and `__glBevel()` in the Modelshop is the sweep for anybody retuning it. 0 is the exact off
+  // switch: the branch is on this uniform, so at 0 not one comparison inside it is evaluated.
+  glBevel: 0.02,
+  // ── THE OCCLUSION BETWEEN DIFFERENT BUILDINGS, AS A STRENGTH ────────────────
+  //
+  // GLASS already has two ambient-occlusion terms and both are LOCAL by construction. `glAO` is a
+  // height above the ground; `glBakedAo` is sampled at capture time against the model's OWN solid,
+  // so it finds a recessed doorway and the inner corner of a setback. Neither can see past the edge
+  // of the building it belongs to — so a narrow gap between two DIFFERENT buildings, a canopy over a
+  // neighbour's frontage and an alley are invisible to both, and a city is largely made of those.
+  //
+  // The baked pass could not have answered it either: which neighbours are near a face depends on
+  // where the camera is, so it could not live in the per-model memo that makes it affordable. A
+  // screen-space pass gets all of them for free, because the depth buffer already holds them.
+  //
+  // ⚠ IT COSTS A DEPTH PREPASS, which is one more draw of a vertex buffer that is already built and
+  // already resident — the same thing the sun's shadow does, measured at 0 ms. Plus two full-screen
+  // passes at the backing-store size, which is where its real cost is and why it is the first knob
+  // to try if a frame needs winning back.
+  //
+  // ⚠ GL ONLY. A 2-D canvas has no depth buffer to ask, which is the same reason the sun's own
+  // shadows are GL only; at `gl: 0` this does nothing and the city is what it always was.
+  //
+  // 0.5 rather than 1.0 because this lands on top of two occlusion terms that are already tuned,
+  // and three of them at full strength is a city in a permanent overcast. 0 is the exact off
+  // switch — the guard in the shader is on this uniform and the pass is not even created.
+  glSsao: 0.5,
+  // ── HOW MANY OF THE CITY'S LIGHTS REACH THE WALLS ───────────────────────────
+  //
+  // The mass shader had twelve slots against roughly 180 candidates in a dense night frame, and the
+  // note on the fade in gl/world.js is about what that scarcity costs: the chosen set churns as you
+  // drive, which is why a light has to ramp rather than switch. The ceiling is 32 now (MAX_LIGHTS),
+  // and this is the number actually used.
+  //
+  // ⚠ TWO NUMBERS RATHER THAN ONE, BECAUSE THE CEILING CANNOT BE SWEPT. MAX_LIGHTS is stamped into
+  // the shader source, so changing it recompiles the program — there is no way to measure a choice
+  // that needs a rebuild between every row. The loop breaks on the live count, so a runtime cap
+  // costs exactly what it says and can be A/B'd; that is how this default was picked rather than
+  // guessed.
+  //
+  // ⚠ AND MORE LIGHTS IS NOT FREE OF THE THING THE WALL-WASH GAIN HAS BEEN CUT THREE TIMES FOR. The
+  // wash is additive per light with no ceiling, and the gain (0.18, down from 1.5) was set against
+  // how many lights land on one facade — so turning this up is arithmetically the same as turning
+  // the gain up, and it re-introduces the flattening those cuts were for. The two have to move
+  // together, and the reason the default is not simply 32 is that the gain is calibrated for this.
+  //
+  // ⚠ WHAT WAS MEASURED, AND WHAT IT DOES NOT SAY. A dense night cab frame, wall pixels moved
+  // against a one-light baseline: 8 slots 0.9%, 12 slots 12.9%, 16 slots 13.5%, 24 slots 9.6%,
+  // 32 slots 16.7%, with the frame time inside the run-to-run spread at every one of them. So the
+  // COVERAGE argument for going past twelve is weak — most of what a thirteenth light lands on is
+  // already lit by the twelve above it — and the 24 row dips because the wash reservation is a
+  // share, so that row trades four point sources for four broader washes and spreads dimmer light
+  // over more of the wall (its mean is 1.08% against 1.96%).
+  //
+  // The real argument for the headroom is CHURN rather than coverage: twelve slots against ~180
+  // candidates is what makes the chosen set turn over as you drive, which is the whole reason
+  // gl/world.js has a fade at all. That is not what this bench measures, and nobody has measured it.
+  // 16 is a modest step with the cost checked; anything above it is a look decision of the same kind
+  // as the three gain cuts, which were all made by eye and should be.
+  glLightSlots: 16,
+  // ── A FLOAT TARGET, SO LIGHT CAN BE BRIGHTER THAN WHITE ─────────────────────
+  //
+  // The ceiling under every other thing in this renderer. Every pass draws into the default
+  // framebuffer at eight bits a channel, so a neon sign, a lit window, the sun's highlight and the
+  // city's own wall wash all resolve into 0..1 and CLIP — which is why a bright thing here is a flat
+  // white patch, and why the only way anything has ever glowed is `shadowBlur` on the 2-D canvas or
+  // a sprite parked in front of it.
+  //
+  // Two things follow from the buffer and nothing else does. The additive layers stop throwing away
+  // their remainder (the sprites, the Curtain and the wall wash all blend ONE,ONE, and a dense
+  // frontage was already summing past 1.0). And there is finally something for a bright-pass to
+  // find — bloom is a blur of the part of the picture the display cannot show, which in an 8-bit
+  // buffer does not exist by definition.
+  //
+  // ⚠ MSAA IS RESOLVED RATHER THAN DROPPED. The canvas was created with `antialias`, and moving the
+  // world into a single-sample texture would hand back aliased building edges inside a change about
+  // brightness. The attachments are multisampled renderbuffers and the resolve is a blit.
+  //
+  // ⚠ AND IT FAILS SAFE like every other GL layer: no `EXT_color_buffer_float`, a framebuffer that
+  // will not complete or a program that will not link each leave `beginTarget` binding the canvas,
+  // and the frame is the one that shipped. `glLastFrame().hdr` is null when that happens, which is
+  // the only way to tell it from the knob being off.
+  //
+  // ⚠ IT SHIPS AT 0, AND THE REASON IS THE POINT OF THE WHOLE EXERCISE. The buffer is correct: with
+  // the emitter gain neutral it measures 0.0% of the frame moved, which is the no-op it claims to
+  // be. What it cannot do is find anything to bloom, because GLASS PRODUCES NO LIGHT BRIGHTER THAN
+  // WHITE — `peak()` on the resolved float target says the city's brightest pixel is 1.000 at noon
+  // and 1.016 at night, with 0.01% of the frame over 1.0. Every shader here was written against an
+  // 8-bit target and saturates by construction, so the headroom is real and empty.
+  //
+  // Two ways round that were tried and both are worse than nothing. Dropping the threshold to 0.72
+  // blooms the ROAD MARKINGS, which in a dark street are the palest thing in frame and are not
+  // lights. Multiplying the emitters into the headroom (EMISSIVE_GAIN, gl/world.js) costs 21.2% of
+  // an aerial night frame to buy 0.1% of bloom — see the account there.
+  //
+  // So it is parked, exactly as `glShadow` was for months and for the same kind of reason: the
+  // machinery is right and the thing it needs does not exist yet. What unparks it is EMITTERS THAT
+  // ACTUALLY EMIT — a sign authored as brighter than white rather than scaled into it — at which
+  // point this goes to 1, EMISSIVE_GAIN stays 1, and the threshold means what it says.
+  glHdr: 0,
+  // How much of the gathered bloom is added back. This is the slider; the threshold beside it in
+  // gl/world.js is not, because two knobs there multiply into one that means neither.
+  glBloom: 0.6,
+  // ── AND HOW MUCH OF THE FILMIC CURVE ────────────────────────────────────────
+  //
+  // ⚠ SEPARATE FROM THE BUFFER ON PURPOSE, AND THAT SPLIT IS THE SAFETY ARGUMENT FOR THE WHOLE
+  // FEATURE. A tone curve touches EVERY pixel: the palettes, all three occlusion terms, the material
+  // response, the sun's shadow and the wall-wash gain were every one of them tuned by eye against a
+  // linear 8-bit output, several of them more than once. At 0 the composite is a clamp — which is
+  // arithmetically what the 8-bit buffer was already doing — so the frame differs only by the bloom,
+  // and the headroom ships without a re-grade nobody asked for riding in with it.
+  //
+  // ⚠ AND IT SHIPS AT 0, ON THE MEASUREMENT. `__glHdr()` puts the curve at 0.25 moving 36% of a
+  // night frame and 55% of a noon one — it is by a wide margin the largest visual change anything
+  // in this feature makes, and all of it is re-grading surfaces that were already the colour
+  // somebody chose. Turning that on inside a change about brightness would be the exact mistake the
+  // split above exists to prevent, so the curve ships available and off.
+  //
+  // What it is FOR is making room at the top end for the bloom to land in rather than piling onto
+  // pixels already at white — which matters once the city has more emitters than it has now. Try
+  // 0.2-0.3 by eye against the real city, the way the three wall-wash cuts were decided; the bench
+  // can say how much moves and cannot say whether it looks better.
+  glTonemap: 0,
+  // Stop, applied before the curve. 1 is neutral and there is no reason to move it until somebody
+  // wants the whole city lighter or darker as a deliberate act.
+  glExposure: 1,
+  // ⚠ THERE IS DELIBERATELY NO `glEmit` BESIDE IT. An emission channel was built here, measured,
+  // and removed on the evidence: every emissive face in the city is a FLAT face, and a flat face is
+  // already immune to every term such a channel would have removed. The full account is on
+  // `faceEdges`'s neighbour in gl/world.js — read it before building one again.
   // ── CONTACT OCCLUSION, AS A STRENGTH ────────────────────────────────────────
   //
   // How much sky the ground takes back from a surface standing on it. GLASS already had two
@@ -497,6 +662,10 @@ export const RENDER_TUNE = {
   // invisible — so past this the sign still paints, just without the bloom. Raise it if you can see
   // the transition; 0 turns neon glow off entirely.
   glowFar: 11,
+  // How far the per-building warm halo reaches, in tiles, on the GL path only — the 2-D painter
+  // keeps its own 8, which is all a radial gradient per building per frame was ever worth. See
+  // `drawCityBloom`: at 22 it is 18.2% of an aerial night frame, and dropping it to 8 recovers 4%.
+  glBloomFar: 22,
   decoFar: 16,        // distance (tiles) beyond which generic-building rooftop decorations (holo-ads, window bloom) are culled — a few px at range, not worth the fill. Higher = draw them further out.
   shadowFar: 18,      // distance (tiles) beyond which a building's ground shadow is skipped in the shadow pre-pass — distant shadows are invisible smears.
   fog: 0.2,           // N64-style distance fog: how strongly the far floor dissolves into the sky/horizon colour (0 = off/modern clear view, 1 = far ground vanishes into the fog wall). Colour tracks the sky, so it fogs pale by day and dark-blue at night. Live 'Fog (N64)' slider
@@ -2212,6 +2381,13 @@ export function paintWindshield(id, view) {
               stormBase: u(mix(baseTint, [78, 84, 94], 0.5)), stormLit: u(mix(litTint, [140, 146, 156], 0.5)),
               light: [(lightX ?? W * 0.5) * _frameDpr, (lightY ?? -H) * _frameDpr], lightStr: lightStr || 0,
               mottle: (st.cloudQ ?? 1) > 0.4,
+              // ⚠ THE DECK NEEDS THE FLOAT TARGET TOO, AND IT IS A SECOND HOOK WITH A SECOND
+              // ALLOWLIST. This pass runs after the world has been resolved and blitted, so the
+              // canvas is back to the default framebuffer — but the deck clears COLOUR ONLY and
+              // tests against the depth the city wrote, which lives in the float buffer. Leave
+              // these off and the deck either draws into eight bits while the world drew into
+              // sixteen, or loses the depth it sorts against entirely.
+              hdr: TUNE.glHdr, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure,
             });
             if (out && out.canvas) ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
             else {
@@ -4510,9 +4686,26 @@ function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
   // Eight tiles is what a radial gradient per building per frame was worth paying for. A quad is
   // worth more of them, and a skyline whose windows stop glowing a street away is the one thing a
   // night city must not do.
-  if (c.f <= 0.25 || c.f > (SPRITE_SINK ? 22 : 8)) return;
-  const prox = clamp(1 - c.f / 8, 0, 1), r = clamp(150 / c.f, 8, 70);
-  const a = night * alpha * (0.04 + 0.09 * prox);
+  // ⚠ THE GL RANGE IS A KNOB BECAUSE THIS HALO IS THE BIGGEST SINGLE THING IN A NIGHT FRAME AND
+  // NOTHING COULD SAY SO. Measured from the air over a dense city: the halo accounts for **18.2%**
+  // of the frame, and pulling this from 22 tiles back to the canvas's own 8 recovers only 4.0% —
+  // so most of it is the near buildings rather than the extended range, and winding the range down
+  // is not the lever somebody reaching for it would expect it to be. The alpha and the radius below
+  // are. Kept at 22 because that is what shipped; see `glowFar` and `decoFar` beside it.
+  if (c.f <= 0.25 || c.f > (SPRITE_SINK ? (RENDER_TUNE.glBloomFar || 22) : 8)) return;
+  // ⚠ THE CAP WAS 70 AND THE ALPHA TWICE THIS, AND TOGETHER THEY WERE THE SINGLE BIGGEST THING IN A
+  // NIGHT FRAME — 18.2% of it from the air over a dense city. That is a lot of picture for a halo
+  // that is admittedly a FAKE: it is a disc at a building's mid-height standing in for windows that
+  // are painted into the wall texture, so it belongs to no visible source and reads as exactly that
+  // once it is big enough to notice. Reported from the game as "large colour areas that do not seem
+  // to emanate from anything", which is a fair description of what it was doing.
+  //
+  // The radius is what makes it read as an AREA rather than a glow, and the alpha is what makes it
+  // read as paint rather than light — so both come down, and the range above deliberately does not
+  // (it recovers 4% and costs the far skyline its glow, which is the one thing a night city must
+  // not lose). Measured after: see the note on RENDER_TUNE.glBloomFar.
+  const prox = clamp(1 - c.f / 8, 0, 1), r = clamp(150 / c.f, 8, 45);
+  const a = night * alpha * (0.02 + 0.045 * prox);
   // The warm middle of the three-stop gradient, added rather than laid over — a window bloom is
   // light leaving a building, and `lighter` is what the 2-D path composites it with.
   if (SPRITE_SINK) { pushLight(dx, dy, h * 0.55, r, [255, 196, 116], a, false, true); return; }
@@ -8552,8 +8745,30 @@ function drawTexQuadP(ctx, img, P0, P1, P2, P3, fL, fR, smooth) {
 // `chase` = { back, up } is given (external view), the camera physically sits `back` tiles
 // BEHIND and `up` world-z ABOVE the craft — a real 3rd-person chase camera looking up the
 // craft's own tail, so the whole world renders from behind the aircraft, not the cockpit.
-export function makeCam(W, horizonY, depth, v, chase) {
+export function makeCam(W, horizonY, depth0, v, chase) {
   const R = v.map ? (v.map.length - 1) / 2 : 0;
+  // ── ⚠ A PER-SEAT FOV IS A FIELD OF VIEW, NOT A HORIZONTAL SQUASH ───────────
+  //
+  // `fovMul` multiplies the LATERAL focal length below, and until this line it multiplied nothing
+  // else — so a seat that asked for a wider view got a wider view on one axis and the same one on
+  // the other, which is not a field of view at all, it is an anamorphic stretch. The cab asks for
+  // 1.22 when you are inside it and nothing when you are behind it (see cab-view.js), so the world
+  // was 22% wider through the windscreen than over the bonnet, and that is the whole of "the aspect
+  // changes when I get in the cockpit".
+  //
+  // Scaling the vertical focal length by the same number makes the two axes move together, which
+  // is what a focal length IS. ⚠ AND IT CANCELS: the stretch is (W·fov·fovMul) over (2·depth·fovMul),
+  // so a seat can pick any field of view it likes and still match every other seat's proportions.
+  //
+  // ⚠ `RENDER_TUNE.fov` IS DELIBERATELY NOT IN HERE. That one is a lateral squeeze by design — its
+  // own note calls it a tighter tunnel — and both seats share it, so it cannot make them disagree.
+  // Folding it in would change every frame in the game for a question nobody asked.
+  //
+  // ⚠ AND IT HAS TO BE `cam.depth`, WHICH IS WHY IT IS DONE HERE AND NOT AT THE CALL SITE. That one
+  // number is the vertical scale for BOTH renderers — `cam.proj` reads it directly and the GL
+  // matrix builds `2·depth/H` out of it — so scaling it once keeps the two in step by construction
+  // rather than by two call sites remembering to agree. `gl:parity` is what would catch it if not.
+  const depth = depth0 * (v.fovMul || 1);
   // ── ⚠ A SEAT IS NOT A TUNING CONSTANT ──────────────────────────────────────
   // `RENDER_TUNE.eh` and `.fov` are the GROUND camera for an aeroplane: an eye height picked so the
   // near foreground drops off the bottom of an unobstructed windscreen, and a focal length tuned
@@ -8846,6 +9061,25 @@ function emitGroundFace(d, fn) { if (GROUND_SINK) GROUND_SINK.push({ d, fn }); e
 // ~1 tile gap to any building actually in front — so a nearer building now correctly occludes it.
 const DECO_LIFT = 0.6;
 const decoDepth = (...fs) => Math.min(...fs) - DECO_LIFT;
+// ── …AND A SORT BIAS IS NOT A DEPTH OFFSET ──────────────────────────────────
+//
+// `DECO_LIFT` is how far an adornment jumps FORWARD IN A QUEUE. Spent instead as a `cam.unproj`
+// pull it moves the thing 0.6 of a tile through the world, and 0.6 is more than a building has to
+// give: a host's own near wall is ~0.44 of a tile in front of the tile centre and a neighbour's is
+// ~0.56. So a blade mounted on the FAR face of its own bar came out in front of the near one,
+// mirrored, straight down a wall it is physically behind — which is both halves of "signage shows
+// through buildings, and it shows me its reverse side". Anchored on the FRONT face it cleared the
+// building in front as well.
+//
+// The depth buffer needs none of that. It needs a tie broken: paint on a wall is coplanar with the
+// wall, and a tie is a loss. So the pull is capped at a hair — the same 0.05 the sign lettering
+// already clears its own board by — and a caller asking for LESS keeps its own number, because a
+// part that knows it stands a thousandth proud has said something this cap has not.
+//
+// ⚠ WHAT THAT COSTS IS REAL AND IS THE RIGHT COST. A dish or a mast anchored at a tile centre no
+// longer jumps in front of the crown boxes it stands among; it is compared against them. When the
+// depth-correct answer removes something the painter's queue showed, the queue was the bug.
+const DECO_PULL = 0.05;
 // ── …AND THE LIFT IS A GUESS, SO IT IS NO LONGER THE ONLY ANSWER ────────────
 //
 // DECO_LIFT is one number standing in for a question the sort cannot answer: is there a wall
@@ -9045,7 +9279,20 @@ function emitWire(ctx, cam, A, B, wPx, css, alpha, opts = {}) {
       // the wall it is on. At the size the caller already chose: 0.6 tiles by default, which is far
       // less than the ~1 tile gap to any building actually in front, so a wire still goes behind a
       // real building and now does it per pixel instead of all-or-nothing.
-      const pull = opts.lift == null ? DECO_LIFT : opts.lift;
+      // ⚠ `pull` IS A DEPTH AND `lift` IS A SORT KEY, and this function still spends the sort key as
+      // a depth by default — see the ⚠ on DECO_PULL, where `emitDecoQuad` and `emitDecoFill` were
+      // both capped at 0.05 and this one was missed. 0.6 of a tile is MORE THAN A BUILDING HAS TO
+      // GIVE (its own near wall is ~0.44 from the tile centre), so a stroke on the FAR side of its
+      // own host is pulled out in front of it — which is how a band wrapped round a tower comes out
+      // as a full ellipse painted across the building instead of an arc going behind it.
+      //
+      // ⚠ NOT CAPPED WHOLESALE, AND THAT IS DELIBERATE RATHER THAN TIMID. The note above this argues
+      // for the 0.6 and names what it is protecting: a mast standing at its tile's centre and a fire
+      // stair bolted to a wall it is physically inside both need to be pulled clear of their own
+      // host, and The Dynamo lost its entire external stair when they were not. Those are authored
+      // INSIDE their host; a band that hugs a surface is not, and the two want different numbers.
+      // So the default is unchanged and a caller that knows it is coplanar asks for a tie-breaker.
+      const pull = PULL_OFF ? 0 : (opts.pull != null ? opts.pull : (opts.lift == null ? DECO_LIFT : opts.lift));
       const A2 = pull && cam.unproj ? (cam.unproj(a, pull) || A) : A;
       const B2 = pull && cam.unproj ? (cam.unproj(b, pull) || B) : B;
       pushStroke(A2, B2, wPx, [c[0], c[1], c[2]], c[3] * (alpha == null ? 1 : alpha), opts.glow);
@@ -9247,16 +9494,16 @@ function bakeQuadTex(key, W, H, paint) {
 }
 // `corners` are TL, TR, BR, BL as projected points, each carrying its own `f`; `paint` is the 2-D
 // fallback, queued exactly as it always was when there is no sink to fill or no inverse to use.
-function emitDecoQuad(ctx, cam, corners, key, tex, alpha, paint, lift = DECO_LIFT) {
+// ⚠ `pull` IS A DEPTH AND `lift` IS A SORT KEY — see the ⚠ on DECO_PULL. The default caps the pull
+// at a tie-breaker, which is all a bolted-on part needs. A caller whose part genuinely STANDS OFF
+// its building says so, in tiles, and owns the bound: it must clear its own facade and must not
+// reach the one in front.
+function emitDecoQuad(ctx, cam, corners, key, tex, alpha, paint, lift = DECO_LIFT, pull = Math.min(lift, DECO_PULL)) {
   if (!DECAL_SINK || !tex || SHAPE_SINK || !cam.unproj || !TUNE.glDeco) { emitDeco(corners, paint, lift); return; }
   if (decoHidden(corners)) return;
-  // ⚠ PULLED BY THE CALLER'S OWN LIFT, NOT BY FACE_EPS. A bolted-on part needs only a hair, and an
-  // adornment needs the lift it has always had — a dish and a blade stand on a roof among the crown
-  // boxes and the roof clutter, which the painter's queue sorted them in front of. A depth buffer
-  // compares, so at a hair they lose to whatever they are standing among and simply are not drawn.
   // Sliding a corner along its OWN view ray leaves the projection bit-for-bit where it was and
-  // moves only the depth, so this is the 2-D lift said in the units a depth buffer has.
-  const w = corners.map((q) => cam.unproj(q, lift));
+  // moves only the depth, so the artwork does not move a pixel whatever this is set to.
+  const w = corners.map((q) => cam.unproj(q, PULL_OFF ? 0 : pull));
   if (w.some((q) => !q)) { emitDeco(corners, paint, lift); return; }
   DECAL_SINK.push({ key, img: tex, alpha, p: w });
 }
@@ -9279,9 +9526,10 @@ function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT) {
     ctx.globalAlpha = 1;
   };
   if (!DECAL_SINK || SHAPE_SINK || !cam.unproj || !TUNE.glDeco) { emitDeco(pr, paint, lift); return; }
-  // Pulled by the caller's own lift — see emitDecoQuad. These sit a few thousandths of a tile proud
-  // of the wall they are on, which a painter's queue is happy with and a depth buffer is not.
-  const w = pr.map((q) => cam.unproj(q, lift));
+  // Capped at `DECO_PULL` — see emitDecoQuad. These sit a few thousandths of a tile proud of the
+  // wall they are on, which a painter's queue is happy with and a depth buffer is not; the three
+  // arms that take the default would otherwise send a doorway panel out through its own facade.
+  const w = pr.map((q) => cam.unproj(q, PULL_OFF ? 0 : Math.min(lift, DECO_PULL)));
   if (w.some((q) => !q)) { emitDeco(pr, paint, lift); return; }
   // A triangle folds its last corner onto the third — one real triangle and one degenerate, which
   // costs nothing and keeps a single quad path. Same trick verticalMarquee's caps use.
@@ -9783,6 +10031,15 @@ export function glWorldInstalled() { return !!GL_HOOK; }
 // three apart without another round trip.
 let GL_DECIDE = null;
 export function glDecision() { return GL_DECIDE; }
+// ⚠ THE DEPTH PULL, SUPPRESSED — A TEST SEAM, AND THE ONLY WAY TO MEASURE WHAT THE PULL DID.
+// Every adornment that lands on the depth buffer is slid toward the eye along its own view ray
+// so it does not z-fight the surface it lies on, and the size of that slide is chosen at each
+// call site. That makes "has this been pulled out of its own building" unanswerable from the
+// finished sink: the point stored there is the pulled one and nothing records where it came
+// from. With this set the pull is skipped, so running an arm twice and differencing the two
+// sinks gives the pull exactly, per item, with no new field on a hot path and no guessing.
+// Set only by `canvasResidue`; see scripts/shapes/glself.mjs, which is the reason it exists.
+let PULL_OFF = false;
 let MASS_OFF = false;
 // How much adornment a building is allowed to draw. 2 = everything (what a near building gets and
 // what the sim has always done), 1 = only the CHEAP lights, 0 = none.
@@ -10851,11 +11108,21 @@ function groundPaint(ctx, cam, pts, z, fill, alpha) {
 // about a box the width of the tower and is hidden only when the whole tower is. Per segment, the
 // half behind a nearer building goes and the half in the clear stays — and on the depth buffer
 // each piece is simply tested where it is.
+// ⚠ A RING IS THE ONE SHAPE WHERE HALF OF IT IS BEHIND ITS OWN HOST, which makes it the shape that
+// cannot take `emitWire`'s default pull. Every caller here draws a band HUGGING a mass — `fh * 0.97`,
+// `fh * 1.01`, `segW(N-1) * 1.08`, `rAt(t) * 1.015` — so the near arc is genuinely in front of the
+// building and the far arc is genuinely behind it, and the depth buffer gets that right on its own.
+// Pulled the default 0.6 of a tile toward the eye, the far arc is dragged out in front of a host
+// whose own near wall is only ~0.44 away, and the band comes out as a complete ellipse painted
+// across the building — reported from the game as the circle on the Solenne showing through it.
+//
+// What a band actually needs is a TIE-BREAKER, so it does not z-fight the surface it lies on. That
+// is what `DECO_PULL` is, and it is the same 0.05 `emitDecoQuad` and `emitDecoFill` already use.
 function drawRing(ctx, cam, dx, dy, z, r, N, strokeStyle, lw, alpha) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment — a catwalk rail is not mass
   const W = [];
   for (let i = 0; i <= N; i++) { const a = i / N * 6.2832; W.push([dx + Math.cos(a) * r, dy + Math.sin(a) * r, z]); }
-  for (let i = 1; i < W.length; i++) emitWire(ctx, cam, W[i - 1], W[i], lw, strokeStyle, alpha);
+  for (let i = 1; i < W.length; i++) emitWire(ctx, cam, W[i - 1], W[i], lw, strokeStyle, alpha, { pull: DECO_PULL });
 }
 // A curved BARREL ROOF (half-cylinder) sitting on a hangar's walls — the rounded shed roof a box
 // can't make. Built in the building's LOCAL frame via `F(lx,ly)` (so it aligns to the frontage):
@@ -15479,22 +15746,29 @@ export function canvasResidue(m, opts = {}) {
   const { fh = 0.4, h = 1, seed = 3, E = [0, 1], night = 1, tier = ADORN_NEAR, cam = null, dx = 0, dy = -8, now = 1e6 } = opts;
   const sv = {
     face: FACE_SINK, mesh: MESH_SINK, decal: DECAL_SINK, sprite: SPRITE_SINK, scatter: SCATTER_SINK, stroke: STROKE_SINK,
-    cells: GL_CELLS, mass: MASS_OFF, flat: FLAT_OFF, tier: ADORN_TIER, tally: EMIT_TALLY, sign: _bladeSign,
+    cells: GL_CELLS, mass: MASS_OFF, flat: FLAT_OFF, tier: ADORN_TIER, tally: EMIT_TALLY, sign: _bladeSign, pull: PULL_OFF,
   };
   const out = { canvas: {}, faces: 0, mesh: 0, decals: 0, sprites: 0, scatter: 0, threw: null };
   try {
     FACE_SINK = []; MESH_SINK = null; DECAL_SINK = []; SPRITE_SINK = []; SCATTER_SINK = []; STROKE_SINK = [];
     GL_CELLS = []; MASS_OFF = true; FLAT_OFF = true; ADORN_TIER = tier; EMIT_TALLY = out.canvas;
+    PULL_OFF = !!opts.noPull;
     const c = cam || SHAPE_STUB_CAM;
     if (m && m.arch) drawBuilding(SHAPE_STUB_CTX, c, dx, dy, fh, h, m.arch, seed, night, 1, now);
     else drawTypeModel(SHAPE_STUB_CTX, c, dx, dy, fh, h, m, seed, night, 1, now, E, opts.bn || '', opts.brd);
     out.faces = FACE_SINK.length; out.mesh = 0;   // no mesh sink in a draw frame — see the ⚠ above
     out.decals = DECAL_SINK.length; out.sprites = SPRITE_SINK.length; out.scatter = SCATTER_SINK.length; out.strokes = STROKE_SINK.length;
+    // ⚠ THE CONTENTS, NOT JUST THE COUNTS, AND ONLY WHEN ASKED. `glresidue` needs how many; the
+    // self-occlusion gate needs WHERE, because its whole question is whether a point the renderer
+    // is about to draw has been moved out of the building it belongs to. Handed over by reference:
+    // the caller is a gate that reads them and throws them away, and copying every corner of every
+    // decal for the callers that do not ask is a cost for nobody.
+    if (opts.collect) out.sink = { strokes: STROKE_SINK, sprites: SPRITE_SINK, decals: DECAL_SINK };
   } catch (e) { out.threw = String(e && e.message || e); }
   finally {
     FACE_SINK = sv.face; MESH_SINK = sv.mesh; DECAL_SINK = sv.decal; SPRITE_SINK = sv.sprite; STROKE_SINK = sv.stroke;
     SCATTER_SINK = sv.scatter; GL_CELLS = sv.cells; MASS_OFF = sv.mass; FLAT_OFF = sv.flat;
-    ADORN_TIER = sv.tier; EMIT_TALLY = sv.tally; _bladeSign = sv.sign;
+    ADORN_TIER = sv.tier; EMIT_TALLY = sv.tally; _bladeSign = sv.sign; PULL_OFF = sv.pull;
   }
   return out;
 }
@@ -16999,6 +17273,19 @@ function latticeTower(ctx, cam, dx, dy, z0, z1, r0, r1, alpha, now, seed) {
 // canvas (dark-edged white core + colour halo); the caller still draws its own backing board.
 const _signTexCache = new Map();   // key `label|color|dn|vertical` → offscreen neon-glyph canvas
 let _bladeSign;   // ambient: the current building's display name, set by drawTypeModel so its neonBlades paint real letters without threading the name through every call site (same idiom as FACE_SINK)
+// ── …AND THE HAND IT LETTERS IN ─────────────────────────────────────────────
+//
+// The same idiom for the same reason: ~30 arm call sites hand `bakeSignText` a label and a colour
+// and nothing else, so the only way a frieze, a false front or a blade could letter itself in
+// anything but mono is if the default came from the building rather than from the argument list.
+//
+// ⚠ IT IS NOT SAVED AND RESTORED THE WAY `_bladeSign` IS, AND THAT IS SAFE FOR ONE STATED REASON:
+// every re-entrant pass that could overwrite it is a capture OF THE SAME MODEL (`derivedTrim` →
+// `shapeForModel(m)`, `armSignsItself(m)`, `captureModelMesh(m)`), so the value it writes is the
+// value that was already there. The two places a DIFFERENT model is captured mid-frame — the
+// occluder pre-pass and the shadow pass — are outside any arm, and both entry points below write
+// this before anything reads it. If a third entry point ever appears, it writes it too.
+let _signFace = 'mono';
 // `solid` swaps the neon recipe for a PAINTED one — flat colour, no white core, no halo. Neon is
 // right for a sign that emits (a marquee, a blade); it is wrong for lettering on a white board,
 // where the bright core is the same colour as the board and the halo just fogs the edges. A brand
@@ -17032,6 +17319,18 @@ export const SIGN_FONT = {
   script: (C) => `italic bold ${Math.round(C * 0.92)}px "Brush Script MT","Segoe Script","Snell Roundhand",cursive`,
   block: (C) => `900 ${Math.round(C * 0.66)}px "Arial Black",Impact,"Haettenschweiler",sans-serif`,
   slab: (C) => `bold ${Math.round(C * 0.70)}px Rockwell,"Roboto Slab",Georgia,serif`,
+  // The two the city was missing, and both are about a building's AGE rather than its trade.
+  // `deco` is the gilt letter cut into stone over a 1930s entrance: small caps, light, a high
+  // stroke contrast — the one hand that cannot be got by making a sans heavier or a serif bigger.
+  // `condensed` is the opposite end, the tall narrow gothic a post-war frontage is lettered in,
+  // and it reads as a different face from `block` at sign size because the WIDTH differs, which is
+  // the one axis a marquee has plenty of and a blade has none of.
+  // ⚠ THE WEIGHT AND SIZE ARE SET AGAINST THE OTHER FIVE, NOT AGAINST THE FACE'S OWN DEFAULTS.
+  // Copperplate is a LIGHT face with a short cap height: at the size the rest of this table uses it
+  // measures WIDER than mono and still reads as smaller and finer, which on a frieze is a name that
+  // has got lost on its own building. Bold, and a size up.
+  deco: (C) => `700 ${Math.round(C * 0.90)}px "Copperplate Gothic Bold","Copperplate Gothic Light",Copperplate,Optima,"Palatino Linotype",Palatino,Georgia,serif`,
+  condensed: (C) => `bold ${Math.round(C * 0.84)}px "Arial Narrow","Liberation Sans Narrow","Helvetica Neue Condensed",Oswald,Impact,sans-serif`,
 };
 // A pictogram is drawn as a TUBE, not as a filled shape — it is bent glass with gas in it, so it is
 // a stroked path with round caps and joins, and it takes the same three passes the lettering does.
@@ -17080,7 +17379,7 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // ⚠ THE FACE AND THE PICTOGRAM ARE IN THE KEY. They change the picture and nothing else in it
   // does, so leaving either out hands the first caller's artwork to every later one with the same
   // label and colour — one chain's script wordmark appearing on another's block-lettered board.
-  const face = (opts && opts.font) || 'mono';
+  const face = (opts && opts.font) || _signFace || 'mono';
   const picto = (opts && opts.picto) || '';
   const key = `${label}|${color}|${dn}|${vertical ? 1 : 0}|${solid ? 1 : 0}|${tight ? 1 : 0}|${face}|${picto}`;
   let c = _signTexCache.get(key); if (c) return c;
@@ -17093,11 +17392,26 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // a quad — at which point the ink is squeezed into the middle and the whole run comes out far
   // taller than it is wide. Measuring first is what makes the texture's aspect the TEXT's aspect.
   let W = vertical ? CELL : cells * CELL + PAD * 2;
-  // ⚠ Measured rather than reserved for any face that is not monospace — see SIGN_FONT.
+  // ⚠ THE HAND MUST NOT DECIDE HOW BIG THE SIGN IS, AND FOR A WHILE IT DID. Almost every caller
+  // maps this canvas onto a quad it sized against the RESERVED box — a cell per character — so the
+  // texture's aspect is a contract: change it and the letters are stretched to whatever the quad's
+  // aspect happens to be. Measured, a serif "THE MERIDIAN" is barely half the reserved width, which
+  // on an unchanged frieze comes out two-thirds wider than it should be. That never showed while
+  // only the derived kit's boards took a face; it reaches every frieze and false front in the city
+  // the moment the DEFAULT face is derived from the building.
+  //
+  // So the ink is measured and the BOX is kept: the glyphs land at their own proportions, centred,
+  // at the same cap height mono drew at, and the quad mapping is bit-for-bit what it was. The one
+  // thing measuring is still needed for is a face whose ink OVERRUNS the reservation — it grows,
+  // never shrinks, because clipping a name is worse than a wide sign.
+  //
+  // `tight` is the exception and keeps cropping to the ink, because the road sign is the one caller
+  // that fits its quad to the texture rather than the other way round.
   if ((tight || face !== 'mono') && !vertical) {
     const m = texCanvas(8, 8).getContext('2d');
     m.font = FONT;
-    W = Math.max(CELL, Math.ceil(m.measureText(label).width) + (draw ? CELL : 0) + PAD * 2);
+    const ink = Math.max(CELL, Math.ceil(m.measureText(label).width) + (draw ? CELL : 0) + PAD * 2);
+    W = tight ? ink : Math.max(W, ink);
   }
   const H = vertical ? cells * CELL + PAD * 2 : CELL;
   c = texCanvas(W, H); const g = c.getContext('2d');
@@ -17194,7 +17508,10 @@ function emitSurfaceText(ctx, cam, pts, tex, vertical, alpha, lift = DECO_LIFT, 
   // both modes send TL to (0,0) and BL to (0,1), and vertical merely subdivides down the column
   // instead of across the band because the strips have to follow the direction the quad
   // foreshortens in. A perspective divide has no strips, so there is nothing to follow.
-  DECAL_SINK.push({ key: signTexKey(tex), img: tex, alpha, p: w });
+  // ⚠ `cull` — LETTERING IS PAINT AND HAS NO REVERSE. See the ⚠ in gl/decals.js: without it a
+  // rooftop name board reads back-to-front from behind its own building, lit, through the board it
+  // is painted on. What belongs there is the board, and the board is already drawn.
+  DECAL_SINK.push({ key: signTexKey(tex), img: tex, alpha, p: w, cull: true });
 }
 // A stable id per baked canvas, so the decal layer can batch by texture. WeakMap because the
 // canvases are owned by bakeSignText’s own cache and must not be kept alive by this one.
@@ -17227,6 +17544,21 @@ function drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha) {
     ctx.drawImage(tex, sx, sy, sw, sh, sx, sy, sw, sh); ctx.restore();
   }
 }
+// ── HOW FAR OUT A BLADE HANGS ───────────────────────────────────────────────
+//
+// A blade is a PROJECTING sign: it is out on a bracket over the pavement, which is the whole reason
+// a bar puts one up. Its anchor is not — measured on `type:bar`, the arm puts it at 0.16 of a tile
+// forward while that building's own front wall is at 0.328, so it is authored a sixth of a tile
+// INSIDE the facade it advertises. Every arm here is like that, because the painter's queue never
+// asked: `DECO_LIFT` sorted the blade in front of its own walls and nobody had to place it.
+//
+// A depth buffer asks. At a tie-breaker's pull the wall wins and the only part of the sign that
+// draws is whatever crests the roofline, which is the sign not working. So a blade says how far out
+// it hangs, and the number is bounded at both ends: over the deepest facade this reaches (0.44 of a
+// tile, `draw3DBoxAt`'s own clamp) and under the near face of a building one tile in front (0.56).
+// ⚠ IT IS A PULL, NOT A MOVE. The quad's screen position is untouched — see the ⚠ on DECO_PULL —
+// so the 2-D renderer's picture is exactly what it was and only the depth it is compared at moves.
+const BLADE_PROUD = 0.25;
 function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // vertical marquee blade
   if (SIGN_SEEN) SIGN_SEEN.add('neonBlade');           // see the ⚠ on SIGN_SEEN — recorded before the tier test
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment — a stacked sign board; a label (explicit, or the ambient building name) paints real letters onto the blade face
@@ -17331,7 +17663,7 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
   // Sort as a building-mounted deco (lifted DECO_LIFT tiles forward), not by its raw average depth:
   // a back-corner blade’s average sits BEHIND its own tile-centered roof cap, so the two flip-flop in
   // the painter queue and the sign flashes on/off as the camera swings past (same fix as marqueeBand).
-  if (tex) emitDecoQuad(ctx, cam, corners, 'blade|' + label + '|' + color + '|' + (night ? 1 : 0) + '|' + (glow ? 1 : 0), tex, alpha, () => paint(ctx));
+  if (tex) emitDecoQuad(ctx, cam, corners, 'blade|' + label + '|' + color + '|' + (night ? 1 : 0) + '|' + (glow ? 1 : 0), tex, alpha, () => paint(ctx), DECO_LIFT, BLADE_PROUD);
   else emitDeco([b, t], () => paint(ctx));
 }
 // A projecting LIT marquee — a SOLID triangular prism (the old marquee blade, filled in) that juts out
@@ -17619,7 +17951,9 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) 
     // exists for on the mesh trim, same fix — put the thing where it physically is, in front.
     const proud = half * 0.08 + FACE_EPS;
     const PX = E[0] * proud, PY = E[1] * proud;
-    DECAL_SINK.push({ key, img, alpha, p: [
+    // Culled from behind for the same reason the lettering is — a marquee is a box bolted to one
+    // face, and its artwork is on the outside of it.
+    DECAL_SINK.push({ key, img, alpha, cull: true, p: [
       [Lx + PX, Ly + PY, wz + hh], [Rx + PX, Ry + PY, wz + hh],
       [Rx + PX, Ry + PY, wz - hh], [Lx + PX, Ly + PY, wz - hh],
     ] });
@@ -18333,6 +18667,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
   if (SHAPE_SINK) SHAPE_PAL = m.pal;   // ambient palette for the non-box mass primitives (capture only)
   const sign = (name || '').trim().toUpperCase() || undefined;
   _bladeSign = sign;
+  _signFace = signFontOf(m);   // …and the hand it letters in — see the ⚠ on _signFace
   const F = (lx, ly) => facePt(dx, dy, lx, ly, E);   // model-local → world, rotated to the entrance
   const W3 = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return [wx, wy, z]; };   // …and the same point with its height on it
   // Front-face (entrance/marquee side) visibility: its outward normal is E, so the face points
@@ -24285,6 +24620,16 @@ const SIGN_TRADE = {
   fuel_yard: ['block', 'fuel'], garage: ['block', 'fuel'], truck_depot: ['block', 'fuel'],
   dw_depot: ['block', 'fuel'], freight_office: ['block', 'arrow'], freight_forwarder: ['block', 'arrow'],
   permits: ['slab', 'arrow'], thumbscale: ['block', 'arrow'],
+  // ── AND SIX THAT THE MATERIAL FALLBACK GETS WRONG ─────────────────────────
+  // `signFontOf` reads the palette when the trade is not listed, which works because a facing
+  // material dates a building. These six are faced in something that says nothing about how they
+  // letter themselves, and each has a hand its own room description already describes.
+  // ⚠ NO PICTOGRAM ON ANY OF THEM, deliberately: the mark is also what `accentOf` reads for a
+  // colour, so naming one here would repaint the building as well as re-letter it.
+  sentimental: ['slab', ''],                                       // a pawnbroker's board, and "a half-dead sign"
+  papertomb: ['deco', ''],                                         // "chiselled above the lintel" — an inscriptional face, which is what deco is
+  ff_kiln: ['script', ''],                                         // "somebody has whitewashed FIRED & FORGOTTEN" across a bottle kiln — a brush, not a signwriter
+  studio: ['block', ''], ksabstudio: ['block', ''], studiogate: ['block', ''],   // a broadcast plant brands itself, and KSAB's own blade already reads that way
 };
 
 // ── WHAT COLOUR DOES THIS BUILDING BURN? ──────────────────────────────────────────────────────
@@ -24325,6 +24670,41 @@ export function accentOf(m) {
   const picto = (m && SIGN_TRADE[m.type] || ['', ''])[1];
   if (picto && PICTO_ACCENT[picto]) return PICTO_ACCENT[picto];
   return MAT_ACCENT[palMaterial(m && m.pal)] || '#ffd678';
+}
+
+// ── AND WHAT HAND DOES IT SIGN ITSELF IN? ─────────────────────────────────────
+//
+// Exactly the argument `accentOf` makes one paragraph up, about the other half of a sign. 40 of the
+// 173 models are in `SIGN_TRADE` and the other 133 lettered themselves in bold monospace — so a
+// chapel, a bank, a foundry and a tower block all signed their frontage on the same typewriter,
+// which is why the city read as one hand however many colours it burned. And it was worse than the
+// colour case, because an ARM's own signage passes no options at all: every name cut into a frieze,
+// painted on a false front or run down a blade was mono, whatever `SIGN_TRADE` said about its type.
+//
+// Same axis, same order of preference: the trade's own hand where the table names one, the material
+// family otherwise — because what a building is FACED IN is the best available statement of when it
+// was put up, and a sign is lettered in the hand of its decade rather than of its business.
+//
+// ⚠ A WORKS KEEPS THE TYPEWRITER, and that is a choice rather than a gap. Stencil on steel is what
+// a plant letters itself in; giving a refinery a display face would be the single most obvious way
+// to make this look like a font pass rather than a city.
+// ⚠ THE MATERIALS ARE `wallMaterialOf`'s OWN NAMES, and there is no marble, no masonry and no
+// render however sensible those sound — a key this table invents matches nothing and silently
+// reads as mono. The families it does not list (struct, pump, lattice, frost, and `plain`, which is
+// what `palMaterial` answers for a palette outside the catalogue) all fall through on purpose:
+// `plain` alone is 51 models and they are nearly all Terminus and the Thornwarren, where a stencil
+// IS the local hand — the Watch stencil their doors and the Wildblood do not run a sign trade.
+const MAT_FONT = {
+  deco: 'deco', brass: 'deco',                                    // the gilt-on-stone set
+  stone: 'slab', tile: 'slab', timber: 'slab', bale: 'slab',      // civic, and anything that predates sheet metal
+  brick: 'block', stucco: 'block',                                // painted brick — a wall ad, in the heaviest thing going
+  glass: 'condensed', 'window grid': 'condensed',                 // curtain wall: tall, narrow, post-war
+  metal: 'mono', plate: 'mono', concrete: 'mono',                 // a works — see the ⚠ above
+};
+export function signFontOf(m) {
+  const trade = (m && SIGN_TRADE[m.type] || ['', ''])[0];
+  if (trade) return trade;
+  return MAT_FONT[palMaterial(m && m.pal)] || 'mono';
 }
 
 function derivedStyle(m, hw, top) {
@@ -24423,6 +24803,9 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   // is inside the arm's own code where there is nothing declarative to inspect. `armSignsItself`
   // rides the shape capture to answer it — see the ⚠ on SIGN_SEEN.
   if (armSignsItself(m, seed)) have.add('sign');
+  // ⚠ AND A BUILDING MAY DECLINE A SECTION OUTRIGHT — see KIT_DECLINE. Same mechanism as owning
+  // one: the kit stays out, and nothing else in this function needs to know why.
+  for (const s of (KIT_DECLINE[m.type] || [])) have.add(s);
   const kit = [];
   const segs = shapeForModel(m, seed);
   if (segs && segs.length) {
@@ -24528,6 +24911,18 @@ const COL_PITCH_RICH = 0.085;
 // deliberately does the opposite, because an ordinary building wants a riser on ONE flank and a
 // door in ONE place. The two cannot both be right, so a wall gets the coping band and nothing else.
 const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall']);
+// ── …AND A BUILDING MAY REFUSE ONE SECTION WITHOUT REFUSING THE KIT ─────────
+//
+// `have` already keeps the kit out of a section somebody has drawn. This is the other half of that
+// sentence: a section nobody has drawn and nobody should. The only test is whether the part would
+// be wrong on that building whoever built it, which is a short list and meant to stay one — an
+// arm that merely has taste about its own facade should draw the facade.
+//
+// `meridian` — a 1930s deco apartment landmark whose crown is a stone lantern under a verdigris
+// copper cupola, and whose name is already cut into a limestone frieze over the entrance. A backlit
+// hoarding on legs over that is an advertisement on a listed building. The rest of the kit stays:
+// it is the ROOF this building has an answer for, not the walls.
+const KIT_DECLINE = { meridian: ['signRoof'] };
 // ⚠ `RENDER_TUNE` AND NOT THE PER-VIEW `TUNE`, BECAUSE THE LIST IS CACHED PER MODEL. A view can
 // override a tunable (`VIEW_TUNABLE`), and two views can paint in one frame — so a per-view value
 // read here would be baked into a cache the other view then reads, and which view got there first
@@ -25248,6 +25643,7 @@ function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
   // the cache is cold. It terminates and it draws the right picture, which is why it showed up as a
   // face count and not as a hang: 8,435 mesh faces became 101,400.
   if (SHAPE_SINK || ADORN_TIER < ADORN_NEAR) return;
+  _signFace = signFontOf(m);   // the second entry point that must write it — see the ⚠ on _signFace
   // ⚠ THE HAND-WRITTEN LISTS NO LONGER *REPLACE* THE DERIVED ONE, THEY COMPOSE WITH IT — and until
   // they did, having somebody bother to author trim for your building made it WORSE. This read
   // `authored || arm || derived`, three alternatives, take the first. That was right when the
@@ -26097,6 +26493,10 @@ export function shapeFootprint(segs, fh, h, { includeFrontOnly = true } = {}) {
 
 // Route each biome to its archetype set — the one place building variety is chosen.
 function drawBuilding(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
+  // The archetype set — a biome and a seed, with no model record to read a palette off, so there is
+  // nothing here to derive a hand from. It says so rather than inheriting the last building's:
+  // see the ⚠ on _signFace.
+  _signFace = 'mono';
   switch (bi) {
     case 'uptown': case 'civic': return drawSkyscraper(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now);
     case 'citycore': return drawCityBuilding(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now);
@@ -26848,7 +27248,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     pBegin('world:gl');
     try {
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, glWet: wetGround(), glMat: TUNE.glMat, glBump: TUNE.glBump, sun, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, glWet: wetGround(), glMat: TUNE.glMat, glBump: TUNE.glBump, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glLightSlots: TUNE.glLightSlots, glHdr: TUNE.glHdr, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, ground: GROUND_MESH, floor: FLOOR_STATE, now,
         // The map window's centre tile. The ground pass phases its puddles on absolute world
         // coordinates off this, and it must not come from FLOOR_STATE, which is null at glFloor 0.

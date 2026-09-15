@@ -19,9 +19,9 @@ import { query } from '../../server/models/db.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
 import { getZonePowerStatus, getZoneTemperature } from '../../server/engine/environment.js';
 import { hasTag, tagValue } from '../../server/engine/tags.js';
-import { checkCooking, cooksOnAppliances } from './cook.js';
-import { profileNameFor, isMedium, HANDLING_VERB, PROFILES, needsPrep } from './profiles.js';
-import { portionName, canChop } from './portions.js';
+import { checkCooking, cooksOnAppliances, sessionProfile } from './cook.js';
+import { profileNameFor, isMedium, isFluid, POURABLE, HANDLING_VERB, PROFILES, needsPrep } from './profiles.js';
+import { portionName, canChop, portionOf } from './portions.js';
 import { prepText, canMarinate } from './prep.js';
 import { fondState } from './fond.js';
 import { getItem } from '../../server/engine/items-cache.js';
@@ -30,6 +30,10 @@ import { buyableExamples } from './shoplist.js';
 import { whereToBuyAll } from './stockists.js';
 import { cookbookState, savedRecipes, UNTRIED } from './knowledge.js';
 import { gearFor, gearKeysOf } from './gear.js';
+import { methodFor, methodsForProfile, methodsForVessel } from './methods.js';
+import { MAX_LEVEL, TIER_BANDS, burnerLevel, ceilingLevel, tierOfLevel, levelText, heatVerdict } from './heat.js';
+import { wantedTierAt } from './quality.js';
+import { POUR_PORTION, FLUID_MEASURE_G } from './config.js';
 
 // The name the PLAYER has been shown — a per-instance `custom_data.name` (a
 // butchered cut, a minced one) is what `inventory` prints, so anything reading
@@ -37,6 +41,17 @@ import { gearFor, gearKeysOf } from './gear.js';
 const shownName = row => row?.custom_data?.name || row?.name;
 
 const isFood = r => !!(profileNameFor(r) || hasTag(r, 'needs_cooking') || r.custom_data?.cooking || r.custom_data?.dish);
+
+// HOW MANY POURS ARE LEFT IN IT. The mirror of `measureOf` in index.js, and the
+// only thing on this panel that has to know the two classes are counted
+// differently — it is a readout of the same split, so it is derived from the
+// same two constants rather than from a guess about the item.
+function measuresLeft(row) {
+  const p = profileNameFor(row);
+  if (PROFILES[p]?.modifier) return Math.round(portionOf(row) / POUR_PORTION);
+  const grams = (Number(row?.weight) || 0) * portionOf(row);
+  return Math.floor(grams / FLUID_MEASURE_G);
+}
 const isVessel = r => hasTag(r, 'vessel');
 // What a kitchen counts as a tool. Deliberately the same tags the cooking verbs
 // themselves resolve against (`chopTool` in index.js takes either blade tag), so
@@ -64,7 +79,25 @@ function component(row, kind, actions = []) {
   const cd = row.custom_data || {};
   const notes = [];
   if (cd.minced) notes.push('minced');
-  if (cd.portion) notes.push(portionName(cd.portion));
+  // HOW MUCH IS LEFT IN THE JUG. Oil is the one food the world sells as a vessel
+  // of several doses, and the only place the count was ever said was the line
+  // you got AFTER pouring — so "have I enough oil for this" was a question you
+  // answered by trying. `portion` is the same number `pour` spends.
+  //
+  // ⚠ NOT ON A MEASURE ALREADY IN THE PAN. A poured measure is a full dose with
+  // no `portion` — deliberately, because a modifier's unit count IS its portion —
+  // so by the arithmetic alone it is indistinguishable from an untouched jug, and
+  // a teaspoon of oil in the bottom of a pan would announce five more like it.
+  // `measure` is stamped by `pour`; the name test carries rows poured before it.
+  else if (POURABLE.has(profileNameFor(row)) && !isVessel(row) && !cd.measure) {
+    // ⚠ COUNTED THE WAY THE CLASS IS COUNTED. A modifier is dosed, so what is
+    // left is a fraction of the jug; a weighed fluid is grams, so what is left is
+    // a mass. Using one arithmetic for both would report a tin of tomato paste
+    // as holding five measures of the same size a 600g soup base does.
+    const left = measuresLeft(row);
+    if (left > 0) notes.push(`${left} measure${left === 1 ? '' : 's'} left`);
+  }
+  if (cd.portion && !POURABLE.has(profileNameFor(row))) notes.push(portionName(cd.portion));
   const prep = prepText(cd);
   if (prep) notes.push(prep);
 
@@ -79,7 +112,10 @@ function component(row, kind, actions = []) {
   if (cd.cooking) {
     const c = checkCooking(row);
     state = c?.text || null;
-    if (c) cook = { phase: c.phase || null, stage: c.stage || null, stages: c.stages || null };
+    // `water` is the warning the whole boiling-dry mechanic rests on: being told
+    // twice and ignoring it is a decision, being surprised by it is a punishment.
+    if (c) cook = { phase: c.phase || null, stage: c.stage || null, stages: c.stages || null,
+                    water: c.water || null, dry: c.dry || null };
   }
   else if (cd.dish) state = 'a finished dish';
   else if (cd.cooked) state = 'cooked';
@@ -149,6 +185,17 @@ function foodActions(row, ctx, { inVessel = false } = {}) {
     return out;
   }
 
+  // OUT AGAIN. Putting things in a pan was one press and getting one back was a
+  // verb nobody had been taught — `pull <thing> from <pan>` — so the panel could
+  // only ever add. An ingredient you changed your mind about is the commonest
+  // thing in a kitchen, and a pan you can only fill is a trap.
+  //
+  // Not while it is cooking: the row is mid-session and lifting it out of the
+  // pan would leave a cook running on something that isn't there.
+  if (inVessel && !cd.cooking) {
+    out.push(act('↑ out', `pullid ${row.id}`, 'takes it back out of the pan', { role: 'take' }));
+  }
+
   if (cd.dish || cd.cooked) {
     out.push(act('eat', `eat ${name}`));
     if (ctx.blade) out.push(act('cut', `cut ${name}`, 'halves it to share'));
@@ -174,6 +221,18 @@ function foodActions(row, ctx, { inVessel = false } = {}) {
     out.push(act('marinate…', `marinate ${name} in `, 'name what to steep it in; costs the marinade and real time', { role: 'prep' }));
   }
 
+  // A MEASURE, rather than the whole carton. The stow chips below put the entire
+  // bottle in the pan, which for oil has been the wasteful move since `pour`
+  // existed and for a 400g bottle of gin is most of a bad idea. One chip per pan,
+  // same shape as the stow chips, and the verb decides as always.
+  if (!inVessel && POURABLE.has(profile) && !cd.measure) {
+    for (const v of ctx.vessels) {
+      if (v.edible) continue;
+      out.push(act(`≈ ${v.short}`, `pour ${name} into ${v.name}`,
+        'a measure of it — the arrow puts the whole thing in', { role: 'pour' }));
+    }
+  }
+
   if (!inVessel) {
     // The line this whole HUD exists to delete. One entry per vessel in play,
     // which is why the Preparation Area is where a pan has to be before it
@@ -182,7 +241,37 @@ function foodActions(row, ctx, { inVessel = false } = {}) {
     // `target` is the vessel's id, and it is the only reason the panel can offer
     // "put the four ticked things in THAT pan" — it lets the client match a row
     // against a vessel without parsing the command it is about to send.
-    for (const v of ctx.vessels) out.push(act(`→ ${v.short}`, `stow ${name} in ${v.name}`, null, { role: 'stow', target: v.id }));
+    //
+    // AN EDIBLE VESSEL IS STACKED ON, NOT PUT INTO. Same role, same target, same
+    // tick — only the verb and the arrow change, because nobody puts anything
+    // *in* a sandwich. That one substitution is what makes building one a
+    // first-class act on this panel rather than a thing you have to know to type:
+    // `stack` and `stow` land in the same place, so everything downstream of the
+    // role (the tick, the batch, the log rung's link) works unchanged.
+    for (const v of ctx.vessels) {
+      const onto = v.edible;
+      out.push(act(
+        `${onto ? '≡' : '→'} ${v.short}`,
+        onto ? `stack ${name} on ${v.name}` : `stow ${name} in ${v.name}`,
+        onto ? 'lays it on top — the sandwich reads bottom to top' : null,
+        { role: 'stow', target: v.id },
+      ));
+    }
+    // HOW YOU WANT TO COOK IT. Until this, the panel's only offer was a bare
+    // `cook`, whose own hint says a vessel would do it better — so the one route
+    // the HUD proposed was the worst one in the system, and the twelve verbs
+    // that lay out the pan for you appeared nowhere at all.
+    //
+    // Each is an ordinary roled action carrying a literal command, so the client
+    // can collapse the lot behind one control while both lower rungs go on
+    // printing them as the links they already were. See `methodsForProfile` for
+    // why the list is short.
+    if (ctx.stoves.length || ctx.taps?.length) {
+      for (const key of methodsForProfile(profile)) {
+        const m = methodFor(key);
+        out.push(act(key, `${key} ${name}`, m?.needs ? `${m.needs.toLowerCase()}; it finds one and lights the ring` : null, { role: 'method' }));
+      }
+    }
     if (ctx.stoves.length) out.push(act('cook', `cook ${name}`, 'bare on the heat — a vessel cooks it better', { role: 'start' }));
   }
   return out;
@@ -204,13 +293,34 @@ function vesselActions(v, contents, ctx, heat = null) {
   const wet = contents.some(r => profileNameFor(r) === 'liquid');
   const kind = tagValue(v, 'vessel_kind', null);
   const boilable = kind !== 'bowl' && kind !== 'bread';
-  if (boilable && ctx.taps?.length && !wet && !anyCooking) {
-    out.push(act('fill', `fill ${name}`, contents.some(r => profileNameFor(r) === 'dry_starch')
-      ? "pasta and rice won't cook without it"
-      : 'water from the tap, to boil in', { role: 'water' }));
+  // ⚠ OFFERED WHILE IT IS COOKING TOO, which the old gate refused. Topping up a
+  // pan that is boiling away is the counterplay to going dry, and a warning you
+  // cannot act on from the panel that issued it is a countdown rather than a
+  // warning.
+  const low = contents.some(r => r.custom_data?.cooking?.wet);
+  if (boilable && ctx.taps?.length && !wet) {
+    out.push(act('fill', `fill ${name}`,
+      anyCooking ? 'tops it back up — the clock on the water restarts'
+        : contents.some(r => profileNameFor(r) === 'dry_starch')
+          ? "pasta and rice won't cook without it"
+          : 'water from the tap, to boil in', { role: 'water' }));
   }
-  if (boilable && !anyCooking && contents.some(isMedium)) {
-    out.push(act('empty', `empty ${name}`, 'tips the water back out', { role: 'water' }));
+  if (boilable && ctx.taps?.length && wet && low) {
+    out.push(act('top up', `fill ${name}`, 'restarts the clock on the water', { role: 'water' }));
+  }
+  // TIPPING IT OUT. Widened from water to every fluid in the pan, because the
+  // thing a cook most often wants to undo is a measure of oil in the wrong pan,
+  // and until `pour <pan> into <pan>` existed there was no way to do it at all.
+  const fluids = contents.filter(isFluid);
+  if (!anyCooking && fluids.length) {
+    const what = fluids.length === 1 ? shownName(fluids[0]) : 'what is in it';
+    out.push(act('tip out', `empty ${name}`, `pours ${what} away`, { role: 'water' }));
+    // A second pan to decant into. One chip per candidate, same shape as the
+    // stow chips — and the verb is one a player could have typed.
+    for (const other of ctx.vessels) {
+      if (String(other.id) === String(v.id) || other.edible) continue;
+      out.push(act(`→ ${other.short}`, `pour ${name} into ${other.name}`, 'decants the liquid, leaves the rest', { role: 'water' }));
+    }
   }
 
   if (onHeat) {
@@ -228,6 +338,13 @@ function vesselActions(v, contents, ctx, heat = null) {
       out.push(act(tier, `stove ${tier}`, null, { role: 'heat', tier, state: heat === tier ? 'on' : null }));
     }
   } else if (ctx.stoves.length && contents.length) {
+    // The pan decides more than the food does once the food is in it, so a
+    // loaded vessel offers its own kind's methods beside the plain `cook`. Same
+    // role, same collapsing, and `boil stock pot` is a sentence the verb already
+    // understands — naming a vessel IS the instruction.
+    for (const key of methodsForVessel(kind)) {
+      out.push(act(key, `${key} ${name}`, null, { role: 'method' }));
+    }
     out.push(act('cook', `cook ${name}`, null, { role: 'start' }));
   }
   if (anyCooking) {
@@ -246,6 +363,134 @@ function vesselActions(v, contents, ctx, heat = null) {
     out.push(act('scour', `scour ${name}`, 'a pan you browned in and ignored is worse than a clean one', { role: 'clean' }));
   }
   return out;
+}
+
+// ── THE HOB ──────────────────────────────────────────────────────────────────
+//
+// A dial, drawn as a dial, with what is on it and what it wants.
+//
+// Heat was three chips in a row saying `low  MID  high` and a line of prose
+// somewhere else, on a system where the burner is the largest quality lever
+// there is. Worse, the three were the WHOLE control: a stove had eleven
+// positions' worth of behaviour and three of them were reachable, the fine ones
+// changed nothing at all, and the one thing nobody could say was "off".
+//
+// So the hob travels as its own section of the payload rather than as actions
+// bolted to a pan. Same rule as everything else on this panel — every position
+// ships as a LITERAL COMMAND a player could have typed, so the client composes
+// nothing, knows no verb, and cannot exceed what `stove` will do.
+//
+// ⚠ THE TARGET IS IN EVERY COMMAND. `stove high` picks the first busy hob,
+// which is right in a one-ring kitchen and a coin toss in a two-ring one — and
+// the panel is precisely where a player can SEE that there are two. Naming the
+// stove in the command is what makes a second burner addressable at all.
+//
+// ⚠ AND THE COMFY BAND IS WHAT THE FOOD WANTS, NOT A TARGET WE INVENTED. It is
+// `wantedTierAt`, which is the same curve `heatScore` grades the cook against —
+// one reader, so the dial cannot promise a band the scorer disagrees with. It
+// says a DIRECTION in words and never a number: knowing the pan is running hot
+// is what a cook standing over it can see; how hot, in what units, is not.
+// ⚠ THE PAYLOAD SAYS DIAL, NOT BURNER. The workspace plugin and its panel are
+// domain-agnostic on purpose — that is the whole reason a chemistry bench could
+// reuse them untouched — so a `hob` field full of tiers and vessels would be
+// kitchen vocabulary in a file whose contract is that it has none. What travels
+// is the generic shape: a continuous control with marked positions, whatever it
+// is a control FOR. A bench's temperature dial fits it with nothing to change.
+function hobFor(stoves, vessels) {
+  const byVessel = new Map(vessels.map(v => [String(v.id), v]));
+  return stoves.map(f => {
+    const ceilingTier = f.flags?.stove_tier || 'low';
+    const ceiling = ceilingLevel(ceilingTier);
+    const level = Math.min(burnerLevel(f.id, ceilingTier), ceiling);
+    const live = cooksOnAppliances([f.id])[0] || null;
+    const profile = live ? sessionProfile(live.session) : null;
+    const want = live && profile ? wantedTierAt(live.session, profile) : null;
+    const vessel = f.flags?.vessel_id ? byVessel.get(String(f.flags.vessel_id)) : null;
+    const cook = live ? checkCooking({ custom_data: { cooking: live.session } }) : null;
+    const idle = level === 0 && !!live;
+
+    // ⚠ EVERY POSITION IS ITS OWN COMMAND. A prefix the client completes would
+    // be the client composing a verb, which is the one thing this layer does not
+    // let it do — and it would make the LOG rung, where these print flat as
+    // links, unable to offer the dial at all.
+    const cmd = n => `stove ${n} on ${f.name}`;
+    return {
+      id: f.id,
+      name: f.name,
+      level,
+      ceiling,
+      max: MAX_LEVEL,
+      band: tierOfLevel(level),
+      label: levelText(level),
+      ceilingBand: ceilingTier,
+      notches: TIER_BANDS.map(b => ({ level: b.notch, name: b.tier, from: b.from, to: b.to })),
+      levels: Array.from({ length: MAX_LEVEL + 1 }, (_, n) => ({
+        level: n,
+        command: n === 0 ? `stove off on ${f.name}` : cmd(n),
+        label: levelText(n),
+        band: tierOfLevel(n),
+        over: n > ceiling,
+        state: n === level ? 'on' : null,
+      })),
+      subjectId: vessel ? vessel.id : null,
+      subject: vessel ? shownName(vessel) : (live ? live.name : null),
+      want,
+      // ⚠ THE VERDICT IS ALSO WHERE "IT IS OFF" IS SAID. The panel must not have
+      // to own a phrase for a dead ring — that is kitchen vocabulary, and the one
+      // file in this feature that is not allowed any.
+      verdict: idle ? { state: 'off', text: 'the ring is out — nothing is cooking' }
+        : want ? heatVerdict(level, want) : null,
+      idle,
+      meter: cook ? { phase: cook.phase || null, stage: cook.stage || null, stages: cook.stages || null,
+                      text: cook.text || null, water: cook.water || null, dry: cook.dry || null } : null,
+    };
+  });
+}
+
+// ── WHERE YOU ARE IN THE JOB ────────────────────────────────────────────────
+//
+// Four beats — cut it up, put it in, cook it, plate it — and which one you are
+// on. Nothing in the payload changes because of this; it is a READING of the
+// same rows the rest of the panel draws. The value is that the answer to "what
+// now" stops being something you assemble by eye out of six sections.
+//
+// ⚠ IT IS DERIVED AND IT NEVER GATES. Every action stays exactly as available
+// as it was — a player who wants to put a whole unchopped turnip on a high ring
+// can, and finds out what that produces. This says where the job HAS got to, not
+// where the player is allowed to be.
+const STAGE_DEFS = [
+  { key: 'prep', label: 'Prep' },
+  { key: 'load', label: 'Load' },
+  { key: 'heat', label: 'Heat' },
+  { key: 'plate', label: 'Plate' },
+];
+
+function stagesFor({ area, components, dials }) {
+  const cooking = [];
+  for (const v of area) for (const c of v.contents || []) if (c.live) cooking.push(c);
+  for (const c of components) if (c.live) cooking.push(c);
+  const ready = cooking.some(c => ['window', 'over', 'burnt'].includes(c.cook?.phase));
+  const loaded = area.some(v => !v.idle && (v.contents || []).length);
+  const toHand = components.filter(c => c.kind === 'food' && !c.live && c.state === 'raw');
+  const unprepped = toHand.some(c => (c.actions || []).some(a => a.role === 'prep'));
+
+  let at;
+  let hint;
+  if (ready) { at = 3; hint = 'Something is in its window. Plate it before it goes.'; }
+  else if (cooking.length) { at = 2; hint = 'On the heat. Ride the burner and judge when to pull it.'; }
+  else if (loaded) { at = 2; hint = 'The pan is loaded. Set the ring, then start it.'; }
+  else if (toHand.length && !unprepped) { at = 1; hint = 'Tick what you want and drop it in a pan.'; }
+  else if (toHand.length) { at = 0; hint = 'Cut it down first — whole things cook badly.'; }
+  else { at = 0; hint = 'Get something out of the fridge to start.'; }
+
+  // A ring at zero with a pan on it is not "heating" whatever else is true.
+  if (dials.some(d => d.idle)) hint = 'A ring is off with a pan still on it. Nothing is cooking.';
+
+  return {
+    at,
+    hint,
+    steps: STAGE_DEFS.map((s, i) => ({ ...s, state: i < at ? 'done' : i === at ? 'now' : 'todo' })),
+  };
 }
 
 // "PUT EVERYTHING I HAVE TICKED IN THAT PAN", as two strings.
@@ -812,7 +1057,16 @@ export async function buildKitchen(player) {
     // so offering it would be offering a command that fails.
     vessels: vessels
       .filter(v => !boxIds.has(v.container_id))
-      .map(v => ({ id: v.id, name: shownName(v), short: tagValue(v, 'vessel_kind', null) || shownName(v) })),
+      // `edible` is what makes a bread offer `stack … on` where a pot offers
+      // `stow … in`. Read from the tag rather than from the kind, because
+      // `edible_vessel` is the thing the cooking system actually asks about
+      // everywhere else — a bread-kind vessel that wasn't edible would be
+      // equipment, and should read as equipment here too.
+      .map(v => ({
+        id: v.id, name: shownName(v),
+        short: tagValue(v, 'vessel_kind', null) || shownName(v),
+        edible: hasTag(v, 'edible_vessel'),
+      })),
     // What the Assistant scores equipment against. Every vessel in the room
     // counts, cabinet included — this half is planning, not execution, and "you
     // own a pot, it's in the cupboard" is the answer somebody wants.
@@ -981,7 +1235,13 @@ export async function buildKitchen(player) {
 
   const assistant = await buildAssistant(player, reachableFood, ctx);
 
-  return { storage, area, components, tools, status, assistant };
+  // The hob is built from the same `stoves` list Status counts and the same
+  // `vessels` the Preparation Area draws, so a burner cannot report a pan the
+  // area doesn't show or a tier the status line disagrees with.
+  const dials = hobFor(stoves, vessels);
+  const stages = stagesFor({ area, components, dials });
+
+  return { storage, area, components, tools, status, assistant, dials, stages };
 }
 
 // ── Prepare Recipe: a PLAN, never a claim ────────────────────────────────────

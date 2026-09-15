@@ -25,6 +25,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["tools/modelshop/serve.mjs"],
       "port": 5181
+    },
+    {
+      "name": "client-static",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "5182", "client"],
+      "port": 5182
     }
   ]
 }

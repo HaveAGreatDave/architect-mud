@@ -17962,6 +17962,241 @@ body.intro-cine-open { overflow: hidden; }
 	padding-top: 8px;
 }
 
+/* ── The hob ──────────────────────────────────────────────────────────────────
+   The one drawn thing on an otherwise entirely textual panel. A burner is a
+   continuous quantity with a marked safe zone, which is what a dial is for and
+   what three chips in a row cannot show — so it gets a dial, and everything
+   else on the panel stays a list.
+
+   It sits between the status line and the scrolling body, and it does NOT
+   scroll: the burner is the thing being ridden, and it must still be there when
+   the player has scrolled down to read a recipe. */
+#workspace-dials:not(:empty) {
+	flex: 0 0 auto;
+	border-bottom: 1px solid var(--border);
+	padding-bottom: 8px;
+	margin-bottom: 8px;
+}
+.wsp-dials {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 18px;
+}
+.wsp-dialrow {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 4px 10px 4px 0;
+	min-width: 250px;
+}
+/* A lit ring with something on it is the only thing in here that is happening.
+   Everything else is a control at rest. */
+.wsp-dialrow-live { background: linear-gradient(90deg, rgba(255, 140, 40, 0.09), transparent 70%); }
+
+.wsp-dial {
+	width: 92px;
+	height: 96px;
+	flex: 0 0 auto;
+	cursor: grab;
+	touch-action: none;           /* a drag on the knob is a drag, not a scroll */
+	outline: none;
+}
+.wsp-dial:focus-visible { filter: drop-shadow(0 0 3px var(--cyan)); }
+.wsp-dial:active { cursor: grabbing; }
+.wsp-dial-track {
+	fill: none;
+	stroke: var(--border);
+	stroke-width: 7;
+	stroke-linecap: round;
+}
+/* Above this stove's ceiling. Drawn, and visibly not available — a dial whose
+   unreachable half simply isn't there reads as a smaller dial, and then the
+   refusal when you turn it up looks like a fault. */
+.wsp-dial-over {
+	fill: none;
+	stroke: var(--red);
+	stroke-width: 7;
+	opacity: 0.18;
+	stroke-linecap: round;
+}
+/* THE COMFY BAND — what the pan wants right now. The only green on the panel,
+   and it is never the whole reading: the sentence beside it says the same thing
+   in words, because a colour on its own is not a readout everybody can use. */
+.wsp-dial-band {
+	fill: none;
+	stroke: var(--green);
+	stroke-width: 4;
+	opacity: 0.85;
+	stroke-linecap: butt;
+}
+.wsp-dial-lit {
+	fill: none;
+	stroke: var(--orange);
+	stroke-width: 7;
+	stroke-linecap: round;
+}
+.wsp-dial-needle { stroke: var(--orange); stroke-width: 3; stroke-linecap: round; }
+.wsp-dial-off .wsp-dial-needle { stroke: var(--text-dim); }
+.wsp-dial-hub { fill: var(--bg2); stroke: var(--border); stroke-width: 1; }
+/* ⚠ The size is a presentation ATTRIBUTE on the <text>, not a declaration here:
+   inside a viewBox it is user units and scales with the dial, which is both what
+   was meant and what keeps it out of the absolute-px type-scale gate. */
+.wsp-dial-read {
+	fill: var(--orange);
+	font-family: var(--font-mono);
+	font-weight: bold;
+	text-anchor: middle;
+}
+.wsp-dial-off .wsp-dial-read { fill: var(--text-dim); }
+.wsp-dial-notch {
+	fill: var(--text-dim);
+	font-family: var(--font-mono);
+	text-anchor: middle;
+	letter-spacing: 1px;
+}
+
+.wsp-dialrow-side { flex: 1; min-width: 0; }
+.wsp-dialrow-name {
+	color: var(--cyan);
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	font-size: 0.6875rem;
+}
+.wsp-dialrow-label { color: var(--text); }
+.wsp-dialrow-subject { color: var(--text-bright); }
+.wsp-dialrow-subject.wsp-empty { color: var(--text-dim); font-style: italic; }
+.wsp-dialrow-meter { margin-top: 2px; }
+.wsp-paused { color: var(--yellow); letter-spacing: 1px; font-size: 0.6875rem; }
+/* How the pot is doing. Quiet while there is plenty and loud when there is not —
+   this is the warning the boiling-dry mechanic rests on, and a warning nobody
+   notices is the same as no warning. */
+.wsp-water { color: var(--text-dim); font-size: 0.6875rem; letter-spacing: 0.5px; }
+.wsp-water-low { color: var(--yellow); }
+/* The verdict. Four states, and the two that mean "move it" are the two that
+   get colour — a burner sitting where it should be is not news. */
+.wsp-dialrow-want { font-size: 0.6875rem; letter-spacing: 0.5px; }
+.wsp-want-good { color: var(--green); }
+.wsp-want-cool, .wsp-want-warm { color: var(--yellow); }
+.wsp-want-cold, .wsp-want-hot { color: var(--red); }
+.wsp-want-off { color: var(--text-dim); }
+.wsp-dialrow-cmds { margin-top: 3px; display: flex; gap: 4px; flex-wrap: wrap; }
+.wsp-dialrow-cmds .wsp-act { opacity: 0.75; }
+.wsp-dialrow-cmd {
+	color: var(--text-dim);
+	opacity: 0.55;
+	font-size: 0.625rem;
+	margin-top: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ── The ribbon ──────────────────────────────────────────────────────────────
+   Four beats and which one the job is on. It gates nothing — every action stays
+   exactly as available as it was — so it is drawn as a reading rather than as a
+   set of steps you have to press. */
+#workspace-stages:not(:empty) {
+	flex: 0 0 auto;
+	padding-bottom: 6px;
+	margin-bottom: 6px;
+	border-bottom: 1px solid var(--border);
+}
+.wsp-stages { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.wsp-stage {
+	text-transform: uppercase;
+	letter-spacing: 2px;
+	font-size: 0.6875rem;
+	color: var(--text-dim);
+}
+.wsp-stage-n {
+	display: inline-block;
+	min-width: 1.1em;
+	margin-right: 4px;
+	opacity: 0.6;
+}
+.wsp-stage-done { color: var(--green); }
+.wsp-stage-now { color: var(--orange); }
+.wsp-stage-sep { color: var(--border); }
+.wsp-stage-hint {
+	flex: 1;
+	min-width: 180px;
+	text-align: right;
+	color: var(--text-dim);
+	font-style: italic;
+}
+
+/* ── The feed ────────────────────────────────────────────────────────────────
+   The game's own replies, inside the panel that is covering them. A mirror of
+   #output, never a move: the line is still in the log, still in the transcript,
+   still read aloud. */
+#workspace-feed {
+	flex: 0 0 auto;
+	height: 108px;
+	overflow-y: auto;
+	border-top: 3px double var(--border);
+	padding: 6px 2px 0;
+	margin-top: 6px;
+	font-size: 0.75rem;
+	line-height: 1.45;
+}
+#workspace-feed .msg { white-space: pre-wrap; }
+#workspace-feed .msg-echo { color: var(--cyan); opacity: 0.7; }
+/* Glyph art (the minimap, a card face, a poster) reads as noise at this width
+   and would blow the column out sideways. Kept, scrolled, never wrapped. */
+#workspace-feed pre { font-size: 0.6875rem; overflow-x: auto; }
+#workspace-feedhint {
+	flex: 1;
+	color: var(--text-dim);
+	font-size: 0.6875rem;
+	letter-spacing: 1px;
+	align-self: center;
+}
+#workspace-footer { align-items: center; }
+
+.wsp-hdr-btn {
+	background: none;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	cursor: pointer;
+	font-family: var(--font-mono);
+	font-size: 0.625rem;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	padding: 1px 6px;
+}
+.wsp-hdr-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* COMPACT — the hob, the ribbon and the replies, and nothing else. Once the pan
+   is on, the only two questions left are where the burner is and what the game
+   just said; a screenful of fridge contents is in the way of both. */
+#workspace-box.wsp-compact #workspace-body,
+#workspace-box.wsp-compact #workspace-tray { display: none; }
+/* ⚠ NO `height: auto !important` HERE. It won over the inline height the stored
+   geometry writes, which made the grip's vertical half silently dead in compact
+   and brought the panel back the wrong height on expand. The class decides the
+   LAYOUT; the height is state, and toggleCompact owns it. */
+#workspace-box.wsp-compact { max-height: 70vh; }
+#workspace-box.wsp-compact #workspace-feed { height: 150px; }
+
+/* Drag to resize. A kitchen HUD is the one panel a player keeps open while
+   doing something else, so it has to be able to get out of the way as well as
+   move. The grip is the bottom-right corner, where every window in every OS
+   has put it since 1984. */
+#workspace-grip {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	width: 16px;
+	height: 16px;
+	cursor: nwse-resize;
+	touch-action: none;
+	background:
+		linear-gradient(135deg, transparent 50%, var(--border) 50%, var(--border) 60%, transparent 60%,
+		transparent 70%, var(--border) 70%, var(--border) 80%, transparent 80%);
+}
+#workspace-grip:hover { filter: brightness(1.8); }
+
+
 /* Action strip — phase 2. Dim until the row is hovered or a button is focused,
    so a dense panel stays readable and the verbs surface only where you're
    looking. Keyboard reaches them the same way the mouse does: they are real
@@ -17995,17 +18230,141 @@ body.intro-cine-open { overflow: hidden; }
    read as one click away from happening — it fills the input line instead. */
 .wsp-act-partial { border-style: dashed; }
 
-/* Recipe Assistant — phase 3. A completion bar in box-drawing blocks, because a
-   styled div would be the one graphical element on an otherwise textual panel. */
-.wsp-group {
+/* ── A ROW'S ACTIONS, GROUPED ────────────────────────────────────────────────
+   Eleven chips in one strip said nothing about the fact that `mince` costs two
+   rungs off the ceiling forever while `fry` just starts dinner. The groups are
+   what separate a decision from a step: a faint label, and enough space between
+   banks that the eye reads three things rather than eleven. */
+.wsp-acts-grouped {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 2px 10px;
+}
+.wsp-mini { display: inline-flex; align-items: center; gap: 2px; }
+.wsp-mini-label {
+	color: var(--text-dim);
+	font-size: 0.5625rem;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	opacity: 0.65;
+	margin-right: 2px;
+}
+/* ── "prep it…" and "cook it…" ───────────────────────────────────────────────
+   Two disclosures, one mechanism. Closed, each is a single chip; open, its
+   contents sit in a tinted well so it reads as one thing that opened rather than
+   as more chips appearing in the row.
+
+   They are DIFFERENT COLOURS on purpose. Prep is what you do to the ingredient
+   and every one of them is a permanent trade; cooking is what starts dinner.
+   Two identical chips side by side would put the row back where it started. */
+.wsp-disc { display: inline-flex; align-items: center; gap: 2px; }
+.wsp-disc-list {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 2px;
+	padding: 1px 4px;
+	border: 1px solid var(--border);
+}
+/* ⚠ An author `display` BEATS the UA stylesheet's `[hidden] { display: none }`,
+   so the rule above alone left every list permanently open and the toggle doing
+   nothing visible. Closed is this control's default state and has to be spelled
+   out. */
+.wsp-disc-list[hidden] { display: none; }
+
+.wsp-bank-cook .wsp-disc-toggle { border-color: var(--cyan); color: var(--cyan); }
+.wsp-bank-cook.wsp-disc-open .wsp-disc-toggle {
+	color: var(--accent-ink); background: var(--cyan); border-color: var(--cyan);
+}
+.wsp-bank-cook .wsp-disc-list {
+	border-left: 2px solid var(--cyan);
+	background: color-mix(in srgb, var(--cyan) 7%, transparent);
+}
+.wsp-bank-prep .wsp-disc-toggle { border-color: var(--purple); color: var(--purple); }
+.wsp-bank-prep.wsp-disc-open .wsp-disc-toggle {
+	color: var(--accent-ink); background: var(--purple); border-color: var(--purple);
+}
+.wsp-bank-prep .wsp-disc-list {
+	border-left: 2px solid var(--purple);
+	background: color-mix(in srgb, var(--purple) 7%, transparent);
+}
+/* The contents are the point of opening it, so they never dim with the rest of
+   the strip — an opened disclosure at 0.4 opacity until you hover reads as
+   disabled. */
+.wsp-acts .wsp-disc-item,
+.wsp-acts .wsp-disc-toggle { opacity: 1; }
+
+/* ── The recipe card ─────────────────────────────────────────────────────────
+   Three named parts instead of ten identical dim rows. The two short lists sit
+   side by side because the card already runs the full width under both columns
+   and stacking them pushed the method below the fold for nothing. */
+.wsp-card-cols {
+	display: grid;
+	grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+	gap: 0 24px;
+}
+.wsp-card-part { margin-bottom: 8px; }
+.wsp-card-head {
 	color: var(--text-dim);
 	text-transform: uppercase;
 	letter-spacing: 2px;
-	font-size: 0.625rem;
-	margin-top: 6px;
+	font-size: 0.5625rem;
+	margin-bottom: 2px;
+	opacity: 0.8;
 }
+/* Three marks, three meanings. A missing REQUIRED pan refuses the dish; a
+   missing spoon only makes it worse, and the card must not answer both
+   questions the same way. */
+.wsp-kit-mark { display: inline-block; min-width: 10px; }
+.wsp-kit-held .wsp-kit-mark { color: var(--green); }
+.wsp-kit-short { color: var(--red); }
+.wsp-kit-soft { opacity: 0.7; }
+
+/* Recipe Assistant — phase 3. A completion bar in box-drawing blocks, because a
+   styled div would be the one graphical element on an otherwise textual panel. */
+/* A group heading, not a caption. Four recipes under "Nearly Available" and
+   three under "Missing Ingredients" are two different answers to "what can I
+   cook", and a 10px dim line above each was too quiet to separate them. */
+.wsp-group {
+	color: var(--cyan);
+	text-transform: uppercase;
+	letter-spacing: 2px;
+	font-size: 0.625rem;
+	margin-top: 10px;
+	padding-bottom: 2px;
+	border-bottom: 1px solid var(--border);
+}
+.wsp-group:first-child { margin-top: 0; }
 .wsp-recipe .wsp-name { color: var(--text); }
 .wsp-bar { color: var(--green); letter-spacing: -1px; }
+
+/* The measurement, pushed right and kept quiet. `margin-left: auto` is what
+   makes a column of recipes line its gauges up regardless of how long the
+   reasons beside them run — without it the bars sit wherever the sentence
+   happens to end, and the column cannot be scanned at all. */
+.wsp-recipe { display: flex; align-items: baseline; gap: 6px; }
+.wsp-recipe .wsp-state { flex: 1; min-width: 0; }
+.wsp-recipe-gauge {
+	margin-left: auto;
+	display: inline-flex;
+	align-items: baseline;
+	gap: 6px;
+	white-space: nowrap;
+	opacity: 0.75;
+}
+.wsp-recipe-gauge .wsp-qty { min-width: 34px; text-align: right; }
+/* ⚠ The gauge is not the last thing in the row — the action chip is, and it is
+   PREPARE on one line, + LIST on the next and absent on a third. With the strip
+   left to size itself the gauges landed at three different x positions and the
+   column could not be scanned, which is the entire reason they were moved right.
+   A fixed lane for the button is what actually aligns them. */
+.wsp-recipe .wsp-acts {
+	flex: none;
+	min-width: 74px;
+	margin-left: 6px;
+	text-align: right;
+}
 
 /* A cold box shows only perishables in the stow column; this says so, quietly,
    so the filtered list doesn't read as an empty pack. */

@@ -19,6 +19,9 @@ import {
 import { DRINK_PROFILES, validateDrinkProfiles, poursOf, profileNameFor } from './profiles.js';
 import { derivePotency, servingPotency, ethanolMl, abvOf } from './alcohol.js';
 import { hotMultiplier, capacityOf, isDrinkware, drinkwareKind, makeDrink } from './vessel.js';
+import { deriveCaffeine, caffeineFromTemplate, servingCaffeine, MIN_MG } from './caffeine.js';
+import { hooks } from './index.js';
+import { getDrugCache } from '../../server/engine/drugs.js';
 import { POUR_ML, STANDARD_UNIT_ML, POTENCY_MIN, POTENCY_MAX, HOT_PEAK_MS, HOT_COLD_MS, HOT_COLD_PENALTY, BREW_TIERS, VEND_BANDS, VEND_CHARGE } from './config.js';
 
 // A synthetic ingredient row — the shape signature()/poursOf() actually read.
@@ -28,6 +31,8 @@ const ing = (profile, pours = 1, abv = 0, extra = {}) => ({
 });
 
 export default async function regress({ run, check, getPlayer }) {
+  const getDrug = id => getDrugCache()[id];
+
   // ── Catalogue validation ──────────────────────────────────────────────────
   {
     const p = validateDrinkProfiles();
@@ -342,4 +347,125 @@ export default async function regress({ run, check, getPlayer }) {
     check('drinks: ...from an appliance tier that exists', noTier.length === 0, noTier.join(', '));
     check('drinks: ...for at least what the vessel is worth', underCup.length === 0, underCup.join(', '));
   }
+
+  // ── Caffeine ──────────────────────────────────────────────────────────────
+  //
+  // The sibling of the alcohol arithmetic, and pinned the same way: pure
+  // functions, plain objects, no clock.
+  {
+    const cup = (profile, pours, mg) => ({ profile, pours, ...(mg == null ? {} : { caffeine_mg: mg }) });
+
+    check('drinks: a cup of coffee reads as one cup of coffee',
+      Math.abs(deriveCaffeine([cup('coffee_base', 1)]) - 1) < 1e-9,
+      String(deriveCaffeine([cup('coffee_base', 1)])));
+    check('drinks: a double is worth double', deriveCaffeine([cup('coffee_base', 2)]) === 2);
+
+    // ⚠ UNSTATED FALLS BACK TO THE PROFILE, AND null IS UNSTATED. Number(null)
+    // is 0 and finite, so a finite check reads an explicit null as "authored as
+    // decaf" and quietly takes the caffeine out of a real coffee.
+    check('drinks: a component that says nothing is coffee, not decaf',
+      deriveCaffeine([{ profile: 'coffee_base', pours: 1, caffeine_mg: null }]) === 1,
+      String(deriveCaffeine([{ profile: 'coffee_base', pours: 1, caffeine_mg: null }])));
+    check('drinks: ...and one that says zero means it',
+      deriveCaffeine([{ profile: 'coffee_base', pours: 1, caffeine_mg: 0 }]) === 0);
+    check('drinks: tea is worth about half a coffee',
+      deriveCaffeine([cup('tea_base', 1)]) === 0.5, String(deriveCaffeine([cup('tea_base', 1)])));
+
+    // THE OVERRIDE, in both directions. This is the entire reason the tag exists
+    // — a profile-only rule gets all three of these wrong.
+    check('drinks: chicory is coffee-shaped and has none in it',
+      deriveCaffeine([cup('coffee_base', 1, 0)]) === 0);
+    check('drinks: a caffeinated thing in an ordinary profile still counts',
+      deriveCaffeine([cup('mixer', 3, 11)]) > 0, String(deriveCaffeine([cup('mixer', 3, 11)])));
+    check('drinks: ...and the plain mixers beside it do not',
+      deriveCaffeine([cup('mixer', 3)]) === 0);
+
+    // ⚠ THE FLOOR. useDrug clamps potencyMult UP to 0.1 and still counts a whole
+    // dose, so without this a mug of cocoa is a dose of caffeine and ten of them
+    // is an overdose.
+    check('drinks: a trace is no drug at all, not a small one',
+      deriveCaffeine([cup('mixer', 1, MIN_MG - 1)]) === 0,
+      String(deriveCaffeine([cup('mixer', 1, MIN_MG - 1)])));
+
+    // A machine has no ingredients, so the recipe answers for it.
+    check('drinks: a rig pouring black coffee pours real coffee',
+      caffeineFromTemplate(DRINKS.black_coffee) > 0, String(caffeineFromTemplate(DRINKS.black_coffee)));
+    check('drinks: ...and an espresso is not weaker than a mug of it',
+      caffeineFromTemplate(DRINKS.espresso) >= caffeineFromTemplate(DRINKS.black_coffee),
+      `${caffeineFromTemplate(DRINKS.espresso)} vs ${caffeineFromTemplate(DRINKS.black_coffee)}`);
+    check('drinks: a cocoa is not a coffee', caffeineFromTemplate(DRINKS.cocoa) === 0);
+
+    // Servings split it and sum back, exactly as the alcohol does.
+    {
+      const whole = deriveCaffeine([cup('coffee_base', 2)]);
+      const per = servingCaffeine(whole, 2);
+      check('drinks: two mouthfuls of one coffee are one coffee',
+        Math.abs(per * 2 - whole) < 1e-9, `${per} x2 vs ${whole}`);
+    }
+
+    // The stamp carries it, so the swallow can find it.
+    check('drinks: a made drink remembers its caffeine',
+      makeDrink({ name: 'x', band: 'good', capacity: 2, caffeine: 1 }).caffeine === 1);
+    check('drinks: ...and defaults to none rather than undefined',
+      makeDrink({ name: 'x', band: 'good', capacity: 2 }).caffeine === 0);
+  }
+
+  // ── Coffee keeps you awake ────────────────────────────────────────────────
+  //
+  // ⚠ The weight is authored on the DRUG ROW, never on drug_class — see
+  // wakefulnessOf in server/engine/drugs.js for why. These assert the content is
+  // actually carrying it, because the engine default is "no" and a missing flag
+  // fails silently as the old behaviour.
+  {
+    const { stimulantPotency, isWired, wiredSleepRefusal } = await import('../../server/engine/drugs.js');
+    const on = (id, potency = 1) => ({ activeDrugs: [{ drugId: id, potency }] });
+
+    const coffee = getDrug('drug_coffee');
+    check('drinks: coffee is authored as wakeful', Number(coffee?.flags?.wakefulness) > 0,
+      JSON.stringify(coffee?.flags?.wakefulness));
+    check('drinks: ...but is NOT in the stimulant overdose class',
+      coffee?.flags?.drug_class !== 'stimulant', String(coffee?.flags?.drug_class));
+
+    check('drinks: a coffee holds your eyes open', isWired(on('drug_coffee')) === true);
+    check('drinks: ...at less than a real upper does',
+      stimulantPotency(on('drug_coffee')) < stimulantPotency(on('drug_redline')),
+      `${stimulantPotency(on('drug_coffee'))} vs ${stimulantPotency(on('drug_redline'))}`);
+    check('drinks: ...and tolerance reaches it, like everything else',
+      stimulantPotency(on('drug_coffee', 0.5)) === stimulantPotency(on('drug_coffee', 1)) / 2);
+
+    // ⚠ THE ONE THE DOC SAID WAS THE REASON NOT TO DO THIS. A cigarette shares
+    // coffee's drug_family and must not have been dragged along with it.
+    for (const id of ['drug_cigarettes', 'drug_loose_tobacco', 'drug_amyls']) {
+      check(`drinks: ${id} did not come along for the ride`, stimulantPotency(on(id)) === 0,
+        String(stimulantPotency(on(id))));
+    }
+    check('drinks: a real upper is untouched at full weight', stimulantPotency(on('drug_redline')) === 1);
+
+    // The refusal is proportionate, and sober is still no refusal at all.
+    check('drinks: sober, nothing stops you lying down', wiredSleepRefusal({ activeDrugs: [] }) === null);
+    check('drinks: a coffee and a Redline refuse in different words',
+      wiredSleepRefusal(on('drug_coffee')) !== wiredSleepRefusal(on('drug_redline')),
+      `${wiredSleepRefusal(on('drug_coffee'))}`);
+    check('drinks: ...and neither of them is silent',
+      !!wiredSleepRefusal(on('drug_coffee')) && !!wiredSleepRefusal(on('drug_redline')));
+  }
+
+  // ── A rig tells you what it is offering ───────────────────────────────────
+  {
+    const hook = hooks['furniture.describe'];
+    const rig = { id: 'x', name: 'test rig', flags: { vends: 'item_demitasse_cup', brew_tier: 'barista', vend_drink: 'espresso' } };
+    const line = hook(rig);
+    check('drinks: a rig says what it pours and what it costs',
+      /espresso/.test(line || '') && /₵/.test(line || ''), line);
+    // The board and the till are ONE function, so they cannot quote different
+    // numbers. Asserted against the real derivation rather than a literal.
+    const want = Math.round(getItem('item_demitasse_cup')?.value || 0) + VEND_CHARGE.barista;
+    check('drinks: ...and the number it quotes is the one it charges',
+      new RegExp(`₵${want}\\b`).test(line || ''), `${line} (wanted ₵${want})`);
+    check('drinks: an ordinary dispenser says nothing',
+      hook({ id: 'y', flags: { vends: 'item_soylent' } }) === undefined);
+    check('drinks: ...and so does a machine whose recipe was deleted',
+      hook({ id: 'z', flags: { vends: 'item_paper_cup', vend_drink: 'cortado' } }) === undefined);
+  }
+
 }

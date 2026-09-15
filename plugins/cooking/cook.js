@@ -17,6 +17,8 @@ import { portionOf } from './portions.js';
 import { prepRateMult, marinadeStrength } from './prep.js';
 import { timeline, overStageText, finishAt, evaluate } from './quality.js';
 import { markNoisy, clearNoisyKey } from '../../server/engine/sounds.js';
+import { apparentNow, realTimeFor, sessionRate, setBurnerLevel, levelOfTier } from './heat.js';
+import { boiledFraction, dryAt, warnAt, waterText } from './boil.js';
 import { emit } from '../../server/engine/events.js';
 
 const timers = new Map(); // player_inventory id -> [setTimeout handles]
@@ -80,7 +82,10 @@ export function cooksOnAppliances(applianceIds) {
   for (const id of applianceIds) {
     const set = cooksByAppliance.get(String(id));
     if (!set) continue;
-    for (const invId of set) { const c = liveCooks.get(invId); if (c) out.push(c); }
+    // ⚠ The registry is KEYED on the inventory id and the entry does not carry
+    // it, so a caller that wants to write a session back had nowhere to write it.
+    // Handed out here rather than stored, so there is still one copy of the fact.
+    for (const invId of set) { const c = liveCooks.get(invId); if (c) out.push({ ...c, invId }); }
   }
   return out;
 }
@@ -173,9 +178,29 @@ export function prepareCook(invRow, appliance, env) {
       heatTier: appliance.heatTier || 'low',
       // The burner log. One entry at the start; `stove <setting>` appends. A
       // profile with a heatCurve is scored on this, not on heatTier alone.
-      heats: [{ at: nowMs + thawMs, tier: appliance.heatTier || 'low' }],
+      //
+      // `level` is the DIAL POSITION the tier was derived from, carried so that a
+      // restart can put the knob back where the player left it (see the boot
+      // restore below). Scoring reads `tier` and only `tier` — see heat.js for
+      // why the fine position buys speed and prose rather than a finer band.
+      heats: [{ at: nowMs + thawMs, tier: appliance.heatTier || 'low', level: appliance.heatLevel ?? levelOfTier(appliance.heatTier || 'low') }],
+      // How fast this session was BUILT to run. The dial's rate is expressed
+      // against it, so `speedOfLevel(l) / baseSpeed` is 1 at the position the
+      // cook started on whatever that position was.
+      baseSpeed: appliance.speed,
       vessel: appliance.vessel || BARE_VESSEL,
       vesselName: appliance.vesselName || null,
+      // WHICH PAN, by id. The session recorded the vessel's thermal stats and
+      // its name and not the one thing that lets anything go and look inside it
+      // — which is what boiling dry needs, since the water it consumes is an
+      // ordinary row in that container.
+      ...(appliance.vesselId ? { vesselId: appliance.vesselId } : {}),
+      // WHEN THE WATER WENT IN. The whole of boiling dry's state, and it lives
+      // on the session rather than on the water row for one reason: a rate
+      // change TRANSLATES the session (see heat.js), and a stamp in a different
+      // frame would drift out of step with the burner log it is integrated
+      // against. `shiftSession` moves this with everything else.
+      ...(appliance.wet ? { wet: { since: appliance.wetSince ?? (nowMs + thawMs) } } : {}),
       acts: [],
       // A smoke is a different process, not a slow cook: it gets an enormous
       // window (you cannot stand over it for an hour) and it changes what the
@@ -255,7 +280,12 @@ export function checkCooking(invRow) {
   const session = invRow.custom_data?.cooking;
   if (!session) return null;
   const { startedAt, thawMs, cookMs } = session;
-  const now = Date.now();
+  // ⚠ THE SESSION'S OWN CLOCK, not the wall clock, and it stops dead here rather
+  // than leaking outward: `overStageText` below is handed REAL time and converts
+  // for itself, because converting twice would advance the cook a second time.
+  // At rate 1 — every session nobody has turned the gas down on — these are the
+  // same number. See heat.js.
+  const now = apparentNow(session);
   const profile = sessionProfile(session);
   // A DONENESS TARGET moves the finish line — `rare` lands at 0.75 of the cook,
   // `well done` at 1.35 — so this has to be the same clock the quality ladder
@@ -264,7 +294,7 @@ export function checkCooking(invRow) {
   const finish = finishAt(session, profile);
   if (profile && now >= finish) {
     const phase = now >= tl.burnAt ? 'burnt' : now >= tl.peakEnd ? 'over' : 'window';
-    return { done: true, burnt: now >= tl.burnAt, phase, text: overStageText(session, profile, now) };
+    return { done: true, burnt: now >= tl.burnAt, phase, text: overStageText(session, profile) };
   }
   if (now >= finish) return { done: true, phase: 'window', text: 'cooked through' };
   const elapsed = now - startedAt;
@@ -284,13 +314,30 @@ export function checkCooking(invRow) {
   // is telegraphed in stages on purpose — knowing when to plate is the single
   // largest quality lever in the system, and a countdown would hand it over. So
   // anything reading these can say how far along, and cannot say how long.
-  return { done: false, phase: 'cook', stage: stageIndex(stages, f) + 1, stages: stages.length,
-           text: stageText(stages, f) };
+  // A ring turned off is a pan sitting there not cooking. The clock is frozen
+  // (rate 0 makes `apparentNow` stand still), so the stage prose would be right
+  // and say nothing about the one fact that matters.
+  const paused = sessionRate(session) === 0;
+  // HOW THE POT IS DOING, said out loud. The whole mechanic turns on this line
+  // existing: boiling dry with no warning is a punishment, and boiling dry after
+  // being told twice is a decision.
+  const gone = session.wet ? boiledFraction(session, Date.now()) : 0;
+  const water = session.wet ? waterText(gone) : null;
+  return { done: false, phase: paused ? 'paused' : 'cook', paused,
+           stage: stageIndex(stages, f) + 1, stages: stages.length,
+           water, dry: session.scorched != null || null,
+           text: paused ? `${stageText(stages, f)}, sitting off the heat` : stageText(stages, f) };
 }
 
 // Every line NAMES the food. With staging a pot can hold three things on three
 // different clocks, and an unattributed "it's ready" is useless when you have to
 // know which of them it means.
+// ⚠ BEATS ARE IN THE SESSION'S CLOCK; TIMERS ARE IN REAL TIME. Every `at` below
+// is an apparent-time stamp and has to be converted back through `realTimeFor`
+// before it is handed to `setTimeout`, or a pan on a low ring narrates itself on
+// the schedule it would have kept at full blast. A paused session converts to
+// null and is simply not armed — which is what makes "off" a real state and not
+// a slow one.
 function scheduleNarration(invId, playerId, session, foodName = 'something') {
   clearTimers(invId);
   const { startedAt, thawMs, cookMs } = session;
@@ -305,9 +352,16 @@ function scheduleNarration(invId, playerId, session, foodName = 'something') {
   for (const s of stagesFor(session.profile)) beats.push({ at: startedAt + thawMs + cookSpan * s.max, text: s.text });
 
   const now = Date.now();
+  // How long from now, in REAL seconds, until the session's clock reaches `at`.
+  // Null (a paused ring) means never, and never means no timer.
+  const delayTo = (at) => {
+    const real = realTimeFor(session, at, now);
+    return real === null ? null : real - now;
+  };
   const handles = [];
   for (const b of beats) {
-    const delay = b.at - now;
+    const delay = delayTo(b.at);
+    if (delay === null) continue;
     if (delay <= 0) continue; // already past this beat — examine shows it live
     if (tl && b.at >= tl.doneAt) continue; // the window has opened; the peak line owns it now
     handles.push(setTimeout(() => {
@@ -316,20 +370,46 @@ function scheduleNarration(invId, playerId, session, foodName = 'something') {
     }, delay));
   }
 
+  // ── THE WATER ─────────────────────────────────────────────────────────────
+  //
+  // Two beats: the pan says it is getting low, and then it goes. Both are
+  // predictions from the CURRENT burner setting, which is why they are rebuilt
+  // by `applyBurner` on every turn of the dial — the same rescheduling the rate
+  // change already needed. A ring at zero predicts neither, because a pan off
+  // the heat is not boiling.
+  if (profile && session.wet) {
+    const warn = warnAt(session, now);
+    if (warn != null) {
+      const d = delayTo(warn);
+      if (d !== null && d > 0) {
+        handles.push(setTimeout(() => narrate(playerId,
+          `The water in ${session.vesselName ? `the ${session.vesselName}` : 'the pan'} is getting low.`), d));
+      }
+    }
+    const dry = dryAt(session, now);
+    if (dry != null) {
+      const d = delayTo(dry);
+      if (d !== null) {
+        handles.push(setTimeout(() => boilDry(invId, playerId)
+          .catch(e => console.error('[cooking] boil-dry error:', e.message)), Math.max(0, d)));
+      }
+    }
+  }
+
   if (profile && session.microwave && session.stopAt) {
     // A microwave owns its own ending. One timer, not three: it stops when the
     // dial says so and there is no window to miss and nothing to burn.
     handles.push(setTimeout(() => finishMicrowave(invId, playerId).catch(e => console.error('[cooking] microwave error:', e.message)),
       Math.max(0, session.stopAt - now)));
-  } else if (profile) {
+  } else if (profile && sessionRate(session) > 0) {
     // Profiled food doesn't finish itself — it opens a window, warns you when
     // the window is closing, and burns if you never come back for it. Three
     // timers, all reconstructible from startedAt, none of them a tick.
-    handles.push(setTimeout(() => narrate(playerId, `The ${foodName} is ${lineFor(PEAK_LINES, session.profile)}.`), Math.max(0, tl.doneAt - now)));
-    handles.push(setTimeout(() => narrate(playerId, `The ${foodName} is ${lineFor(FADING_LINES, session.profile)}.`), Math.max(0, tl.peakEnd - now)));
-    handles.push(setTimeout(() => autoPlate(invId, playerId).catch(e => console.error('[cooking] burn error:', e.message)), Math.max(0, tl.burnAt - now)));
-  } else {
-    handles.push(setTimeout(() => finishCook(invId, playerId).catch(e => console.error('[cooking] finish error:', e.message)), Math.max(0, finishAt(session) - now)));
+    handles.push(setTimeout(() => narrate(playerId, `The ${foodName} is ${lineFor(PEAK_LINES, session.profile)}.`), Math.max(0, delayTo(tl.doneAt))));
+    handles.push(setTimeout(() => narrate(playerId, `The ${foodName} is ${lineFor(FADING_LINES, session.profile)}.`), Math.max(0, delayTo(tl.peakEnd))));
+    handles.push(setTimeout(() => autoPlate(invId, playerId).catch(e => console.error('[cooking] burn error:', e.message)), Math.max(0, delayTo(tl.burnAt))));
+  } else if (!profile && sessionRate(session) > 0) {
+    handles.push(setTimeout(() => finishCook(invId, playerId).catch(e => console.error('[cooking] finish error:', e.message)), Math.max(0, delayTo(finishAt(session)))));
   }
   timers.set(invId, handles);
 }
@@ -433,6 +513,112 @@ async function autoPlate(invId, playerId) {
   narrate(playerId, `Your ${row.name} has burnt to a ruin. You scrape it off the heat.`);
 }
 
+// ── BOILING DRY ──────────────────────────────────────────────────────────────
+//
+// The one event in this system that consumes an ingredient nobody asked it to.
+// It is armed like every other beat — a timestamp computed from stored marks,
+// a setTimeout, rebuilt on every burner change and on boot — and it fires once
+// per pan however many things are cooking in it, because the first handler to
+// run takes the water and the rest find none.
+async function boilDry(invId, playerId) {
+  const { rows } = await query(
+    `SELECT pi.id, pi.custom_data, i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1`,
+    [invId]
+  );
+  const row = rows[0];
+  const session = row?.custom_data?.cooking;
+  if (!session?.wet) return;
+  const vesselId = session.vesselId;
+  if (!vesselId) return;
+
+  // ⚠ RE-READ, NEVER TRUST THE PREDICTION. `dryAt` says when the pan would run
+  // dry IF THE BURNER STAYED PUT, and the timer was armed against that. Anything
+  // that topped the pan back up or turned the ring down has already rescheduled,
+  // but a stale handler that fired anyway must not throw away a full pot — so
+  // the amount is recomputed here from the marks, which are the truth.
+  if (boiledFraction(session) < 1) return;
+
+  const { rows: medium } = await query(
+    `SELECT pi.id, i.name, i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.container_id=$1 AND jsonb_exists(i.tags,'cooking_medium')`,
+    [vesselId]
+  );
+  if (!medium.length) return;                    // somebody already drained it
+  await query('DELETE FROM player_inventory WHERE id = ANY($1)', [medium.map(r => r.id)]);
+
+  // Everything in that pan caught, not just the row whose timer fired. One
+  // statement, and `scorched` is stamped in the session's OWN clock so the burn
+  // point it pulls in is measured the same way everything else on the session is.
+  const live = cooksOnAppliances([session.applianceId]).filter(c => c.session.vesselId === vesselId);
+  const marked = [];
+  for (const c of live) {
+    if (c.session.scorched != null) continue;
+    c.session.scorched = apparentNow(c.session);
+    delete c.session.wet;                        // there is no water left to boil
+    marked.push(c);
+  }
+  if (marked.length) {
+    await query(
+      `UPDATE player_inventory pi
+          SET custom_data = COALESCE(pi.custom_data,'{}'::jsonb) || jsonb_build_object('cooking', v.session)
+         FROM (SELECT unnest($1::text[]) AS id, unnest($2::jsonb[]) AS session) v
+        WHERE pi.id = v.id`,
+      [marked.map(c => c.invId), marked.map(c => JSON.stringify(c.session))]
+    );
+    for (const c of marked) scheduleNarration(c.invId, c.playerId, c.session, c.name);
+  }
+
+  const where = session.vesselName ? `the ${session.vesselName}` : 'the pan';
+  const zoneId = liveCooks.get(invId)?.zoneId;
+  emit('cooking.sfx', { zoneId, playerId, action: 'sizzle', state: 'dry', intensity: 1 });
+  narrate(playerId, `<span style="color:var(--red)">${where} has boiled dry.</span> `
+    + `Whatever is in it is on hot metal now, and catching.`);
+}
+
+// TOPPING IT BACK UP — the counterplay, and the reason the warning is worth
+// reacting to. Called by `fill` when it puts water into a pan that is already on
+// the heat: the evaporation clock restarts from now on every session in that
+// pan, and the timers follow.
+//
+// ⚠ IT DOES NOT CLEAR `scorched`. A pan that already caught has already cost you
+// the rung; water stops it burning from here and does not un-burn what happened.
+// That split is what makes "getting low" a thing to run back for rather than a
+// thing to ignore because it is fixable later.
+export async function rewetVessel(vesselId) { return setVesselWet(vesselId, true); }
+
+// ...and the mirror. Anything that TAKES the water out — `drain`, `empty`,
+// pouring the pan into another one — has to say so, or the session goes on
+// believing there is a pot to boil away and the panel goes on reporting a level
+// for water that is in the sink. The dry-out itself cannot fail dangerously
+// (`boilDry` finds no medium and returns), so this is about the READOUT being
+// true rather than about safety — which is exactly the kind of drift that ends
+// up with two ideas of how full a pot is.
+export async function dryVessel(vesselId) { return setVesselWet(vesselId, false); }
+
+// `liveCooks` is keyed on the inventory id and holds the same session object the
+// timers read, so mutating here and writing back is one funnel rather than two.
+async function setVesselWet(vesselId, wet) {
+  if (!vesselId) return 0;
+  const live = [];
+  for (const [invId, c] of liveCooks) {
+    if (c.session?.vesselId !== vesselId || !c.session.profile) continue;
+    if (wet) c.session.wet = { since: apparentNow(c.session) };
+    else if (c.session.wet) delete c.session.wet;
+    else continue;
+    live.push({ ...c, invId });
+  }
+  if (!live.length) return 0;
+  await query(
+    `UPDATE player_inventory pi
+        SET custom_data = COALESCE(pi.custom_data,'{}'::jsonb) || jsonb_build_object('cooking', v.session)
+       FROM (SELECT unnest($1::text[]) AS id, unnest($2::jsonb[]) AS session) v
+      WHERE pi.id = v.id`,
+    [live.map(c => c.invId), live.map(c => JSON.stringify(c.session))]
+  );
+  for (const c of live) scheduleNarration(c.invId, c.playerId, c.session, c.name);
+  return live.length;
+}
+
 // Boot-catchup: reschedule (or immediately finish) any cook session that was
 // in flight across a restart, exactly like jail's release-timer recovery.
 (async () => {
@@ -453,6 +639,13 @@ async function autoPlate(invId, playerId) {
     const restore = () => {
       rememberCook(r.id, { applianceId: session.applianceId, playerId: r.player_id, name: r.name, session });
       scheduleNarration(r.id, r.player_id, session, r.name);
+      // The DIAL is RAM (see heat.js) and a restart empties it, so a burner that
+      // was turned down — or off — would come back at its resting position with
+      // the pan on it still running at the rate the session records. Seeding it
+      // from the last burner mark is what makes a paused pan come back paused
+      // rather than mysteriously relighting itself.
+      const last = session.heats?.[session.heats.length - 1];
+      if (last) setBurnerLevel(session.applianceId, last.level ?? levelOfTier(last.tier));
     };
     if (profile) {
       // A microwave whose timer elapsed during the restart just finishes — it
@@ -461,9 +654,9 @@ async function autoPlate(invId, playerId) {
         if (Date.now() >= session.stopAt) await finishMicrowave(r.id, r.player_id).catch(() => {});
         else restore();
       }
-      else if (Date.now() >= timeline(session, profile).burnAt) await autoPlate(r.id, r.player_id).catch(() => {});
+      else if (apparentNow(session) >= timeline(session, profile).burnAt) await autoPlate(r.id, r.player_id).catch(() => {});
       else restore();
-    } else if (Date.now() >= finishAt(session)) await finishCook(r.id, r.player_id).catch(() => {});
+    } else if (apparentNow(session) >= finishAt(session)) await finishCook(r.id, r.player_id).catch(() => {});
     else restore();
   }
 })().catch(e => console.error('[cooking] boot restore error:', e.message));

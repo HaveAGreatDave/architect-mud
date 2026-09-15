@@ -2235,7 +2235,25 @@ function barIn(zoneId) {
   return null;
 }
 
+// ⚠ `pour A INTO B` IS NOT A CONSORT SENTENCE, AND THIS VERB IS A PLUGIN
+// COMMAND — which beats every specialized action in the game, in every plugin,
+// unconditionally (dispatch runs `fireCommand` before `fireSpecializedAction`).
+// So consort owned the word `pour` outright: `pour water into the canteen` came
+// here and was answered "There's no one here to pour for you", and the `pour`
+// handlers in **fillable** and **drinks** were unreachable code. No suite caught
+// it because none of the three drives the verb end to end — fillable's own case
+// inspects the specialized-action REGISTRY, which is correctly ordered and never
+// consulted.
+//
+// Consort's shapes are `pour`, `pour me a whiskey`, `pour Vesper`, `vesper pour
+// me a whiskey`. Not one of them names a thing to pour into, so a transfer
+// clause is a reliable signal that the sentence belongs to somebody else.
+// Returning undefined hands it to the specialized-action chain, which is what a
+// plugin command does to abstain.
+const TRANSFER_SHAPE = /\s+(?:into|onto|in|on|over)\s+\S/i;
+
 async function cmdPour(args, raw, player) {
+  if (TRANSFER_SHAPE.test(args.join(' '))) return undefined;
   const pool = getZoneNpcs(player.current_zone).filter(n => isConsort(n) && n.flags?.devoted_to === player.handle);
   if (!pool.length) {
     const anyConsort = getZoneNpcs(player.current_zone).some(isConsort);

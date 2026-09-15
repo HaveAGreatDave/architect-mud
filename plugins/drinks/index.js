@@ -22,6 +22,7 @@ import { adjustSanity } from '../../server/engine/condition.js';
 import { registerAction, dispatchAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { getZoneFurniture, getZone } from '../../server/engine/world.js';
+import { getItem } from '../../server/engine/items-cache.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { useDrug } from '../../server/engine/drugs.js';
@@ -40,6 +41,9 @@ import {
 } from './recipes.js';
 import { DRINK_PROFILES, profileNameFor, poursOf, isModifierProfile, isMediumProfile, bandIndex, QUALITY_BANDS } from './profiles.js';
 import { derivePotency, abvOf, servingPotency, strengthLabel } from './alcohol.js';
+import {
+  deriveCaffeine, caffeineFromTemplate, caffeineMgOf, servingCaffeine, kickLabel,
+} from './caffeine.js';
 import {
   isDrinkware, drinkwareKind, isInsulated, capacityOf,
   buildOf, drinkOf, isDirty, residueOf,
@@ -186,6 +190,7 @@ async function addToBuild(player, ingredientStr, vesselStr) {
     profile,
     pours,
     abv: abvOf(row),
+    caffeine_mg: caffeineMgOf(row, profile),
     band: DRINK_PROFILES[profile]?.raw || 'acceptable',
     contaminated: !!row.custom_data?.contaminated,
   });
@@ -273,10 +278,11 @@ async function resolveBuild(player, vessel, broadcast, { hot, appliance = null }
   // ── the drink ──
   const capacity = capacityOf(vessel);
   const potency = derivePotency(build);
+  const caffeine = deriveCaffeine(build);
   const name = match ? drinkName(template, rows) : UNKNOWN_DRINK.noun;
   const drink = makeDrink({
     key: match?.key || null,
-    name, band, capacity, potency, hot,
+    name, band, capacity, potency, caffeine, hot,
     residue: composing[0]?.profile || null,
     // Foul water carries through into whatever you made with it. Two lines, and
     // it's the emergent composition the whole architecture is for: a coffee made
@@ -297,6 +303,8 @@ async function resolveBuild(player, vessel, broadcast, { hot, appliance = null }
     dim(template.blurb),
   ];
   if (strength) lines.push(dim(`It reads ${strength}.`));
+  const kick = kickLabel(caffeine);
+  if (kick) lines.push(dim(`There's ${kick}.`));
   if (drink.contaminated) lines.push(`<span style="color:var(--red)">Whatever water went into this wasn't clean.</span>`);
   lines.push(dim(`${capacity} serving${capacity === 1 ? '' : 's'} in the ${vessel.name}.`));
   return { type: 'use', message: lines.join('\n') };
@@ -382,6 +390,17 @@ registerAction({
       });
       if (res?.message) parts.push(res.message);
     }
+    // THE CAFFEINE, through the ordinary path — the same call `applyItemUse`
+    // makes for a bought tin of it, so the arc, the tolerance, the sobering and
+    // the fatigue clock all behave exactly as they always have. A share of the
+    // whole per serving, like the alcohol, so a big mug is not one huge hit.
+    const caf = servingCaffeine(drink.caffeine, drink.capacity);
+    if (caf > 0) {
+      const res = await useDrug(player, 'drug_coffee', context?.broadcast, {
+        potencyMult: caf, skipInstant: true, route: 'drink',
+      });
+      if (res?.message) parts.push(res.message);
+    }
     if (drink.contaminated) {
       const foul = await dispatchAction({ type: 'bodily.drinkContaminated', actor: player, params: { fouled: true } });
       if (foul?.message) parts.push(foul.message);
@@ -394,6 +413,37 @@ registerAction({
     };
   },
 });
+
+/**
+ * What a rig is offering: the band it serves and what it charges for it.
+ *
+ * ONE function, because two things ask — the till (drinks.serveVended) and the
+ * board (the furniture.describe hook). A machine that quotes one number on
+ * examine and takes another at the button is worse than one that quotes nothing.
+ *
+ * A machine is consistent, never brilliant: VEND_BANDS sits under the tier's own
+ * ceiling, and the TEMPLATE's ceiling still wins on top of that, so a rig can
+ * never serve a drink better than the recipe goes.
+ *
+ * THE PRICE IS THE CUP PLUS THE TIER. Nothing about luxury is authored — the
+ * salon's brass lever hands over a ₵30 demitasse and the urn hands over a ₵1
+ * paper cup — and since you keep the cup the price has to cover it, or the rig is
+ * a faucet for crockery. `vend_price` overrides for a machine that isn't a
+ * business; regress refuses one authored below what the vessel is worth.
+ */
+function vendQuote(machine, item, template = DRINKS[machine?.flags?.vend_drink]) {
+  const tier = machine?.flags?.brew_tier;
+  const served = VEND_BANDS[tier] || VEND_BANDS.kettle;
+  const ceiling = template?.ceiling;
+  const band = (ceiling && bandIndex(served) > bandIndex(ceiling)) ? ceiling : served;
+
+  const authored = Number(machine?.flags?.vend_price);
+  const price = Number.isFinite(authored)
+    ? Math.max(0, Math.round(authored))
+    : Math.max(0, Math.round(Number(item?.value) || 0)) + (VEND_CHARGE[tier] ?? VEND_CHARGE.kettle);
+
+  return { band, price };
+}
 
 // ── a rig that pulls its own cup ─────────────────────────────────────────────
 //
@@ -435,22 +485,8 @@ registerAction({
       return undefined;
     }
 
-    const tier = machine.flags?.brew_tier;
-    // A machine is consistent, never brilliant — see VEND_BANDS. The template's
-    // own ceiling still wins, so a rig can never serve a drink better than the
-    // recipe goes.
-    const served = VEND_BANDS[tier] || VEND_BANDS.kettle;
-    const band = bandIndex(served) > bandIndex(template.ceiling) ? template.ceiling : served;
+    const { band, price } = vendQuote(machine, item, template);
 
-    // THE PRICE IS THE CUP PLUS THE TIER. Nothing about luxury is authored: the
-    // salon's brass lever hands over a ₵30 demitasse and the urn hands over a ₵1
-    // paper cup, and since you keep the cup the price has to cover it or the rig
-    // is a faucet for crockery. `vend_price` overrides for a machine that isn't
-    // a business — the one in your own kitchen doesn't bill you.
-    const authored = Number(machine.flags?.vend_price);
-    const price = Number.isFinite(authored)
-      ? Math.max(0, Math.round(authored))
-      : Math.max(0, Math.round(Number(item.value) || 0)) + (VEND_CHARGE[tier] ?? VEND_CHARGE.kettle);
 
     if (price > 0 && !(await adjustCredits(player, -price, undefined, 'drinks:vend'))) {
       return { ok: false, price, message: `It wants ₵${price}, and you haven't got it.` };
@@ -460,6 +496,8 @@ registerAction({
     const drink = makeDrink({
       key, name, band,
       capacity: capacityOf(item),
+      // A machine has no ingredients to read, so the RECIPE answers for it.
+      caffeine: caffeineFromTemplate(template),
       hot: !!template.hot,
       // What the cup smells of afterwards, off the recipe rather than authored —
       // so a second coffee in the same unrinsed cup is forgiven and a cocktail
@@ -530,6 +568,9 @@ async function cmdPour(args, raw, player, broadcast) {
       thirst: Math.round((dst.thirst + src.thirst) / 2),
       sanity: 0,
       potency: (dst.potency * dst.servings + src.potency * moved) / (dst.servings + moved),
+      // Ruined as a drink, still caffeinated. Averaged by servings like the
+      // alcohol, because what is in the cup does not stop being in the cup.
+      caffeine: ((dst.caffeine || 0) * dst.servings + (src.caffeine || 0) * moved) / (dst.servings + moved),
       hot_at: (dst.hot_at && src.hot_at) ? Math.min(dst.hot_at, src.hot_at) : null,
       made_at: Date.now(),
       residue: dst.residue || src.residue || null,
@@ -602,9 +643,13 @@ async function cmdRecipes(args, raw, player) {
   return { type: 'output', message: describeRecipe(hit[0], hit[1], POUR_ML) };
 }
 
-// ── examine hook ─────────────────────────────────────────────────────────────
-// What's in the cup, when you look at the cup.
-
+// ── what a rig is offering, when you look at it ──────────────────────────────
+//
+// VEND now shows as an affordance on any dispenser (see plugins/vending), but a
+// verb on its own doesn't say what you get or what it costs, and a machine that
+// takes ₵38 off you without mentioning it first is a machine nobody uses twice.
+// The price is DERIVED here by the same function that charges it, so the board
+// can never quote one number and the till take another.
 export const hooks = {
   'item.describeVessel': ({ item }) => {
     if (!isDrinkware(item)) return undefined;
@@ -616,11 +661,24 @@ export const hooks = {
       if (temp) bits.push(temp);
       const s = strengthLabel(drink.potency);
       if (s) bits.push(s);
+      const k = kickLabel(drink.caffeine);
+      if (k) bits.push(k);
       return `${bits.join(', ')}.`;
     }
     if (build.length) return `Part-built: ${build.map(c => c.name).join(', ')}. ${dim('Mix it to finish.')}`;
     if (isDirty(item)) return `It hasn't been rinsed since the last one.`;
     return undefined;
+  },
+
+  'furniture.describe': (f) => {
+    const key = f?.flags?.vend_drink;
+    const template = key && DRINKS[key];
+    if (!template) return undefined;
+    const item = getItem(f.flags?.vends);
+    if (!item) return undefined;
+    const { band, price } = vendQuote(f, item, template);
+    const cost = price > 0 ? `₵${price}` : 'nothing';
+    return dim(`It serves ${drinkName(template, [])}, ${band}, in a ${item.name}. ${cost} a cup.`);
   },
 };
 

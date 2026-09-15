@@ -7,7 +7,7 @@ import { setPosture } from "./posture.js";
 import { registerProtectionProvider } from "./protection.js";
 import { isSanctuary, allowsSleep } from "./zone-tags.js";
 import { ownsZone } from "./zone-filth.js";
-import { isWired } from "./drugs.js";
+import { wiredSleepRefusal } from "./drugs.js";
 import { loggedPanelsSync } from "./presentation.js";
 import { hasPerm, PERM } from "./org-perms.js";
 import { exitTargets, neighborZoneIds } from "./exits.js";
@@ -946,13 +946,11 @@ export async function cmdSleep(player, broadcastFn, opts = {}) {
 		};
 
 	// You cannot lie down on a live stimulant. Asked of the drug system rather
-	// than decided here, so this command never grows its own pharmacology.
-	if (isWired(player))
-		return {
-			type: "error",
-			message:
-				"You lie down, and your heart makes it clear that isn't happening. Whatever you took is still driving.",
-		};
+	// than decided here, so this command never grows its own pharmacology —
+	// including the SENTENCE, which is proportionate to what is driving you: a
+	// coffee and a Redline are both refusals and they do not sound alike.
+	const wired = wiredSleepRefusal(player);
+	if (wired) return { type: "error", message: wired };
 
 	const zone = getZone(player.current_zone);
 	if (!zone)

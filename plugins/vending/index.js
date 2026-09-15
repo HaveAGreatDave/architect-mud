@@ -118,4 +118,16 @@ async function cmdVend(args, raw, player, broadcast) {
   return { type: 'output', message: `${flavour} ${tail}` };
 }
 
+// VEND SHOWS ON EXAMINE. The manifest called this impossible for a long time —
+// "flag values aren't tag-anchored, so availableActions can't surface it" — and
+// it is not: registerSpecializedAction takes a `requiredFlag` beside its
+// `requiredTag` for exactly this, a gate on a furniture flag KEY rather than on
+// a tag. Declaration-only (handler null), so the verb still runs through the
+// ordinary command above and re-checks everything it always did; all this adds
+// is that the machine tells you it is there. Before it, a dispenser only worked
+// for a player who already knew the word.
+export const specializedActions = [
+  { verb: 'vend', requiredFlag: 'vends', handler: null },
+];
+
 export const commands = { vend: cmdVend };

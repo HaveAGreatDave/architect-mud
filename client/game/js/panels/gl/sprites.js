@@ -60,6 +60,18 @@ in vec2 vCorner;
 in vec3 vColor;
 in float vAlpha;
 in float vHard;
+// ⚠ HOW FAR PAST WHITE AN EMITTER IS ALLOWED TO GO, AND IT IS THE ONLY THING IN GLASS THAT DOES.
+// Every shader here was written against an 8-bit target and saturates by construction — measured on
+// the float buffer, the city's brightest pixel is 1.016 at night with 0.01% of the frame over 1.0 —
+// so a bright-pass at 1.0 finds nothing and a bright-pass below 1.0 finds the road markings, which
+// are the palest thing in a dark street and are not lights. A sign has to actually be brighter than
+// a white line before a bloom can tell them apart.
+//
+// ⚠ AND THE PICTURE DOES NOT CHANGE, WHICH IS WHY THIS IS SAFE. The composite clamps, so a glow
+// already at 1.0 still resolves to 1.0; what moves is only what the bright-pass can see. It is
+// applied to the ADDITIVE batch alone — those are light, and doubling a lay-over glow would just
+// paint a brighter smear.
+uniform float uIntensity;
 out vec4 outColor;
 void main() {
   float d = length(vCorner);
@@ -72,7 +84,7 @@ void main() {
   float hard = 1.0 - smoothstep(0.72, 1.0, d);
   float a = vAlpha * mix(soft, hard, clamp(vHard, 0.0, 1.0));
   // Premultiplied: the canvas is, and an additive blend wants the colour already scaled anyway.
-  outColor = vec4(vColor * a, a);
+  outColor = vec4(vColor * a * uIntensity, a);
 }`;
 
 function compile(gl, type, src, label) {
@@ -105,6 +117,7 @@ export function createSpriteLayer(gl) {
     hard: gl.getAttribLocation(prog, 'aHard'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     viewport: gl.getUniformLocation(prog, 'uViewport'),
+    intensity: gl.getUniformLocation(prog, 'uIntensity'),
   };
 
   const vao = gl.createVertexArray();
@@ -153,7 +166,7 @@ export function createSpriteLayer(gl) {
 
   // `H` is the CANVAS height (device px) and sizes the viewport, because `aRadius` is already in
   // device pixels. `cssH` is the CAMERA's own frame height, which is what the matrix is built from.
-  function draw(cam, W, H, cssH) {
+  function draw(cam, W, H, cssH, intensity) {
     if (!count) return 0;
     gl.useProgram(prog);
     gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, cssH || H)));
@@ -162,8 +175,15 @@ export function createSpriteLayer(gl) {
     gl.depthMask(false);          // a light is the appearance of a thing, not a thing
     gl.enable(gl.BLEND);
     gl.bindVertexArray(vao);
+    // ⚠ ONE, AND NOT THE GAIN, FOR THE LAY-OVER BATCH. Those glows are colour laid on a surface
+    // rather than light added to it, so scaling them pushes no emitter into the headroom — it
+    // paints a brighter smear, and the composite clamp cannot take that back.
+    gl.uniform1f(loc.intensity, 1);
     if (split) { gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.drawArrays(gl.TRIANGLES, 0, split); }
-    if (count > split) { gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.TRIANGLES, split, count - split); }
+    if (count > split) {
+      gl.uniform1f(loc.intensity, intensity > 0 ? intensity : 1);
+      gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.TRIANGLES, split, count - split);
+    }
     gl.bindVertexArray(null);
     gl.depthMask(true);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);

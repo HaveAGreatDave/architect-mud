@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<!--
+  Workspace panel layout harness — see the cooking HUD with no game running.
+
+  Same trick as the flight-sim layout harness: serve `client/` as the web root,
+  mount the panel's real markup, hand `openWorkspacePanel` a payload shaped
+  exactly like `buildKitchen`'s, and look at it. The point is that it is the REAL
+  panel and the REAL stylesheet, so anything wrong here is wrong in the game.
+
+  A fabricated payload beats one real kitchen for this: it can hold every state
+  at once — raw food, a pan on the heat mid-window, a sandwich being built, a
+  finished plate, a cold cabinet — which is what you need to judge a layout.
+
+  Delete freely; nothing ships against it.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Workspace harness</title>
+<link rel="stylesheet" href="game/styles.css">
+<style>
+  body { margin: 0; background: var(--bg, #0b0d0e); }
+  /* The panel positions itself against the viewport; the harness only needs a
+     stage for it to sit on. */
+  #harness-note { position: fixed; left: 8px; bottom: 6px; font: 11px monospace; color: #666; z-index: 1; }
+</style>
+</head>
+<body>
+<div id="harness-note">workspace harness — not part of the game</div>
+<!-- The panel's live tick calls sendCmdSilent, which with no socket falls
+     through to noticeDropped() and writes into the log. Give it somewhere to
+     write or a hot pan throws every five seconds and buries the real errors. -->
+<div id="output" style="display:none"></div>
+
+<div id="workspace-panel">
+  <div id="workspace-box">
+    <div id="workspace-header">
+      <h2 id="workspace-title">Workspace</h2>
+      <span id="workspace-provider"></span>
+      <button id="workspace-compact" class="wsp-hdr-btn" title="Shrink to the hob and the log">Compact</button>
+      <button id="workspace-close" aria-label="Close">✕</button>
+    </div>
+    <div id="workspace-status"></div>
+    <div id="workspace-stages"></div>
+    <div id="workspace-dials"></div>
+    <div id="workspace-body"></div>
+    <div id="workspace-tray"></div>
+    <div id="workspace-feed" aria-hidden="true"></div>
+    <div id="workspace-footer">
+      <span id="workspace-feedhint">Replies appear above · Esc closes</span>
+      <button id="workspace-refresh" class="loot-btn">Refresh</button>
+      <button id="workspace-close-btn" class="loot-btn">Close</button>
+    </div>
+    <div id="workspace-grip" title="Drag to resize"></div>
+  </div>
+</div>
+
+<script type="module">
+// initWorkspacePanel binds every delegated handler — the tick, the batch button
+// and the "cook it…" toggle all live on it, so a harness that only calls
+// openWorkspacePanel renders a panel whose controls are all inert. That is not
+// the panel being broken; it is the harness not having been switched on.
+import { openWorkspacePanel, initWorkspacePanel } from './game/js/panels/workspace.js';
+
+const act = (label, command, hint = null, extra = null) => ({ label, command, hint, ...(extra || {}) });
+
+// A dial position as the server sends it: a literal command per level, so the
+// panel composes nothing. `ceiling` is where this stove stops; anything above it
+// is drawn and refused rather than hidden.
+// The server's own LEVEL_TEXT, restated here because the harness IS the server.
+const LEVEL_TEXT = ['out', 'a bare blue flicker', 'a low steady flame', 'a gentle heat',
+  'a working flame', 'a steady middle', 'a brisk heat', 'a hard flame', 'a roaring ring',
+  'wide open', 'wound past the stop, the burner howling'];
+const TIER_AT = n => (n === 0 ? null : n <= 3 ? 'low' : n <= 7 ? 'mid' : 'high');
+const levels = (name, ceiling, at) => Array.from({ length: 11 }, (_, n) => ({
+  level: n,
+  command: n === 0 ? `stove off on ${name}` : `stove ${n} on ${name}`,
+  label: LEVEL_TEXT[n],
+  band: TIER_AT(n),
+  over: n > ceiling,
+  state: n === at ? 'on' : null,
+}));
+const NOTCHES = [
+  { level: 2, name: 'low', from: 1, to: 3 },
+  { level: 5, name: 'mid', from: 4, to: 7 },
+  { level: 9, name: 'high', from: 8, to: 10 },
+];
+
+const PAYLOAD = {
+  // Four beats and which one the job is on. Derived server-side; it gates
+  // nothing.
+  stages: {
+    at: 2,
+    hint: 'On the heat. Ride the burner and judge when to pull it.',
+    steps: [
+      { key: 'prep', label: 'Prep', state: 'done' },
+      { key: 'load', label: 'Load', state: 'done' },
+      { key: 'heat', label: 'Heat', state: 'now' },
+      { key: 'plate', label: 'Plate', state: 'todo' },
+    ],
+  },
+
+  // Two burners, deliberately in different states: one lit and running hot
+  // against a food that wants a simmer (so the comfy band and the verdict are
+  // both on screen), one free at its resting notch.
+  dials: [
+    {
+      id: 'furn_range', name: 'cast-iron range', level: 9, ceiling: 10, max: 10,
+      band: 'high', label: 'wide open', ceilingBand: 'high',
+      notches: NOTCHES, levels: levels('cast-iron range', 10, 9),
+      subjectId: 'v1', subject: 'stock pot', want: 'low',
+      verdict: { state: 'hot', text: 'far too fierce for this' },
+      idle: false,
+      meter: { phase: 'window', stage: null, stages: null, text: 'in the window' },
+    },
+    {
+      id: 'furn_hotplate', name: 'two-ring hotplate', level: 5, ceiling: 7, max: 10,
+      band: 'mid', label: 'a steady middle', ceilingBand: 'mid',
+      notches: NOTCHES, levels: levels('two-ring hotplate', 7, 5),
+      subjectId: null, subject: null, want: null, verdict: null,
+      idle: false, meter: null,
+    },
+  ],
+
+  status: [
+    { label: 'Power',   value: 'ONLINE', state: 'ok' },
+    { label: 'Stove',   value: 'cast-iron range · high · 1/2 in use', state: 'ok' },
+    { label: 'Water',   value: 'BRASS TAP', state: 'ok' },
+    { label: 'Ambient', value: '14°C', state: 'ok' },
+  ],
+
+  // The Preparation Area — vessels out on the bench.
+  area: [
+    {
+      id: 'v1', name: 'stock pot', short: 'pot', hot: true, heat: 'high',
+      note: 'on the range, boiling hard',
+      contents: [
+        { id: 'c1', name: 'test penne', kind: 'food', state: 'in the window — pull it now', notes: [], live: true,
+          cook: { phase: 'window', stage: null, stages: null },
+          actions: [ act('stir', 'stir test penne', null, { role: 'handle' }),
+                     act('taste', 'taste test penne', 'costs you a mouthful of the finished dish', { role: 'taste' }),
+                     act('plate', 'plate test penne', null, { role: 'finish' }) ] },
+        { id: 'c2', name: 'water', kind: 'food', state: 'the cooking medium', notes: [], live: false, cook: null, actions: [] },
+        { id: 'c4', name: 'a measure of oil', kind: 'food', state: 'raw', notes: ['4 measures left'], live: false, cook: null,
+          actions: [ act('↑ out', 'pullid c4', 'takes it back out of the pan', { role: 'take' }) ] },
+      ],
+      actions: [
+        act('low',  'stove low',  null, { role: 'heat', tier: 'low',  state: null }),
+        act('mid',  'stove mid',  null, { role: 'heat', tier: 'mid',  state: null }),
+        act('high', 'stove high', null, { role: 'heat', tier: 'high', state: 'on' }),
+        act('plate', 'plate stock pot', 'ends it and decides the quality', { role: 'finish' }),
+        act('drain', 'drain stock pot', null, { role: 'water' }),
+        act('taste', 'taste stock pot', 'one spoonful, however much is in it', { role: 'taste' }),
+      ],
+      batch: { prefix: 'prepare stock pot with ', sep: ', ' },
+    },
+    {
+      id: 'v2', name: 'frying pan', short: 'pan', hot: false, heat: null,
+      note: 'fond from a sear, still fresh',
+      contents: [],
+      actions: [
+        act('fill', 'fill frying pan', 'water from the tap, to boil in', { role: 'water' }),
+        act('tip out', 'empty frying pan', 'pours a measure of oil away', { role: 'water' }),
+        act('→ pot', 'pour frying pan into stock pot', 'decants the liquid, leaves the rest', { role: 'water' }),
+        act('fry', 'fry frying pan', null, { role: 'method' }),
+        act('sear', 'sear frying pan', null, { role: 'method' }),
+        act('saute', 'saute frying pan', null, { role: 'method' }),
+        act('cook', 'cook frying pan', null, { role: 'start' }),
+        act('deglaze', 'deglaze frying pan', "beats any seasoning — it's a technique", { role: 'clean' }),
+        act('scour', 'scour frying pan', 'a pan you browned in and ignored is worse than a clean one', { role: 'clean' }),
+      ],
+      batch: { prefix: 'prepare frying pan with ', sep: ', ' },
+    },
+    {
+      id: 'v3', name: 'flatbread', short: 'bread', hot: false, heat: null,
+      note: 'an edible vessel — it is the sandwich',
+      contents: [
+        { id: 'c3', name: 'vat cheese', kind: 'food', state: 'raw', notes: [], live: false, cook: null,
+          actions: [ act('taste', 'taste vat cheese', null, { role: 'taste' }) ] },
+      ],
+      actions: [
+        act('toast', 'toast flatbread', null, { role: 'method' }),
+        act('grill', 'grill flatbread', null, { role: 'method' }),
+        act('cook', 'cook flatbread', null, { role: 'start' }),
+        act('taste', 'taste flatbread', 'one spoonful, however much is in it', { role: 'taste' }),
+      ],
+      batch: { prefix: 'prepare flatbread with ', sep: ', ' },
+    },
+  ],
+
+  // Loose food in your hands.
+  components: [
+    { id: 'f1', name: 'rat haunch', kind: 'food', qty: null, state: 'raw', notes: [], live: false, cook: null,
+      actions: [
+        act('score', 'score rat haunch', 'wider window; dries out faster past it', { role: 'prep' }),
+        act('tenderise', 'tenderise rat haunch', 'faster and forgiving; one rung off the ceiling', { role: 'prep' }),
+        act('mince', 'mince rat haunch', 'a third of the cook; two rungs off the ceiling, forever', { role: 'prep' }),
+        act('chop', 'chop rat haunch', 'faster cook, proportionally smaller meal', { role: 'prep' }),
+        act('marinate…', 'marinate rat haunch in ', 'name what to steep it in; costs the marinade and real time', { role: 'prep' }),
+        act('sear', 'sear rat haunch', 'searing wants a pan; it finds one and lights the ring', { role: 'method' }),
+        act('fry', 'fry rat haunch', 'frying wants a pan; it finds one and lights the ring', { role: 'method' }),
+        act('roast', 'roast rat haunch', 'roasting wants a tray; it finds one and lights the ring', { role: 'method' }),
+        act('grill', 'grill rat haunch', null, { role: 'method' }),
+        act('stew', 'stew rat haunch', 'stewing wants a pot; it finds one and lights the ring', { role: 'method' }),
+        act('→ pot', 'stow rat haunch in stock pot', null, { role: 'stow', target: 'v1' }),
+        act('→ pan', 'stow rat haunch in frying pan', null, { role: 'stow', target: 'v2' }),
+        act('≡ bread', 'stack rat haunch on flatbread', 'lays it on top — the sandwich reads bottom to top', { role: 'stow', target: 'v3' }),
+        act('cook', 'cook rat haunch', 'bare on the heat — a vessel cooks it better', { role: 'start' }),
+      ] },
+    { id: 'f2', name: 'onion', kind: 'food', qty: 3, state: 'raw', notes: [], live: false, cook: null,
+      actions: [
+        act('chop', 'chop onion', 'faster cook, proportionally smaller meal', { role: 'prep' }),
+        act('fry', 'fry onion', null, { role: 'method' }),
+        act('saute', 'saute onion', null, { role: 'method' }),
+        act('roast', 'roast onion', null, { role: 'method' }),
+        act('boil', 'boil onion', null, { role: 'method' }),
+        act('→ pot', 'stow onion in stock pot', null, { role: 'stow', target: 'v1' }),
+        act('→ pan', 'stow onion in frying pan', null, { role: 'stow', target: 'v2' }),
+        act('≡ bread', 'stack onion on flatbread', 'lays it on top — the sandwich reads bottom to top', { role: 'stow', target: 'v3' }),
+        act('cook', 'cook onion', 'bare on the heat — a vessel cooks it better', { role: 'start' }),
+      ] },
+    { id: 'f3', name: 'grey loaf', kind: 'food', qty: null, state: 'raw', notes: [], live: false, cook: null,
+      actions: [
+        act('butter', 'butter grey loaf', 'counts as the dish fat', { role: 'prep' }),
+        act('chop', 'chop grey loaf', 'faster cook, proportionally smaller meal', { role: 'prep' }),
+        act('toast', 'toast grey loaf', null, { role: 'method' }),
+        act('grill', 'grill grey loaf', null, { role: 'method' }),
+        act('bake', 'bake grey loaf', 'baking wants a tray; it finds one and lights the ring', { role: 'method' }),
+        act('→ pot', 'stow grey loaf in stock pot', null, { role: 'stow', target: 'v1' }),
+        act('cook', 'cook grey loaf', 'bare on the heat — a vessel cooks it better', { role: 'start' }),
+      ] },
+    { id: 'f4', name: 'rat and root stew', kind: 'food', qty: null, state: 'a finished dish', notes: [], live: false, cook: null,
+      actions: [ act('eat', 'eat rat and root stew'), act('cut', 'cut rat and root stew', 'halves it to share'),
+                 act('taste', 'taste rat and root stew', null, { role: 'taste' }) ] },
+  ],
+
+  tools: [
+    { id: 't1', name: 'kitchen knife', kind: 'tool', state: null, notes: [], live: false, cook: null, actions: [] },
+    { id: 't2', name: 'wooden spoon', kind: 'tool', state: null, notes: [], live: false, cook: null, actions: [] },
+  ],
+
+  storage: [
+    { id: 's1', name: 'cold box', preserves: 'refrigerated', other: 4,
+      items: [
+        { id: 'g1', name: 'vat cheese', kind: 'food', qty: 2, state: 'raw', notes: [], live: false, cook: null,
+          actions: [ act('take', 'pullid g1', null, { role: 'take' }) ] },
+        { id: 'g2', name: 'bone broth', kind: 'food', qty: null, state: 'raw', notes: [], live: false, cook: null,
+          actions: [ act('take', 'pullid g2', null, { role: 'take' }) ] },
+      ] },
+  ],
+
+  // Shaped exactly like `scoreRecipe`'s return — every field the panel reads.
+  assistant: {
+    groups: [
+      { label: 'Available Now', recipes: [
+        { key: 'stew', name: 'Stew', vessel: 'pot', band: 'good', pct: 100,
+          missing: [], shortfall: [], equipment: [], kitSoft: [],
+          kit: [{ label: 'a pot', req: 'required', held: true }, { label: 'a spoon', req: 'better', held: true }],
+          uses: ['f1', 'g2', 'v1'],
+          method: ['Brown the meat hard, then drop the heat.', 'Stock in, roots in, leave it alone.'],
+          // ⚠ Steps are OBJECTS, not strings — `{ text, command, hint? }`. A step
+          // with no `command` is prose and deliberately not pressable ("leave it
+          // alone" has no verb). Getting this wrong renders a column of bare
+          // numbers, which is what the first cut of this fixture did.
+          walkthrough: [
+            { text: 'the rat haunch into the pot', command: 'stow rat haunch in stock pot' },
+            { text: 'the broth after it', command: 'stow bone broth in stock pot' },
+            { text: 'on the heat', command: 'cook stock pot', hint: 'hard at first, then drop it' },
+            { text: 'leave it alone for a while' },
+          ],
+          ingredients: ['250g of dense meat', 'one liquid', 'one to three starchy vegetables'],
+          suggestion: 'Brown the meat hard, then drop the heat.',
+          actions: [ act('prepare', 'prepare stew', 'gathers what it needs — you still cook it') ] },
+      ] },
+      { label: 'Nearly Available', recipes: [
+        { key: 'toastie', name: 'Toastie', vessel: 'pan', band: null, pct: 66,
+          missing: ['one fat or oil'],
+          shortfall: [{ noun: 'butter', label: 'one fat or oil', k: 'p', v: 'fat_or_oil', n: 1, ex: ['butter', 'dripping', 'oil'] }],
+          equipment: [], kitSoft: ['a turner'],
+          kit: [{ label: 'a pan', req: 'required', held: true }, { label: 'a turner', req: 'better', held: false }],
+          uses: ['g1', 'v2'],
+          method: ['Butter the outsides, not the pan.', 'One turn, and only one.'],
+          walkthrough: [],
+          ingredients: ['one to two bread', 'one dairy', 'one fat or oil'],
+          suggestion: 'Butter the outsides, not the pan.',
+          actions: [ act('+ list', 'shoplist add toastie', 'adds the shortfall to your shopping list') ] },
+      ] },
+      { label: 'Missing Equipment', recipes: [
+        { key: 'fruit_tart', name: 'Fruit Tart', vessel: 'tray', band: null, pct: 80,
+          missing: [], shortfall: [], equipment: ['a tray'], kitSoft: [],
+          kit: [{ label: 'a tray', req: 'required', held: false }],
+          uses: [],
+          method: ['Blind bake the case first.'],
+          walkthrough: [], ingredients: ['one to two batter', 'one to three fruit'],
+          suggestion: 'Blind bake the case first.',
+          actions: [] },
+      ] },
+    ],
+    unknown: 41,
+  },
+};
+
+initWorkspacePanel();
+openWorkspacePanel(PAYLOAD);
+window.__wsp = PAYLOAD;
+
+// Open a recipe on load so the card is on screen without a click — the card is
+// the half of the Assistant that only exists once something is selected, and a
+// harness you have to drive before you can see the thing you are working on is
+// a harness you will stop using.
+document.querySelector('[data-recipe="stew"]')?.click();
+</script>
+</body>
+</html>

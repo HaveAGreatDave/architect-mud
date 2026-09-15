@@ -146,6 +146,44 @@ identical call `applyItemUse` makes at [inventory.js:763](../server/engine/comma
 so intox, phases, tolerance and overdose behave exactly as for a bottled
 cocktail. Nothing here reimplements being drunk.
 
+## Caffeine is derived too, and it is NOT authored like the alcohol
+
+A coffee you brewed or bought from a rig applies `drug_coffee` on each swallow, down the identical
+`useDrug(..., { potencyMult, skipInstant: true })` path the alcohol uses — so the arc, the tolerance,
+the sobering and the fatigue clock all behave exactly as they do for the bought tin. Before this,
+**only** the bought tin counted: a hand-brewed pot of coffee was hot water with a flavour, which is
+also why the espresso rig above would otherwise have sold you a drink that did nothing.
+
+It is derived from the ingredients, like the alcohol, but from a **different place**, and the
+difference is the whole design. Booze is authored per BOTTLE (`abv`) because a spirit's strength is
+a fact about that bottle. Caffeine is a fact about the **class** — coffee is coffee — so the number
+lives on the profile:
+
+| profile | mg per 25ml pour |
+|---|---|
+| `coffee_base` | 80 |
+| `tea_base` | 40 |
+| everything else | none |
+
+...and `tags.caffeine_mg` overrides it **in both directions**, which is the case that matters:
+**chicory** sits in `coffee_base` with none in it, **herbal tea** sits in `tea_base` with none in it,
+and a **cola** is caffeinated while every other mixer on the shelf is not. A profile-only rule gets
+all three of those wrong, and an item-only rule would mean authoring a number on every coffee ever
+added.
+
+The override is also what lets a **machine** answer. A rig has no ingredients to read, so
+`caffeineFromTemplate` asks the RECIPE what it is made of — at the low end of each range, because a
+machine should not be more generous than the book.
+
+⚠ **Under `MIN_MG` (20mg) no drug is applied at all**, and that floor is load-bearing rather than
+tidy: `useDrug` clamps `potencyMult` UP to 0.1 and still counts a whole dose against the overdose
+threshold, so without it a mug of cocoa would be a dose of caffeine and ten of them an overdose.
+Same law as the alcohol's — a drink can never dose you through a rounding error.
+
+Servings split it and sum back to the whole, exactly as the alcohol does, so a two-mouthful mug is
+two halves rather than one hit. See [systems-survival.md](systems-survival.md) for the other half of
+this: how a live caffeine dose actually reaches the sleep command.
+
 ## Drinking, and the consume interop
 
 `drink <mug>` dispatches `consume.begin` with a **new `itemKind: 'vessel'`**, so
@@ -349,6 +387,13 @@ cooldown and a machine that drops a packet keeps its 20s, off the presence of
 espresso rig gets the minute without anybody remembering. A coffee you can buy
 every twenty seconds is a hot-drink faucet in a cold snap, and hot drinks are
 real cold-weather gear (see the top of this page).
+
+**And the rig advertises itself.** `vend` now shows in a dispenser's action list and on its
+examine line — one declaration-only specialized action on `requiredFlag: 'vends'`, which the
+vending plugin had filed as a permanent known gap on the mistaken grounds that `availableActions`
+cannot gate on a flag. A rig that serves a drink adds a line naming what it pours, at what band, in
+what vessel and for how much, and that line is quoted by **the same `vendQuote` that charges you**,
+so the board and the till cannot disagree.
 
 What ships: five machines, none of them overriding anything.
 

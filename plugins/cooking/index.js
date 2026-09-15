@@ -12,7 +12,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { emit } from '../../server/engine/events.js';
-import { getZoneFurniture, getZone } from '../../server/engine/world.js';
+import { getZoneFurniture, getZone, updateFurniture } from '../../server/engine/world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction, dispatchAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { getZonePowerStatus } from '../../server/engine/environment.js';
@@ -24,18 +24,28 @@ import { grantSkillIp } from '../../server/engine/ip.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { isPluggedIn } from '../appliances/index.js';
 import {
-  STOVE_SPEED, PORTABLE_OVEN_SPEED, PORTABLE_OVEN_CAPACITY_G,
-  BARE_VESSEL, DEFAULT_VESSEL, cookingIpFor, SMOKER_SPEED, SMOKER_PROFILE, SKILL_WEIGHT, FOND_PROFILES, MAX_CHOP_PIECES, BUTTER_BONUS, BUTTER_PORTION, MICROWAVE_SPEED,
+  STOVE_SPEED, PORTABLE_OVEN_SPEED, PORTABLE_OVEN_CAPACITY_G, FLUID_MEASURE_G, FLUID_DREGS_G,
+  BARE_VESSEL, DEFAULT_VESSEL, cookingIpFor, SMOKER_SPEED, SMOKER_PROFILE, SKILL_WEIGHT, FOND_PROFILES, MAX_CHOP_PIECES, BUTTER_BONUS, BUTTER_PORTION, POUR_PORTION, MICROWAVE_SPEED,
   COOK_SECONDS_PER_KG, BAND_SCALE,
 } from './config.js';
-import { prepareCook, commitCooks, cookEnvironment, checkCooking, endSession, freeAppliance, sessionProfile, rescheduleNarration, cooksOnAppliances, forgetCook } from './cook.js';
-import { QUALITY_BANDS, PROFILES, bandIndex, profileNameFor, isModifier, isMedium, needsPrep, donenessLevels, defaultDoneness, achievedDoneness } from './profiles.js';
+import { prepareCook, commitCooks, cookEnvironment, checkCooking, endSession, freeAppliance, sessionProfile, rescheduleNarration, cooksOnAppliances, forgetCook, rewetVessel, dryVessel } from './cook.js';
+import { boiledFraction, waterText } from './boil.js';
+import {
+  MAX_LEVEL, TIER_BANDS, HEAT_ORDER, clampLevel, tierOfLevel, levelOfTier, speedOfLevel, levelText,
+  ceilingLevel, burnerLevel, setBurnerLevel, apparentNow, realTimeFor, retuneSession, sessionRate, heatVerdict,
+} from './heat.js';
+
+// How long a ring stays held for a pan sitting on it with the gas off. A paused
+// cook has no burn time to hold until, and letting the hold lapse would declare
+// the stove free with somebody's dinner still on it.
+const PAUSED_HOLD_MS = 6 * 60 * 60 * 1000;
+import { QUALITY_BANDS, PROFILES, bandIndex, profileNameFor, isModifier, isMedium, isFluid, POURABLE, needsPrep, donenessLevels, defaultDoneness, achievedDoneness } from './profiles.js';
 import { evaluate } from './quality.js';
 import { handle as handleInteraction } from './interact.js';
 import './help.js';
 import { leavesFond, makeFond, fondState, fondModifier, fondText } from './fond.js';
 import { portionOf, canChop, portionName, yieldOf } from './portions.js';
-import { timeline, finishAt, endStateAt } from './quality.js';
+import { timeline, finishAt, endStateAt, wantedTierAt } from './quality.js';
 import { DISHES, signature, dishFor, dishName, composeBand, seasoningBonus, seasoningIdeal, nounFor, describeDish } from './dishes.js';
 import { UNTRIED, cookbookState, learnRecipe, improveRecipe, recordAttempt, beatsRecorded, knownBonus, markRoutineIp,
          savedRecipes, saveRecipe, recipeBySignature, renameRecipe, forgetRecipe, improveSaved, slugify } from './knowledge.js';
@@ -179,6 +189,17 @@ function findFreeStove(stoves, vesselInvId = null) {
   return stoves.find(f => !f.flags?.busy_until || f.flags.busy_until <= now) || null;
 }
 
+// THE DIAL ON ONE HOB, resolved. Three places used to spell out
+// `{ heatTier: f.flags.stove_tier, speed: STOVE_SPEED[f.flags.stove_tier] }`,
+// which is the stove's CEILING rather than where its knob is actually set — so
+// a ring wound down to a simmer went on cooking at full blast. One reader now,
+// and the ceiling is what CLAMPS the dial rather than what the dial reports.
+export function burnerOf(stoveRow) {
+  const ceilingTier = stoveRow?.flags?.stove_tier || 'low';
+  const level = Math.min(burnerLevel(stoveRow.id, ceilingTier), ceilingLevel(ceilingTier));
+  return { level, tier: tierOfLevel(level), speed: speedOfLevel(level), ceilingTier, ceiling: ceilingLevel(ceilingTier) };
+}
+
 // A vessel's thermal character, as two scalars. Not a simulation — one number
 // widens the peak window, the other widens the forgiving band past it.
 export function vesselStats(vesselRow) {
@@ -259,6 +280,31 @@ async function cmdCook(args, raw, player, broadcast) {
 // Every heat source in the room, and what each one is. Used to let a player SAY
 // which one they meant — a kitchen with a range and a microwave in it should not
 // silently pick for you, because the two produce genuinely different meals.
+// Lighting a ring, as an appliance record.
+//
+// ⚠ A RING AT ZERO IS LIT, NOT REFUSED. `cook` means "put this on the heat", so
+// arriving at a knob somebody turned off has to light it rather than answer with
+// a refusal about a control the player may never have touched. It lights at the
+// stove's resting position — the same tier and the same speed every cook in this
+// game has used since before the dial existed.
+async function relight(stove) {
+  const b = burnerOf(stove);
+  if (b.level <= 0) await applyBurner(stove, levelOfTier(b.ceilingTier));
+}
+
+function stoveAppliance(stove) {
+  let b = burnerOf(stove);
+  // ⚠ A FLOOR, NOT THE RELIGHT. `relight` above has already run and is the one
+  // place that moves the dial, because moving it has to take everything already
+  // on the ring with it. This is here so a speed of zero — an infinite cook —
+  // can never reach `prepareCook` whatever a caller forgets.
+  if (b.level <= 0) { setBurnerLevel(stove.id, levelOfTier(b.ceilingTier)); b = burnerOf(stove); }
+  return {
+    id: stove.id, name: stove.name, heatTier: b.tier, heatLevel: b.level,
+    speed: b.speed, furnitureRow: stove,
+  };
+}
+
 function cookAppliances(zoneId) {
   return [
     ...stovesInZone(zoneId).map(f => ({ ...f, _kind: 'stove' })),
@@ -381,10 +427,10 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
         return { type: 'error', message: `The ${f.name} is dead. No power reaching it.` };
       }
     }
+    if (f._kind !== 'microwave') await relight(f);
     appliance = f._kind === 'microwave'
       ? { id: f.id, name: f.name, heatTier: 'high', speed: MICROWAVE_SPEED, furnitureRow: f, microwave: true, runMs: f._runMs || null }
-      : { id: f.id, name: f.name, heatTier: f.flags.stove_tier,
-          speed: STOVE_SPEED[f.flags.stove_tier] || STOVE_SPEED.low, furnitureRow: f };
+      : stoveAppliance(f);
   } else if (!stoves.length && microwaves.length) {
     const oven = microwaves.find(f => !f.flags?.busy_until || f.flags.busy_until <= Date.now());
     if (!oven) return { type: 'error', message: `The ${microwaves[0].name} is already running.` };
@@ -407,10 +453,8 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
         return { type: 'error', message: `The ${stove.name} clicks but doesn't heat — no power reaching it.` };
       }
     }
-    appliance = {
-      id: stove.id, name: stove.name, heatTier: stove.flags.stove_tier,
-      speed: STOVE_SPEED[stove.flags.stove_tier] || STOVE_SPEED.low, furnitureRow: stove,
-    };
+    await relight(stove);
+    appliance = stoveAppliance(stove);
   } else {
     const oven = await resolveInventoryItem(player, { tag: 'portable_oven', topLevel: true });
     if (!oven) return { type: 'error', message: `There's no stove here, and you're not carrying a portable oven.` };
@@ -424,7 +468,22 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
     // The vessel's own capacity applies alongside the appliance's; the tighter wins.
     const vesselCap = Number(tagValue(vessel, 'container', Infinity));
     const cap = Math.min(appliance.capacityG ?? Infinity, vesselCap);
-    Object.assign(appliance, { vessel: vesselStats(vessel), vesselName: vessel.name, vesselId: vessel.inv_id });
+    // WET, so the session knows there is something in there to boil away. Read
+    // from the pan's actual contents rather than from what the player asked for,
+    // which is the same rule the dry-starch gate follows two lines below.
+    const wet = (await vesselContents(vessel.inv_id)).some(isMedium);
+    // ⚠ STAGING JOINS A POT THAT HAS ALREADY BEEN BOILING. A second ingredient
+    // dropped into a simmering pan gets its own session, and letting that session
+    // start the water clock afresh would report a full pot to anybody reading the
+    // newer row — and hand the pan a later warning than the water deserves. The
+    // earliest mark on that ring is the truth, so it is inherited.
+    const already = cooksOnAppliances([appliance.id])
+      .filter(c => c.session?.vesselId === vessel.inv_id && c.session.wet)
+      .map(c => c.session.wet.since);
+    Object.assign(appliance, {
+      vessel: vesselStats(vessel), vesselName: vessel.name, vesselId: vessel.inv_id,
+      wet, ...(already.length ? { wetSince: Math.min(...already) } : {}),
+    });
     if (Number.isFinite(cap)) appliance.capacityG = cap;
   }
 
@@ -686,7 +745,7 @@ async function cmdPlate(args, raw, player) {
   // Unprofiled food has no window and no bands — pulling it early just means it
   // isn't cooked yet, which the eat path already handles on its own.
   if (!profile) {
-    if (Date.now() < finishAt(session)) return { type: 'error', message: `${food.name} isn't done yet.` };
+    if (apparentNow(session) < finishAt(session)) return { type: 'error', message: `${food.name} isn't done yet.` };
     await freeAppliance(session);
     await endSession(food.inv_id, null);
     return { type: 'output', message: `You take ${food.name} off the heat.` };
@@ -746,10 +805,15 @@ async function cmdPlate(args, raw, player) {
 // The doneness a cook actually produced — how far through the cook it was pulled,
 // mapped to the nearest level. Truth, not intention: aim for rare, wander off,
 // and the food records that you made it well done.
+// ⚠ CONVERTS INSIDE, like quality.js's entry points. It measures a fraction
+// against the session's own timestamps, so a pan that spent ten minutes off the
+// heat would otherwise be reported as well done for having sat there. The
+// identity at rate 1 means every caller can go on passing `Date.now()`.
 function plateDoneness(session, profile, now) {
   if (!donenessLevels(profile)) return null;
+  const app = apparentNow(session, now);
   const cookStart = session.startedAt + (session.thawMs || 0);
-  const fraction = session.cookMs > 0 ? (now - cookStart) / session.cookMs : 1;
+  const fraction = session.cookMs > 0 ? (app - cookStart) / session.cookMs : 1;
   return achievedDoneness(profile, fraction);
 }
 
@@ -1305,6 +1369,181 @@ async function cmdButter(args, raw, player) {
   };
 }
 
+// ── pour <fat> into <pan> ────────────────────────────────────────────────────
+//
+// A jug of cooking oil is a JUG. It weighs 600g, it is five dishes' worth, and
+// until this the only thing you could do with one was put the whole thing in the
+// pan — where `plate` consumed it, jug and all, to fry a single egg.
+//
+// So this draws one measure and leaves the jug, which is the arithmetic `butter`
+// already uses on a block. The measure lands as an ORDINARY INGREDIENT ROW, the
+// same decision `fill` made about water: the fillable plugin models fluid as a
+// `fluid_amount` scalar, and a second representation of "there is fat in this
+// pan" would have to be taught to the signature, the seasoning count, the fond
+// rules and every dish's `needs`. Rows, and all of them already understand it.
+//
+// ⚠ IT MUST FALL THROUGH FOR ANYTHING THAT ISN'T A COOKING FAT. Specialized
+// actions fire alphabetically and `cooking` sorts before `drinks` and
+// `fillable`, so this handler sees `pour` FIRST — for canteens, cups, jerry
+// cans, everything. Returning undefined is what hands those back, and every
+// early exit below is doing that rather than reporting an error.
+// WHAT COUNTS AS FLUID IN A PAN.
+//
+// Three profiles and a tag, and they are the wet things: the water `fill` put
+// there, a measure of oil somebody poured in, a carton of stock that went in
+// whole. Tipping a pan tips those and leaves the solids, which is what tipping
+// a pan does.
+//
+// ⚠ It is a question about the PAN, never about the dish — same split
+// `cooking_medium` already draws. Nothing here decides what anything becomes.
+// ONE MEASURE, in the units its own class is counted in.
+//
+// `unitsOf` counts a modifier by DOSE (`portion × stack`) and everything else by
+// WEIGHT against the profile's `unitWeight`. So the measure has to be a fraction
+// of the item for the first and a fixed mass for the second, or the same word
+// means different amounts out of different bottles — a fifth of a 600g soup base
+// and a fifth of a 200g tin of paste are 120g and 40g.
+//
+// `spentAll` says the pour took the lot: there was less in there than a measure,
+// so it keeps the item's own name rather than being announced as a measure.
+function measureOf(row, profile) {
+  if (PROFILES[profile]?.modifier) return { portion: POUR_PORTION, grams: 0, spentAll: false };
+  const weight = Number(row?.weight) || 0;
+  if (weight <= 0) return { portion: 1, grams: 0, spentAll: true };
+  const want = Math.min(FLUID_MEASURE_G / weight, portionOf(row));
+  return { portion: want, grams: FLUID_MEASURE_G, spentAll: want >= portionOf(row) - 1e-9 };
+}
+
+// Where a poured measure goes when the player didn't say. A pan on the heat is
+// overwhelmingly what "pour the oil in" means; failing that, the one vessel in
+// reach. Two idle pans and it asks, because guessing which one is exactly the
+// mistake that makes an inferred target worse than no target.
+async function impliedVessel(player) {
+  // `commitCooks` stamps the pan's inventory id onto the burner holding it, so
+  // "the pan on the heat" is an in-memory read rather than a search.
+  const onHeat = stovesInZone(player.current_zone).map(f => f.flags?.vessel_id).filter(Boolean);
+  const { rows } = await query(
+    `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.custom_data, i.name, i.weight, i.tags
+       FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.player_id=$1 AND pi.container_id IS NULL
+        AND jsonb_exists(i.tags,'vessel') AND NOT jsonb_exists(i.tags,'fillable')`,
+    [player.id]);
+  const hot = rows.find(r => onHeat.some(id => String(id) === String(r.inv_id)));
+  if (hot) return hot;
+  // ⚠ ONE, OR NOTHING. Two idle pans and it asks — guessing which of them the
+  // player meant is exactly the mistake that makes an inferred target worse than
+  // no target at all.
+  return rows.length === 1 ? rows[0] : null;
+}
+
+// Move a set of fluid rows somewhere else, or nowhere. One statement either way.
+async function tipFluids(rows, targetInvId) {
+  if (!rows.length) return 0;
+  const ids = rows.map(r => r.inv_id ?? r.id);
+  if (targetInvId) await query('UPDATE player_inventory SET container_id=$1 WHERE id = ANY($2)', [targetInvId, ids]);
+  else await query('DELETE FROM player_inventory WHERE id = ANY($1)', [ids]);
+  return ids.length;
+}
+
+const fluidNames = rows => [...new Set(rows.map(r => shownName(r)))].join(', ');
+
+async function pourFat(args, raw, player) {
+  const str = args.join(' ').trim();
+  if (!str) return undefined;
+  const m = str.match(/^(.*?)\s+(?:into|in|onto|on|over)\s+(?:the\s+)?(.+)$/i);
+  // `pour the pan` / `pour the oil` — no target named. A bare pour of anything
+  // this plugin doesn't own still falls through to drinks and fillable, which is
+  // the shape that verb has always had here.
+  const srcName = (m ? m[1] : str).trim();
+  const tgtName = m ? m[2].trim() : null;
+
+  // TIPPING A PAN OUT, which is the half that was missing. `empty` could only
+  // ever throw the water away; there was no way to decant a pan into a jug, and
+  // no way at all to get oil back out of one.
+  const pan = await resolveInventoryItem(player, { tag: 'vessel', name: srcName, topLevel: true, fromNearby: true });
+  if (pan && !hasTag(pan, 'fillable')) {
+    return tipVessel(pan, tgtName, player);
+  }
+
+  const src = await resolveInventoryItem(player, { name: srcName, topLevel: false });
+  // THE GATE IS THE PROFILE, and it is every fluid rather than just the fat.
+  //
+  // It was `fat_or_oil` alone, on the reasoning that oil is the one food the
+  // world sells as a vessel of many doses. That was true of oil and not true of
+  // the other twenty-two: bone broth, fish stock, cream, gin, vinegar, tomato
+  // paste and soup base are all cartons and bottles, and all of them went into a
+  // pan whole or not at all. There was no splash of cream and no measure of gin.
+  //
+  // The catalog had already flinched from it. Penne alla gin asked for
+  // `liquid: [2,3]` until "penne, gin and two bottles of water" turned out to be
+  // a valid pan of sauce, and the fix was to stop counting liquids at all — see
+  // the note above `penne_alla_gin` in dishes.js. A dish cannot ask for a
+  // sensible amount of something that only arrives in whole bottles.
+  const srcProfile = profileNameFor(src);
+  if (!src || !POURABLE.has(srcProfile)) return undefined;
+  if (hasTag(src, 'fillable')) return undefined;  // a fillable bottle stays fillable's
+
+  const vessel = tgtName
+    ? await resolveInventoryItem(player, { tag: 'vessel', name: tgtName, topLevel: true, fromNearby: true })
+    : await impliedVessel(player);
+  if (!vessel) {
+    // Named nothing and there was nothing obvious. Say which of the two it was —
+    // "pour it where" is a different problem from "you have no pan out".
+    return tgtName ? undefined : { type: 'error', message: `Pour it into what? <span class="text-dim">Get a pan out, or name one: "pour ${srcName} into &lt;pan&gt;".</span>` };
+  }
+  if (src.custom_data?.cooking) return { type: 'error', message: `Not while it's on the heat.` };
+
+  const contents = await vesselContents(vessel.inv_id);
+  if (contents.some(r => r.custom_data?.cooking)) {
+    return { type: 'error', message: `The ${vessel.name} is already going. Take it off before you add anything.` };
+  }
+
+  const dose = measureOf(src, srcProfile);
+  const left = portionOf(src) - dose.portion;
+  // What is left is dregs rather than a pour: it goes in whole, so the bottle is
+  // spent instead of leaving a row nobody can use.
+  const spent = left <= 1e-9 || (dose.grams > 0 && left * (Number(src.weight) || 0) < FLUID_DREGS_G);
+  await (spent
+    ? query('DELETE FROM player_inventory WHERE id=$1', [src.inv_id ?? src.id])
+    : query(
+        `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('portion', $2::numeric) WHERE id=$1`,
+        [src.inv_id ?? src.id, left]));
+
+  // ⚠ WHAT THE MEASURE WEIGHS IS THE WHOLE POINT, and it is different for the
+  // two classes. A modifier is DOSED, so its measure carries no `portion` at all
+  // — `unitsOf` returns `portion × stack` for one, and a fifth of a dose of oil
+  // is not what anybody poured. A weighed fluid carries the portion that makes
+  // it the right number of GRAMS, because that is what the dish signature counts
+  // and what makes a measure mean the same thing out of every bottle.
+  //
+  // Either way it conserves: what left the bottle is what arrived in the pan.
+  const noun = tagValue(src, 'food_noun', null) || src.name;
+  const shown = dose.spentAll ? shownName(src) : `a measure of ${noun === 'fried' ? 'oil' : noun}`;
+  // ⚠ ONLY A WEIGHED FLUID CARRIES A PORTION, and `dose.grams` is the test.
+  //
+  // A modifier's measure is a WHOLE DOSE and must have none at all: `unitsOf`
+  // returns `portion × stack` for a modifier, so a 0.2 on the row makes the oil
+  // you just poured a FIFTH of a dose rather than one. The regress case that
+  // says so has been there since `pour` was written, and a `dose.portion < 1`
+  // test walked straight into it — 0.2 is less than 1 for both classes, and it
+  // means "a fifth of the jug" for one and "a fifth of a dose" for the other.
+  const carried = dose.grams > 0 ? (spent ? portionOf(src) : dose.portion) : 1;
+  await query(
+    `INSERT INTO player_inventory (id, player_id, item_id, quantity, container_id, custom_data)
+     VALUES ($1, $2, $3, 1, $4, $5::jsonb)`,
+    [randomUUID(), player.id, src.item_id, vessel.inv_id,
+      JSON.stringify({ measure: true, name: shown, ...(carried < 1 ? { portion: carried } : {}) })],
+  );
+  cookSfx(player, { action: 'pour', material: 'liquid', flow: 0.5 });
+
+  const over = spent ? 0 : Math.floor((left + 1e-9) / dose.portion);
+  return { type: 'use', message:
+    `You pour a measure of ${src.name} into the ${vessel.name}.`
+    + (over > 0
+      ? ` <span class="text-dim">About ${over} more in it.</span>`
+      : ` <span class="text-dim">That was the last of it.</span>`) };
+}
+
 // `taste <food|vessel>` — the one reading that isn't visual.
 //
 // Everything else in this system is something you can SEE. Tasting reaches what
@@ -1610,7 +1849,7 @@ async function cmdDoneness(args, raw, player) {
   const pick = names.find(n => n === target) || names.find(n => n.startsWith(target));
   if (!pick) return { type: 'error', message: `That's not a doneness. Try: ${names.join(', ')}.` };
 
-  if (Date.now() >= timeline(session, profile).doneAt) {
+  if (apparentNow(session) >= timeline(session, profile).doneAt) {
     return { type: 'error', message: `Too late — ${foodRow.name} is already past that.` };
   }
 
@@ -1626,43 +1865,169 @@ async function cmdDoneness(args, raw, player) {
   return { type: 'output', message: `You'll take ${foodRow.name} ${pick}.` };
 }
 
-// `stove <low|mid|high>` — ride the burner. A stove's `stove_tier` is its
-// CEILING, not its only setting: a high-end range can be turned down, a cheap
-// hotplate can't be turned up. The change is appended to every live session on
-// that stove, and profiles with a `heatCurve` are scored on the resulting log.
-const HEAT_ORDER = ['low', 'mid', 'high'];
+// `stove <off|0-10|low|mid|high|up|down> [on <hob>]` — ride the burner.
+//
+// A stove's `stove_tier` is its CEILING, not its only setting: a high-end range
+// can be turned down, a cheap hotplate can't be turned up. The change is
+// appended to every live session on that stove — profiles with a `heatCurve`
+// are scored on the resulting log — and it RETUNES those sessions, so the pan
+// visibly cooks slower or faster instead of the number only mattering at
+// plating. See heat.js for the dial, the clock and why the fine position buys
+// speed rather than a finer band.
+
+// WHAT A SETTING CAN BE SAID AS. Everything resolves to one dial position
+// 0..10, and the three named tiers are the notches. `low|mid|high` still work
+// unchanged and land exactly where they always did — see heat.js.
+function parseSetting(word, current) {
+  const w = String(word || '').trim().toLowerCase();
+  if (!w) return null;
+  if (w === 'off' || w === 'out' || w === 'zero') return 0;
+  if (w === 'medium' || w === 'med') return levelOfTier('mid');
+  if (w === 'max' || w === 'full') return MAX_LEVEL;
+  if (HEAT_ORDER.includes(w)) return levelOfTier(w);
+  if (w === 'up') return clampLevel(current + 1);
+  if (w === 'down') return clampLevel(current - 1);
+  if (/^\d{1,2}$/.test(w)) {
+    const n = parseInt(w, 10);
+    return n <= MAX_LEVEL ? n : null;
+  }
+  return null;
+}
+
+// The dial drawn in words. Ten ticks with the named notches marked, so the three
+// words and the eleven positions are visibly the same control rather than two.
+function dialBar(level, ceiling) {
+  let out = '';
+  for (let i = 1; i <= MAX_LEVEL; i++) {
+    const over = i > ceiling;
+    const ch = i === level ? '█' : over ? '·' : TIER_BANDS.some(b => b.notch === i) ? '┃' : '▁';
+    out += ch;
+  }
+  return out;
+}
+
+function stoveReadout(stove) {
+  const b = burnerOf(stove);
+  const capped = b.ceiling < MAX_LEVEL ? ` <span class="text-dim">(tops out at ${b.ceiling})</span>` : '';
+  return `<span class="text-bright">${stove.name}</span> — ${dialBar(b.level, b.ceiling)} `
+    + `<span class="text-dim">${b.level}/${MAX_LEVEL} · ${levelText(b.level)}${b.tier ? ` · ${b.tier}` : ''}</span>${capped}`;
+}
+
+// Which hob the player means. A name picks one; otherwise the one with
+// something on it wins, because that is overwhelmingly what "stove low" is
+// about — and with nothing cooking anywhere, the only stove in the room is not
+// ambiguous either.
+//
+// ⚠ A COLD RING IS A LEGAL TARGET NOW, and it has to be: the dial decides the
+// SPEED a cook starts at, so "turn it down, then put the pan on" is the whole
+// point of being able to pre-set one. The old verb refused with "you've got
+// nothing on the heat here", which was true and, as a control, useless.
+function pickStove(stoves, nameStr) {
+  if (nameStr) {
+    const re = new RegExp(nameStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const named = stoves.find(f => re.test(f.name));
+    if (named) return named;
+    return null;
+  }
+  return stoves.find(f => f.flags?.busy_until > Date.now()) || stoves[0] || null;
+}
+
+// EVERYTHING THAT HAPPENS WHEN A RING MOVES, in one place.
+//
+// The dial, every live session on it, their timers and the hold on the stove.
+// It is a function rather than the body of `stove` because `cook` moves a dial
+// too — it lights a ring somebody left off — and a relight that moved only the
+// KNOB would leave a paused pan frozen under a burner that is visibly roaring.
+// That is reachable today: pause a pot, then stage another ingredient into the
+// same pot, and the new one cooks while the old ones sit still.
+async function applyBurner(stove, level) {
+  setBurnerLevel(stove.id, level);
+  const tier = tierOfLevel(level);
+
+  // Every profiled session on this burner gets the change: a mark in its own
+  // burner log (which is what the heat score reads) and a new RATE (which is
+  // what makes the pan visibly cook slower or faster). The rate is expressed
+  // against the speed the session was BUILT at, so a pan started on a low ring
+  // and wound up to high runs at exactly the speed one started on high does.
+  const live = cooksOnAppliances([stove.id]);
+  const now = Date.now();
+  const touched = [];
+  for (const c of live) {
+    // A microwave owns its own clock (one dial, one stop) and is not on a hob
+    // anyway; an unprofiled cook has no burner log to write to.
+    if (c.session.microwave || !c.session.profile) continue;
+    const base = c.session.baseSpeed || STOVE_SPEED[c.session.heatTier] || STOVE_SPEED.low;
+    retuneSession(c.session, speedOfLevel(level) / base, now);
+    c.session.heats = [...(c.session.heats || []), { at: now, tier: tier || 'low', level }];
+    touched.push(c);
+  }
+  if (!touched.length) return 0;
+
+  await query(
+    `UPDATE player_inventory pi
+        SET custom_data = COALESCE(pi.custom_data,'{}'::jsonb) || jsonb_build_object('cooking', v.session)
+       FROM (SELECT unnest($1::text[]) AS id, unnest($2::jsonb[]) AS session) v
+      WHERE pi.id = v.id`,
+    [touched.map(c => c.invId), touched.map(c => JSON.stringify(c.session))]
+  );
+  // ⚠ THE TIMERS ARE ARMED IN REAL TIME AND THE CLOCK JUST MOVED. Without this a
+  // pan wound down to a simmer still narrates — and still BURNS — on the
+  // schedule it would have kept at full blast, which is the setting the player
+  // has just told the game they are not using.
+  for (const c of touched) rescheduleNarration(c.invId, c.playerId, c.session, c.name);
+  // ...and the hold on the ring moves with it, or a pan sitting off the heat has
+  // its stove quietly declared free underneath it.
+  const holds = touched.map(c => {
+    const p = sessionProfile(c.session);
+    return p ? realTimeFor(c.session, timeline(c.session, p).burnAt, now) : null;
+  });
+  // ⚠ A zone's own fire is a SYNTHESISED stove with no furniture row behind it
+  // (see `stovesInZone`), so there is nothing to update and asking would throw.
+  if (!String(stove.id).startsWith('zonefire_')) {
+    const hold = holds.some(h => h === null) ? now + PAUSED_HOLD_MS : Math.max(...holds, 0);
+    await updateFurniture(stove.id, { flags: JSON.stringify({ ...stove.flags, busy_until: hold }) }).catch(() => {});
+  }
+  return touched.length;
+}
 
 async function cmdStove(args, raw, player) {
-  const want = (args[0] || '').toLowerCase();
-  if (!HEAT_ORDER.includes(want)) {
-    return { type: 'error', message: `Set the burner to what? Try "stove low", "stove mid" or "stove high".` };
+  const stoves = stovesInZone(player.current_zone);
+  if (!stoves.length) return { type: 'error', message: `There's no stove here.` };
+
+  // `stove high on the range` / `stove 7 range`. The setting is always the first
+  // word; everything after it (minus a leading "on") names which hob.
+  const rest = args.slice(1).join(' ').replace(/^(?:on|at)\s+/i, '').replace(/^the\s+/i, '').trim();
+
+  // Bare `stove` reads the dials back. A control you cannot read the current
+  // position of is the complaint this whole file answers.
+  if (!args.length) {
+    return { type: 'output', message: stoves.map(stoveReadout).join('\n') };
   }
 
-  const stoves = stovesInZone(player.current_zone).filter(f => f.flags?.busy_until > Date.now());
-  if (!stoves.length) return { type: 'error', message: `You've got nothing on the heat here.` };
-  const stove = stoves[0];
+  const stove = pickStove(stoves, rest);
+  if (!stove) return { type: 'error', message: `No stove here called "${rest}".` };
+  const b = burnerOf(stove);
 
-  const ceiling = stove.flags.stove_tier || 'low';
-  if (HEAT_ORDER.indexOf(want) > HEAT_ORDER.indexOf(ceiling)) {
-    return { type: 'error', message: `The ${stove.name} doesn't go that high — ${ceiling} is all it has.` };
+  const want = parseSetting(args[0], b.level);
+  if (want === null) {
+    return { type: 'error', message: `Set the burner to what? <span class="text-dim">"stove off", "stove low", "stove 7", "stove up" — anything from 0 to ${MAX_LEVEL}.</span>` };
   }
 
-  // Append the change to every profiled session sitting on this burner. One
-  // statement: the burner log is a jsonb array on each row's session.
-  const { rows } = await query(
-    `UPDATE player_inventory
-        SET custom_data = jsonb_set(custom_data, '{cooking,heats}',
-              COALESCE(custom_data->'cooking'->'heats', '[]'::jsonb) || $3::jsonb)
-      WHERE player_id = $1
-        AND custom_data->'cooking'->>'applianceId' = $2
-        AND jsonb_exists(custom_data->'cooking', 'profile')
-      RETURNING id`,
-    [player.id, stove.id, JSON.stringify([{ at: Date.now(), tier: want }])]
-  );
-  if (!rows.length) return { type: 'error', message: `Nothing on the ${stove.name} cares what the burner's doing.` };
+  if (want > b.ceiling) {
+    return { type: 'error', message: `The ${stove.name} doesn't go that high — ${b.ceilingTier} is all it has, and that is ${b.ceiling} on the dial.` };
+  }
+  if (want === b.level) {
+    return { type: 'output', message: `The ${stove.name} is already at ${want} — ${levelText(want)}.` };
+  }
 
-  const verb = { low: 'down to a bare simmer', mid: 'to a steady middle', high: 'up hard' }[want];
-  return { type: 'output', message: `You take the ${stove.name} ${verb}.` };
+  await applyBurner(stove, want);
+  cookSfx(player, { action: 'burner', intensity: want / MAX_LEVEL, state: want === 0 ? 'off' : 'on' });
+
+  const dir = want === 0 ? `out` : want > b.level ? `up to ${want}` : `down to ${want}`;
+  const head = want === 0
+    ? `You turn the ${stove.name} off. <span class="text-dim">Whatever's on it stops where it is.</span>`
+    : `You take the ${stove.name} ${dir} — ${levelText(want)}.`;
+  return { type: 'output', message: `${head}\n${stoveReadout(stove)}` };
 }
 
 // Admin: put one of every piece of cooking equipment in your pack. Driven by
@@ -2032,6 +2397,9 @@ async function cmdDrain(args, raw, player) {
 
   if (mediumRows.length) {
     await query('DELETE FROM player_inventory WHERE id = ANY($1)', [mediumRows.map(r => r.inv_id)]);
+    // The pan is dry on purpose now, so nothing goes on reporting a level for
+    // water that is in the sink — see dryVessel.
+    if (vessel) await dryVessel(vessel.inv_id);
   }
 
   const how = clean
@@ -2096,9 +2464,14 @@ async function fillVessel(args, raw, player) {
 
   const contents = await vesselContents(vessel.inv_id);
   if (contents.some(isMedium)) return { type: 'error', message: `The ${vessel.name} already has water in it.` };
-  if (contents.some(r => r.custom_data?.cooking)) {
-    return { type: 'error', message: `It's on the heat with something in it. Take it off before you go pouring water in.` };
-  }
+  // ⚠ TOPPING UP A PAN ON THE HEAT IS ALLOWED, and it is the point.
+  //
+  // This used to refuse — "take it off before you go pouring water in" — which
+  // was harmless when a pot could not run dry and is the opposite of what is
+  // wanted now that it can. The pan tells you the water is getting low; running
+  // back with a jug is the answer, and a refusal would make the warning a
+  // countdown to an outcome you cannot affect.
+  const live = contents.some(r => r.custom_data?.cooking);
 
   // Water out of a fouled bowl is foul water, and a dish made with it is a foul
   // dish. `hazards` on the row is the seam that already carries that through
@@ -2114,28 +2487,67 @@ async function fillVessel(args, raw, player) {
   );
 
   cookSfx(player, { action: 'pour', material: 'liquid', flow: 0.9 });
-  return { type: 'use', message: foul
+  // Restart the evaporation clock on everything already cooking in there. It
+  // deliberately does NOT clear a scorch: water stops it burning from here and
+  // does not un-burn what already caught.
+  const topped = live ? await rewetVessel(vessel.inv_id) : 0;
+  return { type: 'use', message: (foul
     ? `You fill the ${vessel.name} from the ${src.name}. <span style="color:var(--red)">The water comes out cloudy and wrong. Cooking in this won't make it clean.</span>`
-    : `You fill the ${vessel.name} from the ${src.name}.` };
+    : `You fill the ${vessel.name} from the ${src.name}.`)
+    + (topped ? ` <span class="text-dim">It steadies straight away.</span>` : '') };
 }
 
 // Tipping it away without draining anything. The counterpart to `fill` and the
 // only way to change your mind about what you were going to boil in.
-async function emptyVessel(args, raw, player) {
-  const nameStr = args.join(' ').trim();
-  if (!nameStr) return undefined;
-  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
-  if (!vessel || hasTag(vessel, 'fillable')) return undefined;
-
+// TIP A PAN — the shared body of `empty <pan>` and `pour <pan> into <thing>`.
+// One implementation, because they are one act said two ways, and a second copy
+// would be a second set of rules about what a fluid is.
+async function tipVessel(vessel, tgtName, player) {
   const contents = await vesselContents(vessel.inv_id);
-  const mediumRows = contents.filter(isMedium);
-  if (!mediumRows.length) return undefined;   // nothing of ours here — fall through
+  const fluids = contents.filter(isFluid);
+  if (!fluids.length) return undefined;   // nothing of ours in it — fall through
   if (contents.some(r => r.custom_data?.cooking)) {
     return { type: 'error', message: `Not while it's on the heat with something cooking in it.` };
   }
-  await query('DELETE FROM player_inventory WHERE id = ANY($1)', [mediumRows.map(r => r.inv_id)]);
+
+  let target = null;
+  if (tgtName) {
+    target = await resolveInventoryItem(player, { tag: 'vessel', name: tgtName, topLevel: true, fromNearby: true });
+    // ⚠ FALL THROUGH, never refuse. `pour` and `empty` are both shared verbs —
+    // drinks and fillable are registered behind this handler — so a target this
+    // plugin cannot see has to be somebody else's, not an error we announce on
+    // their behalf.
+    if (!target) return undefined;
+    if (String(target.inv_id) === String(vessel.inv_id)) {
+      return { type: 'error', message: `Into itself?` };
+    }
+    // The receiving pan's own capacity still applies — this is an ordinary move
+    // between containers and has no business inventing an exception to it.
+    const cap = Number(tagValue(target, 'container', Infinity));
+    if (Number.isFinite(cap)) {
+      const have = await containerContentsWeight(target.inv_id);
+      const adding = fluids.reduce((n, r) => n + (Number(r.weight) || 0) * (Number(r.quantity) || 1), 0);
+      if (have + adding > cap) return { type: 'error', message: `The ${target.name} won't hold all that.` };
+    }
+  }
+
+  await tipFluids(fluids, target?.inv_id || null);
+  if (fluids.some(isMedium)) await dryVessel(vessel.inv_id);
   cookSfx(player, { action: 'pour', material: 'liquid', flow: 1 });
-  return { type: 'use', message: `You tip the water out of the ${vessel.name}.` };
+  const what = fluidNames(fluids);
+  return { type: 'use', message: target
+    ? `You pour the ${what} out of the ${vessel.name} and into the ${target.name}.`
+    : `You tip the ${what} out of the ${vessel.name}.` };
+}
+
+async function emptyVessel(args, raw, player) {
+  const str = args.join(' ').trim();
+  if (!str) return undefined;
+  const m = str.match(/^(.*?)\s+(?:into|in|onto|on|over)\s+(?:the\s+)?(.+)$/i);
+  const nameStr = (m ? m[1] : str).trim();
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
+  if (!vessel || hasTag(vessel, 'fillable')) return undefined;
+  return tipVessel(vessel, m ? m[2].trim() : null, player);
 }
 
 // ── cookbook ─────────────────────────────────────────────────────────────────
@@ -2401,6 +2813,11 @@ export const specializedActions = [
   // both, and stays the fillable plugin's. See fillVessel.
   { verb: 'fill', requiredTag: 'vessel', handler: fillVessel },
   { verb: 'empty', requiredTag: 'vessel', handler: emptyVessel },
+  // `pour <jug of oil> into <pan>`. Gated on the SOURCE being food, and it
+  // self-checks the rest — ⚠ cooking sorts before drinks and fillable, so this
+  // sees `pour` first for every canteen and cup in the game and has to hand
+  // those back untouched. See pourFat.
+  { verb: 'pour', requiredTag: 'food_profile', handler: pourFat },
   // Declaration-only (handler: null) — `workspace` is the workspace plugin's own
   // command and this registers nothing at dispatch. It exists so a range, a
   // microwave or a dish cabinet ADVERTISES the HUD on its examine: the verb was
@@ -2469,4 +2886,4 @@ export const hooks = {
 };
 
 // Exposed for the regression harness.
-export const _test = { donenessRisk, plateDoneness, findFreeStove, stovesInZone, labsInZone, cookStations, vesselStats, vesselContents, hasCookingLiquid, needsBoiling };
+export const _test = { donenessRisk, plateDoneness, findFreeStove, stovesInZone, labsInZone, cookStations, vesselStats, vesselContents, hasCookingLiquid, needsBoiling, measureOf };

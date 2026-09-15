@@ -16,12 +16,20 @@
 - Consumes `consume.begin`, `bodily.drinkContaminated`.
 
 ## Hooks
-- `item.describeVessel`
+- `item.describeVessel` — what's in the cup, when you look at the cup.
+- `furniture.describe` — what a rig serves and what it charges. Quoted by the SAME `vendQuote` that takes the money, so the board and the till can't disagree.
 
 ## Recipes match on PROFILES, not item ids
 Exactly as `dishes.js` does — with two deliberate differences:
 - `vessels` is a **LIST**, not a single value.
 - **`medium` profiles** (water, ice) fill a glass **without scoring it**, so diluting does not change what you made.
+
+## Caffeine is derived, from the CLASS rather than the bottle
+A brewed or vended coffee applies `drug_coffee` on each swallow, down the same `useDrug` path the alcohol uses — before this only the bought tin counted, so a pot you made yourself was hot water with a flavour.
+
+Booze is authored per bottle (`abv`) because a spirit's strength is a fact about that bottle. Caffeine is a fact about the class, so the number lives on the **profile** (`coffee_base` 80mg a pour, `tea_base` 40) and `tags.caffeine_mg` overrides it **both ways** — chicory has none, herbal tea has none, a cola has some. The profile table is also what lets a rig answer, since a machine has no ingredients to read.
+
+⚠ Under 20mg applies **no drug at all**: `useDrug` clamps `potencyMult` up to 0.1 and still counts a whole dose, so without the floor a mug of cocoa would be a dose of caffeine.
 
 ## Alcohol is derived
 Alcohol is computed from `abv` × pours and applied through the ordinary `drug_alcohol` laced path on **each swallow** — so a mixed drink and a bottled one get you drunk identically. A zero derivation applies **no drug at all**.

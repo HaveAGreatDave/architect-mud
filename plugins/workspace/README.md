@@ -110,11 +110,11 @@ Two conventions the client depends on:
 
 ### `role` — what KIND of statement an action makes
 
-An action may carry a `role`: `heat`, `water`, `handle`, `prep`, `take`, `stow`,
-`start`, `finish`, `clean`, `taste`. It says nothing about the command and adds
-no behaviour; it exists so the client can lay a pan's controls out **as
-controls** — a heat selector, a water slot — instead of as a row of identical
-chips, **without learning a single verb**.
+An action may carry a `role`: `heat`, `water`, `handle`, `prep`, `method`,
+`take`, `stow`, `start`, `finish`, `clean`, `taste`. It says nothing about the
+command and adds no behaviour; it exists so the client can lay a pan's controls
+out **as controls** — a heat selector, a water slot — instead of as a row of
+identical chips, **without learning a single verb**.
 
 - **An unroled action is not an error.** It renders as the chip it always did, so
   a new prep verb still appears in the HUD the day it is registered. A role is an
@@ -125,6 +125,56 @@ chips, **without learning a single verb**.
   uses, or the panel grows two opinions about one burner.
 - `target` on a `stow` action is the vessel's id — how the client knows which pan
   a row can go into without parsing the command it is about to send.
+- `method` is **how you want to cook it** — `fry rat haunch`, `boil stock pot`.
+  The visual panel collapses every `method` action on a row behind one **cook
+  it…** control, and every `prep` action behind a **prep it…** beside it, because
+  an ingredient carrying five of each was eleven identical chips in which `mince`
+  (two rungs off the ceiling, *forever*) looked exactly like `fry` (starts
+  dinner). A food row is now two questions — what do you want to do to it, and
+  how do you want to cook it — instead of eleven answers.
+
+  The two are **different colours** on purpose: prep is a permanent trade, cooking
+  starts dinner, and two identical chips side by side would put the row back
+  where it started.
+
+  ⚠ **A bank collapses even when it holds one thing.** Dry starch has exactly one
+  method (`boil`) and an onion one prep (`chop`). Showing those inline while their
+  neighbours collapse would mean no two rows in the column had the same shape —
+  which is the scanning problem the banks exist to fix, reintroduced to save one
+  click.
+
+  ⚠ **That collapse is presentation and must stay presentation.** The actions are
+  ordinary entries in `actions` either way, so both lower Display Mode rungs go
+  on printing them flat as the links they already were — nothing nests, and
+  nothing downstream of the role needed changing. It also means the provider has
+  to keep the list **short**: the rung that can't collapse anything prints all of
+  them on one line.
+
+### Grouped rows
+
+A row offering `prep` or `method` actions is laid out in the order you'd do them
+— prep, then how to cook it, then where to put it — rather than as one strip.
+Everything else keeps the plain strip. The test is about the **payload**, not
+about food: a bench whose reagents grow prep verbs gets the same layout free, and
+a row you can only `take` never sprouts banks it has no use for. Anything with a
+role the client has never heard of still comes out in declaration order.
+
+### The recipe card
+
+The card under an open recipe is **what the dish IS** — as opposed to what you're
+short of (the Assistant's open body) or what to type (the runbook under it). It
+reads from `ingredients`, `kit` and `method` on the recipe row.
+
+It used to be ten rows of the same dim grey at the same indent, with a blank row
+doing the work of a heading, so nothing said where the ingredients stopped and
+the pans started. It's three named parts now, and **`Ingredients` and `Made in`
+sit side by side** — the card already runs the full width under both columns, and
+stacking two three-line lists pushed the method below the fold for nothing. The
+method stays full width, because it's sentences.
+
+⚠ **Three kit marks, three meanings.** `✓` held, `✗` required and missing, `·`
+missing but optional. The last two both printed as `·`, which made the card give
+the same answer to *can I make this* and *will it be as good as it could be*.
 
 ## Ticking, and `batch` — putting several things in one pan
 

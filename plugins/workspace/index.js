@@ -62,6 +62,19 @@ export async function buildWorkspaceView(player, providerKey = null) {
     tools: built.tools || [],
     status: built.status || [],
     assistant: built.assistant || null,
+    // ⚠ AN ALLOWLIST, NOT A SPREAD. A field a provider adds and this list does
+    // not name is dropped one hop short of the panel, and the result is
+    // indistinguishable from a feature that was never built: the provider
+    // returns it, the client reads it, and it is undefined on arrival. That cost
+    // a green suite and four checks reading as a missing hob.
+    //
+    // Both of these are DOMAIN-NEUTRAL by design, which is what lets them live
+    // here at all. A dial is a continuous control with marked positions and a
+    // literal command per position — a hob ring, a bench's temperature — and the
+    // panel draws one without knowing what it controls. The stages block is
+    // which beat of a job you are on, which every workspace has.
+    dials: built.dials || [],
+    stages: built.stages || null,
   };
   // An `idle` area row is a piece of the room standing empty — a free burner, a
   // clear bench. It must not count towards "there is something here", or a

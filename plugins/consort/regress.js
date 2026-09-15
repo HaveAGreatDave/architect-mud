@@ -725,6 +725,20 @@ export default async function regress({ check }) {
   check('dismiss: stranger is refused', dismissDenied?.type === 'error' && /answers to you/i.test(dismissDenied.message || ''), dismissDenied?.message);
   const pourDenied = await _test.cmdPour([], 'pour', stranger);
   check('pour: stranger with no consort is refused', pourDenied?.type === 'error', pourDenied?.message);
+  // ⚠ ...BUT `pour A INTO B` IS SOMEBODY ELSE'S SENTENCE, AND ABSTAINING IS THE
+  // ONLY WAY THEY EVER SEE IT. `pour` is a plugin COMMAND here, and a plugin
+  // command beats every specialized action in the game unconditionally — so
+  // until this guard existed, consort owned the word outright and the `pour`
+  // handlers in fillable, drinks and cooking were unreachable code. Answering
+  // with anything but `undefined` here re-breaks all three, and the symptom is a
+  // canteen that cannot be filled from a jerry can reporting that there is
+  // nobody here to pour for you.
+  for (const shape of [['water', 'into', 'canteen'], ['oil', 'in', 'pan'], ['fuel', 'into', 'the', 'can']]) {
+    const r = await _test.cmdPour(shape, `pour ${shape.join(' ')}`, stranger);
+    check(`pour: "${shape.join(' ')}" is handed on, not claimed`, r === undefined, JSON.stringify(r));
+  }
+  check('pour: a plain request is still consort\'s',
+    (await _test.cmdPour(['me', 'a', 'gin'], 'pour me a gin', stranger))?.type === 'error');
   check('pour: barIn finds no bar in an empty zone', _test.barIn('zone_nowhere') === null);
 
   // Direct-address matcher still can't shadow the other multi-word verbs.

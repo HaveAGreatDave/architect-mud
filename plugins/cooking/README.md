@@ -120,6 +120,25 @@ refused `stove` is dropped and the step simply isn't claimed. It's also the one
 step that has to come *after* `cook`: it writes to live sessions, and before the
 cook there are none.
 
+### In the workspace HUD
+
+The panel's only cooking offer used to be a bare `cook`, whose own hint says a
+vessel would do it better — so the one route it proposed was the worst one in the
+system, and these twelve verbs appeared nowhere. Every raw ingredient now carries
+the methods that suit it, and so does a loaded pan (`boil stock pot` — naming a
+vessel *is* the instruction).
+
+`methodsForProfile` / `methodsForVessel` decide which. ⚠ **Neither is a gate and
+nothing in the verb path reads them** — every method still works on everything,
+which is the whole point of the outcome rule above. They answer the much narrower
+question of which few are worth *offering* beside a rat haunch, and they are kept
+**short on purpose**: the panel collapses them behind one control, but the two
+lower Display Mode rungs print a row's actions flat, so twelve methods per
+ingredient is a wall of links for the player who can't collapse anything.
+
+Keyed on the ingredient's own profile, so a food authored next month with an
+existing profile gets its methods the day it lands with no edit here.
+
 ## The two tiers
 
 **Plain food** (`tags.needs_cooking`, no profile) works exactly as it always
@@ -252,6 +271,13 @@ plate loaf
 
 Naming a **layer** resolves to the vessel it's in, which is the whole of what
 makes the second line readable. `layer` is the same verb said about a tray.
+
+In the workspace HUD an **edible** vessel is offered as `≡ bread` running
+`stack <x> on <bread>` where a pot is offered as `→ pot` running `stow … in`.
+Same role, same target, same tick — only the verb and the arrow change, which is
+what makes building a sandwich a first-class act on the panel rather than
+something you have to know to type. Everything downstream of the role (the tick,
+the batch button, the log rung's link) works unchanged.
 
 ⚠ **Order is read, never resolved.** `stacked_at` reaches `examine` — which
 prints the sandwich bottom to top — and nothing else: not the signature, not the
@@ -685,10 +711,34 @@ together have *no instant at which both are good*. Staging is the only way most
 pot dishes are cookable at all: start the broth, add the greens ~3 minutes in,
 and their windows land on top of each other.
 
-**Burner control.** `stove <low|mid|high>` rides the heat. A stove's
-`stove_tier` is its CEILING, not its only setting: a range can be turned down, a
-hotplate cannot be turned up. Each change appends to a `heats` log on every live
-session on that burner.
+**Burner control — the dial.** `stove <off|0–10|low|mid|high|up|down> [on <hob>]`
+rides the heat. A stove's `stove_tier` is its CEILING, not its only setting: a
+range can be turned down, a hotplate cannot be turned up. Each change appends to
+a `heats` log on every live session on that burner.
+
+A burner has **eleven positions and three markings**, and the markings are the
+three words that were once the whole control:
+
+| dial | tier | speed |
+|---|---|---|
+| 0 | off | the pan stops |
+| 1–3 | `low` | notch at **2** |
+| 4–7 | `mid` | notch at **5** |
+| 8–10 | `high` | notch at **9** |
+
+⚠ **The scoring axis is still the TIER.** Every profile states what it wants in
+tier words, `heatScore` grades time-weighted spans of tiers, and none of that
+moved. A finer scoring axis would mean re-tuning every profile against a grid
+nobody has cooked on. What the fine position buys is **speed and prose** — the
+two things a cook actually perceives standing at a hob — plus which tier you are
+in, so every position is load-bearing rather than three of them being.
+
+⚠ **And the named tiers reproduce the old numbers exactly.** `LEVEL_SPEED` at
+each notch *is* `STOVE_SPEED` for that tier, and a stove nobody has touched sits
+at the notch of its own ceiling. Every cook that has ever run, and every regress
+case, runs bit-for-bit as before. This is a control surface over numbers that
+were already there, not a retune. Regress asserts the identity, which is what
+stops the two tables drifting.
 
 A profile may declare a `heatCurve` instead of relying on `heatTolerance` alone —
 `dense_meat` wants high for the first quarter then low; `liquid` wants a hard
@@ -698,9 +748,76 @@ and a tier the curve never asks for scores worst. `heatTolerance` must equal the
 curve's dominant phase (`validateProfiles` enforces it) so the leave-it-alone
 answer and the curve never disagree about the same food.
 
-The deliberate cheat: the burner changes QUALITY, not cook RATE. A varying rate
-would mean integrating a piecewise clock to answer "when is this done", and the
-whole architecture rests on `doneAt` being one stored timestamp.
+**The burner changes the cook RATE, and `stove off` stops it.** This paragraph
+used to read the other way — *"the deliberate cheat: the burner changes QUALITY,
+not cook RATE"* — on the grounds that a varying rate means integrating a
+piecewise clock, and the architecture rests on one stored timestamp. The
+objection was right and the conclusion was wrong: a piecewise clock does not need
+integrating if you *translate the session* instead. [`heat.js`](heat.js) has both
+halves.
+
+- **Apparent time.** `apparentNow` maps real time onto the session's own clock,
+  running at `rate` since `rateAt`. At rate 1 it is the identity — which is why
+  a session nobody has retuned behaves exactly as it always did, and why nothing
+  in the corpus of stored sessions had to be migrated.
+- **Translation.** On a rate change the WHOLE session — `startedAt`,
+  `plainDoneAt` and every recorded `heats[].at` and `acts[].at` — is shifted so
+  apparent time and real time coincide again at that instant. A translation
+  preserves every fraction exactly, which is what stops a turn made at 50%
+  through the cook from silently becoming a turn at 70% because you turned the
+  gas down afterwards.
+
+⚠ **Convert exactly once.** `apparentNow` is not idempotent — feeding it its own
+output advances the clock twice. So [`quality.js`](quality.js)'s entry points
+(`endStateAt`, `evaluate`, `overStageText`, `wantedTierAt`) take REAL time and
+convert inside, and the two functions in [`cook.js`](cook.js) that do their own
+timestamp arithmetic convert into a local that never leaves. Everything else
+passes `Date.now()`.
+
+⚠ **Rate 0 is a real state, not a slow one.** A ring turned off is a pan sitting
+there not cooking: the clock freezes, no narration beat is armed, nothing burns,
+and the ring stays held because the pan is still on it. That was the one thing
+three words could not say, and the HUD's own source carried a comment naming it
+as a gap — *"off the heat before the gin goes in"* was a sentence the sim could
+not express. It can now.
+
+⚠ **The dial position lives in RAM, and that is a decision.** `furniture.flags`
+is a CONTENT column — not in the furniture entry's `excludeColumns` — so a knob
+somebody left on `7` would be carried into `content/` by the next export and
+become part of the world. A restart is the kitchen being reset; nothing durable
+is lost, because what actually matters (what the burner was doing *during* a
+cook) is in the session's own `heats` log, in the database, on the food. Boot
+restore seeds the dial back from the last mark, so a pan paused across a restart
+comes back paused rather than mysteriously relighting itself.
+
+**The comfy band.** `wantedTierAt` asks the curve what the pan wants *right now*
+— the same arithmetic `heatScore` grades the finished cook against, so there is
+one curve and one reader of it, and the dial can never promise a band the scorer
+disagrees with. It was always in there and was never sayable: a player could only
+learn that a steak wants a hard sear and then a drop by cooking several badly,
+because the only channel the knowledge came down was the band at the end.
+
+It says a **direction in words** and never a number. Knowing the pan is running
+hot is what a cook standing over it can see; how hot, in what units, is not.
+
+⚠ **In the HUD payload it is `dials`, not `hob`.** The workspace plugin and its
+panel are domain-agnostic on purpose — that is the whole reason a chemistry bench
+reused them untouched — so a `hob` field full of tiers and vessels would be
+kitchen vocabulary in a file whose contract is that it has none. What travels is
+the generic shape: a continuous control with marked positions, each position a
+literal command, plus which band the job wants and a one-line verdict. The panel
+draws that without knowing it is heat, and a bench's temperature dial fits it
+with nothing to change.
+
+That includes the words for a dead ring. `verdict` carries the sentence for an
+idle dial as well as for a hot one, precisely so the panel never has to own a
+phrase like "off the heat".
+
+⚠ **And `buildWorkspaceView` is an ALLOWLIST, not a spread.** A field a provider
+returns and that list does not name is dropped one hop short of the panel, and
+the result is indistinguishable from a feature that was never built: the provider
+returns it, the client reads it, and it is `undefined` on arrival. That is how
+four checks came back reading as a missing hob against a green suite.
 
 **Seasoning.** Modifiers pay up to the dish's ideal and cost past it. The ideal
 derives from the recipe — a curry that REQUIRES two aromatics wants two, so
@@ -797,12 +914,142 @@ Registration order does the routing. Specialized actions fire alphabetically and
 `cooking` < `fillable`, so cookware is claimed here and **anything also tagged
 `fillable` falls straight through** — a mug is a `vessel` too, and stays entirely
 the drinks/fillable path. `empty` likewise falls through unless the pan actually
-holds a medium.
+holds a fluid of ours.
 
 Foul water is foul: the fill stamps `custom_data.hazards.disease_risk` from the
 same `bodily.toiletContamination` dispatch the canteen path uses, and
 [`hazards.js`](hazards.js) carries it onto the plate. Cooking is not a purifier
 here, same as everywhere else.
+
+### Fluids pour by the measure — all of them, not just the oil
+
+There are **three** representations of fluid in this game and cooking owns the
+third, so it is worth being precise about which is which:
+
+| | where | what it is |
+|---|---|---|
+| `fluid_amount` + `fluid_type` | [plugins/fillable](../fillable/) | a scalar on the container. 52 items |
+| a `drink` object | [plugins/drinks](../drinks/) | a composed identity with a band and a heat clock. 13 items, **all of them `fillable` too**, held apart by an explicit invariant |
+| ordinary ingredient **rows** | here | 17 cookware items, tag-disjoint from both |
+
+⚠ **Cooking's is not a fluid representation at all** — it is the INGREDIENT
+representation, and water simply joined it. That is the whole reason `fill` puts
+an `item_water` ROW in the pan: `hadLiquid`, `deglaze`, fond suppression, the
+boil gate and every dish's `needs` already understood rows, and a scalar would
+have had to be taught to all five.
+
+And a row already carries an amount. `custom_data.portion` is the same number
+`chop` and `butter` spend, and `unitsOf` multiplies it straight into the dish
+signature — half an onion has always counted as half.
+
+**Only oil was using it.** Everything else — bone broth, fish stock, synth cream,
+gin, vinegar, tomato paste, soup base, 22 items — went into a pan whole or not at
+all. There was no splash of cream and no measure of gin.
+
+The catalog had already flinched from that. Penne alla gin asked for
+`liquid: [2, 3]` until "penne, gin and two bottles of water" turned out to be a
+valid pan of sauce, and the fix was to **stop counting liquids**: `liquid` is
+`optional` in that dish today and contributes nothing. A dish cannot ask for a
+sensible amount of something that only arrives by the bottle.
+
+So `pour` is gated on `POURABLE` now rather than on `fat_or_oil`, and a measure
+means one thing:
+
+> ⚠ **A modifier's measure is a DOSE; a weighed fluid's measure is GRAMS.**
+
+That split is forced by `unitsOf`, which counts a modifier as `portion × stack`
+and everything else as `grams × portion / unitWeight`. A fifth of a 600g soup
+base and a fifth of a 200g tin of paste are 120g and 40g — calling both "a
+measure" would make the word mean three times as much depending on which bottle
+it came out of, and a dish counting them would be counting nothing. So oil keeps
+`POUR_PORTION` (a jug is five spoonfuls whatever it weighs) and everything else
+takes `FLUID_MEASURE_G` — a quarter of a `liquid` unit, so a bottle of gin is
+four measures, a carton of stock five, a tin of paste two.
+
+Either way it **conserves**: what left the bottle is what arrived in the pan.
+What is left below one measure (`FLUID_DREGS_G`) goes in whole and keeps the
+item's own name, because "a measure of" something there was not a measure of is
+a lie, and a row too small to pour again is a row nobody can use.
+
+⚠ **Water is still not poured by the measure**, and that is deliberate: it is
+`cooking_medium`, invisible to the dish, so a MEASURE of it would be an amount no
+recipe could ask for. What it has instead is a level that runs down — see
+**Boiling dry** below, which is the reader it was missing.
+
+⚠ **And there is no bridge to `fillable`.** Cooking's vessels share no tag with
+it, so `pour canteen into stockpot` is refused at both ends. Nothing reaches that
+today: all 8 zones you can cook in have water. It bites at a wayside camp firepit
+(`flags.stove_tier` with no `water_source`), and the fix if it ever matters is a
+converter — N fillable units in, one `item_water` row out — not a second
+representation.
+
+### `pour <jug of oil> into <pan>`
+
+A jug of cooking oil is a **jug**: 600g, and five dishes' worth. Until this the
+only thing you could do with one was put the whole thing in the pan, where
+`plate` ate it — the jug and all six hundred grams of it, to fry one egg.
+
+`pour` draws one **measure** and leaves the jug, which is the same conserving
+arithmetic `butter` uses on a block and `chop` uses on an onion. The measure
+lands as an ordinary ingredient row, the same call `fill` made about water.
+
+The gate is the **profile**, not a new tag: `fat_or_oil` is the one food class
+the world sells exclusively as a vessel of many doses, which is exactly "a jug of
+oil and similar things". A carton of milk is a `liquid` and still goes in whole,
+correctly — it's an ingredient, not a seasoning.
+
+> ⚠ **A measure is one DOSE, so a jug is five.** That's the point rather than a
+> leak. Modifiers are dosed and never weighed (`unitsOf`), so tipping the whole
+> jug in has always counted as exactly one seasoning and always will — pouring is
+> how you get the other four. `MODIFIER_BONUS_CAP` and the over-seasoning penalty
+> mean emptying a jug into one pan is a *worse* dish, not a better one. Tipping
+> it in whole is now visibly the wasteful move, which is what it should have read
+> as all along.
+
+⚠ **It must fall through for anything that isn't a cooking fat.** Specialized
+actions fire alphabetically and `cooking` sorts before `drinks` and `fillable`,
+so this handler sees `pour` first — for every canteen, cup and jerry can in the
+game. Every early exit returns `undefined`.
+
+⚠ **And `pour` was owned outright by a plugin COMMAND before this.**
+`plugins/consort` declares `pour` as a command (a consort pours you a drink), and
+a plugin command beats every specialized action unconditionally — so
+`pour water into the canteen` was answered *"There's no one here to pour for
+you"*, and the `pour` handlers in **fillable** and **drinks** were unreachable
+code. No suite caught it because none of the three drove the verb end to end;
+fillable's own case inspects the specialized-action registry, which is correctly
+ordered and was never consulted. Consort now abstains on a transfer clause, since
+none of its shapes (`pour`, `pour me a whiskey`, `pour Vesper`) names a thing to
+pour into.
+
+### `pour <pan> into <pan>` / `empty <pan>` — getting it back out
+
+Everything above is about putting fluid **in**. For a long time there was no way
+at all to get any of it out: `empty` threw the *water* away and nothing else, and
+a measure of oil in the wrong pan was there until the pan was plated. A pan you
+can only fill is a trap, and the commonest thing anybody does in a kitchen is
+change their mind.
+
+Both spellings run one function (`tipVessel`), because they are one act said two
+ways and a second copy would be a second set of rules about what a fluid is.
+Three profiles and a tag count: `cooking_medium`, `liquid`, `fat_or_oil`. The
+solids stay, which is what tipping a pan does.
+
+- `empty <pan>` — pours it away.
+- `empty <pan> into <pan>` / `pour <pan> into <pan>` — decants it, capacity
+  checked on the receiving pan like any other move between containers.
+- `pour <jug>` with no target — goes into the pan **on the heat**, or the one
+  vessel you have out. ⚠ **One, or nothing:** two idle pans and it asks, because
+  guessing which is exactly what makes an inferred target worse than no target.
+
+⚠ **An unresolved target falls through, it does not refuse.** `pour` and `empty`
+are both shared verbs with drinks and fillable registered behind this handler, so
+a target this plugin cannot see is somebody else's — announcing an error on their
+behalf is how a plugin quietly takes a verb off another one.
+
+In the HUD this is a `tip out` chip and a `→ <pan>` chip per candidate, and
+ingredients get an `↑ out` of their own that runs `pullid` — putting something in
+a pan was one press and getting it back was a verb nobody had been taught.
 
 ### `tags.cooking_medium` — a liquid for the pan, nothing for the dish
 
@@ -841,6 +1088,79 @@ Coarse gates, as always — the HUD proposes, `fill` decides. The whole chain is
 covered end to end in [plugins/workspace/regress.js](../workspace/regress.js):
 no tap → `cook` refused → tap added → Status names it → the pan offers `fill` →
 water lands as a row → `cook` works → `drain` empties it.
+
+### Boiling dry — the reader water never had
+
+The `cooking_medium` split above is right and stays: water counts for every
+question about the PAN and none about the DISH. Its cost was that the AMOUNT of
+water had nothing consuming it. A pot held water or it did not, `fill` and
+`empty` were its whole vocabulary, and adding a level would have been state with
+no reader — which is how a codebase ends up with two ideas of how full a pot is
+and no way to tell which is lying.
+
+This is the reader. A pot on a hard boil loses its water; when it is gone, what
+is in it catches on dry metal. That gives the amount a consequence, and it gives
+the burner dial something to be dangerous **about** — the same hard ring that
+cooks a stew fast is the one that boils it dry.
+
+**No tick, as ever.** How much has gone is an integral over the burner log the
+session already keeps: `heats` is a list of [time, level] marks, which is exactly
+the data an evaporation rate needs, so the answer at any moment is arithmetic
+over stamps written when the player acted.
+
+```
+boiled = Σ over spans of (duration × level) / BOIL_FULL_MS
+```
+
+⚠ **It reads the fine LEVEL, not the tier.** Everywhere else the tier is the
+scoring axis and the fine position buys only speed and prose. Here the level is
+exactly right: this is a physical rate rather than a score, and a ring wound past
+the stop boils harder than one at the notch.
+
+⚠ **And it runs on the session's own clock.** A pan sitting off the heat is a pan
+not boiling — `rate: 0` freezes `apparentNow`, so an hour with the gas off costs
+no water. That falls out of integrating the session's own marks; it is not a
+special case. `dryAt` answers `null` for a frozen clock as well as for a dead
+ring, because a moment that never arrives is not a time.
+
+**The number is set against the burn clock, not against taste.** `autoPlate` ends
+every cook at `burnAt` and frees the ring, so a pot can only run dry if drying is
+faster than burning — and whether it is has to depend on what you are cooking and
+how hard:
+
+| | cook | burns at | dries at | |
+|---|---|---|---|---|
+| 125g penne, high | 50s | ~2.4 min | 5 min | never |
+| 1kg stew, high | 216s | ~9 min | 5 min | **bites** |
+| 1kg stew, low | 540s | ~22 min | 22 min | marginal |
+
+Which is the mechanic anybody would expect: pasta does not boil dry in three
+minutes, and a stock pot left on a rolling boil does. The risk lives exactly
+where the dial puts it — at the top of the range, on long cooks.
+
+**Going dry is damage, and it is immediate.** One rung off the ceiling, through
+the same mechanism mince and tenderising already use, plus a burn window that
+collapses to `SCORCH_GRACE_MS`. ⚠ The scorch can only ever pull the burn point
+IN: a pan already past burning is not handed extra time by having dried.
+
+**The counterplay is the point.** The pan says `water getting low` in the HUD and
+narrates it once, and `fill` now works on a pan that is already on the heat —
+which it refused before, harmlessly, back when a pot could not run dry. Topping
+up restarts the evaporation clock (`rewetVessel`) and ⚠ **does not clear a
+scorch**: water stops it burning from here and does not un-burn what already
+caught. That split is what makes the warning worth running back for rather than
+worth ignoring because it is fixable later.
+
+⚠ **Taking the water out says so too** (`dryVessel`, called by `drain`, `empty`
+and pouring a pan out). The dry-out itself cannot fail dangerously — `boilDry`
+finds no medium and returns — so this is about the READOUT being true rather than
+about safety, which is exactly the drift that ends up with two ideas of how full
+a pot is.
+
+⚠ **Staging inherits the pot's clock.** A second ingredient dropped into a
+simmering pan gets its own session, and letting it start the water clock afresh
+would report a full pot to anybody reading the newer row. The earliest `wet.since`
+on the ring wins.
 
 ## Fond
 
@@ -933,6 +1253,8 @@ discovery into data entry.
 | `methods.js` | **pure** — the method table (`boil`/`fry`/`roast`…): which pan, which burner, whether it happens in water |
 | `interact.js` | `flip` / `stir` — one function, two verbs |
 | `cook.js` | sessions, timers, boot catch-up, burn-off |
+| `heat.js` | **pure** (bar the dial registry) — the burner dial, the session clock (`apparentNow` / `retuneSession`), and the comfy-band verdict |
+| `boil.js` | **pure** — how much water has gone, when it runs dry, and what the pot looks like |
 | `quality.js` | **pure** timeline + scoring. No DB, no clock of its own |
 | `profiles.js` | the ingredient-class catalog + `validateProfiles()` |
 | `dishes.js` | the dish catalog, signature matcher, naming, `validateDishes()` |
@@ -949,8 +1271,9 @@ discovery into data entry.
 | `knowledge.js` | the cookbook: what's known, how it's learned, `TEACH_RECIPE`, and player recipes |
 | `config.js` | every balance number in the system |
 
-`prep.js`, `portions.js`, `fond.js`, `taste.js` and `quality.js` are all pure
-reads over a row and `now` — no DB, no clock of their own. That's deliberate and
+`prep.js`, `portions.js`, `fond.js`, `taste.js`, `heat.js`, `boil.js` and
+`quality.js` are all pure reads over a row and `now` (`heat.js` keeps one Map of dial positions and
+is otherwise arithmetic) — no DB, no clock of their own. That's deliberate and
 worth preserving: it's what lets `examine` be free and the regress suite test the
 whole quality ladder without a database.
 
@@ -1037,3 +1360,31 @@ the same thing in the same vessel (one would be unreachable).
 All of it lives in `config.js`. `BASE_OFFSET` is the one to reach for first — it's
 how far below the ceiling every cook starts, and therefore how hard the top bands
 are to reach.
+
+### How tight the timing is — two knobs, and only one of them reaches the problem
+
+Retuned 2026-09-13: `COOK_SECONDS_PER_KG` 360 → **450**, `MIN_COOK_MS` 20s → **40s**.
+
+⚠ **`COOK_SECONDS_PER_KG` alone cannot loosen the tight end, and that is the thing
+worth knowing before reaching for it.** Every window is a fraction of the cook, so
+raising it lengthens them in proportion — but the twitchiest profiles are the
+light fast ones, and the lightest are *pinned at `MIN_COOK_MS`*, where the per-kg
+constant does not reach them at all. Raising it on its own inflates the windows
+that were already generous and leaves the twitchy ones exactly as they were.
+
+Measured on a high ring, at each profile's own unit weight, before and after:
+
+| | batter | bread | soft veg | fruit | dairy | dense meat | liquid |
+|---|---|---|---|---|---|---|---|
+| peak before | 5.7s | 6.0s | 6.3s | 7.4s | 8.0s | 20.0s | 65.7s |
+| peak after | **10.0s** | **12.0s** | **12.0s** | **14.0s** | **16.0s** | 25.0s | 82.1s |
+
+The floor did the work at the bottom of the range; the per-kg knob loosened the
+middle. Regress asks the real question of every profile through the real
+`timeline` — at the floor, in an ordinary pan, is the window still ≥8s — so a
+profile authored next month is covered and dropping the floor back fails there
+rather than in somebody's kitchen.
+
+The accepted cost: a berry takes 40 seconds whatever you do to it, and at the
+floor the burner tier stops changing how *fast* the lightest food cooks (it still
+changes how well).

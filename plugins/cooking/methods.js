@@ -133,6 +133,63 @@ export function methodFor(word) {
   return METHODS[key] ? { key, ...METHODS[key] } : null;
 }
 
+// ── WHICH METHODS SUIT A THING ───────────────────────────────────────────────
+//
+// For the HUD, and for the HUD only. Every method works on everything — that is
+// the point of the outcome rule above, and `boil steak` stays a legal sentence
+// you can type — so this is not a gate and nothing in the verb path reads it.
+// It answers a different and much narrower question: of the twelve, which few
+// are worth OFFERING beside a rat haunch.
+//
+// ⚠ IT HAS TO BE SHORT, and that is a display constraint rather than taste. The
+// panel collapses these behind one control, but the two lower Display Mode rungs
+// print a row's actions FLAT — so twelve methods on every ingredient is a wall
+// of links in the log for somebody who cannot collapse anything. Four-ish per
+// profile keeps that rung readable, and the twelfth method is still one typed
+// word away.
+//
+// Keyed on the ingredient's own profile, so a food authored next month with an
+// existing profile gets its methods the day it lands, with no edit here.
+const BY_PROFILE = {
+  dense_meat: ['sear', 'fry', 'roast', 'grill', 'stew'],
+  preserved: ['fry', 'grill', 'stew'],
+  egg: ['fry', 'poach', 'boil'],
+  dry_starch: ['boil'],
+  starchy_vegetable: ['boil', 'roast', 'fry', 'mash'],
+  soft_vegetable: ['fry', 'saute', 'roast', 'boil'],
+  fruit: ['bake', 'poach', 'fry'],
+  liquid: ['simmer', 'boil', 'stew'],
+  dairy: ['fry', 'bake'],
+  batter: ['bake', 'fry'],
+  bread: ['toast', 'grill', 'bake'],
+  // Modifiers never take a cook session of their own — they season what is
+  // cooking beside them — so offering to roast a bulb of garlic on its own is
+  // offering to turn it into cinders. Deliberately empty.
+  fat_or_oil: [],
+  aromatic: [],
+};
+
+// The pan decides more than the food does once the food is IN it, so a vessel
+// gets its methods from its own kind. A pot of stock and meat wants simmering;
+// the same contents in a tray want roasting.
+const BY_VESSEL = {
+  pot: ['boil', 'simmer', 'stew', 'poach', 'steam'],
+  pan: ['fry', 'sear', 'saute'],
+  tray: ['bake', 'roast'],
+  bread: ['toast', 'grill'],
+  // A bowl never sees heat — it is assembled in, and `plate` is its whole ending.
+  bowl: [],
+};
+
+// `mash` is in the starchy list above and is NOT a method — it is what a bowl
+// does, and naming it there would offer a verb that does not exist. Filtered
+// here rather than removed from the table, because the table reads as the list
+// of things you would actually do to a potato and that is worth keeping true.
+const real = keys => keys.filter(k => METHODS[k]);
+
+export const methodsForProfile = profile => real(BY_PROFILE[profile] || []);
+export const methodsForVessel = kind => real(BY_VESSEL[kind] || []);
+
 // What the player could have typed instead. Printed dim under every method, and
 // it is the whole reason this doesn't just hide the system behind one more verb:
 // a player who boils pasta four times has read `fill` and `cook` four times and

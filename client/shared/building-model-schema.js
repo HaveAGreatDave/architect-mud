@@ -190,10 +190,15 @@ export const DETAIL_SCHEMA = {
   // ⚠ `font` AND `picto` ARE THE SAME TWO KEYS ON ALL THREE SIGN KINDS, deliberately. They are
   // properties of LETTERING rather than of a particular fitting, and a board that could take a
   // script hand while a gantry could not is a rule nobody would remember. `font` is one of
-  // SIGN_FONT's keys (mono, script, block, slab) and defaults to mono, which is every sign that has
-  // ever shipped; `picto` is one of SIGN_PICTO's (martini, mug, fork, bed, bolt, pill, fuel, arrow)
-  // and defaults to none. Both live in windshield.js, and an unknown value FALLS BACK rather than
-  // throwing — a typo in a model file must never be able to stop a building drawing.
+  // SIGN_FONT's keys (mono, script, block, slab, deco, condensed); `picto` is one of
+  // SIGN_PICTO's (martini, mug, fork, bed, bolt, pill, fuel, arrow) and defaults to none. Both
+  // live in windshield.js, and an unknown value FALLS BACK rather than throwing — a typo in a
+  // model file must never be able to stop a building drawing.
+  // ⚠ `font` NO LONGER DEFAULTS TO MONO — it defaults to the building's own hand, which `signFontOf`
+  // derives from its trade or, failing that, from what it is faced in. Stating it here overrides
+  // that for this one part, which is what an author wants when a shop letters itself against type.
+  // `deco` is the inscriptional face (gilt on stone, a chiselled lintel) and `condensed` the tall
+  // narrow gothic of a post-war frontage.
   //
   // ⚠ AND `font` IS NOT `face`. signBoard already has a `face`, and it means which WALL the board is
   // bolted to. Two keys one letter apart on the same part, meaning the side of a building and the

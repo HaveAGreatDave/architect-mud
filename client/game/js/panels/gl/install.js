@@ -66,15 +66,18 @@ export function glCapabilities() {
   }
   // ⚠ THESE ARE COUNTED BY HAND AND HAVE TO BE RECOUNTED WHEN A SHADER GAINS A VARYING. The mass
   // pass carries vNormal 3 + vColor 3 + vUV 2 + vRamp 1 + vDepth 1 + vAlpha 1 + vFlat 1 + vJit 1 +
-  // vBakedAo 1 + vMat 1 + vWorld 3 = 18, against a WebGL2 guarantee of 60. It is not close, which is
-  // exactly why the number is easy to leave stale — nothing fails when it is wrong, the report just
-  // stops being the answer to "will this machine run it". ⚠ AND IT HAD GONE STALE: it read 16 and 8
-  // with vBakedAo already in the shader, so the baked occlusion term had been uncounted since it
-  // landed. Recount when you add one; there is nothing here that can do it for you.
+  // vBakedAo 1 + vMat 1 + vWorld 3 + vEdge 4 = 22, against a WebGL2 guarantee of 60. It is
+  // not close, which is exactly why the number is easy to leave stale — nothing fails when it is
+  // wrong, the report just stops being the answer to "will this machine run it". ⚠ AND IT HAD GONE
+  // STALE: it read 16 and 8 with vBakedAo already in the shader, so the baked occlusion term had
+  // been uncounted since it landed. Recount when you add one; there is nothing here that can do it
+  // for you. ⚠ THE ATTRIBUTE COUNT IS THE ONE THAT COULD ACTUALLY BITE — 11 against a guarantee of
+  // 16, where the varyings have 38 to spare. The bevel took one slot for four numbers by carrying
+  // them as a vec4; four floats would have been four slots and three quarters of the headroom.
   // Uniforms rather than varyings: the point lights are 3 arrays of MAX_LIGHTS plus a count and a
   // wrap, and the material table is 2 arrays of MAX_MATERIALS plus the eye, two environment colours,
   // a texel size and two strengths — ~91 vectors against a guarantee of 224.
-  out.needs = { attribs: 9, varyingComponents: 18,
+  out.needs = { attribs: 11, varyingComponents: 22,
     fragUniformVectors: 3 * MAX_LIGHTS + 1 + 2 * MAX_MATERIALS + 6 };
   out.ok = out.maxAttribs >= out.needs.attribs && out.maxVarying >= out.needs.varyingComponents;
   out.atlasWorstCase = out.maxTexture >= 4096
@@ -130,6 +133,26 @@ export function installGL(hostFor) {
       // wired at the windshield end and dropped here reports 0.0% of wall pixels moved at every
       // strength — which is the third time that sentence has had to be written in this file.
       glMat: opts.glMat, glBump: opts.glBump,
+      // ⚠ AND SO DOES THIS ONE. Fourth entry in the list this paragraph keeps having to be written
+      // on: the shading bevel is wired at the windshield end, gated and measurable — and a missing
+      // line HERE is what makes __glBevel() report 0.0% of wall pixels moved at every width, which
+      // looks exactly like a term that does nothing.
+      glBevel: opts.glBevel,
+      // ⚠ AND THIS ONE. Fifth. The screen-space occlusion pass renders a depth prepass and two
+      // full-screen passes, all of which work perfectly with this line missing — and then the mass
+      // shader multiplies by a strength that never left the windshield, so __glSsao() reports 0.0%
+      // moved at every radius and every strength.
+      glSsao: opts.glSsao,
+      // ⚠ AND THIS ONE. Sixth. Dropped here, the working light count silently falls back to the
+      // compiled ceiling — which is not "nothing happens", it is the OPPOSITE of nothing: every
+      // frame runs the full thirty-two slots and the knob that exists to hold that down does not.
+      glLightSlots: opts.glLightSlots,
+      // ⚠ AND THESE FOUR. Seventh through tenth, and `hdr` is the one whose absence is loudest:
+      // dropped here, `beginTarget` never binds a float buffer, every layer renders into the eight-
+      // bit canvas exactly as before, and the bloom and the tone curve are computed against a
+      // picture that has already clipped. Which is to say the feature reports numbers, moves pixels,
+      // and is not the feature.
+      hdr: opts.glHdr, glBloom: opts.glBloom, glTonemap: opts.glTonemap, glExposure: opts.glExposure,
       // And the map window's centre, for the same reason — the ground shader phases its puddles on
       // absolute world tiles off it, and dropped here they would silently crawl along the road.
       wc: opts.wc,

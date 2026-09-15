@@ -595,11 +595,33 @@ window had to be **loosened**, not tightened — `duration_seconds` gates dose c
 was already six cups inside three minutes, on the thing a player chains when trying to sober up. 900s /
 threshold 10 is ten cups in fifteen minutes.
 
-⚠ **Coffee still does not keep you awake.** `isWired`/`stimulantPotency` key on `drug_class === 'stimulant'`,
-and coffee is deliberately unclassed, so `cmdSleep` will let you lie down on a triple espresso. Fixing it
-means either giving coffee a class (forbidden — it would join the additive-overdose pool) or teaching those
-two functions to read `drug_family`, which would also pull in cigarettes and loose tobacco. **Left alone
-deliberately; it is a design decision, not an oversight.**
+**Coffee keeps you awake now** — and how it does is the part worth reading, because the
+two obvious ways are both wrong and this doc used to say so. `stimulantPotency` weights every
+active drug by **`flags.wakefulness`**, a 0–1 figure authored on the drug row, and takes the
+strongest. Coffee is **0.6**.
+
+⚠ **It is NOT `drug_class`.** That is the ADDITIVE OVERDOSE POOL (`classBurden`): everything
+sharing a class is weighed against everything else sharing it, so putting coffee in the
+stimulant class to make it keep you awake would also make a pot of coffee and a Redline count
+toward one ceiling. That is a different claim about the body entirely.
+
+⚠ **Nor can it read `drug_family`.** Coffee, cigarettes, loose tobacco and amyls are all family
+`stimulant` with **no class at all**, and there is no sub-family separating them — so a family
+rule hands a cigarette the same night of wakefulness as speed. Regress asserts all three of
+those did not come along for the ride.
+
+The default is the behaviour that shipped before the flag existed — a real upper is 1, everything
+else is 0 — so **the other 38 rows are untouched**, which is what made this safe to add at all.
+It reaches the fatigue clock through the seam tolerance already uses, so a cup relieves fatigue at
+`STIM_FATIGUE_RELIEF × 0.6` and banks the same debt, and it reaches `cmdSleep` through
+**`wiredSleepRefusal`** rather than a bare boolean — the sentence is proportionate, because
+*"your heart makes it clear that isn't happening"* is the wrong thing to say about a cup of coffee.
+
+**And a coffee you MADE now counts.** Until this, only the bought tin applied `drug_coffee`;
+anything brewed or vended applied nothing, so the espresso rig handed you a hot drink with no
+caffeine in it. Caffeine is derived from what went in the cup exactly as alcohol is
+(`plugins/drinks/caffeine.js`) and lands on the same `useDrug` path — see
+[systems-drinks.md](systems-drinks.md).
 
 ### What you KNOW about a compound (`known_facts`)
 

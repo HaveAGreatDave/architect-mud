@@ -936,6 +936,96 @@ headless, `__glShadow()` in the Modelshop for pixels, cost and the night control
 is arithmetic, not tuning — stop reaching for the tuning knobs. And a symptom that survives
 skipping the pass which produces its input is not about that pass.
 
+### The shading bevel — `__glBevel()`
+
+Every model here is boxes and drums, so every edge is a hard 90° and there is no surface anywhere on
+a building turned part-way toward the light. That is most of what the material note means by "a
+highlight on a flat box is not a highlight". Real corners carry a chamfer, and the bright line down
+that chamfer is in every photograph of a building ever taken.
+
+It is **normals only** — not one vertex moves, so `gl:mesh` still agrees face-for-face with the shape
+each building collides as, the occluder hull is untouched, and the face budget does not change at
+all (38,464 before and after). A real inset chamfer is about five times the faces and breaks the
+first of those. The distance from a fragment to its own face's edges cannot be derived in the
+fragment — a face arrives as loose triangles — so it is computed once per model in `faceEdges` and
+carried as a vec4, which interpolates exactly because the field is linear.
+
+Measured, wall pixels moved: **cab noon 12.3 / 16.1 / 24.0%** at widths 0.01 / 0.02 / 0.04, **air
+afternoon 24.0 / 26.3 / 31.6%**, off-building ~0, cost inside the run-to-run spread (one run reads
+it *faster* with the term on). Ships at `glBevel: 0.02`.
+
+⚠ **It was correct, monotonic, free and very nearly invisible first.** Everything a normal does here
+reaches a wall through `lit`, whose only consumers are two overlay alphas — so a full 45° chamfer
+moved 1.1% of a frame by a mean of 3 of 255. That is word for word what the sun's shadow did, one
+term along, and the fix is the same one: apply the key-term delta to `base` directly. Signed, unlike
+the shadow, because an edge turned toward the light has to brighten.
+
+⚠ **And `faceEdges` accepts only true rectangles**, which it did not at first. A quad whose vertices
+each sit on *some* edge of the bounding box passes a trapezoid and a diagonal sliver, and a sliver
+inscribes a box many times its own area — so the chamfer lands nowhere near the geometry. The gate's
+independent area invariant put the worst face at 94% wrong. 32,555 of 37,880 quads qualify; the rest
+are raked, tapered and diagonal faces, and they simply get no bevel.
+
+### Screen-space occlusion — `__glSsao()`
+
+The half the other two occlusion terms cannot see. `glAO` is a height above the ground and
+`glBakedAo` is sampled against a model's **own** solid at capture time, so both stop at the edge of
+the building they belong to — and a city is largely gaps between *different* buildings. The baked
+pass could not have answered it either: which neighbours are near a face depends on where the camera
+is, so it could not live in the per-model memo that makes it affordable.
+
+It costs a depth **prepass** — one more draw of a buffer that is already resident, the same thing the
+sun's shadow does — plus two full-screen passes. No matrix inverse: `clip.w` *is* the camera-forward
+distance in this projection, so a depth sample inverts with one divide and five scalars off
+`projMatrix`. `npm run gl:ssao` round-trips that against the real matrix at nine cameras including
+pitch (worst 3.2e-12 tiles).
+
+Measured, wall pixels moved at strength 0.5: **dense street 44.5%, one building on open ground
+11.5%**, air 29.9%, darker 100% at every seat, off-building ~0 in daylight, cost inside the spread.
+That pair is the measurement — a term that moved both equally would be a vignette, not occlusion.
+Ships at `glSsao: 0.5`.
+
+⚠ **Its first run reported 55% of moved pixels going darker and 16% of the OFF-BUILDING frame
+moving.** Occlusion can only ever be 100% darker and may only touch mass, so both were impossible —
+and neither points anywhere near the cause, which was `depthMask(false)` left set by the full-screen
+passes. Everything drawn afterwards — the city, the ground, every sprite — wrote no depth at all.
+Those two columns are in the bench because nothing else would have caught it.
+
+### A float target, and the thing it found out — `__glHdr()`
+
+Every pass in GLASS 2 rendered into the default framebuffer at eight bits a channel, so a neon sign,
+a lit window, the sun's highlight and the wall wash all resolved into 0..1 and clipped. `glHdr`
+renders the whole GL frame into an RGBA16F buffer instead — MSAA resolved with a blit, not dropped —
+and grades it once at the end.
+
+**The finding is worth more than the feature.** `peak()` on the resolved buffer says the city's
+brightest pixel was **1.000 at noon and 1.016 at night, with 0.01% of the frame over 1.0**. Every
+shader here was written against an 8-bit target and saturates by construction, so the headroom was
+real, correct and *empty* — and a bright-pass at 1.0 found nothing, at every strength, in every
+scene. That is the third time this session a feature has been wired, gated and inert, and the first
+where the cause was the renderer rather than the wiring.
+
+⚠ **Lowering the threshold is not the fix, and only the picture said so.** At 0.72 the bloom came
+back — on the **road markings**, which in a dark street are the palest thing in frame and are not
+lights. A bloom that cannot tell a neon sign from painted tarmac is worse than no bloom. The
+emitters are pushed past white instead (`EMISSIVE_GAIN`, on the additive sprite batch only, where
+the composite clamp means a glow already at 1.0 still resolves to 1.0), and the threshold means
+what it says again: **peak 3.005 at night, 4.86% of the frame over 1.0**, and the glow lands on lit
+frontages.
+
+⚠ **It is not free, and the `bloom 0` row is where the cost shows.** A glow that was *below* 1.0 is
+genuinely brighter now — 3.3% of a night frame at the shipping defaults. That is a deliberate look
+change riding inside a plumbing one, and it is the row to watch if it ever needs backing out.
+
+⚠ **The tone curve ships at 0.** At 0.25 it moves **36% of a night frame and 55% of a noon one** —
+by a wide margin the largest visual change anything here makes, and all of it re-grading surfaces
+that were already the colour somebody chose. `glHdr` buys the headroom and the bloom; `glTonemap`
+decides how much of the filmic curve lands, and at 0 the composite is exactly the clamp the 8-bit
+buffer already did. Turn it up by eye against the real city, the way the wall-wash cuts were made.
+
+Cost is inside the run-to-run spread at every seat. One earlier reading showed +6 ms at an aerial
+seat and three further runs did not reproduce it — the standing warning about this harness.
+
 ### Hardware coverage
 
 `glCapabilities()` in the console answers "will this machine run it", from a throwaway context it

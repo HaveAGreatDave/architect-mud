@@ -22,7 +22,18 @@ export const BAND_SCALE = 2;
 // forgiving band, the burn point — is a fraction of the cook time, so raising
 // it lengthens the windows in proportion and makes timing less twitchy, not
 // more punishing.
-export const COOK_SECONDS_PER_KG = 360;  // a 1kg cut takes 6 min on a 1.0x (low) stove
+//
+// RETUNED 2026-09-13, 360 → 450, because the windows were too tight to play.
+// ⚠ On its own this knob CANNOT fix the tight end, and that is the thing worth
+// knowing before reaching for it again. The twitchiest profiles are the light
+// fast ones, and the lightest of them are pinned at MIN_COOK_MS — bread and
+// dairy on a high ring are AT the floor, so their cook time is the floor's and
+// this constant does not reach them at all. Measured before the retune, on a
+// high ring: batter peaked for 5.7s, bread 6.0s, soft vegetable 6.3s, while
+// liquid peaked for 65s and starchy vegetable for 48s. The problem was never
+// the average; it was the bottom of the range, and the floor is what governs
+// that. Both moved together — see MIN_COOK_MS.
+export const COOK_SECONDS_PER_KG = 450;  // a 1kg cut takes 7.5 min on a 1.0x (low) stove
 export const THAW_SECONDS_PER_KG = 180;  // frozen food thaws before the cook clock starts
 
 // MASS_EXPONENT — why a joint isn't ten times a steak.
@@ -61,9 +72,21 @@ export const MASS_EXPONENT = 2 / 3;
 // one. (The egg's rate is left alone here; unwinding that hack is a balance
 // change, not a bug fix.)
 //
-// 20s is chosen so the TIGHTEST profile still gets a playable band: batter peaks
-// for 5.0s, egg for 6.0s, and the roomy profiles get 12–14s. Fast food stays
-// fast — it just stops being faster than anyone can watch.
+// RETUNED 2026-09-13, 20s → 40s. The 20s floor was chosen to leave the tightest
+// profile "a playable band" of about five seconds, and five seconds turned out
+// not to be one: on a high ring batter peaked for 5.7s and bread for 6.0s, which
+// is a reflex test rather than a decision, and `plate` is the largest quality
+// lever in the kitchen. Doubling the floor takes the tight end to 10–12s.
+//
+// ⚠ THIS CONSTANT, NOT THE PER-KG ONE, IS WHAT GOVERNS THE TIGHT END. Anything
+// light and fast is already pinned here, so COOK_SECONDS_PER_KG never reaches
+// it — raising that alone lengthens the windows that were already generous
+// (liquid peaked for 65s before any of this) and leaves the twitchy ones exactly
+// as they were. If the bottom of the range ever needs moving again, move this.
+//
+// The cost, and it is real: a berry now takes 40 seconds whatever you do to it.
+// Fast food stays fast relative to a roast; it just stops being faster than
+// anyone can watch.
 //
 // Deliberately floors cookMs ONLY, not thaw. Thawing isn't graded, so a 2-second
 // thaw on a berry is fine; it's the quality window that needs room to exist.
@@ -71,7 +94,7 @@ export const MASS_EXPONENT = 2 / 3;
 // Consequence, accepted: at or under the floor, stove tier and mincing stop
 // mattering. That is honest — you cannot meaningfully sear a berry faster than
 // you can look at it — but it does mean those levers no-op on the lightest food.
-export const MIN_COOK_MS = 20_000;
+export const MIN_COOK_MS = 40_000;
 
 // PORTIONS — half an onion is an onion cut in half.
 //
@@ -130,6 +153,85 @@ export const SCORE_DRYNESS = 0.6;         // over/burn window, as a fraction
 // on top — it is the whole difference between toasted bread and a toastie.
 export const BUTTER_BONUS = 0.35 * BAND_SCALE;
 export const BUTTER_PORTION = 0.25;       // how much of a block one spread takes
+
+// POURING — a jug of oil is a jug, not an ingredient.
+//
+// `fat_or_oil` is sold the way it is used: a 600g jug, a 500g bottle, a 300g
+// tub. Every one of them is many dishes' worth, and until this the only thing
+// you could do with one was put the WHOLE JUG in the pan, where `plate` ate it —
+// six hundred grams of oil to fry one egg, and the jug gone.
+//
+// So a pour draws one MEASURE off it and leaves the jug. Same conserving
+// arithmetic as `butter` and `chop`, and the same last-of-it rule.
+//
+// ⚠ A MEASURE IS ONE DOSE, WHICH MEANS A JUG IS FIVE. That is the point rather
+// than a leak: modifiers are dosed and never weighed (see `unitsOf`), so tipping
+// the whole jug in has always counted as exactly one seasoning and always will.
+// Pouring is how you get the other four, and `MODIFIER_BONUS_CAP` plus the
+// over-seasoning penalty mean emptying a jug into one pan is a worse dish, not a
+// better one. Tipping the jug in whole is now visibly the wasteful move, which
+// is what it should have read as all along.
+export const POUR_PORTION = 0.2;          // five measures to a jug
+
+// A MEASURE OF A WEIGHED FLUID IS GRAMS, NOT A FRACTION.
+//
+// `POUR_PORTION` above is a fifth of the ITEM, and that is right for oil and
+// wrong for everything else, because of how `unitsOf` counts the two classes. A
+// modifier is DOSED — a jug is five spoonfuls whatever it weighs — so a fraction
+// of the jug is a dose. A liquid is WEIGHED against `unitWeight`, so a fifth of
+// a 600g soup base and a fifth of a 200g tomato paste are 120g and 40g, and
+// calling both "a measure" would make the same word mean three times as much
+// depending on what it came out of. The dish signature is in grams; the measure
+// has to be too.
+//
+// 100g is a quarter of a `liquid` unit: a bottle of gin is four measures, a
+// carton of stock five, a tin of paste two. Small enough that a splash of cream
+// is expressible, big enough that nobody is pouring twelve times.
+export const FLUID_MEASURE_G = 100;
+
+// Past this, what is left in the bottle is a smear rather than a pour, and it
+// goes in whole. Without a floor the last 3g of vinegar is a row that can be
+// poured forever at ever smaller amounts.
+export const FLUID_DREGS_G = 25;
+
+// ── BOILING DRY ──────────────────────────────────────────────────────────────
+//
+// How long a full pot lasts, expressed as level × milliseconds. At the `high`
+// notch (9) that is five minutes; at `mid` (5) nine; at `low` (2) twenty-two.
+//
+// THE NUMBER IS SET AGAINST THE BURN CLOCK, not against taste. `autoPlate` ends
+// every cook at `burnAt` and frees the ring, so a pot can only run dry if
+// drying is FASTER than burning — and whether it is has to depend on what you
+// are cooking and how hard. Measured against the catalog:
+//
+//   125g of penne on high   cook 50s,  burns at ~2.4min — dries at 5min.  Never.
+//   1kg of stew on high     cook 216s, burns at ~9min   — dries at 5min.  Bites.
+//   1kg of stew on low      cook 540s, burns at ~22min  — dries at 22min. Marginal.
+//
+// Which is the mechanic anybody would expect: pasta does not boil dry in three
+// minutes, and a stock pot left on a hard rolling boil does. The risk lives
+// exactly where the new dial makes it — at the top of the range, on long cooks.
+export const BOIL_FULL_MS = 2_700_000;   // level 9 (the high notch) ⇒ 5 minutes
+export const BOIL_WARN_AT = 0.7;         // where the pan starts saying so
+
+// GOING DRY IS DAMAGE, AND IT IS IMMEDIATE.
+//
+// One rung off the ceiling the moment it happens — the same mechanism mince and
+// tenderising use, so nothing new had to be invented to charge for it — plus a
+// burn window that collapses to a grace measured in seconds. Topping the pan
+// back up stops it burning; it does not un-scorch what already caught, which is
+// what makes the warning worth reacting to rather than worth ignoring.
+export const SCORCH_CEILING_DROP = 1;
+export const SCORCH_GRACE_MS = 45_000;   // long enough to run back and plate it
+
+// What the pot looks like, by how much has gone. Checked top-down, first match
+// wins — the same shape as the cook stages, and prose for the same reason.
+export const WATER_LINES = [
+  { max: 0.35, text: 'at a good level' },
+  { max: 0.7, text: 'down a fair way' },
+  { max: 0.9, text: 'getting low' },
+  { max: 1.0, text: 'nearly gone, catching at the edges' },
+];
 export const MARINATE_MIN_MS = 3 * 60 * 1000;   // under this it has done nothing
 export const MARINATE_FULL_MS = 12 * 60 * 1000; // full value at this soak
 export const MARINATE_BONUS = 0.8 * BAND_SCALE;
