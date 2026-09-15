@@ -137,11 +137,14 @@ export const DETAIL_SCHEMA = {
   // declares "changes nothing when removed". A kind with no drawer is skipped by `detailLayer`,
   // which is the behaviour wanted.
   // A rooftop or wall-mounted mechanical box: condensers, plant, the thing on every flat roof.
+  // ⚠ `drip` IS FOR WALL UNITS ONLY. It stains the wall below the box, so on a ROOF unit it hangs a
+  // smear in mid-air under its own deck. The derived kit sets it only where it mounted one on a
+  // wall, and an author placing roof plant must leave it off.
   acUnit: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', d: 'fh', hh: 'h' }, required: ['z', 'w'],
-    plain: { pal: 'string', face: 'string' }, px: 8 },
-  // A louvred vent panel, flat against a face.
+    plain: { pal: 'string', face: 'string', drip: 'number' }, px: 8 },
+  // A louvred vent panel, flat against a face. `drip` is the dirt it puts on the wall underneath.
   vent: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', hh: 'h' }, required: ['z', 'w'],
-    plain: { pal: 'string', face: 'string' }, px: 6 },
+    plain: { pal: 'string', face: 'string', drip: 'number' }, px: 6 },
   // A run of neon tube across a face, with optional vertical returns down each end (`drop`). A
   // dark mounting channel by day and a lit line after dark — see the ⚠ on neonRun in
   // windshield.js for why it is two things rather than one. `color` defaults to the model's own
@@ -215,6 +218,16 @@ export const DETAIL_SCHEMA = {
     plain: { pal: 'string', glow: 'string', rgb: 'string', s: 'number' }, px: 7 },
   bollard: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h', step: 'fh' }, required: ['z'],
     plain: { pal: 'string', band: 'string', count: 'number' }, px: 6 },
+  // Bins and stacked crates shoved against a wall — the thing every service door and every alley
+  // mouth actually has, and the cheapest way to put something at knee height on a pavement that
+  // otherwise meets the building at a clean line. `n` is how many, `w` the half-width of one.
+  binStack: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', d: 'fh', hh: 'h' }, required: ['z', 'w'],
+    plain: { pal: 'string', lid: 'string', n: 'number' }, px: 7 },
+  // Spray paint on a wall: `n` sweeping strokes in one saturated colour, deliberately not lettering.
+  // `v` is the variant the caller rolls per building — leave it out and every tag in the city is
+  // the same tag, which reads as signage rather than as graffiti.
+  tag: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', hh: 'h' }, required: ['z', 'w'],
+    plain: { color: 'string', n: 'number', v: 'number' }, px: 5 },
 
   // ── THE STRUCTURAL FOUR ─────────────────────────────────────────────────────
   // Everything above is bolted TO a wall. These four give a wall a front and a back, and they are
@@ -260,7 +273,7 @@ export const DETAIL_SCHEMA = {
   // A bank of louvres — `vent` at plant-room scale. `n` is the slat count, which is what says
   // whether this is an industrial intake or an air-handling wall.
   louvreBank: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
-    plain: { pal: 'string', n: 'number' }, px: 8 },
+    plain: { pal: 'string', n: 'number', drip: 'number' }, px: 8 },
   // A tank on an open braced frame. `roofTank` is a drum on four stubs; this stands a storey above
   // the roof and is visible from streets away. `rise` is the frame, `hh` the shell.
   tankFrame: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h', rise: 'h' }, required: ['z', 'r', 'hh', 'rise'],

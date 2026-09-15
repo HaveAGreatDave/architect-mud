@@ -106,6 +106,25 @@ void main() {
 // this number is stamped into the shader source, so sweeping it would mean recompiling the program
 // and there would be no way to measure the choice. A runtime cap can be swept, which is how its
 // default was picked — see the note on that knob in windshield.js.
+// ── THE LIGHT CEILING, AND WHY IT IS NOT THE THING IN THE WAY ───────────────
+//
+// ⚠ THIS IS NOT THE BINDING CONSTRAINT AND HAS NOT BEEN FOR A WHILE. `RENDER_TUNE.glLightSlots`
+// ships at 16 and `SLOTS` clamps to the smaller of the two, so the city runs at SIXTEEN contested
+// slots and this number is already double what anything asks for. Raising it on its own changes
+// nothing whatsoever — the tune key exists, the uniform is declared, and the bench reads 0.0%,
+// which is this file's own favourite shape of mistake. Raise the TUNE, and read its ⚠ first: the
+// wall-wash gain is calibrated against how many lights land on one facade, so slots and gain are
+// arithmetically the same knob and have to move together.
+//
+// ⚠ THE CEILING ITSELF IS ALMOST FREE, WHICH THE NAME HIDES. The fragment loop opens
+// `if (i >= uNLight) break;`, so a frame with nine lights costs nine iterations whether this says
+// 32 or 64. What costs is FILLING slots, and that is the tune's business.
+//
+// ⚠ AND WHEN SOMEBODY DOES RAISE THE TUNE, THE WALL IS THE UNIFORM BUDGET, NOT THE FRAME. The
+// fragment shader wants 3·MAX_LIGHTS + 1 + 2·MAX_MATERIALS + 6 vectors against a WebGL2 floor-spec
+// guarantee of 224 — 32 wants 151, 48 wants 199, 56 wants 223, 64 wants 247. Past 56 a floor-spec
+// device does not get a slower city, it gets no GL pass at all. `glCapabilities` compares that
+// number against the device now; it used to compute it and compare it against nothing.
 export const MAX_LIGHTS = 32;   // uniform slots, and the per-fragment loop CEILING
 
 const FRAG = `#version 300 es

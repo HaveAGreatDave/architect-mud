@@ -143,11 +143,19 @@ const KNOWN = new Map([
    + 'draws is whatever crests the roofline, which is the sign not working. `BLADE_PROUD` is the '
    + 'named exception and 0.25 is measured: it clears the deepest facade and stays under the near '
    + 'face of a building one tile in front.' }],
-  ['decal:solid', { budget: 12, why:
+  ['decal:solid', { budget: 20, why:
    'the recessed doorway panels. `emitDecoFill` is already capped at DECO_PULL, and these are the '
    + 'few that are authored far enough INTO their own facade that even a 0.05 tie-breaker brings '
    + 'them out — which is what the cap exists to do. Its own note names the case: the three arms '
-   + 'taking the default would otherwise send a doorway panel out through its own facade.' }],
+   + 'taking the default would otherwise send a doorway panel out through its own facade. '
+   + '⚠ 12 → 20 WHEN `standOnMass` LANDED, and the 8 are a consequence of parts being placed '
+   + 'CORRECTLY rather than of anything moving into its host. Roof plant that used to hang inside '
+   + 'a crown box now stands on the deck beside it — asc_spire 3, halcyontowers 5, type:bank — so '
+   + 'a condenser side is flush against the plant room it is pushed up against, which is what a '
+   + 'real roof looks like and is exactly the coplanar case a tie-breaker pull is for. Standing '
+   + 'them a hair proud instead was tried and measured: this went 20 → 22 (the leak is the SIDES, '
+   + 'not the base) and `anchored` went 14 → 18 buried, because lifting a body raises its midpoint '
+   + 'into the box above it.' }],
 ]);
 
 const rows = [...leaks.entries()].sort((a, b) => b[1].n - a[1].n);

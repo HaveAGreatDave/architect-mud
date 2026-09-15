@@ -20903,24 +20903,61 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.24, '255,120,110', 12, alpha * 0.26); }   // the case lights through the window, red on red
       break;
     }
-    case 'techstall': {   // Ampersand Electronics: a cluttered stall tucked under an overpass girder, strung with cyan tech-glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.5, facePals(E, { side: pal, front: 'ty_shop_b' }), seed, night, alpha, true);               // stall box   // display glazing to the street
-      for (const s of [-1, 1]) { const [sx, sy] = F(s * fh * 1.05, -fh * 0.1); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.12, 0, h * 1.5, pal, seed + 2 + s, night, alpha, false); }   // overpass piers
+    case 'techstall': {   // Ohm Sweet Ohm: a two-storey electronics shop wedged under an overpass girder, strung with cyan tech-glow
+      // ⚠ THIS WAS A KIOSK AND IT READ AS ONE. The first cut was a half-height stall box (0 … 0.5),
+      // two thin piers carrying on to 1.5, and a girder deck above — which left a FULL TILE of open
+      // air between the top of the shop and the only other thing on the tile, crossed by two sticks
+      // 0.048 wide. From the street that is not a building with an overpass over it, it is three
+      // objects sharing a tile. The derived kit could do nothing about it either: the kit dresses
+      // mass and never adds any (detail must never reach SHAPE_SINK, or a downpipe joins CFIT
+      // collision), so a half-height shop keeps a half-height shop's silhouette however much trim
+      // it is handed.
+      //
+      // So the SHOP becomes a building — ground floor, cornice, upper floor, plant box — and the
+      // overpass stays, because it is what makes this corner worth looking at. The piers move OUT
+      // past the flanks so the shop stands between them rather than inside them: at fh 0.4 the shop
+      // spans ±0.368 and a pier 0.408 … 0.488, so they never touch, and the gap either side is what
+      // reads as "tucked under".
+      const techFront = facePals(E, { side: pal, front: 'ty_shop_b' });
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, h * 0.44, techFront, seed, night, alpha, false);      // shopfront storey, glazing to the street
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, h * 0.44, h * 0.50, pal, seed + 1, night, alpha, false); // the cornice that separates the two floors
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.86, h * 0.50, h * 0.96, pal, seed + 3, night, alpha, false); // workshop floor, set back off the shopfront
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.66, h * 0.96, h * 1.06, pal, seed + 4, night, alpha, true);  // roof plant box — and the deck the kit stands its plant on
+      for (const s of [-1, 1]) { const [sx, sy] = F(s * fh * 1.12, -fh * 0.1); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.1, 0, h * 1.5, pal, seed + 6 + s, night, alpha, false); }   // overpass piers, clear of the shop
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.4, h * 1.5, h * 1.68, pal, seed + 5, night, alpha, true);    // the girder deck overhead
-      neonBlade(ctx, cam, dx, dy, h * 0.5, h * 0.82, m.neon || '#5fd0ff', night, alpha);
+      neonBlade(ctx, cam, dx, dy, h * 0.44, h * 1.02, m.neon || '#5fd0ff', night, alpha);               // full-height blade up the corner
       glowPool(ctx, cam, dx, dy, h * 0.3, '95,208,255', 12, alpha * (night ? 0.4 : 0.22));              // cyan gear-glow spilling off the counter
       break;
     }
     case 'showroom': {   // Dead Space Interiors: a glazed showroom floor with a big lit display window
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, 0, h * 0.72, pal, seed, night, alpha, true);
-      { const [wx4, wy4] = F(0, fh * 0.92); glowPool(ctx, cam, wx4, wy4, h * 0.28, '150,220,190', 20, alpha * (night ? 0.42 : 0.24)); }   // display-window glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.66, h * 0.72, h * 0.84, pal, seed + 1, night, alpha, true);   // slim parapet band
-      neonBlade(ctx, cam, dx, dy, h * 0.7, h * 0.98, m.neon || '#7dff6a', night, alpha);
+      // A glazed showroom drawn as one extrusion with a thin band on top, so the "big lit display
+      // window" the comment promises was just the bottom of a wall. A showroom is a tall glazed
+      // ground floor with a solid building over it; the change of plane at the head of the glass is
+      // the whole look.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, 0, h * 0.44, facePals(E, { side: pal, front: 'ty_shop_c' }), seed, night, alpha, false);   // the glazed showroom floor
+      { const [wx4, wy4] = F(0, fh * 0.92); glowPool(ctx, cam, wx4, wy4, h * 0.26, '150,220,190', 20, alpha * (night ? 0.42 : 0.24)); }   // display-window glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.18, h * 0.44, h * 0.50, pal, seed + 2, night, alpha, false);   // fascia at the head of the glass
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, h * 0.50, h * 0.80, pal, seed + 3, night, alpha, false);   // the solid floor above it
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.66, h * 0.80, h * 0.92, pal, seed + 1, night, alpha, true);    // slim parapet band
+      { const [bx, by] = F(0, fh * 1.16); neonBlade(ctx, cam, bx, by, h * 0.92, h * 1.2, m.neon || '#7dff6a', night, alpha); }
       break;
     }
     case 'boutique': {   // Second Skin: a narrow tall shopfront with a full-height neon fashion blade + warm display glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.8, 0, h * 0.98, facePals(E, { side: pal, front: 'ty_shop_c' }), seed, night, alpha, true);   // glazed street front, plain flanks
-      { const [nx, ny] = F(fh * 0.6, fh * 0.5); neonBlade(ctx, cam, nx, ny, h * 0.28, h * 1.05, m.neon || '#ff4a9a', night, alpha); }
+      // ⚠ A SINGLE BOX 0 … 0.98 WEARING A BLADE. The comment called it "narrow tall shopfront" and
+      // the mass was one extrusion, so there was no shopfront — nothing separated the glazed ground
+      // floor from the storeys over it, which is the one line every real shop street has. Second
+      // Skin is the only building on this arm, and it is a boutique: the whole point is that the
+      // display window is a different thing from the building above it.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, 0, h * 0.34, facePals(E, { side: pal, front: 'ty_shop_c' }), seed, night, alpha, false);   // the display window
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.88, h * 0.34, h * 0.39, pal, seed + 1, night, alpha, false);   // the fascia over it — where a shop's name goes
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.74, h * 0.39, h * 0.94, pal, seed + 2, night, alpha, false);   // the floors above, set back off the shopfront
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.8, h * 0.94, h * 1.02, pal, seed + 3, night, alpha, true);     // parapet cap
+      // The blade hangs off the SHOPFRONT face rather than out of the middle of the mass. It was
+      // anchored at 0.5 when the building was one box; with a shopfront, a fascia, a setback and a
+      // cap it had four things to be inside instead of one, and glself counted it (decal:blade 33
+      // to 37). neonBlade pulls its anchor proud by BLADE_PROUD, so starting it outside the facade
+      // is the difference between a sign bolted to a wall and one being dragged through it.
+      { const [nx, ny] = F(fh * 0.58, fh * 0.86); neonBlade(ctx, cam, nx, ny, h * 0.28, h * 1.05, m.neon || '#ff4a9a', night, alpha); }
       if (night) glowPool(ctx, cam, dx, dy, h * 0.22, '255,150,200', 10, alpha * 0.28);                 // lit boutique window
       break;
     }
@@ -20945,10 +20982,16 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     }
     case 'atelier': {   // Aurelia: a narrow tall graphite-glass couture monolith — one slim violet name-blade, a bright lit cap, a single restrained vitrine glow
       const neon = m.neon || '#b070ff';
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.74, 0, h * 1.12, pal, seed, night, alpha, true);              // slender dark-glass shaft
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.8, h * 1.12, h * 1.2, pal, seed + 1, night, alpha, true);     // slim lit parapet cap
-      { const [nx, ny] = F(fh * 0.5, fh * 0.6); neonBlade(ctx, cam, nx, ny, h * 0.2, h * 1.16, neon, night, alpha); }   // slim full-height violet name-blade by the door
-      if (night) { const [wx, wy] = F(0, fh * 0.72); glowPool(ctx, cam, wx, wy, h * 0.5, '176,112,255', 9, alpha * 0.22); }   // one restrained violet vitrine glow
+      // ⚠ THE MONOLITH IS THE POINT AND IT STAYS A MONOLITH. The shaft still runs 0.31 … 1.12 in one
+      // unbroken plane, which is four fifths of the height — what it did not have was anywhere for
+      // a couture house to put its window. A vitrine is the one thing this building type is for, and
+      // giving the shaft something to land on is also what stops it reading as an extruded rectangle.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.8, 0, h * 0.26, facePals(E, { side: pal, front: 'ty_shop_c' }), seed + 4, night, alpha, false);   // the vitrine at street level
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.84, h * 0.26, h * 0.31, pal, seed + 5, night, alpha, false);   // the reveal over it
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.74, h * 0.31, h * 1.12, pal, seed, night, alpha, false);       // slender dark-glass shaft
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.8, h * 1.12, h * 1.2, pal, seed + 1, night, alpha, true);      // slim lit parapet cap
+      { const [nx, ny] = F(fh * 0.5, fh * 0.86); neonBlade(ctx, cam, nx, ny, h * 0.2, h * 1.16, neon, night, alpha); }   // slim full-height violet name-blade by the door
+      if (night) { const [wx, wy] = F(0, fh * 0.72); glowPool(ctx, cam, wx, wy, h * 0.2, '176,112,255', 9, alpha * 0.22); }   // one restrained violet vitrine glow
       break;
     }
     // TERMINUS' glasshouses. The one thing the Exodus let you see over their wall, and the whole
@@ -21136,10 +21179,15 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'studiogate': {   // KSAB Writers' Wing: a glazed office annex with a violet KSAB parapet + a steady lit marquee. Deliberately simple and ENTIRELY within its own tile (no cantilevered canopy/turnstiles — those spilled onto the road). Reads low once flags.floors:2 reaches the DB.
+      // ⚠ STILL DELIBERATELY SIMPLE AND STILL ENTIRELY WITHIN ITS OWN TILE — the base course below is
+      // fh*1.0 against a parapet already at fh*0.98, so nothing new reaches the road. What it buys is
+      // the one thing a curtain-glass lobby cannot do without: a solid course for the glass to land
+      // on. Glazing that runs into the pavement is the tell that a building is an extrusion.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.06, pal, seed + 5, night, alpha, false);
       // Curtain-glass lobby — real glazed skin (ty_ksab_glass ∈ GLASS_WALL: sky sheen, no window grid).
       // No roof cap: the wider parapet below caps the footprint at h*0.9, so a lobby cap here would only
       // z-fight the parapet's own roof (near-identical queue depth → the roof strobed dark↔light purple).
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, 0, h * 0.9, 'ty_ksab_glass', seed, night, alpha, false);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, h * 0.06, h * 0.9, 'ty_ksab_glass', seed, night, alpha, false);
       // Violet KSAB parapet cap tying it to the studio's palette.
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, h * 0.9, h * 1.02, pal, seed + 1, night, alpha, true);
       // Steady lit marquee across the front — KSAB. Always drawn (the depth queue occludes it when the
@@ -21734,17 +21782,34 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'bar': {   // narrow street-corner bar — a taller slim box, a lit door awning + a neon blade
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, 0, h * 0.95, pal, seed, night, alpha, true);
-      awning(ctx, cam, dx, dy, E, fh * 0.78, fh * 0.92, h * 0.22, h * 0.34, 'ty_door', seed + 1, night, alpha, fh * 0.26);   // door awning
-      { const [nx, ny] = F(fh * 0.5, fh * 0.4); neonBlade(ctx, cam, nx, ny, h * 0.34, h * 1.2, m.neon || '#5fd0ff', night, alpha); }
-      if (night) glowPool(ctx, cam, dx, dy, h * 0.24, '120,220,255', 9, alpha * 0.2);
+      // A single slim extrusion 0 … 0.95 with a door awning stuck on it. A corner bar is the most
+      // street-level building there is — the room you can see into is the whole point — so the one
+      // thing it must have is a ground floor that reads as different from the flats over it.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.86, 0, h * 0.30, facePals(E, { side: pal, front: 'ty_shop_e' }), seed + 4, night, alpha, false);   // the bar room, glazed to the street
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.9, h * 0.30, h * 0.35, pal, seed + 5, night, alpha, false);    // fascia over the window
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.78, h * 0.35, h * 0.9, pal, seed, night, alpha, false);        // flats above, set back
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.84, h * 0.9, h * 0.97, pal, seed + 6, night, alpha, true);     // parapet
+      awning(ctx, cam, dx, dy, E, fh * 0.78, fh * 0.92, h * 0.18, h * 0.30, 'ty_door', seed + 1, night, alpha, fh * 0.26);   // door awning, tucked under the fascia
+      { const [nx, ny] = F(fh * 0.5, fh * 0.88); neonBlade(ctx, cam, nx, ny, h * 0.35, h * 1.2, m.neon || '#5fd0ff', night, alpha); }
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.2, '120,220,255', 9, alpha * 0.2);
       break;
     }
     case 'honkytonk': {   // roadhouse — a long low shed behind a raised painted false front, a porch
-      // across the whole street side, and a blade on the roof that is the tallest thing on the plot.
-      // The shape is the argument: everything else on Meltwater Row stands up, and this one lies down.
+      // ⚠ IT STILL LIES DOWN — the sill below is FOUR AND A HALF HUNDREDTHS of a storey, and the
+      // shape argument above is untouched. A roadhouse stands on a boardwalk, and that step is what
+      // separates the shed from the dirt it is parked on; at this scale it reads as a shadow line
+      // under the porch, which is exactly what it is.
       const hw = fh * 1.14, wallTop = h * 0.46, frontTop = h * 0.74;
-      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, true);                        // the shed itself
+      // ⚠ THE SHED IS NARROWER THAN THE BOARDWALK, AND IT HAS TO BE SET THAT WAY ROUND. `hw` is
+      // fh*1.14 = 0.456, and `draw3DBoxAt` CLAMPS a half-width to 0.44 — so a sill authored at
+      // `hw * 1.03` clamps to 0.44 as well and comes out exactly the width of the shed on top of it.
+      // The step was drawn, costed, and invisible; the width census caught it as "4 segments, ONE
+      // distinct half-width", which is a single extrusion wearing a z-band. Everything at or above
+      // the clamp is the same width, so articulation there has to be made by bringing the other box
+      // IN, never by pushing this one out.
+      const shedHw = fh * 1.05;
+      draw3DBoxAt(ctx, cam, dx, dy, hw * 1.03, 0, h * 0.045, pal, seed + 6, night, alpha, false);        // the boardwalk it stands on
+      draw3DBoxAt(ctx, cam, dx, dy, shedHw, h * 0.045, wallTop, pal, seed, night, alpha, false);         // the shed itself
       { const [fx, fy] = F(0, fh * 0.88);                                                                  // false front, standing proud of the roof
         draw3DBoxAt(ctx, cam, fx, fy, hw, wallTop, frontTop, 'ty_honky_front', seed + 1, night, alpha, true, Math.atan2(-E[0], E[1]), fh * 0.20); }
       awning(ctx, cam, dx, dy, E, hw * 0.96, fh * 1.04, wallTop * 0.52, wallTop * 0.80, 'ty_honky_porch', seed + 2, night, alpha, fh * 0.44);   // porch, full width
@@ -21753,36 +21818,62 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'club': {   // box + twin neon roofline + colour glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 0.8, facePals(E, { side: pal, front: 'ty_shop_e' }), seed, night, alpha, true);   // frontage on the street, blank party walls
-      { const [ax, ay] = F(-fh * 0.4, 0); neonBlade(ctx, cam, ax, ay, h * 0.8, h * 1.15, m.neon || '#ff4a9a', night, alpha); }
-      { const [bx, by] = F(fh * 0.4, 0); neonBlade(ctx, cam, bx, by, h * 0.8, h * 1.15, m.neon || '#ff4a9a', night, alpha); }
-      glowPool(ctx, cam, dx, dy, h * 0.85, '255,74,154', 20, alpha * (night ? 0.34 : 0.16));
+      // ⚠ ONE BOX AND TWO BLADES IS NOT A CLUB, IT IS A BLADE RACK. This arm drew a single slab
+      // 0 … 0.8 and hung the whole identity on the neon, so by daylight it was a plain cube and at
+      // any angle the twin blades read as standing beside a wall rather than on a building. A
+      // silhouette is what carries at street distance, and the kit cannot supply one: it dresses
+      // mass and never adds any.
+      //
+      // A club is a windowless box with a HEAVY base, because the queue, the door and the bouncer
+      // all live on the ground floor and that floor is built wider and darker than the slab above
+      // it — which is also what gives the blades something to stand on.
+      { const [ex, ey] = F(0, fh * 0.2);
+        draw3DBoxAt(ctx, cam, ex, ey, fh * 1.12, 0, h * 0.26, facePals(E, { side: pal, front: 'ty_shop_e' }), seed + 7, night, alpha, false); }   // entrance block, out past the slab
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, h * 0.26, h * 0.78, pal, seed, night, alpha, false);       // the windowless slab itself
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, h * 0.78, h * 0.88, 'ty_precast_dk', seed + 1, night, alpha, true);   // crown band the blades stand on
+      { const [ax, ay] = F(-fh * 0.4, 0); neonBlade(ctx, cam, ax, ay, h * 0.88, h * 1.2, m.neon || '#ff4a9a', night, alpha); }
+      { const [bx, by] = F(fh * 0.4, 0); neonBlade(ctx, cam, bx, by, h * 0.88, h * 1.2, m.neon || '#ff4a9a', night, alpha); }
+      glowPool(ctx, cam, dx, dy, h * 0.9, '255,74,154', 20, alpha * (night ? 0.34 : 0.16));
       break;
     }
     case 'diner': {   // streamline diner — a long low stainless car under a curved barrel roof, glazed front, counter awning, rooftop neon
+      // ⚠ IT IS STILL A STREAMLINE CAR AND THE BARREL IS UNTOUCHED. A diner of this period sits on a
+      // stainless skirt with a shadow line under it — the car is meant to look like it could be towed
+      // away, and the skirt is what sells that. Without it the body grows out of the tarmac.
       const hw = fh * 1.12, wallTop = h * 0.52, archH = hw * 0.34;
-      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, false);                                    // diner body (roof left open for the barrel)
-      drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.9, wallTop, archH, 12, alpha, [150, 150, 156]);                         // curved streamline stainless roof
+      draw3DBoxAt(ctx, cam, dx, dy, hw * 1.03, 0, h * 0.05, pal, seed + 5, night, alpha, false);                     // stainless skirt
+      draw3DBoxAt(ctx, cam, dx, dy, hw, h * 0.05, wallTop, pal, seed, night, alpha, false);                          // diner body (roof left open for the barrel)
+      drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.9, wallTop, archH, 12, alpha, [150, 150, 156]);                      // curved streamline stainless roof
       awning(ctx, cam, dx, dy, E, fh * 1.06, fh * 1.05, wallTop * 0.42, wallTop * 0.64, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // counter awning faces the street
-      neonBlade(ctx, cam, dx, dy, wallTop + archH, wallTop + archH + h * 0.42, m.neon || '#ffcf3e', night, alpha);      // rooftop neon sign
+      neonBlade(ctx, cam, dx, dy, wallTop + archH, wallTop + archH + h * 0.42, m.neon || '#ffcf3e', night, alpha);   // rooftop neon sign
       if (night) { const [wx, wy] = F(0, fh * 0.92); glowPool(ctx, cam, wx, wy, wallTop * 0.5, '255,200,120', 13, alpha * 0.26); }   // warm window band
       break;
     }
     case 'laundromat': {   // The Wash: a low flat-roofed shopfront that is mostly window — the one place on Ironside you can see all the way into from the street
+      // ⚠ STILL ONE STOREY, AND THAT PART OF THE COMMENT ABOVE IS RIGHT. What it was missing is not
+      // height, it is the two courses every shopfront has whatever its height: something at the
+      // pavement for the wall to land on, and a fascia at the head of the glass. Without them a
+      // glazed box meets the ground on a drawn line and stops at the top on another one.
       const hw = fh * 1.1, wallTop = h * 0.56;
-      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, true);                                       // single-storey box
-      { const [gx, gy] = F(0, fh * 0.96); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.96, 0, wallTop * 0.82, 'ty_marble_col', seed + 1, night, alpha, false); }  // the big glazed front
-      neonBlade(ctx, cam, dx, dy, wallTop, wallTop + h * 0.3, m.neon || '#7fe3ff', night, alpha);                          // cold-blue WASH sign
+      draw3DBoxAt(ctx, cam, dx, dy, hw * 1.04, 0, h * 0.04, pal, seed + 4, night, alpha, false);                     // kerb plinth
+      draw3DBoxAt(ctx, cam, dx, dy, hw, h * 0.04, wallTop, pal, seed, night, alpha, false);                          // the single storey
+      { const [gx, gy] = F(0, fh * 0.96); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.96, h * 0.04, wallTop * 0.84, 'ty_marble_col', seed + 1, night, alpha, false); }  // the big glazed front
+      draw3DBoxAt(ctx, cam, dx, dy, hw * 1.03, wallTop, wallTop + h * 0.05, pal, seed + 5, night, alpha, true);      // fascia at the head of the glass
+      neonBlade(ctx, cam, dx, dy, wallTop + h * 0.05, wallTop + h * 0.34, m.neon || '#7fe3ff', night, alpha);        // cold-blue WASH sign
       // Lit all night, deliberately: this is the building that says somebody is still open.
       if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, wallTop * 0.6, '210,235,255', 18, alpha * 0.34); }
       break;
     }
     case 'armory': {   // Ironside Arms: a squat riveted blockhouse — heavy overhanging parapet, vault door, slit-window glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.7, pal, seed, night, alpha, true);          // bunker box
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.24, h * 0.7, h * 0.82, pal, seed + 1, night, alpha, true); // thick overhanging parapet
-      { const [gx, gy] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.46, 0, h * 0.4, 'ty_door', seed + 2, night, alpha, false); }   // vault door
+      // A squat blockhouse stays squat. What it gains is the course at the pavement — a bunker is the
+      // one building that really does sit on a plinth, and the arm was landing 1.15 of wall straight
+      // onto the ground.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.2, 0, h * 0.07, pal, seed + 5, night, alpha, false);         // plinth
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, h * 0.07, h * 0.7, pal, seed, night, alpha, false);      // bunker box
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.24, h * 0.7, h * 0.82, pal, seed + 1, night, alpha, true);   // thick overhanging parapet
+      { const [gx, gy] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.46, h * 0.07, h * 0.4, 'ty_door', seed + 2, night, alpha, false); }   // vault door
       if (night) { const [wx, wy] = F(fh * 0.5, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.34, '255,140,80', 6, alpha * 0.22); }   // amber slit window
-      neonBlade(ctx, cam, dx, dy, h * 0.82, h * 1.06, m.neon || '#ff6a4a', night, alpha);           // small hard sign
+      neonBlade(ctx, cam, dx, dy, h * 0.82, h * 1.06, m.neon || '#ff6a4a', night, alpha);               // small hard sign
       break;
     }
     case 'casino': {   // A squat house drowned in neon. The neon was fine and the HOUSE was two boxes
@@ -21934,11 +22025,21 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'pawn': {   // Pawn & Pity: grimy box, barred storefront, three hanging pawn spheres, a half-dead sign
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.72, pal, seed, night, alpha, true);
-      { const [gx, gy] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, gx, gy, fh * 1.0, h * 0.1, h * 0.2, 'ty_door', seed + 1, night, alpha, false); }   // barred storefront band
-      { const [px, py] = F(fh * 0.6, fh * 0.55); for (const z of [0.9, 0.78, 0.66]) blinkLight(ctx, cam, px, py, h * z, '255,206,80', now, seed + 20 + z * 10, alpha, 1.5); }   // three hanging spheres
-      neonBlade(ctx, cam, dx, dy, h * 0.72, h * 0.98, m.neon || '#ffcf3e', night, alpha);
-      if (night) glowPool(ctx, cam, dx, dy, h * 0.24, '210,180,110', 8, alpha * 0.14);               // dim barred-window glow
+      // One box with a barred band painted across it. A pawnbroker is a shopfront with somebody
+      // living over it — the barred window is the ground floor, not the whole building — so it gets
+      // the same shopfront / fascia / floors / parapet stack the rest of the street has.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.26, pal, seed + 4, night, alpha, false);          // barred shopfront
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, h * 0.26, h * 0.31, pal, seed + 5, night, alpha, false);  // fascia
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, h * 0.31, h * 0.68, pal, seed, night, alpha, false);      // the rooms above
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, h * 0.68, h * 0.75, pal, seed + 6, night, alpha, true);   // parapet
+      { const [gx, gy] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, gx, gy, fh * 1.0, h * 0.08, h * 0.18, 'ty_door', seed + 1, night, alpha, false); }   // barred storefront band
+      // ⚠ THE SPHERES COME DOWN WITH THE ROOFLINE. They hung at 0.9/0.78/0.66 against a box that
+      // stopped at 0.72, so two of the three were already above the roof; against a parapet at 0.75
+      // all three would have been. Three balls hang over a pawnbroker's DOOR, which is where they
+      // are now — beside the shopfront, under the fascia.
+      { const [px, py] = F(fh * 0.6, fh * 0.62); for (const z of [0.5, 0.41, 0.32]) blinkLight(ctx, cam, px, py, h * z, '255,206,80', now, seed + 20 + z * 10, alpha, 1.5); }   // three hanging spheres
+      neonBlade(ctx, cam, dx, dy, h * 0.75, h * 1.02, m.neon || '#ffcf3e', night, alpha);
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.2, '210,180,110', 8, alpha * 0.14);                    // dim barred-window glow
       break;
     }
     case 'chemsupply': {   // Screw It: a chem depot — roof storage tank, stacked drums out front, a hazard-green wash
@@ -22307,7 +22408,12 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'fabrication': {   // open fab shed straddled by a gantry crane, a smoking flue + welding spark glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, h * 0.55, pal, seed, night, alpha, true);                // shed
+      // The bay stays open and the gantry stays the point. A fab shed is a steel frame on a concrete
+      // pad with a clerestory over the bay — the pad and the clerestory are what say "this is a
+      // building somebody works in" rather than "this is a box with legs beside it".
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.12, 0, h * 0.06, pal, seed + 6, night, alpha, false);        // concrete pad
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, h * 0.06, h * 0.46, pal, seed, night, alpha, false);     // shed
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, h * 0.46, h * 0.55, 'ty_fab_steel', seed + 7, night, alpha, true);   // clerestory band over the bay
       for (const s of [-1, 1]) { const [lx, ly] = F(s * fh * 0.8, 0); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.06, 0, h * 0.85, 'ty_fab_steel', seed + s + 2, night, alpha, false); }   // gantry legs
       { const [l0x, l0y] = F(-fh * 0.8, 0), [l1x, l1y] = F(fh * 0.8, 0);
         emitWire(ctx, cam, [l0x, l0y, h * 0.85], [l1x, l1y, h * 0.85], 3, 'rgba(90,96,104,0.95)', alpha); }   // crane spanning beam
@@ -22331,16 +22437,27 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'wharf': {   // low open-sided transfer shed with a cantilevered loading crane reaching over the water
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, 0, h * 0.44, pal, seed, night, alpha, true);                // shed
+      // The shed stays low and open-sided; the crane is still the tallest thing on the plot. What a
+      // working wharf has that this did not is the DOCK EDGE it stands on and an eaves course — the
+      // shed was a slab landing straight on the water line.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, 0, h * 0.05, pal, seed + 5, night, alpha, false);        // dock edge
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, h * 0.05, h * 0.4, pal, seed, night, alpha, false);      // transfer shed
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, h * 0.4, h * 0.46, pal, seed + 6, night, alpha, true);   // eaves course
       const [mx, my] = F(-fh * 0.4, -fh * 0.2); draw3DBoxAt(ctx, cam, mx, my, fh * 0.08, 0, h * 1.2, 'ty_wharf_steel', seed + 2, night, alpha, false);   // crane mast
       { const [jx, jy] = F(fh * 0.5, fh * 0.9);
         emitWire(ctx, cam, [mx, my, h * 1.2], [jx, jy, h * 0.75], 2.4, 'rgba(70,76,84,0.95)', alpha); }   // jib over the water
-      blinkLight(ctx, cam, mx, my, h * 1.2, '255,90,70', now, seed, alpha, 1.5);                            // crane tip light
+      blinkLight(ctx, cam, mx, my, h * 1.2, '255,90,70', now, seed, alpha, 1.5);                          // crane tip light
       break;
     }
     case 'freight_office': {   // a small two-storey site office with a lit sign band and a service canopy
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, 0, h * 0.85, pal, seed, night, alpha, true);                // office block
-      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.9, m.neon || '#ffb43a', night, alpha);      // sign band
+      // ⚠ THE COMMENT SAID TWO-STOREY AND THE MASS WAS ONE BOX. A site office is the one building
+      // on a freight yard with floors in it — that is what makes it read as an office rather than
+      // as another container — so the floor line is the whole point of drawing it at all.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, 0, h * 0.42, pal, seed + 3, night, alpha, false);         // ground floor
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, h * 0.42, h * 0.47, pal, seed + 4, night, alpha, false);  // the floor band between them
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, h * 0.47, h * 0.85, pal, seed, night, alpha, false);      // upper office floor
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.85, h * 0.92, pal, seed + 5, night, alpha, true);    // parapet
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.78, m.neon || '#ffb43a', night, alpha);   // sign band, under the parapet rather than inside it
       awning(ctx, cam, dx, dy, E, fh * 0.7, fh * 1.02, h * 0.16, h * 0.26, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // service canopy
       if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,200,120', 9, alpha * 0.2);
       break;
@@ -22412,21 +22529,30 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'asc_vats': {   // The Vats: a windowless steel drum, coolant frost-band, vent pipes, cold base breath.
+      // The drum is windowless and stays windowless. A pressure vessel of this size stands on a SKIRT
+      // and is closed by a COLLAR — both are rings of the same steel, and they are what stop a tank
+      // reading as a cylinder somebody extruded out of the ground.
       const cold = '120,200,255';
       const steel = WALL_COL[pal] || [88, 102, 118];
       const skin = (f) => { const s = 0.5 + f.nl * 0.55; return `rgba(${steel[0] * s | 0},${steel[1] * s | 0},${steel[2] * s | 0},0.97)`; };
       const cap = night ? 'rgba(40,52,64,0.97)' : 'rgba(150,168,186,0.97)';
-      drawFacetDrum(ctx, cam, dx, dy, 0, h * 1.1, fh * 0.95, fh * 0.9, 12, alpha, skin, cap);                  // the drum
-      for (const s of [-1, 1]) { const [px, py] = F(s * fh * 0.4, 0); draw3DBoxAt(ctx, cam, px, py, fh * 0.1, h * 1.1, h * 1.35, 'ty_door', seed + 1 + (s > 0 ? 1 : 0), night, alpha, true); }   // vent pipes
+      drawFacetDrum(ctx, cam, dx, dy, 0, h * 0.09, fh * 1.02, fh * 0.99, 12, alpha, skin, cap);           // base skirt
+      drawFacetDrum(ctx, cam, dx, dy, h * 0.09, h * 1.1, fh * 0.95, fh * 0.9, 12, alpha, skin, cap);      // the drum
+      drawFacetDrum(ctx, cam, dx, dy, h * 1.1, h * 1.18, fh * 0.98, fh * 0.94, 12, alpha, skin, cap);     // top collar
+      for (const s of [-1, 1]) { const [px, py] = F(s * fh * 0.4, 0); draw3DBoxAt(ctx, cam, px, py, fh * 0.1, h * 1.18, h * 1.42, 'ty_door', seed + 1 + (s > 0 ? 1 : 0), night, alpha, true); }   // vent pipes
       drawRing(ctx, cam, dx, dy, h * 0.55, fh * 0.97, 12, `rgba(${cold},${night ? 0.7 : 0.35})`, 1.4, alpha);  // coolant band
       glowPool(ctx, cam, dx, dy, 0.02, cold, 14, alpha * (night ? 0.55 : 0.3));                                // cold breath at the base
       break;
     }
     case 'asc_shrine': {   // Architect Shrine: a black-glass slab leaning on the Curtain, server-rack glow,
-      //                     and a vertical uplink light-beam to the sky.
+      // The slab still leans on the Curtain and the uplink is untouched. Two changes: the base and the
+      // slab are STACKED rather than drawn through each other — the arm drew a 0…1.5 slab and then a
+      // 0…0.2 base inside the bottom of it — and the slab is closed by a cap, so the beam leaves a
+      // roof rather than the top of an extrusion.
       const asc = '74,168,255';
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, 0, h * 1.5, pal, seed, night, alpha, true);                     // tall slab
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.2, pal, seed + 1, night, alpha, true);                  // base
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.2, pal, seed + 1, night, alpha, false);                  // base
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, h * 0.2, h * 1.42, pal, seed, night, alpha, false);              // tall slab
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 1.42, h * 1.5, pal, seed + 5, night, alpha, true);            // cap the beam leaves from
       { const [wx, wy] = F(-fh * 0.9, 0); glowPool(ctx, cam, wx, wy, h * 0.8, asc, 10, alpha * (night ? 0.6 : 0.35)); }   // server-rack glow, Curtain side
       mast(ctx, cam, dx, dy, h * 1.5, h * 2.1, alpha, now, seed);
       emitWire(ctx, cam, [dx, dy, h * 1.5], [dx, dy, h * 2.6], 2.4, `rgba(${asc},0.85)`,
@@ -22436,18 +22562,25 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     }
     case 'stimcafe': {   // Battery Acid Coffee Co. — a narrow cafe with the roasting drum ON THE ROOF, smoking all day
       const wallTop = h * 0.96;
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, wallTop, pal, seed, night, alpha, true);
+      // One extrusion with a roaster on it. The drum is the character and it stays exactly where it
+      // was; what the cafe under it needed was a GROUND FLOOR — a place for the awning to belong to
+      // and for the pavement tables to sit against — because a narrow cafe is read from the pavement
+      // and everything above the fascia is somebody's flat.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, h * 0.34, facePals(E, { side: pal, front: 'ty_shop_b' }), seed + 4, night, alpha, false);   // the cafe, glazed to the pavement
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, h * 0.34, h * 0.40, pal, seed + 5, night, alpha, false);   // fascia — where the name band goes
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.86, h * 0.40, wallTop, pal, seed, night, alpha, false);        // the flat above
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.9, wallTop, wallTop + h * 0.06, pal, seed + 6, night, alpha, true);   // the parapet the roaster stands on
       // The roaster: a riveted drum on its cradle, venting roast smoke. The whole street smells of it.
       // drawFacetDrum's 11th arg is a STYLE FUNCTION, not a palette key — passing `pal` here threw
       // "style is not a function" and killed the render loop the moment this cafe came into view.
       // Same shading idiom as asc_vats: base RGB off the palette, lit per facet normal.
       const roast = WALL_COL[pal] || [58, 54, 48];
       const roastSkin = (f) => { const s = 0.5 + f.nl * 0.55; return `rgba(${roast[0] * s | 0},${roast[1] * s | 0},${roast[2] * s | 0},0.97)`; };
-      drawFacetDrum(ctx, cam, dx, dy, wallTop, wallTop + h * 0.30, fh * 0.30, fh * 0.26, 10, alpha, roastSkin, night ? 'rgba(36,32,28,0.97)' : 'rgba(96,88,78,0.97)');
-      drawSmoke(ctx, cam, dx, dy, wallTop + h * 0.30, '160,140,120', alpha * 0.5, now, seed + 2);
-      awning(ctx, cam, dx, dy, E, fh * 1.00, fh * 1.08, wallTop * 0.60, wallTop * 0.68, 'ty_door', seed + 1, night, alpha, fh * 0.34);   // awning over the pavement tables
-      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.90, wallTop * 0.80, m.neon || '#5fd0ff', night, alpha, 'BATTERY ACID');
-      if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.24, '255,205,150', 12, alpha * 0.30); }
+      drawFacetDrum(ctx, cam, dx, dy, wallTop + h * 0.06, wallTop + h * 0.36, fh * 0.30, fh * 0.26, 10, alpha, roastSkin, night ? 'rgba(36,32,28,0.97)' : 'rgba(96,88,78,0.97)');
+      drawSmoke(ctx, cam, dx, dy, wallTop + h * 0.36, '160,140,120', alpha * 0.5, now, seed + 2);
+      awning(ctx, cam, dx, dy, E, fh * 1.00, fh * 1.08, h * 0.22, h * 0.34, 'ty_door', seed + 1, night, alpha, fh * 0.34);   // awning over the pavement tables, under the fascia
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.90, h * 0.45, m.neon || '#5fd0ff', night, alpha, 'BATTERY ACID');
+      if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.22, '255,205,150', 12, alpha * 0.30); }
       break;
     }
     case 'permits': {   // Office of Permitted Suffering — a blank civic slab whose only architectural feature is the queue canopy
@@ -22618,13 +22751,24 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     }
     case 'shop':
     default: {   // small mixed-use storefront: a glazed lit ground floor + residential floors above + awning + sign
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.4, 'ty_office', seed, night, alpha, true);      // glazed ground-floor retail (glass tone)
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, h * 0.4, h * 1.0, pal, seed + 2, night, alpha, true);    // residential floors above
-      awning(ctx, cam, dx, dy, E, fh * 0.98, fh * 1.06, h * 0.32, h * 0.44, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // awning over the storefront
+      // ⚠ THE HIGHEST-LEVERAGE ARM IN THE RENDERER, because it is also `default`. Four named types
+      // bind to it (shop, store, grocery, kitchenware) and every building_type with no arm of its
+      // own falls through here — so a box drawn in this case is a box drawn all over Coldwater.
+      //
+      // It was two extrusions: a glazed ground floor and the flats above, meeting at a bare seam.
+      // What a shop street actually has at that seam is a FASCIA — the band the name goes on, which
+      // oversails the shopfront and throws a shadow on it — and a PARAPET at the top, which is what
+      // stops a building looking like it was cut off. Both are one box each and both read at street
+      // distance, where the glazing detail below has already stopped resolving.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.42, 'ty_office', seed, night, alpha, false);        // glazed ground-floor retail (glass tone)
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, h * 0.42, h * 0.48, pal, seed + 5, night, alpha, false);    // the fascia — oversails the shopfront, carries the name
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, h * 0.48, h * 0.96, pal, seed + 2, night, alpha, false);    // residential floors above, set back
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.99, h * 0.96, h * 1.04, pal, seed + 6, night, alpha, true);     // parapet cap — and the deck the kit puts its plant on
+      awning(ctx, cam, dx, dy, E, fh * 0.98, fh * 1.06, h * 0.30, h * 0.42, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // awning, tucked up under the fascia
       doorReveal(ctx, cam, dx, dy, E, fh, fh * 0.30, 0, h * 0.30, seed, night, alpha);   // NEAR TIER: recessed shopfront door + threshold step (no-op past RENDER_TUNE.detailNear)
       glazeParallax(ctx, cam, dx, dy, E, fh, fh * 0.30, h * 0.08, h * 0.30, seed, night, alpha);   // NEAR TIER: recessed shopfront glass — order matters, the glass sits behind the frame below
       mullions(ctx, cam, dx, dy, E, fh, fh * 0.30, h * 0.08, h * 0.30, seed, night, alpha);        // NEAR TIER: sills, head and mullion bars standing proud of it
-      { const [nx, ny] = F(fh * 0.55, fh * 0.55); neonBlade(ctx, cam, nx, ny, h * 0.44, h * 1.12, m.neon || '#5fd0ff', night, alpha); }   // projecting sign on the storefront corner (over the awning, cresting the roofline) — not a stub planted in the roof centre
+      { const [nx, ny] = F(fh * 0.55, fh * 1.0); neonBlade(ctx, cam, nx, ny, h * 0.48, h * 1.12, m.neon || '#5fd0ff', night, alpha); }   // projecting corner sign, anchored proud of the fascia rather than inside the mass
       if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.2, '150,220,255', 10, alpha * 0.24); }   // lit storefront glow
       break;
     }
@@ -23386,6 +23530,69 @@ function drawModelLOD(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, E, detail)
 // And it is MOUNTED. A part standing on a surface takes that surface as its host (see mountedOn),
 // so an AC unit on a roof cannot sort behind the roof it stands on.
 const DETAIL_LIFT = 0.02;   // a hair proud of the face it is bolted to, the same trick marqueeBand uses
+// ── WHEN A PART DRAWS THE THING THAT HOLDS IT UP ────────────────────────────
+//
+// Three parts in this table project into open air — a `bladePanel` hangs off one edge, a `canopy`
+// and a `balcony` cantilever off a wall — and none of them drew any structure, so from any angle
+// off square they read as a board, a plank and a shelf stuck to a building. Their brackets answer
+// to this, and it is the same bargain the derived trim layer already makes one layer up:
+//
+//   IN THE MESH, ALWAYS — a depth-tested triangle costs the GPU nothing, and the mesh is captured
+//   once per model rather than once per tile.
+//   ON THE 2-D PAINTER, AT THE NEAR TIER ONLY — bounded by how many buildings are within
+//   `detailNear` of you rather than by how many the city has, which is what keeps `framecost` flat.
+//
+// ⚠ NOT MESH-ONLY, WHICH WAS THE FIRST CUT. `bars` is mesh-only because a window mullion is a
+// texture-scale detail nobody misses; a missing bracket is the bug being fixed. Mesh-only would
+// leave it invisible in the Modelshop inspector, which renders 2-D and is where these get authored,
+// and invisible to every player whose machine falls back to GLASS 1 — half a fix, on exactly the
+// path with no way to tell you why.
+const nearOrMesh = () => !!MESH_SINK || ADORN_TIER >= ADORN_NEAR;
+// ⚠ AND A BRACKET IS NOT A DARKER SHADE OF ITS BUILDING. The first cut took `shadeOf(pal, 0.34)`,
+// which is the documented way to draw something nobody can see: `WALL_COL` holds BIOME keys, so a
+// `ty_*` palette misses and falls back to a mid grey, and 0.34 of that against a dark apartment
+// wall is black on black. Held up in the Modelshop against `type:apartment` it was invisible —
+// drawn, meshed, costed, and doing nothing at all.
+//
+// `infra` is the palette the kit already gives its service metalwork (cable runs, flank risers),
+// LIGHTENED rather than darkened, because galvanised steel catches light and the wall behind it is
+// usually the dark half of the frame. One answer for all three, so brackets across the city cannot
+// disagree about what they are made of.
+const bracketCol = () => shadeOf('infra', 1.25);
+
+// ── WHAT RUNS DOWN A WALL UNDER A GRILLE ────────────────────────────────────
+//
+// A vent, a louvre bank and a wall condenser all put water and dirt on the wall under them, and a
+// facade with no streaks below its openings is one of the clearest tells that a building was
+// generated rather than weathered. It is also the cheapest thing in the whole vocabulary: two
+// quads, no new kind, no `KIT_MAX` slot, and it reads at a range where the grille making it has
+// already collapsed to three pixels.
+//
+// ⚠ TRANSLUCENT, SO IT MULTIPLIES THE WALL RATHER THAN REPLACING IT. `emitFlat` carries an rgba
+// alpha into the mesh, which is what lets ONE stain sit correctly on brick, sheet steel and
+// concrete without being authored three times — an opaque smear would have to know what it is on.
+//
+// ⚠ AND IT TAPERS AND FADES DOWNWARD, which is why it is two quads and not one. A rectangle of
+// constant width and alpha reads as a painted panel; a stain is widest and darkest where it leaves
+// the thing making it and frays out below.
+//
+// ⚠ IT SITS BEHIND ITS OWN PART — a lower lift than the grille — because it is on the wall and the
+// grille is proud of it. Equal lifts put the stain in front of the vent that is making it.
+//
+// ⚠ AND IT IS OPT-IN PER PART, NEVER DERIVED FROM THE KIND. `acUnit` draws both a roof plant box
+// and a wall condenser, and a roof unit with a stain hangs a smear in mid-air below its own deck.
+// The kit sets `drip` only where it mounted something on a wall.
+function dripStain(c, d, lx, y, zTop, halfW) {
+  if (!d.drip || !(halfW > 0)) return;
+  const run = (typeof d.drip === 'number' ? d.drip : 1) * halfW * 2.6;
+  if (!(run > 0.004)) return;
+  const mid = zTop - run * 0.45, bot = zTop - run;
+  const w0 = halfW * 0.82, w1 = halfW * 0.58, w2 = halfW * 0.3;
+  const Q = (fill, zA, zB, wA, wB) => detailQuad(c.ctx, c.cam, c.F,
+    [[lx - wA, y, zA], [lx + wA, y, zA], [lx + wB, y, zB], [lx - wB, y, zB]], fill, c.alpha, { lift: DETAIL_LIFT * 0.6 });
+  Q('rgba(26,23,20,0.32)', zTop, mid, w0, w1);
+  Q('rgba(26,23,20,0.17)', mid, bot, w1, w2);
+}
 // ⚠ AND A REAL GAP, NOT ONLY A SORT NUDGE. `lift` moves a quad in the painter's QUEUE and not in
 // the world, which is all a 2-D renderer with no depth buffer can do — and it is nothing at all to
 // a depth buffer, where a panel lying exactly in the plane of the wall behind it z-fights into a
@@ -23566,8 +23773,46 @@ const AUTHORED_DETAIL = {
     }
   },
 
+  // ── BINS AND CRATES AGAINST A WALL ─────────────────────────────────────────────────────────
+  //
+  // The pavement meets the building on a clean line everywhere in Coldwater, and no real street
+  // does: there is always something shoved against the wall by a service door. It is the cheapest
+  // possible thing at knee height — a box and a lid each — and knee height is the one band of the
+  // picture a player on foot cannot avoid looking at.
+  //
+  // ⚠ THEY LEAN AND THEY DIFFER, off `dRand` rather than off a loop index. A row of identical boxes
+  // at identical spacing reads as a fence or a wall base; what reads as rubbish is the same object
+  // at three sizes, none of them square to the kerb. Seeded, so a building keeps its own bins for
+  // ever — `models:diff` asserts two renders are identical and a jitter would fail it.
+  //
+  // ⚠ AND THE LID IS ITS OWN COLOUR, because that is the whole read at distance. A bin is a dark
+  // box with a lighter top; drop the lid tone and at ten tiles it is a smudge on the pavement.
+  binStack: (c, d) => {
+    const w = c.V(d.w), dp = d.d ? c.V(d.d) : w * 0.8;
+    const hh = d.hh ? c.V(d.hh) : w * 1.6, z = c.V(d.z);
+    const n = clamp(Math.round(d.n || 3), 1, 6);
+    const P = d.pal || c.pal, body = shadeOf(P, 0.46), side = shadeOf(P, 0.33);
+    const lid = d.lid || shadeOf(P, 0.78);
+    const Q = (pts, fill, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, c.alpha, o || {});
+    for (let i = 0; i < n; i++) {
+      const j = dRand(0, 300 + i * 7);           // the per-bin variation, deterministic
+      const bw = w * (0.72 + j * 0.5), bh = hh * (0.7 + ((i * 3) % 4) / 4 * 0.5);
+      const x = c.lx + (i - (n - 1) / 2) * w * 2.3 + (j - 0.5) * w * 0.4;
+      const y = c.ly + (j - 0.5) * dp * 0.5;
+      const zt = z + bh;
+      Q([[x - bw, y - dp, zt], [x + bw, y - dp, zt], [x + bw, y + dp, zt], [x - bw, y + dp, zt]], lid, {});   // the lid
+      for (const [sx, sy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        const ax = sx ? x + sx * bw : x - bw, ay = sy ? y + sy * dp : y - dp;
+        const bx = sx ? x + sx * bw : x + bw, byy = sy ? y + sy * dp : y + dp;
+        Q([[ax, ay, zt], [bx, byy, zt], [bx, byy, z], [ax, ay, z]], sy ? body : side,
+          { cullN: [sx * c.E[1] + sy * c.E[0], sy * c.E[1] - sx * c.E[0]] });
+      }
+    }
+  },
+
   acUnit: (c, d) => {
     const w = c.V(d.w), dp = d.d ? c.V(d.d) : w * 0.7, hh = d.hh ? c.V(d.hh) : w * 0.55, z = c.V(d.z);
+    dripStain(c, d, c.lx, faceY(c.ly), z, w);
     const top = shadeOf(d.pal || c.pal, 1.1), side = shadeOf(d.pal || c.pal, 0.72);
     detailQuad(c.ctx, c.cam, c.F, [[c.lx - w, c.ly - dp, z + hh], [c.lx + w, c.ly - dp, z + hh], [c.lx + w, c.ly + dp, z + hh], [c.lx - w, c.ly + dp, z + hh]], top, c.alpha, {});
     for (const [sx, sy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
@@ -23579,6 +23824,7 @@ const AUTHORED_DETAIL = {
   // A louvred panel: one quad and three lines, flat on the face.
   vent: (c, d) => {
     const w = c.V(d.w), hh = d.hh ? c.V(d.hh) : w, z = c.V(d.z), y = faceY(c.ly);
+    dripStain(c, d, c.lx, y, z - hh, w);
     detailQuad(c.ctx, c.cam, c.F, [[c.lx - w, y, z + hh], [c.lx + w, y, z + hh], [c.lx + w, y, z - hh], [c.lx - w, y, z - hh]],
       shadeOf(d.pal || c.pal, 0.6), c.alpha, { lift: DETAIL_LIFT, stroke: "rgba(0,0,0,0.35)", lw: 1 });
     for (let i = 1; i <= 3; i++) {
@@ -23597,6 +23843,23 @@ const AUTHORED_DETAIL = {
     if (rail > 0) {
       detailQuad(c.ctx, c.cam, c.F, [[c.lx - half, y1, z + rail], [c.lx + half, y1, z + rail], [c.lx + half, y1, z + rail * 0.72], [c.lx - half, y1, z + rail * 0.72]],
         shadeOf(d.pal || c.pal, 1.15), c.alpha * 0.9, {});
+    }
+    // ── AND WHAT CARRIES THE SLAB ──────────────────────────────────────────────────────────────
+    //
+    // ⚠ THE MOST-INSTANCED PROJECTING PART IN THE CITY, at 472 of them. A balcony is a slab out
+    // from a wall with an underside already drawn and nothing under that underside, so a residential
+    // block reads as a stack of shelves. Two brackets is what a real one has, and on a facade
+    // wearing three floors of them it is the detail that turns a flat elevation into a building.
+    //
+    // ⚠ A TRIANGLE, NOT A QUAD — three points through `emitFlat`, which meshes as one triangle
+    // rather than two. A bracket IS a right triangle: wall at the slab, out to the edge, back down
+    // the wall. Drawing it as a box would cost double for a shape nobody would read as a bracket.
+    if (nearOrMesh()) {
+      const brk = bracketCol(), drop = out * 0.62;
+      for (const sx of [-1, 1]) {
+        const bx = c.lx + sx * half * 0.74;
+        detailQuad(c.ctx, c.cam, c.F, [[bx, y0, z], [bx, y1, z], [bx, y0, z - drop]], brk, c.alpha, { lift: DETAIL_LIFT * 1.2 });
+      }
     }
   },
   // A fire escape: landings down a face, a rail on each, and the flights zigzagging between them.
@@ -23696,6 +23959,60 @@ const AUTHORED_DETAIL = {
       const bx = sx ? c.lx + sx * half : c.lx + half, by = sy ? c.ly + sy * half : c.ly + half;
       detailQuad(c.ctx, c.cam, c.F, [[ax, ay, z + hh], [bx, by, z + hh], [bx, by, z], [ax, ay, z]], face, c.alpha, { cullN: [sx * c.E[1] + sy * c.E[0], sy * c.E[1] - sx * c.E[0]] });
       detailQuad(c.ctx, c.cam, c.F, [[ax, ay, z + hh], [bx, by, z + hh], [bx - sx * hh, by - sy * hh, z + hh], [ax - sx * hh, ay - sy * hh, z + hh]], cap, c.alpha, {});
+    }
+    // ── AND WHAT RUNS DOWN THE WALL UNDER IT ────────────────────────────────────────────────
+    //
+    // ⚠ THE ROOF EDGE IS WHERE A BUILDING GETS DIRTY, AND IT IS THE ONLY STREAK THE STREET SEES.
+    // Rust bleed under the roof PLANT is the obvious place to put this and it is the wrong one: a
+    // tank stands in the middle of a deck, so its stain is on a surface nobody at eye height will
+    // ever look at. Water comes off the coping carrying whatever the roof is made of, and that runs
+    // down the facade — which is the mark on every grubby building in every reference board.
+    //
+    // ⚠ NARROW STREAKS, NOT ONE WIDE WASH. A coping sheds at its low points, so what appears is two
+    // or three thin runs at intervals. The tapering stain `dripStain` draws is what comes out of a
+    // single opening; the full width of a parapet it would read as a tide mark.
+    //
+    // ⚠ FRONT FACE ONLY, AND RATIONED BY THE KIT. `parapet` is the most-instanced part in the whole
+    // vocabulary — four sides at three streaks each is twelve quads a ring, three quarters of them
+    // facing away from the street.
+    if (d.bleed) {
+      const run = half * (0.55 + 0.45 * d.bleed), yb = c.ly + half;
+      for (const t of [-0.56, 0.07, 0.61]) {
+        const x = c.lx + half * t, tw = Math.max(half * 0.045, 0.0015);
+        detailQuad(c.ctx, c.cam, c.F,
+          [[x - tw, yb, z], [x + tw, yb, z], [x + tw * 0.45, yb, z - run], [x - tw * 0.45, yb, z - run]],
+          'rgba(78,50,30,0.26)', c.alpha, { lift: DETAIL_LIFT * 0.5 });
+      }
+    }
+  },
+
+  // ── A TAG ──────────────────────────────────────────────────────────────────────────────────
+  //
+  // Spray paint, drawn as what it physically is: a handful of sweeping strokes, not a picture and
+  // not lettering. There is no text here on purpose — a legible word would need a bake, a font and
+  // an ink decision, and at the range this reads from (a pier beside a shopfront, from the
+  // pavement) nobody resolves letters anyway. What says "graffiti" is a saturated colour at an
+  // angle nothing else on the building is at.
+  //
+  // ⚠ TRANSLUCENT, so the wall texture comes through it — paint on a surface, not a sticker. An
+  // opaque tag reads as a painted panel somebody meant to be there, which is the opposite.
+  //
+  // ⚠ AND THE STROKES VARY OFF `v`, NOT OFF THE LOOP INDEX. Every tag in Coldwater drawn from the
+  // same fixed sequence is one tag repeated three hundred times, which reads as signage. `v` is a
+  // variant the caller rolls per building; `dRand` is deterministic, so a wall keeps its own tag
+  // for ever and `models:diff` stays happy.
+  tag: (c, d) => {
+    const w = c.V(d.w), hh = d.hh ? c.V(d.hh) : w * 0.55, z = c.V(d.z), y = faceY(c.ly);
+    const col = d.color || '#b8f03a';
+    const n = clamp(Math.round(d.n || 4), 2, 7);
+    const v = d.v || 0;
+    for (let i = 0; i < n; i++) {
+      const a = dRand(v, 400 + i * 11), b = dRand(v, 470 + i * 13);
+      const x0 = c.lx + (a - 0.5) * w * 1.5, x1 = c.lx + (b - 0.5) * w * 1.5;
+      const zA = z + hh * (0.15 + a * 0.85), zB = z - hh * (0.15 + b * 0.85);
+      const t = Math.max(w * 0.075, 0.0015);
+      detailQuad(c.ctx, c.cam, c.F, [[x0 - t, y, zA], [x0 + t, y, zA], [x1 + t, y, zB], [x1 - t, y, zB]],
+        col, c.alpha * 0.72, { lift: DETAIL_LIFT * 0.8 });
     }
   },
   // A painted sign board bolted to a wall — not neonBlade, which is a lit blade on its own mast.
@@ -23878,6 +24195,25 @@ const AUTHORED_DETAIL = {
       Q([[c.lx + sx * half, y0, z + hh], [c.lx + sx * half, y1, z + hh], [c.lx + sx * half, y1, z], [c.lx + sx * half, y0, z]], edge, c.alpha,
         { lift: DETAIL_LIFT * 1.4, cullN: [sx * c.E[1], -sx * c.E[0]] });
     }
+    // ── AND THE RODS THAT HOLD THE FRONT EDGE UP ───────────────────────────────────────────────
+    //
+    // ⚠ A CANTILEVERED SLAB IS THE OTHER HALF OF THE FLOATING PROBLEM. The deck meets the wall
+    // along its back edge and the leading edge is out in the air by `out`, so what the eye reads is
+    // a plank stuck to a building. Every awning in every reference board is on tie rods back to the
+    // facade, and they are the detail that says the thing has weight. Mesh-only, as the blade's are.
+    //
+    // ⚠ THE ROD LEANS BACK AND UP, which is what a tie does — a vertical prop under the front edge
+    // would be a column, and a column has to reach the pavement.
+    if (nearOrMesh()) {
+      const rt = Math.max(out * 0.045, 0.003);
+      const rod = bracketCol();
+      const rise = out * 0.95;
+      for (const sx of [-1, 1]) {
+        const bx = c.lx + sx * half * 0.8;
+        Q([[bx - rt, y1, z + hh], [bx + rt, y1, z + hh], [bx + rt, y0, z + hh + rise], [bx - rt, y0, z + hh + rise]], rod, c.alpha,
+          { lift: DETAIL_LIFT * 1.5 });
+      }
+    }
     // Strip lighting tucked under the leading edge — the reason a canopy reads at night at all.
     if (d.strip) {
       const t = Math.max(hh * 0.35, 0.005), yl = y1 - sgn * out * 0.12;
@@ -23967,6 +24303,28 @@ const AUTHORED_DETAIL = {
         { lift: DETAIL_LIFT * 1.5, cullN: [sx * c.E[1], -sx * c.E[0]] });
     }
     for (const z of [z0, z1]) Q([[c.lx - half, y0, z], [c.lx + half, y0, z], [c.lx + half, y1, z], [c.lx - half, y1, z]], side, c.alpha);
+    // ── AND THE THING HOLDING IT UP ────────────────────────────────────────────────────────────
+    //
+    // ⚠ A BLADE TOUCHES ITS BUILDING ALONG ONE EDGE AND HANGS OFF NOTHING. It projects `out` from
+    // the wall, so from anywhere off square you are looking at a lit board standing in mid-air
+    // beside a building — which is the single loudest "that is not attached to anything" read in
+    // the city, on 140 instances of it. A spine up the wall and two arms out to the panel is what
+    // actually carries a hanging sign, and it is the difference between a sticker and a fixture.
+    //
+    // ⚠ MESH-ONLY, the bargain `bars` already makes one painter up. The 2-D painter is held to its
+    // committed `framecost` and a depth buffer draws these for nothing, so GLASS 2 — the default —
+    // gets the structure and the canvas renderer is a provable no-op.
+    if (nearOrMesh()) {
+      const mt = Math.max(half * 0.07, 0.004);                 // the spine's half-thickness
+      const steel = bracketCol();
+      const span = z1 - z0;
+      Q([[c.lx - mt, y0, z1], [c.lx + mt, y0, z1], [c.lx + mt, y0, z0], [c.lx - mt, y0, z0]], steel, c.alpha, { lift: DETAIL_LIFT });
+      for (const az of [z0 + span * 0.14, z1 - span * 0.14]) {
+        // Seen edge-on from the front and as a real bracket from the side, which is the angle the
+        // gap was visible from in the first place. Two-sided: a strut has no back.
+        Q([[c.lx, y0, az], [c.lx, y1, az], [c.lx, y1, az - mt * 1.8], [c.lx, y0, az - mt * 1.8]], steel, c.alpha, { lift: DETAIL_LIFT * 1.2 });
+      }
+    }
     const pts = [[c.lx - half, y1, z1], [c.lx + half, y1, z1], [c.lx + half, y1, z0], [c.lx - half, y1, z0]];
     Q(pts, face, c.alpha * (c.night ? 1 : 0.92), { lift: DETAIL_LIFT * 2 });
     // ⚠ A PICTOGRAM ON ITS OWN IS ENOUGH, and the gate read `d.label` alone. A blade carrying a
@@ -24062,6 +24420,7 @@ const AUTHORED_DETAIL = {
   louvreBank: (c, d) => {
     const half = c.V(d.half), hh = c.V(d.hh), y = faceY(c.ly);
     const z = c.V(d.z), P = d.pal || c.pal;
+    dripStain(c, d, c.lx, y, z - hh, half);
     const back = shadeOf(P, 0.3), blade = shadeOf(P, 0.72), edge = shadeOf(P, 0.95);
     const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, o || {});
     Q([[c.lx - half, y, z + hh], [c.lx + half, y, z + hh], [c.lx + half, y, z - hh], [c.lx - half, y, z - hh]], back, c.alpha, { lift: DETAIL_LIFT });
@@ -24285,9 +24644,15 @@ const D_HANGAR = [
 // A depot is a yard with walls round it — hw fh*1.10, wallTop 0.62h — so everything goes on the
 // outside of the wall, and the mast cluster sits on top of it rather than on a roof there is none of.
 const D_TRUCK_DEPOT = [
-  { kind: 'conduit', cy: [1.10, 0, 0], z: [0, 0.50, 0], half: [0.85, 0, 0], r: [0.020, 0, 0] },
-  { kind: 'pipe', cx: [-0.90, 0, 0], cy: [1.10, 0, 0], z0: [0, 0.02, 0], z1: [0, 0.55, 0], r: [0.024, 0, 0] },
-  { kind: 'vent', cx: [0.80, 0, 0], cy: [1.10, 0, 0], z: [0, 0.40, 0], w: [0.10, 0, 0], hh: [0, 0.040, 0] },
+  // ⚠ THE DEPOT'S FRONT IS TWO PIERS WITH A LOADING BAY BETWEEN THEM, and this list was written
+  // when it was one wall. At 1.10 every part sits 0.056 INSIDE the piers it is nominally bolted to
+  // (their face is at 1.24), which for a 0.02-radius conduit means entirely inside; and the single
+  // long run spanned x -0.34…0.34, of which 0.48 tiles crossed the open bay on nothing at all.
+  // Two runs, one per pier, flush with the face that actually exists.
+  { kind: 'conduit', cx: [-0.86, 0, 0], cy: [1.24, 0, 0], z: [0, 0.50, 0], half: [0.22, 0, 0], r: [0.020, 0, 0] },
+  { kind: 'conduit', cx: [0.86, 0, 0], cy: [1.24, 0, 0], z: [0, 0.50, 0], half: [0.22, 0, 0], r: [0.020, 0, 0] },
+  { kind: 'pipe', cx: [-0.90, 0, 0], cy: [1.24, 0, 0], z0: [0, 0.02, 0], z1: [0, 0.55, 0], r: [0.024, 0, 0] },
+  { kind: 'vent', cx: [0.80, 0, 0], cy: [1.24, 0, 0], z: [0, 0.40, 0], w: [0.10, 0, 0], hh: [0, 0.040, 0] },
   { kind: 'antennaCluster', cx: [0.55, 0, 0], cy: [-0.50, 0, 0], z: [0, 0.64, 0], r: [0.15, 0, 0], hh: [0, 0.12, 0], n: 4 },
 ];
 
@@ -24404,7 +24769,11 @@ const D_EMBASSY = [
   { kind: 'balcony', cx: [-0.44, 0, 0], cy: [0.98, 0, 0], z: [0, 1.08, 0], half: [0.24, 0, 0], out: [0.14, 0, 0], rail: [0, 0.05, 0] },
   { kind: 'roofTank', cx: [0.50, 0, 0], cy: [-0.40, 0, 0], z: [0, 1.55, 0], r: [0.17, 0, 0], hh: [0, 0.085, 0] },
   { kind: 'acUnit', cx: [-0.36, 0, 0], cy: [-0.30, 0, 0], z: [0, 1.55, 0], w: [0.10, 0, 0], d: [0.080, 0, 0], hh: [0, 0.045, 0] },
-  { kind: 'conduit', cy: [0.98, 0, 0], z: [0, 0.26, 0], half: [0.80, 0, 0], r: [0.012, 0, 0] },
+  // ⚠ 0.34 AND NOT 0.26: the plinth ends and the facade begins at EXACTLY 0.26, so a conduit
+  // authored there is on the seam between two boxes and mounted on neither — the plinth's face is
+  // 0.424 and the facade's is 0.392, a run at 0.392 has no wall beside it until 0.26. It now sits
+  // on the facade just above the plinth, which is where a cable tray goes anyway.
+  { kind: 'conduit', cy: [0.98, 0, 0], z: [0, 0.34, 0], half: [0.80, 0, 0], r: [0.012, 0, 0] },
 ];
 
 // The Cherry Pit and the generic nightclub box: one slab to 0.8h at fh*1.05, with twin neon blades
@@ -24766,6 +25135,183 @@ const SECTION_OF = {
 // mesh is actually built from, and the composition of that list is exactly the thing that needs
 // watching: every section shares one `KIT_MAX` counter, so a window grid that grows eats the fire
 // escape, the roof plant and the sign board without changing a single number anybody prints.
+// ── A THING THAT STANDS ON A ROOF STANDS ON THE ROOF ────────────────────────────────────────
+//
+// ⚠ THIS IS A NORMALISATION, NOT A PLACEMENT RULE. The kit already puts its own roof plant on a
+// real deck and has a ⚠ of its own saying why. What it cannot do anything about is the 140-odd
+// parts in `ARM_DETAIL`, which were hand-placed against the arm's mass AT THE TIME and have been
+// drifting out of it ever since: an arm gains a crown box or a parapet band, the roof plant under
+// it is not moved, and a condenser that used to sit on the roof is now inside the storey above it.
+// `anchored.mjs` found 108 of them across 33 models, plus two water tanks hanging in clear air
+// over `type:hotel` and the Embassy — all of them seed-independent, which is the tell that they
+// are authored rather than rolled.
+//
+// Drawn, lit, shaded, costed in the mesh, and invisible. Nothing else in the repo could see it:
+// `shapes:smoke` asks whether a model THROWS, `models:diff` asks whether it is DETERMINISTIC, and
+// `gl:mesh` bounds trim at half a tile, which is two orders too loose to notice a unit half a box
+// deep in a parapet.
+//
+// One rule fixes both shapes of it, which is the whole reason to do it here rather than by hand in
+// 33 arms: A STANDING PART TAKES THE HIGHEST SOLID TOP THAT CARRIES ITS FOOTPRINT AT OR BELOW ITS
+// OWN BODY. A part swallowed by a crown rises to sit on that crown; a tank hanging over a deck
+// drops onto it. A hand pass over the arms would fix the 33 buildings that are wrong today and
+// nothing about the next arm somebody re-cuts.
+//
+// ⚠ IT RUNS ON THE ASSEMBLED LIST, SO IT REACHES ARM DETAIL AND KIT ALIKE — which is the point,
+// since every defect found was in the arm half. It runs once per model per scale, inside the cache
+// that `derivedTrim` already keeps, so it costs a frame nothing.
+//
+// ⚠ AND IT COPIES RATHER THAN MUTATING, for the reason the ⚠ above `list` already gives: an
+// `ARM_DETAIL` list is a module constant shared by every tile of that type, and `m.detail` is the
+// baked model record. Moving a part in place would move it for every tile in the city and, worse,
+// would do it again on every cache miss until the part had walked off the building.
+//
+// ⚠ ONLY PARTS THAT STAND. A wall part is mounted AT a face plane, so it is legitimately outside
+// the mass by FACE_EPS and snapping it to a deck would take every vent and sign board off the wall
+// and lay it on the roof.
+const STANDING_KINDS = new Set(['roofTank', 'tankFrame', 'stack', 'antennaCluster', 'acUnit', 'signGantry']);
+// How far a part may already be off a top before it is worth moving. Below this it is resting on
+// it and the arithmetic is float noise.
+const STAND_SNAP = 0.005;
+// How far a part's own body has to be inside a solid to count as swallowed rather than as touching
+// the face of one. Matches the margin `anchored.mjs` reports against.
+const STAND_MARGIN = 0.02;
+// How far a slid part is set down from the face it moved clear of — see the ⚠ at the slide.
+const STAND_CLEAR = 0.05;
+// ⚠ AND A PART IS SET DOWN FLUSH, NOT A HAIR PROUD. Standing it a little above its deck to avoid
+// a coplanar base face is the obvious move and it is wrong in both directions, measured: `glself`
+// went 20 → 22 rather than back to 12 (the leak is the part's SIDES against the crown it stands
+// beside, not its base), and `anchored` went 14 → 18 buried, because lifting the body raises its
+// midpoint into the box above. A part that stands on a roof stands ON it.
+const SIT_EPS = 0;
+
+// The mass, as things a part can stand on. Deliberately a local reading rather than a shared one:
+// a rotated box needs a rotated test and nothing in the kit places on one, so a yawed box is not a
+// surface here — declining is cheaper than getting it subtly wrong on a lopsided mass.
+function standSolids(segs, V) {
+  const out = [];
+  for (const s of segs) {
+    const cx = V(s.cx), cy = V(s.cy), z0 = V(s.z0), z1 = V(s.z1);
+    if (!(z1 > z0)) continue;
+    if (s.kind === 'box') {
+      if (s.yaw) continue;
+      const hw = Math.min(V(s.hwRaw), 0.44), fd = Math.min(s.fdRaw ? V(s.fdRaw) : hw, 0.44);
+      out.push({ round: 0, x0: cx - hw, x1: cx + hw, y0: cy - fd, y1: cy + fd, z0, z1 });
+    } else if (s.kind === 'drum') {
+      out.push({ round: 1, cx, cy, rb: V(s.rb), rt: V(s.rt != null ? s.rt : s.rb), z0, z1 });
+    }
+  }
+  return out;
+}
+const standCovers = (s, x, y, z) => {
+  if (!s.round) return x >= s.x0 && x <= s.x1 && y >= s.y0 && y <= s.y1;
+  const t = s.z1 > s.z0 ? clamp((z - s.z0) / (s.z1 - s.z0), 0, 1) : 0;
+  return Math.hypot(x - s.cx, y - s.cy) <= s.rb + (s.rt - s.rb) * t;
+};
+
+function standOnMass(list, segs, V) {
+  if (!list.length || !segs || !segs.length) return list;
+  const S = standSolids(segs, V);
+  if (!S.length) return list;
+  let out = null;
+  for (let i = 0; i < list.length; i++) {
+    const d = list[i];
+    if (!STANDING_KINDS.has(d.kind)) continue;
+    const base = V(d.z);
+    if (!Number.isFinite(base)) continue;
+    const cx0 = V(d.cx), cy0 = V(d.cy);
+    // ⚠ EVERY STANDING PAINTER SPANS z … z + hh. `hh` is a HALF height on a wall part and the FULL
+    // rise above the deck on a standing one — `roofTank`, `stack`, `acUnit` and `antennaCluster`
+    // all draw their top face at `z + hh`. Reading it as a half puts the test point on the part's
+    // own lid, which is exactly where the box lid it rests against is, and the pass then declines
+    // to move anything at all.
+    const hh = V(d.hh || 0);
+    // What the part occupies on the deck. Each kind names it differently and none of them is a
+    // bounding box; the largest of them is the safe read for a clearance test.
+    const rad = Math.max(V(d.w || 0), V(d.r || 0), V(d.half || 0), 0.008);
+    const mid = (z) => z + hh * 0.5;
+    const swallowers = (x, y, z) => {
+      const my = mid(z);
+      const bad = [];
+      for (const s of S) {
+        if (!(my > s.z0 + STAND_MARGIN && my < s.z1 - STAND_MARGIN)) continue;
+        if (standCovers(s, x, y, my)) bad.push(s);
+      }
+      return bad;
+    };
+    const restingOn = (x, y, z) => S.some((s) => Math.abs(s.z1 - z) <= STAND_SNAP && standCovers(s, x, y, s.z1));
+    const settled = (x, y, z) => restingOn(x, y, z) && !swallowers(x, y, z).length;
+    let nx = cx0, ny = cy0, z = base;
+
+    // 1. FLOATING — resting on nothing and inside nothing. Drop to the surface underneath it.
+    if (!restingOn(nx, ny, z) && !swallowers(nx, ny, z).length) {
+      let below = -Infinity;
+      for (const s of S) {
+        if (s.z1 <= z + STAND_MARGIN && s.z1 > below && standCovers(s, nx, ny, s.z1)) below = s.z1;
+      }
+      if (below > -Infinity) z = below;
+    }
+    // 2. BURIED — climb out on top of whatever swallowed it. ⚠ ITERATED, because the box a part
+    // climbs onto may itself be inside the next one up (wall box, crown band and cap is three deep
+    // on plenty of arms), and a single lift leaves it buried a storey higher with nothing to say
+    // so. ⚠ AND BURIED OUTRANKS RESTING: the defect is a unit genuinely sitting on the slab it was
+    // authored against, with a crown box added over it since — testing "is it on something" first
+    // skips precisely the parts this exists to move. ⚠ AND ONLY ONTO A TOP THAT WOULD CARRY IT: a
+    // drum tapers and a crown is narrower than its wall, so the thing swallowing a part is often
+    // not a thing it could stand on, and climbing onto it trades a buried part for a floating one.
+    for (let n = 0; n < 4; n++) {
+      let t = -Infinity;
+      for (const s of swallowers(nx, ny, z)) {
+        if (standCovers(s, nx, ny, s.z1) && s.z1 > t) t = s.z1;
+      }
+      if (!(t > z + STAND_SNAP)) break;
+      z = t;
+    }
+    // 3. STILL BURIED, BUT STANDING ON A REAL DECK — slide it clear instead of lifting it.
+    //
+    // ⚠ THIS IS THE COMMON CASE AND THE ONLY PHYSICALLY RIGHT ANSWER FOR IT. A crown box is a
+    // plant room or a lift overrun: it is NARROWER than the roof it stands on, so a condenser
+    // inside its footprint cannot climb on top of it (step 2 refuses, correctly — it would be
+    // standing on a penthouse roof it is too big for) and must not stay where it is. What a real
+    // roof looks like is the plant arranged AROUND the penthouse, so the part moves sideways and
+    // keeps the deck it already had.
+    //
+    // Four candidates per swallower — clear of each face by the part's own radius — and the
+    // smallest move that clears EVERY swallower and still lands on the deck wins. Rectangles only:
+    // sliding clear of a cone means solving for a tangent, and the whole registry has none.
+    if (swallowers(nx, ny, z).length) {
+      let best = null;
+      for (const b of swallowers(nx, ny, z)) {
+        if (b.round) continue;
+        // ⚠ REAL CLEARANCE, NOT A HAIR. Landing the part exactly against the face it slid away
+        // from puts its own side decal coplanar with that face, and  counts every one of
+        // those as an adornment authored inside its host — 8 more leaked points across the towers
+        // the first cut moved. A condenser beside a plant room stands a little off it anyway.
+        const gap = rad + STAND_CLEAR;
+        for (const [tx, ty] of [[b.x0 - gap, ny], [b.x1 + gap, ny], [nx, b.y0 - gap], [nx, b.y1 + gap]]) {
+          if (!settled(tx, ty, z)) continue;
+          const dist = Math.hypot(tx - nx, ty - ny);
+          if (!best || dist < best.dist) best = { tx, ty, dist };
+        }
+      }
+      if (best) { nx = best.tx; ny = best.ty; }
+    }
+    // ⚠ AND NEVER LEAVE A PART WORSE THAN IT STARTED. Every move here is a guess about what the
+    // author meant, so the result is re-asked the question the gate asks: is it resting on
+    // something that carries it, and is it clear of the mass? If the answer is no, the part stays
+    // exactly where it was authored — buried geometry is waste, a floating part is a visible bug.
+    if (!settled(nx, ny, z)) continue;
+    const moved = Math.abs(z - base) > STAND_SNAP || Math.abs(nx - cx0) > STAND_SNAP || Math.abs(ny - cy0) > STAND_SNAP;
+    if (!moved) continue;
+    if (!out) out = list.slice();
+    // ⚠ ABSOLUTE, because the source may be an affine triple authored against fh/h while the
+    // surface it now has to meet was resolved at THIS scale. Writing the answer back as a triple
+    // would mean solving a·fh + b·h + c for one known value, which has no unique answer.
+    out[i] = { ...d, cx: [0, 0, nx], cy: [0, 0, ny], z: [0, 0, z + SIT_EPS] };
+  }
+  return out || list;
+}
+
 export function derivedTrim(m, fh, h, seed, forceRich) {
   let byScale = _derived.get(m);
   if (!byScale) { byScale = new Map(); _derived.set(m, byScale); }
@@ -24845,6 +25391,12 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
           half: [0, 0, hw * 1.03],
           hh: [0, 0, clamp((z1 - z0) * 0.045, 0.008, 0.05)],
           pal: sg.pal || m.pal,
+          // ⚠ ONLY THE ROOF-EDGE RING BLEEDS, which is why the flag is set here and not in the kit.
+          // `derivedKit` pushes `parapet` twice more — a plinth at the pavement and a crown course a
+          // storey down — and neither sheds water down a facade: a plinth has the pavement under it,
+          // and a course has more building. Rationed at roughly half, because a street where every
+          // roofline has run is a street in one weather.
+          bleed: dRand(seed, 81) > 0.48 ? 1 : 0,
         });
       }
     }
@@ -24853,7 +25405,10 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   // ⚠ THE BASE IS CONCATENATED, NEVER MUTATED. `ARM_DETAIL`'s lists are module constants shared by
   // every tile of that type and `m.detail` is the baked model record — pushing onto either would
   // grow the authored list by a kitful on every cache miss, for ever.
-  list = base ? base.concat(kit) : kit;
+  // ⚠ NORMALISED BEFORE IT IS CACHED — see standOnMass. Roof plant that an arm placed against
+  // mass the arm no longer has is put back on the surface under it, once per model per scale.
+  list = standOnMass(base ? base.concat(kit) : kit, segs,
+    (p) => (Array.isArray(p) ? p[0] * fh + p[1] * h + p[2] : (p || 0)));
   byScale.set(k, list);
   return list;
 }
@@ -24911,6 +25466,10 @@ const COL_PITCH_RICH = 0.085;
 // deliberately does the opposite, because an ordinary building wants a riser on ONE flank and a
 // door in ONE place. The two cannot both be right, so a wall gets the coping band and nothing else.
 const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall']);
+// What somebody had in the can. Saturated and light, because a tag is read against a wall that is
+// almost always the dark half of the frame — a dark tag on dark concrete is the `shadeOf(pal, 0.34)`
+// mistake the bracket colour already records, in a different costume.
+const TAG_COLS = ['#b8f03a', '#ff4a9a', '#5fd0ff', '#ffcf3e', '#ff6a4a', '#c88cff'];
 // ── …AND A BUILDING MAY REFUSE ONE SECTION WITHOUT REFUSING THE KIT ─────────
 //
 // `have` already keeps the kit out of a section somebody has drawn. This is the other half of that
@@ -24959,6 +25518,28 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich) {
   let winSpent = 0;
   const winCap = rich ? Math.min(winMax, Math.round(kitMax * 0.45)) : winMax;
   const pushWin = (p) => { if (winSpent < winCap) { winSpent++; push(p); } };
+  // ── …AND THE PAVEMENT GETS A RESERVATION, WHICH IS CURRENTLY INERT ──────
+  //
+  // ⚠ THIS CHANGES NOTHING TODAY AND THE MEASUREMENT SAYS SO: 25.2% / 10.9% / 14.8% with it at 3
+  // and the identical three numbers with it at 0, over 64 seeds. It is here as insurance, and the
+  // note is here so nobody re-derives the reason from scratch.
+  //
+  // ⚠ IT WAS ADDED ON A MEASUREMENT THAT TURNED OUT TO BE AN ARTIFACT, which is the part worth
+  // keeping. A 12-seed sweep put the vending machine at 4.6% of frontages against a roll implying
+  // 10.5%, and that reads exactly like the budget eating half of them. It was not: `dRand(seed, 74)`
+  // is ONE value per seed, so a sweep that gives every model in the city the same seed is sampling
+  // the roll twelve times, not 2,076 — the same trap that made a first cut of `anchored.mjs` report
+  // `vendingMachine` and `bollard` as emitted by nothing at all. At 64 seeds the real baseline was
+  // 10.0%, and the whole gain since is the ROLLS, not this.
+  //
+  // It stays because the kerb props are pushed LAST — after the windows, the riser, the stair, the
+  // roof plant and the whole shopfront — so they are the first things `spent` would run out on if
+  // anyone raised the window grid or added a section, and this file already carries that exact ⚠
+  // one budget up. They are also the only geometry in the kit a player ON FOOT is level with: a
+  // window bay lost at the top of a tower costs nothing, a machine lost at head height costs the
+  // street. Four, because four is how many kerb parts there are.
+  const KERB_RESERVE = 4;
+  const pushKerb = (p) => { if (spent < kitMax + KERB_RESERVE) { list.push(p); spent++; } };
 
   // ── 1. THE WALLS ──────────────────────────────────────────────────────────
   // Windows go on the FRONT face of the biggest box, in whole storeys. A storey is ~0.17 world
@@ -25070,7 +25651,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich) {
     const n = clamp(Math.round(main.hw / 0.16), 1, 2);
     for (let i = 0; i < n; i++) {
       const x = main.cx + (n === 1 ? 0 : (i ? 1 : -1) * main.hw * 0.44);
-      push({ kind: 'louvreBank', cx: A(x), cy: A(fy), z: A(main.z0 + wallH * 0.62),
+      push({ kind: 'louvreBank', drip: 1, cx: A(x), cy: A(fy), z: A(main.z0 + wallH * 0.62),
         half: A(main.hw * 0.26), hh: A(Math.min(wallH * 0.16, 0.05)), n: 6, pal });
     }
   }
@@ -25191,11 +25772,11 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich) {
     push({ kind: 'cableRun', face: 'x', cx: along(-main.fd * 0.1), cy: A(svcX + Math.sign(svcX) * 0.004),
       z: A(main.z1 - wallH * 0.18), half: A(main.fd * 0.55), sag: A(wallH * 0.04), r: A(0.005), pal: 'infra' });
     // The other flank: the machinery you walk past, and a run across the wall.
-    push({ kind: 'acUnit', face: 'x', cx: along(main.fd * 0.2), cy: A(othX),
+    push({ kind: 'acUnit', drip: 1, face: 'x', cx: along(main.fd * 0.2), cy: A(othX),
       w: A(Math.min(main.fd * 0.26, 0.03)), d: A(Math.min(main.fd * 0.18, 0.02)),
       hh: A(Math.min(wallH * 0.09, 0.022)), z: A(main.z0 + Math.min(wallH * 0.5, 0.09)), pal: 'ty_hangar_a' });
     if (dRand(seed, 203) > 0.4) {
-      push({ kind: 'vent', face: 'x', cx: along(-main.fd * 0.3), cy: A(othX),
+      push({ kind: 'vent', drip: 1, face: 'x', cx: along(-main.fd * 0.3), cy: A(othX),
         w: A(Math.min(main.fd * 0.3, 0.034)), hh: A(Math.min(wallH * 0.07, 0.018)),
         z: A(main.z0 + wallH * 0.62), pal: 'ty_hangar_a' });
     }
@@ -25298,7 +25879,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich) {
       push({ kind: 'windowBay', cx: A(base.cx + base.hw * 0.52), cy: A(by), z: A(dz),
         half: A(Math.min(base.hw * 0.11, 0.035)), hh: A(GF * 0.4), depth: A(0.01), pal,
         glow: '#d8c88a', glass: '#1c2026' });
-      push({ kind: 'louvreBank', cx: A(base.cx + base.hw * 0.8), cy: A(by), z: A(dz + GF * 0.1),
+      push({ kind: 'louvreBank', drip: 1, cx: A(base.cx + base.hw * 0.8), cy: A(by), z: A(dz + GF * 0.1),
         half: A(Math.min(base.hw * 0.12, 0.04)), hh: A(GF * 0.26), n: 5, pal });
     } else {
       // A shopfront: a run of glazing under an awning, with the entrance bay left dark beside it.
@@ -25372,11 +25953,11 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich) {
     // the machinery you actually walk past is at head height, which is the camera this game uses
     // most. Cheap enough to be unconditional: an acUnit is a top and one visible side.
     const px = base.cx + base.hw * (dRand(seed, 63) > 0.5 ? 0.78 : -0.78);
-    push({ kind: 'acUnit', cx: A(px), cy: A(by + 0.012), z: A(base.z0 + GF * 0.72),
+    push({ kind: 'acUnit', drip: 1, cx: A(px), cy: A(by + 0.012), z: A(base.z0 + GF * 0.72),
       w: A(Math.min(base.hw * 0.1, 0.032)), d: A(Math.min(base.hw * 0.07, 0.022)),
       hh: A(Math.min(GF * 0.17, 0.022)), pal });
     if (dRand(seed, 65) > 0.45) {
-      push({ kind: 'vent', cx: A(base.cx - (px - base.cx) * 0.55), cy: A(by),
+      push({ kind: 'vent', drip: 1, cx: A(base.cx - (px - base.cx) * 0.55), cy: A(by),
         z: A(base.z0 + GF * 0.78), w: A(Math.min(base.hw * 0.11, 0.036)),
         hh: A(Math.min(GF * 0.14, 0.02)), pal });
     }
@@ -25385,8 +25966,15 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich) {
     // ⚠ RATIONED, HARD, AND THAT IS THE WHOLE DESIGN. A lamp post outside every building in
     // Coldwater is not a street, it is a fence: the thing that reads as a lit street is a lamp every
     // few frontages with dark between them. So each of these is behind its own deterministic roll
-    // and the rolls are deliberately mean — about a third of buildings get a lamp, a quarter get
-    // bollards, and a machine needs a lit shopfront to stand against in the first place.
+    // and a machine needs a lit shopfront to stand against in the first place.
+    //
+    // ⚠ THE LAMP'S RATION IS UNTOUCHED AND THE OTHER TWO CAME UP, because the argument above is an
+    // argument about LAMPS. A lamp is four tiles tall and spaces a street; a bollard and a vending
+    // machine are knee- and shoulder-high, they are what a player on foot is actually level with,
+    // and at the old rolls you could walk Coldwater for a long time without meeting either.
+    // Measured over 64 seeds, as a share of ALL frontages: lamp 25.2% (unchanged), bollards
+    // 7.8% → 10.9%, machine 10.0% → 14.8%. That is still one machine per seven shopfronts, which
+    // is a street with things on it rather than a vending aisle.
     //
     // ⚠ AND THEY STAND OFF THE BUILDING, past `by`, which is the one place in this kit where that is
     // right. Everything else here is bolted to a wall and `anchored.mjs` proves it; these are on the
@@ -25396,18 +25984,46 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich) {
     const kerb = by + (by < 0 ? -1 : 1) * Math.min(base.hw * 0.34, 0.13);
     if (dRand(seed, 71) > 0.66) {
       const lx = base.cx + base.hw * (dRand(seed, 72) > 0.5 ? 0.82 : -0.82);
-      push({ kind: 'streetLamp', cx: A(lx), cy: A(kerb), z0: A(base.z0), z1: A(base.z0 + GF * 1.5),
+      pushKerb({ kind: 'streetLamp', cx: A(lx), cy: A(kerb), z0: A(base.z0), z1: A(base.z0 + GF * 1.5),
         out: A(Math.min(base.hw * 0.3, 0.1)), r: A(Math.min(base.hw * 0.035, 0.011)),
         flip: by > 0, pal, rgb: style === 'front' ? '255,206,140' : '210,226,255' });
     }
-    if (style === 'front' && dRand(seed, 73) > 0.74) {
-      push({ kind: 'bollard', cx: A(base.cx), cy: A(kerb), z: A(base.z0),
+    if (style === 'front' && dRand(seed, 73) > 0.6) {
+      pushKerb({ kind: 'bollard', cx: A(base.cx), cy: A(kerb), z: A(base.z0),
         r: A(Math.min(base.hw * 0.028, 0.009)), hh: A(Math.min(GF * 0.2, 0.024)),
         step: A(Math.min(base.hw * 0.32, 0.08)), count: 3, band: '#e8d8a0', pal });
     }
-    if (style === 'front' && dRand(seed, 74) > 0.7) {
+    // ── AND SOMEBODY HAS BEEN AT THE WALL ──────────────────────────────────────────────────────
+    //
+    // ⚠ IT GOES ON THE BLANK BIT, WHICH IS THE ONLY PLACEMENT RULE A TAG NEEDS. Nobody sprays a
+    // shop window, and on this kit the middle of the ground floor is glazing — so the tag takes the
+    // service end of the frontage, the same flank the bins are on, low down where an arm can reach.
+    //
+    // ⚠ AND IT IS A WALL PART, SO IT COMPETES FOR `kitMax` RATHER THAN THE KERB RESERVE. That
+    // reserve exists for things standing on the PAVEMENT; paint is on the building, and giving it a
+    // reserved slot would be quietly raising the facade budget under another name.
+    if (dRand(seed, 77) > 0.62) {
+      const gx = base.cx + (base.cx - px) * 0.62;
+      push({ kind: 'tag', cx: A(gx), cy: A(by), z: A(base.z0 + GF * 0.34),
+        w: A(Math.min(base.hw * 0.17, 0.055)), hh: A(Math.min(GF * 0.26, 0.032)),
+        color: TAG_COLS[Math.floor(dRand(seed, 78) * TAG_COLS.length) % TAG_COLS.length],
+        n: 3 + Math.round(dRand(seed, 79) * 3), v: Math.floor(dRand(seed, 80) * 997) });
+    }
+    // ⚠ BINS GO WHERE THE SHOPFRONT IS NOT, which is the only placement rule they need. `px` is the
+    // doorway, so the far flank is the service end of the frontage — the bit of pavement a real
+    // street puts its rubbish on, and the bit this kit has always left bare. Unlike the other three
+    // this is NOT gated on `front`: a works, a shed and a block all put bins out, and the industrial
+    // set is exactly where a clean kerb line looks most wrong.
+    if (dRand(seed, 75) > 0.52) {
+      const bx = base.cx + (base.cx - px) * 0.72;
+      pushKerb({ kind: 'binStack', cx: A(bx), cy: A(by + (by < 0 ? -1 : 1) * Math.min(base.hw * 0.12, 0.045)),
+        z: A(base.z0), w: A(Math.min(base.hw * 0.055, 0.017)), d: A(Math.min(base.hw * 0.045, 0.014)),
+        hh: A(Math.min(GF * 0.3, 0.038)), n: 2 + Math.round(dRand(seed, 76) * 2), pal,
+        lid: shadeOf(pal, 0.86) });
+    }
+    if (style === 'front' && dRand(seed, 74) > 0.55) {
       const vx = base.cx - (px - base.cx) * 0.9;
-      push({ kind: 'vendingMachine', cx: A(vx), cy: A(by), z: A(base.z0),
+      pushKerb({ kind: 'vendingMachine', cx: A(vx), cy: A(by), z: A(base.z0),
         w: A(Math.min(base.hw * 0.1, 0.03)), d: A(Math.min(base.hw * 0.07, 0.02)),
         hh: A(Math.min(GF * 0.42, 0.052)), pal,
         glow: m.neon || '#c060e0', rgb: '190,110,230' });

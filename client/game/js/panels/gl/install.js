@@ -41,6 +41,13 @@ export function glCapabilities() {
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE),
     maxAttribs: gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
     maxVarying: gl.getParameter(gl.MAX_VARYING_COMPONENTS),
+    // ⚠ THE ONE BUDGET THAT SCALES WITH A KNOB SOMEBODY WOULD WANT TO TURN, and it was the one not
+    // being asked for. `needs.fragUniformVectors` has always been COMPUTED — 3·MAX_LIGHTS + 1 +
+    // 2·MAX_MATERIALS + 6 — and `out.ok` tested only attribs and varyings, so the number was
+    // reported and never compared against anything. Raising MAX_LIGHTS past what a device can hold
+    // would have come out as a shader that fails to LINK, which this file's own note says looks
+    // exactly like a shader that draws badly.
+    maxFragUniform: gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS),
     // ⚠ THE DEPTH BUFFER, AND WHAT THE GROUND LADDER IS WORTH ON IT. Everything on the ground
     // layer is held off the floor by a lift in WORLD z — 0.0008 to 0.004 tiles — and a depth
     // buffer stores 1/distance, so what those lifts are worth collapses as 1/f². On this machine
@@ -76,10 +83,20 @@ export function glCapabilities() {
   // them as a vec4; four floats would have been four slots and three quarters of the headroom.
   // Uniforms rather than varyings: the point lights are 3 arrays of MAX_LIGHTS plus a count and a
   // wrap, and the material table is 2 arrays of MAX_MATERIALS plus the eye, two environment colours,
-  // a texel size and two strengths — ~91 vectors against a guarantee of 224.
+  // a texel size and two strengths.
+  //
+  // ⚠ THE COMMENT HERE SAID "~91 VECTORS" AND THE FORMULA HAS BEEN SAYING 151 — 3·32 + 1 + 2·24 + 6
+  // — since the material table landed. Stale in exactly the way the varying note one paragraph up
+  // warns about, and on the one line where it matters: this is the budget that moves when somebody
+  // turns MAX_LIGHTS up, and the headroom it claimed was 60% larger than the real one.
+  //
+  // Against the WebGL2 floor of 224 that leaves room for MAX_LIGHTS up to 48 (199 vectors). 64
+  // would want 247 and put every floor-spec device off the GL path entirely — which is now a clean
+  // refusal and a 2-D fallback rather than a link error, because `ok` finally reads this.
   out.needs = { attribs: 11, varyingComponents: 22,
     fragUniformVectors: 3 * MAX_LIGHTS + 1 + 2 * MAX_MATERIALS + 6 };
-  out.ok = out.maxAttribs >= out.needs.attribs && out.maxVarying >= out.needs.varyingComponents;
+  out.ok = out.maxAttribs >= out.needs.attribs && out.maxVarying >= out.needs.varyingComponents
+    && (!out.maxFragUniform || out.maxFragUniform >= out.needs.fragUniformVectors);
   out.atlasWorstCase = out.maxTexture >= 4096
     ? 'every surface fits, textured'
     : 'the worst view falls back to flat colours';

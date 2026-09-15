@@ -376,14 +376,40 @@ for (const { key, m } of ws.shapeModelRegistry()) {
 // ⚠ THE PER-MODEL CEILING IS THE HALF THAT MATTERS. A total can absorb one arm going mad — The
 // Meridian Lobby alone is 2,711 faces, 7.6% of the city — so the cap catches a single model
 // running away while the total is still comfortably inside its budget.
+// ⚠ AND THE BUDGET IS A MEAN ACROSS SEEDS, NOT ONE SEED'S TOTAL. Everything above this line runs at
+// SEED 3 and is right to: the geometry checks compare a mesh against the shape it collides as, and
+// that is a question about one capture. The face COUNT is not — half the kit is behind a
+// deterministic roll, so a single seed samples each roll ONCE rather than 173 times, and the total
+// it produces is one draw from a wide distribution.
+//
+// Measured over twelve seeds: 39,869 … 43,920 faces, a 10.2% spread, with SEED 3 at 40,614 — near
+// the BOTTOM of the range and 2.8% under the mean. Against a 3% tolerance that is most of the
+// budget's headroom spent on which seed the gate happens to use, and it points the wrong way: the
+// gate was quietly measuring one of the cheapest cities it could have drawn, so a change that put
+// the real city well over could pass.
+//
+// ⚠ THIS IS THE THIRD TIME THE SAME TRAP HAS BEEN WRITTEN DOWN IN THIS REPO IN ONE SESSION — a
+// first cut of `anchored.mjs` reported `vendingMachine` and `bollard` as emitted by NOTHING, and a
+// kerb reservation was added on a starvation that turned out to be twelve samples of a coin. If a
+// number depends on `dRand(seed, …)`, one seed is one sample. Sweep it.
+//
+// Six seeds, because the capture is 0.15 s a pass and the spread is already flat by then.
+const BUDGET_SEEDS = [1, 2, 3, 4, 5, 6];
 {
   const BUDGET = new URL('./glmesh.budget.json', import.meta.url);
   const write = process.argv.includes('--write');
-  const now = { total: quads, worst: Math.max(0, ...perModel.values()), worstKey: '' };
-  for (const [k, n] of perModel) if (n === now.worst) { now.worstKey = k; break; }
+  let swept = 0, worstN = 0, worstK = '';
+  for (const s of BUDGET_SEEDS) {
+    for (const { key, m } of ws.shapeModelRegistry()) {
+      const n = ws.captureModelMesh(m, { fh: FH, h: H, seed: s }).length;
+      swept += n;
+      if (n > worstN) { worstN = n; worstK = key; }
+    }
+  }
+  const now = { total: Math.round(swept / BUDGET_SEEDS.length), worst: worstN, worstKey: worstK };
   if (write) {
-    writeFileSync(BUDGET, JSON.stringify({ total: now.total, perModel: now.worst, worstKey: now.worstKey, note: 'npm run gl:mesh -- --write re-blesses this. Say why in the commit.' }, null, 2) + '\n');
-    console.log(`  · budget re-blessed: ${now.total} faces total, ${now.worst} on ${now.worstKey}`);
+    writeFileSync(BUDGET, JSON.stringify({ total: now.total, perModel: now.worst, worstKey: now.worstKey, seeds: BUDGET_SEEDS.length, note: 'MEAN faces over ' + BUDGET_SEEDS.length + ' seeds, not one. npm run gl:mesh -- --write re-blesses this. Say why in the commit.' }, null, 2) + '\n');
+    console.log(`  · budget re-blessed: ${now.total} mean faces over ${BUDGET_SEEDS.length} seeds, ${now.worst} on ${now.worstKey}`);
   } else if (existsSync(BUDGET)) {
     const want = JSON.parse(readFileSync(BUDGET, 'utf8'));
     // ⚠ THE TOLERANCE IS SET OFF WHAT A NEW MODEL COSTS, NOT OFF A ROUND NUMBER. The mean model is
