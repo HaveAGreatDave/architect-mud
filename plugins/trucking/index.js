@@ -798,10 +798,25 @@ function boardFor(zoneId) {
   // the whole system is for. (Caught by the regress suite, which could no longer find a crossing to
   // take — the failure and the bug were the same fact.)
   const far = dests.filter(d => d.flags?.region_id !== here?.flags?.region_id);
+  // …AND ONE SLOT IS ALWAYS A LOCAL RUN, for the same reason and by the same argument.
+  //
+  // The note above fixed this in ONE DIRECTION ONLY: a four-slot seeded board could come up all
+  // local and never show the crossing, so slot 0 was pinned to a crossing. The mirror of it was
+  // left on the dice — with six docks against a handful of depots, the three free slots can all
+  // draw depots, and then a whole day's board offers nothing in town at all. That is the bottom
+  // rung of the fleet ladder missing for the day, for every player, and it is exactly as invisible
+  // as the first one was: the board still looks like a board.
+  //
+  // ⚠ AND IT IS WHY THE SUITE GOES RED ON THE ODD DAY WITH NOTHING CHANGED. The seed is
+  // (depot, game-day), so the draw is fixed for a date and re-rolls at midnight: a gate that
+  // passes today, fails tomorrow and passes again on Thursday, with nothing between the three but
+  // the clock. A check on the DRAW is a check on the roll — the fix is to stop rolling for the
+  // thing that has to be there.
+  const near = dests.filter(d => !!dockAt(d));
   const out = [];
   for (let i = 0; i < 4; i++) {
     const l = LOADS[Math.floor(rng() * LOADS.length) % LOADS.length];
-    const pool = (i === 0 && far.length) ? far : dests;
+    const pool = (i === 0 && far.length) ? far : (i === 1 && near.length) ? near : dests;
     const to = pool[Math.floor(rng() * pool.length) % pool.length];
     // Long hauls pay more, and a load that crosses the waste pays a great deal more — the risk is
     // real and the alternative (a short in-town run) has to stay the safe, boring option.
