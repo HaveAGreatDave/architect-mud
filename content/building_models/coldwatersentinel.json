@@ -1,0 +1,163 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "110,215,255",
+      "z": 0.99
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "mast",
+      "z0": 0.99,
+      "z1": 1.18
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "70,180,255",
+      "s": 18,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Coldwater Sentinel"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.015,
+      "kind": "parapet",
+      "pal": "ty_sentinel",
+      "z": 0.13
+    },
+    {
+      "bars": 7,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#0e1720",
+      "glow": "#cfe8ff",
+      "half": 0.36,
+      "hh": 0.039,
+      "kind": "windowBay",
+      "pal": "ty_sentinel",
+      "z": 0.0546
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.32,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.105,
+      "pal": "ty_sentinel",
+      "soffit": "#28618c",
+      "strip": "#9fd8ff",
+      "z": 0.10400000000000001
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_sentinel",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_sentinel",
+      "z": 0.004
+    },
+    {
+      "color": "#0e1520",
+      "cx": 0,
+      "cy": 0.44,
+      "font": "slab",
+      "half": 0.24,
+      "hh": 0.03,
+      "ink": "#cfe8ff",
+      "kind": "signBoard",
+      "label": "SENTINEL",
+      "z": 0.101
+    }
+  ],
+  "id": "coldwatersentinel",
+  "neon": "#5fd0ff",
+  "note": "The city paper, mid-basin — the transition band, so it is modern but not glass: a stepped block with one cantilevered floor, a centred chamfered clock stage and a drum lantern with a mast. The restraint is the gradient doing its job. West of here the towers twist; east of here they are boxes; this is the middle and should look like somebody rebuilt the top two floors in 2070 and left the rest alone. ⚠ A CANTILEVER AND A ROTATION NEVER SHARE A SEGMENT — see the warning in aurelia.json. An offset box and a yawed box are each safe; a box that is both puts the derived kit where its own solid is not, and glself catches it. So asymmetry here is offset-only and every chamfer is CENTRED. RENDER_TUNE.legacyArms puts the sentinel arm back.",
+  "pal": "ty_sentinel",
+  "replaces": "sentinel",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.13
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.39,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.13,
+      "z1": 0.44
+    },
+    {
+      "cx": -0.1,
+      "cy": 0,
+      "hw": 0.29,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.44,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.19,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.72,
+      "z1": 0.88
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.16,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.785,
+      "z0": 0.72,
+      "z1": 0.88
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 10,
+      "rb": 0.075,
+      "rt": 0.055,
+      "z0": 0.88,
+      "z1": 0.99
+    }
+  ]
+}

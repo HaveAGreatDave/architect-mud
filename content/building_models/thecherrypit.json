@@ -1,0 +1,156 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.5,
+      "rgb": "255,60,150",
+      "z": 0.82
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "255,50,150",
+      "s": 20,
+      "z": 0.02
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "180,60,255",
+      "s": 18,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Cherry Pit"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.015,
+      "kind": "parapet",
+      "pal": "ty_club",
+      "z": 0.12
+    },
+    {
+      "bars": 5,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#1a0f18",
+      "glow": "#ffd0ea",
+      "half": 0.36,
+      "hh": 0.036,
+      "kind": "windowBay",
+      "pal": "ty_club",
+      "z": 0.05039999999999999
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.32,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.105,
+      "pal": "ty_club",
+      "soffit": "#a01a5e",
+      "strip": "#ff9ad8",
+      "z": 0.096
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_club",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_club",
+      "z": 0.004
+    },
+    {
+      "color": "#140a12",
+      "cx": -0.24,
+      "cy": 0.44,
+      "font": "script",
+      "half": 0.11,
+      "hh": 0.035,
+      "ink": "#ff9ad8",
+      "kind": "signBoard",
+      "label": "PIT",
+      "picto": "martini",
+      "z": 0.088
+    }
+  ],
+  "id": "thecherrypit",
+  "neon": "#ff2e8e",
+  "note": "A club on the swanky west strip, and low enough that a tower trick would look silly on it. The form is a CROSS instead: a square main floor with a second one turned thirty degrees through it at the same height, so the plan has eight corners and the roofline steps round itself, under a faceted drum. It is the same coincident-box idea as chromeclinic.json used sideways — there for a chamfer, here deliberately coarse enough to read as two buildings jammed together, which is what the room description has always said the place is. RENDER_TUNE.legacyArms puts the strip arm back.",
+  "pal": "ty_club",
+  "replaces": "strip",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.12
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.12,
+      "z1": 0.46
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.52,
+      "z0": 0.12,
+      "z1": 0.46
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.28,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.46,
+      "z1": 0.7
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 10,
+      "rb": 0.2,
+      "rt": 0.15,
+      "z0": 0.7,
+      "z1": 0.82
+    }
+  ]
+}

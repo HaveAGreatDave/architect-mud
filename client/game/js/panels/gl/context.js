@@ -24,7 +24,7 @@ import { createDecalLayer } from './decals.js';
 import { createStrokeLayer } from './strokes.js';
 import { createBillboardLayer } from './billboards.js';
 import { createGroundLayer } from './ground.js';
-import { createOwnShipLayer } from './ownship.js';
+import { createSolidsLayer } from './solids.js';
 import { createFloorLayer } from './floor.js';
 import { createCloudLayer } from './clouds.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
@@ -1291,7 +1291,7 @@ export function createGLView(canvas, opts = {}) {
     // ⚠ THE RIG COUNTS AS SOMETHING TO REFLECT. This used to ask only whether there were lights or
     // signs, which was the whole of what the buffer held — so on an unlit stretch of wet road the
     // prepass never ran and the truck standing in it had nothing to appear in.
-    if (!(sp && sp.length) && !(dc && dc.length) && !shipQuads) return null;
+    if (!(sp && sp.length) && !(dc && dc.length) && !solidQuads) return null;
     let M;
     try { M = mirrorLayer(); } catch { return null; }
     if (!M.bind(canvas.width, canvas.height, opts.scale)) return null;
@@ -1336,7 +1336,7 @@ export function createGLView(canvas, opts = {}) {
       // ⚠ IT TAKES THE MASS CAMERA. The rig is collected in MAP-WINDOW tiles for exactly the reason
       // the mesh is — see the ⚠ above on mMassCam — so it reflects through the same shifted camera
       // and lands on the same pixels at the same depth.
-      if (shipQuads) drawOwnShip(mMassCam, cssH, { fog: opts.fog || null });
+      if (solidQuads) drawSolids(mMassCam, cssH, { fog: opts.fog || null });
       // Signage next and lights over it, which is the order the frame itself uses — a sign is
       // artwork and a glow is the light coming off it.
       if (dc && dc.length) { const L = decalLayer(); L.upload(dc); L.draw(mcam, cssH); }
@@ -1382,15 +1382,23 @@ export function createGLView(canvas, opts = {}) {
   // (see world.js), so by the time the main pass draws the rig the mirror has already needed it.
   // Keeping the fill separate from the draw is the whole of what makes one buffer serve both.
   let shp = null;
-  const ownShipLayer = () => (shp || (shp = createOwnShipLayer(gl)));
-  let shipQuads = 0;
-  function uploadOwnShip(quads) {
-    shipQuads = (quads && quads.length) ? ownShipLayer().upload(quads) : 0;
-    return shipQuads;
+  const solidsLayer = () => (shp || (shp = createSolidsLayer(gl)));
+  let solidQuads = 0;
+  // ⚠ ONE BUFFER FOR BOTH LISTS, AND THE CONCATENATION HAPPENS HERE RATHER THAN AT THE CALL SITE.
+  // The rig and the shed are the same kind of thing to this layer — flat-shaded solids that write
+  // depth — and they are uploaded once and drawn twice (the mirror, then the main pass), so two
+  // buffers would be two uploads and two draw calls for no difference in the picture. What the
+  // caller gets back is the two counts SEPARATELY, because a diagnostic that adds them together
+  // cannot tell a shed that arrived from a rig that did.
+  function uploadSolids(lists) {
+    const all = [];
+    for (const l of lists) if (l && l.length) for (const q of l) all.push(q);
+    solidQuads = all.length ? solidsLayer().upload(all) : 0;
+    return solidQuads;
   }
-  function drawOwnShip(cam, cssH, opts) {
-    if (!shipQuads) return 0;
-    return ownShipLayer().draw(cam, cssH || canvas.height, opts || {});
+  function drawSolids(cam, cssH, opts) {
+    if (!solidQuads) return 0;
+    return solidsLayer().draw(cam, cssH || canvas.height, opts || {});
   }
 
   // The ground itself. Lazy, and only ever built when RENDER_TUNE.glFloor asks for it.
@@ -1398,7 +1406,7 @@ export function createGLView(canvas, opts = {}) {
   const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
   function drawFloor(state) { return state ? floorLayer().draw(state) : 0; }
 
-  return { gl, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, drawMirror, mirrorPeak, uploadOwnShip, drawOwnShip, setAtlas, lost: () => gl.isContextLost(),
+  return { gl, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, drawMirror, mirrorPeak, uploadSolids, drawSolids, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

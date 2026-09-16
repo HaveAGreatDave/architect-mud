@@ -1,0 +1,205 @@
+{
+  "adorn": [
+    {
+      "color": "#4fe8ff",
+      "cx": 0,
+      "cy": 0.045,
+      "half": 0.42,
+      "kind": "marqueeBand",
+      "label": "THE SPIRE",
+      "z": 0.062
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "60,200,255",
+      "s": 20,
+      "z": 0.02
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "40,120,255",
+      "s": 18,
+      "z": 0.02
+    },
+    {
+      "cx": -0.06,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.6,
+      "rgb": "90,230,255",
+      "z": 1.02
+    },
+    {
+      "cx": 0.06,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.6,
+      "rgb": "90,230,255",
+      "z": 1.02
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "255,90,120",
+      "z": 1.5
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Spire"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.016,
+      "kind": "parapet",
+      "pal": "ty_asc_spire",
+      "z": 0.1
+    },
+    {
+      "bars": 7,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.022,
+      "glass": "#0e1a26",
+      "glow": "#bff4ff",
+      "half": 0.36,
+      "hh": 0.03,
+      "kind": "windowBay",
+      "pal": "ty_asc_spire",
+      "z": 0.038
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.32,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.1,
+      "pal": "ty_asc_spire",
+      "soffit": "#1d9fd0",
+      "strip": "#bff4ff",
+      "z": 0.078
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_asc_spire",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_asc_spire",
+      "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hh": 0.05,
+      "kind": "antennaCluster",
+      "pal": "ty_asc_spire",
+      "r": 0.05,
+      "z": 1.02
+    }
+  ],
+  "id": "thespire",
+  "neon": "#4fe8ff",
+  "note": "The tallest thing in Coldwater (30 floors) and, until this file, a box — it had no named model at all and fell through to the shared asc_spire arm. The form is a TAPER: six square boxes stepping in from a 0.44 podium to a 0.14 crown, so the silhouette narrows the whole way up instead of standing as one slab, with a faceted drum and a needle above the last storey. ⚠ IT IS A BOX STACK AND NOT A ROUND SHAFT, AND THAT IS THE SECOND ATTEMPT. The first cut built the shaft from tapering octagonal drums, which looks better standing still and cannot be finished: `anchored` takes its wall planes from UNYAWED BOXES ONLY, so a drum offers nothing to bolt a window, a sign or a canopy to, and every band authored onto it was floating in clear air. Worse, an authored drum is drawn as a flat palette shade with no night term at all (drawAuthoredModel builds its `skin` from the palette RGB and the face normal and nothing else), so a round tower emits nothing after dark and has to have every light hand-authored — which is exactly what it will not let you anchor. A square unyawed box has neither problem: it keeps its wall texture and its lit windows, and `derivedTrim` gives it the whole derived kit for nothing, which is why this model authors no windows above the podium and is still lit to the top. The drum is kept for the crown and the needle, where there is nothing to hang and nothing to light. RENDER_TUNE.legacyArms puts the asc_spire arm back.",
+  "pal": "ty_asc_spire",
+  "replaces": "asc_spire",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.1
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.38,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.1,
+      "z1": 0.34
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.32,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.34,
+      "z1": 0.56
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.26,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.56,
+      "z1": 0.74
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.74,
+      "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.14,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.9,
+      "z1": 1.02
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 8,
+      "rb": 0.11,
+      "rt": 0.045,
+      "z0": 1.02,
+      "z1": 1.2
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 6,
+      "rb": 0.028,
+      "rt": 0.006,
+      "z0": 1.2,
+      "z1": 1.5
+    }
+  ]
+}

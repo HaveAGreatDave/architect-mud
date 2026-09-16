@@ -1,0 +1,198 @@
+{
+  "adorn": [
+    {
+      "cx": -0.05,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.6,
+      "rgb": "90,240,255",
+      "z": 1.18
+    },
+    {
+      "cx": 0.05,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.6,
+      "rgb": "90,240,255",
+      "z": 1.18
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "mast",
+      "z0": 1.18,
+      "z1": 1.42
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "60,220,255",
+      "s": 20,
+      "z": 0.02
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "40,140,255",
+      "s": 18,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Halcyon Towers"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.015,
+      "kind": "parapet",
+      "pal": "ty_halcyon",
+      "z": 0.1
+    },
+    {
+      "bars": 7,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#0b1a24",
+      "glow": "#bff4ff",
+      "half": 0.36,
+      "hh": 0.03,
+      "kind": "windowBay",
+      "pal": "ty_halcyon",
+      "z": 0.042
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.32,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.105,
+      "pal": "ty_halcyon",
+      "soffit": "#1d7fa8",
+      "strip": "#8fe8ff",
+      "z": 0.08000000000000002
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_halcyon",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_halcyon",
+      "z": 0.004
+    }
+  ],
+  "id": "halcyontowers",
+  "neon": "#39f0ff",
+  "note": "Twenty-one floors, the second-tallest thing in Coldwater and the west side’s signature tower — and twenty-four axis-aligned boxes, which read as a stack of shoeboxes however many of them there were. It TWISTS now: five storeys each rotated about seven and a half degrees on the one below, so the corners walk round the building and the glass catches the light at a different angle on every set-back, finishing in a chamfered crown and a mast. ⚠ A YAWED BOX STILL LIGHTS ITSELF, which is the whole reason a tower can be built this way: `derivedTrim` refuses a rotated segment, so there is no derived kit above the podium, but the box still goes through `draw3DBoxAt` and keeps its curtain-wall texture and its lit floors. A drum in the same place would be a black column. ⚠ AND NONE OF THE TWISTED SEGMENTS IS OFFSET — see the warning in aurelia.json: a segment that is both rotated AND shifted puts the derived kit where its own solid is not, and glself catches it. RENDER_TUNE.legacyArms puts the luxtower arm back.",
+  "pal": "ty_halcyon",
+  "replaces": "luxtower",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.1
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.1,
+      "z1": 0.34
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.13,
+      "z0": 0.34,
+      "z1": 0.56
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.31,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.26,
+      "z0": 0.56,
+      "z1": 0.76
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.26,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.39,
+      "z0": 0.76,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.21,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.52,
+      "z0": 0.92,
+      "z1": 1.04
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.16,
+      "kind": "box",
+      "roof": true,
+      "z0": 1.04,
+      "z1": 1.12
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.135,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.785,
+      "z0": 1.04,
+      "z1": 1.12
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 12,
+      "rb": 0.1,
+      "rt": 0.08,
+      "z0": 1.12,
+      "z1": 1.18
+    }
+  ]
+}

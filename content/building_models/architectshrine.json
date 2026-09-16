@@ -1,0 +1,177 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.8,
+      "rgb": "150,220,255",
+      "z": 1.06
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "90,180,255",
+      "s": 17,
+      "z": 0.02
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "90,180,255",
+      "s": 17,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Architect Shrine"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.015,
+      "kind": "parapet",
+      "pal": "ty_asc_shrine",
+      "z": 0.09
+    },
+    {
+      "bars": 5,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#0b1420",
+      "glow": "#bfe4ff",
+      "half": 0.36,
+      "hh": 0.027,
+      "kind": "windowBay",
+      "pal": "ty_asc_shrine",
+      "z": 0.0378
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.32,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.105,
+      "pal": "ty_asc_shrine",
+      "soffit": "#2a5f8c",
+      "strip": "#bfe4ff",
+      "z": 0.072
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_asc_shrine",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_asc_shrine",
+      "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hh": 0.04,
+      "kind": "antennaCluster",
+      "pal": "ty_asc_shrine",
+      "r": 0.04,
+      "z": 1.06
+    }
+  ],
+  "id": "architectshrine",
+  "note": "Ten floors of Ascendant devotion that rendered as a three-box stack on the shared asc_shrine arm. Built as a ZIGGURAT: seven square boxes stepping in from the podium to a tenth of its width, with a faceted drum lantern on the apex — the one silhouette in Coldwater that narrows the whole way and ends in a point rather than a lid. ⚠ NO AUTHORED `neon`, deliberately. `derivedStyle` reads `m.neon` as a TRUTH TEST for works-vs-front-vs-block, so authoring a colour here would reclassify a stone shrine as a SHOPFRONT and hang a retail kit on it; the accent it wants (#7fc8ff, off the stone family) is what `accentOf` already derives with the field left empty. RENDER_TUNE.legacyArms puts the asc_shrine arm back.",
+  "pal": "ty_asc_shrine",
+  "replaces": "asc_shrine",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.09
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.39,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.09,
+      "z1": 0.28
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.335,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.28,
+      "z1": 0.45
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.28,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.45,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.225,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.73
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.17,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.73,
+      "z1": 0.84
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.115,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.84,
+      "z1": 0.93
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 8,
+      "rb": 0.085,
+      "rt": 0.06,
+      "z0": 0.93,
+      "z1": 1.06
+    }
+  ]
+}

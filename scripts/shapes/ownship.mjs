@@ -4,7 +4,7 @@
 //
 // The vehicle you are in is drawn by a software rasteriser onto the 2-D canvas AFTER the GL canvas
 // has been composited, which is why it drew through buildings and could not appear in a puddle.
-// `gl/ownship.js` gives it real geometry; this checks that the geometry actually arrives.
+// `gl/solids.js` gives it real geometry; this checks that the geometry actually arrives.
 //
 // ⚠ IT ARRIVES OR IT DOES NOT, AND NOTHING IN THE PICTURE SAYS WHICH. The rig is still painted on
 // the canvas afterwards, so a frame with an EMPTY sink looks exactly like a frame with a full one —

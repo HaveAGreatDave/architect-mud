@@ -1,4 +1,21 @@
-// THE VEHICLE YOU ARE IN, AS GEOMETRY.
+// THE SOLIDS THE FRAME DRAWS ITSELF: THE VEHICLE YOU ARE IN, AND THE DEPOT SHED.
+//
+// ⚠ TWO CLIENTS, ONE LAYER, AND THE SECOND ONE IS WHY IT IS NOT CALLED `ownship` ANY MORE. What
+// this draws is a flat-shaded triangle soup that writes depth and is not culled, and the rig was
+// simply the first thing in GLASS that needed one. The depot shed is the second: it is the one
+// building drawn at a fixed size by its own function rather than extruded from a storey stack, so
+// it is in MASS_EXCEPT, it never reaches the GL mass, and it was painted on the canvas AFTER the
+// city was composited — the 'depot shows thru buildings' report, and the same shape as every
+// see-through bug before it.
+//
+// ⚠ THE SHED COULD NOT GO IN THE MASS AND THAT IS A PROPERTY OF THE SHED, NOT A SHORTCUT. The mass
+// buffer is cached per map window; the shed's roller door OPENS as a truck comes up the apron, and
+// its palette flips between an interior and an exterior read depending on which side of the walls
+// the eye is. Both are per-frame, per-tile answers, and a cached buffer cannot carry either — so it
+// would rebuild the whole window's vertex data every frame, which is the one thing the mass buffer
+// exists not to do. Here it is a few hundred triangles uploaded per frame, which is what this layer
+// already does for the rig.
+//
 //
 // The own ship was the last solid object in the frame with no presence in GL at all. It is drawn by
 // `model-raster.js` — a software rasteriser with its own depth buffer — straight onto the 2-D
@@ -82,17 +99,17 @@ function compile(gl, type, src, label) {
   if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
     const log = gl.getShaderInfoLog(sh);
     gl.deleteShader(sh);
-    throw new Error(label + ' ownship shader: ' + log);
+    throw new Error(label + ' solids shader: ' + log);
   }
   return sh;
 }
 
-export function createOwnShipLayer(gl) {
+export function createSolidsLayer(gl) {
   const prog = gl.createProgram();
   gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
   gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
   gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('ownship link: ' + gl.getProgramInfoLog(prog));
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('solids link: ' + gl.getProgramInfoLog(prog));
 
   const loc = {
     pos: gl.getAttribLocation(prog, 'aPos'),

@@ -1,0 +1,192 @@
+{
+  "adorn": [
+    {
+      "color": "#ff3ea0",
+      "cx": 0,
+      "cy": 0.045,
+      "half": 0.42,
+      "kind": "marqueeBand",
+      "label": "CITADEL",
+      "z": 0.115
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,60,160",
+      "s": 19,
+      "z": 0.02
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "80,170,255",
+      "s": 17,
+      "z": 0.02
+    },
+    {
+      "cx": -0.06,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.5,
+      "rgb": "255,80,170",
+      "z": 0.95
+    },
+    {
+      "cx": 0.06,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.5,
+      "rgb": "255,80,170",
+      "z": 0.95
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "mast",
+      "z0": 0.95,
+      "z1": 1.16
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Citadel Financial"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.015,
+      "kind": "parapet",
+      "pal": "ty_office",
+      "z": 0.15
+    },
+    {
+      "bars": 7,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.024,
+      "glass": "#0d1622",
+      "glow": "#cfe4ff",
+      "half": 0.36,
+      "hh": 0.035,
+      "kind": "windowBay",
+      "pal": "ty_office",
+      "z": 0.045
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.33,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.11,
+      "pal": "ty_office",
+      "soffit": "#b4245e",
+      "strip": "#9fd8ff",
+      "z": 0.092
+    },
+    {
+      "color": "#0f1420",
+      "cx": -0.26,
+      "cy": 0.44,
+      "half": 0.1,
+      "ink": "#ff9ad8",
+      "kind": "bladePanel",
+      "label": "CITADEL",
+      "out": 0.018,
+      "pal": "ty_office",
+      "z0": 0.105,
+      "z1": 0.145
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_office",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_office",
+      "z": 0.004
+    }
+  ],
+  "id": "citadelfinancial",
+  "neon": "#ff3ea0",
+  "note": "A newer building in the OLD half of town — the east is meant to read a decade or two behind the glass west, and the way to say that is not to make everything there shabby but to drop one thing in that plainly is not. Built as a TWISTED SETBACK: five boxes, each stepped in and rotated about 8.6 degrees on the one below, so the silhouette turns through roughly 35 degrees between pavement and crown and no two storeys share a corner. Yaw is the cheapest non-cuboid form in this format and the only one that still lights itself, which is why this and thespire.json are built differently: a box goes through draw3DBoxAt and keeps its wall texture and its night windows, where an authored drum gets a flat palette shade and has to have every light authored onto it. ⚠ NOTHING IS HUNG ON THE TWISTED SEGMENTS, and that is a constraint rather than an omission: detail parts are placed in the model frame and carry no yaw of their own, so a parapet or a sign on a rotated box would sit square while the box under it does not. Everything authored here is on the podium, which is deliberately left unrotated and is two storeys rather than one for exactly that reason — `anchored` takes its wall planes from UNYAWED BOXES ONLY, so above z 0.15 this building has no mountable surface at all, and a sign hung there is not merely misaligned but bolted to nothing. It is also the half a pedestrian sees. RENDER_TUNE.legacyArms puts the bank arm back.",
+  "pal": "ty_office",
+  "replaces": "bank",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.15
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.37,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.15,
+      "z0": 0.15,
+      "z1": 0.38
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.32,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.31,
+      "z0": 0.38,
+      "z1": 0.58
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.27,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.47,
+      "z0": 0.58,
+      "z1": 0.75
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.22,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.63,
+      "z0": 0.75,
+      "z1": 0.88
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 12,
+      "rb": 0.12,
+      "rt": 0.1,
+      "z0": 0.88,
+      "z1": 0.95
+    }
+  ]
+}

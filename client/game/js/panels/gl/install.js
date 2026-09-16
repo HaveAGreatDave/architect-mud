@@ -190,7 +190,10 @@ export function installGL(hostFor) {
       // the shadow on the pavement come from one source rather than two.
       glShadow: opts.glShadow, sun: opts.sun,
       curtain: opts.curtain, decals: opts.decals, strokes: opts.strokes, scatter: opts.scatter, ground: opts.ground,
-      ship: opts.ship,
+      // ⚠ AND THE SHED BESIDE IT. Dropped here it is the gl:opts failure exactly: the sink fills,
+      // the tune key exists, the slider moves, and the shed is collected into a list one hop short
+      // of the layer that draws it — so the depot simply is not in the frame at all.
+      ship: opts.ship, bay: opts.bay,
       floor: opts.floor, now: opts.now,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,
       night: opts.night, nb: opts.nb,

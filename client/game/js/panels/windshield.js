@@ -351,8 +351,11 @@ export const RENDER_TUNE = {
   // How hard the headlights lie on the road. See the ⚠ in drawHeadlightBeam: this is additive over
   // a night road, so it is the one knob that can turn the near tarmac into a sheet.
   // The vehicle you are in, as GL geometry. 1 draws it in the main frame as well; the REFLECTION
-  // gets it either way, because a puddle can only show what was drawn into it. See gl/ownship.js.
+  // gets it either way, because a puddle can only show what was drawn into it. See gl/solids.js.
   glShip: 1,
+  // The depot shed as depth-buffer geometry rather than canvas paint. 0 puts it back on the canvas
+  // with markHidden — the all-or-nothing probe — between it and whatever stands in front of it.
+  glBay: 1,
   glBeam: 0.52,
   glPuddle: 5.2,
   // ── THE BUILDINGS IN THE WATER, NOT JUST THE LIGHT OFF THEM ───────────────
@@ -882,6 +885,22 @@ export const RENDER_TUNE = {
   // banding it is what a detail pass can do instead.
   // ⚠ Needs a page reload, exactly as `glBand` and `richKit` do.
   glCourse: 1,
+  // ── A BLADE SIGN IS A THING, NOT A STICKER ──────────────────────────────────────────────────
+  // 0 puts every neon blade in the city back on its screen-space quad. `neonBlade`'s own
+  // half-width was in SCREEN PIXELS (clamp(9/f, 2, 9)), so a blade kept the same apparent thickness
+  // however you moved, never foreshortened, and had no side at all — which `bladePanel`'s own
+  // comment already names as the complaint: "a sticker floating in front of the building". It is a
+  // real box now: a lettered front, a dark back, two edge returns and a cap, all in world units off
+  // the building's own footprint.
+  //
+  // ⚠ IT NEEDS `_bladeBasis`, which only `drawTypeModel` sets — a blade drawn from anywhere else
+  // has no footprint to size itself against and falls back to the screen-space quad rather than
+  // guessing. That is why this is a fallback and not a branch on the flag alone.
+  blade3d: 1,
+  // 0 puts the rooftop holo-ad back on a single flat panel — see drawHoloAd.
+  holo3d: 1,
+  // 0 puts the rooftop sign gantry back on a single plane with two stripes for legs — see signGantry.
+  gantry3d: 1,
   haze: 2.2,          // how fast the floor fades into the horizon haze (live 'Haze' slider); paired with low fog for a soft near-horizon fade instead of a hard blue fog wall
   rwl: 3.2,           // runway length (tiles)
   rwyRecede: 4.0,     // how strongly climbing pushes the runway down/under
@@ -2620,7 +2639,7 @@ export function paintWindshield(id, view) {
       console.error('[windshield] GLASS 2 threw inside the world pass — switching it off and finishing in 2-D', e);
       RENDER_TUNE.gl = 0;
     }
-    finally { GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; STROKE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; OWNSHIP_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; FLOOR_STATE = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = null; }
+    finally { GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; STROKE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; OWNSHIP_SINK = null; BAY_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; FLOOR_STATE = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = null; }
     if (worldBlend > 0.02) {
       // ⚠ NOT UNDER A ROOF. A bolt is world GEOMETRY — a channel from the cloud base to the
       // ground, projected through the world camera — so parked in a depot bay it was drawn
@@ -9315,8 +9334,14 @@ let GROUND_FULL = false;
 // ── THE OWN SHIP, AS GEOMETRY FOR THE GPU ───────────────────────────────────
 // Open only while a GL frame is collecting. drawAircraftModel fills it with finished world-space
 // polygons for the vehicle you are IN — never for a contact, which keeps it one object a frame.
-// See gl/ownship.js for what it is for and why it had to exist at all.
+// See gl/solids.js for what it is for and why it had to exist at all.
 let OWNSHIP_SINK = null;
+// ── THE DEPOT SHED, AS GEOMETRY ─────────────────────────────────────────────
+// The shed's other sink. It is filled by drawVehicleBay with world-space polygons and drawn by
+// gl/solids.js, the same depth-writing layer the rig goes through — see the ⚠ there for why the
+// shed cannot simply join the GL mass, and the ⚠ at the bay's draw site for why it has to be
+// collected INLINE rather than from inside an emitFace closure.
+let BAY_SINK = null;
 // ── WHY THE RIG IS, OR IS NOT, HIDDEN BY WHAT IS IN FRONT OF IT ─────────────
 // Two separate mechanisms mask the own ship against the world — a coarse cell clip on the canvas
 // (beginOcclusionClip) and a per-pixel one inside its own depth buffer (occluderWindow +
@@ -9578,6 +9603,20 @@ export function lastFloorState() {
   return { ...rest, lut0Bytes: lut0 ? lut0.length : 0, lut1Bytes: lut1 ? lut1.length : 0 };
 }
 const _rgbTriple = new Map();
+// A CSS `rgb()`/`rgba()` string back to numbers, for a sink that takes a triple and an alpha.
+// ⚠ IT IS MEMOISED BECAUSE THE INPUTS REPEAT, NOT BECAUSE THE REGEX IS SLOW: a shed's palette is
+// about twenty distinct strings rebuilt every frame for every face, so the cache is small, bounded
+// by the palette rather than by the geometry, and never sees a string it has not seen before.
+const _cssRGBA = new Map();
+const CSS_RGBA = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/;
+function cssRGBA(c) {
+  if (typeof c !== 'string') return null;
+  if (_cssRGBA.has(c)) return _cssRGBA.get(c);
+  const m = CSS_RGBA.exec(c);
+  const v = m ? { rgb: [+m[1], +m[2], +m[3]], a: m[4] == null ? 1 : +m[4] } : null;
+  _cssRGBA.set(c, v);
+  return v;
+}
 function rgbTriple(c) {
   let v = _rgbTriple.get(c);
   if (!v) { v = String(c).split(',').map(Number); _rgbTriple.set(c, v); }
@@ -9796,11 +9835,16 @@ function markBillboard(cam, dx, dy, topZ, halfW, key, paint, nearF = 1.5) {
   const g = cv.getContext("2d");
   g.clearRect(0, 0, bw, bh);
   g.save(); g.scale(D, D); g.translate(-x0, -y0);
-  const sS = SCATTER_SINK, sF = FACE_SINK, sG = GROUND_SINK, sP = SPRITE_SINK, sD = DECAL_SINK, sM = GROUND_MESH, sW = STROKE_SINK;
-  SCATTER_SINK = null; FACE_SINK = null; GROUND_SINK = null; SPRITE_SINK = null; DECAL_SINK = null; GROUND_MESH = null; STROKE_SINK = null;
+  // ⚠ BAY_SINK IS IN THIS LIST BECAUSE EVERY SINK IS. A bake paints into its own canvas, so a
+  // painter that also collects would put the thing it is baking into the live frame as well — twice
+  // over, since the bake is then drawn too. The shed cannot reach here today (its branch returns
+  // before markBillboard), and the list is exhaustive rather than as-needed for the same reason it
+  // always was: the next sink somebody adds is found by reading this line, not by hitting the bug.
+  const sS = SCATTER_SINK, sF = FACE_SINK, sG = GROUND_SINK, sP = SPRITE_SINK, sD = DECAL_SINK, sM = GROUND_MESH, sW = STROKE_SINK, sB = BAY_SINK;
+  SCATTER_SINK = null; FACE_SINK = null; GROUND_SINK = null; SPRITE_SINK = null; DECAL_SINK = null; GROUND_MESH = null; STROKE_SINK = null; BAY_SINK = null;
   try { paint(g); }
   finally {
-    SCATTER_SINK = sS; FACE_SINK = sF; GROUND_SINK = sG; SPRITE_SINK = sP; DECAL_SINK = sD; GROUND_MESH = sM; STROKE_SINK = sW;
+    SCATTER_SINK = sS; FACE_SINK = sF; GROUND_SINK = sG; SPRITE_SINK = sP; DECAL_SINK = sD; GROUND_MESH = sM; STROKE_SINK = sW; BAY_SINK = sB;
     g.restore();
   }
   pushBillboard(SCATTER_SINK, { key, img: cv, fresh: true, x: dx, y: dy, z: 0,
@@ -9866,10 +9910,15 @@ function bakeQuadTex(key, W, H, paint) {
   // ⚠ EVERY SINK IS CLOSED WHILE IT BAKES, the same rule markBillboard and bakeBillboard live by:
   // the paint callback is the very drawer that decided to bake, so an open sink has it collect
   // itself for ever.
-  const sS = SCATTER_SINK, sF = FACE_SINK, sG = GROUND_SINK, sP = SPRITE_SINK, sD = DECAL_SINK, sM = GROUND_MESH, sW = STROKE_SINK;
-  SCATTER_SINK = null; FACE_SINK = null; GROUND_SINK = null; SPRITE_SINK = null; DECAL_SINK = null; GROUND_MESH = null; STROKE_SINK = null;
+  // ⚠ BAY_SINK IS IN THIS LIST BECAUSE EVERY SINK IS. A bake paints into its own canvas, so a
+  // painter that also collects would put the thing it is baking into the live frame as well — twice
+  // over, since the bake is then drawn too. The shed cannot reach here today (its branch returns
+  // before markBillboard), and the list is exhaustive rather than as-needed for the same reason it
+  // always was: the next sink somebody adds is found by reading this line, not by hitting the bug.
+  const sS = SCATTER_SINK, sF = FACE_SINK, sG = GROUND_SINK, sP = SPRITE_SINK, sD = DECAL_SINK, sM = GROUND_MESH, sW = STROKE_SINK, sB = BAY_SINK;
+  SCATTER_SINK = null; FACE_SINK = null; GROUND_SINK = null; SPRITE_SINK = null; DECAL_SINK = null; GROUND_MESH = null; STROKE_SINK = null; BAY_SINK = null;
   try { paint(g, W, H); }
-  finally { SCATTER_SINK = sS; FACE_SINK = sF; GROUND_SINK = sG; SPRITE_SINK = sP; DECAL_SINK = sD; GROUND_MESH = sM; STROKE_SINK = sW; }
+  finally { SCATTER_SINK = sS; FACE_SINK = sF; GROUND_SINK = sG; SPRITE_SINK = sP; DECAL_SINK = sD; GROUND_MESH = sM; STROKE_SINK = sW; BAY_SINK = sB; }
   _quadTex.set(key, c);
   return c;
 }
@@ -9898,7 +9947,13 @@ function solidTex(css) { return bakeQuadTex('solid|' + css, 8, 8, (g, W, H) => {
 // hour and shared by every tile drawing that model — so a surface whose colour is chosen by whether
 // it is night has no single answer at capture time. A decal is drawn every frame from the arm that
 // knows, which is what these are.
-function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT) {
+// ⚠ `tag` NAMES THE PART, AND IT EXISTS BECAUSE THE KEY IS ALSO A VERDICT. `glself` buckets a leak
+// by the first segment of a decal's key, so everything arriving here unnamed is judged against
+// `decal:solid` — whose committed reason is "the recessed doorway panels" and whose budget is sized
+// for them. A rooftop hoarding's back and soffit are a different part with a different reason, and
+// counted there they would spend a budget that then stops meaning anything. Naming is cheap; a
+// category that has quietly become a dumping ground is not.
+function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT, tag = '') {
   const pr = W.map((q) => cam.proj(q[0], q[1], q[2]));
   if (pr.some((q) => q.f <= 0.1)) return;
   const paint = () => {
@@ -9914,7 +9969,7 @@ function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT) {
   if (w.some((q) => !q)) { emitDeco(pr, paint, lift); return; }
   // A triangle folds its last corner onto the third — one real triangle and one degenerate, which
   // costs nothing and keeps a single quad path. Same trick verticalMarquee's caps use.
-  DECAL_SINK.push({ key: 'solid|' + css, img: solidTex(css), alpha,
+  DECAL_SINK.push({ key: (tag ? tag + '|' : '') + 'solid|' + css, img: solidTex(css), alpha,
     p: w.length >= 4 ? w.slice(0, 4) : [w[0], w[1], w[2], w[2]] });
 }
 function quadBox(p, hx, hy, oy = 0) {
@@ -13459,13 +13514,13 @@ function bakeContacts(cam, v, W, H, sun, now) {
     const g = cv.getContext("2d");
     g.clearRect(0, 0, cw, chh);
     g.save(); g.scale(D, D); g.translate(-x0, -y0);
-    const sS = SCATTER_SINK, sF = FACE_SINK, sG = GROUND_SINK, sP = SPRITE_SINK, sD = DECAL_SINK, sM = GROUND_MESH, sW = STROKE_SINK;
-    SCATTER_SINK = null; FACE_SINK = null; GROUND_SINK = null; SPRITE_SINK = null; DECAL_SINK = null; GROUND_MESH = null; STROKE_SINK = null;
+    const sS = SCATTER_SINK, sF = FACE_SINK, sG = GROUND_SINK, sP = SPRITE_SINK, sD = DECAL_SINK, sM = GROUND_MESH, sW = STROKE_SINK, sB = BAY_SINK;
+    SCATTER_SINK = null; FACE_SINK = null; GROUND_SINK = null; SPRITE_SINK = null; DECAL_SINK = null; GROUND_MESH = null; STROKE_SINK = null; BAY_SINK = null;
     let bb = null;
     try { bb = drawAircraftModel(g, cam, c, baseWz, sun, now); }
     catch { bb = null; }
     finally {
-      SCATTER_SINK = sS; FACE_SINK = sF; GROUND_SINK = sG; SPRITE_SINK = sP; DECAL_SINK = sD; GROUND_MESH = sM; STROKE_SINK = sW;
+      SCATTER_SINK = sS; FACE_SINK = sF; GROUND_SINK = sG; SPRITE_SINK = sP; DECAL_SINK = sD; GROUND_MESH = sM; STROKE_SINK = sW; BAY_SINK = sB;
       g.restore();
     }
     // ⚠ SCALED HERE, and the spill into SCATTER_SINK later is a plain push for that reason — a
@@ -15343,6 +15398,10 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
         if (sk) GROUND_MESH.push({
           p: [[a.wx + nx, a.wy + ny, ROAD_EPS], [b.wx + nx, b.wy + ny, ROAD_EPS],
               [b.wx - nx, b.wy - ny, ROAD_EPS], [a.wx - nx, a.wy - ny, ROAD_EPS]],
+          // PAINT, not surface — see the four ranges in gl/ground.js. A kerb stroke overlaps the
+          // pavement band it edges by its own width, and two depth-writing quads on one plane
+          // stipple against each other.
+          paint: 1,
           rgb: sk.rgb, a: sk.a * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha), road: surf === 'road' ? 1 : 0 });
         return;
       }
@@ -15387,7 +15446,11 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
           const Wp = (a, o) => [dx + cam.ox + A[0] * a + Px * o, dy + cam.oy + A[1] * a + Py * o, ROAD_EPS];
           // ctx.globalAlpha is the per-tile distance fade the caller already set; folding it in here
           // is what makes the GPU road the same road rather than a brighter one.
-          GROUND_MESH.push({ road: surf === 'road' ? 1 : 0, p: [Wp(aLo, off - hw), Wp(aLo, off + hw), Wp(aHi, off + hw), Wp(aHi, off - hw)],
+          // PAINT — every marking in the game comes through here, and markings are laid over each
+          // other constantly (a lane dash through a crossing, a kerb along a pavement band, the
+          // worn-road sand over the lines it half-buries). See the four ranges in gl/ground.js:
+          // paint tests depth and writes none, so the push order below IS the paint order.
+          GROUND_MESH.push({ paint: 1, road: surf === 'road' ? 1 : 0, p: [Wp(aLo, off - hw), Wp(aLo, off + hw), Wp(aHi, off + hw), Wp(aHi, off - hw)],
             rgb: gc, a: sa * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha) });
           return;
         }
@@ -15591,8 +15654,6 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
         for (const d of dirs) {
           const A = DIRV[d]; if (!A) continue;
           pavement(A, 0.42, 0.5);
-          stripeA(A, -0.045, 0.014, 0, 0.5, YEL); stripeA(A, 0.045, 0.014, 0, 0.5, YEL);              // yellow centre arm
-          dashedA(A, -0.23, 0.014, 0.12, 0.5, 0.24, 0.13, LANE); dashedA(A, 0.23, 0.014, 0.12, 0.5, 0.24, 0.13, LANE);   // lane dashes, clear of the junction box
           // THE CROSSING. A zebra ladder laid across this arm, just outside the junction box and
           // inside the pavement it joins — so it reads as connecting the two kerbs rather than
           // floating in the road. Junctions only (a T or a crossroads): a bend or a dead-end stub
@@ -15602,8 +15663,21 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
           // stopping well short of the pavement at either end, so it read as a strip of paint in
           // the middle of the road rather than as a route across it. A crossing is defined by the
           // two things it JOINS; anything narrower than the gap between the kerbs is decoration.
-          if (!junction) continue;
-          for (let k = -4; k <= 4; k++) stripeA(A, k * (VERGE - WALK_HW) / 4.5, 0.030, 0.30, 0.42, LANE);
+          //
+          // ⚠ AND IT GOES DOWN BEFORE THE LANE PAINT. The ladder reaches kerb to kerb, so the two
+          // innermost bars lie across the double yellow and the outer two across the lane dashes —
+          // the bars are 0.06 wide on 0.066 centres and the yellow sits at ±0.045, so the overlap
+          // is not a rounding error, it is most of a bar. Whatever is laid last is what you see,
+          // and the centreline is the line that has to stay readable through a junction.
+          //
+          // ⚠ AND IT GOES DOWN BEFORE THE LANE PAINT. The ladder reaches kerb to kerb, so the two
+          // innermost bars lie across the double yellow and the outer two across the lane dashes —
+          // the bars are 0.06 wide on 0.066 centres and the yellow sits at ±0.045, so the overlap
+          // is not a rounding error, it is most of a bar. Whatever is laid last is what you see,
+          // and the centreline is the line that has to stay readable through a junction.
+          if (junction) for (let k = -4; k <= 4; k++) stripeA(A, k * (VERGE - WALK_HW) / 4.5, 0.030, 0.30, 0.42, LANE);
+          stripeA(A, -0.045, 0.014, 0, 0.5, YEL); stripeA(A, 0.045, 0.014, 0, 0.5, YEL);              // yellow centre arm
+          dashedA(A, -0.23, 0.014, 0.12, 0.5, 0.24, 0.13, LANE); dashedA(A, 0.23, 0.014, 0.12, 0.5, 0.24, 0.13, LANE);   // lane dashes, clear of the junction box
         }
         // ── ⚠ THE PAVEMENT TURNS THE CORNER ──────────────────────────────────────
         // Each arm above lays its bands from 0.42 out to the tile edge, which leaves a square hole
@@ -16307,7 +16381,7 @@ export function canvasResidue(m, opts = {}) {
   const { fh = 0.4, h = 1, seed = 3, E = [0, 1], night = 1, tier = ADORN_NEAR, cam = null, dx = 0, dy = -8, now = 1e6 } = opts;
   const sv = {
     face: FACE_SINK, mesh: MESH_SINK, decal: DECAL_SINK, sprite: SPRITE_SINK, scatter: SCATTER_SINK, stroke: STROKE_SINK,
-    cells: GL_CELLS, mass: MASS_OFF, flat: FLAT_OFF, tier: ADORN_TIER, tally: EMIT_TALLY, sign: _bladeSign, pull: PULL_OFF,
+    cells: GL_CELLS, mass: MASS_OFF, flat: FLAT_OFF, tier: ADORN_TIER, tally: EMIT_TALLY, sign: _bladeSign, basis: _bladeBasis, pull: PULL_OFF,
   };
   const out = { canvas: {}, faces: 0, mesh: 0, decals: 0, sprites: 0, scatter: 0, threw: null };
   try {
@@ -16329,7 +16403,7 @@ export function canvasResidue(m, opts = {}) {
   finally {
     FACE_SINK = sv.face; MESH_SINK = sv.mesh; DECAL_SINK = sv.decal; SPRITE_SINK = sv.sprite; STROKE_SINK = sv.stroke;
     SCATTER_SINK = sv.scatter; GL_CELLS = sv.cells; MASS_OFF = sv.mass; FLAT_OFF = sv.flat;
-    ADORN_TIER = sv.tier; EMIT_TALLY = sv.tally; _bladeSign = sv.sign; PULL_OFF = sv.pull;
+    ADORN_TIER = sv.tier; EMIT_TALLY = sv.tally; _bladeSign = sv.sign; _bladeBasis = sv.basis; PULL_OFF = sv.pull;
   }
   return out;
 }
@@ -16799,13 +16873,13 @@ export function nearTierSmoke() {
   const m = TYPE_MODEL.shop;
   if (!m) { out.push('TYPE_MODEL.shop is gone — the near tier has no arm to prove itself on'); return out; }
   const count = (tier) => {
-    const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+    const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedBasis = _bladeBasis;
     try {
       FACE_SINK = []; ADORN_TIER = tier;
       drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, 0.4, 1, m, 3, 0, 1, 1000, [0, 1], '');
       return FACE_SINK.length;
     } finally {
-      ADORN_TIER = ADORN_RICH; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+      ADORN_TIER = ADORN_RICH; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
     }
   };
   let rich, near;
@@ -16818,7 +16892,7 @@ export function shapeRenderSmoke() {
   const out = [];
   for (const { key, m } of shapeModelRegistry()) {
     for (const night of [0, 0.9]) for (const dyOff of [-8, 8]) {
-      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedBasis = _bladeBasis;
       try {
         FACE_SINK = [];
         drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SMOKE TEST', SMOKE_BOARD);
@@ -16826,13 +16900,13 @@ export function shapeRenderSmoke() {
       } catch (e) {
         out.push({ key, night, front: dyOff < 0, err: e.message });
       } finally {
-        FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+        FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
       }
     }
     // The adornments-only pass is a THIRD way an arm can run (mass suppressed, lights drawn), and an
     // arm that reads back something a mass primitive would have returned would only fail here.
     for (const night of [0, 0.9]) {
-      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedBasis = _bladeBasis;
       try {
         FACE_SINK = []; MASS_OFF = true;
         drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SMOKE TEST', SMOKE_BOARD);
@@ -16840,7 +16914,7 @@ export function shapeRenderSmoke() {
       } catch (e) {
         out.push({ key, night, err: `adornments-only: ${e.message}` });
       } finally {
-        MASS_OFF = false; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+        MASS_OFF = false; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
       }
     }
     // THE NEAR TIER, and the invariant that makes it safe.
@@ -16856,7 +16930,7 @@ export function shapeRenderSmoke() {
     // instead of emitFlat would be recorded by SHAPE_SINK and silently move all four, and it would
     // look completely correct on screen. This is what catches that, on the push gate, by value.
     for (const night of [0, 0.9]) {
-      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedBasis = _bladeBasis;
       try {
         FACE_SINK = []; ADORN_TIER = ADORN_NEAR;
         drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SMOKE TEST', SMOKE_BOARD);
@@ -16864,7 +16938,7 @@ export function shapeRenderSmoke() {
       } catch (e) {
         out.push({ key, night, err: `near tier: ${e.message}` });
       } finally {
-        ADORN_TIER = ADORN_RICH; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+        ADORN_TIER = ADORN_RICH; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
       }
     }
     try {
@@ -16979,7 +17053,7 @@ export function renderModelPreview(canvas, opts = {}) {
     ctx.fillStyle = rgb(grd); ctx.fillRect(0, Math.max(0, horizonY), W, H - Math.max(0, horizonY));
   }
 
-  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedTier = ADORN_TIER;
+  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedBasis = _bladeBasis, savedTier = ADORN_TIER;
   const savedTune = TUNE;
   try {
     FACE_SINK = [];
@@ -16993,7 +17067,7 @@ export function renderModelPreview(canvas, opts = {}) {
     if (wire) drawShapeWire(ctx, cam, dx, dy, fh, h, m, seed, E, -1);
   } finally {
     FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight;
-    _bladeSign = savedSign; ADORN_TIER = savedTier; TUNE = savedTune;
+    _bladeSign = savedSign; _bladeBasis = savedBasis; ADORN_TIER = savedTier; TUNE = savedTune;
     ctx.restore();
   }
   return { cam, dx, dy, horizonY };
@@ -17783,7 +17857,7 @@ function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
   // callers that pass one (signBoard, signGantry) use it as a 1px edge on a dark board, and losing
   // it is not visible at the range a roof board is read from.
   if (opts.paint && DECAL_SINK && !SHAPE_SINK && cam.unproj && TUNE.glDeco && cssRgb(fill)) {
-    emitDecoFill(ctx, cam, poly, fill, alpha, opts.lift || DETAIL_LIFT);
+    emitDecoFill(ctx, cam, poly, fill, alpha, opts.lift || DETAIL_LIFT, opts.tag);
     return;
   }
   const pr = poly.map(p => cam.proj(p[0], p[1], p[2]));
@@ -17919,6 +17993,19 @@ function latticeTower(ctx, cam, dx, dy, z0, z1, r0, r1, alpha, now, seed) {
 // canvas (dark-edged white core + colour halo); the caller still draws its own backing board.
 const _signTexCache = new Map();   // key `label|color|dn|vertical` → offscreen neon-glyph canvas
 let _bladeSign;   // ambient: the current building's display name, set by drawTypeModel so its neonBlades paint real letters without threading the name through every call site (same idiom as FACE_SINK)
+// ── …AND THE FOOTPRINT IT IS SIZED AGAINST ──────────────────────────────────
+// A blade needs two things the 41 call sites do not pass: how big the building is (so its width is
+// in world units rather than screen pixels) and which way its entrance faces (so the sign has a
+// front). Same ambient idiom, for the same reason — threading two more arguments through 41 arms
+// to make one of them 3-D is how the mirroring bug got into this file in the first place.
+//
+// ⚠ IT IS SAVED AND RESTORED WITH `_bladeSign` AND NOT LEFT ALONE LIKE `_signFace`. That one is
+// safe to leave because it is a pure function of the model, so a re-entrant capture OF THE SAME
+// MODEL writes the value that was already there. This is a function of `fh` and `E`, and a
+// capture runs the same model at a DIFFERENT footprint and a different facing — `shapeForModel`
+// captures at a fixed scale, `captureModelMesh` at `MESH_BACK` along −E — so an unrestored basis
+// would leave the live pass sizing its blades against whatever the last capture happened to use.
+let _bladeBasis = null;
 // ── …AND THE HAND IT LETTERS IN ─────────────────────────────────────────────
 //
 // The same idiom for the same reason: ~30 arm call sites hand `bakeSignText` a label and a colour
@@ -18211,10 +18298,43 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
   if (label === undefined) label = _bladeSign;   // default to the current building's name; pass '' to force the abstract rungs
   const b = cam.proj(dx, dy, h0), t = cam.proj(dx, dy, h1); if (b.f <= 0.12 || t.f <= 0.12) return;
   const ux = t.sx - b.sx, uy = t.sy - b.sy, len = Math.hypot(ux, uy) || 1;
-  const wpx = clamp(9 / ((b.f + t.f) / 2), 2, 9);            // blade half-width (screen px), distance-scaled
-  const nx = -uy / len * wpx, ny = ux / len * wpx;           // perpendicular half-width offset
-  const P = [[b.sx + nx, b.sy + ny], [t.sx + nx, t.sy + ny], [t.sx - nx, t.sy - ny], [b.sx - nx, b.sy - ny]];
   const glow = glowEarned(night, (b.f + t.f) / 2);   // the bloom is the expensive half of neon
+  // Hoisted above the face, because the face is now sized in WORLD units and has to carry the
+  // halo's share itself rather than being widened in screen space afterwards.
+  const pad = glow ? 0.25 : 0, padY = pad * 0.06;    // fraction of the TEXTURE given over to the halo, per axis
+  // ── THE FACE, IN WORLD UNITS ────────────────────────────────────────────────────────────────
+  // See `RENDER_TUNE.blade3d`. The width runs perpendicular to the entrance normal and the board
+  // stands `th` either side of the anchor, so the blade foreshortens as you drive past it and shows
+  // an edge when you are beside it — neither of which a screen-space half-width can do.
+  const basis = RENDER_TUNE.blade3d !== 0 ? _bladeBasis : null;
+  let nx, ny, P, SOLID = null;
+  if (basis) {
+    const hw = clamp(basis.fh * 0.17, 0.02, 0.11) / (1 - 2 * pad);
+    const th = Math.max(hw * 0.30, 0.008);
+    const mid = (h0 + h1) / 2, halfL = ((h1 - h0) / 2) / (1 - 2 * padY);
+    const z0 = mid - halfL, z1 = mid + halfL;
+    const px = basis.E[1], py = -basis.E[0];                   // unit along the blade's width
+    const fx = dx + basis.E[0] * th, fy = dy + basis.E[1] * th;   // front plane
+    const kx = dx - basis.E[0] * th, ky = dy - basis.E[1] * th;   // back plane
+    const pA = cam.proj(fx + px * hw, fy + py * hw, z1), pB = cam.proj(fx - px * hw, fy - py * hw, z1);
+    const pC = cam.proj(fx + px * hw, fy + py * hw, z0), pD = cam.proj(fx - px * hw, fy - py * hw, z0);
+    if ([pA, pB, pC, pD].some((q) => q.f <= 0.12)) return;
+    // ⚠ ORDERED BY SCREEN X, AND THAT IS NOT A TIDY-UP. The old quad's `nx` was always positive, so
+    // "+n" was always screen-RIGHT and the lettering's corner order could be written down once —
+    // see the ⚠ below on P[2]/P[1], which is the bug that mirrored every word in Coldwater. A world
+    // width has no such guarantee: whether +u lands left or right of −u depends on where you are
+    // standing, so taking the corners in world order would mirror every blade from half the
+    // compass. Sorting by projected x restores the invariant the lettering was written against.
+    const swap = pA.sx < pB.sx;
+    const rt = swap ? pB : pA, lt = swap ? pA : pB, rb = swap ? pD : pC, lb = swap ? pC : pD;
+    P = [[rb.sx, rb.sy], [rt.sx, rt.sy], [lt.sx, lt.sy], [lb.sx, lb.sy]];
+    nx = (rb.sx - lb.sx) / 2; ny = (rb.sy - lb.sy) / 2;        // half-width vector, for the abstract rungs
+    SOLID = { hw, th, z0, z1, px, py, fx, fy, kx, ky, lt, rt, rb, lb };
+  } else {
+    const wpx = clamp(9 / ((b.f + t.f) / 2), 2, 9);            // blade half-width (screen px), distance-scaled
+    nx = -uy / len * wpx; ny = ux / len * wpx;                 // perpendicular half-width offset
+    P = [[b.sx + nx, b.sy + ny], [t.sx + nx, t.sy + ny], [t.sx - nx, t.sy - ny], [b.sx - nx, b.sy - ny]];
+  }
   const paint = (ctx) => {
     const trace = () => { ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); };
     ctx.save();
@@ -18268,7 +18388,7 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
   // drawn within `glowFar` (see glowEarned), where a blade is large, so the quad is widened by the
   // blade's own half-width and the art sits in the middle of it — which also gives a near blade a
   // halo in proportion to itself rather than a constant thread round a huge sign.
-  const TW = 64, TH = 512, pad = glow ? 0.25 : 0, padY = pad * 0.06;   // fraction of the TEXTURE given over to the halo, per axis
+  const TW = 64, TH = 512;   // pad/padY are hoisted above the face — see there
   const tex = DECAL_SINK && cam.unproj && TUNE.glDeco ? bakeQuadTex(
     'blade|' + label + '|' + color + '|' + (night ? 1 : 0) + '|' + (glow ? 1 : 0), TW, TH, (g, W, H) => {
       const x0 = W * pad, x1 = W * (1 - pad), y0 = H * padY, y1 = H * (1 - padY);
@@ -18298,14 +18418,62 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
   // How far past the blade the padded texture reaches, on each axis, in the units that axis is
   // measured in — the art occupies the middle (1 − 2·pad) of the texture, so the quad is the blade
   // divided by exactly that.
-  const gn = 1 / (1 - 2 * pad) - 1, gl = (len / 2) * (1 / (1 - 2 * padY) - 1);
-  const gx = nx * gn, gy = ny * gn, lx = ux / len * gl, ly = uy / len * gl;
-  const corners = [
-    { sx: t.sx - nx - gx + lx, sy: t.sy - ny - gy + ly, f: t.f },
-    { sx: t.sx + nx + gx + lx, sy: t.sy + ny + gy + ly, f: t.f },
-    { sx: b.sx + nx + gx - lx, sy: b.sy + ny + gy - ly, f: b.f },
-    { sx: b.sx - nx - gx - lx, sy: b.sy - ny - gy - ly, f: b.f },
-  ];
+  let corners;
+  if (SOLID) {
+    // The padding is already in `hw` and `z0/z1`, so the quad IS the face.
+    corners = [SOLID.lt, SOLID.rt, SOLID.rb, SOLID.lb];
+    // ── …AND THE THREE SIDES THAT MAKE IT A BOX ───────────────────────────────────────────────
+    // ⚠ THEY TAKE `BLADE_PROUD`, THE SAME PULL AS THE FACE, AND emitDecoFill CANNOT GIVE IT.
+    // That helper caps its lift at `DECO_PULL` (0.05) because it is written for a panel lying on a
+    // wall. A blade's anchor is authored INSIDE the facade — which is what BLADE_PROUD exists for —
+    // so a face pulled 0.25 and sides pulled 0.05 would separate by a fifth of a tile and the board
+    // would float off its own edges. So these go through emitDecoQuad with a solid texture.
+    const dark = '#0e0a10', S = SOLID;
+    const side = (pts) => {
+      const pr = pts.map((q) => cam.proj(q[0], q[1], q[2]));
+      if (pr.some((q) => q.f <= 0.12)) return;
+      // ⚠ KEYED 'blade|…' AND NOT 'solid|…'. glself tags a decal by the first segment of its key, so
+      // a side keyed as a plain solid is counted against the RECESSED-DOORWAY budget — a different part,
+      // with a different reason, whose number would then stop meaning anything. These are the blade: same
+      // anchor inside the facade, same BLADE_PROUD clearing it, so they answer to the blade's own reason.
+      emitDecoQuad(ctx, cam, pr, 'blade|solid|' + dark, solidTex(dark), alpha, () => {
+        ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = dark;
+        ctx.beginPath(); pr.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy));
+        ctx.closePath(); ctx.fill(); ctx.restore();
+      }, DECO_LIFT, BLADE_PROUD);
+    };
+    // ⚠ BACKFACE-CULLED, AND THAT IS A COST DECISION AS MUCH AS A CORRECTNESS ONE. A box has six
+    // sides and you can see at most three; emitting all of them put `framecost` up 2.9% against a
+    // 2% tolerance for faces nobody was ever going to look at. The test is the same one the box
+    // walls and `frontVis` use — a face points at you when its outward normal dotted with
+    // (face centre − eye) is negative — so a blade costs the face, ONE edge and the cap.
+    //
+    // ⚠ THE LETTERED FACE IS NOT CULLED, deliberately. Today a blade reads from every angle because
+    // it was a screen-space quad, and culling it would make half the signs in Coldwater blank from
+    // the back — a bigger change than this is meant to be, and one to make on purpose if at all.
+    const seen = (cx2, cy2, nx2, ny2) => (nx2 * (cx2 - (cam.ex || 0)) + ny2 * (cy2 - (cam.ey || 0))) < 0;
+    const E0 = basis.E[0], E1 = basis.E[1];
+    if (seen(S.kx, S.ky, -E0, -E1)) {
+      side([[S.kx + S.px * S.hw, S.ky + S.py * S.hw, S.z1], [S.kx - S.px * S.hw, S.ky - S.py * S.hw, S.z1],
+            [S.kx - S.px * S.hw, S.ky - S.py * S.hw, S.z0], [S.kx + S.px * S.hw, S.ky + S.py * S.hw, S.z0]]);
+    }
+    for (const sg of [1, -1]) {
+      if (!seen(dx + S.px * S.hw * sg, dy + S.py * S.hw * sg, S.px * sg, S.py * sg)) continue;
+      side([[S.fx + S.px * S.hw * sg, S.fy + S.py * S.hw * sg, S.z1], [S.kx + S.px * S.hw * sg, S.ky + S.py * S.hw * sg, S.z1],
+            [S.kx + S.px * S.hw * sg, S.ky + S.py * S.hw * sg, S.z0], [S.fx + S.px * S.hw * sg, S.fy + S.py * S.hw * sg, S.z0]]);
+    }
+    side([[S.fx + S.px * S.hw, S.fy + S.py * S.hw, S.z1], [S.fx - S.px * S.hw, S.fy - S.py * S.hw, S.z1],
+          [S.kx - S.px * S.hw, S.ky - S.py * S.hw, S.z1], [S.kx + S.px * S.hw, S.ky + S.py * S.hw, S.z1]]);
+  } else {
+    const gn = 1 / (1 - 2 * pad) - 1, gl = (len / 2) * (1 / (1 - 2 * padY) - 1);
+    const gx = nx * gn, gy = ny * gn, lx = ux / len * gl, ly = uy / len * gl;
+    corners = [
+      { sx: t.sx - nx - gx + lx, sy: t.sy - ny - gy + ly, f: t.f },
+      { sx: t.sx + nx + gx + lx, sy: t.sy + ny + gy + ly, f: t.f },
+      { sx: b.sx + nx + gx - lx, sy: b.sy + ny + gy - ly, f: b.f },
+      { sx: b.sx - nx - gx - lx, sy: b.sy - ny - gy - ly, f: b.f },
+    ];
+  }
   // Sort as a building-mounted deco (lifted DECO_LIFT tiles forward), not by its raw average depth:
   // a back-corner blade’s average sits BEHIND its own tile-centered roof cap, so the two flip-flop in
   // the painter queue and the sign flashes on/off as the camera swings past (same fix as marqueeBand).
@@ -19313,6 +19481,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
   if (SHAPE_SINK) SHAPE_PAL = m.pal;   // ambient palette for the non-box mass primitives (capture only)
   const sign = (name || '').trim().toUpperCase() || undefined;
   _bladeSign = sign;
+  _bladeBasis = { fh, E };     // …and the footprint and facing its blades are sized against
   _signFace = signFontOf(m);   // …and the hand it letters in — see the ⚠ on _signFace
   const F = (lx, ly) => facePt(dx, dy, lx, ly, E);   // model-local → world, rotated to the entrance
   const W3 = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return [wx, wy, z]; };   // …and the same point with its height on it
@@ -23488,7 +23657,7 @@ const SHAPE_STUB_CAM = { sinh: 0, cosh: 1, back: 0, ex: -0, ey: 0, fwdOff: 0, EH
 // One raw pass. `dyOff` positions the model so that frontVis (which is just `dy + fh < 0` under this
 // stub cam) comes out the way we want: negative → the entrance face is toward the camera.
 function captureRawPass(m, fh, h, seed, dyOff) {
-  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedBasis = _bladeBasis;
   const savedSigns = SIGN_SEEN;
   const sink = [];
   try {
@@ -23513,7 +23682,7 @@ function captureRawPass(m, fh, h, seed, dyOff) {
     else drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, fh, h, m, seed, 0, 1, 0, [0, 1], '');
   } finally {
     // Restore in a finally so a throwing arm can't leave the sink installed and blank the skyline.
-    SHAPE_SINK = null; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+    SHAPE_SINK = null; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
     SIGN_SEEN = savedSigns;
   }
   return sink;
@@ -24900,13 +25069,45 @@ const AUTHORED_DETAIL = {
     // ⚠ THE WHOLE FITTING TAKES `paint`, NOT ONLY THE BOARD. Legs and trim in the mesh with the
     // board on the canvas is a gantry that half-disappears on an unnamed tile — two legs and a lit
     // frame round nothing, which is a worse object than the blank board this guard exists to stop.
-    const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, { ...(o || {}), paint: perTile });
+    const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, { ...(o || {}), paint: perTile, tag: 'gantry' });
+    // ── THE HOARDING IS A SLAB ON POSTS (`RENDER_TUNE.gantry3d`, 0 puts the single plane back) ──────
+    //
+    // The schema calls this "a billboard standing on a roof, on its own legs" and it was drawn as
+    // one quad at a fixed y with two more for the legs — a plane and two stripes. It is the one
+    // adornment in the city whose whole job is to stand UP off a roofline against the sky, which is
+    // exactly the silhouette a plane cannot hold: from anywhere off its own axis it thins to a line
+    // and the legs go with it.
+    //
+    // ⚠ IT IS MESH, NOT A DECAL, so the extra faces are real depth-tested geometry rather than more
+    // canvas work — `detailQuad` goes through `emitFlat`. That is also why they can be CULLED
+    // properly: a box has six sides and you see at most three, so the back, the far edge and the
+    // soffit carry a `cullN` and cost nothing when they are turned away.
+    //
+    // ⚠ THE LEGS TAKE THE `pipe` IDIOM — two strips at right angles rather than a four-sided post.
+    // Its own note in this file makes the argument: that "reads as a round pipe from any angle a
+    // wall is seen from and costs two quads instead of a drum", and a sign leg is the same problem.
+    const dp = RENDER_TUNE.gantry3d !== 0 ? Math.max(hh * 0.11, 0.006) : 0;
+    const out = y < 0 ? -1 : 1;                       // which way the board FACES — the side it was authored on
+    const yF = y + out * dp, yB = y - out * dp;
+    const nF = [out * c.E[0], out * c.E[1]];
     for (const sx of [-1, 1]) {   // two legs, splayed in a little from the board's own width
       const lx = c.lx + sx * half * 0.62, t = Math.max(half * 0.045, 0.005);
-      Q([[lx - t, y, zb + hh * 0.2], [lx + t, y, zb + hh * 0.2], [lx + t, y, z], [lx - t, y, z]], leg, c.alpha, { lift: DETAIL_LIFT });
+      Q([[lx - t, yF, zb + hh * 0.2], [lx + t, yF, zb + hh * 0.2], [lx + t, yF, z], [lx - t, yF, z]], leg, c.alpha, { lift: DETAIL_LIFT });
+      if (dp) Q([[lx, yF + t, zb + hh * 0.2], [lx, yF - t, zb + hh * 0.2], [lx, yF - t, z], [lx, yF + t, z]], shadeOf(P, 0.40), c.alpha, { lift: DETAIL_LIFT });
     }
-    const pts = [[c.lx - half, y, zt], [c.lx + half, y, zt], [c.lx + half, y, zb], [c.lx - half, y, zb]];
+    const pts = [[c.lx - half, yF, zt], [c.lx + half, yF, zt], [c.lx + half, yF, zb], [c.lx - half, yF, zb]];
     Q(pts, board, c.alpha, { lift: DETAIL_LIFT, stroke: 'rgba(0,0,0,0.5)', lw: 1 });
+    if (dp) {
+      // The back of a hoarding is bare board and dimmer than its painted face.
+      Q([[c.lx + half, yB, zt], [c.lx - half, yB, zt], [c.lx - half, yB, zb], [c.lx + half, yB, zb]], shadeOf(P, 0.44), c.alpha,
+        { lift: DETAIL_LIFT, cullN: [-nF[0], -nF[1]] });
+      for (const sx of [-1, 1]) {   // the two edge returns, which are what give it a thickness you can see
+        Q([[c.lx + sx * half, yF, zt], [c.lx + sx * half, yB, zt], [c.lx + sx * half, yB, zb], [c.lx + sx * half, yF, zb]], frame, c.alpha,
+          { lift: DETAIL_LIFT, cullN: [sx * c.E[1], -sx * c.E[0]] });
+      }
+      Q([[c.lx - half, yF, zt], [c.lx + half, yF, zt], [c.lx + half, yB, zt], [c.lx - half, yB, zt]], frame, c.alpha, { lift: DETAIL_LIFT });
+      Q([[c.lx - half, yB, zb], [c.lx + half, yB, zb], [c.lx + half, yF, zb], [c.lx - half, yF, zb]], shadeOf(P, 0.32), c.alpha, { lift: DETAIL_LIFT });
+    }
     // A lit frame round the board — the neon tube that makes the reference's sign a sign and not
     // a rectangle. Drawn proud of the board so it survives a depth buffer.
     if (d.trim) {
@@ -27313,7 +27514,7 @@ export function captureModelTrace(m, opts = {}) {
   const cam = makeCam(W, H * 0.42, H * 0.55, { heading, height: 0, eyeH });
   const hd = heading * Math.PI / 180;
   const dx = dist * Math.sin(hd), dy = -dist * Math.cos(hd);
-  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedTier = ADORN_TIER;
+  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedBasis = _bladeBasis, savedTier = ADORN_TIER;
   try {
     FACE_SINK = [];
     ADORN_TIER = tier;
@@ -27324,7 +27525,7 @@ export function captureModelTrace(m, opts = {}) {
     sink.push('THREW:' + e.message);
   } finally {
     FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight;
-    _bladeSign = savedSign; ADORN_TIER = savedTier;
+    _bladeSign = savedSign; _bladeBasis = savedBasis; ADORN_TIER = savedTier;
   }
   return sink;
 }
@@ -27499,7 +27700,7 @@ export function authoredAdornSmoke() {
         return SHAPE_STUB_CAM.proj(x, y, z);
       },
     };
-    const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+    const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedBasis = _bladeBasis;
     try {
       FACE_SINK = [];
       MASS_OFF = true;             // adornments only — the mass has its own coverage above
@@ -27510,7 +27711,7 @@ export function authoredAdornSmoke() {
       out.push(`${key}: adornments threw — ${e.message}`);
     } finally {
       MASS_OFF = false; ADORN_TIER = ADORN_RICH;
-      FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+      FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
     }
     if (bad.length) {
       out.push(`${key}: ${bad.length} adornment point(s) projected at a non-finite position `
@@ -27595,7 +27796,7 @@ function drawSlabAt(ctx, cam, dx, dy, halfX, halfY, z0, z1, pal, seed, night, al
 // 173 models as emitting nothing after dark when some of them were lit. The sprite sink is the
 // exact answer for those three, so the cost runs with it installed and counts what it collects.
 export function shapeAdornCost(m, tier = ADORN_RICH, night = 0.9, camF = 4) {
-  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedBasis = _bladeBasis;
   const savedSprites = SPRITE_SINK;
   SPRITE_SINK = [];
   SHAPE_STUB_COST.grads = 0; SHAPE_STUB_COST.blurs = 0;
@@ -27608,7 +27809,7 @@ export function shapeAdornCost(m, tier = ADORN_RICH, night = 0.9, camF = 4) {
     flushFaces();
     return { faces: 0, grads: SHAPE_STUB_COST.grads, blurs: SHAPE_STUB_COST.blurs, sprites: SPRITE_SINK.length };
   } catch { return { faces: 0, grads: 0, blurs: 0, sprites: 0 }; } finally {
-    MASS_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+    MASS_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
     SPRITE_SINK = savedSprites;
   }
 }
@@ -27886,6 +28087,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   GROUND_SINK = glOn ? [] : null;
   SCATTER_SINK = glOn ? [] : null;
   OWNSHIP_SINK = glOn ? [] : null;
+  BAY_SINK = glOn ? [] : null;
   // ⚠ AFTER THE ASSIGNMENT, not beside the shadow’s drain a few lines up. SCATTER_SINK is set
   // LAST of the sinks, so draining into it any earlier reads the null left by the previous
   // frame’s finally and silently throws every contact away.
@@ -28241,43 +28443,90 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (it.off || (occluded && occluded.has(it))) continue;
     MARK_TILE = it.wx + "," + it.wy;   // see the ⚠ on MARK_TILE: a bake is named by its tile
     const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.fwdOff || 0);
+    // ── ⚠ A MARK IS A BUILDING THAT IS NOT IN THE MASS, AND IT DREW OVER THE ONES THAT ARE ──────
+    //
+    // Everything in MASS_EXCEPT — a statue, a gate, a sign, pylons, an airstrip's marks, a DEPOT
+    // SHED, a no-fly block — is drawn by its own function rather than extruded from a storey stack,
+    // so it never reaches the GL mass. That is fine for the picture and fatal for the ORDER: the
+    // canvas is painted after the GL composite, so a shed behind a frontage draws straight over it.
+    //
+    // `markHidden` is the only thing that was between them and a tower, and it answers whether the
+    // WHOLE of a mark is covered. A depot is a tile wide and a third of a storey tall; standing
+    // behind a row of shops most of it is hidden and none of it is ALL hidden, so it drew whole.
+    // That is "the depot shows thru buildings", and it is the same shape as the signal mast.
+    //
+    // `beginOcclusionClip` is the own ship's own mask — per five-pixel cell against the real
+    // building solids the pre-pass rasterises — so a mark is now hidden for exactly the part of it
+    // that is behind a wall instead of all-or-nothing. ⚠ It is NOT a per-pixel depth test: the grid
+    // is coarse and the blocked set is eroded by a cell, so a hair survives along a building's own
+    // edge. The real answer for the depot is mass geometry — see the ⚠ on MASS_EXCEPT.
+    //
+    // ⚠ AND THE CLIP GOES INSIDE THE CLOSURE. These are queued and painted at FLUSH; a clip applied
+    // here would be restored long before anything is drawn. OCC_FIELD outlives the pass on purpose.
+    const emitMarked = (paint) => emitFace(od, () => {
+      const clipped = beginOcclusionClip(ctx, od);
+      paint();
+      if (clipped) ctx.restore();
+    });
     if (it.c.mark === 'statue') {
       const art = (g) => drawStatue(g, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now);
       if (markBillboard(cam, it.dx, it.dy, 1.6, 0.40, 'lm:statue:' + it.wx + ',' + it.wy, art)) continue;
       if (markHidden(cam, it.dx, it.dy, 1.45, 0.30)) continue;
-      emitFace(od, () => art(ctx)); continue;
+      emitMarked(() => art(ctx)); continue;
     }   // town-square monument + fountain
     if (it.c.mark === 'gate') {
       const art = (g) => drawSouthGate(g, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now);
       if (markBillboard(cam, it.dx, it.dy, 2.1, 0.62, 'lm:gate:' + it.wx + ',' + it.wy, art)) continue;
       if (markHidden(cam, it.dx, it.dy, 1.85, 0.48)) continue;
-      emitFace(od, () => art(ctx)); continue;
+      emitMarked(() => art(ctx)); continue;
     }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
     if (it.c.mark === 'sign') {
       const art = (g) => drawRoadSign(g, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, now);
       if (markBillboard(cam, it.dx, it.dy, 1.5, 0.42, 'lm:sign:' + it.wx + ',' + it.wy, art)) continue;
       if (markHidden(cam, it.dx, it.dy, 1.20, 0.30)) continue;
-      emitFace(od, () => art(ctx)); continue;
+      emitMarked(() => art(ctx)); continue;
     }
     if (it.c.mark === 'pylons') {
       const art = (g) => drawPylons(g, cam, it.dx, it.dy, night, alpha, it.seed);
       if (markBillboard(cam, it.dx, it.dy, 2.5, 0.62, 'lm:pylons:' + it.wx + ',' + it.wy, art)) continue;
       if (markHidden(cam, it.dx, it.dy, 2.25, 0.48)) continue;
-      emitFace(od, () => art(ctx)); continue;
+      emitMarked(() => art(ctx)); continue;
     }   // THE LONG HAUL — the stand of dead pylons an interchange splits around
     // A dust airstrip's drums and threshold bars — see drawStripMarks. `continue` is deliberate:
     // the tile is still a road underneath (the ground pass has already painted it), and there is no
     // mass here to extrude on top of it.
-    if (it.c.mark === 'strip') { if (markHidden(cam, it.dx, it.dy, 0.30, 0.55)) continue; emitFace(od, () => drawStripMarks(ctx, cam, it.dx, it.dy, it.c.strip, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, it.seed)); continue; }
+    if (it.c.mark === 'strip') { if (markHidden(cam, it.dx, it.dy, 0.30, 0.55)) continue; emitMarked(() => drawStripMarks(ctx, cam, it.dx, it.dy, it.c.strip, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, it.seed)); continue; }
     // The depot bay: a shed with a roller door you drive through. Drawn from the same list as every
     // other building, so it fogs, sorts and occludes like one; it is only the SHAPE that is special.
     if (it.c.mark === 'bay') {
+      // ── ⚠ THE SHED IS COLLECTED HERE, AND HERE IS NOT WHERE IT IS DRAWN ────────────────────
+      //
+      // This loop runs INSIDE drawWorldObjects, before the GL hook a few hundred lines below.
+      // `emitMarked` does not: it queues a closure that runs at FLUSH, by which time the pass has
+      // already gone to the GPU and every sink is null. A shed collected from in there would reach
+      // the GPU never, draw nothing, and report nothing — the Curtain's own trap, and the reason
+      // the rig is collected inline a few hundred lines below rather than at its draw.
+      //
+      // ⚠ AND NEITHER PROBE RUNS ON THIS PATH, WHICH IS THE POINT. `markBillboard` bakes the shed
+      // into a texture to make a near mark cheap — a shed is a few hundred triangles, so on the
+      // depth buffer there is nothing to buy — and `markHidden` answers whether the WHOLE of it is
+      // covered, which is the all-or-nothing test that let a depot stand in front of a row of shops
+      // and draw whole. The depth buffer hides it for exactly the pixels that are behind a wall.
+      if (BAY_SINK && TUNE.glBay !== 0) {
+        // ⚠ TRUNCATE TO THIS SHED'S OWN MARK, NEVER TO ZERO. There can be several depots in a
+        // window and they share the sink; emptying it would take a neighbour's shed down with the
+        // one that threw.
+        const mark = BAY_SINK.length;
+        try { drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now); }
+        catch { BAY_SINK.length = mark; }
+        continue;
+      }
       const art = (g) => drawVehicleBay(g, cam, it.dx, it.dy, it.c, night, alpha, now);
       // Five tiles: a bay is a whole tile deep and you drive INTO it, so the anchor depth is only
       // the shed’s depth once the shed is small. Inside that, the canvas.
       if (markBillboard(cam, it.dx, it.dy, 0.95, 0.75, 'lm:bay:' + it.wx + ',' + it.wy, art, 5)) continue;
       if (markHidden(cam, it.dx, it.dy, 0.62, 0.60)) continue;
-      emitFace(od, () => drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now)); continue; }
+      emitMarked(() => drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now)); continue; }
     if (it.c.mark === 'yacht') {
       // Normally she's drawn on her own tile (with a sub-tile glide while under way). While we're
       // PARKED on her deck (our own tile AND on the ground) we pin her AFT HELIPAD (yacht-local
@@ -28301,7 +28550,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const art = (g) => draw3DBox(g, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7);
       if (markBillboard(cam, it.dx, it.dy, 0.8, 0.45, 'lm:nofly:' + it.wx + ',' + it.wy, art)) continue;
       if (markHidden(cam, it.dx, it.dy, 0.65, 0.36)) continue;
-      emitFace(od, () => draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7)); continue; }
+      emitMarked(() => draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7)); continue; }
     // The Curtain energy wall on a land-edge tile.
     // ⚠ COLLECTED DURING THE SWEEP, NOT AT FLUSH. `emitFace` DEFERS the call to flushFaces(), and
     // the GL composite runs BEFORE that — so a sink filled from inside the queued closure is still
@@ -28549,7 +28798,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       }
       const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, glWet: wetGround(), glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glGroundBias: TUNE.glGroundBias, glRipple: TUNE.glRipple, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glBump: TUNE.glBump, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glLightSlots: TUNE.glLightSlots, glHdr: TUNE.glHdr, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, ground: GROUND_MESH, floor: FLOOR_STATE, now,
-        ship: OWNSHIP_SINK,
+        ship: OWNSHIP_SINK, bay: BAY_SINK,
         // The map window's centre tile. The ground pass phases its puddles on absolute world
         // coordinates off this, and it must not come from FLOOR_STATE, which is null at glFloor 0.
         wc: v.mapCenter || { x: 0, y: 0 },
@@ -28568,7 +28817,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
     pEnd();
-    GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; STROKE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; OWNSHIP_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; FLOOR_STATE = null;
+    GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; STROKE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; OWNSHIP_SINK = null; BAY_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; FLOOR_STATE = null;
   }
   pBegin('world:flush');
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass
@@ -28861,6 +29110,26 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // ARE questions about where you are looking from.
   const open = bayDoorOpen(dx, dy, cell);
 
+  // ── ⚠ THE SHED IS GEOMETRY NOW, AND THE CANVAS IS THE FALLBACK ─────────────
+  // Everything below builds the same polygons it always did; what changes is where they GO. With a
+  // sink open they are handed to gl/solids.js as world-space triangles that write depth, and the
+  // shed is then hidden by a warehouse in front of it for exactly the pixels the warehouse covers —
+  // which is the whole reason for doing this, and something no probe on the 2-D side can do (see
+  // the ⚠ on markHidden at the draw site). With no sink — GLASS 1, a shape capture, the cold open —
+  // the paint loop at the bottom runs exactly as it has always run.
+  //
+  // ⚠ THE COLOUR IS PARSED, NOT REDERIVED. Every fill here is already a CSS string built by `ex`,
+  // `inn` or a literal, and the alternative is a second palette returning numbers that would agree
+  // with the strings until somebody edited one of them. Parsing is a regex over a few hundred short
+  // strings that repeat every frame, so it is memoised and costs nothing.
+  //
+  // ⚠ WHAT IS LOST IS THE HAIRLINE. `stroke` draws a 1px dark outline round several faces and a
+  // triangle soup has nowhere to put one, so the GL shed is a shade flatter at the corners. Same
+  // trade emitFlat already makes, and the same size: it is a screen-width line on a face whose own
+  // shading already changes across the edge.
+  const toGL = !!(BAY_SINK && TUNE.glBay !== 0);
+  const gox = cam.ox || 0, goy = cam.oy || 0;
+
   // ── ONE CLIPPER, USED FOR TWO JOBS ─────────────────────────────────────────
   // Convex clip of a local-space polygon against a linear half-space. `g` returns a signed value
   // per point and is affine in (lx, ly), so interpolating the crossing point linearly is EXACT —
@@ -28890,6 +29159,26 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // paint is not a depth problem, it is a stacking one: floor, then markings, then the world.
   const list = [];
   const bayFace = (pts, fill, o = {}) => {
+    // ── ⚠ THE SINKS TAKE THE POLYGON WHOLE, AND THE CANVAS TAKES IT CLIPPED ──
+    //
+    // `clipTo(pts, nearG)` is a CAMERA clip: a 2-D projection blows up behind the eye, so the
+    // painter has to cut every polygon against its own near plane first. A depth buffer clips in
+    // three dimensions against the real frustum, so handing it a pre-cut polygon buys nothing and
+    // costs the thing this layer exists for — the surviving shape depends on where you are LOOKING
+    // FROM, which means the building's geometry does, which means it changes as you orbit. The
+    // `bay` gate catches exactly that, and it caught it here: 127 faces from the road and 40 from
+    // a quarter turn round, for a shed that had not moved.
+    //
+    // So this path takes the polygon as authored, and nothing below it runs at all — no clip, no
+    // projection, no mean depth, no entry in the paint list. A textured face is a decal (a baked
+    // canvas on a quad) and everything else is flat colour, which is what gl/solids.js takes.
+    if (toGL) {
+      const W = pts.map(([lx, ly, z]) => { const [wx, wy] = F(lx, ly); return [wx + gox, wy + goy, z]; });
+      if (o.tex) { if (DECAL_SINK) DECAL_SINK.push({ key: signTexKey(o.tex), img: o.tex, alpha, p: W }); return; }
+      const col = cssRGBA(fill);
+      if (col) BAY_SINK.push({ p: W, rgb: col.rgb, a: alpha * col.a });
+      return;
+    }
     const C = clipTo(pts, nearG);
     if (C.length < 3) return;
     const proj = C.map(([lx, ly, z]) => P(lx, ly, z));
@@ -29133,9 +29422,25 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // ── THE LIGHT ──────────────────────────────────────────────────────────────
   // High-bays down the ridge. A bay is always lit — it is a workplace — and the pool each one lays
   // on the tarmac is what makes the floor read as a surface rather than as a flat fill.
+  // ⚠ AND THE LIGHTS GO WITH IT, OR THEY SHINE THROUGH THE ROOF THEY HANG UNDER. These are painted
+  // after the shell in the same pass, so on the canvas they have always been visible from outside
+  // through their own roof — three warm blobs on a steel gable. It never read as a bug because the
+  // shed was ALSO on the canvas and the roof was a moment earlier in the queue than a glow that
+  // outgrew it. Move the shell to the depth buffer and leave the glows behind, and it stops being
+  // subtle: the glow is composited after the whole city. So they are sprites, depth-tested against
+  // the shed's own roof, and the radius is handed over rather than re-derived — the same rule every
+  // other light in GLASS follows, so the two renderers cannot drift apart by one being retuned.
   for (const y of [-0.3, -0.02, 0.26]) {
     const lampZ = RIDGE - 0.055;
     const lamp = P(0, y, lampZ), pool = P(0, y, 0.006);
+    if (toGL) {
+      const [lwx, lwy] = F(0, y);
+      if (lamp.f > 0.12) pushLight(lwx + gox, lwy + goy, lampZ, Math.max(3, 26 / Math.max(0.3, lamp.f)), [255, 240, 200], 0.6 * alpha, 0, true);
+      // The pool on the tarmac is a wash, not a source: it is the floor being lit, which is what
+      // `wash` means to pickLights and what keeps it out of the contested source slots.
+      if (pool.f > 0.12) pushLight(lwx + gox, lwy + goy, 0.006, Math.max(6, 150 / Math.max(0.3, pool.f)), [255, 232, 180], (night ? 0.22 : 0.13) * alpha, 0, false, true);
+      continue;
+    }
     if (lamp.f > 0.12) {
       const rr = Math.max(3, 26 / Math.max(0.3, lamp.f));
       const g = ctx.createRadialGradient(lamp.sx, lamp.sy, 0, lamp.sx, lamp.sy, rr);
@@ -29153,7 +29458,10 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // The spill out of the opening — most of what sells the door being open at all, from the road.
   if (open > 0.02 && !inside) {
     const m = P(0, HL + 0.02, 0.004);
-    if (m.f > 0.08) {
+    if (toGL) {
+      const [swx, swy] = F(0, HL + 0.02);
+      if (m.f > 0.08) pushLight(swx + gox, swy + goy, 0.004, Math.max(6, 90 / Math.max(0.3, m.f)), [255, 226, 164], 0.22 * open * alpha, 0, false, true);
+    } else if (m.f > 0.08) {
       const r = Math.max(6, 90 / Math.max(0.3, m.f));
       const g = ctx.createRadialGradient(m.sx, m.sy, 0, m.sx, m.sy, r);
       g.addColorStop(0, `rgba(255,226,164,${0.22 * open * alpha})`);
@@ -29169,14 +29477,44 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     const label = String(cell.bn || 'DEPOT').toUpperCase().slice(0, 18);
     const tex = bakeSignText(label, '#ffca6a', night ? 1 : 0, false);
     if (tex) {
-      const q = [P(-DOOR_W, HL + 0.004, WALL - 0.012), P(DOOR_W, HL + 0.004, WALL - 0.012),
-                 P(DOOR_W, HL + 0.004, DOOR_H + 0.012), P(-DOOR_W, HL + 0.004, DOOR_H + 0.012)];
+      // ⚠ THE BOARD AND THE LETTERING ARE TWO THINGS, AND THE LETTERING MUST NOT BE HAND-WOUND.
+      //
+      // A name over a door is paint on a board: the board is a dark rectangle standing 0.004 proud
+      // of the front wall, and the words are painted on it. The board is shell and goes through
+      // `bayFace` with the rest of it. The words are a decal — and the first cut built their quad
+      // in WORLD space here, four corners in reading order, which looks obviously right and is
+      // wrong for half the buildings in the world.
+      //
+      // ⚠ A DECAL MARKED `cull` IS ONE-SIDED, AND WHICH SIDE DEPENDS ON THE WINDING IN NDC. Reading
+      // order in the shed's LOCAL frame survives the rotation to world space only up to a mirror:
+      // `ent` south and north map local +x to opposite world axes, so the same four corners wind
+      // clockwise for one facing and anticlockwise for the other — and the lettering is culled on
+      // exactly the two facings where it faces you. It draws on the other two, so a spot check on
+      // one depot says the feature works. `emitSurfaceText` takes SCREEN points and recovers the
+      // world quad through `cam.unproj`, which cannot be mirrored because the screen is the screen;
+      // it is also the one path every other sign in the city already goes through, and it falls
+      // back to the canvas by itself when GL is off.
+      const BOARD = [[-DOOR_W, HL + 0.004, WALL - 0.012], [DOOR_W, HL + 0.004, WALL - 0.012],
+                     [DOOR_W, HL + 0.004, DOOR_H + 0.012], [-DOOR_W, HL + 0.004, DOOR_H + 0.012]];
+      // ⚠ THE BOARD IS EMITTED WHATEVER THE CAMERA IS DOING; ONLY THE WORDS WAIT ON THE PROJECTION.
+      // A board bolted to a wall is part of the shell, and the `f > 0.12` test below is a statement
+      // about where the EYE is — so hanging the board off it makes the building's geometry a
+      // function of the camera. That is one face, and the `bay` gate refuses it on principle: at one
+      // orbit angle the shed collected 127 faces and at another 126, which is the exact signature of
+      // the bug the gate exists for. `emitSurfaceText` genuinely needs screen points, so the words
+      // keep the guard.
+      if (toGL) bayFace(BOARD, ex(28, 30, 36));
+      const q = BOARD.map(([lx, ly, z]) => P(lx, ly, z));
       if (q.every((p) => p.f > 0.12)) {
-        ctx.save(); ctx.globalAlpha = alpha;
-        ctx.beginPath(); q.forEach((p, i) => (i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy))); ctx.closePath();
-        ctx.fillStyle = ex(28, 30, 36); ctx.fill();
-        drawSurfaceText(ctx, q[0], q[1], q[2], q[3], tex, false, alpha);
-        ctx.restore();
+        if (toGL) {
+          emitSurfaceText(ctx, cam, q, tex, false, alpha);
+        } else {
+          ctx.save(); ctx.globalAlpha = alpha;
+          ctx.beginPath(); q.forEach((p, i) => (i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy))); ctx.closePath();
+          ctx.fillStyle = ex(28, 30, 36); ctx.fill();
+          drawSurfaceText(ctx, q[0], q[1], q[2], q[3], tex, false, alpha);
+          ctx.restore();
+        }
       }
     }
     if (night) for (const s of [-1, 1]) glowPool(ctx, cam, ...F(s * (DOOR_W + 0.06), HL + 0.01), WALL * 0.8, '255,206,140', 9, alpha * 0.5);
@@ -30335,24 +30673,70 @@ function drawGroundContactShadow(ctx, cam, heading, cls, strength) {
 const HOLO_COLS = ['90,200,255', '255,90,160', '120,255,140', '255,200,80', '180,120,255'];
 // A rooftop holographic advertising panel: a translucent coloured pane floating above the
 // roof with scanline bars, stuttering and dropping frames (half its pixels dead).
+// ── A ROOFTOP AD IS A SLAB, NOT A POSTER (`RENDER_TUNE.holo3d`, 0 puts the single panel back) ──
+//
+// This was ONE quad spanning x at a fixed y: a plane with no thickness, always square to the world
+// axis, which from any oblique approach collapsed to a line and from beside the building was not
+// there at all. It is the flattest thing left in the night city and it sits on one tall building in
+// seven, so it is also the one you see most.
+//
+// It is a thin SLAB now — a front, a back, two edge returns and a cap — plus the emitter mast it is
+// projected from, because a hologram hanging on nothing is the other half of why it read as pasted
+// on. ⚠ THE DEPTH IS DERIVED FROM THE FOOTPRINT, not a constant: these scale with the building, and
+// a fixed depth makes a corner-shop ad a plank and a tower's ad a sheet of paper.
+//
+// ⚠ AND THE SCAN LINES STAY ON THE TWO BROAD FACES ONLY. Running them round the edges as well reads
+// as a wireframe box rather than as a projected image, which is the thing this is trying to stop
+// looking like. The edges carry a flat wash at a lower strength — they are the SIDE of a beam of
+// light, and the side of a beam is dimmer than its face.
 function drawHoloAd(ctx, cam, dx, dy, fh, h, seed, now, alpha) {
   const col = HOLO_COLS[seed % HOLO_COLS.length];
   const z0 = h * 1.03, z1 = h * (1.28 + frac(seed) * 0.18), w = fh * (0.5 + frac(seed + 1) * 0.4);   // width kept ≤ fh (≤0.9·fh) so the ad never overhangs its own tile into the street (was up to 1.2·fh)
-  const b0 = cam.proj(dx - w, dy, z0), b1 = cam.proj(dx + w, dy, z0), t1 = cam.proj(dx + w, dy, z1), t0 = cam.proj(dx - w, dy, z1);
-  if ([b0, b1, t1, t0].some((p) => p.f <= 0.12)) return;
   const dropped = frac(Math.floor(now * 0.018) + seed) < 0.16;   // some frames blink out entirely
   const flick = (0.45 + 0.55 * Math.abs(Math.sin(now * 0.006 + seed))) * (dropped ? 0.15 : 1);
-  emitDeco([b0, b1, t1, t0], () => {
-    ctx.save(); ctx.globalAlpha = alpha;
-    ctx.fillStyle = `rgba(${col},${0.16 * flick})`;
-    ctx.beginPath(); ctx.moveTo(t0.sx, t0.sy); ctx.lineTo(t1.sx, t1.sy); ctx.lineTo(b1.sx, b1.sy); ctx.lineTo(b0.sx, b0.sy); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = `rgba(${col},${0.5 * flick})`; ctx.lineWidth = 1;
-    for (let k = 1; k < 4; k++) {
-      const tt = k / 4;
-      const lx = t0.sx + (b0.sx - t0.sx) * tt, ly = t0.sy + (b0.sy - t0.sy) * tt;
-      const rx = t1.sx + (b1.sx - t1.sx) * tt, ry = t1.sy + (b1.sy - t1.sy) * tt;
-      ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(rx, ry); ctx.stroke();
-    }
+  const solid = RENDER_TUNE.holo3d !== 0;
+  const d = solid ? Math.max(fh * 0.07, 0.015) : 0;   // half-depth of the slab
+  // One broad face at its own y offset. `bars` carries the scan lines; the edges pass false.
+  const face = (pts, fill, line, bars) => {
+    const p = pts.map(([x, y, z]) => cam.proj(x, y, z));
+    if (p.some((q) => q.f <= 0.12)) return;
+    emitDeco(p, () => {
+      ctx.save(); ctx.globalAlpha = alpha;
+      ctx.fillStyle = `rgba(${col},${fill * flick})`;
+      ctx.beginPath(); p.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill();
+      if (bars) {
+        ctx.strokeStyle = `rgba(${col},${line * flick})`; ctx.lineWidth = 1;
+        for (let k = 1; k < 4; k++) {
+          const tt = k / 4;
+          const lx = p[0].sx + (p[3].sx - p[0].sx) * tt, ly = p[0].sy + (p[3].sy - p[0].sy) * tt;
+          const rx = p[1].sx + (p[2].sx - p[1].sx) * tt, ry = p[1].sy + (p[2].sy - p[1].sy) * tt;
+          ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(rx, ry); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    });
+  };
+  // Corner order is TL, TR, BR, BL so the scan-line walk above reads down both sides.
+  for (const sg of (solid ? [-1, 1] : [0])) {
+    face([[dx - w, dy + sg * d, z1], [dx + w, dy + sg * d, z1], [dx + w, dy + sg * d, z0], [dx - w, dy + sg * d, z0]], 0.16, 0.5, true);
+  }
+  if (!solid) return;
+  // ⚠ ONLY THE EDGE TURNED TOWARD YOU. The two broad faces both stay — this is translucent, so the
+  // far one is legitimately seen THROUGH the near one and culling it would flatten the slab again —
+  // but an edge is opaque enough that the far one is only cost. Same test the blade sides use.
+  for (const sx of [-1, 1]) {
+    if ((sx * (dx + sx * w - (cam.ex || 0))) >= 0) continue;
+    face([[dx + sx * w, dy - d, z1], [dx + sx * w, dy + d, z1], [dx + sx * w, dy + d, z0], [dx + sx * w, dy - d, z0]], 0.11, 0, false);
+  }
+  face([[dx - w, dy - d, z1], [dx + w, dy - d, z1], [dx + w, dy + d, z1], [dx - w, dy + d, z1]], 0.09, 0, false);   // cap
+  // ── AND THE THING PROJECTING IT ────────────────────────────────────────────────────────────
+  // A short mast off the roof up to the bottom of the slab. Without it the ad floats clear of the
+  // building with nothing between the two, which is most of what made it read as a decal.
+  const mb = cam.proj(dx, dy, h), mt = cam.proj(dx, dy, z0);
+  if (mb.f > 0.12 && mt.f > 0.12) emitDeco([mb, mt], () => {
+    ctx.save(); ctx.globalAlpha = alpha * 0.9;
+    ctx.strokeStyle = `rgba(${col},${0.34 * flick})`; ctx.lineWidth = Math.max(1, 2 / Math.max(0.4, mb.f));
+    ctx.beginPath(); ctx.moveTo(mb.sx, mb.sy); ctx.lineTo(mt.sx, mt.sy); ctx.stroke();
     ctx.restore();
   });
 }

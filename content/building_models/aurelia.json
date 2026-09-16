@@ -1,0 +1,141 @@
+{
+  "adorn": [
+    {
+      "color": "#b070ff",
+      "cx": 0,
+      "cy": 0.045,
+      "half": 0.42,
+      "kind": "marqueeBand",
+      "label": "AURELIA",
+      "z": 0.062
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "170,110,255",
+      "s": 18,
+      "z": 0.02
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "255,90,200",
+      "s": 16,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Aurelia"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.015,
+      "kind": "parapet",
+      "pal": "ty_aurelia",
+      "z": 0.1
+    },
+    {
+      "bars": 4,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#150f1f",
+      "glow": "#e0c8ff",
+      "half": 0.36,
+      "hh": 0.03,
+      "kind": "windowBay",
+      "pal": "ty_aurelia",
+      "z": 0.042
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.32,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.105,
+      "pal": "ty_aurelia",
+      "soffit": "#6a2ea8",
+      "strip": "#d8a8ff",
+      "z": 0.08000000000000002
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_aurelia",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_aurelia",
+      "z": 0.004
+    }
+  ],
+  "id": "aurelia",
+  "neon": "#b070ff",
+  "note": "A boutique on the swanky west side, and the one form on this list that needs no rotation and no curve: the storeys are CANTILEVERED, each shifted off the one below so the stack overhangs itself on alternating sides. It is the cheapest way to break a silhouette — the mass stays square, unyawed and fully trimmed by derivedTrim, and only `cx` moves. ⚠ THE TOP BOX CARRIED A SMALL YAW AND HAD TO LOSE IT: a segment that is both OFFSET and ROTATED puts the derived kit somewhere its own solid does not cover, and the pull that keeps a decal off its surface then drags it out through the building — glself.mjs caught four such points here, and zeroing either the offset or the yaw cleared them. The offset is the whole idea of this building, so the yaw is what went. A cantilever and a rotation are each safe on their own; together on one segment they are not. RENDER_TUNE.legacyArms puts the atelier arm back.",
+  "pal": "ty_aurelia",
+  "replaces": "atelier",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.1
+    },
+    {
+      "cx": -0.07,
+      "cy": 0,
+      "hw": 0.33,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.1,
+      "z1": 0.32
+    },
+    {
+      "cx": 0.09,
+      "cy": 0,
+      "hw": 0.31,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.52
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.05,
+      "hw": 0.27,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.52,
+      "z1": 0.68
+    },
+    {
+      "cx": 0.04,
+      "cy": 0,
+      "hw": 0.2,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.68,
+      "z1": 0.8
+    }
+  ]
+}

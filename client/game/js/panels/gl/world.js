@@ -1172,7 +1172,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // existed. It is applied where the geometry is COLLECTED rather than here, because gating the
   // upload still pays for a second transform of the whole model every frame to throw it away; the
   // ownship gate caught that on its first run.
-  if (g.view.uploadOwnShip) g.view.uploadOwnShip(opts.ship);
+  // ⚠ AND THE SHED GOES UP WITH IT, BEFORE THE MIRROR. Same argument as the rig one line above:
+  // the reflection pass runs BEFORE the main one, so anything that is to appear in a puddle has to
+  // be in the buffer by now. A depot standing over a wet apron is exactly the case.
+  if (g.view.uploadSolids) g.view.uploadSolids([opts.ship, opts.bay]);
   const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
   const reflTex = (mirrorGain > 0 && opts.glWet > 0 && g.view.drawMirror)
     ? g.view.drawMirror(cam, { sprites: opts.sprites, decals: opts.decals, cssH, scale: opts.glMirrorRes,
@@ -1218,7 +1221,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // The MIRROR always gets it — that is the whole point and it costs one draw into a small buffer.
   // Drawing it in the MAIN frame as well is the other half (the rig then occludes, and is occluded
   // by, everything else on the depth buffer) and it is the half that can be seen, so it has a flag.
-  const ship = g.view.drawOwnShip ? g.view.drawOwnShip(camAt, cssH, { fog: opts.fogBand }) : 0;
+  // ⚠ ONE NUMBER FOR TWO CLIENTS, SO IT IS NAMED FOR THE LAYER AND NOT FOR THE RIG. This draws the
+  // whole solids buffer — the rig AND the depot shed — so reporting it as `ship` would have said 253
+  // triangles of own ship in a cab view with no own ship in it. The two LIST lengths are reported
+  // beside it, because a diagnostic that cannot tell a shed that arrived from a rig that did is the
+  // reason this was hard to see in the first place.
+  const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand }) : 0;
   const fl = opts.floor;
   if (fl) { fl.wet = 0; fl.wetLights = null; }
   const floor = g.view.drawFloor(opts.floor);
@@ -1333,6 +1341,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // product of three things that can each be zero for a different reason — the tune, the wetness,
   // and whether the framebuffer was accepted — and a reflection that silently never ran looks
   // exactly like one that ran and was too faint to see.
-  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, ship, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, solids, ship: (opts.ship || []).length, bay: (opts.bay || []).length, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 

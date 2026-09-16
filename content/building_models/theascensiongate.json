@@ -1,0 +1,150 @@
+{
+  "adorn": [
+    {
+      "cx": -0.3,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "150,220,255",
+      "z": 0.7
+    },
+    {
+      "cx": 0.3,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "150,220,255",
+      "z": 0.7
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "90,180,255",
+      "s": 22,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Ascension Gate"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.016,
+      "kind": "parapet",
+      "pal": "ty_asc_gate",
+      "z": 0.88
+    },
+    {
+      "color": "#101820",
+      "cx": 0,
+      "cy": 0.44,
+      "font": "block",
+      "half": 0.3,
+      "hh": 0.045,
+      "ink": "#bfe4ff",
+      "kind": "signBoard",
+      "label": "ASCEND",
+      "z": 0.79
+    },
+    {
+      "cx": -0.3,
+      "cy": 0.3,
+      "half": 0.12,
+      "hh": 0.1,
+      "kind": "louvreBank",
+      "n": 5,
+      "pal": "ty_asc_gate",
+      "z": 0.34
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.3,
+      "half": 0.12,
+      "hh": 0.1,
+      "kind": "louvreBank",
+      "n": 5,
+      "pal": "ty_asc_gate",
+      "z": 0.34
+    },
+    {
+      "cx": -0.42,
+      "cy": 0.34,
+      "kind": "bollard",
+      "pal": "ty_asc_gate",
+      "z": 0.004
+    },
+    {
+      "cx": 0.42,
+      "cy": 0.34,
+      "kind": "bollard",
+      "pal": "ty_asc_gate",
+      "z": 0.004
+    }
+  ],
+  "id": "theascensiongate",
+  "note": "The one building in Coldwater with a HOLE in it. It is a gate and it was a solid block, which is the single most literal way a silhouette can be wrong — you cannot pass through the thing the whole quarter is named for walking through. Two piers carry a lintel now, so the opening is real geometry rather than something a description asks you to imagine. ⚠ THE GAP IS REAL TO EVERYTHING DOWNSTREAM, which is the point and also the thing to check before moving it: the mass primitives are what `modelSolid` builds CFIT collision from, what the truck ground probe reads and what the occluder hulls are cut from, so an aircraft can fly between the piers and a shadow falls in two pieces. Both piers are unyawed boxes, which is what lets the louvre banks and the lintel sign be bolted to something. RENDER_TUNE.legacyArms puts the asc_gate arm back.",
+  "pal": "ty_asc_gate",
+  "replaces": "asc_gate",
+  "segs": [
+    {
+      "cx": -0.3,
+      "cy": 0,
+      "fd": 0.3,
+      "hw": 0.13,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.7
+    },
+    {
+      "cx": 0.3,
+      "cy": 0,
+      "fd": 0.3,
+      "hw": 0.13,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.7
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.7,
+      "z1": 0.88
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.32,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.88,
+      "z1": 0.99
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 8,
+      "rb": 0.09,
+      "rt": 0.05,
+      "z0": 0.99,
+      "z1": 1.12
+    }
+  ]
+}

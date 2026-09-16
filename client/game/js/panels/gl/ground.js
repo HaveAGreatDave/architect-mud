@@ -598,31 +598,46 @@ export function createGroundLayer(gl) {
   const vao = gl.createVertexArray();
   const buf = gl.createBuffer();
   let data = new Float32Array(0);
-  let count = 0, splitA = 0, splitB = 0;
+  let count = 0, splitA = 0, splitP = 0, splitB = 0;
 
   const tris = (list) => list.reduce((n, q) => n + (q.p.length - 2) * 3, 0);
 
   // ⚠ FILLED STRAIGHT INTO THE TYPED ARRAY. The mass rebuild cost 11.1 ms until it stopped building
   // plain arrays and converting them; at twelve thousand quads a frame this path cannot afford that
   // mistake a second time.
-  // ⚠ THREE RANGES, NOT ONE LIST, AND THE ORDER IS THE CANVAS'S. Everything here shares the ground
+  // ⚠ FOUR RANGES, NOT ONE LIST, AND THE ORDER IS THE CANVAS'S. Everything here shares the ground
   // plane, so what separates them is not depth but what they DO to what is already there:
   //
-  //   base — the road SURFACE, which writes depth because it is a surface
-  //   add  — a headlight pool, which is light landing on that surface ('lighter' on the canvas)
-  //   over — a shadow, which is translucent dark laid on top of both
+  //   base  — the road SURFACE, which writes depth because it is a surface
+  //   paint — a lane line, a kerb, a zebra bar: markings laid ON that surface
+  //   add   — a headlight pool, which is light landing on it ('lighter' on the canvas)
+  //   over  — a shadow, which is translucent dark laid on top of all three
   //
-  // Base first, then light, then shadow, is exactly the sequence the 2-D pass paints in:
+  // Surface, then paint, then light, then shadow, is exactly the sequence the 2-D pass paints in:
   // drawGroundSurfaces, drawHeadlightBeam, then the shadows the building loop casts. Get it
   // backwards and a building's shadow stops falling across the beam.
   // Only the base writes depth: a translucent quad that wrote it would let its own dark alpha
   // occlude whatever else shares its plane.
+  //
+  // ⚠ AND PAINT IS A RANGE OF ITS OWN BECAUSE PAINT GOES ON PAINT. The eps ladder orders the road
+  // against the floor and the shadows against the road; it has nothing to say about a yellow centre
+  // line and a zebra bar, which are both markings, both at ROAD_EPS and therefore exactly coplanar.
+  // Coplanar with depth-write on is a per-pixel coin toss decided by the last bits of two different
+  // triangles' interpolated depth — and it moves as the camera moves, which is what "flashing white
+  // patches over the yellow lines" is. One junction tile in a bare test city produced 196 such
+  // pairs: every kerb against the pavement band it edges, every lane dash against the crossing it
+  // runs through, and the yellow centreline against the zebra. Lifting either one is not the fix —
+  // a world lift is worth a fraction of a depth unit by forty tiles, so the fight comes back the
+  // moment the camera pulls away. Paint TESTS depth (a building still hides the road behind it) and
+  // writes none, so what is drawn later composites on top, which is the answer the canvas has
+  // always given. The order within the range is the push order, which is the paint order.
   function upload(quads) {
-    const base = [], add = [], over = [];
-    for (const q of quads) (q.add ? add : q.over ? over : base).push(q);
-    quads = base.concat(add, over);
+    const base = [], paint = [], add = [], over = [];
+    for (const q of quads) (q.add ? add : q.over ? over : q.paint ? paint : base).push(q);
+    quads = base.concat(paint, add, over);
     splitA = tris(base);
-    splitB = splitA + tris(add);
+    splitP = splitA + tris(paint);
+    splitB = splitP + tris(add);
     count = tris(quads);
     if (data.length < count * STRIDE) data = new Float32Array(Math.max(count * STRIDE, 1 << 16));
     let o = 0;
@@ -785,7 +800,10 @@ export function createGroundLayer(gl) {
     gl.uniform1f(loc.surface, 1);
     if (splitA) { gl.depthMask(true); gl.drawArrays(gl.TRIANGLES, 0, splitA); }
     gl.depthMask(false);
-    if (splitB > splitA) {
+    // The markings, source-over on the surface they are painted on — still a surface as far as the
+    // wetness and the reflections are concerned, so uSurface stays 1.
+    if (splitP > splitA) gl.drawArrays(gl.TRIANGLES, splitA, splitP - splitA);
+    if (splitB > splitP) {
       // ⚠ ADDITIVE, AND THE ALPHA RIDES ALONG. The fragment output is premultiplied, so under
       // ONE/ONE the colour adds and so does the coverage — which it has to, because this buffer is
       // BLITTED source-over onto the 2-D frame and a pool of light over open ground would
@@ -793,7 +811,7 @@ export function createGroundLayer(gl) {
       gl.blendFunc(gl.ONE, gl.ONE);
       // The pool of light is not a surface — see the ⚠ on uSurface.
       gl.uniform1f(loc.surface, 0);
-      gl.drawArrays(gl.TRIANGLES, splitA, splitB - splitA);
+      gl.drawArrays(gl.TRIANGLES, splitP, splitB - splitP);
       gl.uniform1f(loc.surface, 1);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     }

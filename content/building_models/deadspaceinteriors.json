@@ -1,0 +1,136 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.3,
+      "rgb": "80,255,210",
+      "z": 0.64
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "70,255,205",
+      "s": 18,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Dead Space Interiors"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.015,
+      "kind": "parapet",
+      "pal": "ty_showroom",
+      "z": 0.14
+    },
+    {
+      "bars": 6,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#0d1c1a",
+      "glow": "#bfffe8",
+      "half": 0.36,
+      "hh": 0.042,
+      "kind": "windowBay",
+      "pal": "ty_showroom",
+      "z": 0.058800000000000005
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.32,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.105,
+      "pal": "ty_showroom",
+      "soffit": "#1d8f78",
+      "strip": "#8fffdc",
+      "z": 0.11200000000000002
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_showroom",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_showroom",
+      "z": 0.004
+    },
+    {
+      "color": "#0c1614",
+      "cx": 0.2,
+      "cy": 0.44,
+      "font": "condensed",
+      "half": 0.15,
+      "hh": 0.03,
+      "ink": "#8fffdc",
+      "kind": "signBoard",
+      "label": "DEAD SPACE",
+      "z": 0.108
+    }
+  ],
+  "id": "deadspaceinteriors",
+  "neon": "#4affd0",
+  "note": "A furniture showroom, so the upper floor is the display case: a square volume with a second one turned twenty-four degrees through it, which gives the room behind the glass eight corners to light and reads as a lantern over the street after dark. Its neon moved off the old flat green onto the cyan-green the clinical family burns, which is what the rest of the west is lit in now. ⚠ A CANTILEVER AND A ROTATION NEVER SHARE A SEGMENT — see the warning in aurelia.json. An offset box and a yawed box are each safe; a box that is both puts the derived kit where its own solid is not, and glself catches it. So asymmetry here is offset-only and every chamfer is CENTRED. RENDER_TUNE.legacyArms puts the showroom arm back.",
+  "pal": "ty_showroom",
+  "replaces": "showroom",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.14
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.38,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.14,
+      "z1": 0.52
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.33,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.42,
+      "z0": 0.14,
+      "z1": 0.52
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.22,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.52,
+      "z1": 0.64
+    }
+  ]
+}

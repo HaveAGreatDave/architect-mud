@@ -1,0 +1,152 @@
+{
+  "adorn": [
+    {
+      "cx": -0.05,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "120,255,220",
+      "z": 0.9
+    },
+    {
+      "cx": 0.05,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "120,255,220",
+      "z": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "90,255,215",
+      "s": 18,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Chrome Clinic"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.015,
+      "kind": "parapet",
+      "pal": "ty_asc_clinic",
+      "z": 0.1
+    },
+    {
+      "bars": 7,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#12212a",
+      "glow": "#d8f4ff",
+      "half": 0.36,
+      "hh": 0.03,
+      "kind": "windowBay",
+      "pal": "ty_asc_clinic",
+      "z": 0.042
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.32,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.105,
+      "pal": "ty_asc_clinic",
+      "soffit": "#2f8fa8",
+      "strip": "#9fffe0",
+      "z": 0.08000000000000002
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_asc_clinic",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_asc_clinic",
+      "z": 0.004
+    }
+  ],
+  "id": "chromeclinic",
+  "note": "A CHAMFERED tower, built out of two boxes rather than a drum: a square core with a second square inside it turned 45 degrees and set to about 0.85 of its width, so the union reads as an eight-sided shaft. The trick is worth knowing because it is the only way to get a faceted tower in this format that still LIGHTS ITSELF — an authored drum is drawn as a flat palette shade with no night term (drawAuthoredModel builds its skin from the palette RGB and the face normal and nothing else) and carries no mountable wall, where a box keeps its texture, its lit windows and the whole derivedTrim kit. The drum is kept only for the cap, where there is nothing to light. ⚠ The two cores are COINCIDENT mass and are deliberately not the same width: equal squares at 45 degrees give an eight-pointed star, not an octagon. RENDER_TUNE.legacyArms puts the asc_clinic arm back.",
+  "pal": "ty_asc_clinic",
+  "replaces": "asc_clinic",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.1
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.1,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.29,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.785,
+      "z0": 0.1,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.26,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.78,
+      "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.22,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.785,
+      "z0": 0.78,
+      "z1": 0.9
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 10,
+      "rb": 0.1,
+      "rt": 0.085,
+      "z0": 0.9,
+      "z1": 0.98
+    }
+  ]
+}

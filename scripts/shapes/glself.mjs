@@ -129,21 +129,41 @@ for (const { key, m } of ws.shapeModelRegistry()) {
 // stopped spending the full lift, and putting that one argument back takes it straight back up,
 // which is the mutation test this gate was checked with.
 const KNOWN = new Map([
-  ['stroke', { budget: 471, why:
+  ['stroke', { budget: 460, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
    + 'the full DECO_LIFT and they are pulled clear on purpose. The Dynamo lost its entire external '
    + 'stair when they were not. ⚠ THE COST OF THAT IS EVERY OTHER STROKE, and it is why `drawRing` '
    + 'now asks for DECO_PULL explicitly: a band hugging a tower is not inside anything, and pulled '
    + '0.6 of a tile its far arc came out in front of the building as a closed ellipse.' }],
-  ['decal:blade', { budget: 33, why:
+  // ⚠ THE NUMBER WENT 33 → 98 WHEN THE BLADE BECAME A BOX, AND THAT IS THE SHAPE CHANGING RATHER
+  // THAN A REGRESSION. It was ONE quad and is now four — a lettered front, a dark back and two edge
+  // returns — so it offers four times the points to this test. Per quad it got BETTER: 33 for the
+  // single face before, 24.5 each for the four now, because a face built in world units sits where
+  // the building actually is instead of at a screen-space half-width. If this climbs again without
+  // the part gaining geometry, that is the regression this budget is here to catch.
+  ['decal:blade', { budget: 41, why:
    '`neonBlade` mounts its anchor INSIDE the facade — on type:bar, 0.16 of a tile forward against a '
    + 'front wall at 0.328 — because the painter\'s queue always sorted it clear and nobody ever had '
    + 'to place it properly. At a tie-breaker pull the wall wins and the only part of the sign that '
    + 'draws is whatever crests the roofline, which is the sign not working. `BLADE_PROUD` is the '
    + 'named exception and 0.25 is measured: it clears the deepest facade and stays under the near '
-   + 'face of a building one tile in front.' }],
-  ['decal:solid', { budget: 20, why:
+   + 'face of a building one tile in front. The SIDES answer to the same reason and are keyed '
+   + `'blade|…'` + ' so they land here: they share the anchor and the pull, and counted as plain '
+   + 'solids they would spend the recessed-doorway budget, which is a different part entirely.' }],
+  ['decal:gantry', { budget: 38, why:
+   'a rooftop hoarding stands at its own tile CENTRE on legs, so its back board, its soffit and the '
+   + 'far edge return are inside the roof mass they are standing on — the same shape of reason as the '
+   + 'mast in `stroke`, and the same fix: they have to come out or they are simply not drawn. It is '
+   + 'here rather than in `decal:solid` because only the quads carrying a PER-TILE name take '
+   + 'the canvas path at all (a shared mesh cannot hold the name of one building), and counting '
+   + 'against the recessed-doorway budget would make that number stop meaning anything.' }],
+  // ⚠ THIS FELL 20 → 2 WHEN THE GANTRY GOT ITS OWN TAG, AND NOTHING WAS FIXED TO MAKE IT FALL.
+  // Almost the whole of the old budget was rooftop hoardings arriving here unnamed, under a reason
+  // that talks about doorways. The number was real and the label was wrong, which is the failure a
+  // shared catch-all category has: it passes because it is big, and it is big because of something
+  // nobody meant to put in it. 2 is what the doorways actually cost.
+  ['decal:solid', { budget: 2, why:
    'the recessed doorway panels. `emitDecoFill` is already capped at DECO_PULL, and these are the '
    + 'few that are authored far enough INTO their own facade that even a 0.05 tie-breaker brings '
    + 'them out — which is what the cap exists to do. Its own note names the case: the three arms '

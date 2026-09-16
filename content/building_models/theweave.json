@@ -1,0 +1,139 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "120,220,255",
+      "z": 0.92
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "70,200,255",
+      "s": 16,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Weave"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.015,
+      "kind": "parapet",
+      "pal": "ty_asc_weave",
+      "z": 0.11
+    },
+    {
+      "bars": 7,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.023,
+      "glass": "#101a24",
+      "glow": "#9fe0ff",
+      "half": 0.36,
+      "hh": 0.033,
+      "kind": "windowBay",
+      "pal": "ty_asc_weave",
+      "z": 0.0462
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.32,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.105,
+      "pal": "ty_asc_weave",
+      "soffit": "#1d6f9c",
+      "strip": "#9fe0ff",
+      "z": 0.08800000000000001
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_asc_weave",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_asc_weave",
+      "z": 0.004
+    }
+  ],
+  "id": "theweave",
+  "note": "The building is called The Weave and it was two stacked boxes. It is four long slabs now, each rotated against the one below and crossing it — a stack you cannot read the corners of, which is the whole of what the name is asking for. ⚠ A ROTATED SLAB CARRIES NOTHING: `anchored` takes its wall planes from UNYAWED boxes, so every part authored here is on the podium and nothing is hung above z 0.11. The slabs are still BOXES though, so they keep their wall texture and their lit windows — which is why this reads as a woven tower after dark rather than as a dark sculpture. See thespire.json for what happens when the same shape is attempted with drums. RENDER_TUNE.legacyArms puts the asc_weave arm back.",
+  "pal": "ty_asc_weave",
+  "replaces": "asc_weave",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.11
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.15,
+      "hw": 0.42,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0,
+      "z0": 0.11,
+      "z1": 0.33
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.15,
+      "hw": 0.42,
+      "kind": "box",
+      "roof": true,
+      "yaw": 1.15,
+      "z0": 0.33,
+      "z1": 0.55
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.14,
+      "hw": 0.37,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.45,
+      "z0": 0.55,
+      "z1": 0.75
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.13,
+      "hw": 0.31,
+      "kind": "box",
+      "roof": true,
+      "yaw": 1.5,
+      "z0": 0.75,
+      "z1": 0.92
+    }
+  ]
+}
