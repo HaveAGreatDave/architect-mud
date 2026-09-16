@@ -114,12 +114,13 @@ for (const w of ['drawTrafficSignals', 'drawStreetLamps']) {
 // canvas. Not a budget: a budget passes a new leak the moment somebody closes an old one.
 const KNOWN = new Map([
   ['drawTrafficSignals',
-    'OPEN, and it is the LAST one. The whole mast — pole, boom, drop brackets, heads and lenses — is '
-    + 'queued as ONE emitFace closure, and that closure runs at FLUSH, after the GL pass has gone and '
-    + 'the sinks are null. So even the parts that would route to gl/strokes.js (a pole and a boom are '
-    + 'exactly what that layer was written for) cannot reach it. Its only occlusion is groundHidden '
-    + 'at the mast BASE, so a head behind a building draws whole. Closing it means calling '
-    + 'drawSignalMast while the sinks are still open rather than wrapping it in a closure.'],
+    'MITIGATED, NOT MOVED. The whole mast — pole, boom, drop brackets, heads and lenses — is still '
+    + 'one emitFace closure, and that closure runs at FLUSH, after the GL pass has gone and the '
+    + 'sinks are null, so even the parts that would route to gl/strokes.js cannot reach it. What it '
+    + 'has instead is beginOcclusionClip — the same per-cell mask the own ship uses, applied inside '
+    + 'the closure where OCC_FIELD is still alive. That is a ~5px grid eroded by a cell, not a '
+    + 'per-pixel depth test, so a hair can survive against a building edge; the full fix is still '
+    + 'emitWire for the steel and emitDecoFill for the head.'],
 ]);
 
 const unlisted = (residue || []).filter((r) => !r.tag.startsWith('kept:') && !KNOWN.has(r.painter));

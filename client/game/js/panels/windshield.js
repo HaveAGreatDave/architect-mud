@@ -37,7 +37,7 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds, aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta } from './aircraft3d.js';
-import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster } from './model-raster.js';
+import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster, readPixels } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 import { DETAIL_SCHEMA } from '../../../shared/building-model-schema.js';   // the ONE declaration of a detail kind — the screen floors below are read off it rather than restated
@@ -354,7 +354,7 @@ export const RENDER_TUNE = {
   // gets it either way, because a puddle can only show what was drawn into it. See gl/ownship.js.
   glShip: 1,
   glBeam: 0.52,
-  glPuddle: 2.6,
+  glPuddle: 5.2,
   // ── THE BUILDINGS IN THE WATER, NOT JUST THE LIGHT OFF THEM ───────────────
   //
   // 0 is the picture the mirror pass shipped with: a puddle holding signs and glows and no facades,
@@ -827,9 +827,13 @@ export const RENDER_TUNE = {
   // Vertex-light PALETTE (live colour pickers in ⚙). Three roles (key/sky/shadow) × day/night, lerped
   // by sky.night. Defaults = post-apocalyptic cyberpunk: sodium-amber → magenta key, sickly-green →
   // teal sky-catch, cold blue-grey → indigo-black base shadow.
-  vlKeyDay: '#c69654', vlKeyNight: '#962c78',       // sun/key-lit accent (upper wall, lit side)
-  vlSkyDay: '#969e96', vlSkyNight: '#1a607e',       // sky/neon catch (upper wall, shadow side)
-  vlShadowDay: '#222836', vlShadowNight: '#0a0c1a', // base ambient-occlusion shadow
+  // ⚠ THESE ARE A WEAK LEVER AND IT IS WORTH KNOWING BEFORE REACHING FOR THEM. A/B'd against the
+  // shipping values on a night street, swinging the key from `#962c78` to full `#ff2e88` moved the
+  // picture barely at all: the neon, the lit windows and the wall wash dominate a night facade, and
+  // this gradient is what is left over. Pushed here because it is free, not because it is the fix.
+  vlKeyDay: '#c69654', vlKeyNight: '#c22f86',       // sun/key-lit accent (upper wall, lit side)
+  vlSkyDay: '#969e96', vlSkyNight: '#1f74b4',       // sky/neon catch (upper wall, shadow side)
+  vlShadowDay: '#222836', vlShadowNight: '#0a0f2e', // base ambient-occlusion shadow
   bldgH: 1.40,        // building height scale (from the user's tuned screenshot)
   bldgStretch: 5.0,   // extra VERTICAL stretch on top of bldgH — makes buildings stand tall instead of pancakes; live 'Vert stretch' slider
   bldgFoot: 1.0,      // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
@@ -937,6 +941,11 @@ function reliefShade(awx, awy, litX, litY, arid) {
 
 // ── Time-of-day sky keyframes (blended by hour) ───────────────────────────────
 const SKY = [
+  // ⚠ THE NIGHT SKY IS EVERY REGION'S NIGHT SKY, AND THAT IS WHY THE CITY'S GLOW IS NOT IN HERE.
+  // A violet horizon was tried here first and it is the right LOOK and the wrong PLACE: `hor` feeds
+  // the distance fog for the whole world, so Coldwater's light pollution arrived over the
+  // Scarletwastes, where there is no city to make it, and over Terminus, which must never read as
+  // cyberpunk. The glow belongs to the region that emits it — see `glow` in REGION_GRADE.
   { h: 0,    top: [6, 8, 18],    hor: [20, 22, 40],   g1: [16, 20, 22], g2: [5, 7, 9],   night: 1,   sun: null },
   { h: 5.5,  top: [40, 46, 84],  hor: [206, 122, 84],  g1: [42, 46, 36], g2: [15, 17, 13], night: 0.5, sun: [255, 176, 116] },
   { h: 8,    top: [26, 108, 166],hor: [156, 196, 216], g1: [56, 72, 42], g2: [22, 30, 16], night: 0,   sun: [255, 246, 214] },
@@ -1776,8 +1785,15 @@ export function paintWindshield(id, view) {
   // it. Detached, that is precisely the behaviour you do not want: you place the shot, the rig
   // drives through it, and the framing holds still.
   const yawOff = (v.viewYaw || (v.side ? 90 : 0)) + extOrbit;
-  const vw = fcam ? { ...v, heading: fcam.yaw || 0 }
-    : yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
+  // ⚠ AND THE RIG'S OWN HEADING RIDES ALONG, because `heading` on this object is now the CAMERA's.
+  // Everything downstream that wants to know where the eye is pointing reads `heading` and is
+  // right to; the one thing that does not is the vehicle the camera is looking AT. `drawWorldObjects`
+  // is handed `vw`, and the own-ship geometry is collected inside it — so with only `heading` to
+  // read, the rig was rebuilt at the camera's angle and its REFLECTION spun as you orbited while the
+  // canvas-drawn truck (which gets the unrotated `v`) stayed put. Two trucks, one of them in the
+  // water, disagreeing about which way it was facing.
+  const vw = fcam ? { ...v, heading: fcam.yaw || 0, ownHdg: v.heading || 0 }
+    : yawOff ? { ...v, heading: (v.heading || 0) + yawOff, ownHdg: v.heading || 0 } : v;
   const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
   const phase = v.phase || 'cruise';
   // A hero event OUTRANKS the ordinary weather type for everything visual: when
@@ -2555,7 +2571,7 @@ export function paintWindshield(id, view) {
       // is on the ground plane, so anything that stands up out of it must be able to occlude it.
       // Gated exactly as the screen-space glare is — the driver's switch AND the gloom — so the two
       // halves of one lamp can never disagree about whether it is lit.
-      if (_hlStr > 0) drawHeadlightBeam(ctx, cam, Math.max(sky.night, wxGloom(wx)), now);
+      if (_hlStr > 0) drawHeadlightBeam(ctx, cam, Math.max(sky.night, wxGloom(wx)), now, v.heading);
       pEnd();
       ctx.restore();
     }
@@ -2686,6 +2702,9 @@ export function paintWindshield(id, view) {
       // the road behind a shed is the same lie in a softer form.
       const ownP = cam.proj(0, 0, 0);
       const clipped = ownP && ownP.f > 0.05 ? beginOcclusionClip(ctx, ownP.f) : false;
+      LAST_SHIP_MASK = { f: ownP ? +ownP.f.toFixed(3) : null, clipped,
+        field: !!OCC_FIELD, solids: OCC_SOLIDS ? OCC_SOLIDS.length : -1,
+        occWin: null, keptPx: null, totalPx: null };
       // ── WHAT IT IS FLOATING ON ─────────────────────────────────────────────
       //
       // Drawn BEFORE the model and on the ground plane, so the rig sits IN its light instead of on
@@ -4835,7 +4854,31 @@ const HL_NEAR = 0.9;          // tiles ahead of the eye the pool starts — just
 const HL_FAR = 34;            // tiles the beam reaches; past this the falloff has it at nothing
 const HL_SEG = 16;            // strip segments — enough that the banding reads as a gradient
 const HL_W0 = 1.05, HL_W1 = 4.0;   // half-width in tiles, at the near and far ends
-function drawHeadlightBeam(ctx, cam, gloom, now) {
+const HL_CORE = 0.52;         // fraction of the half-width at full strength; the rest is the soft rim
+function drawHeadlightBeam(ctx, cam, gloom, now, hdg) {
+  // ── ⚠ A HEADLAMP POINTS WHERE THE TRUCK POINTS, NOT WHERE THE CAMERA DOES ──────────────────
+  //
+  // This was authored in the camera's own forward/lateral frame (cam.projFL / cam.worldFL), and
+  // the note above says so in as many words. In the CAB that is the same frame: the camera looks
+  // where the rig is facing, so the beam lay correctly down the road and nothing was ever wrong.
+  //
+  // The external chase camera orbits. So the pool swung with the orbit — a fan of light sweeping
+  // round the truck as you dragged the view, pouring out of its flank and its tailgate, anchored
+  // to the eye rather than to the lamps. Reported as "it rotates with the camera", which is
+  // exactly what it was doing.
+  //
+  // ⚠ IT WAS INVISIBLE FOR AS LONG AS IT WAS WRONG. With the GPU floor on, this pool was painted
+  // under an opaque floor and covered every frame, so the one seat that could have shown the bug
+  // was the one seat that never drew it.
+  //
+  // ⚠ AND THE CAB IS BIT-IDENTICAL. With no chase offset and the camera on the rig's own heading,
+  // the vehicle frame below IS cam.worldFL — same origin, same axes, same numbers.
+  const hr = (hdg || 0) * Math.PI / 180;
+  const sn = Math.sin(hr), cs = Math.cos(hr);
+  // The rig's own ground point is camera-relative (0,0) — the model is drawn at dx:0, dy:0 — so the
+  // beam is laid out about it in the rig's axes. Forward is (sin, -cos), right is (cos, sin), the
+  // same basis drawAircraftModel builds the mesh on.
+  const VFL = (aa, sd) => [aa * sn + sd * cs, -aa * cs + sd * sn];
   const str = clamp((gloom - 0.18) / 0.82, 0, 1);
   if (str < 0.03) return;
   const flick = 0.94 + 0.06 * Math.sin(now * 0.019) * Math.sin(now * 0.033);
@@ -4856,6 +4899,7 @@ function drawHeadlightBeam(ctx, cam, gloom, now) {
     // Inverse-square-ish falloff, which is what makes it read as a lamp rather than as a painted
     // wedge: bright at the bumper, gone by the far end.
     const fall = (1 - t0) * (1 - t0);
+    const fall1 = (1 - t1) * (1 - t1);
     // ⚠ 0.52 WAS NEVER TUNED AGAINST A FRAME THAT SHOWED IT. Until the mesh push above, this pool
     // was painted on the canvas UNDER an opaque GPU floor, so with glFloor on — the default — it
     // was drawn and then covered every frame, and the number could be anything. Put on the road
@@ -4870,13 +4914,44 @@ function drawHeadlightBeam(ctx, cam, gloom, now) {
     if (mesh) {
       // Warm tungsten, as below, and ADDITIVE — the ground layer draws this range under
       // ONE/ONE, which is what ctx 'lighter' is.
-      const W2 = (aa, sd) => { const w = cam.worldFL(aa, sd); return [w[0], w[1], BEAM_EPS]; };
-      mesh.push({ p: [W2(a0, -w0), W2(a0, w0), W2(a1, w1), W2(a1, -w1)],
-        rgb: [255, 242, 206], a, add: true });
+      // ⚠ PLUS THE CAMERA OFFSET, because GROUND_MESH is in MAP-WINDOW tiles and VFL is
+      // camera-relative — the same conversion the road quads and the rig's own geometry make.
+      const W2 = (aa, sd) => { const w = VFL(aa, sd); return [w[0] + (cam.ox || 0), w[1] + (cam.oy || 0), BEAM_EPS]; };
+      // ── ⚠ A HEADLAMP HAS NO EDGE, AND THIS USED TO HAVE THREE ────────────────────────────────
+      //
+      // One quad per segment at one alpha gives a pool with a hard rim down each flank and a step
+      // across every join — sixteen strips you can count. That is what reads as harsh, far more
+      // than the brightness does.
+      //
+      // The layer takes alpha PER VERTEX now (see 'as' in gl/ground.js), so the fade is in the
+      // geometry rather than in the number of pieces: a bright core, a flank either side that
+      // falls to nothing at the edge, and the along-beam ramp evaluated at BOTH ends of each
+      // segment so consecutive strips meet at the same value and the banding goes.
+      //
+      // ⚠ THE CANVAS PATH BELOW IS DELIBERATELY UNCHANGED. A 2-D fill takes one alpha, so the soft
+      // rim is a thing the mesh can say and a canvas fill cannot without a gradient per strip —
+      // and GLASS 1 keeps exactly the picture it has always had rather than a worse imitation.
+      const aN = RENDER_TUNE.glBeam * str * flick * fall;
+      const aF = RENDER_TUNE.glBeam * str * flick * fall1;
+      if (aN < 0.004 && aF < 0.004) continue;
+      const c0 = w0 * HL_CORE, c1 = w1 * HL_CORE;
+      const warm = [255, 242, 206];   // tungsten, and deliberately not white — white reads as fog
+      // ⚠ AND THE POOL HAS TO DECLARE ITSELF A ROAD THING, or the puddle term in the shader never
+      // fires at all. 'pud' is gated on the per-vertex road flag — puddles are a carriageway
+      // thing — and a quad that does not set it reads vRoad 0, so the beam would be multiplied by
+      // a puddle field that is identically zero underneath it. Caught by tracing the flag rather
+      // than by looking: the feature would simply have done nothing, which is the failure this
+      // whole layer keeps producing.
+      const beamQ = { rgb: warm, add: true, road: 1 };
+      // the core, full strength across its width
+      mesh.push({ ...beamQ, p: [W2(a0, -c0), W2(a0, c0), W2(a1, c1), W2(a1, -c1)], as: [aN, aN, aF, aF] });
+      // …and a flank either side, falling to nothing at the rim
+      mesh.push({ ...beamQ, p: [W2(a0, c0), W2(a0, w0), W2(a1, w1), W2(a1, c1)], as: [aN, 0, 0, aF] });
+      mesh.push({ ...beamQ, p: [W2(a0, -w0), W2(a0, -c0), W2(a1, -c1), W2(a1, -w1)], as: [0, aN, aF, 0] });
       continue;
     }
-    const p = [cam.projFL(a0, -w0, 0.004), cam.projFL(a0, w0, 0.004),
-               cam.projFL(a1, w1, 0.004), cam.projFL(a1, -w1, 0.004)];
+    const PF = (aa, sd) => { const w = VFL(aa, sd); return cam.proj(w[0], w[1], 0.004); };
+    const p = [PF(a0, -w0), PF(a0, w0), PF(a1, w1), PF(a1, -w1)];
     if (p.some((q) => q.f <= 0.06)) continue;
     ctx.beginPath();
     ctx.moveTo(p[0].sx, p[0].sy);
@@ -9242,6 +9317,13 @@ let GROUND_FULL = false;
 // polygons for the vehicle you are IN — never for a contact, which keeps it one object a frame.
 // See gl/ownship.js for what it is for and why it had to exist at all.
 let OWNSHIP_SINK = null;
+// ── WHY THE RIG IS, OR IS NOT, HIDDEN BY WHAT IS IN FRONT OF IT ─────────────
+// Two separate mechanisms mask the own ship against the world — a coarse cell clip on the canvas
+// (beginOcclusionClip) and a per-pixel one inside its own depth buffer (occluderWindow +
+// maskRaster) — and when the rig draws through a shed anyway, NOTHING says which of them declined.
+// Both fail by doing nothing, which is the same picture as not being wired at all. __glass2() reads
+// this.
+let LAST_SHIP_MASK = null;
 let LAST_FLOOR = null;   // see lastFloorState()
 // THE OWN SHIP SHADOW CANNOT REACH DECAL_SINK DIRECTLY, and the reason is ordering rather than
 // taste: it is painted outside the worldBlend block (a parked craft reads as planted the instant
@@ -9488,6 +9570,7 @@ export function lastViewState() { return LAST_VIEW; }
 // disagree about where the road is, the question is which term the shader reads differently —
 // and none of them was observable from outside. The LUT planes are megabytes and are omitted;
 // what is here is every scalar the inversion uses, plus the sizes of the planes it samples.
+export function lastOwnShipMask() { return LAST_SHIP_MASK; }
 export function lastFloorState() {
   const f = LAST_FLOOR;
   if (!f) return null;
@@ -12731,7 +12814,30 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
       // building in the flush that follows.
       const hf = mx * cam.sinh - my * cam.cosh;
       if (groundHidden(cam, mx, my)) continue;
-      emitFace(hf + (cam.fwdOff || 0), () => drawSignalMast(ctx, cam, mx, my, arm, lamp, alpha, night, !dead && night > 0.35));
+      // ── ⚠ AND IT IS DEPTH-MASKED AGAINST THE BUILDINGS, WHICH IT NEVER WAS ──────────────────
+      //
+      // This whole mast is ONE entry in the face sink and the sink is painted AFTER the GL canvas
+      // is composited, so nothing in the city could paint over it. The only thing between a signal
+      // head and a tower was `groundHidden` at the mast's BASE — one point, all-or-nothing — which
+      // answers the wrong question twice over: a mast whose base is visible draws IN FULL however
+      // much of it is behind a building, and a head three storeys up is exactly the part that is.
+      // That is "traffic lights are visible thru buildings", and it is the last painter the world
+      // pass leaves on the canvas (see scripts/shapes/worldresidue.mjs).
+      //
+      // `beginOcclusionClip` is the same per-cell mask the OWN SHIP has had for a long time, built
+      // from the same occluder field the pre-pass fills with real building solids. It is not a
+      // per-pixel depth test — the grid is about five pixels a cell and the blocked set is eroded by
+      // one, so a hair of the mast can still survive against a building's own edge — but it is the
+      // difference between a signal hanging in front of a tower and a signal behind it.
+      //
+      // ⚠ INSIDE THE CLOSURE, NOT OUTSIDE IT. This runs at FLUSH; a clip applied where the face is
+      // queued would be long restored by the time anything is painted. OCC_FIELD is still alive
+      // there on purpose — it outlives the pass, and only the PERMISSION (`DECO_OCC`) is cleared.
+      emitFace(hf + (cam.fwdOff || 0), () => {
+        const clipped = beginOcclusionClip(ctx, hf);
+        drawSignalMast(ctx, cam, mx, my, arm, lamp, alpha, night, !dead && night > 0.35);
+        if (clipped) ctx.restore();
+      });
     }
   }
 }
@@ -13883,6 +13989,11 @@ function articFrame(artic) {
 // twenty-field literal written twice, which is twenty chances for the picture and its reflection
 // to disagree about what is being driven.
 function ownShipModelOpts(v) {
+  // ⚠ THE RIG'S HEADING, NEVER THE VIEW'S. `ownHdg` is set whenever the view object's own
+  // `heading` has been rotated off the vehicle — an orbiting chase camera, or a detached free
+  // camera — and is absent when the two are the same thing. Absent falls through to `heading`,
+  // which is the identity for every seat that does not orbit.
+  const H = v.ownHdg != null ? v.ownHdg : (v.heading || 0);
   // ── ⚠ AN ARTICULATED RIG IS ONE MODEL WITH A HINGE IN IT ─────────────
   // A semi is a tractor and a box that share one point, and the physics has modelled the angle
   // between them since phase 1 (`s.phi`) while the picture welded the two together — so a jackknife
@@ -13900,12 +14011,14 @@ function ownShipModelOpts(v) {
     // The trailer's ABSOLUTE heading is what the sim owns; `phi` is `heading - trailerHeading`, and
     // a renderer reassembling that has to pick a sign. Picking the wrong one makes the box LEAD the
     // turn, which reads as the trailer steering the truck. It did.
-    const phi = v.trailerHeading != null ? ((v.heading || 0) - v.trailerHeading) : (v.phi || 0);
+    // ⚠ AND THE HINGE READS THE RIG'S HEADING TOO. phi is heading minus trailerHeading, so taking
+    // the camera's angle here jackknifes the reflection by exactly the orbit.
+    const phi = v.trailerHeading != null ? (H - v.trailerHeading) : (v.phi || 0);
     return Math.abs(phi) < 0.05 ? null : { phi: phi * Math.PI / 180, pin: meta.pin };
   })();
   // `own: true` marks this as the camera's SUBJECT rather than one more thing in the world — the
   // truck path reads it to keep the depth buffer on however small the window is.
-  return { own: true, dx: 0, dy: 0, cls: v.cls, variant: v.variant, artic, armed: !!v.armed, hdg: v.heading,
+  return { own: true, dx: 0, dy: 0, cls: v.cls, variant: v.variant, artic, armed: !!v.armed, hdg: H,
     steer: v.steer, drive: v.drive, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: ownExtMul(v.cls),
     gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl,
     propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false,
@@ -14222,6 +14335,19 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // everything a building owns. `rf` is the identical array the rasteriser indexed — see the ⚠.
     light: (res, rf) => shadeRaster(res, vehicleLightRig(c, rf, casters, Wp, toSun, sunStr, sun, SIZE)),
   });
+  // ⚠ WHAT THE PER-PIXEL MASK ACTUALLY DID, which is otherwise unobservable: maskRaster clears the
+  // alpha of every pixel a building owns, so the surviving count IS the answer to "is the rig
+  // showing through". Own ship only — a yard of parked contacts would make this a per-frame walk
+  // over eight buffers to answer a question nobody asked of them.
+  if (c.own && LAST_SHIP_MASK) {
+    LAST_SHIP_MASK.occWin = !!(pass && pass.occWin);
+    if (pass && pass.res) {
+      const px = readPixels(pass.res);
+      let kept = 0, total = 0;
+      for (let i = 3; i < px.length; i += 4) { total++; if (px[i] > 8) kept++; }
+      LAST_SHIP_MASK.keptPx = kept; LAST_SHIP_MASK.totalPx = total;
+    }
+  }
   // The fallback, and for a model the pass declined the only path: a mean-depth painter's sort,
   // which is the right answer for one smooth convex hull and the wrong one for a pile of bolted-on
   // boxes.
@@ -15174,8 +15300,13 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     if (GROUND_FULL) {
       const WQ = (sx, sy, z) => [(rx - R) + sx * 0.5, (ry - R) + sy * 0.5, z];
       const sq = styleRgbA(ctx.fillStyle);
+      // ⚠ AND IT SAYS WHETHER IT IS A CARRIAGEWAY. The puddle field in gl/ground.js is a ROAD
+      // thing: water runs to the camber and lies in the ruts. `field` is the runway/apron surface —
+      // swept concrete, a forecourt, a depot hardstand — and it was growing standing water the size
+      // of a truck because the ground pass had no way to tell the two apart. It does now, and the
+      // producer is the only place that knows.
       if (sq) GROUND_MESH.push({ p: [WQ(-1, -1, SURF_EPS), WQ(1, -1, SURF_EPS), WQ(1, 1, SURF_EPS), WQ(-1, 1, SURF_EPS)],
-        rgb: sq.rgb, a: sq.a * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha) });
+        rgb: sq.rgb, a: sq.a * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha), road: surf === 'road' ? 1 : 0 });
     } else {
       ctx.beginPath(); ctx.moveTo(P0.sx, P0.sy); ctx.lineTo(P1.sx, P1.sy); ctx.lineTo(P2.sx, P2.sy); ctx.lineTo(P3.sx, P3.sy); ctx.closePath(); ctx.fill();
     }
@@ -15212,7 +15343,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
         if (sk) GROUND_MESH.push({
           p: [[a.wx + nx, a.wy + ny, ROAD_EPS], [b.wx + nx, b.wy + ny, ROAD_EPS],
               [b.wx - nx, b.wy - ny, ROAD_EPS], [a.wx - nx, a.wy - ny, ROAD_EPS]],
-          rgb: sk.rgb, a: sk.a * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha) });
+          rgb: sk.rgb, a: sk.a * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha), road: surf === 'road' ? 1 : 0 });
         return;
       }
       ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
@@ -15256,7 +15387,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
           const Wp = (a, o) => [dx + cam.ox + A[0] * a + Px * o, dy + cam.oy + A[1] * a + Py * o, ROAD_EPS];
           // ctx.globalAlpha is the per-tile distance fade the caller already set; folding it in here
           // is what makes the GPU road the same road rather than a brighter one.
-          GROUND_MESH.push({ p: [Wp(aLo, off - hw), Wp(aLo, off + hw), Wp(aHi, off + hw), Wp(aHi, off - hw)],
+          GROUND_MESH.push({ road: surf === 'road' ? 1 : 0, p: [Wp(aLo, off - hw), Wp(aLo, off + hw), Wp(aHi, off + hw), Wp(aHi, off - hw)],
             rgb: gc, a: sa * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha) });
           return;
         }
@@ -17361,8 +17492,44 @@ function perchBird(ctx, cam, dx, dy, z, alpha) {
 //   sat   — how far to pull saturation OUT (0..1; 1 = full sepia)
 //   dust  — corner-vignette + horizon dust-haze strength
 //   near/far — tile distances (region-centroid) over which the grade ramps 1→0
+//   lift  — the midtone soft-light in `tint`. Was a HARDCODED 0.42 and is the biggest colour term
+//           in the whole grade — `strength` is not the strength, which is worth knowing before
+//           tuning a new one. Defaults to 0.42, so The Reach is untouched by it existing.
+//   vib   — saturation pushed UP (0..1). The opposite of `sat`, and it needs to be a separate key
+//           rather than a negative one: the two are different composites, not two ends of a dial.
+//   shadow/shadowStr — a colour the crushed blacks are lifted TOWARD, via `lighten`, which raises
+//           only the channels already darker than it. This is what makes a night read blue rather
+//           than black, and it is the single biggest term in the Coldwater grade.
+//   nightBias — how much the whole grade leans on darkness. 0 (the default, and what The Reach
+//           takes) means a grade applies identically at noon and midnight.
 const REGION_GRADE = {
   region_the_reach: { tint: [214, 150, 86], sat: 0.5, strength: 0.32, dust: 0.34, near: 2, far: 13 },
+  // ── COLDWATER: PINK ON BLUE ────────────────────────────────────────────────────────────────
+  // The Reach's grade is a DUST grade — saturation out, ochre in, a dirty vignette — and pointing
+  // that shape at a city would produce a sepia photograph of one. Coldwater wants the reverse on
+  // every axis: colour pushed up rather than out, the shadows lifted toward blue rather than
+  // toward brown, and the magenta arriving as a highlight rather than as a wash.
+  //
+  // ⚠ IT LEANS ON THE DARK (`nightBias`) AND THAT IS WHAT KEEPS IT HONEST. A magenta cast at noon
+  // reads as a filter somebody left on; the same cast at 2am reads as the city's own light on the
+  // underside of the cloud. So it is nearly absent by day and full at night, and the daytime half
+  // of the cyberpunk read is carried by the buildings and the accents instead.
+  //
+  // ⚠ AND `strength` IS SMALL ON PURPOSE. A multiply is the one pass here that can only ever take
+  // light away, and this file has cut the same class of knob three times for being too dramatic —
+  // see the three retunes recorded on the wall wash. The colour comes from `vib` and `shadow`,
+  // which add; the multiply is only there to stop the highlights going white.
+  // ⚠ `lift: 0`, AND IT IS THE WHOLE DIFFERENCE BETWEEN A CITY AND A FILTER. A soft-light magenta
+  // is applied to every pixel, so at any strength above about 0.1 it paints the ROAD — and purple
+  // asphalt is the single thing that reads as somebody having left a grade switched on. Swept on a
+  // night street at 0.42 / 0.22 / 0.12 / 0: everything above zero tints the carriageway, and zero
+  // loses nothing, because the colour is carried by `vib`, `shadow` and `glow` — a saturation
+  // push, a shadow lift and a sky band, none of which touch a lit or mid-grey surface.
+  region_coldwater: {
+    tint: [236, 92, 176], sat: 0, vib: 0.40, lift: 0, strength: 0.08, dust: 0,
+    shadow: [20, 28, 84], shadowStr: 0.22, nightBias: 0.85, near: 26, far: 62,
+    glow: [255, 74, 168], glowStr: 0.18, glowUp: 0.22, glowNight: 1,
+  },
 };
 // Strongest applicable grade for this frame, or null. Weight is a smoothstep of the nearest
 // graded region's centroid distance across its near→far band.
@@ -17420,20 +17587,69 @@ function applyStormGrade(ctx, W, H, horizonY, sev, night, wx) {
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   ctx.restore();
 }
-function applyRegionGrade(ctx, W, H, horizonY, g, w, now, night) {
+function applyRegionGrade(ctx, W, H, horizonY, g, w0, now, night) {
+  // ⚠ THE NIGHT LEAN IS APPLIED TO THE WEIGHT, ONCE, rather than to each pass. Every term below
+  // already scales by `w`, so folding it in here is what makes "absent by day" a property of the
+  // grade rather than five separate multiplications somebody can forget one of. A grade with no
+  // `nightBias` is unchanged by this line — which is the whole of The Reach's claim on it.
+  const w = w0 * (g.nightBias ? lerp(1 - g.nightBias, 1, clamp(night, 0, 1)) : 1);
   if (w <= 0.002) return;
   const [tr, tg, tb] = g.tint;
   ctx.save();
   ctx.globalCompositeOperation = 'saturation';                                   // pull colour toward sepia
   ctx.globalAlpha = clamp(g.sat * w, 0, 1); ctx.fillStyle = 'rgb(128,128,128)'; ctx.fillRect(0, 0, W, H);
+  // ⚠ SATURATION UP IS THE SAME COMPOSITE WITH A SATURATED SOURCE, not a negative alpha. The
+  // 'saturation' operator takes the SATURATION of the source and the hue and luma of the backdrop,
+  // so a fully-saturated fill raises what is under it and a grey one (above) flattens it. One
+  // operator, two directions, and the source colour is which one you get.
+  if (g.vib) {
+    ctx.globalCompositeOperation = 'saturation';
+    ctx.globalAlpha = clamp(g.vib * w, 0, 1); ctx.fillStyle = 'rgb(255,0,140)'; ctx.fillRect(0, 0, W, H);
+  }
   ctx.globalCompositeOperation = 'multiply';                                      // sun-baked ochre wash
   ctx.globalAlpha = clamp(g.strength * w, 0, 1); ctx.fillStyle = `rgb(${tr},${tg},${tb})`; ctx.fillRect(0, 0, W, H);
-  ctx.globalCompositeOperation = 'soft-light';                                    // lift the midtones (hot glare)
-  ctx.globalAlpha = clamp(0.42 * w, 0, 1); ctx.fillStyle = `rgb(${tr},${tg},${tb})`; ctx.fillRect(0, 0, W, H);
+  // ⚠ THIS USED TO BE A HARDCODED 0.42 AND IT IS THE GRADE'S LARGEST COLOUR TERM — larger than
+  // `strength`, which is the one that reads like it should be. A grade authored by setting
+  // `strength` low and expecting a subtle result got this at full value regardless. The default
+  // keeps The Reach bit-for-bit; a new grade is expected to say what it wants.
+  const lift = g.lift == null ? 0.42 : g.lift;
+  if (lift > 0) {
+    ctx.globalCompositeOperation = 'soft-light';                                  // lift the midtones (hot glare)
+    ctx.globalAlpha = clamp(lift * w, 0, 1); ctx.fillStyle = `rgb(${tr},${tg},${tb})`; ctx.fillRect(0, 0, W, H);
+  }
+  // ⚠ 'lighten' IS THE SHADOW-ONLY OPERATOR AND THAT IS WHY IT IS THIS ONE. It keeps the brighter
+  // of source and backdrop per channel, so a dark blue fill raises only what is ALREADY darker than
+  // it and leaves every lit window, sign and headlight exactly where it was. A 'screen' or a
+  // low-alpha 'source-over' would wash the whole frame and take the contrast the neon needs.
+  if (g.shadow) {
+    const [sr, sg, sb] = g.shadow;
+    ctx.globalCompositeOperation = 'lighten';
+    ctx.globalAlpha = clamp((g.shadowStr || 0) * w, 0, 1); ctx.fillStyle = `rgb(${sr},${sg},${sb})`; ctx.fillRect(0, 0, W, H);
+  }
   ctx.globalCompositeOperation = 'source-over';
   const vg = ctx.createRadialGradient(W / 2, H * 0.52, Math.min(W, H) * 0.22, W / 2, H * 0.52, Math.max(W, H) * 0.78);   // dust vignette
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, `rgba(28,16,6,${clamp(g.dust * w, 0, 0.5)})`);
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  // ── THE CITY'S OWN LIGHT ON THE UNDERSIDE OF THE SKY ───────────────────────────────────────
+  // Light pollution, and the reason it is a REGION's property rather than the night sky's: it is
+  // made by the city, so it has to stop where the city does. It climbs UP from the horizon, which
+  // is the opposite of the dust band below (that one settles DOWN into the ground), and it is
+  // `lighter` because a glow adds — a 'source-over' wash would flatten the silhouettes it is
+  // supposed to be standing behind.
+  // ⚠ `glowNight` IS A SECOND NIGHT TERM ON TOP OF `nightBias`, and it is not redundant. The rest
+  // of the grade is a colour cast that is merely stronger after dark; this one does not exist at
+  // noon at all, because a city does not light the sky in daylight.
+  { const hy0 = clamp(horizonY, 0, H);
+    const gw = w * (g.glowNight ? clamp(night, 0, 1) : 1);
+    if (g.glow && (g.glowStr || 0) * gw > 0.004 && hy0 > 0) {
+      const [pr, pg, pb] = g.glow, up = H * (g.glowUp || 0.22);
+      const band = ctx.createLinearGradient(0, hy0, 0, Math.max(0, hy0 - up));
+      band.addColorStop(0, `rgba(${pr},${pg},${pb},${clamp(g.glowStr * gw, 0, 0.6)})`);
+      band.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1;
+      ctx.fillStyle = band; ctx.fillRect(0, Math.max(0, hy0 - up), W, Math.min(up, hy0));
+      ctx.globalCompositeOperation = 'source-over';
+    } }
   const hy = clamp(horizonY, 0, H), bandH = H * 0.18;                             // horizon dust-haze, wavering
   if (g.dust * w > 0.02 && hy < H) {
     const shimmer = (0.6 + 0.4 * Math.sin((now || 0) * 0.005)) * (1 - night * 0.5);
@@ -25447,22 +25663,43 @@ const SIGN_TRADE = {
 // The axis is the trade's own pictogram where there is one, because that is already the table
 // saying what a building sells, and the material family otherwise. Deterministic — no `dRand`,
 // nothing seeded — because `models:diff` asserts two renders of a model are identical.
+// ── THE CITY IS PINK ON BLUE, AND THE BLUE IS THE BIGGER HALF ────────────────────────────────
+//
+// Measured before this was touched: of 173 models' accents, 118 were red/amber, 30 cyan/blue, 14
+// magenta/pink. The commonest single colour was `#ffd678` on FIFTY-THREE models — a third of the
+// city burning one shade of tungsten. So the city read amber, whatever the reference board said,
+// and the pink anybody could see at night was the vertex-light key wash rather than a single sign.
+//
+// ⚠ THE BLUE IS THE FIELD AND THE PINK IS THE PUNCTUATION, which is the whole composition and the
+// easy thing to get backwards. Making the 53-model default magenta would give a third of the city
+// hot pink and it stops being an accent the moment it is the background. The generic facade goes
+// COOL — that is the bed — and hot magenta is spent on the trades that earn it: the bars, the
+// clubs, the casinos, the places that are open because it is dark.
+//
+// ⚠ AMBER IS NOT DELETED, IT IS RESERVED. A works, a forecourt, a depot and a yard keep sodium,
+// because a colour is only an accent if something on the street is not wearing it — and because it
+// is what makes the industrial east read as a different decade from the glass west without one
+// coordinate being named anywhere in this file. Retiring it entirely would buy a duotone poster.
+//
+// ⚠ AND THIS CANNOT RECLASSIFY A BUILDING. `derivedStyle` reads `m.neon` as a TRUTH TEST and never
+// reads `accentOf`, so every value here is cosmetic: no louvre bank, roller shutter or stack moves
+// because a colour changed. See the ⚠ on `accentOf` below, which is about the opposite mistake.
 const PICTO_ACCENT = {
-  martini: '#ff4a9a',   // bars, clubs, casinos, the strip — hot magenta
-  fork: '#ff8a4a',      // food — warm orange
-  mug: '#ffc24a',       // coffee, laundry, the bathhouse — amber
-  bed: '#5fd0ff',       // hotels, the embassy, a layover — cold welcoming blue
-  pill: '#8affc8',      // clinics and chem supply — clinical green
-  bolt: '#5c9cff',      // power, turbines, the signal box — electric blue
-  fuel: '#ffb03e',      // forecourts, garages, depots — sodium
-  arrow: '#cfe4ff',     // freight, permits, the scale house — cold white
+  martini: '#ff2e8e',   // bars, clubs, casinos, the strip — hot magenta, the loudest thing on the street
+  fork: '#ff4fa8',      // food — pink neon: a late counter signs itself the same way a bar does
+  mug: '#ff74c0',       // coffee, laundry, the bathhouse — a softer pink, open but not shouting
+  bed: '#3fdcff',       // hotels, the embassy, a layover — cold cyan
+  pill: '#4affd0',      // clinics and chem supply — clinical cyan-green
+  bolt: '#4a7cff',      // power, turbines, the signal box — electric blue
+  fuel: '#ffa32e',      // forecourts, garages, depots — sodium, and deliberately still sodium
+  arrow: '#8fd0ff',     // freight, permits, the scale house — cold blue-white
 };
 const MAT_ACCENT = {
-  metal: '#ffa23e', plate: '#ffa23e', concrete: '#ffb866',          // a works burns work-light amber
-  glass: '#bfe4ff', deco: '#ffe6b0', brass: '#ffd88a',              // a front burns cool, or gilt
-  brick: '#ffcf94', stone: '#ffdcae', stucco: '#ffd6a2',            // a block burns tungsten
-  tile: '#ffe0b8', timber: '#ffc98a', bale: '#ffcf94',
-  'window grid': '#ffd678',
+  metal: '#ff8a2e', plate: '#ff8a2e', concrete: '#ff9a4a',          // a works burns work-light sodium — the old east, and the exception the pink needs
+  glass: '#ff3ea0', deco: '#ff5cb4', brass: '#ff7ad0',              // a FRONT burns hot: glass and gilt are where the money and the nightlife are
+  brick: '#5fb4ff', stone: '#7fc8ff', stucco: '#6fbcff',            // a block burns cold — tenement and civic windows are the blue the pink sits on
+  tile: '#4fd8ff', timber: '#ff9a5c', bale: '#ff9a5c',              // timber and bale stay warm: they predate the grid and are not lit by it
+  'window grid': '#4fc8ff',                                         // the 53-model default, and therefore the city's ground colour. See the ⚠ above.
 };
 export function accentOf(m) {
   if (m && m.neon) return m.neon;

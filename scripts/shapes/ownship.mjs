@@ -78,11 +78,49 @@ if (!ext || !ext.length) {
   if (!(zMax > zMin)) problems.push('every collected vertex is at one height — the rig is flat, so the transform is not being applied');
 }
 
-// 2. The cab, where there is no rig to collect: you are inside it.
+// 2. ORBITING THE CAMERA MUST NOT MOVE THE RIG.
+//
+// ⚠ THIS IS THE ONE THE FIRST VERSION OF THIS GATE COULD NOT SEE, AND IT SHIPPED BECAUSE OF THAT.
+// `paintWindshield` hands `drawWorldObjects` the view with the camera's heading written into
+// `heading` — vehicle heading plus extYaw plus chaseYaw — and the own-ship geometry is collected
+// inside that function. With only `heading` to read, the rig was rebuilt at the CAMERA's angle:
+// the canvas-drawn truck (which gets the unrotated view) stayed put, and its REFLECTION spun as
+// you dragged the view. Two trucks, one of them in the water, disagreeing about which way it faced.
+//
+// The geometry is a pure function of the vehicle, so orbiting is the cleanest possible statement of
+// it: same rig, same place, two camera angles, and every vertex has to land on the same number.
+// Exact equality, because these are the same expression evaluated twice — a tolerance here would
+// pass an orbit of a degree and the bug is an orbit of any size.
+const orbitA = collect({ ...BASE, external: true, extYaw: 0, extPitch: 0.3, extZoom: 1 }, 1);
+// ⚠ 90 DEGREES, NOT A NUDGE. extYaw is in DEGREES (see extOrbit in paintWindshield), so the
+// 1.2 this was first written with was a 1.2-degree orbit and moved the rig by a thousandth of a
+// tile — a true failure reported as a number nobody would look twice at. A quarter turn makes the
+// break the size of the truck.
+const orbitB = collect({ ...BASE, external: true, extYaw: 90, extPitch: 0.3, extZoom: 1 }, 1);
+if (!orbitA || !orbitB || !orbitA.length || !orbitB.length) {
+  problems.push('the orbit comparison collected nothing — it cannot see the thing it is checking');
+} else if (orbitA.length !== orbitB.length) {
+  problems.push(`orbiting changed the face COUNT (${orbitA.length} vs ${orbitB.length}) — the rig is being rebuilt against the camera`);
+} else {
+  let moved = 0, worst = 0;
+  for (let i = 0; i < orbitA.length; i++) {
+    const a = orbitA[i].p, b = orbitB[i].p;
+    for (let k = 0; k < a.length; k++) {
+      for (let c = 0; c < 3; c++) {
+        const d = Math.abs(a[k][c] - b[k][c]);
+        if (d > worst) worst = d;
+        if (!Object.is(a[k][c], b[k][c])) moved++;
+      }
+    }
+  }
+  if (moved) problems.push(`orbiting the camera moved ${moved} of the rig's coordinates (worst ${worst.toFixed(3)} tiles) — the reflection rotates with the eye`);
+}
+
+// 3. The cab, where there is no rig to collect: you are inside it.
 const cab = collect({ ...BASE, external: false }, 1);
 if (cab && cab.length) problems.push(`the cab view collected ${cab.length} faces of a rig the driver is sitting inside`);
 
-// 3. And the off switch, which has to be the frame that shipped before this layer existed.
+// 4. And the off switch, which has to be the frame that shipped before this layer existed.
 const off = collect({ ...BASE, external: true, extYaw: 0, extPitch: 0.3, extZoom: 1 }, 0);
 if (off && off.length) problems.push(`glShip 0 still collected ${off.length} faces — the off switch is not an off switch`);
 
@@ -97,4 +135,4 @@ if (problems.length) {
   console.error('  frame — what goes missing is its reflection and its place in the depth buffer.');
   process.exit(1);
 }
-console.log(`✓ ownship: the chase camera hands ${ext.length} finished faces to the GPU, the cab hands none, and glShip 0 hands none.`);
+console.log(`✓ ownship: the chase camera hands ${ext.length} finished faces to the GPU, orbiting moves none of them, the cab hands none, and glShip 0 hands none.`);

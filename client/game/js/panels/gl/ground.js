@@ -33,7 +33,7 @@
 import { viewProjMatrix } from './camera.js';
 
 // pos3, colour3
-const STRIDE = 7;   // pos3, colour3, alpha1
+const STRIDE = 8;   // pos3, colour3, alpha1, road1
 // ⚠ THE SAME SIX AS THE SHADER'S OWN MAX_WET, AND THEY HAVE TO AGREE. The GLSL one is inside a
 // template literal and cannot be read from here, so this is the second copy — the shader would
 // accept a longer array and silently ignore the tail, which is a reflection that is there on one
@@ -48,6 +48,7 @@ const VERT = `#version 300 es
 in vec3 aPos;
 in vec3 aColor;
 in float aAlpha;
+in float aRoad;          // 1 on the carriageway, 0 on an apron, a forecourt or a verge
 uniform mat4 uViewProj;
 uniform float uFogNear;
 uniform float uFogFar;
@@ -57,6 +58,7 @@ uniform float uHazeFar;
 out vec3 vColor;
 out float vFog;
 out float vAlpha;
+out float vRoad;
 out vec3 vWorld;   // the quad's own map-window position, for the wet reflections in the fragment shader
 void main() {
   vec4 clip = uViewProj * vec4(aPos, 1.0);
@@ -72,6 +74,7 @@ void main() {
   // fades every tile by clamp((FAR - f) / 6) on top of worldBlend, and a shader that invented its
   // own curve would disagree with the road the cab is actually driving on. The haze uniforms stay
   // for a caller that has no alpha to give.
+  vRoad = aRoad;
   vAlpha = aAlpha * (uHazeFar > uHazeNear ? 1.0 - smoothstep(uHazeNear, uHazeFar, clip.w) : 1.0);
 }`;
 
@@ -80,6 +83,7 @@ precision highp float;
 in vec3 vColor;
 in float vFog;
 in float vAlpha;
+in float vRoad;
 in vec3 vWorld;
 uniform vec3 uFog;
 
@@ -140,9 +144,6 @@ out vec4 outColor;
 void main() {
   if (vAlpha <= 0.002) discard;
   vec3 c = mix(vColor, uFog, vFog);
-  // The fog stays ABOVE this line: a beam a long way down the road still recedes into the haze
-  // with everything else in the frame. What it does not do is get wet.
-  if (uSurface < 0.5) { outColor = vec4(c * vAlpha, vAlpha); return; }
   // ⚠ AFTER THE FOG, because the fog is already folded into c above: a road that has receded into
   // the horizon has nothing left to reflect in, and adding light to it would put a streak on top of
   // the haze. The term's own distance falloff does the rest.
@@ -182,7 +183,15 @@ void main() {
   // patches, median 0.63 tiles across with the odd 3-tile one in a low spot, and 0.3% in a light
   // shower. That is a street with puddles in it rather than a flooded street.
   float pud = 0.0;
-  if (uWet > 0.001) {
+  // ⚠ PUDDLES ARE A CARRIAGEWAY THING, AND THEY USED TO BE EVERYWHERE THE GROUND PASS DREW.
+  // The note that used to sit here said there was no paved test and none was needed, because only
+  // road and pavement tiles emit ground quads at all — true, and it takes "paved" to mean "road".
+  // An apron, a forecourt and a depot hardstand are all 'field' and they all emitted quads, so a
+  // swept concrete yard grew standing water in it exactly as a gutter did. Water runs to the
+  // camber and lies in the ruts; a yard that is drained and swept does not hold a pool the size of
+  // a truck. The flag rides per vertex because the alternative is the LUT, which this pass does not
+  // have and should not grow — the producer already knows which surface it is emitting.
+  if (uWet > 0.001 && vRoad > 0.5) {
     // ⚠ THE SCALE IS THE ONLY THING THAT SETS HOW BIG A PUDDLE IS, and it is a SLIDER now rather
     // than a constant. Swept over a 28-tile patch with the field labelled into connected pools:
     // 0.9 gives 149 pools of median 0.76 tiles² with one of 3.7, 1.5 gives 357 of median 0.36 with
@@ -242,6 +251,48 @@ void main() {
   // thing optically — damp tarmac scatters, a puddle mirrors. So the darkening is mostly there
   // everywhere and the REFLECTION is almost entirely in the hollows, which is what puts the neon in
   // the puddles rather than smeared evenly down the street.
+  // ── A POOL OF LIGHT IS NOT A SURFACE, BUT IT LANDS ON ONE ──────────────────────────────────
+  //
+  // The additive range is the headlight pool. Everything below describes what water does to a
+  // SURFACE and none of it applies to light lying on one — it must not be darkened for being wet,
+  // and it must not be replaced by the reflection (which, under ONE/ONE, would add the reflection
+  // a second time on top of the road's own).
+  //
+  // What DOES apply is the other direction: standing water is a mirror, and a mirror under a lamp
+  // throws far more of it back at you than rough tarmac does. So the pool is brightened where the
+  // pools are — which is the beam finding the puddles rather than lying over them, and it costs
+  // one multiply on a term this pass has already computed.
+  //
+  // ⚠ THE FOG IS ABOVE THIS, deliberately: a beam a long way down the road still recedes into the
+  // haze with everything else in the frame.
+  if (uSurface < 0.5) {
+    // ── …AND IT GLIMMERS ON IT ───────────────────────────────────────────────────────────────
+    //
+    // A flat multiply makes the pool brighter over the pools, which is true and reads as a stain
+    // rather than as water. What a headlamp on standing water actually does is GLINT: the surface
+    // is never still, so the bounce arrives as a shifting scatter of highlights rather than as an
+    // even lift.
+    //
+    // ⚠ WORLD-PHASED, NOT SCREEN-PHASED — the same rule the ripple and the puddle field itself
+    // follow. Drive the glimmer off the screen and it swims across the road as the camera turns,
+    // which reads as a dirty lens; drive it off the world and a pool twinkles in place while you
+    // drive past it.
+    //
+    // ⚠ AND IT IS CUBED, WHICH IS WHAT MAKES IT GLINTS RATHER THAN A WOBBLE. The sum of two wave
+    // products is a smooth field between -2 and 2; raising its positive half to a power keeps the
+    // crests and throws the rest away, so what survives is a sparse scatter of bright points
+    // instead of a rolling brightness.
+    float glim = 0.0;
+    if (pud > 0.01) {
+      vec2 gq = (vWorld.xy + uWc) * 9.0;
+      float gw = sin(gq.x * 2.3 + uTime * 1.9) * sin(gq.y * 2.9 - uTime * 1.4)
+               + sin(gq.x * 5.1 - uTime * 2.6) * sin(gq.y * 4.3 + uTime * 2.2);
+      float gp = max(0.0, gw) * 0.5;
+      glim = gp * gp * gp;
+    }
+    outColor = vec4(c * (1.0 + (0.95 + 3.2 * glim) * pud * uWet) * vAlpha, vAlpha);
+    return;
+  }
   float damp   = uWet * mix(0.34, 1.00, pud);
   // ⚠ 0.02, NOT 0.08 — THE REFLECTION IS THE PUDDLE'S AND ALMOST NOTHING ELSE'S. Eight per cent
   // across the whole wet road is a sheen on every square foot of tarmac, which is the even smear
@@ -249,6 +300,32 @@ void main() {
   // puddles being slightly more so. At two per cent the tarmac between them keeps just enough to
   // say it is wet, and what actually mirrors the city is the standing water.
   float mirror = uWet * mix(0.02, 1.00, pud);
+  // ⚠ AND THE IMAGE IS CUT TO THE WATER, WHICH 'mirror' IS NOT. That 0.02 floor is a sheen kept on
+  // the damp tarmac between the pools so it still reads as wet — the right call for a wash, and the
+  // wrong one for an IMAGE. Once the rig went into the reflection buffer, that two per cent meant a
+  // faint copy of the TRUCK lying across the whole wet road rather than only in the water: reported
+  // as it showing under the truck in parts where the puddle is not.
+  //
+  // Rough damp tarmac scatters and does not image — that is what 'smear' below is for. So the
+  // picture is weighted by the water alone, and the pools cut it out with their own shoreline,
+  // which is already anti-aliased a pixel wide wherever it is (see the 'band' above).
+  float imgW = uWet * pud;
+  // ⚠ AND THE SCATTER IS THE OTHER HALF OF THE SAME SURFACE, WHICH IS WHY IT IS NOT 'mirror'.
+  // The streak below is what ROUGH DAMP TARMAC does: it spreads a light out along the ground line
+  // from the source to the eye. Standing water does not do that — it holds an image. Scaling the
+  // streak by 'mirror' put it at FIFTY TIMES the strength inside a pool that it has between them,
+  // which is the exact opposite of the model this pass is built on, and the note above it has said
+  // so all along ("a surface cannot both mirror and scatter").
+  //
+  // The half-measure was to cede '(1 - mirK)' of it to the image. That helps and does not finish:
+  // mirK tops out around 0.8 at a cab's grazing angle, so a fifth of a streak at gain 4.5 still
+  // lands in the pool — and every light this city puts on a road is sodium, so a fifth of six of
+  // them is a broad warm wash sitting in the water. Reported as puddles with a yellow tint.
+  //
+  // So the streak is weighted by the DRY part of the wet road, and the image has the water to
+  // itself. On the tarmac between pools this is the identical number it has always been
+  // (pud = 0 gives 0.02 * uWet), so the picture there does not move at all.
+  float smear = uWet * 0.02 * (1.0 - pud);
   // ⚠ AND THE SMEAR IS NOT REWEIGHTED WHEN THE MIRROR IS ON, WHICH WAS TRIED AND MEASURED AND TAKEN
   // BACK OUT. The model says it should be: damp tarmac SCATTERS (that is the two-Gaussian smear
   // below) and standing water MIRRORS, they are one surface at two roughnesses, and running both at
@@ -377,7 +454,7 @@ void main() {
     // The water's own weight. 'uReflGain' is a 0…32 strength where 32 means standing water reflects
     // exactly as hard as the Fresnel term says it should, which at a cab's grazing angle is very
     // nearly a perfect mirror — what the reference boards actually show.
-    mirK = clamp(mirror * refl * uReflGain * (1.0 / 32.0), 0.0, 1.0);
+    mirK = clamp(imgW * refl * uReflGain * (1.0 / 32.0), 0.0, 1.0);
     c = c * (1.0 - mirK) + img * mirK;
   }
   if (refl > 0.01 && uNWet > 0) {
@@ -441,27 +518,27 @@ void main() {
     // The headroom term is that room. On a dark night road it adds nearly the whole term; at noon
     // it adds what is left, which is almost nothing — so the reflection is washed out by daylight
     // on its own, by arithmetic, rather than by a threshold deciding in advance that it should be.
-    // ⚠ 'mirror', NOT 'uWet' — a reflection belongs in the standing water. Scaled by the global
-    // wetness it put neon on the damp tarmac between the puddles as strongly as in them, which is
-    // the flat even smear the puddles exist to replace.
     // ── ⚠ AND A SURFACE CANNOT BOTH MIRROR AND SCATTER ─────────────────────────────────────────
     //
-    // Damp tarmac SCATTERS — that is this streak — and standing water MIRRORS. They are one surface
-    // at two roughnesses, and running both at full strength over the same pixel lights a puddle
-    // twice: the note on 'mirror' above records that the split was tried and taken back out, and it
-    // was right to at the time, because the image covered a sliver of road and trading the streak
-    // for it left the street darker with nothing in its place.
+    // Damp tarmac SCATTERS — that is this streak — and standing water MIRRORS. They are one
+    // surface at two roughnesses, and running both at full strength over the same pixel lights a
+    // puddle twice.
     //
-    // What changed is that the image now covers the puddle: the mass is in the buffer and the empty
-    // sky is filled, so there IS something there to cede to. So the streak is scaled by what the
-    // mirror has already taken — full strength on the damp tarmac between the pools, where 'mirK'
-    // is near zero, and handed over inside them. That is also what stops the pools reading yellow:
-    // what is in a puddle becomes sky and city, not sodium.
+    // This was scaled by 'mirror', which is 1.0 inside a pool and 0.02 between them: the streak
+    // was FIFTY TIMES stronger in the water than on the tarmac, which is the model exactly
+    // backwards. A cede of '(1 - mirK)' was added to claw it back and could not finish the job —
+    // mirK tops out near 0.8 at a cab's grazing angle, so a fifth of six sodium lights at gain 4.5
+    // still sat in the pool. Reported from the game as puddles with a yellow tint, which is what
+    // a fifth of six sodium lights looks like.
     //
-    // ⚠ AND IT IS TIED TO 'mirK', SO 'glMirror 0' RESTORES THE OLD STREAK EXACTLY. With no mirror
-    // there is nothing to cede to and this term is untouched, which is what keeps that setting an
-    // honest baseline rather than a variant.
-    c += add * (mirror * 4.5 * refl * (1.0 - mirK)) * max(vec3(0.0), 1.0 - c);
+    // 'smear' is the dry half of the same field, so the streak is now where the scattering is and
+    // the image has the water to itself. ⚠ THE TARMAC BETWEEN POOLS DOES NOT MOVE: at pud = 0 the
+    // weight is 0.02 * uWet, the identical number it has always been.
+    //
+    // ⚠ AND IT NO LONGER READS 'mirK', so 'glMirror 0' is no longer an exact restoration of the
+    // old streak — it takes the image away and leaves the pools with neither. That is the honest
+    // shape of the trade now: the water reflects or it is dark, and the smear is the road's.
+    c += add * (smear * 4.5 * refl) * max(vec3(0.0), 1.0 - c);
   }
   outColor = vec4(c * vAlpha, vAlpha);   // premultiplied, like every other layer on this canvas
 }`;
@@ -492,6 +569,7 @@ export function createGroundLayer(gl) {
     pos: gl.getAttribLocation(prog, 'aPos'),
     color: gl.getAttribLocation(prog, 'aColor'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
+    road: gl.getAttribLocation(prog, 'aRoad'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     fog: gl.getUniformLocation(prog, 'uFog'),
     fogNear: gl.getUniformLocation(prog, 'uFogNear'),
@@ -556,12 +634,18 @@ export function createGroundLayer(gl) {
       // thing a flat quad cannot say and the reason a massif could not follow the road onto this
       // layer. Interpolating between the top and bottom vertices is what a gradient IS.
       const cs = q.rgbs;
+      // ⚠ AND ALPHA PER VERTEX FOR THE SAME REASON, which is the one thing a flat quad cannot say.
+      // A headlight pool has no edge in the world — it fades out sideways and it fades out with
+      // distance — and drawn as quads of one alpha each it is a fan of hard-edged strips with a
+      // visible seam down every join. That is most of what "harsh" means about it.
+      const as = q.as;
       const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
+      const rdw = q.road ? 1 : 0;
       const put = (v, i) => {
         const k = cs && cs[i];
         data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2];
         data[o + 3] = k ? k[0] / 255 : r; data[o + 4] = k ? k[1] / 255 : g; data[o + 5] = k ? k[2] / 255 : b;
-        data[o + 6] = qa; o += STRIDE;
+        data[o + 6] = as ? as[i] : qa; data[o + 7] = rdw; o += STRIDE;
       };
       // A fan, because a shadow is the convex hull of a footprint and its offset copy and can
       // carry up to eight corners; a road quad is the four-point case of the same loop.
@@ -572,7 +656,7 @@ export function createGroundLayer(gl) {
     gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, count * STRIDE), gl.DYNAMIC_DRAW);
     const S = STRIDE * 4;
     const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
-    bind(loc.pos, 3, 0); bind(loc.color, 3, 12); bind(loc.alpha, 1, 24);
+    bind(loc.pos, 3, 0); bind(loc.color, 3, 12); bind(loc.alpha, 1, 24); bind(loc.road, 1, 28);
     gl.bindVertexArray(null);
     return quads.length;
   }
