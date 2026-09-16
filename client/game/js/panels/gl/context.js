@@ -24,6 +24,7 @@ import { createDecalLayer } from './decals.js';
 import { createStrokeLayer } from './strokes.js';
 import { createBillboardLayer } from './billboards.js';
 import { createGroundLayer } from './ground.js';
+import { createOwnShipLayer } from './ownship.js';
 import { createFloorLayer } from './floor.js';
 import { createCloudLayer } from './clouds.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
@@ -1287,7 +1288,10 @@ export function createGLView(canvas, opts = {}) {
   const mirrorLayer = () => (mirror || (mirror = createMirrorLayer(gl)));
   function drawMirror(cam, opts = {}) {
     const sp = opts.sprites, dc = opts.decals;
-    if (!(sp && sp.length) && !(dc && dc.length)) return null;
+    // ⚠ THE RIG COUNTS AS SOMETHING TO REFLECT. This used to ask only whether there were lights or
+    // signs, which was the whole of what the buffer held — so on an unlit stretch of wet road the
+    // prepass never ran and the truck standing in it had nothing to appear in.
+    if (!(sp && sp.length) && !(dc && dc.length) && !shipQuads) return null;
     let M;
     try { M = mirrorLayer(); } catch { return null; }
     if (!M.bind(canvas.width, canvas.height, opts.scale)) return null;
@@ -1324,6 +1328,15 @@ export function createGLView(canvas, opts = {}) {
           // prepasses under `intoTarget` and these make the strengths agree with that.
           sunShadow: null, ssao: 0, hdr: 0 });
       }
+      // ── AND THE RIG, WHICH IS WHY ANY OF THIS REACHES A PUDDLE ────────────────────────────────
+      //
+      // Solid, so it goes down with the mass rather than with the light: the signage and the glows
+      // below are depth-TESTED and a reflection of a sign behind the truck must not paint over it.
+      //
+      // ⚠ IT TAKES THE MASS CAMERA. The rig is collected in MAP-WINDOW tiles for exactly the reason
+      // the mesh is — see the ⚠ above on mMassCam — so it reflects through the same shifted camera
+      // and lands on the same pixels at the same depth.
+      if (shipQuads) drawOwnShip(mMassCam, cssH, { fog: opts.fog || null });
       // Signage next and lights over it, which is the order the frame itself uses — a sign is
       // artwork and a glow is the light coming off it.
       if (dc && dc.length) { const L = decalLayer(); L.upload(dc); L.draw(mcam, cssH); }
@@ -1338,7 +1351,14 @@ export function createGLView(canvas, opts = {}) {
       // width: a reflection blurrier than the surface, which reads as the effect being too strong
       // rather than as a wrong divisor.
       if (sp && sp.length) { const L = spriteLayer(); L.upload(sp); L.draw(mcam, canvas.width, canvas.height, cssH, 1); }
-    } catch { M.release(); return null; }
+    } catch (e) {
+      // ⚠ ONCE, AND THEN NEVER AGAIN. A throw in here is indistinguishable from a machine that
+      // cannot do the pass — both end as a road with nothing in it — so the fallback is right and
+      // the silence is not. It cost an afternoon the first time: the reflection worked in the cab,
+      // vanished in the chase camera, and the only difference was a shape mismatch in an argument.
+      if (!drawMirror._warned) { drawMirror._warned = true; console.warn('[gl] the reflection pass threw — falling back to a road with no image in it', e); }
+      M.release(); return null;
+    }
     M.release();
     return M.texture;
   }
@@ -1357,12 +1377,28 @@ export function createGLView(canvas, opts = {}) {
     return L.draw(cam, cssH || canvas.height, opts);
   }
 
+  // ── THE VEHICLE YOU ARE IN ─────────────────────────────────────────────────────────────────
+  // ⚠ UPLOADED ONCE, DRAWN TWICE, AND THE UPLOAD HAS TO HAPPEN FIRST. The reflection is a PREPASS
+  // (see world.js), so by the time the main pass draws the rig the mirror has already needed it.
+  // Keeping the fill separate from the draw is the whole of what makes one buffer serve both.
+  let shp = null;
+  const ownShipLayer = () => (shp || (shp = createOwnShipLayer(gl)));
+  let shipQuads = 0;
+  function uploadOwnShip(quads) {
+    shipQuads = (quads && quads.length) ? ownShipLayer().upload(quads) : 0;
+    return shipQuads;
+  }
+  function drawOwnShip(cam, cssH, opts) {
+    if (!shipQuads) return 0;
+    return ownShipLayer().draw(cam, cssH || canvas.height, opts || {});
+  }
+
   // The ground itself. Lazy, and only ever built when RENDER_TUNE.glFloor asks for it.
   let flr = null;
   const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
   function drawFloor(state) { return state ? floorLayer().draw(state) : 0; }
 
-  return { gl, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, drawMirror, mirrorPeak, setAtlas, lost: () => gl.isContextLost(),
+  return { gl, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, drawMirror, mirrorPeak, uploadOwnShip, drawOwnShip, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

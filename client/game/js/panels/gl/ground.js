@@ -108,7 +108,17 @@ uniform float uWet;             // how wet the ground is, 0-1
 uniform float uPudScale;        // the puddle field's frequency — bigger is smaller and more of them
 uniform vec2  uEye;             // the camera's ground point, in vWorld's frame
 uniform float uEyeH;            // and how high it is — see the Fresnel gate on the reflections
-uniform vec2  uWc;              // window centre in WORLD tiles, so a puddle stays on its bit of road
+uniform vec2  uWc;             // window centre in WORLD tiles, so a puddle stays on its bit of road
+// ⚠ IS THIS FRAGMENT A SURFACE, OR LIGHT LYING ON ONE? The three ranges below share this shader
+// and they are not the same kind of thing: the base is the road, the additive range is a
+// HEADLIGHT POOL. Everything past the fog line describes what water does to a SURFACE, and
+// running it over a pool of light is three separate wrongs at once — the beam is darkened for
+// being wet, it is REPLACED by the reflected city inside a puddle (and under ONE/ONE that adds
+// the reflection a SECOND time on top of the road own), and it collects a sodium streak of its
+// own. Stacked on a warm additive quad that had never been visible in GL mode until the mesh
+// push put it there, that is the flat yellow sheet the near road turned into, pulsing with the
+// lamp flicker.
+uniform float uSurface;         // 1 for the road itself, 0 for the light lying on it
 // ── AND THE IMAGE IN THE STANDING WATER ────────────────────────────────────────────────────────
 //
 // The city, rendered a second time through a camera that reflects the world about this plane — see
@@ -130,6 +140,9 @@ out vec4 outColor;
 void main() {
   if (vAlpha <= 0.002) discard;
   vec3 c = mix(vColor, uFog, vFog);
+  // The fog stays ABOVE this line: a beam a long way down the road still recedes into the haze
+  // with everything else in the frame. What it does not do is get wet.
+  if (uSurface < 0.5) { outColor = vec4(c * vAlpha, vAlpha); return; }
   // ⚠ AFTER THE FOG, because the fog is already folded into c above: a road that has receded into
   // the horizon has nothing left to reflect in, and adding light to it would put a streak on top of
   // the haze. The term's own distance falloff does the rest.
@@ -493,6 +506,7 @@ export function createGroundLayer(gl) {
     eye: gl.getUniformLocation(prog, 'uEye'),
     eyeH: gl.getUniformLocation(prog, 'uEyeH'),
     wc: gl.getUniformLocation(prog, 'uWc'),
+    surface: gl.getUniformLocation(prog, 'uSurface'),
     hazeNear: gl.getUniformLocation(prog, 'uHazeNear'),
     hazeFar: gl.getUniformLocation(prog, 'uHazeFar'),
     refl: gl.getUniformLocation(prog, 'uRefl'),
@@ -684,6 +698,7 @@ export function createGroundLayer(gl) {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(vao);
+    gl.uniform1f(loc.surface, 1);
     if (splitA) { gl.depthMask(true); gl.drawArrays(gl.TRIANGLES, 0, splitA); }
     gl.depthMask(false);
     if (splitB > splitA) {
@@ -692,7 +707,10 @@ export function createGroundLayer(gl) {
       // BLITTED source-over onto the 2-D frame and a pool of light over open ground would
       // otherwise composite onto nothing and vanish. Same compromise the Curtain makes.
       gl.blendFunc(gl.ONE, gl.ONE);
+      // The pool of light is not a surface — see the ⚠ on uSurface.
+      gl.uniform1f(loc.surface, 0);
       gl.drawArrays(gl.TRIANGLES, splitA, splitB - splitA);
+      gl.uniform1f(loc.surface, 1);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     }
     if (count > splitB) gl.drawArrays(gl.TRIANGLES, splitB, count - splitB);

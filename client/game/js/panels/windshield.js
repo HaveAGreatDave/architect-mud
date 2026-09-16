@@ -263,6 +263,12 @@ export const RENDER_TUNE = {
   // How wet the ground is, forced: null follows the weather (always, in the game) and a number
   // 0-1 pins it. Purely a bench and eyeball seam — see the ⚠ on `wetGround`.
   wetForce: null,
+  // And the same seam for the CLOCK. null follows the game, a number 0-24 pins it. The sibling of
+  // wetForce and for the same reason: half of what this renderer draws is a function of the hour —
+  // the sky, the horizon haze a puddle mirrors, whether the lamps are lit — so a report that says
+  // 'at dusk' is a report nobody can stand in front of without waiting for dusk. Bench and eyeball
+  // only; the game never sets it.
+  hourForce: null,
   // ── THE REFLECTED CITY IN THE STANDING WATER ───────────────────────────────────────────────
   //
   // The wet road has always reflected the city as a SMEAR — each light drawn out along the line
@@ -342,7 +348,13 @@ export const RENDER_TUNE = {
   // more of them; 0.6 is a few wide sheets and 3 is a fine stipple. How WET the road is remains a
   // separate thing entirely (the weather sets that), and this does not change coverage much — it
   // changes what the same amount of water is cut into.
-  glPuddle: 1.9,
+  // How hard the headlights lie on the road. See the ⚠ in drawHeadlightBeam: this is additive over
+  // a night road, so it is the one knob that can turn the near tarmac into a sheet.
+  // The vehicle you are in, as GL geometry. 1 draws it in the main frame as well; the REFLECTION
+  // gets it either way, because a puddle can only show what was drawn into it. See gl/ownship.js.
+  glShip: 1,
+  glBeam: 0.52,
+  glPuddle: 2.6,
   // ── THE BUILDINGS IN THE WATER, NOT JUST THE LIGHT OFF THEM ───────────────
   //
   // 0 is the picture the mirror pass shipped with: a puddle holding signs and glows and no facades,
@@ -1624,7 +1636,7 @@ export function paintWindshield(id, view) {
   const st = sceneFor(id, cw, ch);
   // ⚠ THE ONE DOOR THE FREE CAMERA COMES THROUGH — see freeCam above. Every seat hands its view
   // to this function, so overriding it here reaches all six call sites and none of them know.
-  const v = FREE.on ? freeCamView(view || {}) : (view || {});
+  let v = FREE.on ? freeCamView(view || {}) : (view || {});   // reassigned once by the hourForce pin below
   // Who is standing near a depot door this frame — collected ONCE, here, before the world pass
   // that draws the sheds, so the picture and the collision sweep both read the same list. See
   // setBayVehicles: a door is opened by trucks, never by the eye.
@@ -1795,6 +1807,9 @@ export function paintWindshield(id, view) {
   // ⚠ AND NOT IN THE CHASE VIEW. `roofed` is a fact about the TRUCK's tile; in the external orbit
   // the camera is out in the yard in the wet, looking at the shed.
   const roofed = !ext && v.map?.length ? v.map[(v.map.length - 1) / 2]?.[(v.map.length - 1) / 2]?.mark === 'bay' : false;
+  // ⚠ THE PIN IS APPLIED ONCE, ONTO THE VIEW, so every reader below and every layer that takes
+  // 'hour' off it agrees. Pinning at each use site instead is four copies of the same decision.
+  if (RENDER_TUNE.hourForce != null) v = { ...v, hour: RENDER_TUNE.hourForce };
   const sky = skyAt(v.hour == null ? 12 : v.hour);
   // Chase distance is size-relative: the camera sits `chaseBack` tiles behind a reference
   // (prop-class) craft, but pulls IN for physically smaller airframes (the Mayfly ultralight
@@ -2589,7 +2604,7 @@ export function paintWindshield(id, view) {
       console.error('[windshield] GLASS 2 threw inside the world pass — switching it off and finishing in 2-D', e);
       RENDER_TUNE.gl = 0;
     }
-    finally { GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; STROKE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; FLOOR_STATE = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = null; }
+    finally { GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; STROKE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; OWNSHIP_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; FLOOR_STATE = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = null; }
     if (worldBlend > 0.02) {
       // ⚠ NOT UNDER A ROOF. A bolt is world GEOMETRY — a channel from the cloud base to the
       // ground, projected through the world camera — so parked in a depot bay it was drawn
@@ -2728,17 +2743,7 @@ export function paintWindshield(id, view) {
       // slid back to centre, so the plate sits at a different station on every one (−0.041 to
       // +0.064). `TRUCK_META.pin` publishes it; a guessed offset hinges three of the four about a
       // point in mid-air.
-      const artic = (() => {
-        if (v.cls !== 'truck' || !v.hitched) return null;
-        const meta = truckMeta(`${v.variant}:1`);
-        if (!meta || meta.pin == null) return null;   // first frame: the mesh has not been built yet
-        // The trailer's ABSOLUTE heading is what the sim owns; `phi` is `heading - trailerHeading`,
-        // and a renderer reassembling that has to pick a sign. Picking the wrong one makes the box
-        // LEAD the turn, which reads as the trailer steering the truck. It did.
-        const phi = v.trailerHeading != null ? ((v.heading || 0) - v.trailerHeading) : (v.phi || 0);
-        return Math.abs(phi) < 0.05 ? null : { phi: phi * Math.PI / 180, pin: meta.pin };
-      })();
-      const ownbb = drawAircraftModel(ctx, cam, { own: true, dx: 0, dy: 0, cls: v.cls, variant: v.variant, artic, armed: !!v.armed, hdg: v.heading, steer: v.steer, drive: v.drive, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: ownExtMul(v.cls), gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
+      const ownbb = drawAircraftModel(ctx, cam, ownShipModelOpts(v), ownShipBaseWz(cam, v), sunFx, now);
       if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
       if (clipped) ctx.restore();
       pEnd();
@@ -4851,7 +4856,16 @@ function drawHeadlightBeam(ctx, cam, gloom, now) {
     // Inverse-square-ish falloff, which is what makes it read as a lamp rather than as a painted
     // wedge: bright at the bumper, gone by the far end.
     const fall = (1 - t0) * (1 - t0);
-    const a = 0.52 * str * flick * fall;
+    // ⚠ 0.52 WAS NEVER TUNED AGAINST A FRAME THAT SHOWED IT. Until the mesh push above, this pool
+    // was painted on the canvas UNDER an opaque GPU floor, so with glFloor on — the default — it
+    // was drawn and then covered every frame, and the number could be anything. Put on the road
+    // it turned the near tarmac into a flat warm sheet: measured from a cab at night, the lower
+    // road mean went 54 → 98 with the lamps alone. It turned out NOT to be this number: with the
+    // uSurface split in gl/ground.js the same 0.52 lifts the road mean by 4, because what made a
+    // sheet of it was the pool being run through the wet maths rather than the pool itself. So the
+    // value is exactly what GLASS 1 has always drawn and the two renderers still agree; it is a
+    // knob now only because it had never once been looked at in the renderer that ships.
+    const a = RENDER_TUNE.glBeam * str * flick * fall;
     if (a < 0.004) continue;
     if (mesh) {
       // Warm tungsten, as below, and ADDITIVE — the ground layer draws this range under
@@ -9223,6 +9237,11 @@ let GROUND_MESH = null;
 // transparent over the ground, so a road left on the canvas shows through exactly as it always
 // has; move it early and the kerb strokes drawn on top of it get blitted over instead.
 let GROUND_FULL = false;
+// ── THE OWN SHIP, AS GEOMETRY FOR THE GPU ───────────────────────────────────
+// Open only while a GL frame is collecting. drawAircraftModel fills it with finished world-space
+// polygons for the vehicle you are IN — never for a contact, which keeps it one object a frame.
+// See gl/ownship.js for what it is for and why it had to exist at all.
+let OWNSHIP_SINK = null;
 let LAST_FLOOR = null;   // see lastFloorState()
 // THE OWN SHIP SHADOW CANNOT REACH DECAL_SINK DIRECTLY, and the reason is ordering rather than
 // taste: it is painted outside the worldBlend block (a parked craft reads as planted the instant
@@ -13857,6 +13876,41 @@ function articFrame(artic) {
   const cp = Math.cos(artic.phi), sp = Math.sin(artic.phi), pin = artic.pin;
   return (v) => { const df = v[0] - pin; return [pin + df * cp + v[1] * sp, -df * sp + v[1] * cp, v[2]]; };
 }
+// ── WHAT THE OWN SHIP IS, AS ONE DESCRIPTION ────────────────────────────────
+// Two callers now ask for the rig in the same frame — the canvas draw out of the chase camera, and
+// the geometry collection that hands it to the depth buffer and to the reflection. Every field
+// below comes off the view, so this is a pure function of it; the alternative was the same
+// twenty-field literal written twice, which is twenty chances for the picture and its reflection
+// to disagree about what is being driven.
+function ownShipModelOpts(v) {
+  // ── ⚠ AN ARTICULATED RIG IS ONE MODEL WITH A HINGE IN IT ─────────────
+  // A semi is a tractor and a box that share one point, and the physics has modelled the angle
+  // between them since phase 1 (`s.phi`) while the picture welded the two together — so a jackknife
+  // was on the gauge, in the mirror, and invisible out of the window. The mesh already knows which
+  // faces are the box (`face.deck`, stamped in buildTruck), so the hinge is one more per-face
+  // transform in the model loop rather than a second draw.
+  //
+  // ⚠ THE PIN COMES FROM THE MESH. Four rigs are four lengths, each laid out from its nose and slid
+  // back to centre, so the plate sits at a different station on every one (−0.041 to +0.064).
+  // `TRUCK_META.pin` publishes it; a guessed offset hinges three of the four about a point in mid-air.
+  const artic = (() => {
+    if (v.cls !== 'truck' || !v.hitched) return null;
+    const meta = truckMeta(`${v.variant}:1`);
+    if (!meta || meta.pin == null) return null;   // first frame: the mesh has not been built yet
+    // The trailer's ABSOLUTE heading is what the sim owns; `phi` is `heading - trailerHeading`, and
+    // a renderer reassembling that has to pick a sign. Picking the wrong one makes the box LEAD the
+    // turn, which reads as the trailer steering the truck. It did.
+    const phi = v.trailerHeading != null ? ((v.heading || 0) - v.trailerHeading) : (v.phi || 0);
+    return Math.abs(phi) < 0.05 ? null : { phi: phi * Math.PI / 180, pin: meta.pin };
+  })();
+  // `own: true` marks this as the camera's SUBJECT rather than one more thing in the world — the
+  // truck path reads it to keep the depth buffer on however small the window is.
+  return { own: true, dx: 0, dy: 0, cls: v.cls, variant: v.variant, artic, armed: !!v.armed, hdg: v.heading,
+    steer: v.steer, drive: v.drive, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: ownExtMul(v.cls),
+    gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl,
+    propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false,
+    landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 };
+}
 function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1), VS = CONTACT_VS;
   const hr = (c.hdg || 0) * Math.PI / 180, roll = (c.bank || 0) * Math.PI / 180, pitch = (c.pitch || 0) * Math.PI / 180;
@@ -14035,12 +14089,11 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // correctness of the self-shadowing. The cull is relative to the EYE; a shadow is relative to
     // the SUN. With the sun behind the truck the faces that cast are precisely the ones the camera
     // cannot see — cast from the visible half only and the rig shadows itself inside out.
-    const wv = wantLit ? (bw || dp.map(Wp)) : null;
+    // ⚠ AND THE GL SINK WANTS THEM TOO. Same list, same reason as the shadow casters: these are the
+    // polygon in world 3-space, which is the only thing a depth buffer can be handed.
+    const toGL = !!(OWNSHIP_SINK && c.own);
+    const wv = (wantLit || toGL) ? (bw || dp.map(Wp)) : null;
     if (wv && wv.length >= 3) casters.push(wv);
-    if (face.cen && haveN && trustOut && !bw && cullBackfaces) {
-      const ex = cam.ex || 0, ey = cam.ey || 0, ez = cam.EH;
-      if (nx * (cx3 - ex) + ny * (cy3 - ey) + nz * (cz3 - ez) >= 0) continue;
-    }
     let lm = 1;
     if (toSun && haveN) {
       const nl = Math.max(0, nx * toSun[0] + ny * toSun[1] + nz * toSun[2]);
@@ -14054,6 +14107,25 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     const brgb = faceBaseRgb(face, pal);
     const col = shadeRgb(brgb, shk);
     const rv = [clamp(brgb[0] * shk, 0, 255) | 0, clamp(brgb[1] * shk, 0, 255) | 0, clamp(brgb[2] * shk, 0, 255) | 0];
+    // ── THE RIG, HANDED TO THE DEPTH BUFFER ────────────────────────────────────
+    //
+    // ⚠ BEFORE THE BACKFACE CULL, WHICH IS WHY THE CULL MOVED DOWN HERE. The cull is relative to
+    // the EYE, and the reflection pass looks at this rig from UNDERNEATH the road: the faces the
+    // mirror needs are precisely the ones the camera cannot see. Cull first and the reflection is
+    // hollow — the same argument, and the same fix, as the shadow casters a few lines up.
+    //
+    // ⚠ AND IN MAP-WINDOW TILES. `Wp` works in the camera-relative frame every 2-D drawer here
+    // uses; the mesh, the road quads and the GL camera are all in the window's. The conversion is
+    // the sub-tile camera offset, exactly as drawGroundSurfaces adds it back on — get it wrong and
+    // the rig floats a fraction of a tile off the road it is standing on.
+    if (toGL && wv && wv.length >= 3) {
+      const ox = cam.ox || 0, oy = cam.oy || 0;
+      OWNSHIP_SINK.push({ p: wv.map((v) => [v[0] + ox, v[1] + oy, v[2]]), rgb: rv, a: isGear ? gearDown : 1 });
+    }
+    if (face.cen && haveN && trustOut && !bw && cullBackfaces) {
+      const ex = cam.ex || 0, ey = cam.ey || 0, ez = cam.EH;
+      if (nx * (cx3 - ex) + ny * (cy3 - ey) + nz * (cz3 - ez) >= 0) continue;
+    }
     // Jazz UV mapped from the drawn (deflected) body coords so the splatter tracks moving surfaces.
     const uv = (jazzImg && JAZZ_ROLE.has(face.role)) ? dp.map(v => jazzUV(v, face.role)) : null;
     // Canopy art rides authored per-vertex UVs, so it survives deflection untouched (index-aligned).
@@ -14061,6 +14133,12 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // normal that was computed for the cull and the sun term above and then thrown away.
     faces.push({ pts, af: af / pts.length, nf, xf, part: face.part, col, rv, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art, i: faces.length, wv, nrm: haveN ? [nx, ny, nz] : null }); drawn++;
   }
+  // ⚠ COLLECT-ONLY STOPS HERE, AND HERE IS THE WHOLE POINT. Everything above this line is geometry
+  // and shading — the transform, the normals, the sun term, the colour — and everything below it is
+  // canvas: a software depth buffer, a blit, and four detail passes gated on what won. The GL sink
+  // wants the first half and must not run the second, because this pass happens BEFORE the frame
+  // has drawn the world the rig is standing in.
+  if (c.collect) return null;
   if (!drawn) return null;
   // ── A TRUCK IS DRAWN WITH A DEPTH BUFFER; EVERYTHING WITH WINGS IS SORTED ────
   //
@@ -27570,6 +27648,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // against the walls, and moving them would change a picture that is correct today.
   GROUND_SINK = glOn ? [] : null;
   SCATTER_SINK = glOn ? [] : null;
+  OWNSHIP_SINK = glOn ? [] : null;
   // ⚠ AFTER THE ASSIGNMENT, not beside the shadow’s drain a few lines up. SCATTER_SINK is set
   // LAST of the sinks, so draining into it any earlier reads the null left by the previous
   // frame’s finally and silently throws every contact away.
@@ -28216,8 +28295,24 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     pBegin('world:gl');
     try {
+      // ── THE RIG, COLLECTED BEFORE THE PASS THAT NEEDS IT ────────────────────────────────────
+      //
+      // ⚠ HERE RATHER THAN AT THE DRAW, AND THAT IS FORCED. The own ship is painted onto the canvas
+      // AFTER this function returns — it has to be, it goes on top of the world — so by the time the
+      // drawing code runs the sinks are torn down and this pass has already gone to the GPU. The
+      // same trap the Curtain fell into: a sink filled inside a closure that runs after the flush
+      // reaches the GPU never, draws nothing, and reports nothing.
+      //
+      // So the geometry is built twice for one model and painted once. That is a few hundred faces
+      // transformed a second time, against a city of tens of thousands, and it buys ONE description
+      // of the rig (`ownShipModelOpts`) rather than two that can drift.
+      if (OWNSHIP_SINK && TUNE.glShip !== 0 && v.external && !v.hideOwnShip && v.cls) {
+        try { drawAircraftModel(null, cam, { ...ownShipModelOpts(v), collect: true }, ownShipBaseWz(cam, v), sun, now); }
+        catch { OWNSHIP_SINK.length = 0; }   // never let the rig take the frame down with it
+      }
       const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, glLights: TUNE.glLights, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glShadow: TUNE.glShadow, glWet: wetGround(), glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glGroundBias: TUNE.glGroundBias, glRipple: TUNE.glRipple, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glBump: TUNE.glBump, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glLightSlots: TUNE.glLightSlots, glHdr: TUNE.glHdr, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, ground: GROUND_MESH, floor: FLOOR_STATE, now,
+        ship: OWNSHIP_SINK,
         // The map window's centre tile. The ground pass phases its puddles on absolute world
         // coordinates off this, and it must not come from FLOOR_STATE, which is null at glFloor 0.
         wc: v.mapCenter || { x: 0, y: 0 },
@@ -28236,7 +28331,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
     pEnd();
-    GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; STROKE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; FLOOR_STATE = null;
+    GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; STROKE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; OWNSHIP_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; FLOOR_STATE = null;
   }
   pBegin('world:flush');
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass

@@ -1329,10 +1329,12 @@ const FSIM_TUNE = [
   ['glAO', 'Contact occlusion', 0, 1, 0.02],
   // ⚠ BIGGER IS SMALLER — it is the puddle field's FREQUENCY, so turning it up cuts the same
   // water into more and smaller pools. 1.5 is the picture that shipped; 1.9 is the default now.
-  ['glPuddle', 'Puddle density', 0.6, 3, 0.05],
+  ['glPuddle', 'Puddle density', 0.6, 4.5, 0.05],
   ['glMirrorMass', 'Buildings in water', 0, 1, 1],
   ['glRipple', 'Puddle ripple', 0, 8, 0.1],
   ['glGroundBias', 'Road depth bias', -64, 0, 1],
+  ['glBeam', 'Headlight pool', 0, 0.6, 0.01],
+  ['glShip', 'Rig in the depth buffer', 0, 1, 1],
   ['occlude', 'Occlusion cull', 0, 1, 1],
   ['shapeShadow', 'Shape shadows', 0, 1, 1],
   // The hero model's own per-pixel sun shadow and lamp spill (model-raster.js). Both double as an

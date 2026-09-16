@@ -190,6 +190,7 @@ export function installGL(hostFor) {
       // the shadow on the pavement come from one source rather than two.
       glShadow: opts.glShadow, sun: opts.sun,
       curtain: opts.curtain, decals: opts.decals, strokes: opts.strokes, scatter: opts.scatter, ground: opts.ground,
+      ship: opts.ship,
       floor: opts.floor, now: opts.now,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,
       night: opts.night, nb: opts.nb,

@@ -1162,10 +1162,27 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // They disagree about where the origin is and agree exactly about where the SCREEN is, which is
   // the only frame a screen-space read-back cares about — so this takes the frame its own layers
   // are in and the ground shader looks the reflection up by pixel.
+  // ── THE RIG, UPLOADED BEFORE EITHER PASS THAT WANTS IT ──────────────────────────────────────
+  // The reflection below is a prepass, so the buffer has to be filled before it rather than beside
+  // the draw that uses it in the main frame. One fill, two draws, two cameras.
+  // ⚠ IN MAP-WINDOW TILES, like the mesh and the road quads — windshield.js adds the camera offset
+  // back on when it collects, so this shares camAt with the mass and cannot slide against it.
+  // ⚠ ONE SWITCH FOR BOTH HALVES, AND IT IS UPSTREAM OF HERE. `glShip 0` is the rig absent from GL
+  // entirely — no depth, no reflection — which is exactly the frame that shipped before this layer
+  // existed. It is applied where the geometry is COLLECTED rather than here, because gating the
+  // upload still pays for a second transform of the whole model every frame to throw it away; the
+  // ownship gate caught that on its first run.
+  if (g.view.uploadOwnShip) g.view.uploadOwnShip(opts.ship);
   const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
   const reflTex = (mirrorGain > 0 && opts.glWet > 0 && g.view.drawMirror)
     ? g.view.drawMirror(cam, { sprites: opts.sprites, decals: opts.decals, cssH, scale: opts.glMirrorRes,
-        massCam: camAt, mass: opts.glMirrorMass == null ? 1 : opts.glMirrorMass, massOpts: drawOpts })
+        massCam: camAt, mass: opts.glMirrorMass == null ? 1 : opts.glMirrorMass, massOpts: drawOpts,
+        // ⚠ THE BAND, NOT THE MASS PASS'S `fog`. Two things in this renderer are called fog and they
+        // are different shapes: the mass shader takes a COLOUR array, this takes {col, near, far,
+        // amt}. Reaching into massOpts for it read `.col` off an array, threw, and drawMirror's
+        // blanket catch turned that into no reflection at all — silently, and only in the one view
+        // that has a rig in it.
+        fog: opts.fogBand })
     : null;
   g.view.draw(camAt, drawOpts);
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
@@ -1193,6 +1210,15 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // from the window centre, which is the kind of sub-tile slide that reads as art rather than as a
   // bug. The floor keeps its `uWet` uniforms and its debug mode 5 for the day somebody wants
   // reflections on unpaved ground, and they stay switched off.
+  // ⚠ AFTER THE MASS AND BEFORE THE GROUND, WHICH IS WHERE A SOLID OBJECT BELONGS. It writes depth
+  // and tests it, so the order against the road and the floor does not actually matter — what does
+  // is that it is inside the depth-buffered half of the frame at all, which is the whole fix: the
+  // rig used to be painted onto the canvas after GL had been composited, where nothing in the city
+  // could hide it.
+  // The MIRROR always gets it — that is the whole point and it costs one draw into a small buffer.
+  // Drawing it in the MAIN frame as well is the other half (the rig then occludes, and is occluded
+  // by, everything else on the depth buffer) and it is the half that can be seen, so it has a flag.
+  const ship = g.view.drawOwnShip ? g.view.drawOwnShip(camAt, cssH, { fog: opts.fogBand }) : 0;
   const fl = opts.floor;
   if (fl) { fl.wet = 0; fl.wetLights = null; }
   const floor = g.view.drawFloor(opts.floor);
@@ -1307,6 +1333,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // product of three things that can each be zero for a different reason — the tune, the wetness,
   // and whether the framebuffer was accepted — and a reflection that silently never ran looks
   // exactly like one that ran and was too faint to see.
-  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, ship, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 
