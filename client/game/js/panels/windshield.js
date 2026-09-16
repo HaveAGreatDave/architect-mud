@@ -12425,24 +12425,70 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
   if (tip.f <= 0.1 || mid.f <= 0.1) return;
   const s = clamp(18 / top.f, 1.2, 30);
   if (s < 1.6) return;                        // too far to resolve three lamps: drawing one is a lie
+  // ── ON THE DEPTH BUFFER, BECAUSE A MAST IS STEEL, PLATES AND LAMPS ──────────
+  //
+  // Every part of this was painting on the 2-D canvas, which is composited AFTER the GL city: the
+  // pole and boom as `drawSteel` polygons, the heads and the cobra fitting as `fillPoly`, the lenses
+  // and their halos as raw radial gradients. `worldresidue` named this the LAST painter the world
+  // pass leaves on the canvas — the street lamps, the roadside scatter and the pavement actors had
+  // all moved, and this had not.
+  //
+  // Nothing in the picture says so, which is why it survived two rounds of fixing: what stood
+  // between a signal head three storeys up and the tower behind it was `groundHidden` at the mast's
+  // BASE, and then a per-cell occlusion clip. Both answer the wrong question — a mast whose base is
+  // visible draws IN FULL however much of it is behind a building, and the head is exactly the part
+  // that is. That is "traffic lights show thru buildings".
+  //
+  // The shapes map onto the layers that already exist, exactly as the street lamp's did: the steel
+  // onto the stroke layer, the plates onto decals, the lamps onto the light layer beside every other
+  // light in the city. A depth buffer then settles per pixel what a probe could only guess at.
+  //
+  // ⚠ A HAIR OF LIFT, NOT `DECO_LIFT` — the same ⚠ as in drawStreetLamp, for the same reason. The
+  // 0.6 tiles an adornment takes exists because it is anchored at its HOST'S tile centre while the
+  // host's own front wall stands 0.44 of a tile nearer. A signal mast has no host: it stands free on
+  // the kerb with nothing of its own in front of it, so a 0.6-tile pull toward the eye is not
+  // clearance, it is a licence to walk through the building opposite.
+  const onGPU = STROKE_SINK && TUNE.glDeco;
+  const LIFT = 0.02;
   ctx.globalAlpha = alpha;
   // A projected point plus the pixel half-width of a member of world radius `r` at that point's own
   // depth. The floor is half a pixel: below that a fill drops out entirely and the mast at the far
   // end of a street would flicker in and out as it drifted across the pixel grid.
   const px = (p, r) => ({ x: p.sx, y: p.sy, w: Math.max(0.5, r * cam.FL / p.f) });
-  drawSteel(ctx, [px(base, POLE_R0), px(top, POLE_R1)]);                                   // the pole
-  // The boom, sampled off the same quadratic the stroke used to draw (mid is the CONTROL point, not
-  // a point on the curve) so the droop is unchanged — it is the width that is new, not the shape.
-  const boom = [];
-  for (let i = 0; i <= 5; i++) {
-    const t = i / 5, m0 = (1 - t) * (1 - t), m1 = 2 * (1 - t) * t, m2 = t * t;
-    boom.push({
-      x: m0 * top.sx + m1 * mid.sx + m2 * tip.sx,
-      y: m0 * top.sy + m1 * mid.sy + m2 * tip.sy,
-      w: Math.max(0.5, (BOOM_R0 + (BOOM_R1 - BOOM_R0) * t) * cam.FL / (top.f + (tip.f - top.f) * t)),
-    });
+  // `drawSteel` takes world half-radii and tapers along the member; a stroke takes one line width,
+  // so the taper is averaged over each segment instead. At a mast's screen size that is under a pixel.
+  const wPx = (r0, r1, f) => Math.max(1, (r0 + r1) * cam.FL / Math.max(0.25, f));
+  // The boom's curve, in WORLD rather than in screen space — off the same quadratic, with `mid` as
+  // the CONTROL point rather than a point on it, so the droop is the one that already shipped.
+  const BZ = (t) => {
+    const m0 = (1 - t) * (1 - t), m1 = 2 * (1 - t) * t, m2 = t * t;
+    return [dx * m0 + (dx + arm[0] * MAST_REACH * 0.5) * m1 + tipX * m2,
+      dy * m0 + (dy + arm[1] * MAST_REACH * 0.5) * m1 + tipY * m2,
+      MAST_H * m0 + (MAST_H - 0.004) * m1 + (MAST_H - 0.012) * m2];
+  };
+  if (onGPU) {
+    emitWire(ctx, cam, [dx, dy, 0], [dx, dy, MAST_H], wPx(POLE_R0, POLE_R1, base.f), STEEL_FILL, alpha, { lift: LIFT });
+    for (let i = 0; i < 5; i++) {
+      const t0 = i / 5, t1 = (i + 1) / 5;
+      emitWire(ctx, cam, BZ(t0), BZ(t1),
+        wPx(BOOM_R0 + (BOOM_R1 - BOOM_R0) * t0, BOOM_R0 + (BOOM_R1 - BOOM_R0) * t1, top.f + (tip.f - top.f) * t0),
+        STEEL_FILL, alpha, { lift: LIFT });
+    }
+  } else {
+    drawSteel(ctx, [px(base, POLE_R0), px(top, POLE_R1)]);                                 // the pole
+    // The boom, sampled off the same quadratic the stroke used to draw (mid is the CONTROL point,
+    // not a point on the curve) so the droop is unchanged — it is the width that is new, not the shape.
+    const boom = [];
+    for (let i = 0; i <= 5; i++) {
+      const t = i / 5, m0 = (1 - t) * (1 - t), m1 = 2 * (1 - t) * t, m2 = t * t;
+      boom.push({
+        x: m0 * top.sx + m1 * mid.sx + m2 * tip.sx,
+        y: m0 * top.sy + m1 * mid.sy + m2 * tip.sy,
+        w: Math.max(0.5, (BOOM_R0 + (BOOM_R1 - BOOM_R0) * t) * cam.FL / (top.f + (tip.f - top.f) * t)),
+      });
+    }
+    drawSteel(ctx, boom);
   }
-  drawSteel(ctx, boom);
   // The heads, hung under the boom at the lane positions. Two on a mast — a real one carries one
   // per lane, and two is what reads as "over the road" without turning into a row of dots.
   // `face` is the approach the lenses look down: the boom reaches across the carriageway, so the
@@ -12459,32 +12505,49 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
   for (const h of heads) {
     const b0 = cam.proj(h.hx, h.hy, hangZ), b1 = cam.proj(h.hx, h.hy, hangZ - BRACKET_H);
     if (b0.f <= 0.1) continue;
-    drawSteel(ctx, [px(b0, 0.004), px(b1, 0.0035)], STEEL_FILL, false);                    // the drop bracket
-    signalHead(ctx, cam, h.hx, h.hy, hangZ - BRACKET_H, arm, face, lamp, s, night);
+    if (onGPU) emitWire(ctx, cam, [h.hx, h.hy, hangZ], [h.hx, h.hy, hangZ - BRACKET_H], wPx(0.004, 0.0035, b0.f), STEEL_FILL, alpha, { lift: LIFT });
+    else drawSteel(ctx, [px(b0, 0.004), px(b1, 0.0035)], STEEL_FILL, false);               // the drop bracket
+    signalHead(ctx, cam, h.hx, h.hy, hangZ - BRACKET_H, arm, face, lamp, s, night, onGPU ? { alpha, lift: LIFT } : null);
   }
   // The cobra head, on the opposite side of the same pole. A real mast carries the street light too,
   // and putting it here rather than on its own post beside it is the other half of "fewer poles".
   const cbx = dx - arm[0] * 0.26, cby = dy - arm[1] * 0.26;
   const cobra = cam.proj(cbx, cby, MAST_H + 0.01);
   if (cobra.f > 0.1) {
-    drawSteel(ctx, [px(top, 0.005), px(cobra, 0.0035)], STEEL_FILL, false);
+    if (onGPU) emitWire(ctx, cam, [dx, dy, MAST_H], [cbx, cby, MAST_H + 0.01], wPx(0.005, 0.0035, top.f), STEEL_FILL, alpha, { lift: LIFT });
+    else drawSteel(ctx, [px(top, 0.005), px(cobra, 0.0035)], STEEL_FILL, false);
     // The luminaire is a HORIZONTAL plate, so it is laid out in a frame with no vertical extent at
     // all: it thins to a sliver as you come level with it and opens out as you pass under it, which
     // an ellipse pinned to the screen could never do.
-    const LB = planeBasis(cam, cbx, cby, MAST_H + 0.006, arm, face);
-    if (LB) {
-      fillPoly(ctx, [bp(LB, -0.016, 0, -0.009), bp(LB, 0.016, 0, -0.009), bp(LB, 0.019, 0, 0.009), bp(LB, -0.019, 0, 0.009)], 'rgba(70,74,82,0.95)');
-      fillPoly(ctx, [bp(LB, -0.012, -0.003, -0.006), bp(LB, 0.012, -0.003, -0.006), bp(LB, 0.014, -0.003, 0.006), bp(LB, -0.014, -0.003, 0.006)],
-        lit ? `rgba(255,236,196,${0.72 + night * 0.28})` : 'rgba(44,48,56,0.95)');
+    //
+    // ⚠ A DECAL WANTS WORLD CORNERS AND `planeBasis` RETURNS SCREEN ONES — the same note as on the
+    // street lamp's fitting. The frame is (arm across, world-z up, face along), so the four corners
+    // are the same four numbers said in world axes.
+    const LZ = MAST_H + 0.006;
+    const LW = (a, b, c) => [cbx + arm[0] * a + face[0] * c, cby + arm[1] * a + face[1] * c, LZ + b];
+    const litCss = lit ? `rgba(255,236,196,${0.72 + night * 0.28})` : 'rgba(44,48,56,0.95)';
+    const LB = onGPU ? null : planeBasis(cam, cbx, cby, LZ, arm, face);
+    const plate = [[-0.016, 0, -0.009], [0.016, 0, -0.009], [0.019, 0, 0.009], [-0.019, 0, 0.009]];
+    const glassQ = [[-0.012, -0.003, -0.006], [0.012, -0.003, -0.006], [0.014, -0.003, 0.006], [-0.014, -0.003, 0.006]];
+    if (onGPU) {
+      emitDecoFill(ctx, cam, plate.map((p) => LW(p[0], p[1], p[2])), 'rgba(70,74,82,0.95)', alpha, LIFT);
+      emitDecoFill(ctx, cam, glassQ.map((p) => LW(p[0], p[1], p[2])), litCss, alpha, LIFT);
+    } else if (LB) {
+      fillPoly(ctx, plate.map((p) => bp(LB, p[0], p[1], p[2])), 'rgba(70,74,82,0.95)');
+      fillPoly(ctx, glassQ.map((p) => bp(LB, p[0], p[1], p[2])), litCss);
     }
     if (lit) {
-      // The bloom stays a screen-space gradient, and that is not an oversight: a halo is what the
-      // atmosphere and the eye do with a bright source, not a surface the lamp has. It is the
-      // FITTING that had to stop being a sprite.
+      // The bloom is what the atmosphere and the eye do with a bright source, not a surface the lamp
+      // has — so on the canvas it stays a screen-space gradient. On the GPU it is that same halo on
+      // the light layer, at the same radius said in the units every other light in the city is sized
+      // in: `s0` is the screen radius multiplied back up by the point's own depth, so `glowPool`
+      // dividing it out again lands on exactly the number this used to compute.
       const gr = Math.max(3, 0.042 * cam.FL / cobra.f);
-      const g = ctx.createRadialGradient(cobra.sx, cobra.sy, 0, cobra.sx, cobra.sy, gr);
-      g.addColorStop(0, `rgba(255,226,168,${0.20 + night * 0.34})`); g.addColorStop(1, 'rgba(255,226,168,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cobra.sx, cobra.sy, gr, 0, 7); ctx.fill();
+      if (onGPU) { glowPool(ctx, cam, cbx, cby, MAST_H + 0.01, '255,226,168', gr * cobra.f, alpha * (0.20 + night * 0.34)); } else {
+        const g = ctx.createRadialGradient(cobra.sx, cobra.sy, 0, cobra.sx, cobra.sy, gr);
+        g.addColorStop(0, `rgba(255,226,168,${0.20 + night * 0.34})`); g.addColorStop(1, 'rgba(255,226,168,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cobra.sx, cobra.sy, gr, 0, 7); ctx.fill();
+      }
     }
   }
   ctx.globalAlpha = 1;
@@ -12510,9 +12573,19 @@ const LENS_U = 0.0065, LENS_V = 0.0089;
 // space and runs well ahead of the tile count — a junction two tiles up measures s≈2.5, not 4.5 —
 // so an earlier gate of 3 meant the halo never drew at any distance at all, which reads exactly
 // like "the lights just aren't very bright" rather than like a dead branch.
-function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night) {
+function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night, gpu) {
   const B = planeBasis(cam, x, y, z, u, face);
   if (!B) return;
+  // ── ONE POLYGON, SAID ONCE ──────────────────────────────────────────────────
+  //
+  // `bp` maps (across, up, along) onto SCREEN points and a decal wants WORLD ones — but it is the
+  // same frame either way, so a corner is the same three numbers and only the axes it is said in
+  // change. Every plate on this head goes through `quad`, which is what stops the canvas version and
+  // the depth-buffer version drifting into two different shapes.
+  const W = (a, b, c) => [x + u[0] * a + face[0] * c, y + u[1] * a + face[1] * c, z + b];
+  const quad = (pts, css) => gpu
+    ? emitDecoFill(ctx, cam, pts.map((p) => W(p[0], p[1], p[2])), css, gpu.alpha, gpu.lift)
+    : fillPoly(ctx, pts.map((p) => bp(B, p[0], p[1], p[2])), css);
   // Which way round are we looking at it? df/d(face) falls straight out of the camera — depth is
   // bx*sinh − by*cosh, so a unit step along a horizontal vector changes it by exactly this — and a
   // negative value means that face is the NEAR one. |dfw| doubles as how square-on the head is, 1
@@ -12528,9 +12601,9 @@ function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night) {
   // looking at the far side of this same head; a real junction hangs a head per approach and this is
   // those heads as one object. The phase they show is identical by construction.
   const W2 = HEAD_W / 2;
-  fillPoly(ctx, [bp(B, -W2, 0, -cF), bp(B, W2, 0, -cF), bp(B, W2, -HEAD_H, -cF), bp(B, -W2, -HEAD_H, -cF)], 'rgba(18,20,25,0.94)');   // the far face, so the box is solid edge-on
-  if (s > 2.4) fillPoly(ctx, [bp(B, aS, 0, -cF), bp(B, aS, 0, cF), bp(B, aS, -HEAD_H, cF), bp(B, aS, -HEAD_H, -cF)], 'rgba(23,26,32,0.94)');   // the flank
-  fillPoly(ctx, [bp(B, -W2, 0, cF), bp(B, W2, 0, cF), bp(B, W2, -HEAD_H, cF), bp(B, -W2, -HEAD_H, cF)], 'rgba(31,35,42,0.95)');               // the lens face
+  quad([[-W2, 0, -cF], [W2, 0, -cF], [W2, -HEAD_H, -cF], [-W2, -HEAD_H, -cF]], 'rgba(18,20,25,0.94)');   // the far face, so the box is solid edge-on
+  if (s > 2.4) quad([[aS, 0, -cF], [aS, 0, cF], [aS, -HEAD_H, cF], [aS, -HEAD_H, -cF]], 'rgba(23,26,32,0.94)');   // the flank
+  quad([[-W2, 0, cF], [W2, 0, cF], [W2, -HEAD_H, cF], [-W2, -HEAD_H, cF]], 'rgba(31,35,42,0.95)');               // the lens face
   const lensC = cF * 1.08, hoodC = cF + (cF > 0 ? 0.010 : -0.010);
   for (let i = 0; i < 3; i++) {
     const key = i === 0 ? 'r' : i === 1 ? 'a' : 'g', on = lamp === key, col = SIGNAL_COL[key];
@@ -12542,12 +12615,41 @@ function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night) {
     for (let k = 0; k < 8; k++) { const th = (k + 0.5) * Math.PI / 4; pts.push(bp(B, LENS_U * Math.cos(th), lb + LENS_V * Math.sin(th), lensC)); }
     // A dark lamp is the housing colour with a hint of its own, not a dimmed bright one — an unlit
     // red that still reads red makes all three look lit at the sizes this actually draws at.
-    fillPoly(ctx, pts, on ? `rgb(${col[0]},${col[1]},${col[2]})` : `rgba(${col[0] * 0.22 | 0},${col[1] * 0.22 | 0},${col[2] * 0.22 | 0},0.9)`);
+    const lensCss = on ? `rgb(${col[0]},${col[1]},${col[2]})` : `rgba(${col[0] * 0.22 | 0},${col[1] * 0.22 | 0},${col[2] * 0.22 | 0},0.9)`;
+    const paintLens = () => fillPoly(ctx, pts, lensCss);
+    if (!gpu) paintLens();
+    else {
+      // ⚠ AN OCTAGON IS EIGHT CORNERS AND A DECAL CARRIES FOUR. A fan would put six quads on the
+      // layer for every lens — three lenses, two heads, two masts to a junction — so the SHAPE is
+      // baked into a texture and hung on the lens's own bounding quad instead. The eight corners
+      // were world points and stay world points; what is baked is the outline, not the placing.
+      //
+      // ⚠ AND THE KEY HAS NO CAMERA TERM IN IT. There are six of these in the whole city (three
+      // colours, lit and unlit), so the bake happens six times and never again — see the ⚠ on
+      // dx/dy in markBillboard for what a key that moves with the camera costs.
+      const key = 'sigLens|' + lensCss;
+      const tex = bakeQuadTex(key, 32, 32, (g2) => {
+        g2.fillStyle = lensCss; g2.beginPath();
+        for (let k = 0; k < 8; k++) {
+          const th = (k + 0.5) * Math.PI / 4, qx = 16 + Math.cos(th) * 15.5, qy = 16 - Math.sin(th) * 15.5;
+          k ? g2.lineTo(qx, qy) : g2.moveTo(qx, qy);
+        }
+        g2.closePath(); g2.fill();
+      });
+      // ⚠ PROJECTED POINTS, NOT `bp` PAIRS. `emitDecoQuad` takes corners that each carry their own
+      // `f` and hands them back through `cam.unproj`; `bp` returns a bare [sx, sy], so an inverse
+      // has nothing to work from, answers null, and the whole quad drops to the canvas fallback —
+      // which is not an error, just the lens quietly still painting over the city. That is what the
+      // census caught: the steel and the plates moved and twelve lenses did not.
+      const LQ = [[-LENS_U, lb + LENS_V], [LENS_U, lb + LENS_V], [LENS_U, lb - LENS_V], [-LENS_U, lb - LENS_V]]
+        .map((p) => { const w3 = W(p[0], p[1], lensC); return cam.proj(w3[0], w3[1], w3[2]); });
+      emitDecoQuad(ctx, cam, LQ, key, tex, gpu.alpha, paintLens, gpu.lift);
+    }
     // The hood over each lens, close in only: at range it is a sub-pixel smudge that just darkens
     // the lamp it is meant to shade.
     if (s > 5) {
       const hb = lb + LENS_V * 1.2;
-      fillPoly(ctx, [bp(B, -LENS_U * 1.45, hb, cF), bp(B, LENS_U * 1.45, hb, cF), bp(B, LENS_U * 1.45, hb - 0.004, hoodC), bp(B, -LENS_U * 1.45, hb - 0.004, hoodC)], 'rgba(14,16,20,0.95)');
+      quad([[-LENS_U * 1.45, hb, cF], [LENS_U * 1.45, hb, cF], [LENS_U * 1.45, hb - 0.004, hoodC], [-LENS_U * 1.45, hb - 0.004, hoodC]], 'rgba(14,16,20,0.95)');
     }
     // ── THE LIT LAMP HAS TO READ AS A LIGHT SOURCE, NOT A COLOURED DOT ─────────
     //
@@ -12570,22 +12672,36 @@ function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night) {
     //     a head facing away from you is still dimmer than one facing you.
     if (on && s > 1.2) {
       const c = bp(B, 0, lb, lensC);
-      const face = 0.55 + 0.45 * faceness;                       // was 0.35 + 0.65 — never near-zero
+      // ⚠ NOT `face` — that is the PARAMETER, and the world helper above reads it. This used to
+      // shadow it, which was harmless while everything here was screen-space and would have handed
+      // every lit lens's geometry a scalar where a direction belongs.
+      const faceMul = 0.55 + 0.45 * faceness;                    // was 0.35 + 0.65 — never near-zero
       const gr = Math.max(2.6, LENS_V * Math.hypot(B.vx, B.vy) * 3.4, s * 0.42);
-      const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], gr);
-      const a0 = clamp((0.46 + night * 0.46) * face, 0, 1);
-      // A whitened core, then the plate colour, then out to nothing.
-      g.addColorStop(0, `rgba(${Math.min(255, col[0] + 90)},${Math.min(255, col[1] + 90)},${Math.min(255, col[2] + 90)},${a0})`);
-      g.addColorStop(0.30, `rgba(${col[0]},${col[1]},${col[2]},${a0 * 0.72})`);
-      g.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c[0], c[1], gr, 0, 7); ctx.fill();
-      // The lens itself, overexposed toward white at the middle. Drawn after the halo so the core
-      // sits on top of it rather than under, and only when the head is big enough to have a middle.
-      if (s > 3) {
-        const hot = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], Math.max(1.2, gr * 0.34));
-        hot.addColorStop(0, `rgba(255,255,255,${0.42 + night * 0.30})`);
-        hot.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
-        ctx.fillStyle = hot; ctx.beginPath(); ctx.arc(c[0], c[1], Math.max(1.2, gr * 0.34), 0, 7); ctx.fill();
+      const a0 = clamp((0.46 + night * 0.46) * faceMul, 0, 1);
+      const hotR = Math.max(1.2, gr * 0.34);
+      if (gpu) {
+        // The halo and its hot core on the light layer, at the radii this already computes: `s0` is
+        // the screen radius multiplied back up by the point's own depth, which `glowPool` divides
+        // out again — so the lamp lands exactly where and how big it did on the canvas, and a wall
+        // in front of it settles the matter per pixel instead of a probe guessing for the whole head.
+        const LW3 = W(0, lb, lensC);
+        glowPool(ctx, cam, LW3[0], LW3[1], LW3[2], `${col[0]},${col[1]},${col[2]}`, gr * B.f, gpu.alpha * a0);
+        if (s > 3) glowPool(ctx, cam, LW3[0], LW3[1], LW3[2], '255,255,255', hotR * B.f, gpu.alpha * (0.42 + night * 0.30));
+      } else {
+        const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], gr);
+        // A whitened core, then the plate colour, then out to nothing.
+        g.addColorStop(0, `rgba(${Math.min(255, col[0] + 90)},${Math.min(255, col[1] + 90)},${Math.min(255, col[2] + 90)},${a0})`);
+        g.addColorStop(0.30, `rgba(${col[0]},${col[1]},${col[2]},${a0 * 0.72})`);
+        g.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c[0], c[1], gr, 0, 7); ctx.fill();
+        // The lens itself, overexposed toward white at the middle. Drawn after the halo so the core
+        // sits on top of it rather than under, and only when the head is big enough to have a middle.
+        if (s > 3) {
+          const hot = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], hotR);
+          hot.addColorStop(0, `rgba(255,255,255,${0.42 + night * 0.30})`);
+          hot.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
+          ctx.fillStyle = hot; ctx.beginPath(); ctx.arc(c[0], c[1], hotR, 0, 7); ctx.fill();
+        }
       }
     }
   }
@@ -12868,6 +12984,22 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
       // open during this pass, so anything painting straight to ctx here is painted OVER by every
       // building in the flush that follows.
       const hf = mx * cam.sinh - my * cam.cosh;
+      // ── ⚠ DRAWN DURING THE SWEEP WHEN THERE ARE SINKS TO FILL ────────────────────────────────
+      //
+      // `emitFace` defers its closure to `flushFaces()`, which runs AFTER the GL composite has read
+      // every sink and set them all to null — so a mast queued there can never reach the stroke,
+      // decal or light layers however hard it reaches for them, and paints over the composited city
+      // instead. That is the trap already recorded against the Curtain, and it is why the street
+      // lamps are drawn here and now rather than queued; see drawStreetLampQueued.
+      //
+      // ⚠ AND NEITHER THE PROBE NOR THE CLIP IS ON THIS PATH. `groundHidden` answers about the
+      // mast's BASE — one point, all-or-nothing — and `beginOcclusionClip` is a five-pixel cell
+      // grid eroded by one. Both are approximations of the question a depth buffer answers exactly,
+      // and asking them here can only take away pixels it would have kept.
+      if (STROKE_SINK && TUNE.glDeco) {
+        drawSignalMast(ctx, cam, mx, my, arm, lamp, alpha, night, !dead && night > 0.35);
+        continue;
+      }
       if (groundHidden(cam, mx, my)) continue;
       // ── ⚠ AND IT IS DEPTH-MASKED AGAINST THE BUILDINGS, WHICH IT NEVER WAS ──────────────────
       //

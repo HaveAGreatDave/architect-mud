@@ -112,16 +112,15 @@ for (const w of ['drawTrafficSignals', 'drawStreetLamps']) {
 // ── THE ALLOW-LIST ──────────────────────────────────────────────────────────
 // A `kept:` reason declared at the call site, or a painter named here WITH why it is still on the
 // canvas. Not a budget: a budget passes a new leak the moment somebody closes an old one.
-const KNOWN = new Map([
-  ['drawTrafficSignals',
-    'MITIGATED, NOT MOVED. The whole mast — pole, boom, drop brackets, heads and lenses — is still '
-    + 'one emitFace closure, and that closure runs at FLUSH, after the GL pass has gone and the '
-    + 'sinks are null, so even the parts that would route to gl/strokes.js cannot reach it. What it '
-    + 'has instead is beginOcclusionClip — the same per-cell mask the own ship uses, applied inside '
-    + 'the closure where OCC_FIELD is still alive. That is a ~5px grid eroded by a cell, not a '
-    + 'per-pixel depth test, so a hair can survive against a building edge; the full fix is still '
-    + 'emitWire for the steel and emitDecoFill for the head.'],
-]);
+//
+// ⚠ IT IS EMPTY, AND THAT IS THE POINT RATHER THAN AN OVERSIGHT. `drawTrafficSignals` was the last
+// entry: the mast was MITIGATED rather than moved, carrying `beginOcclusionClip` — a ~5px cell grid
+// eroded by one — because the whole thing was one `emitFace` closure and a closure runs at FLUSH,
+// after the GL pass has gone and every sink is null, so the parts that would route to gl/strokes.js
+// could never reach it. It is drawn during the sweep now: the steel through emitWire, the plates
+// through emitDecoFill, the lenses as baked decals and the lamps through glowPool. Nothing in the
+// world pass is left on the canvas, so an entry added here needs a reason, not a name.
+const KNOWN = new Map([]);
 
 const unlisted = (residue || []).filter((r) => !r.tag.startsWith('kept:') && !KNOWN.has(r.painter));
 for (const r of unlisted) problems.push(`${r.tag} — ${r.faces} faces on the canvas with no reason on file`);
