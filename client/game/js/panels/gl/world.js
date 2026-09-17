@@ -28,6 +28,71 @@ import { lightMatrix, eyePos } from './camera.js';
 import { SHADOW_BIAS_TILES } from './shadow.js';
 
 const scenes = new Map();
+
+// ── LETTING A SCENE GO ──────────────────────────────────────────────────────
+//
+// ⚠ THERE IS NO PER-OBJECT DISPOSE IN THIS MODULE AND THERE DOES NOT NEED TO BE. A scene owns a
+// context, and everything it holds belongs to that context — programs, VAOs, the vertex buffer
+// (fifteen megabytes at an aeroplane's window), the atlas page, the HDR chain, the shadow map, the
+// mirror target, and up to 448 cached billboard and decal textures. Losing the context releases all
+// of it in one call, which is both simpler and more complete than sixteen hand-written deletes,
+// each of which is a chance to miss one.
+//
+// ⚠ AND IT IS `loseContext()` RATHER THAN DROPPING THE REFERENCE. A canvas that falls out of scope
+// is collected eventually, and "eventually" is not a budget: the browser caps LIVE WebGL contexts
+// per page — Chrome at 16 — and force-loses the OLDEST once that is passed. So a scene nobody
+// releases doesn't sit there costing memory quietly. It costs some OTHER seat its context, and the
+// oldest context in a session is the seat the player has been looking through, which goes black
+// while the thing that took it is a wheelhouse they closed twenty minutes ago.
+function releaseScene(g) {
+  if (!g) return;
+  if (g.canvas) {
+    try { g.canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext(); }
+    catch { /* no context on it, or it is already gone */ }
+    // Drops the drawing buffer as well, which the lose above doesn't reach.
+    try { g.canvas.width = 0; g.canvas.height = 0; } catch { /* detached */ }
+  }
+  g.view = null; g.canvas = null; g.atlas = null;
+}
+
+// The one door a scene leaves by. `disposeWindshield` reaches it through the install seam rather
+// than by importing this file — see installGLDispose in windshield.js for why that matters.
+export function glDisposeScene(id) {
+  const g = scenes.get(id);
+  if (!g) return false;
+  scenes.delete(id);
+  releaseScene(g);
+  return true;
+}
+
+// ⚠ AND A CAP, BECAUSE A MISSED DISPOSE MUST NOT BE ABLE TO COST SOMEBODY ELSE THEIR CONTEXT AGAIN.
+// A dispose path is a thing a caller can forget, and this file cannot see who forgot — so the cap
+// is what makes forgetting cost a rebuild instead of a black screen. The game holds four seats at
+// the very most (`cab`, `fsim-ws`, `ck-ws` and one `helm-chase-*`), the Modelshop's benches work
+// one id at a time, and the browser's own ceiling is 16 — so eight clears every real working set
+// and stays well under the limit that bites. Evicting is harmless by construction: a scene is a
+// cache of the city in front of a seat, and the next paint rebuilds it.
+const MAX_SCENES = 8;
+let warnedEvict = false;
+// Least-recently-PAINTED first, which is not the Map's own order. Iteration order is insertion
+// order, and the scene painted every frame since the page loaded is the one inserted first — so
+// evicting by iteration order would take the live seat and keep the abandoned ones.
+function pruneScenes() {
+  while (scenes.size >= MAX_SCENES) {
+    let oldest = null, at = Infinity;
+    for (const [k, s] of scenes) if ((s.usedAt || 0) < at) { at = s.usedAt || 0; oldest = k; }
+    if (oldest == null) return;
+    const g = scenes.get(oldest);
+    scenes.delete(oldest);
+    releaseScene(g);
+    // Once per page: a permanent property of how this page is wired, not a per-frame event.
+    if (!warnedEvict) {
+      warnedEvict = true;
+      console.warn(`[glass2] evicted the least-recently-painted GL scene '${oldest}' — more than ${MAX_SCENES} were live at once, which means a view was opened whose teardown never reached glDisposeScene`);
+    }
+  }
+}
+
 // How many times the vertex buffer has been rebuilt since the page loaded. The whole argument for
 // GL here is that a city is uploaded once and drawn many times, and there is no way to see from
 // outside whether that is what is happening — a buffer rebuilt every frame draws exactly the same
@@ -396,7 +461,13 @@ export function fadeLights(ranked, state, dt, slots = MAX_LIGHTS) {
 
 function sceneGL(id, w, h, msaa = 1) {
   let g = scenes.get(id);
-  if (!g) { g = { canvas: null, view: null, key: '', atlasKey: '', epoch: '', atlas: null, msaa: msaa !== 0 ? 1 : 0 }; scenes.set(id, g); }
+  // ⚠ PRUNED BEFORE THE NEW ONE IS INSERTED, never after — the cap is about how many contexts are
+  // LIVE at once, and inserting first means momentarily holding MAX_SCENES + 1 of them. It also
+  // keeps the scene being created out of its own eviction sweep without needing a guard for it.
+  if (!g) { pruneScenes(); g = { canvas: null, view: null, key: '', atlasKey: '', epoch: '', atlas: null, msaa: msaa !== 0 ? 1 : 0 }; scenes.set(id, g); }
+  // Which scene the eviction sweep above is allowed to take. Stamped on every call rather than only
+  // on a rebuild, because a seat holding a steady view paints constantly and rebuilds almost never.
+  g.usedAt = Date.now();
   // ⚠ THE GL CANVAS IS A BUFFER, NOT AN ELEMENT ON THE PAGE. Stacking it under the 2-D one is the
   // obvious arrangement and it cannot work: the 2-D pass paints the sky and the ground, opaquely,
   // over the whole frame — so a GL city underneath is drawn perfectly and covered completely, and
@@ -834,6 +905,27 @@ const BEVEL_TILT = 1.0;
 // `__glHdr()` is the sweep; and the air seat is the one that has to be looked at, not the cab.
 const EMISSIVE_GAIN = 1;
 
+// ── AND THE ONE THAT DID UNPARK IT ──────────────────────────────────────────
+//
+// How far past white a surface that SAYS it is emitting is pushed. Everything the account above
+// says about EMISSIVE_GAIN applies here and the outcome is the opposite, for one reason: that knob
+// multiplies every additive sprite in the frame — `drawCityBloom` puts a warm halo on every near
+// building out to 22 tiles, so from the air dozens of them overlap and 21.2% of the frame turns
+// into a haze that emanates from nothing. This one reaches only quads whose producer has declared
+// them light rather than paint, which today is the lit face of a neon box and nothing else.
+//
+// ⚠ IT IS A SHOULDER, NOT A PEAK, and that is the lesson the 3 cost. Scaling a soft falloff does
+// not brighten its peak — the peak was already clipped — it pushes the whole gradient over 1.0 and
+// turns a glow into a flat saturated disc. A sign's artwork is not a falloff: the tube and the
+// lettering are hard-edged strokes with a dark board around them, so what goes over 1.0 here is the
+// stroke and the board stays where it is. That is why the same arithmetic that ruined the sprites
+// is safe on the signage, and it is the reason to keep the two numbers apart rather than share one.
+// ⚠ IT IS THE AMOUNT ADDED, NOT THE MULTIPLIER — a fully emissive quad ends at 1 + this. 0.9 rather
+// than the 2 EMISSIVE_GAIN reached for: the bright-pass knee is 0.4 wide, so a tube already at 1.0
+// only has to clear 1.2 to be selected in full. Past that the extra is spent on the lettering's
+// white core blooming into its own dark board, which is how a sign stops reading as words.
+const SIGN_EMISSIVE_GAIN = 0.9;
+
 const HDR_TUNE = {
   // ⚠ BACK AT 1.0, WHICH IS THE ONLY DEFENSIBLE PLACE FOR IT, AND IT TOOK THE GAIN ABOVE TO GET
   // THERE. At 1.0 with no gain the bright-pass found nothing at all — `peak()` says the city's
@@ -1034,8 +1126,13 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // No WebGL2 on this machine, or the driver took the context away. Either way the pass draws
   // nothing and must SAY so — the caller has already suppressed the 2-D mass on the strength of
   // this pass existing. The scene is dropped so a restored context rebuilds from scratch.
-  if (!g.view) { scenes.delete(id); return null; }
-  if (g.view.lost && g.view.lost()) { scenes.delete(id); return null; }
+  //
+  // ⚠ RELEASED, NOT JUST FORGOTTEN. These used to be a bare `scenes.delete(id)`, which drops the
+  // entry and leaves the dead canvas holding a context slot — and the very next frame builds a
+  // fresh one beside it. A driver that takes a context away once usually takes it away again, so
+  // the recovery path was itself a way to run the page out of contexts.
+  if (!g.view) { glDisposeScene(id); return null; }
+  if (g.view.lost && g.view.lost()) { glDisposeScene(id); return null; }
 
   const key = windowKey(cells);
   if (CHURN) for (const it of cells) {
@@ -1248,6 +1345,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // No haze band: the per-quad alpha already carries drawGroundSurfaces own far fade, and
     // applying the window dissolve on top would fade the road twice.
     fog: opts.fogBand,
+    // The two ends of the sky, for the water to reflect where the city does not cover it. See the
+    // ⚠ on `uSkyHor` in ground.js for why this is a pair rather than the fog band alone.
+    skyBand: opts.skyBand,
     // The wet road. `lightList` is already in this pass's own frame — see the ⚠ above — and the
     // camera's ground point is the window shift, because `camAt` is the shifted camera.
     // ⚠ NOT GATED ON THERE BEING LIGHTS, AND IT WAS. `pickLights` hands back null in daylight, so
@@ -1319,7 +1419,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // ⚠ AFTER THE MASS, ALWAYS. It is depth-TESTED and writes none of its own, so the buildings
   // have to be in the buffer before it is asked what stands in front of it.
   const curtains = g.view.drawCurtain(cam, opts.curtain, cssH, opts.now);
-  const decals = g.view.drawDecals(cam, opts.decals, cssH);
+  // ⚠ THE SIGNS ARE THE EMITTERS, AND THEY CARRY THEIR OWN GAIN PER QUAD — see the ⚠ in decals.js.
+  // This is the same conditional EMISSIVE_GAIN rides on and for the same reason (no headroom, no
+  // gain), but it is NOT the same number and must not be folded into it: that one multiplies every
+  // additive sprite in the frame, which is how it cost 21.2% of an aerial night frame to buy 0.1%
+  // of bloom. A neon box says it is a neon box; a stone frieze says nothing and stays at 1.
+  const decals = g.view.drawDecals(cam, opts.decals, cssH, opts.hdr > 0 ? SIGN_EMISSIVE_GAIN : 0);
   // The wires — masts, rails, braces, cables, light-runners. After the mass for the same reason
   // the Curtain and the signage are: depth-tested, writing none of its own.
   const strokes = g.view.drawStrokes ? g.view.drawStrokes(cam, opts.strokes, cssH) : 0;

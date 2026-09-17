@@ -22,7 +22,11 @@
 // expanded IN THE VERTEX SHADER from the two endpoints and a pixel width, exactly as the sprite
 // layer expands a light from a point and a pixel radius. Six vertices a segment, no texture, no
 // bake, one draw call for every wire in the city.
-import { viewProjMatrix } from './camera.js';
+import { viewProjMatrix, NEAR, FAR } from './camera.js';
+
+// NDC depth is A + B/f, from the ONE place NEAR and FAR are named. See sprites.js for the twin.
+const PROJ_A = (FAR + NEAR) / (FAR - NEAR), PROJ_B = -2 * FAR * NEAR / (FAR - NEAR);
+const WIRE_PULL = 0.05;
 
 // a3, b3, param2 (side, end), style3 (width px, alpha, feather), colour3
 const STRIDE = 14;
@@ -35,6 +39,9 @@ in vec3 aStyle;
 in vec3 aColor;
 uniform mat4 uViewProj;
 uniform vec2 uViewport;
+// The projection z row [A, B] and the pull in tiles — see the WARN below and the twin in sprites.js.
+uniform vec2 uAB;
+uniform float uPull;
 out float vSide;
 out float vFeather;
 out vec3 vColor;
@@ -55,10 +62,18 @@ void main() {
   vec2 perp = vec2(-dir.y, dir.x);
   vec4 clip = mix(ca, cb, aParam.y);
   clip.xy += perp * aParam.x * (aStyle.x * 0.5) * (2.0 / uViewport) * clip.w;
-  // ⚠ A HAIR TOWARD THE CAMERA, for the reason the sprite layer needs one: a rail sits ON the deck
-  // it runs along and a light-runner ON the corner it traces, so at exactly that depth the wire
-  // z-fights its own host into a stipple. This is DECO_LIFT, in the only units a depth buffer has.
-  clip.z -= 0.0012 * clip.w;
+  // A HAIR TOWARD THE CAMERA, for the reason the sprite layer needs one: a rail sits ON the deck it
+  // runs along and a light-runner ON the corner it traces, so at exactly that depth the wire
+  // z-fights its own host into a stipple.
+  //
+  // WARN IT WAS 'clip.z -= 0.0012 * clip.w' AND THAT IS A CONSTANT IN NDC, WHICH IS NOT LINEAR IN
+  // DISTANCE — a world pull of 0.34 tiles at six, 0.91 at ten and 8.6 at the draw limit, against a
+  // building's own near wall at 0.44. So every mast, catwalk rail, guy wire and light-runner past
+  // about seven tiles tested as though it stood in front of its own building. Same line, same
+  // arithmetic and same fix as sprites.js: a fixed pull in TILES along the view ray, leaving x/w
+  // and y/w untouched so only the depth it is compared at moves.
+  float fp = max(0.02, clip.w - uPull);
+  clip.z = (uAB.x + uAB.y / fp) * clip.w;
   gl_Position = clip;
   vSide = aParam.x;
   vFeather = aStyle.z;
@@ -113,6 +128,8 @@ export function createStrokeLayer(gl) {
     color: gl.getAttribLocation(prog, 'aColor'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     viewport: gl.getUniformLocation(prog, 'uViewport'),
+    ab: gl.getUniformLocation(prog, 'uAB'),
+    pull: gl.getUniformLocation(prog, 'uPull'),
   };
 
   const vao = gl.createVertexArray();
@@ -176,6 +193,8 @@ export function createStrokeLayer(gl) {
     gl.useProgram(prog);
     gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
+    gl.uniform2f(loc.ab, PROJ_A, PROJ_B);
+    gl.uniform1f(loc.pull, WIRE_PULL);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);        // a wire is thinner than the depth buffer can express; it must not hide anything
     gl.disable(gl.CULL_FACE);

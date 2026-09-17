@@ -53,6 +53,12 @@ const dirsAt = (x, y) => (x === R && y === CROSS) ? 'nesw' : x === R ? 'ns' : y 
 const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
   const rd = dirsAt(x, y);
   if (rd) return { kind: 'land', biome: 'city', flr: 0, road: 1, rd, pw: 1, sl: ((x + y) % 4 === 0) ? 1 : undefined };
+  // ⚠ AND THE ECHELON, BECAUSE THIS CENSUS COULD NOT SEE HER EITHER. The same gap the pedestrians
+  // sat in: `drawYacht` paints through the world sweep and no scene here had ever contained one, so
+  // a two-tile ship painting over the whole city was invisible to the gate written to find exactly
+  // that. Her hull is in gl/solids.js now and her fittings declare `kept:yacht-fittings`, which is a
+  // claim this file is the only thing that checks.
+  if (x === R - 5 && y === CROSS - 3) return { kind: 'land', biome: 'water', road: 0, mark: 'yacht', heading: 40, wake: { spd: 0.2 }, flr: 0 };
   const near = Math.abs(x - R) <= 2 || Math.abs(y - CROSS) <= 2;
   return near
     ? { kind: 'land', biome: 'city', flr: 0, bt: 'shop', is_building: 1, floors: 4 }
@@ -130,7 +136,7 @@ if (!control || !residue) problems.push('the tally never started — __emitWhoSt
 // ⚠ NAME THE PASS, NOT THE DRAWER. The tally tags a face with the function that QUEUED it, and a
 // figure is queued by its pass — `emitScatterFace < drawStreetActors` — so looking for the drawer
 // underneath it (drawActorFigure) finds nothing and fails a scene that is perfectly correct.
-for (const w of ['drawTrafficSignals', 'drawStreetLamps', 'drawStreetActors', 'drawRoadside']) {
+for (const w of ['drawTrafficSignals', 'drawStreetLamps', 'drawStreetActors', 'drawRoadside', 'yacht']) {
   if (!control || !control.some((r) => r.tag.includes(w))) {
     problems.push(`the GLASS 1 control drew no ${w} — the scene does not contain what this measures, so an empty GLASS 2 tally would mean nothing`);
   }

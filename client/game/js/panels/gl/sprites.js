@@ -19,7 +19,15 @@
 // vertices and the CPU never has to know which way the camera is facing. That is also what keeps
 // the sizes identical to the 2-D renderer's: `r` is the same `clamp(k / f, lo, hi)` the painter
 // computes, handed over rather than re-derived.
-import { viewProjMatrix } from './camera.js';
+import { viewProjMatrix, NEAR, FAR } from './camera.js';
+
+// The z row of the projection, from the ONE place NEAR and FAR are named. NDC depth is A + B/f,
+// which is what lets the shader express its nudge as a distance instead of as a depth-buffer step.
+const PROJ_A = (FAR + NEAR) / (FAR - NEAR), PROJ_B = -2 * FAR * NEAR / (FAR - NEAR);
+// How far toward the eye, in world tiles. DECO_PULL caps the 2-D path at 0.05 for the same job and
+// this is that number: enough to win a tie against the surface a light is mounted on at any range,
+// far less than the ~0.44 tiles to that surface own near face, so it can never clear a wall.
+const LIGHT_PULL = 0.05;
 
 // centre 3, corner 2, radius 1, colour 3, alpha 1, hardness 1
 const STRIDE = 11;
@@ -33,6 +41,12 @@ in float aAlpha;
 in float aHard;
 uniform mat4 uViewProj;
 uniform vec2 uViewport;
+// The projection's own z row, [A, B], so the pull below can be expressed in TILES. Passed rather
+// than written out here: NEAR and FAR are named once in camera.js precisely because anything
+// reasoning about coplanar surfaces needs the same two numbers the matrix was built with.
+uniform vec2 uAB;
+// How far toward the eye a light is nudged, in world tiles. See the WARN in main().
+uniform float uPull;
 out vec2 vCorner;
 out vec3 vColor;
 out float vAlpha;
@@ -43,10 +57,22 @@ void main() {
   // light the same size on screen as the disc the 2-D renderer paints, rather than a world-space
   // sphere that grows and shrinks on its own terms.
   clip.xy += aCorner * (2.0 * aRadius / uViewport) * clip.w;
-  // ⚠ A HAIR TOWARD THE CAMERA. A glow sits ON the roof or wall it belongs to, so at exactly that
-  // depth it would z-fight with the surface into a stipple. The 2-D renderer has the same problem
-  // and solves it by sorting (DECO_LIFT); this is that lift, in the only units a depth buffer has.
-  clip.z -= 0.0012 * clip.w;
+  // A HAIR TOWARD THE CAMERA, AND IT HAS TO BE A HAIR AT EVERY DISTANCE. A glow sits ON the roof
+  // or wall it belongs to, so at exactly that depth it z-fights the surface into a stipple.
+  //
+  // WARN THIS WAS 'clip.z -= 0.0012 * clip.w', A CONSTANT IN NDC, AND NDC IS NOT LINEAR IN DISTANCE.
+  // Depth here is A + B/f, so a fixed NDC step is a world pull of 0.01*f*f/(1 + 0.01*f) TILES:
+  // 0.04 at two tiles, 0.34 at six, 0.91 at ten, 3.3 at twenty and 8.6 at the draw limit. A
+  // building's own near wall is 0.44 tiles from its tile centre, so past about SEVEN TILES every
+  // light in the city was depth-tested as though it stood in front of the building it is bolted
+  // inside. That is the depot lamps showing through its own walls from the street, and it was
+  // never a depot bug: it reaches every glow, sign wash and window bloom in GLASS 2.
+  //
+  // So the nudge is a fixed pull in TILES along the view ray, which is what DECO_PULL does on the
+  // 2-D path and for the same reason. x/w and y/w are untouched, so the light lands on the same
+  // pixels at the same size and only the depth it is compared at moves.
+  float fp = max(0.02, clip.w - uPull);
+  clip.z = (uAB.x + uAB.y / fp) * clip.w;
   gl_Position = clip;
   vCorner = aCorner;
   vColor = aColor;
@@ -118,6 +144,8 @@ export function createSpriteLayer(gl) {
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     viewport: gl.getUniformLocation(prog, 'uViewport'),
     intensity: gl.getUniformLocation(prog, 'uIntensity'),
+    ab: gl.getUniformLocation(prog, 'uAB'),
+    pull: gl.getUniformLocation(prog, 'uPull'),
   };
 
   const vao = gl.createVertexArray();
@@ -171,6 +199,8 @@ export function createSpriteLayer(gl) {
     gl.useProgram(prog);
     gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
+    gl.uniform2f(loc.ab, PROJ_A, PROJ_B);
+    gl.uniform1f(loc.pull, LIGHT_PULL);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);          // a light is the appearance of a thing, not a thing
     gl.enable(gl.BLEND);

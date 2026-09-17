@@ -1240,11 +1240,11 @@ export function createGLView(canvas, opts = {}) {
   // Signage, on the same depth buffer. Lazy like the others.
   let decals = null;
   const decalLayer = () => (decals || (decals = createDecalLayer(gl)));
-  function drawDecals(cam, list, cssH) {
+  function drawDecals(cam, list, cssH, emitGain = 0) {
     if (!list || !list.length) return 0;
     const L = decalLayer();
     L.upload(list);
-    return L.draw(cam, cssH || canvas.height);
+    return L.draw(cam, cssH || canvas.height, emitGain);
   }
 
   // The wires, on the same depth buffer. Lazy like the others: a view with no mast, no rail and

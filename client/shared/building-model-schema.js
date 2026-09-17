@@ -291,6 +291,7 @@ export const ADORN_SCHEMA = {
   neonBlade: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h' }, required: ['z0', 'z1'], plain: { color: 'string', label: 'string' } },
   marqueeBand: { geom: { cx: 'fh', cy: 'fh', half: 'fh', z: 'h' }, required: ['half', 'z'], plain: { color: 'string', label: 'string' } },
   awning: { geom: { cx: 'fh', cy: 'fh', half: 'fh', lip: 'fh', z0: 'h', z1: 'h' }, required: ['half', 'z0', 'z1'], plain: { pal: 'string', depth: 'number' } },
+  roofCross: { geom: { cx: 'fh', cy: 'fh', z: 'h', span: 'fh', rise: 'h' }, required: ['z', 'span'], plain: { rgb: 'string', lit: 'number', frame: 'rgb' } },
 };
 
 // The authoring basis. These are the values captureRawPass itself uses, so a number an

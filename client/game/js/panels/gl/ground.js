@@ -86,6 +86,23 @@ in float vAlpha;
 in float vRoad;
 in vec3 vWorld;
 uniform vec3 uFog;
+// ── THE SKY THE WATER IS LOOKING AT, AT BOTH ENDS ──────────────────────────────────────────────
+//
+// The reflection buffer holds the CITY and nothing else, so a puddle with no building over it
+// falls back to a sky colour — and for a long time that colour was 'uFog' alone, one flat value.
+// It is the right answer at a GRAZING angle and the wrong one straight down, which is most of the
+// road: look steeply into water at your feet and what is above it is the ZENITH, several times
+// deeper in blue at noon than the haze on the skyline. Flat, it reads as a tint somebody added
+// rather than as water — the same complaint, and the same cause, as the environment term in the
+// mass shader being taken off the normal instead of off the reflected ray.
+//
+// ⚠ BOTH ENDS ARE PASSED, RATHER THAN THE TOP ALONE OVER 'uFog'. The horizon end and the fog band
+// happen to be the same colour today ('FOG_STATE' is 'sky.hor' dimmed for night), but only while
+// the fog slider is up: at 'RENDER_TUNE.fog' 0 there is no band at all and 'uFog' falls back to a
+// neutral grey, which would leave the gradient running from grey to a real sky. A look that
+// changes when somebody moves the fog slider is the coupling worth spending a uniform to avoid.
+uniform vec3 uSkyHor;
+uniform vec3 uSkyTop;
 
 // ── WET TARMAC ─────────────────────────────────────────────────────────────────────────────────
 //
@@ -382,9 +399,14 @@ void main() {
   // smear; the mirror needs only the buffer, and the two share this term. With 'uNWet' 0 the loop
   // below breaks on its first iteration and adds nothing, so the old picture is unchanged.
   float refl = 0.0;
+  // ⚠ HOISTED, BECAUSE THE FALLBACK SKY NEEDS THE SAME ANGLE THE FRESNEL TERM DOES. 'cosI' is the
+  // cosine of the incidence angle off the water's normal, which is also the SINE of the elevation
+  // the reflected ray leaves at — so one number answers both "how much does this reflect" and
+  // "what is it pointed at", and the two cannot drift apart into disagreeing about the geometry.
+  float cosI = 0.0;
   if (mirror > 0.001) {
     float dEye = length(vWorld.xy - uEye);
-    float cosI = uEyeH / max(0.001, sqrt(dEye * dEye + uEyeH * uEyeH));
+    cosI = uEyeH / max(0.001, sqrt(dEye * dEye + uEyeH * uEyeH));
     refl = 0.02 + 0.98 * pow(1.0 - cosI, 5.0);
   }
   // ── THE REFLECTED CITY ─────────────────────────────────────────────────────────────────────
@@ -461,12 +483,22 @@ void main() {
     // A mirror shows whatever is above it, and above most of a street is sky. So the buffer is
     // composited over the sky first and the result is what the water reflects.
     //
-    // ⚠ 'uFog' IS THE RIGHT SKY HERE, AND NOT AN APPROXIMATION OF ONE. The reflection this pass
-    // draws is a GRAZING one — the Fresnel gate above sees to that — and a grazing reflection shows
-    // the sky near the HORIZON, which is exactly the haze band this uniform already carries. The
-    // zenith would be the wrong colour to reach for even if it were plumbed. It also defaults to a
-    // neutral grey rather than black, so a frame with no fog band still reflects something.
-    vec3 img = im.rgb + uFog * (1.0 - im.a);
+    // ⚠ AND IT IS A GRADIENT, NOT THE HAZE BAND. This read "'uFog' IS THE RIGHT SKY HERE, AND NOT AN
+    // APPROXIMATION OF ONE", on the grounds that the Fresnel gate leaves only grazing reflections and
+    // a grazing reflection shows the horizon. The first half is true and the conclusion does not
+    // follow: Fresnel decides how STRONGLY each pixel reflects, not which pixels are drawn, so the
+    // near road is still there and still reflecting — weakly, over the largest area of the frame,
+    // and every one of those pixels was being handed the skyline's colour while pointing at the
+    // zenith. Measured on a daylit street, the buffer's own content reaches only the far third of
+    // the road (rows 190-279 of 400); the other two thirds were a flat wash.
+    //
+    // ⚠ THE 0.86 IS THE RENDERER'S OWN SKY DOME AND NOT A TASTE CONSTANT. 'drawSky' runs its
+    // gradient from 'sky.top' at the top of the canvas to 'sky.hor' at the horizon, while elevation
+    // maps to the screen as horizonY * (1 - sin(el) * 0.86) — so the ZENITH sits 86% of the way
+    // along that gradient rather than at the end of it. Using 1.0 here would give the water a sky
+    // slightly deeper than the one painted above it, which is the kind of disagreement nobody can
+    // point at and everybody can see.
+    vec3 img = im.rgb + mix(uSkyHor, uSkyTop, cosI * 0.86) * (1.0 - im.a);
     // The water's own weight. 'uReflGain' is a 0…32 strength where 32 means standing water reflects
     // exactly as hard as the Fresnel term says it should, which at a cab's grazing angle is very
     // nearly a perfect mirror — what the reference boards actually show.
@@ -638,6 +670,8 @@ export function createGroundLayer(gl) {
     road: gl.getAttribLocation(prog, 'aRoad'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     fog: gl.getUniformLocation(prog, 'uFog'),
+    skyHor: gl.getUniformLocation(prog, 'uSkyHor'),
+    skyTop: gl.getUniformLocation(prog, 'uSkyTop'),
     fogNear: gl.getUniformLocation(prog, 'uFogNear'),
     fogFar: gl.getUniformLocation(prog, 'uFogFar'),
     fogAmt: gl.getUniformLocation(prog, 'uFogAmt'),
@@ -750,6 +784,14 @@ export function createGroundLayer(gl) {
     const f = opts.fog || {};
     const c = f.col || [0.5, 0.5, 0.55];
     gl.uniform3f(loc.fog, c[0], c[1], c[2]);
+    // ⚠ BOTH DEFAULT TO THE FOG COLOUR, WHICH MAKES AN UNPLUMBED FRAME BIT-IDENTICAL TO THE ONE
+    // THAT SHIPPED. `mix(c, c, t)` is `c` at every `t`, so a caller that hands over no sky band —
+    // the Modelshop's own scenes, a bench, anything that reaches this layer directly — gets the
+    // flat haze fallback exactly as before rather than a gradient built out of a stand-in.
+    const sb = opts.skyBand || {};
+    const sh = sb.hor || c, st = sb.top || c;
+    gl.uniform3f(loc.skyHor, sh[0], sh[1], sh[2]);
+    gl.uniform3f(loc.skyTop, st[0], st[1], st[2]);
     gl.uniform1f(loc.fogNear, f.near == null ? 6 : f.near);
     gl.uniform1f(loc.fogFar, f.far == null ? 34 : f.far);
     gl.uniform1f(loc.fogAmt, f.amt || 0);

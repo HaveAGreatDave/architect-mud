@@ -21,8 +21,8 @@
 // renderer's idea of a sign and the other's from drifting — there is only one idea of a sign.
 import { viewProjMatrix } from './camera.js';
 
-// pos3, uv2, alpha1
-const STRIDE = 6;
+// pos3, uv2, alpha1, emit1
+const STRIDE = 7;
 // A cap on the texture cache. Signs are keyed by their own appearance (label, colour, night), so
 // the working set is the signs you can see; the cap is a backstop against a key that varies
 // continuously, which would otherwise leak a texture per frame.
@@ -32,22 +32,27 @@ const VERT = `#version 300 es
 in vec3 aPos;
 in vec2 aUV;
 in float aAlpha;
+in float aEmit;
 uniform mat4 uViewProj;
 out vec2 vUV;
 out float vAlpha;
+out float vEmit;
 void main() {
   gl_Position = uViewProj * vec4(aPos, 1.0);
   vUV = aUV;
   vAlpha = aAlpha;
+  vEmit = aEmit;
 }`;
 
 const FRAG = `#version 300 es
 precision highp float;
 in vec2 vUV;
 in float vAlpha;
+in float vEmit;
 uniform sampler2D uTex;
 uniform float uCull;
 uniform float uFlip;
+uniform float uEmitGain;
 out vec4 outColor;
 void main() {
   // ⚠ A SIGN HAS A FRONT. Lettering is PAINT ON A SURFACE, and paint does not read from behind the
@@ -74,7 +79,27 @@ void main() {
   // the canvas's own (ONE, ONE_MINUS_SRC_ALPHA).
   vec4 t = texture(uTex, vUV) * vAlpha;
   if (t.a < 0.002) discard;   // a sign's canvas is mostly empty; do not pay to blend nothing
-  outColor = t;
+  // ── ⚠ AND THIS IS THE CITY'S ONE REAL EMITTER ───────────────────────────────────────────────
+  //
+  // The bloom chain has been built, wired, gated and measured for months and has never found a
+  // thing, because GLASS produces no light brighter than white: every shader in it was written
+  // against an 8-bit target and saturates by construction, so 'peak()' on the float buffer reads
+  // 1.016 on a night street and a bright-pass at 1.0 has nothing to select. The note on
+  // RENDER_TUNE.glHdr says exactly what unparks it — "a sign authored as brighter than white
+  // rather than scaled into it" — and this is that sign.
+  //
+  // ⚠ RGB ONLY, NEVER THE ALPHA. The texture is premultiplied and the blend is (ONE,
+  // ONE_MINUS_SRC_ALPHA), so scaling the colour alone raises how much light the sign puts out and
+  // leaves its COVERAGE exactly where it was: the glass tube is still the same shape and the dark
+  // board around it still occludes the same pixels. Scale the alpha too and the sign grows.
+  // ⚠ AND IT IS PER-VERTEX, NOT A UNIFORM ON THE WHOLE LAYER. A stencilled bay number, a price
+  // board and a stone frieze go through here as well as a neon box, and painted lettering does not
+  // emit — see EMISSIVE_GAIN in world.js for what happens when a bloom cannot tell the two apart.
+  // ⚠ 'vEmit' IS 0..1 EMISSIVENESS AND 0 IS PAINT, so the multiplier is exactly 1 for every
+  // producer that has never heard of this — which is all of them but one. Spelling it the other way
+  // round (1 means paint, higher means brighter) was the first cut and it puts the no-op at a
+  // non-zero default, where a dropped field reads as a sign that does not light up.
+  outColor = vec4(t.rgb * (1.0 + vEmit * uEmitGain), t.a);
 }`;
 
 function compile(gl, type, src, label) {
@@ -103,10 +128,12 @@ export function createDecalLayer(gl) {
     pos: gl.getAttribLocation(prog, 'aPos'),
     uv: gl.getAttribLocation(prog, 'aUV'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
+    emit: gl.getAttribLocation(prog, 'aEmit'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     tex: gl.getUniformLocation(prog, 'uTex'),
     cull: gl.getUniformLocation(prog, 'uCull'),
     flip: gl.getUniformLocation(prog, 'uFlip'),
+    emitGain: gl.getUniformLocation(prog, 'uEmitGain'),
   };
 
   const vao = gl.createVertexArray();
@@ -115,10 +142,41 @@ export function createDecalLayer(gl) {
   const texes = new Map();          // key → WebGLTexture
   let batches = [];                 // { tex, first, count }
 
+  // ⚠ EVICTION HAPPENS HERE, BEFORE ANYTHING IS ALLOCATED, AND NEVER TOUCHES A KEY THIS FRAME
+  // USES — the same rule as billboards.js, ported 2026-09-17 because this layer still had the
+  // version that file was written to replace. It used to sit inside `textureFor`, taking
+  // `texes.entries().next().value` — the oldest-INSERTED entry, which is exactly the wrong one. The
+  // oldest entries are the STABLE keys: the name board every branch of a chain shares, the lettering
+  // repeated down a terrace. And `textureFor` is called from the batch loop below, so by the time a
+  // later key needs room those textures are already sitting in `batches` waiting to be drawn.
+  // Deleting one leaves its batch pointing at a dead texture, and a dead texture samples as whatever
+  // the driver hands back — which is how the same mistake was reported in the billboard layer, as
+  // the scatter turning bright pink and a gate drawn as a hovering bush.
+  //
+  // ⚠ THE LIVE SET IS KEYED ON THE TEXTURE, NOT ON THE GROUP, and copying billboards.js literally
+  // gets this wrong. `byKey` is keyed on `(cull ? 'B:' : 'F:') + key` while the cache is keyed on
+  // `key` alone, so testing a grouping key against `texes` finds NOTHING live and deletes the lot —
+  // the original bug back again, wearing the fix's clothes. Two groups can also share one texture
+  // (the same artwork culled and unculled), so the live set is the smaller of the two.
+  //
+  // ⚠ A frame carrying more than MAX_TEX distinct textures overshoots the cap rather than dropping
+  // one it needs, exactly as the billboard layer does — the cache comes back down on the next frame
+  // that draws fewer. That is the safe direction, an overshoot against a decal drawn with somebody
+  // else's artwork, and the two layers agreeing is worth more than either being clever on its own.
+  function evict(live) {
+    let need = 0;
+    for (const k of live) if (!texes.has(k)) need++;
+    if (texes.size + need <= MAX_TEX) return;
+    for (const [k, t] of [...texes]) {
+      if (texes.size + need <= MAX_TEX) break;
+      if (live.has(k)) continue;                 // drawn this frame — deleting it is the bug
+      gl.deleteTexture(t); texes.delete(k);
+    }
+  }
+
   function textureFor(key, img, smooth) {
     let t = texes.get(key);
     if (t) return t;
-    if (texes.size >= MAX_TEX) { const [k0, t0] = texes.entries().next().value; gl.deleteTexture(t0); texes.delete(k0); }
     t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
@@ -159,22 +217,29 @@ export function createDecalLayer(gl) {
       let a = byKey.get(gk); if (!a) byKey.set(gk, a = { img: d.img, key: d.key, cull: !!d.cull, smooth: !!d.smooth, items: [] });
       a.items.push(d);
     }
+    // Which TEXTURES this frame draws — `a.key`, never the grouping key. See the ⚠ on evict.
+    const liveTex = new Set();
+    for (const a of byKey.values()) liveTex.add(a.key);
+    evict(liveTex);
     let quads = 0;
     for (const a of byKey.values()) quads += a.items.length;
     const verts = quads * 6;
     if (data.length < verts * STRIDE) data = new Float32Array(Math.max(verts * STRIDE, 1024));
     batches = [];
     let o = 0, first = 0;
-    const put = (p, u, v, a) => {
+    const put = (p, u, v, a, e) => {
       data[o] = p[0]; data[o + 1] = p[1]; data[o + 2] = p[2];
-      data[o + 3] = u; data[o + 4] = v; data[o + 5] = a;
+      data[o + 3] = u; data[o + 4] = v; data[o + 5] = a; data[o + 6] = e;
       o += STRIDE;
     };
     for (const a of byKey.values()) {
       for (const d of a.items) {
         const [TL, TR, BR, BL] = d.p, al = d.alpha == null ? 1 : d.alpha;
-        put(TL, 0, 0, al); put(TR, 1, 0, al); put(BR, 1, 1, al);
-        put(TL, 0, 0, al); put(BR, 1, 1, al); put(BL, 0, 1, al);
+        // 0 is "this is paint" and is the default, so a producer that has never heard of emission
+        // draws exactly what it drew before at any gain — see the ⚠ in the fragment shader.
+        const em = d.emit > 0 ? d.emit : 0;
+        put(TL, 0, 0, al, em); put(TR, 1, 0, al, em); put(BR, 1, 1, al, em);
+        put(TL, 0, 0, al, em); put(BR, 1, 1, al, em); put(BL, 0, 1, al, em);
       }
       const n = a.items.length * 6;
       // The TEXTURE cache is keyed on the appearance alone — the same artwork culled and unculled
@@ -187,14 +252,19 @@ export function createDecalLayer(gl) {
     gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, verts * STRIDE), gl.DYNAMIC_DRAW);
     const S = STRIDE * 4;
     const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
-    bind(loc.pos, 3, 0); bind(loc.uv, 2, 12); bind(loc.alpha, 1, 20);
+    bind(loc.pos, 3, 0); bind(loc.uv, 2, 12); bind(loc.alpha, 1, 20); bind(loc.emit, 1, 24);
     gl.bindVertexArray(null);
     return quads;
   }
 
-  function draw(cam, H) {
+  // ⚠ `emitGain` IS 0 WITHOUT THE FLOAT TARGET AND THAT IS NOT A STYLE CHOICE. Against the 8-bit
+  // buffer an over-range sign clamps on the way in, so the whole gradient of a lit tube saturates to
+  // flat white — the same mistake EMISSIVE_GAIN shipped at 3 and had to be walked back from. The
+  // headroom to hold it is the float target, so the caller only ever sends a gain when there is one.
+  function draw(cam, H, emitGain = 0) {
     if (!batches.length) return 0;
     gl.useProgram(prog);
+    gl.uniform1f(loc.emitGain, emitGain > 0 ? emitGain : 0);
     gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, H)));
     // Whether this camera reflects the world — see the ⚠ on `uFlip`. Read off the camera itself so
     // a caller cannot hand over a mirrored matrix and forget to say so.

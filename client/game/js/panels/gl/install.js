@@ -8,8 +8,8 @@
 // This module is that call, and it is the only place that knows both halves: it hands the GL pass
 // the renderer's own mesh capture, its own baked textures and its own palette, so nothing here has
 // an opinion about what a building is made of.
-import { installGLWorld, installGLClouds, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
-import { glWorldPass, glCloudPass } from './world.js';
+import { installGLWorld, installGLClouds, installGLDispose, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
+import { glWorldPass, glCloudPass, glDisposeScene } from './world.js';
 import { NEAR, FAR } from './camera.js';
 import { MAX_LIGHTS, MAX_MATERIALS } from './context.js';   // the uniform budgets the light pass and the material table ask for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
 
@@ -200,6 +200,11 @@ export function installGL(hostFor) {
       ship: opts.ship, bay: opts.bay,
       floor: opts.floor, now: opts.now,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,
+      // ⚠ AND THE SKY BESIDE IT, WHICH IS THIS FILE'S OWN NUMBERED FAILURE AGAIN. Dropped here the
+      // water goes on reflecting one flat colour: the uniform is declared, the shader reads it, the
+      // windshield builds it, and the only thing missing is this line — a feature wired at both ends
+      // and inert in the middle, which measures as 0.0% at every strength. `gl:opts` is the gate.
+      skyBand: opts.skyBand ? { hor: u(opts.skyBand.hor), top: u(opts.skyBand.top) } : null,
       night: opts.night, nb: opts.nb,
       draw: {
         // Transparent, because this buffer is BLITTED onto the 2-D frame rather than shown: every
@@ -245,7 +250,12 @@ export function installGL(hostFor) {
     if (lastStats) lastStats.cloudCards = out ? out.cards : 0;
     return out;
   });
-  return () => { installGLWorld(null); installGLClouds(null); };
+  // ⚠ AND THE WAY BACK OUT. A seat closing calls `disposeWindshield`, which has no way to reach the
+  // GL scene on its own — this is the hop that gives it one. Without this line the pass works
+  // perfectly and every context it opens is held until the page is closed; see the note on
+  // disposeWindshield for what that costs and how it was measured.
+  installGLDispose((id) => glDisposeScene(id));
+  return () => { installGLWorld(null); installGLClouds(null); installGLDispose(null); };
 }
 
 export { RENDER_TUNE };

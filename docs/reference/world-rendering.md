@@ -129,7 +129,10 @@ glass behind it are both derived from — two copies would drift and the glass w
 ### Decoration helpers (all project through `cam`)
 `glowPool` (soft radial ground/roof glow), `blinkLight` (pulsing point light — beacons),
 `mast` (antenna line + red tip light), `neonBlade` / `verticalMarquee` / `marqueeBand` (signage),
-`drawSmoke`, `dish`, `crossMark`. `F(lx, ly)` (defined per-call in `drawTypeModel`) rotates a
+`drawSmoke`, `dish`, and the two EMBLEM helpers — `roofCross` (a medical cross standing on a
+roofline) and `wallDisc` (a plate bolted to a facade). Both build a real slab through `emblemSlab`
+rather than painting a billboard, so an emblem foreshortens, shows its edge and is occluded per
+pixel; see the ⚠ there before adding a third. `F(lx, ly)` (defined per-call in `drawTypeModel`) rotates a
 model-local offset into world space using the building's entrance vector `E` — use it to place
 sub-parts (a canopy, a wing, a tower) relative to the frontage.
 
