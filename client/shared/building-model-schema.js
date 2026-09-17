@@ -193,7 +193,7 @@ export const DETAIL_SCHEMA = {
   // ⚠ `font` AND `picto` ARE THE SAME TWO KEYS ON ALL THREE SIGN KINDS, deliberately. They are
   // properties of LETTERING rather than of a particular fitting, and a board that could take a
   // script hand while a gantry could not is a rule nobody would remember. `font` is one of
-  // SIGN_FONT's keys (mono, script, block, slab, deco, condensed, stencil, techno, gothic, western, hanzi)
+  // SIGN_FONT's keys (mono, script, block, slab, deco, condensed, stencil, techno, gothic, western, hanzi, estate)
   // — `hanzi` being a CJK face, for a short trade word rather than a name; `picto` is one of
   // SIGN_PICTO's (martini, mug, fork, bed, bolt, pill, fuel, arrow) and defaults to none. Both
   // live in windshield.js, and an unknown value FALLS BACK rather than throwing — a typo in a
