@@ -184,7 +184,23 @@ const DMG_PARTS = [
 // most of what "seems very flat" is. Dropped to ~15°, the chase sits nearer the road and the rig
 // has a side, a screen and a stack. The orbit still runs from under-belly to top-down; this is only
 // where it RESTS and where ⟲ puts it back.
-const EXT_REST_PITCH = 0.26;
+//
+// ── ⚠ 0.26 → 0.43, AND THE PARAGRAPH ABOVE IS WHY THAT NEEDS SAYING OUT LOUD ──
+// This number never reached the camera. The chase arc was centred on `RENDER_TUNE.eh` rather than on
+// the rig (see the ⚠ in paintWindshield), so the ELEVATION the eye actually sat at was always
+// steeper than the constant: 0.42 was ~33° and the 0.26 that replaced it was ~24.5°. So the drop
+// above landed on the very angle it was written to escape, which is why the roof kept showing and
+// why dollying in — where the gap is widest — reached 59°. The arc is honest now: this constant IS
+// the elevation, at every zoom.
+//
+// ⚠ WHICH MEANS RESTORING THE OLD RESTING *LOOK* RESTORES WHAT THAT PARAGRAPH CALLS A BUG. 0.43 was
+// asked for and measured (23.7° at 0.42, 24.6° at 0.435), so the resting shot is the one that
+// shipped before — the rig 33x37px on a 900x560 pane against 37x37 at 0.26, from 24.4° up. Put it
+// back to 0.26 and the resting pose becomes the ~15° flank view this file argues for, with nothing
+// else moving. One number, and the close-up is not on either side of it: `chaseAmt` below fully
+// overrides the pitch under wheel 0.34, so every candidate measured identically down there — flat,
+// 2.1°, and not one face of the rig clipped.
+const EXT_REST_PITCH = 0.43;
 // ── DOLLYING IN DROPS THE CAMERA TO THE ROAD, AND DOES NOTHING ELSE ──────────
 // ⚠ IT MUST NOT TOUCH YAW. A first cut eased the camera round to dead astern as you zoomed in, on
 // the theory that close up you want to drive rather than admire — and it took the turntable away

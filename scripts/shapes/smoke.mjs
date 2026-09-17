@@ -126,6 +126,16 @@ async function main() {
   stubCanvas(LIGHT_ID, 1280, 720);
   for (const f of ws.lightVisibilitySmoke(LIGHT_ID)) problems.push(`light  ${f}`);
 
+  // ── AND DOES ANYTHING STANDING ON THE GROUND SHOW THROUGH A BUILDING? ──
+  // With the mass on the GPU the 2-D queue has nothing to sort a tree, a bush or a pedestrian
+  // against, so `groundHidden` is the whole of what keeps them off the wall in front of them. It
+  // answered with a box hung round the FEET, which reaches below the occluder onto unowned road —
+  // and all-or-nothing turns one unowned cell into "draws". Both sides are counted: a wood behind
+  // a tall wall must be gone, and the same wood behind a one-storey shed must not be.
+  const GROUND_ID = '__smoke-ground';
+  stubCanvas(GROUND_ID, 1560, 620);
+  for (const f of ws.groundVisibilitySmoke(GROUND_ID)) problems.push(`ground ${f}`);
+
   // ── WALL TEXTURES ──
   // Every palette in WALL_COL bakes, and every material family is still reached by one. A wall
   // texture is generated lazily the first time a building wearing it comes into view, so this is

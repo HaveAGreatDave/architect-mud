@@ -87,6 +87,7 @@
       "cy": 0,
       "hw": 0.44,
       "kind": "box",
+      "pal": "ty_dw_slate",
       "roof": true,
       "z0": 0,
       "z1": 0.11
@@ -130,6 +131,7 @@
       "fd": 0.13,
       "hw": 0.31,
       "kind": "box",
+      "pal": "ty_marble_col",
       "roof": true,
       "yaw": 1.5,
       "z0": 0.75,

@@ -115,7 +115,7 @@ export function createDecalLayer(gl) {
   const texes = new Map();          // key → WebGLTexture
   let batches = [];                 // { tex, first, count }
 
-  function textureFor(key, img) {
+  function textureFor(key, img, smooth) {
     let t = texes.get(key);
     if (t) return t;
     if (texes.size >= MAX_TEX) { const [k0, t0] = texes.entries().next().value; gl.deleteTexture(t0); texes.delete(k0); }
@@ -127,8 +127,16 @@ export function createDecalLayer(gl) {
     // ⚠ LINEAR ON MINIFY, NEAREST ON MAGNIFY — the same split the wall textures needed. GLASS
     // smooths a texture only when it is shrinking it; magnifying with LINEAR turns a near sign into
     // a grey wash, which is what made every close facade look unlit before this was corrected there.
+    //
+    // ⚠ EXCEPT FOR LETTERING, WHICH IS THE OPPOSITE CASE AND WAS GETTING THE WALL TEXTURE'S ANSWER.
+    // That rule is about a TILING NOISE PATTERN, where smoothing a magnified texel grid averages the
+    // grain away into flat grey. A glyph bake is the other kind of artwork entirely: it is drawn by
+    // an antialiased rasteriser, the information is in the EDGE of a stroke, and magnifying that
+    // with NEAREST is how you turn a clean letterform into a staircase. A truck parked at a
+    // shopfront covers a name board with several hundred screen pixels of a texture whose cell is
+    // 72, so magnification is the ordinary case for a sign rather than the exception.
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, smooth ? gl.LINEAR : gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     texes.set(key, t);
@@ -145,7 +153,10 @@ export function createDecalLayer(gl) {
       // set once per draw call — two decals sharing a texture and disagreeing about it would be one
       // batch, and one of them would silently get the other’s answer.
       const gk = (d.cull ? 'B:' : 'F:') + d.key;
-      let a = byKey.get(gk); if (!a) byKey.set(gk, a = { img: d.img, key: d.key, cull: !!d.cull, items: [] });
+      // `smooth` is NOT in the grouping key, unlike `cull`, and the difference is real: `cull` is a
+      // uniform set per draw call, while the filter is a property of the TEXTURE, which is cached on
+      // `d.key` alone. Two decals sharing a key share their artwork and therefore their producer.
+      let a = byKey.get(gk); if (!a) byKey.set(gk, a = { img: d.img, key: d.key, cull: !!d.cull, smooth: !!d.smooth, items: [] });
       a.items.push(d);
     }
     let quads = 0;
@@ -168,7 +179,7 @@ export function createDecalLayer(gl) {
       const n = a.items.length * 6;
       // The TEXTURE cache is keyed on the appearance alone — the same artwork culled and unculled
       // is one upload — so `a.key` and not the grouping key.
-      batches.push({ tex: textureFor(a.key, a.img), first, count: n, cull: a.cull });
+      batches.push({ tex: textureFor(a.key, a.img, a.smooth), first, count: n, cull: a.cull });
       first += n;
     }
     gl.bindVertexArray(vao);

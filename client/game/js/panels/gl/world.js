@@ -533,7 +533,13 @@ if (typeof window !== 'undefined') {
 // the route in would be install.js's options allowlist, which is precisely where two features have
 // shipped inert by being wired at both ends and dropped in the middle. Set it before the first paint
 // of a fresh page — the same rule every bench in the Modelshop already follows for the same reason.
-const meshParams = (it) => it.fh + ':' + it.h + ':' + it.seed + ':' + it.E[0] + ',' + it.E[1];
+// ⚠ THE DISTRICT IS IN THE KEY. The detail kit varies with where a building stands (see `_place`
+// in windshield.js), so two tiles of `type:shop` in two districts are two different meshes — and a
+// memo that cannot tell them apart hands whichever drew first to both. The tile SEED is already in
+// here and is itself a function of the tile, so this is belt and braces; it is stated anyway,
+// because 'another term happens to cover it' is exactly how a cache bug waits.
+const meshParams = (it) => it.fh + ':' + it.h + ':' + it.seed + ':' + it.E[0] + ',' + it.E[1]
+  + ':' + (it.c && it.c.biome || '') + ':' + (it.wx | 0);
 
 // ── WHAT THE SUN PASS IS HANDED, OR NOTHING AT ALL ──────────────────────────
 //
@@ -885,6 +891,10 @@ const SSAO_TUNE = {
 // is a pattern ACROSS it and not a property OF it. That, plus a float target to be brighter than
 // white into and a bloom kernel to spread it, is what an emission feature here would actually be.
 
+// The district a GL cell stands in, in the shape windshield.js's `setTilePlace` wants. One place,
+// so the day capture and the night capture below cannot disagree about where the building is.
+const placeOf = (it) => ({ biome: it.c && it.c.biome, wx: it.wx, wy: it.wy });
+
 function tileMesh(deps, it) {
   let byParam = meshCache.get(it.m);
   if (!byParam) { byParam = new Map(); meshCache.set(it.m, byParam); }
@@ -892,7 +902,7 @@ function tileMesh(deps, it) {
   let faces = byParam.get(k);
   if (!faces) {
     let mesh;
-    try { mesh = deps.captureModelMesh(it.m, { fh: it.fh, h: it.h, seed: it.seed, E: it.E }); } catch { mesh = []; }
+    try { mesh = deps.captureModelMesh(it.m, { fh: it.fh, h: it.h, seed: it.seed, E: it.E, place: placeOf(it) }); } catch { mesh = []; }
     // ── AND THE SAME BUILDING AFTER DARK ────────────────────────────────────────────────────────
     //
     // The capture above runs at `night: 0` (the default), and it always did — `meshParams` has no
@@ -912,7 +922,7 @@ function tileMesh(deps, it) {
     // the two lists would be misaligned and buildings would wear each other's colours. The length
     // guard below is what stops that being silent, and `gl:mesh` fails on it outright.
     let night = null;
-    try { night = deps.captureModelMesh(it.m, { fh: it.fh, h: it.h, seed: it.seed, E: it.E, night: 1 }); } catch { night = null; }
+    try { night = deps.captureModelMesh(it.m, { fh: it.fh, h: it.h, seed: it.seed, E: it.E, night: 1, place: placeOf(it) }); } catch { night = null; }
     if (night && night.length !== mesh.length) night = null;
     faces = mesh.map((f, i) => {
       const day = f.rgbOverride || deps.palette.get(f.pal) || [120, 126, 134];
@@ -1262,7 +1272,18 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // logs once per frame and falls back to 2-D from. So the whole feature was off, every
     // measurement of it was measuring the 2-D renderer, and no headless gate could see any of it
     // because none of them has a GL context. `glLastFrame()` returning null is the tell.
-    eyeX: cam.ox || 0, eyeY: cam.oy || 0,
+    // ── ⚠ AND IT IS THE CAMERA'S GROUND POINT, NOT THE RIG'S ──────────────────────────────────
+    //
+    // This was `cam.ox/oy` alone, which is where the OWN SHIP stands in the map window — the two
+    // are the same point in a cab and nowhere else. A chase camera sits `back` tiles behind the rig
+    // and a free one anywhere at all, so in every external seat the shader was solving the wet
+    // maths from the truck's position with the CAMERA's height (`cam.EH`, below): a mirror point
+    // anchored to the wrong place and a Fresnel angle measured from the wrong distance.
+    //
+    // ⚠ `cam.ex/ey` IS EXACTLY THAT OFFSET and is already exposed: `-back·sinh + fx`,
+    // `back·cosh + fy`. Both are 0 when there is no chase and no free-camera offset, so the cab is
+    // bit-identical and only the seats that were wrong move.
+    eyeX: (cam.ox || 0) + (cam.ex || 0), eyeY: (cam.oy || 0) + (cam.ey || 0),
     // ⚠ AND HOW HIGH THE EYE IS, which is what keeps the reflections on the road instead of across
     // the map. See the Fresnel gate in ground.js.
     //
@@ -1283,6 +1304,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // reflection buffer's — gl_FragCoord is in the pixels of the target being drawn into, and the
     // reflection is rendered smaller on purpose. See the ⚠ on `uReflVP`.
     reflTex, reflGain: mirrorGain, pudScale: opts.glPuddle, time: tNow, ripple: opts.glRipple,
+    glint: opts.glGlint,
     groundBias: opts.glGroundBias,
     vpW: g.canvas ? g.canvas.width : 0, vpH: g.canvas ? g.canvas.height : 0,
   });

@@ -1332,6 +1332,9 @@ const FSIM_TUNE = [
   ['glPuddle', 'Puddle density', 0.6, 9, 0.05],
   ['glMirrorMass', 'Buildings in water', 0, 1, 1],
   ['glRipple', 'Puddle ripple', 0, 8, 0.1],
+  // The lamps reflected IN the water rather than smeared on the tarmac beside it — the one term
+  // that makes a wet road at night brighter anywhere. 0 is the road as it was.
+  ['glGlint', 'Puddle glint', 0, 160, 2],
   ['glGroundBias', 'Road depth bias', -64, 0, 1],
   ['glBeam', 'Headlight pool', 0, 0.6, 0.01],
   ['glShip', 'Rig in the depth buffer', 0, 1, 1],
@@ -3119,7 +3122,7 @@ export function openFlightSim(opts = {}) {
       e.preventDefault();
       const on = freeCam.toggle({ yaw: (F.hdg || 0) + (F.extOrbit || 0), z: 0.55 });
       if (on) { F.throttleKey = 0; F.pedalKey = 0; F.firing = false; }
-      fsimToast(on ? '◎ FREE CAMERA — WASD move, arrows look, O to stow' : '◎ CHASE CAMERA');
+      fsimToast(on ? '◎ FREE CAMERA — mouse looks, MMB orbit, LMB/RMB up-down, WASD move, O to stow' : '◎ CHASE CAMERA');
       return;
     }
     if (freeCam.onKey(k, true)) { e.preventDefault(); return; }

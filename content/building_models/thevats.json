@@ -1,0 +1,178 @@
+{
+  "adorn": [
+    {
+      "cx": -0.13,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "120,255,220",
+      "z": 0.96
+    },
+    {
+      "cx": 0.13,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "120,255,220",
+      "z": 0.96
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "mast",
+      "z0": 0.96,
+      "z1": 1.14
+    },
+    {
+      "cx": -0.19,
+      "cy": -0.19,
+      "kind": "glowPool",
+      "rgb": "80,255,215",
+      "s": 15,
+      "z": 0.4
+    },
+    {
+      "cx": 0.19,
+      "cy": -0.19,
+      "kind": "glowPool",
+      "rgb": "80,255,215",
+      "s": 15,
+      "z": 0.4
+    },
+    {
+      "cx": -0.19,
+      "cy": 0.19,
+      "kind": "glowPool",
+      "rgb": "70,230,255",
+      "s": 15,
+      "z": 0.4
+    },
+    {
+      "cx": 0.19,
+      "cy": 0.19,
+      "kind": "glowPool",
+      "rgb": "70,230,255",
+      "s": 15,
+      "z": 0.4
+    },
+    {
+      "cx": 0,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "90,255,215",
+      "s": 19,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Vats"
+    }
+  ],
+  "id": "thevats",
+  "neon": "#4affd0",
+  "note": "The Ascendant grow bodies here, and until now the westmost building tile in Coldwater — x892, the far end of the glass end — drew the shared `asc_vats` archetype like any other vat shed. It is four TANKS now, standing on a low hall: the silhouette a player reads from the road is a row of cylinders under a pale slab, which is the one shape on this skyline that says what the building is for. Eight floors.\n\n⚠ THE HALL IS AN UNYAWED BOX AND HAS TO BE. `derivedTrim` takes its candidates from square, unrotated boxes only — a drum carries no derived detail at all and has no night term of its own — so a model built entirely out of tanks would be a black cluster with no shopfront, no windows, no lit frontage and no signage. The hall is what the kit hangs all of that on, and the tanks stand on its roof.\n\n⚠ AND THERE IS NO `detail` LIST ON PURPOSE. Authoring one marks its SECTION as somebody's own work and the kit stays out of that section — so a hand-written parapet here would cost this building the coping band, a windowBay would cost it the whole glazed frontage, and a stair would cost it the balconies. The kit is district-aware now (see `_place` in windshield.js): standing at the west end it gets the denser end of the signage gradient for free, which is most of the reason to put a landmark there.\n\n⚠ `trade` NAMES WHAT IT SELLS AND CLAIMS NOTHING ELSE. The bind is by NAME, so this registers as its own model and overrides no arm — which is exactly why it must not say `replaces`: that key also claims a revert path through RENDER_TUNE.legacyArms, and for a name-bound landmark there is no arm to put back. `tradeOf` reads this to answer what the building sells, which is what gives it the Ascendant's own lettering hand and its clinical accent rather than the generic one every authored model used to get.\n\n⚠ AND IT DOES NOT SIGN ITSELF. `asc_vats` is in UNSIGNED_TRADE: a vat house identifies itself with a unit number on a door, and the name is on the gate. `signWorks: true` is how a works opts back in, and this one deliberately does not.",
+  "pal": "ty_asc_vats",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_dw_slate",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.09
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.09,
+      "z1": 0.4
+    },
+    {
+      "cap": true,
+      "cx": -0.19,
+      "cy": -0.19,
+      "kind": "drum",
+      "n": 12,
+      "rb": 0.115,
+      "rt": 0.108,
+      "z0": 0.4,
+      "z1": 0.8
+    },
+    {
+      "cap": true,
+      "cx": 0.19,
+      "cy": -0.19,
+      "kind": "drum",
+      "n": 12,
+      "rb": 0.115,
+      "rt": 0.108,
+      "z0": 0.4,
+      "z1": 0.8
+    },
+    {
+      "cap": true,
+      "cx": -0.19,
+      "cy": 0.19,
+      "kind": "drum",
+      "n": 12,
+      "rb": 0.115,
+      "rt": 0.108,
+      "z0": 0.4,
+      "z1": 0.76
+    },
+    {
+      "cap": true,
+      "cx": 0.19,
+      "cy": 0.19,
+      "kind": "drum",
+      "n": 12,
+      "rb": 0.115,
+      "rt": 0.108,
+      "z0": 0.4,
+      "z1": 0.76
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.12,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.4,
+      "z1": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.8,
+      "z1": 0.88
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_marble_col",
+      "rb": 0.1,
+      "rt": 0.075,
+      "z0": 0.88,
+      "z1": 0.96
+    }
+  ],
+  "trade": "asc_vats"
+}

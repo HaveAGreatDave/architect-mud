@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { loadWindshield } from './dom-stub.mjs';
 
 const ws = await loadWindshield();
-const { SIGN_FONT, SIGN_PICTO } = ws;
+const { SIGN_FONT, SIGN_PICTO, SIGN_TRACK } = ws;
 
 let checks = 0, bad = 0;
 const check = (cond, what) => { checks++; if (!cond) { bad++; if (bad <= 12) console.error('  ✗ ' + what); } };
@@ -81,6 +81,20 @@ const src = readFileSync(new URL('../../client/game/js/panels/windshield.js', im
 const keyLine = (src.match(/const key = `\$\{label\}\|[^`]*`;/) || [])[0] || '';
 check(/\$\{face\}/.test(keyLine), 'the sign texture cache key does not include the font face — signs will share artwork across faces');
 check(/\$\{picto\}/.test(keyLine), 'the sign texture cache key does not include the pictogram');
+
+// ── AND EVERY TRACKING ENTRY NAMES A FACE THAT EXISTS ─────────────────────────────────────────
+// ⚠ A KEY THIS TABLE INVENTS MATCHES NOTHING AND IS SILENT: the face is set untracked, which is a
+// hand that looks like a near neighbour rather than like an error. Same class as the schema check
+// above — a documented vocabulary that has drifted from the working one.
+for (const f of Object.keys(SIGN_TRACK || {})) {
+  check(!!SIGN_FONT[f], `SIGN_TRACK names '${f}', which SIGN_FONT does not have — that tracking reaches nothing`);
+}
+// ⚠ AND IT IS A FRACTION OF THE CELL, NOT PIXELS. At 0.5 a name is spaced further apart than it is
+// tall and stops being a word.
+for (const [f, t] of Object.entries(SIGN_TRACK || {})) {
+  check(typeof t === 'number' && t > -0.2 && t < 0.4, `SIGN_TRACK.${f} is ${t} — tracking is a fraction of the cell, not a pixel count`);
+}
+console.log(`  · tracking set on ${Object.keys(SIGN_TRACK || {}).length} of them`);
 
 console.log(`  · ${Object.keys(SIGN_FONT).length} faces (${Object.keys(SIGN_FONT).join(', ')})`);
 console.log(`  · ${Object.keys(SIGN_PICTO).length} pictograms (${Object.keys(SIGN_PICTO).join(', ')})`);

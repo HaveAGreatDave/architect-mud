@@ -139,8 +139,37 @@ uniform float uReflGain;
 uniform vec2  uReflVP;
 uniform float uTime;            // seconds, the frame's own clock — see the ripple below
 uniform float uRipple;          // how far the water bends what it reflects, in PIXELS of the canvas
+uniform float uGlint;           // how hard a light lands IN the water rather than on the tarmac beside it
 
 out vec4 outColor;
+
+// ── HOW A WATER SURFACE BREAKS A REFLECTION UP ─────────────────────────────────────────────────
+//
+// Standing water is never still — there is rain landing on it, wind across it, or a truck going
+// past — so a light reflected in it arrives as a shifting scatter of highlights rather than as an
+// even lift. This is that scatter, as a 0..1 field.
+//
+// ⚠ WORLD-PHASED, NOT SCREEN-PHASED — the same rule the ripple and the puddle field itself follow.
+// Driven off the screen it swims across the road as the camera turns, which reads as a dirty lens;
+// driven off the world, a pool twinkles in place while you drive past it.
+//
+// ⚠ AND IT IS CUBED, WHICH IS WHAT MAKES IT GLINTS RATHER THAN A WOBBLE. The sum of two wave
+// products is a smooth field between -2 and 2; raising its positive half to a power keeps the
+// crests and throws the rest away, so what survives is a sparse scatter of bright points instead
+// of a rolling brightness.
+//
+// ⚠ ONE FIELD, TWO READERS. The headlight pool and the road surface underneath it are two ranges
+// of this same shader, drawn in two draw calls, and they are looking at the SAME water. Written
+// out twice they would drift, and a pool twinkling out of step with the surface it lies on reads
+// as two effects rather than as one wet road.
+float waterSparkle(vec2 w) {
+  vec2 gq = w * 9.0;
+  float gw = sin(gq.x * 2.3 + uTime * 1.9) * sin(gq.y * 2.9 - uTime * 1.4)
+           + sin(gq.x * 5.1 - uTime * 2.6) * sin(gq.y * 4.3 + uTime * 2.2);
+  float gp = max(0.0, gw) * 0.5;
+  return gp * gp * gp;
+}
+
 void main() {
   if (vAlpha <= 0.002) discard;
   vec3 c = mix(vColor, uFog, vFog);
@@ -273,23 +302,10 @@ void main() {
     // is never still, so the bounce arrives as a shifting scatter of highlights rather than as an
     // even lift.
     //
-    // ⚠ WORLD-PHASED, NOT SCREEN-PHASED — the same rule the ripple and the puddle field itself
-    // follow. Drive the glimmer off the screen and it swims across the road as the camera turns,
-    // which reads as a dirty lens; drive it off the world and a pool twinkles in place while you
-    // drive past it.
-    //
-    // ⚠ AND IT IS CUBED, WHICH IS WHAT MAKES IT GLINTS RATHER THAN A WOBBLE. The sum of two wave
-    // products is a smooth field between -2 and 2; raising its positive half to a power keeps the
-    // crests and throws the rest away, so what survives is a sparse scatter of bright points
-    // instead of a rolling brightness.
-    float glim = 0.0;
-    if (pud > 0.01) {
-      vec2 gq = (vWorld.xy + uWc) * 9.0;
-      float gw = sin(gq.x * 2.3 + uTime * 1.9) * sin(gq.y * 2.9 - uTime * 1.4)
-               + sin(gq.x * 5.1 - uTime * 2.6) * sin(gq.y * 4.3 + uTime * 2.2);
-      float gp = max(0.0, gw) * 0.5;
-      glim = gp * gp * gp;
-    }
+    // See 'waterSparkle' above for the field and for why it is world-phased and cubed. ⚠ IT IS THE
+    // SAME FUNCTION THE ROAD SURFACE READS, deliberately: these are two draw calls over one wet
+    // road, and a pool twinkling out of step with the water it lies in reads as two effects.
+    float glim = pud > 0.01 ? waterSparkle(vWorld.xy + uWc) : 0.0;
     outColor = vec4(c * (1.0 + (0.95 + 3.2 * glim) * pud * uWet) * vAlpha, vAlpha);
     return;
   }
@@ -459,6 +475,7 @@ void main() {
   }
   if (refl > 0.01 && uNWet > 0) {
     vec3 add = vec3(0.0);
+    vec3 glint = vec3(0.0);
     for (int i = 0; i < MAX_WET; i++) {
       if (i >= uNWet) break;
       vec2 gp = uWetP[i].xy;                 // the light's own ground point
@@ -501,6 +518,39 @@ void main() {
       // streaks were contributing a few tenths of a per cent.
       float t = lat / max(0.25, uWetR[i] * 0.25);
       add += uWetC[i] * (exp(-a * a) * exp(-t * t));
+      // ── ⚠ AND THE SAME LIGHT AGAIN, AT THE WATER'S ROUGHNESS ────────────────────────────────
+      //
+      // This is not a second effect. It is the line above evaluated at the OTHER roughness, which
+      // is the model this whole block already states: damp tarmac scatters and standing water
+      // mirrors, one surface, two roughnesses. The note on 'len' says so in as many words — "a
+      // mirror-smooth surface would be 'len' near zero" — and then only ever computes the rough
+      // half, because the water was supposed to be served by the reflection buffer instead.
+      //
+      // ⚠ AND MEASURED, IT WAS NOT. A grazing reflection shows what is FAR away: for an eye a
+      // fifth of a tile up, the reflected ray off a puddle ten tiles ahead rises about a degree
+      // and a half, so it clears a three-storey frontage forty tiles further on and what the water
+      // is actually looking at is the horizon. At night that is a dark sky, so the buffer replaced
+      // dark tarmac with dark sky and the wet road at 23:00 came out as a pure subtraction:
+      // '__glWet()' measured 52% of the frame darker and 0.00% of it brighter, at any wetness, with
+      // the headlights off. A street with water lying in it does not get darker and nothing else.
+      //
+      // What the buffer cannot show is the lamp DIRECTLY OVERHEAD, because at a grazing angle its
+      // image lands a tile from the truck rather than under it — which is exactly the geometry
+      // 'spec' above already solves. So the water gets the same light, collapsed to a highlight
+      // instead of drawn out into a streak, and the two halves are weighted by the two halves of
+      // one field: the streak by 'smear' (the dry part) and this by 'imgW' (the water).
+      // ⚠ SHORTER THAN THE STREAK, NOT A POINT, AND THE FIRST CUT WAS A POINT. At a thirteenth of
+      // the scatter's length and a fifth of its width the highlight is smaller than a pixel over
+      // most of the road, and it has to land inside a POOL to be weighted at all — two independent
+      // placements, so it almost never did. Measured: 0.00% of the frame moved at every gain up to
+      // 12, and a gain of 400 was needed to move 0.98% of it, which is a term evaluated at a
+      // thousandth of its own peak. Water is rippled, not polished: the highlight is drawn out
+      // along the line to the light and is long enough to cross a pool, which is what makes it a
+      // reflection you can see rather than one that is technically present.
+      float glen = len * 0.45;
+      float ga = along >= 0.0 ? along / glen : along / (glen * 0.45);
+      float gt = lat / max(0.10, uWetR[i] * 0.12);
+      glint += uWetC[i] * (exp(-ga * ga) * exp(-gt * gt));
     }
     // ⚠ 4.5 WAS SWEPT, NOT CHOSEN. Measured on a lit street at full wetness, as the share of the
     // frame that moves against a dry road: 1.6 gives 0.96% (there, and invisible), 3.2 gives 3.8%,
@@ -539,6 +589,22 @@ void main() {
     // old streak — it takes the image away and leaves the pools with neither. That is the honest
     // shape of the trade now: the water reflects or it is dark, and the smear is the road's.
     c += add * (smear * 4.5 * refl) * max(vec3(0.0), 1.0 - c);
+    // ── AND THE HIGHLIGHT IN THE WATER, WHICH TWINKLES ─────────────────────────────────────────
+    //
+    // Weighted by 'imgW' — the water and nothing else — so the tarmac between the pools is the
+    // identical number it has always been and 'uGlint 0' is exactly the picture that shipped.
+    //
+    // ⚠ THE SPARKLE IS A MODULATION AND NOT THE WHOLE TERM. At '0.35 + 0.65 * spark' a puddle under
+    // a lamp is always lit and the crests ride on top of it; driven by the sparkle alone the
+    // highlight blinks out between crests, which reads as a strobing road rather than as water.
+    //
+    // ⚠ AND IT KEEPS THE HEADROOM TERM, for the same reason the streak does: a light source only
+    // reads on a surface darker than itself, so a wet road at noon washes this out by arithmetic
+    // rather than by a clock deciding in advance that it should.
+    if (uGlint > 0.0 && imgW > 0.001) {
+      float spark = waterSparkle(vWorld.xy + uWc);
+      c += glint * (imgW * uGlint * refl * (0.35 + 0.65 * spark)) * max(vec3(0.0), 1.0 - c);
+    }
   }
   outColor = vec4(c * vAlpha, vAlpha);   // premultiplied, like every other layer on this canvas
 }`;
@@ -593,6 +659,7 @@ export function createGroundLayer(gl) {
     reflVP: gl.getUniformLocation(prog, 'uReflVP'),
     time: gl.getUniformLocation(prog, 'uTime'),
     ripple: gl.getUniformLocation(prog, 'uRipple'),
+    glint: gl.getUniformLocation(prog, 'uGlint'),
   };
 
   const vao = gl.createVertexArray();
@@ -736,6 +803,10 @@ export function createGroundLayer(gl) {
     gl.uniform2f(loc.reflVP, opts.vpW || 1, opts.vpH || 1);
     gl.uniform1f(loc.time, opts.time || 0);
     gl.uniform1f(loc.ripple, on ? (opts.ripple > 0 ? opts.ripple : 0) : 0);
+    // ⚠ NOT GATED ON `on`, UNLIKE THE RIPPLE ABOVE IT. The ripple bends a lookup into the
+    // reflection buffer and means nothing without one; the glint is the light list reflected in
+    // the water and needs no buffer at all, so it survives `glMirror 0` exactly as the streak does.
+    gl.uniform1f(loc.glint, opts.glint > 0 ? opts.glint : 0);
     gl.uniform1i(loc.refl, 1);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, on ? rt : null);

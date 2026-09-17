@@ -149,6 +149,10 @@ export function installGL(hostFor) {
       glPuddle: opts.glPuddle,
       glGroundBias: opts.glGroundBias,
       glRipple: opts.glRipple,
+      // ⚠ AND THIS ONE, which is the same paragraph again. The glint is the one term that makes a
+      // wet road at night BRIGHTER anywhere; dropped here it reports 0.00% brighter at every
+      // strength, which is indistinguishable from the road it was written to fix.
+      glGlint: opts.glGlint,
       glMirrorMass: opts.glMirrorMass,
       // ⚠ AND THESE TWO. The puddle reflection is the loudest possible version of this failure,
       // because it fails in a way that looks deliberate: `drawMirror` is never called, `reflTex`

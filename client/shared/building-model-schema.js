@@ -193,7 +193,8 @@ export const DETAIL_SCHEMA = {
   // ⚠ `font` AND `picto` ARE THE SAME TWO KEYS ON ALL THREE SIGN KINDS, deliberately. They are
   // properties of LETTERING rather than of a particular fitting, and a board that could take a
   // script hand while a gantry could not is a rule nobody would remember. `font` is one of
-  // SIGN_FONT's keys (mono, script, block, slab, deco, condensed); `picto` is one of
+  // SIGN_FONT's keys (mono, script, block, slab, deco, condensed, stencil, techno, gothic, western, hanzi)
+  // — `hanzi` being a CJK face, for a short trade word rather than a name; `picto` is one of
   // SIGN_PICTO's (martini, mug, fork, bed, bolt, pill, fuel, arrow) and defaults to none. Both
   // live in windshield.js, and an unknown value FALLS BACK rather than throwing — a typo in a
   // model file must never be able to stop a building drawing.
@@ -372,6 +373,10 @@ export function compileModel(doc, file = '<model>') {
   // and three of the four entrance facings, so a fork that claimed to be identical would be
   // claiming something false, and the port gate would rightly fail it.
   if (doc.replaces) rec.replaces = doc.replaces;
+  // What the building sells, for the signage tables — see the ⚠ in validateModel. It carries no
+  // override claim at all, which is the whole reason it exists beside the two above.
+  if (doc.trade) rec.trade = doc.trade;
+  if (doc.signWorks) rec.signWorks = true;
   return { rec, warnings, bindings: (doc.bind || []).map((b) => bindKey(b)) };
 }
 
@@ -470,6 +475,34 @@ export function validateModel(doc, file = '<model>') {
     if (doc.portedFrom == null) errors.push(`${file}: 'pixdiff' is a port tolerance and means nothing without 'portedFrom'`);
   }
 
+  // ── WHAT THE BUILDING SELLS, WHICH IS NOT THE SAME QUESTION AS WHICH ARM IT REPLACES ──────────
+  //
+  // Every signage table in windshield.js — the trade's lettering hand, its pictogram, its accent
+  // colour, its Chinese trade word, and whether it signs itself at all — is keyed on the model's
+  // `type`. An authored model's type is the literal string `authored`, so all sixteen of them
+  // missed every one of those tables: The Cherry Pit, a strip club, lettered itself in the generic
+  // sans its palette implied, with no martini.
+  //
+  // `replaces` answers it for a PORT, because an arm's case label is its trade — but `replaces` also
+  // CLAIMS to stand in for that arm, which a name-bound landmark does not: it registers under its
+  // own name, overrides nothing, and `RENDER_TUNE.legacyArms` has nothing to put back. Saying
+  // `replaces` just to get the hand right is a true statement about the trade and a false one about
+  // the revert path, and the smoke prints that false half.
+  //
+  // So a model may state its trade outright. `tradeOf` reads `trade` first, then `replaces`, then
+  // `portedFrom` — so the sixteen existing files keep working untouched and a new landmark says what
+  // it is without claiming to be a port.
+  if (doc.trade != null && (typeof doc.trade !== 'string' || !doc.trade)) {
+    errors.push(`${file}: 'trade' names what the building sells, as an arm's case label (bar, clinic, warehouse…)`);
+  }
+  if (doc.trade && (doc.replaces || doc.portedFrom)) {
+    errors.push(`${file}: 'trade' is for a model that replaces nothing — 'replaces'/'portedFrom' already name the arm, and therefore the trade`);
+  }
+  // ⚠ The stated exception to "industry does not sign itself" — see UNSIGNED_TRADE in windshield.js.
+  if (doc.signWorks != null && typeof doc.signWorks !== 'boolean') {
+    errors.push(`${file}: 'signWorks' is a boolean — an industrial building that does put its name up`);
+  }
+
   const basis = { ...DEFAULT_BASIS, ...(doc.basis || {}) };
   if (!(basis.fh > 0) || !(basis.h > 0)) errors.push(`${file}: basis.fh and basis.h must both be greater than zero`);
 
@@ -529,7 +562,8 @@ export function validateModel(doc, file = '<model>') {
     // itself, and the directory is what says these are models. An authored key with no reader is
     // the failure this codebase keeps rediscovering (see `effects` in systems-mutations.md), so it
     // is gone rather than tolerated.
-    if (!['id', 'pal', 'neon', 'basis', 'segs', 'adorn', 'detail', 'bind', 'note', 'portedFrom', 'pixdiff', 'replaces'].includes(k)) {
+    //   trade      what the building SELLS, as an arm's case label — see below
+    if (!['id', 'pal', 'neon', 'basis', 'segs', 'adorn', 'detail', 'bind', 'note', 'portedFrom', 'pixdiff', 'replaces', 'trade', 'signWorks'].includes(k)) {
       errors.push(`${file}: unknown top-level key '${k}'`);
     }
   }

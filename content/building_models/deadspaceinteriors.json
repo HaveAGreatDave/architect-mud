@@ -128,6 +128,7 @@
       "cy": 0,
       "hw": 0.22,
       "kind": "box",
+      "pal": "ty_marble",
       "roof": true,
       "z0": 0.52,
       "z1": 0.64

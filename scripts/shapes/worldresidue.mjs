@@ -16,8 +16,16 @@
 // covered. A signal head half behind a building is both the common case and the one they
 // deliberately answer "draw" to.
 //
-// What this found, which is not what the reports assumed: the street lamps, the roadside scatter and
-// the pavement actors are ALREADY on the depth buffer in a GL frame. Exactly one painter is not.
+// What this found, which is not what the reports assumed: the street lamps and the roadside scatter
+// are ALREADY on the depth buffer in a GL frame. Exactly one painter is not.
+//
+// ⚠ AND IT SAID "AND THE PAVEMENT ACTORS" FOR MONTHS, WITH NO ACTOR IN THE SCENE. `VIEW` carried
+// neither `actors` nor `roadside`, so the pedestrian pass was never once run by the census written
+// to find exactly this class — and the pedestrians were the one ground object that had NOT joined
+// the billboards, queueing through `emitFace` to paint over the composited city with an
+// all-or-nothing probe at their feet as the only thing in the way. A gate that reports on a painter
+// it does not run is worse than no gate, because it is quoted. They are in the scene now, and in
+// the control list below, so their absence fails this for its own reason.
 //
 // ⚠ IT RUNS THE FRAME TWICE, AND THE CONTROL IS NOT OPTIONAL. An empty tally is the answer this
 // check most wants to give and the one it is least entitled to: it is also what comes back when the
@@ -57,10 +65,25 @@ const VIEW = {
   // census would miss most of the surface this exists to find. Same reason glresidue picks night.
   hour: 22, weather: 'clear', speed: 0.2, map, heading: 0,
   mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.1, y: -0.2 },
+  // PEOPLE, on the pavement and out on the verge. Both figure passes read these and neither runs
+  // at all without them, which is how this census came to carry a claim about painters it had
+  // never executed. Placed AHEAD of the camera (forward is -y at heading 0) and off the centreline,
+  // where the near clip keeps them and the kerb snap has somewhere to put them.
+  actors: Array.from({ length: 12 }, (_, i) => ({ t: 'wr' + i, x: 100 + ((i % 4) - 2) * 0.4, y: 100 - 2 - (i % 6) })),
+  roadside: { x: 100.8, y: 100 - 9, t: 'wrhh' },
 };
 
+// ⚠ THE CLOCK IS PINNED BUT NOT STUCK, AND THE PEOPLE ARE WHY. An actor seen for the first time is
+// born at the current time and fades in over FADE_MS; with a clock that never advances, the age of
+// every figure is 0 on every frame for ever, the alpha never clears the 0.03 cull and not one
+// figure is drawn. A
+// frozen clock and a pass that has been deleted look identical from here. So the settle frame and
+// the census frame sit FADE_MS apart, deliberately, and it is still a fixed pair rather than wall
+// time — nothing drifts between runs.
+const FADE_MS = 900;
 const clock = globalThis.performance;
-globalThis.performance = { ...clock, now: () => 1e6 };
+let T = 1e6;
+globalThis.performance = { ...clock, now: () => T };
 const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor;
 
 let sinks = null;
@@ -80,7 +103,8 @@ function tally(glOn) {
       return { faces: 1, canvas: c };
     });
   } else ws.installGLWorld(null);
-  ws.paintWindshield('__wr', VIEW);              // settle every lazy cache and bake
+  ws.paintWindshield('__wr', VIEW);              // settle every lazy cache and bake — and BIRTH the actors
+  T += FADE_MS + 100;                            // …so they have finished fading in by the census frame
   globalThis.window.__emitWhoStart();
   ws.paintWindshield('__wr', VIEW);
   const rows = globalThis.window.__emitWho();
@@ -103,7 +127,10 @@ if (!control || !residue) problems.push('the tally never started — __emitWhoSt
 
 // The scene has to contain the thing being measured. Both of these paint on the canvas in GLASS 1
 // by construction, so their absence means the map is wrong rather than that the city is clean.
-for (const w of ['drawTrafficSignals', 'drawStreetLamps']) {
+// ⚠ NAME THE PASS, NOT THE DRAWER. The tally tags a face with the function that QUEUED it, and a
+// figure is queued by its pass — `emitScatterFace < drawStreetActors` — so looking for the drawer
+// underneath it (drawActorFigure) finds nothing and fails a scene that is perfectly correct.
+for (const w of ['drawTrafficSignals', 'drawStreetLamps', 'drawStreetActors', 'drawRoadside']) {
   if (!control || !control.some((r) => r.tag.includes(w))) {
     problems.push(`the GLASS 1 control drew no ${w} — the scene does not contain what this measures, so an empty GLASS 2 tally would mean nothing`);
   }
