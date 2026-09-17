@@ -440,20 +440,28 @@ export async function doResendVerification() {
 }
 
 export async function doForgotPassword() {
-  // The username and nothing else. The address is read off that account row on
-  // the server and never travels in either direction — the client used to send
-  // one back, which meant the server had to have handed it over first.
-  const username = document.getElementById('forgot-username').value.trim();
+  // The address and nothing else. The server tells us nothing back about it —
+  // whether it is on an account, how many accounts, or what they're called — so
+  // the reply below is the same sentence either way.
+  const email = document.getElementById('forgot-email').value.trim();
   const msgEl = document.getElementById('forgot-message');
   const btn   = document.getElementById('forgot-submit');
-  if (!username) { msgEl.textContent = 'Enter your username.'; msgEl.style.color = 'var(--red)'; return; }
+  if (!email) { msgEl.textContent = 'Enter your email address.'; msgEl.style.color = 'var(--red)'; return; }
+  // Deliberately loose — the field is outside a <form>, so nothing else checks
+  // the shape at all, and this only has to catch a typed username or a missing
+  // domain. Anything stricter starts refusing addresses that work.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    msgEl.textContent = "That doesn't look like an email address.";
+    msgEl.style.color = 'var(--red)';
+    return;
+  }
   btn.disabled = true;
   btn.textContent = 'Sending...';
   try {
     const data = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username }),
+      body: JSON.stringify({ email }),
     }).then(r => r.json());
     if (data.error) {
       msgEl.textContent = data.error;

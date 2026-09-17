@@ -6823,9 +6823,19 @@ html.map-poi-color .map-bld-label {
    in two of the cases. They live above every veil now, and are numbered apart
    from each other so that two at once still leaves both answerable.
      9800  apprehend prompt        9900  auth screen
-     9810  conceal sweep           9910  reset password
+     9810  conceal sweep           9905  forgot password
+                                   9910  reset password
                                    9920  verify email
-   (auth/reset/verify carry their z-index inline in index.html.)          */
+   (auth/forgot/reset/verify carry their z-index inline in index.html.)
+   ⚠ The right-hand column is ORDERED, not just spaced. Forgot password opens ON
+   TOP of the login screen and hands you back to it; reset and verify arrive from
+   a mailed link and REPLACE it (main.js hides #auth-screen for both). So forgot
+   goes above 9900 or it is drawn under an opaque full-screen overlay — it sat at
+   300 and did exactly that — and below 9910 so a window you were sent to still
+   wins over one you can re-open from the screen underneath it.
+   Nothing else lives between 9600 and 9995; above that is in-game only (the
+   effect washes at 9995-9999, the intro cinematic at 100000), and none of those
+   can be on screen while you are logged out.                              */
 #auth-screen {
 	position: fixed;
 	inset: 0;

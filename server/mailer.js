@@ -18,6 +18,15 @@ function render(name, vars) {
   return body.replace(/\{\{(\w+)\}\}/g, (m, key) => (key in vars ? vars[key] : m));
 }
 
+// For the one value in any of these templates that comes off a player row rather
+// than out of our own hand. A function replacer above means the substituted text
+// is never re-scanned, so escaping here is the whole of it.
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
 // Both env vars are required: without SMTP_FROM_EMAIL the sender address is
 // undefined and Brevo rejects the call with a 400 — which used to look exactly
 // like "the mail just never arrived". Callers check this *before* promising a
@@ -109,14 +118,38 @@ export function sendVerificationEmail(toEmail, verifyUrl) {
   });
 }
 
-export function sendPasswordResetEmail(toEmail, resetUrl) {
+// ⚠ ONE MAIL, ONE LINK PER ACCOUNT. `accounts` is [{ username, resetUrl }] —
+// plural because the form asks for an email address and several characters can
+// share one (see apiForgotPassword). The per-account block lives in its own
+// template pair rather than being built as a string here, for the reason at
+// render() above: the copy is editable without touching this file.
+//
+// ⚠ AND THE USERNAME IS ESCAPED ON THE WAY INTO THE HTML. render() substitutes
+// verbatim, and nothing validates the charset of a username at registration, so
+// an unescaped one is markup in somebody's inbox.
+// Exported so scripts/auth/smoke.mjs can assert the two things about this that
+// fail silently — a block per account, and an escaped username — without a
+// mailer, a network or a database.
+export function passwordResetVars(accounts) {
+  const list = Array.isArray(accounts) ? accounts : [accounts];
+  const join = (tpl, esc) => list
+    .map(a => render(tpl, { username: esc ? escapeHtml(a.username) : a.username, resetUrl: a.resetUrl }))
+    .join('');
+  return {
+    accounts: join('password-reset-account.txt', false),
+    accountsHtml: join('password-reset-account.html', true),
+  };
+}
+
+export function sendPasswordResetEmail(toEmail, accounts) {
+  const list = Array.isArray(accounts) ? accounts : [accounts];
   return send({
-    label: 'password reset email',
+    label: `password reset email (${list.length} account${list.length === 1 ? '' : 's'})`,
     toEmail,
     subject: 'ARCHITECT — Password Reset',
     textTemplate: 'password-reset.txt',
     htmlTemplate: 'password-reset.html',
-    vars: { resetUrl },
-    link: resetUrl,
+    vars: passwordResetVars(list),
+    link: list.map(a => a.resetUrl).join(' '),
   });
 }

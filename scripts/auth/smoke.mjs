@@ -16,6 +16,7 @@ import { createHash } from 'crypto';
 import { hashPassword, verifyPassword } from '../../server/engine/passwords.js';
 import { signToken, verifyTokenString, revokeNow, onRevoke } from '../../server/engine/auth-tokens.js';
 import { checkRateLimit, clientKey, resetRateLimits } from '../../server/api/rate-limit.js';
+import { passwordResetVars } from '../../server/mailer.js';
 
 let failures = 0;
 function check(name, ok, detail = '') {
@@ -86,6 +87,40 @@ check('an empty token is refused', verifyTokenString('') === null);
   check('a token issued after the reset still works', verifyTokenString(signToken('player_rev', 'player'))?.playerId === 'player_rev');
   check('another player is untouched by it', verifyTokenString(signToken('player_other', 'player'))?.playerId === 'player_other');
   check('revoking nobody is a no-op', revokeNow(undefined) === 0);
+}
+
+// ── the password-reset email ────────────────────────────────────────────────
+//
+// The reset form asks for an email address, and players.email is NOT unique —
+// several characters share one — so the mail carries a link per account with the
+// username beside it. Both halves of that fail QUIETLY: a block that renders
+// once for three accounts strands two of them with a reassuring 200 on the way
+// out, and a username substituted into the HTML unescaped is markup in an inbox,
+// which nothing on this end ever sees. No mailer, network or DB needed to check
+// either — only the templates.
+{
+  const one = passwordResetVars([{ username: 'coldwater_dave', resetUrl: 'https://x/game?reset_token=aaa' }]);
+  check('a single account still renders one block', (one.accounts.match(/reset_token=/g) || []).length === 1);
+  check('…naming the account the link opens', one.accounts.includes('coldwater_dave'));
+
+  const many = passwordResetVars([
+    { username: 'first_char',  resetUrl: 'https://x/game?reset_token=aaa' },
+    { username: 'second_char', resetUrl: 'https://x/game?reset_token=bbb' },
+    { username: 'third_char',  resetUrl: 'https://x/game?reset_token=ccc' },
+  ]);
+  // ⚠ DISTINCT tokens, not just three links. One token repeated three times is
+  // the shape this whole change exists to avoid, and it reads as working.
+  const tokens = new Set([...many.accountsHtml.matchAll(/reset_token=(\w+)/g)].map(m => m[1]));
+  check('every account on the address gets its own token', tokens.size === 3, [...tokens].join(','));
+  check('…and its own name against it',
+    ['first_char', 'second_char', 'third_char'].every(u => many.accounts.includes(u) && many.accountsHtml.includes(u)));
+
+  // Nothing validates the charset of a username at registration, and render()
+  // substitutes verbatim.
+  const nasty = passwordResetVars([{ username: '<script>alert(1)</script>', resetUrl: 'https://x/game?reset_token=aaa' }]);
+  check('a username cannot carry markup into the HTML mail', !nasty.accountsHtml.includes('<script>'), nasty.accountsHtml);
+  check('…and is still readable once escaped', nasty.accountsHtml.includes('&lt;script&gt;'));
+  check('the text mail is left alone', nasty.accounts.includes('<script>'));
 }
 
 // ── rate limiter ────────────────────────────────────────────────────────────

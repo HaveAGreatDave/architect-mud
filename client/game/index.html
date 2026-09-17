@@ -660,7 +660,13 @@
 				top: 20%;
 				left: 50%;
 				transform: translateX(-50%);
-				z-index: 300;
+				/* must-answer layer — see the ladder comment on #auth-screen in styles.css.
+				   This one is opened FROM the login screen rather than instead of it, so
+				   at its old 300 it was drawn UNDER #auth-screen (9900), which is fixed
+				   inset:0 and opaque: the window opened, took the focus trap with it, and
+				   was invisible and unclickable. Above the login, below the two windows
+				   that replace it. */
+				z-index: 9905;
 				background: var(--bg2);
 				border: 1px solid var(--accent);
 				width: 340px;
@@ -710,34 +716,33 @@
 					flex-direction: column;
 					gap: 12px;
 				">
+				<!-- THE EMAIL, NOT THE USERNAME. The address is the thing a player
+				     who has forgotten their way in still knows, and it is what every
+				     other reset form on the web asks for. It used to ask for the
+				     username and then LOOK UP the address behind it, which made this
+				     window a username → inbox oracle; asking for the address closes
+				     that without a lookup, because you have to already know it.
+				     Several characters can share one address, so the mail carries a
+				     link per account with its username beside it — see
+				     apiForgotPassword. We still never say whether any of it exists. -->
 				<div class="auth-field" style="margin: 0">
-					<label for="forgot-username">Username</label>
+					<label for="forgot-email">Email</label>
 					<input
-						type="text"
-						id="forgot-username"
-						placeholder="enter your username"
+						type="email"
+						id="forgot-email"
+						placeholder="your@email.com"
+						autocomplete="email"
+						aria-describedby="forgot-message"
 						style="width: 100%; box-sizing: border-box" />
-					<div
-						id="forgot-username-error"
-						style="
-							color: var(--red);
-							font-size: 0.6875rem;
-							margin-top: 4px;
-							display: none;
-						"></div>
 				</div>
-				<!-- No email field, and no live lookup behind one either. Both used
-				     to be here: you typed a username and the server answered with
-				     the address on that account, which made this window a
-				     username → inbox lookup for anybody who opened it. The link
-				     goes to the address on file; we don't say what it is. -->
 				<div
 					style="
 						font-size: 0.6875rem;
 						color: var(--text-dim);
 						line-height: 1.5;
 					">
-					We'll send a reset link to the email address on this account.
+					We'll send a reset link to this address for every account
+					registered to it.
 				</div>
 				<button class="auth-btn" id="forgot-submit" style="margin: 0">
 					Send Reset Link

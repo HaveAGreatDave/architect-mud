@@ -673,20 +673,39 @@ async function apiResendVerification(body) {
 
 // ⚠ ONE ANSWER, WHATEVER HAPPENED. Every path out of here that isn't a
 // malformed request returns this same 200, because the alternative is an oracle:
-// "no account found" tells a stranger which usernames are real, and so does a
-// 502 from the mailer, since only an account that exists ever gets as far as
-// sending. apiResendVerification already worked this way; this is the flow
-// catching up with it. The cost is that a player who mistypes their username
-// gets a reassuring message and no email, which is the accepted trade — the
-// alternative is telling everyone else which usernames are worth attacking.
+// "no account found" tells a stranger which addresses are registered, and so
+// does a 502 from the mailer, since only an address that exists ever gets as far
+// as sending. apiResendVerification already worked this way; this is the flow
+// catching up with it. The cost is that a player who mistypes their address gets
+// a reassuring message and no email, which is the accepted trade — the
+// alternative is telling everyone else which addresses are worth attacking.
 const FORGOT_REPLY = {
   status: 200,
-  body: { message: "If that account exists, a reset link is on its way to the email address on file." },
+  body: { message: "If that address is registered, a reset link is on its way to it." },
 };
 
+// ⚠ ASK FOR THE ADDRESS, AND THEN RESET EVERY ACCOUNT ON IT. players.email is
+// NOT unique — one person's several characters share one address — which is why
+// this used to ask for the username instead. But a username is the thing a
+// locked-out player is least likely to remember, and the old form's answer to
+// "which address do we send to" was to look it up FOR them, which turned the
+// window into a username → inbox oracle. Asking for the address costs the
+// uniqueness and buys the convention (and the closed oracle: you have to already
+// know the address to type it).
+//
+// Picking one row out of the several would be the cheap way back to uniqueness
+// and it silently strands the others: reset the character the ORDER BY happened
+// to put first and the rest of them have no route back at all. So every account
+// on the address gets its own token, and they travel in ONE email with the
+// username printed beside each link — the mail only ever goes to the address
+// those accounts are registered to, so naming them there tells the reader
+// nothing they don't already own.
+//
+// Three statements regardless of how many accounts come back: one read, one
+// invalidate over `= ANY`, one multi-row insert. Never a query per account.
 async function apiForgotPassword(body) {
   const { email, username } = body||{};
-  if (!username && !email) return { status:400, body:{ error:'username or email required' } };
+  if (!username && !email) return { status:400, body:{ error:'email required' } };
 
   // A mailer that isn't configured at all is a fact about the server, not about
   // any account, so saying so leaks nothing and saves a player waiting on an
@@ -695,30 +714,40 @@ async function apiForgotPassword(body) {
     return { status:503, body:{ error:"Password reset is unavailable right now — the server can't send email." } };
   }
 
-  // Prefer the username: it's unique, whereas several characters can share one
-  // email address, and an email-only lookup resets an arbitrary one of them.
-  // The address we mail is then read off that row, never taken from the client.
+  // `username` is the pre-2026-09 form, kept only so a browser still holding the
+  // old cached client doesn't get a 400 it can't explain. It resolves to exactly
+  // one account; the address is read off that row and never taken from the
+  // client, which is the rule that made the old oracle worth closing.
   const { rows } = username
-    ? await query('SELECT id, email FROM players WHERE username=$1', [username.toLowerCase().trim()])
-    : await query('SELECT id, email FROM players WHERE email=$1 ORDER BY id ASC', [email.toLowerCase().trim()]);
-  if (!rows.length || !rows[0].email) return FORGOT_REPLY;
+    ? await query('SELECT id, username, email FROM players WHERE username=$1', [username.toLowerCase().trim()])
+    : await query('SELECT id, username, email FROM players WHERE email=$1 ORDER BY id ASC', [email.toLowerCase().trim()]);
+  const accounts = rows.filter(r => r.email);
+  if (!accounts.length) return FORGOT_REPLY;
 
-  const playerId = rows[0].id;
-  const toEmail = rows[0].email.toLowerCase().trim();
-  await query('UPDATE password_reset_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [playerId]);
-  const token = randomBytes(32).toString('hex');
+  const ids = accounts.map(a => a.id);
+  const toEmail = accounts[0].email.toLowerCase().trim();
+  await query('UPDATE password_reset_tokens SET used=TRUE WHERE player_id = ANY($1) AND used=FALSE', [ids]);
+
   const expiresAt = Date.now() + 60 * 60 * 1000;
+  const tokens = accounts.map(() => randomBytes(32).toString('hex'));
   await query(
-    'INSERT INTO password_reset_tokens (player_id, token, expires_at, used) VALUES ($1,$2,$3,FALSE)',
-    [playerId, token, expiresAt]
+    `INSERT INTO password_reset_tokens (player_id, token, expires_at, used)
+     SELECT t.player_id, t.token, $3::bigint, FALSE
+     FROM UNNEST($1::text[], $2::text[]) AS t(player_id, token)`,
+    [ids, tokens, expiresAt]
   );
-  const resetUrl = `${clientBaseUrl()}/game?reset_token=${token}`;
+
+  const links = accounts.map((a, i) => ({
+    username: a.username,
+    resetUrl: `${clientBaseUrl()}/game?reset_token=${tokens[i]}`,
+  }));
+
   try {
-    await sendPasswordResetEmail(toEmail, resetUrl);
+    await sendPasswordResetEmail(toEmail, links);
   } catch (e) {
     // Swallowed on purpose (see FORGOT_REPLY) — but loudly, because this is now
     // the only place a broken send shows up at all.
-    console.error('[forgot-password] send failed for player', playerId, '—', e.message);
+    console.error('[forgot-password] send failed for', ids.join(', '), '—', e.message);
   }
   return FORGOT_REPLY;
 }
@@ -736,15 +765,22 @@ async function apiResetPassword(body) {
   // that address IS the proof verification asks for. Without it an unverified
   // player who forgot their password is in a closed loop — the reset works, and
   // then login refuses them for not having verified.
-  await query(
-    'UPDATE players SET password_hash=$1, email_verified=TRUE WHERE id=$2',
+  // RETURNING, not a second SELECT: since the reset form is reached by address
+  // rather than by username, a player with several characters has just clicked
+  // one of several links and the reply is the only thing that says which account
+  // they changed. Same round trip either way.
+  const { rows: changed } = await query(
+    'UPDATE players SET password_hash=$1, email_verified=TRUE WHERE id=$2 RETURNING username',
     [await hashPassword(password), row.player_id]
   );
   await query('UPDATE password_reset_tokens SET used=TRUE WHERE id=$1', [row.id]);
   // Whoever prompted this reset may well be signed in right now. A new password
   // that leaves their session alive hasn't taken the account back.
   await revokeTokensFor(row.player_id);
-  return { status:200, body:{ message:'Password updated. You can now log in.' } };
+  const who = changed[0]?.username;
+  return { status:200, body:{ message: who
+    ? `Password updated for ${who}. You can now log in.`
+    : 'Password updated. You can now log in.' } };
 }
 
 async function apiGetZones() { return {status:200,body:getAllZones()}; }

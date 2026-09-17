@@ -60,7 +60,7 @@ import { initForecast } from "./panels/forecast.js";
 import { initWhisperPanel, debugFakeWhisper } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
 import { initPlayersPanel } from "./panels/players.js";
-import { showAmountDialog, showDangerDialog } from "./panels/confirm.js";
+import { showAmountDialog, showDangerDialog, makeDraggable } from "./panels/confirm.js";
 import { initSidebarOrder } from "./panels/sidebar-order.js";
 import { mountCustomPanels } from "./panels/custom/manager.js";
 import { initCustomPanelButton } from "./panels/custom/builder.js";
@@ -471,66 +471,45 @@ document.getElementById("auth-toggle-link").addEventListener("click", (e) => {
 	else document.getElementById("auth-username").focus();
 });
 
-function _makeDraggable(window, handle) {
-	let ox = 0,
-		oy = 0;
-	handle.addEventListener("pointerdown", (e) => {
-		if (e.target.tagName === "BUTTON") return;
-		const r = window.getBoundingClientRect();
-		ox = e.clientX - r.left;
-		oy = e.clientY - r.top;
-		window.style.transform = "none";
-		handle.setPointerCapture(e.pointerId);
-		handle.style.cursor = "grabbing";
-		e.preventDefault();
-	});
-	handle.addEventListener("pointermove", (e) => {
-		if (!handle.hasPointerCapture(e.pointerId)) return;
-		const x = Math.max(
-			0,
-			Math.min(
-				globalThis.innerWidth - window.offsetWidth,
-				e.clientX - ox,
-			),
-		);
-		const y = Math.max(
-			0,
-			Math.min(
-				globalThis.innerHeight - window.offsetHeight,
-				e.clientY - oy,
-			),
-		);
-		window.style.left = x + "px";
-		window.style.top = y + "px";
-	});
-	handle.addEventListener("pointerup", () => {
-		handle.style.cursor = "grab";
-	});
-}
-
+// ⚠ THE COPY THAT USED TO LIVE HERE CLEARED THE TRANSFORM WITHOUT PINNING THE
+// BOX FIRST, SO A PLAIN CLICK MOVED THE WINDOW. Both of these open centred on
+// `left: 50%` + `translateX(-50%)`; drop the transform on pointerdown and
+// `left: 50%` now means "left EDGE at the middle", so the box jumped half its
+// own width right the instant you pressed the title bar — before any
+// pointermove, which is why a click that dragged nothing still displaced it and
+// only a real drag put it back. On a narrow window that took the ✕ off screen.
+// arrest.js, tablet-os.js and workspace.js all write the measured rect into
+// left/top before clearing; this was the one that didn't.
+//
+// Imported rather than repaired, because confirm.js exports it to stop exactly
+// this ("a third copy would be a third copy") and the two were otherwise
+// identical line for line.
+//
 // Forgot password window
 const _forgotWindow = document.getElementById("forgot-window");
-_makeDraggable(_forgotWindow, document.getElementById("forgot-drag-handle"));
+makeDraggable(_forgotWindow, document.getElementById("forgot-drag-handle"));
 
-// The Send button only ever asks "has a username been typed". It used to ask the
-// SERVER whether that username existed — which is what made this window an
+// The Send button only ever asks "has an address been typed". It used to ask the
+// SERVER whether a username existed — which is what made this window an
 // account-enumeration tool — and the answer decided both the button state and a
 // masked address shown below it. Now the window can't tell you whether an
 // account is real, and neither can the reply when you submit.
 function syncForgotSubmit() {
-	const username = document.getElementById("forgot-username").value.trim();
-	document.getElementById("forgot-submit").disabled = !username;
+	const email = document.getElementById("forgot-email").value.trim();
+	document.getElementById("forgot-submit").disabled = !email;
 }
 
 function openForgotWindow() {
 	document.getElementById("forgot-message").textContent = "";
-	document.getElementById("forgot-username-error").style.display = "none";
 	_forgotWindow.style.display = "";
 	_forgotWindow.style.transform = "translateX(-50%)";
 	_forgotWindow.style.left = "50%";
 	_forgotWindow.style.top = "20%";
-	document.getElementById("forgot-username").value =
-		document.getElementById("auth-username").value.trim();
+	// #auth-email is the register form's field, so this is empty in the ordinary
+	// case and carries the address in the one that matters: registered a minute
+	// ago, never got the mail, already typed it once.
+	document.getElementById("forgot-email").value =
+		document.getElementById("auth-email").value.trim();
 	syncForgotSubmit();
 }
 
@@ -543,14 +522,14 @@ document.getElementById("forgot-close-btn").addEventListener("click", () => {
 document
 	.getElementById("forgot-submit")
 	.addEventListener("click", doForgotPassword);
-document.getElementById("forgot-username").addEventListener("input", syncForgotSubmit);
-document.getElementById("forgot-username").addEventListener("keydown", (e) => {
+document.getElementById("forgot-email").addEventListener("input", syncForgotSubmit);
+document.getElementById("forgot-email").addEventListener("keydown", (e) => {
 	if (e.key === "Enter" && e.target.value.trim()) doForgotPassword();
 });
 
 // Reset password window
 const _resetWindow = document.getElementById("reset-screen");
-_makeDraggable(_resetWindow, document.getElementById("reset-drag-handle"));
+makeDraggable(_resetWindow, document.getElementById("reset-drag-handle"));
 document.getElementById("reset-close-btn").addEventListener("click", () => {
 	_resetWindow.style.display = "none";
 	// ⚠ PUT THE LOGIN BACK. Arriving on a reset link hides #auth-screen, so
