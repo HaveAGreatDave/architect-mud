@@ -1,0 +1,327 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "faction": null,
+  "home_activities": [],
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "npc_type": "vendor",
+  "id": "npc_skel_bandy",
+  "name": "Rufus Bandy",
+  "sex": "male",
+  "hp": 38,
+  "hp_max": 38,
+  "home_zone": "zone_skelcrew_back",
+  "work_zone_id": "zone_skelcrew_shop",
+  "vendor_shop_name": "Skeleton Crew",
+  "vendor_restock_rate": 4,
+  "vendor_stock_size": 12,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "fri": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 13
+      }
+    ],
+    "sun": []
+  },
+  "vendor_inventory": [
+    {
+      "item_id": "item_skel_key",
+      "price": 18
+    },
+    {
+      "item_id": "item_skel_blank",
+      "price": 26
+    },
+    {
+      "item_id": "item_skel_lock",
+      "price": 140
+    },
+    {
+      "item_id": "item_skel_picks",
+      "price": 220
+    }
+  ],
+  "flags": {
+    "clothing_layers": [
+      "a brown shop coat with a rule in the breast pocket",
+      "a checked shirt with the sleeves buttoned at the wrist",
+      "dark trousers and boots with brass swarf trodden into the soles"
+    ],
+    "personality": "vendor"
+  },
+  "description": "A neat, unhurried man in a brown shop coat, in a room four feet wide, who does one of the most useful things in Coldwater and is extremely careful about how he describes it. He talks while he cuts and stops talking while he measures. There is brass dust in everything he owns. He has the manner of somebody who has had the same conversation about ethics several thousand times and has got it down to two sentences.",
+  "chitchat": [
+    "Bandy runs a blank against the follower and the machine throws a short bright arc into the tray.",
+    "He deburrs a fresh cut with the wire brush, three strokes, and blows across it.",
+    "He takes a blank off a nail without looking at the wall.",
+    "\"Bring the lock or bring the key. Bring neither and we're just chatting, which I don't mind.\"",
+    "He tries a key in a padlock on the bench before he hands it over. He always does this.",
+    "\"That's a five-lever. Somebody told you it was a three-lever and they were selling it.\"",
+    "He writes a profile number on a scrap and puts the scrap in his top pocket.",
+    "\"I'll open your door. I'll want to see you own it, and I'm not clever about how I check.\"",
+    "He turns a lock over in his hands twice and sets it down facing the other way.",
+    "\"Every lock in this city is second-hand. Every single one. Nothing new is made here.\"",
+    "He files a bow flat, tests it against his thumbnail, and files it once more.",
+    "\"The sign outside cost more than the shop earns in a year and it is the best money I ever spent.\"",
+    "He sorts four blanks back onto four different nails, which takes him about two seconds."
+  ],
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the key on the way out. Everybody looks up at it and walks into the post.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People tell a locksmith things,\" he says. \"Mostly they tell me who they have stopped trusting, because that is when they come in.\""
+    },
+    "key": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Nine feet of iron and it is the whole business,\" he says, not looking up. \"A shop four feet wide cannot be found. A shop four feet wide with a nine-foot key on it can be found from the end of Filament Street by somebody who has never been told where it is.\"\n\nHe brushes swarf off the bench.\n\n\"It cost more than this shop makes in a year. The bracket has been reinforced twice. In thirty years I have never once advertised anything else and I have never needed to.\""
+    },
+    "open": {
+      "options": [
+        {
+          "label": "How do you check?",
+          "next": "open_check"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I open doors,\" he says. \"It is a service, it is on the card, and it is half of what I earn. What is on the card is that it is a DIFFERENT service, and that I will not do it for somebody I have not cut a key for.\"\n\nHe sets a lock down.\n\n\"That is not morality, it is a filter. Somebody who has had a key cut here has stood in this shop with a lock they owned, and I have seen them, and I remember faces the way I remember profiles.\""
+    },
+    "open_check": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I go with you,\" he says, \"and I am not clever about it.\"\n\nHe holds up two fingers.\n\n\"I stand on the step and I open it and then I go in first. If there is post on the mat I read the name on it. If there is a photograph in the hall I look at it and then I look at you. Twice in thirty years the answer was no and both times the man had a very good story ready, which is how I knew.\"\n\nHe picks the file back up.\n\n\"People think a locksmith's trick is the picking. It isn't. Anybody can be taught the picking in a fortnight.\""
+    },
+    "system": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It starts at the door,\" he says, \"and it goes round the room.\"\n\nHe waits, apparently having finished.\n\n\"Profile, then length, then how often. The wall is not in alphabetical order and it is not in numerical order and if it were either of those I would be six seconds slower on every key I cut, and over thirty years that is a month of my life. My father could not use my wall. I could not use his.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Keys, blanks, a lock.",
+          "next": "__shop__"
+        },
+        {
+          "label": "You open doors?",
+          "next": "open"
+        },
+        {
+          "label": "That sign is bigger than the shop.",
+          "next": "key"
+        },
+        {
+          "label": "How is the blank wall sorted?",
+          "next": "system"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in as far as you can, which is not far.\" He is already at the machine. \"Key to copy, or a lock you want a key for? Those are different jobs and the second one takes longer.\"",
+      "text_by_relation": {
+        "familiar": "He has the blank off the nail before you have said which door, and he is right.\n\n\"Third one this year,\" he says, cutting. \"You want to stop keeping it in the same pocket as your change. I'll not charge you for this one and I will charge you for the next.\"",
+        "first": "A man in a brown coat steps back from a machine in a room that does not have space for him to step back in.\n\n\"Rufus Bandy.\" He nods at the card by the till rather than repeating it. \"I cut keys and I open doors. Those are two services, and I will not do the second one for somebody I have not done the first one for.\"\n\nHe picks a blank off the wall without looking.\n\n\"That is not me being difficult. Ask me about it if you like, people do.\"",
+        "known": "\"Ah.\" He looks at what is in your hand before he looks at you. \"Copy, or is it sticking?\""
+      }
+    }
+  }
+}

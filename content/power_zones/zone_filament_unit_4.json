@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_filament_stair",
+  "id": "zone_filament_unit_4",
+  "max_capacity_kw": 1200,
+  "name": "Unit 4",
+  "source_type": "junction_box"
+}

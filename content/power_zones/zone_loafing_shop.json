@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_loafing_shop",
+  "id": "zone_loafing_shop",
+  "max_capacity_kw": 200,
+  "name": "Loafing Around — Shop",
+  "source_type": "city_grid"
+}

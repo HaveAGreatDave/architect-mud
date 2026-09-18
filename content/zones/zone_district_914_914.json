@@ -1,25 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "ambient_theme": "urban",
+  "bg_color": "#1e2226",
+  "description": "The only shop on Kiln Lane with nothing in its window, because it has no window. The whole street face is one panel of municipal green paint with a door in the middle of it, and across the top, gold on black, shadowed, done properly by somebody who charged for it: PHOTO FINISH. A double-sided clock stands out over the pavement on a wrought bracket and keeps better time than anything else on this street. Above the parapet a long lit box runs the width of the building with figures crawling across it, and there are men out here at two in the morning reading it.",
   "exits": {
     "east": "zone_district_915_914",
-    "north": "zone_district_914_913",
-    "south": "zone_district_914_915",
-    "west": "zone_district_913_914"
+    "west": "zone_pfin_shop"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Photo Finish",
+    "building_type": "bookmaker",
+    "district": "nightlife",
+    "entrance": "east",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true,
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_915_914"
   },
   "grid_x": 914,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_914_914",
   "map_id": "map_world",
-  "name": "Foundry Way",
+  "marker": "PF",
+  "name": "Photo Finish",
   "parent_zone": null
 }

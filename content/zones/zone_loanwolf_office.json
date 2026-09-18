@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1d2128",
+  "color": "#6d7d92",
+  "description": "Small, carpeted, quiet, and warmer than anywhere else on the street, all of which is deliberate. One desk facing the door with two chairs on the near side of it, a cabinet of files behind, and a clock with an audible tick. There is nothing on the walls. The whole room is designed so that the only thing to look at is the person across the desk, and the person across the desk is very comfortable with that.",
+  "exits": {
+    "down": "zone_util_zone_loanwolf_office",
+    "north": "zone_district_917_913"
+  },
+  "flags": {
+    "building_name": "Loan Wolf",
+    "building_type": "bank",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Frosted to head height with the name in gold across it, so what you get of the Gate Road is the top third: the tops of rigs going south and the light changing. People outside can see a shape moving. That is all either side gets.",
+      "light": 0.85,
+      "name": "the frosted glass",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_917_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_loanwolf_office",
+  "map_id": "map_int_loanwolf",
+  "name": "Loan Wolf — Office",
+  "parent_zone": "zone_district_917_913"
+}

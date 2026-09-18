@@ -1,0 +1,20 @@
+{
+  "description": "Pairs waiting, each with a paper tag threaded through the laces and a date on the tag. Two pairs at the dark end have tags gone brittle and dates from years ago. He knows whose they are. He will not put them out and he will not throw them away.",
+  "flags": {
+    "aliases": "shelf,repairs,pairs,tags",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sole_shelf",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the repair shelf",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_sole_shop"
+}

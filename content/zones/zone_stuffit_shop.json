@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221c16",
+  "description": "Small, warm, and much less morbid than the window leads you to expect, because everything in here is either finished and beautiful or in a drawer. Mounts on brackets round the walls at head height, all of them facing very slightly toward the door, which is a decision rather than an accident. A counter of scrubbed deal with a jeweller's loupe on a chain and a tin of glass eyes, sorted, lidded, labelled by species and by whether they are any good. The smell is sawdust, beeswax and something faintly chemical underneath it, and the chemical part is behind the door at the back.",
+  "exits": {
+    "down": "zone_util_zone_stuffit_shop",
+    "east": "zone_district_917_914",
+    "north": "zone_stuffit_work"
+  },
+  "flags": {
+    "building_name": "Stuff It",
+    "building_type": "taxidermist",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The canted front window, leaning out at the top so the glass takes the sky rather than the street. Whatever the weather is doing is doing it over the hare's shoulder.",
+      "light": 0.7,
+      "name": "the canted window",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_917_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_stuffit_shop",
+  "map_id": "map_int_stuffit",
+  "name": "Stuff It — The Shop",
+  "parent_zone": "zone_district_917_914"
+}

@@ -29,7 +29,7 @@ globalThis.window = { devicePixelRatio: 1 };
 globalThis.requestAnimationFrame = () => 0;
 globalThis.cancelAnimationFrame = () => {};
 
-const { _test } = await import('../../client/game/js/panels/weather-fx.js');
+const { _test, setWeatherFx, setDrugFieldFx } = await import('../../client/game/js/panels/weather-fx.js');
 
 // A counting 2D context. Deliberately strict about nothing except tallying: an
 // effect that quietly no-ops is the failure being hunted, so anything unknown is
@@ -126,6 +126,49 @@ export function weatherFxSmoke() {
     const ctx = countingCtx();
     _test.runEffect(fx, ctx, { intensity: 0.6, frames: 3 });
     ok(`${fx}: draws with nothing seeded`, paint(ctx._n) > 0, JSON.stringify(ctx._n));
+  }
+
+  // ── LAYERING: A SYMPTOM DOES NOT REPLACE THE WEATHER ───────────────────────
+  //
+  // The canvas held ONE effect and environment.js picked it with a priority ladder
+  // in which a drug returned first, so being high stopped the rain. There are two
+  // slots now. These assert the property, not the plumbing: run a weather effect and
+  // a symptom together and BOTH have to be on the canvas.
+  //
+  // ⚠ THE PAINT TOTAL IS NOT ENOUGH ON ITS OWN. Two effects drawing produces more
+  // paint than one, and so does one effect drawing twice as hard — so the pool sizes
+  // are checked per slot as well, which is the thing a single-slot renderer could not
+  // have produced at all.
+  for (const [wx, drug] of [["rain", "static"], ["snow", "tracers"], ["ash", "spiders"], ["fog", "tunnel"]]) {
+    const solo = countingCtx();
+    _test.runEffect(wx, solo, { width: 900, height: 360, intensity: 0.8, frames: 6 });
+    const both = countingCtx();
+    const pools = _test.runLayered(wx, drug, both, { width: 900, height: 360, intensity: 0.8, frames: 6 });
+    ok(`${wx} + ${drug}: both draw at once`, paint(both._n) > paint(solo._n),
+      `${wx} alone ${paint(solo._n)} → layered ${paint(both._n)}`);
+    // The weather slot must be untouched by the symptom sharing the canvas: its pool
+    // is the same size it is when it runs alone. A shared pool could not manage that.
+    const soloPools = _test.runEffect(wx, countingCtx(), { width: 900, height: 360, intensity: 0.8, frames: 6 });
+    ok(`${wx} + ${drug}: the weather keeps its own pool`,
+      pools.weather.particles === soloPools.particles && pools.weather.blobs === soloPools.blobs,
+      `alone p${soloPools.particles}/b${soloPools.blobs} → layered p${pools.weather.particles}/b${pools.weather.blobs}`);
+  }
+
+  // ⚠ AND THE SETTERS MUST REACH DIFFERENT SLOTS. The two public entry points used to
+  // be one function writing one descriptor; if they ever collapse back, this is what
+  // says so — the second call would overwrite the first and the rain would read as
+  // 'static'. Checked through the real exports rather than the harness.
+  {
+    setWeatherFx({ effect: "rain", intensity: 0.7, windKph: 30 });
+    setDrugFieldFx({ effect: "static", intensity: 0.4 });
+    const byName = Object.fromEntries(_test.slots().map((S) => [S.name, S]));
+    ok("setWeatherFx and setDrugFieldFx write different slots",
+      byName.weather?.effect === "rain" && byName.drug?.effect === "static",
+      JSON.stringify(_test.slots()));
+    // ⚠ Wind belongs to the sky. A symptom is behind the eye and must not drift on it.
+    ok("the drug slot carries no wind", byName.drug?.windKph === 0, String(byName.drug?.windKph));
+    setWeatherFx({ effect: "none", intensity: 0 });
+    setDrugFieldFx({ effect: "none", intensity: 0 });
   }
 
   // Zero-size pane must not divide by anything or spin.

@@ -292,6 +292,9 @@ async function main() {
       const offDb = bootTablesOffDb();
       if (offDb.length) say(`  not counted       ${offDb.join(', ')} — read off the checkout in prod, no egress`);
       say(`  world loads/day   ${loads.loadsPerDay === null ? '—' : loads.loadsPerDay.toFixed(1)}  [${loads.source}]`);
+      if (loads.deploysPerDay !== null && loads.deploysPerDay !== undefined) {
+        say(`                    ${(loads.coldStartsPerDay ?? 0).toFixed(1)} cold start(s) + ${loads.deploysPerDay.toFixed(1)} deploy reboot(s) — a deploy reloads the whole world and leaves no gap in the CPU timeline, so it is counted here, not there`);
+      }
       if (loads.fallbackComparison) say(`                    (player_count_log alone would say ${loads.fallbackComparison.toFixed(1)} — it is idle-gated, so it cannot tell "down" from "up but empty")`);
       if (modelledEgressPerDay !== null) {
         const perCycle = modelledEgressPerDay * 30;

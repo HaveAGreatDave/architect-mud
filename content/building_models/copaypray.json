@@ -1,0 +1,269 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.1,
+      "kind": "roofCross",
+      "lit": 1,
+      "rgb": "255,64,64",
+      "rise": 0.115,
+      "span": 0.2,
+      "z": 0.895
+    },
+    {
+      "cx": 0,
+      "cy": 0.46,
+      "kind": "glowPool",
+      "rgb": "180,250,235",
+      "s": 17,
+      "z": 0.055
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "140,235,215",
+      "s": 15,
+      "z": 0.5
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Co-Pay & Pray"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 3,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.016,
+      "glass": "#152229",
+      "glow": "#dffbf4",
+      "half": 0.125,
+      "hh": 0.045,
+      "kind": "windowBay",
+      "pal": "ty_marble_col",
+      "z": 0.056
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.2,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.115,
+      "pal": "ty_marble_col",
+      "soffit": "#0f4a45",
+      "strip": "#8ff0dc",
+      "z": 0.108
+    },
+    {
+      "color": "#0e2a2c",
+      "cx": 0,
+      "cy": 0.44,
+      "font": "block",
+      "half": 0.185,
+      "hh": 0.024,
+      "ink": "#8ff0dc",
+      "kind": "signBoard",
+      "label": "CO-PAY & PRAY",
+      "picto": "pill",
+      "z": 0.14
+    },
+    {
+      "cx": -0.07,
+      "cy": -0.4,
+      "face": "x",
+      "flights": 3,
+      "half": 0.072,
+      "kind": "fireEscape",
+      "out": 0.044,
+      "pal": "ty_cold",
+      "z0": 0.2,
+      "z1": 0.8
+    },
+    {
+      "cx": 0,
+      "cy": -0.12,
+      "half": 0.195,
+      "hh": 0.01,
+      "kind": "parapet",
+      "pal": "ty_cold",
+      "z": 0.895
+    },
+    {
+      "cx": 0.25,
+      "cy": -0.16,
+      "d": 0.055,
+      "hh": 0.024,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.07,
+      "z": 0.895
+    },
+    {
+      "cx": -0.26,
+      "cy": -0.14,
+      "d": 0.05,
+      "hh": 0.022,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.06,
+      "z": 0.895
+    },
+    {
+      "cx": 0.05,
+      "cy": 0.4,
+      "face": "x",
+      "kind": "ductRun",
+      "pal": "ty_cold",
+      "r": 0.017,
+      "run": 0.12,
+      "z0": 0.3,
+      "z1": 0.86
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.4,
+      "d": 0.033,
+      "hh": 0.028,
+      "kind": "binStack",
+      "lid": "#20403c",
+      "n": 3,
+      "pal": "ty_cold",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.475,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.475,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.47,
+      "flip": true,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_marble_col",
+      "r": 0.026,
+      "rgb": "200,245,255",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.085
+    }
+  ],
+  "id": "copaypray",
+  "neon": "#78e8d0",
+  "note": "CO-PAY & PRAY — the walk-in clinic, rebuilt as the curved half of Marrow Street. Its whole\nstreet elevation is a sixteen-sided drum four storeys tall, banded twice in white porcelain, on a\nporcelain plinth, with the back-of-house behind it as a shallow centred box and the plant room set\nback on the roof.\n\n⚠ A DRUM IS THE ONLY WAY TO SAY CURVED HERE, and it is cheap rather than expensive: sixteen facets\nis sixteen quads, it is radially symmetric so it reaches the same radius at every entrance facing,\nand it carries no yaw — which is the pair of properties that make an offset curve safe where an\noffset chamfered box is not.\n\n⚠ THE DETAIL SITS ON THE PLINTH, NOT ON THE BOW. A detail part mounts on a PLANE (`cy` is the wall\nit is bolted to), so anything hung on a drum is a flat panel tangent to a curve. The entrance, the\nname board and the canopy are therefore all on the plinth face, where there is a real flat wall to\nbolt them to, and the bow above is left as glass — which is also what the building would actually\nbe.\n\n⚠ THE RED CROSS STAYS. `roofCross` is this building's sign and `KIT_DECLINE` already keeps the\nderived roof hoarding off a clinic for exactly that reason; a second board up there would be an\nadvertisement standing through the hospital sign.",
+  "pal": "ty_clinic",
+  "replaces": "clinic",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.168
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.27,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_clinic",
+      "roof": true,
+      "z0": 0.168,
+      "z1": 0.845
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0.155,
+      "kind": "drum",
+      "n": 16,
+      "pal": "ty_clinic",
+      "rb": 0.3,
+      "rt": 0.295,
+      "z0": 0.168,
+      "z1": 0.845
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0.155,
+      "kind": "drum",
+      "n": 16,
+      "pal": "ty_marble_col",
+      "rb": 0.312,
+      "rt": 0.312,
+      "z0": 0.295,
+      "z1": 0.328
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0.155,
+      "kind": "drum",
+      "n": 16,
+      "pal": "ty_marble_col",
+      "rb": 0.307,
+      "rt": 0.307,
+      "z0": 0.565,
+      "z1": 0.598
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0.155,
+      "kind": "drum",
+      "n": 16,
+      "pal": "ty_marble_col",
+      "rb": 0.315,
+      "rt": 0.315,
+      "z0": 0.845,
+      "z1": 0.895
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.285,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.845,
+      "z1": 0.895
+    },
+    {
+      "cx": 0,
+      "cy": -0.12,
+      "fd": 0.19,
+      "hw": 0.19,
+      "kind": "box",
+      "pal": "ty_cold",
+      "roof": true,
+      "z0": 0.895,
+      "z1": 0.985
+    }
+  ]
+}

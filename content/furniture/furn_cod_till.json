@@ -1,0 +1,19 @@
+{
+  "description": "A wooden drawer under the slab with no lock on it, divided into four by strips of tin, opened with a wet hand three hundred times a day. The wood round the pull has gone soft and pale. Nobody has ever taken anything out of it, which he considers a fact about the street rather than about the drawer.",
+  "flags": {
+    "aliases": "drawer,till,money,cash",
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_cod_fawle",
+    "vendor_safe": true
+  },
+  "hp": 200,
+  "hp_max": 200,
+  "id": "furn_cod_till",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the drawer",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_codfather_slab"
+}

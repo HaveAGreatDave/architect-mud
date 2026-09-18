@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "The darkroom, which is also where the junction cabinet lives, which she says is a fire risk and an insult and has said for years. A safelight on a hook, three dishes on a slate slab, a drum of fixer, and a line strung corner to corner with prints on it by their corners, all of them faces, all of them looking straight out.",
+  "exits": {
+    "up": "zone_negeq_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_904"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_negeq_shop",
+  "map_id": "map_int_negeq",
+  "name": "Negative Equity — The Front — Utility Room",
+  "parent_zone": "zone_district_895_904"
+}

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_regerts_stair",
+  "id": "zone_regerts_room",
+  "max_capacity_kw": 200,
+  "name": "No Regerts — The Room",
+  "source_type": "city_grid"
+}

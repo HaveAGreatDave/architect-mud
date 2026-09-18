@@ -1,0 +1,122 @@
+{
+  "adorn": [
+    {
+      "cx": -0.06,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,190,170",
+      "s": 14,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Prime Suspect"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.34,
+      "hh": 0.016,
+      "kind": "parapet",
+      "pal": "ty_ff_brick",
+      "z": 0.64
+    },
+    {
+      "bars": 2,
+      "cx": -0.06,
+      "cy": 0.36,
+      "depth": 0.026,
+      "glass": "#1b1412",
+      "glow": "#ffdcd0",
+      "half": 0.22,
+      "hh": 0.024,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "z": 0.1
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.36,
+      "half": 0.24,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.11,
+      "pal": "ty_ff_white",
+      "soffit": "#5e1b1b",
+      "strip": "#f2e6dc",
+      "z": 0.25
+    },
+    {
+      "color": "#6b1414",
+      "cx": -0.06,
+      "cy": 0.36,
+      "font": "slab",
+      "half": 0.22,
+      "hh": 0.03,
+      "ink": "#f6ece2",
+      "kind": "signBoard",
+      "label": "PRIME SUSPECT",
+      "z": 0.29
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.4,
+      "kind": "bollard",
+      "pal": "ty_ff_brick",
+      "z": 0.004
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.36,
+      "drip": 0.8,
+      "hh": 0.026,
+      "kind": "vent",
+      "pal": "ty_ff_brick",
+      "w": 0.08,
+      "z": 0.4
+    }
+  ],
+  "id": "primesuspect",
+  "neon": "#ff6b6b",
+  "note": "White tile to shoulder height, scrubbed every night, and above it a fascia in dried-blood red. The window is a chilled case on a SLANT with sawdust under it, so the glazing sits low and leans out rather than standing flush. The thirty square feet of pavement outside this one door is the cleanest on the street and it is not an accident.",
+  "pal": "ty_ff_white",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.38,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.07
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.07,
+      "z1": 0.5
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "pal": "ty_ff_brick",
+      "roof": true,
+      "z0": 0.5,
+      "z1": 0.64
+    }
+  ],
+  "trade": "butcher"
+}

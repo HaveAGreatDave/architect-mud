@@ -1,0 +1,20 @@
+{
+  "description": "A steel cabinet with a real lock and a register chained beside it, filled in every single time, in ink, with the amount and the animal and her initials. Nobody has ever asked to see the register. She keeps it that way because one day somebody will.",
+  "flags": {
+    "aliases": "cabinet,drugs,register,locked",
+    "interactions": [
+      "examine"
+    ],
+    "hack_difficulty": 6
+  },
+  "hp": 400,
+  "hp_max": 400,
+  "id": "furn_paws_drugs",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the drug cabinet",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_paws_surgery"
+}

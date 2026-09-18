@@ -1,0 +1,330 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Trapnell drives four tacks without taking the others out of his mouth.",
+    "He turns a boot over, looks at the wear across the heel, and puts it down facing the other way.",
+    "The wheel spins up under the bench. He holds something to it for two seconds and it stops mattering.",
+    "\"Four days. It's four days because it's four days, not because I'm busy.\"",
+    "He cuts a sole out of the bend in one pass and holds the offcut up to the light before he puts it in the box.",
+    "\"You walk on the outside edge. Both of them. I'm not telling you off, I'm telling you what I'm building for.\"",
+    "He works dubbin into a welt with his thumb, in circles, for longer than seems necessary.",
+    "\"Don't buy a boot you can't get resoled. That's the whole of the advice and people pay men for less.\"",
+    "He opens a drawer, takes one tack out of it, and closes it again.",
+    "\"That's a good boot with a bad sole on it. Somebody put a bad sole on a good boot. It happens and it's a shame.\"",
+    "He threads a needle at arm's length, on the second go, and is visibly annoyed about the second go.",
+    "\"No, I'll not do it while you wait. If I could do it while you waited it wouldn't be worth doing.\"",
+    "He glances at the low window at a pair of legs going past and identifies them without looking up.",
+    "\"Laces are free with a repair. They always have been. It's not an offer.\"",
+    "He squares a pair on the shelf so the tags hang the same way."
+  ],
+  "description": "A narrow man in his sixties on a low stool, sat at a bench that takes up most of an eleven-foot room, with three tacks held in his lips and his glasses down his nose. He talks while he works and does not look up while he talks, and the whole time his hands are doing something exact. He will tell you what is wrong with how you walk within about four seconds of seeing your boots, without unkindness and without being asked.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "He is already back on the wheel. \"Four days.\""
+    },
+    "good": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A boot you can resole,\" he says. \"That's it. That's the only thing worth knowing and every year fewer of them are.\"\n\nHe turns one over and shows you the join.\n\n\"That's stitched. You can cut that off and put another on and I could do it four times. That other one over there is glued, and when the glue goes the boot goes in the bin, and that is a design somebody sat down and chose.\"\n\nHe puts it back.\n\n\"Buy stitched. Buy it once. Then come and see me every couple of years and I'll keep it going longer than you'd think polite to say.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People sit in that chair and watch me work and after about ten minutes they start talking,\" he says. \"Every time. I think it's the wheel.\""
+    },
+    "repair": {
+      "options": [
+        {
+          "label": "Why four days?",
+          "next": "repair_why"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Soles, heels, welts, stitching, and I'll put a toe cap on if you insist and then I'll tell you it looks like a toe cap.\" He does not look up. \"Four days, tag on the laces, shelf by the door.\"\n\nHe spits a tack into his hand and drives it.\n\n\"Bring me both. Never one. People bring me one and I do the one, and then they're walking on two different boots and they come back in a month to tell me I've done something to their knee.\""
+    },
+    "repair_why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because the leather's got to sit,\" he says. \"You cut it, you wet it, you work it on the last, and then you leave it, and what it does while it's left is the difference between a sole and a sole that lifts at the toe in November.\"\n\nHe glances up, once, over the glasses.\n\n\"Everybody who's ever offered me more to do it quicker has offered me less than a second repair would cost them. I've done that sum for people at this bench and watched them go quiet.\""
+    },
+    "walk": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He looks at your boots for about a second and a half.\n\n\"Outside edge,\" he says. \"Both. More on the left. And you're coming down heavy on the heel, which is the road out there rather than anything you're doing.\"\n\nHe goes back to the bench.\n\n\"That's not a fault, it's just what you do, and a heel built square for somebody who walks like that is a heel that's wrong in a fortnight. So I build it to the wear. That's all the trade is, really. Everybody thinks it's the sewing.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Can you do these?",
+          "next": "repair"
+        },
+        {
+          "label": "Leather, wax, laces.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What should I be buying?",
+          "next": "good"
+        },
+        {
+          "label": "What can you tell from my boots?",
+          "next": "walk"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit down if you're stopping.\" He does not look up. \"Both boots, not one, tag goes through the laces, four days. And laces are free with a repair before you ask, because everybody asks.\"",
+      "text_by_relation": {
+        "familiar": "He reaches under the bench without looking and puts a pair on the counter, finished, tags still on, and only then looks up over the glasses.\n\n\"I did the welt as well,\" he says. \"It was going. I've not charged you for it and I'd rather not have a conversation about that.\"",
+        "first": "A narrow man on a stool glances at your feet before he glances at your face, which turns out to be the order he does everything in.\n\n\"Oswin Trapnell.\" Three tacks in his lips make it sound like less of a name than it is. \"Soles, heels, welts. Four days, and four days is what it takes, not what I feel like.\"\n\nHe drives a tack, flat, one blow.\n\n\"Bring me both of them. Never one. And there's a chair, and it faces this way on purpose.\"",
+        "known": "\"Ah.\" He does not look up. \"They're not ready and you know they're not ready. Sit down anyway.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a canvas apron gone black and shiny across the lap",
+      "a collarless shirt with the sleeves rolled to the elbow",
+      "corduroy trousers and, in the shop, no shoes at all"
+    ],
+    "personality": "vendor",
+    "repairman": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_sole_shop",
+  "hp": 32,
+  "hp_max": 32,
+  "id": "npc_sole_trapnell",
+  "name": "Oswin Trapnell",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_sole_laces",
+      "price": 5
+    },
+    {
+      "item_id": "item_sole_wax",
+      "price": 12
+    },
+    {
+      "item_id": "item_sole_heels",
+      "price": 28
+    },
+    {
+      "item_id": "item_sole_soles",
+      "price": 46
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "fri": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 13
+      }
+    ],
+    "sun": []
+  },
+  "vendor_shop_name": "Sole Survivor",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_sole_shop"
+}

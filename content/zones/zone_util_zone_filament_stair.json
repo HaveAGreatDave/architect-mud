@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cramped below-grade utility room under Filament Buildings: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
+  "exits": {
+    "up": "zone_filament_stair"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_filament_stair",
+  "map_id": "map_int_filament",
+  "name": "Filament Buildings — Utility Room",
+  "parent_zone": "zone_district_897_905"
+}

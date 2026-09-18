@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_floristgump_shop",
+  "id": "map_int_floristgump",
+  "name": "Florist Gump",
+  "parent_zone_id": "zone_district_909_914"
+}

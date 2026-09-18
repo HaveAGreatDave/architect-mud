@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#25231c",
+  "description": "One long room, eleven glass cases down the middle, and every case is immaculate: the glass cleaned, the cloth brushed, the objects raised on little stands he cut himself. A washing machine drum. A television. Nine bottle tops on a card. A tray of coins. A wall panel headed THE HANDOFF: A CHRONOLOGY, in his handwriting, forty lines long, extremely confident. Almost none of it is correct, and it is laid out with such care that people read the whole thing.",
+  "exits": {
+    "east": "zone_pastperf_office",
+    "west": "zone_district_916_914",
+    "down": "zone_util_zone_pastperf_hall"
+  },
+  "flags": {
+    "building_name": "Past Perfect",
+    "building_type": "museum",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Two tall windows either side of the door, shuttered on the inside to about two-thirds because daylight is what fades a label, so the room gets a band of light at the top and the cases get none of it.",
+      "light": 0.45,
+      "name": "the shuttered lights",
+      "visibility": 0.4
+    },
+    "world_exit_zone": "zone_district_916_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_pastperf_hall",
+  "map_id": "map_int_pastperf",
+  "name": "Past Perfect — The Collection",
+  "parent_zone": "zone_district_916_914"
+}

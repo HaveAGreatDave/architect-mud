@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_regerts_flash",
+  "name": "a flash card",
+  "tags": {
+    "stackable": true,
+    "description": "One design on card, inked and painted by hand, sized as it would sit on a shoulder. She sells the ones she has drawn twice and keeps the ones she has drawn once, and she will tell you which this is if you ask, and she does not round up."
+  },
+  "type": "media",
+  "value": 26,
+  "weight": 30
+}

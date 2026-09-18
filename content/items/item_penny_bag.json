@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_penny_bag",
+  "name": "bag of coppers",
+  "tags": {
+    "stackable": true,
+    "description": "A paper bag of pennies, folded over twice, heavier than it has any right to be. She weighs it rather than counting it and the weight is honest, which you could check, and after the first time nobody does."
+  },
+  "type": "misc",
+  "value": 20,
+  "weight": 620
+}

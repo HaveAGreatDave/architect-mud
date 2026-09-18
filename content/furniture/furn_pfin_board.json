@@ -1,0 +1,19 @@
+{
+  "description": "The whole left wall, painted matt black and ruled in white by hand. Deadball above the rule in white chalk, Cluster Puck below it in yellow, and a column down the right for what the price was before it moved. Nothing on it is printed. Everything on it has been rubbed out at least once.",
+  "flags": {
+    "aliases": "board,chalk,prices,odds,wall",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pfin_board",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the board",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pfin_shop"
+}

@@ -1,0 +1,20 @@
+{
+  "description": "A run of sloped desks down the middle of the room with a brass lamp and a green glass shade on each, and a groove along the bottom edge for a pencil, and a pencil in most of the grooves. Initials cut into three of them. The stove end fills up first and always has.",
+  "flags": {
+    "aliases": "desks,desk,reading desk,table,lamp",
+    "interactions": [
+      "examine",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fprint_desks",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the reading desks",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_fineprint_room"
+}

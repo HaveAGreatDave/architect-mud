@@ -1,0 +1,19 @@
+{
+  "description": "The basin, with a pin wherever something in the collection was found and a number beside each pin. The pins cluster where you would expect and then there are four out in the Scarletwastes, a long way out, with no number beside them at all.",
+  "flags": {
+    "aliases": "map,pins,wall map,basin",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_past_map",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the pin map",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pastperf_office"
+}

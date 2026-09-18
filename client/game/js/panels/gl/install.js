@@ -146,6 +146,8 @@ export function installGL(hostFor) {
       // shipped inert by being wired at both ends and dropped in the middle, which is exactly what
       // a missing line here produces: the tune key exists, the shader is correct, nothing happens.
       glWet: opts.glWet,
+      glPond: opts.glPond,
+      glPudRoad: opts.glPudRoad,
       glPuddle: opts.glPuddle,
       glGroundBias: opts.glGroundBias,
       glRipple: opts.glRipple,
@@ -197,7 +199,22 @@ export function installGL(hostFor) {
       // ⚠ AND THE SHED BESIDE IT. Dropped here it is the gl:opts failure exactly: the sink fills,
       // the tune key exists, the slider moves, and the shed is collected into a list one hop short
       // of the layer that draws it — so the depot simply is not in the frame at all.
-      ship: opts.ship, bay: opts.bay,
+      ship: opts.ship, bay: opts.bay, fauna: opts.fauna,
+      // ⚠ AND THE CLOUD DECK, WHICH THE WORLD PASS ONLY WANTS FOR THE WATER. The deck is drawn by
+      // the SECOND hook, after the world is blitted; this copy goes into the reflection prepass, so
+      // that a puddle is handed a sky with clouds in it instead of the flat two-stop fallback.
+      // Dropped here it is this file's numbered failure again, and a quiet one: the collect pass
+      // still runs, the cards still reach the GPU, the sky over your head is unchanged — and the
+      // water goes on showing one constant colour, which is the bug the whole thing is for.
+      clouds: opts.clouds, cloudState: opts.cloudState, glMirrorSky: opts.glMirrorSky,
+      // ⚠ AND THE WET-ROAD DARKNESS. Dropped here the shader falls back to its own 0.45 and the
+      // slider moves nothing — the numbered failure this file keeps a list of, in its quietest
+      // form, because 0.45 IS the old picture and a dead knob looks exactly like a knob at rest.
+      glWetDark: opts.glWetDark,
+      // ⚠ AND THE SKY STRIP. Dropped here, `uSkyOn` stays 0, the shader takes its two-colour
+      // fallback, and the water goes on showing one flat colour with every uniform correct and the
+      // capture running every frame for nobody — the numbered failure this file keeps a list of.
+      skyStrip: opts.skyStrip,
       floor: opts.floor, now: opts.now,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,
       // ⚠ AND THE SKY BESIDE IT, WHICH IS THIS FILE'S OWN NUMBERED FAILURE AGAIN. Dropped here the

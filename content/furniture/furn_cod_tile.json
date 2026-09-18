@@ -1,0 +1,19 @@
+{
+  "description": "One tile at eye level in the green run behind him has a fish painted on it, and it is not the same fish as any of the others in the shop and is not a fish anybody has landed in the basin. It was here when the tiles went up. He has been asked about it perhaps two thousand times.",
+  "flags": {
+    "aliases": "tile,fish tile,odd tile,wall",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cod_tile",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the odd tile",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_codfather_slab"
+}

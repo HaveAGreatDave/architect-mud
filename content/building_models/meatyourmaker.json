@@ -1,0 +1,256 @@
+{
+  "adorn": [
+    {
+      "cx": -0.08,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "255,238,224",
+      "s": 18,
+      "z": 0.3
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "255,120,124",
+      "s": 15,
+      "z": 0.02
+    },
+    {
+      "cx": -0.18,
+      "cy": -0.16,
+      "kind": "glowPool",
+      "rgb": "190,214,224",
+      "s": 10,
+      "z": 0.94
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Meat Your Maker"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 3,
+      "cx": -0.08,
+      "cy": 0.42,
+      "depth": 0.02,
+      "glass": "#1a1010",
+      "glow": "#fff0e4",
+      "half": 0.25,
+      "hh": 0.1,
+      "kind": "windowBay",
+      "pal": "ty_trm_ward",
+      "transom": 0.72,
+      "z": 0.3
+    },
+    {
+      "bars": 1,
+      "cx": 0.28,
+      "cy": 0.425,
+      "depth": 0.016,
+      "glass": "#221414",
+      "glow": "#4a2a2a",
+      "half": 0.06,
+      "hh": 0.115,
+      "kind": "windowBay",
+      "pal": "ty_trm_ward",
+      "z": 0.24
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "half": 0.38,
+      "hh": 0.013,
+      "kind": "canopy",
+      "out": 0.13,
+      "pal": "ty_trm_ward",
+      "soffit": "#3a1c1c",
+      "strip": "#ff6a70",
+      "z": 0.425
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.41,
+      "half": 0.26,
+      "kind": "conduit",
+      "pal": "ty_cold",
+      "r": 0.01,
+      "z": 0.4
+    },
+    {
+      "color": "#170c0c",
+      "cx": -0.06,
+      "cy": 0.42,
+      "font": "slab",
+      "half": 0.28,
+      "hh": 0.027,
+      "ink": "#ff8a90",
+      "kind": "signBoard",
+      "label": "MEAT YOUR MAKER",
+      "picto": "fork",
+      "z": 0.472
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.43,
+      "hh": 0.013,
+      "kind": "parapet",
+      "pal": "ty_trm_ward",
+      "z": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.428,
+      "hh": 0.009,
+      "kind": "parapet",
+      "pal": "ty_trm_ward",
+      "z": 0.255
+    },
+    {
+      "cx": 0.02,
+      "cy": -0.4,
+      "drip": 1,
+      "half": 0.12,
+      "hh": 0.07,
+      "kind": "louvreBank",
+      "n": 6,
+      "pal": "ty_cold",
+      "z": 0.42
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.16,
+      "d": 0.06,
+      "hh": 0.028,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.08,
+      "z": 0.68
+    },
+    {
+      "cx": 0.32,
+      "cy": -0.4,
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.014,
+      "z0": 0.08,
+      "z1": 0.66
+    },
+    {
+      "cx": 0.4,
+      "cy": 0.42,
+      "d": 0.034,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#2c2222",
+      "n": 2,
+      "pal": "ty_cold",
+      "w": 0.042,
+      "z": 0.004
+    },
+    {
+      "cx": -0.28,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_trm_ward",
+      "z": 0.004
+    },
+    {
+      "cx": 0.1,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_trm_ward",
+      "z": 0.004
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_trm_ward",
+      "r": 0.026,
+      "rgb": "255,180,170",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.086
+    }
+  ],
+  "id": "meatyourmaker",
+  "neon": "#ff3e4a",
+  "note": "MEAT YOUR MAKER — the butcher at the south end of Ironside Street.\n\n⚠ THE CHILLER IS ON THE ROOF AND IT IS HALF THE BUILDING. A butcher is a cold room with a counter\nin front of it, so the plant is not decoration hung on a shop — it is the larger half, and putting\nit up where it can be seen from the street is what makes the shop read as a butcher rather than as\na red-painted unit.\n\n⚠ THE DADO IS A SEPARATE BAND AND NOT A PAINTED LINE. Every butcher's shop that has ever existed is\ntiled to shoulder height, because that is the part you wash down. A band of tile under a brick\nshaft costs one mass segment and is the difference between this trade and any other on the street.\n\n⚠ AND THE RAIL COMES OUT UNDER THE CANOPY. The one thing a passer-by actually sees a butcher use.",
+  "pal": "ty_butcher",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.425,
+      "kind": "box",
+      "pal": "ty_trm_ward",
+      "roof": false,
+      "z0": 0.05,
+      "z1": 0.26
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.41,
+      "kind": "box",
+      "pal": "ty_butcher",
+      "roof": true,
+      "z0": 0.26,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.43,
+      "kind": "box",
+      "pal": "ty_trm_ward",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.68
+    },
+    {
+      "cx": -0.18,
+      "cy": -0.16,
+      "hw": 0.155,
+      "kind": "box",
+      "pal": "ty_cold",
+      "roof": true,
+      "z0": 0.68,
+      "z1": 0.94
+    },
+    {
+      "cap": true,
+      "cx": -0.18,
+      "cy": -0.16,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_cold",
+      "rb": 0.06,
+      "rt": 0.055,
+      "z0": 0.94,
+      "z1": 1.25
+    }
+  ],
+  "trade": "butcher"
+}

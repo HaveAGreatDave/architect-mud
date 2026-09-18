@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_metronome",
+  "name": "wind-up metronome",
+  "tags": {
+    "description": "A wooden wedge with a hinged front, a pendulum arm and a sliding weight on it. Wound fully it runs about nine minutes, which is longer than most people can stand to be corrected for.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 48,
+  "weight": 620
+}

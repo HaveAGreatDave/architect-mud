@@ -10,13 +10,16 @@
 
 import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
-import { getZoneSeverity, getZonePrecip } from '../../server/engine/environment.js';
+import { getZoneSeverity, getZonePrecip, getGameHour } from '../../server/engine/environment.js';
 import { on } from '../../server/engine/events.js';
 import { fireSpecializedAction } from '../../server/engine/specializedActions.js';
 import { applyTopical } from '../../server/engine/topical.js';
 import { getZonePlayers } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { carriedFluids } from './hangars.js';
+// ⚠ THE SAME MODULE THE WINDSHIELD DRAWS FROM. A bird strike has to come from a flock the pilot
+// could see, so both surfaces read one answer — see the header on flockOnThePath below.
+import { flockOnSegment, gooseHabitat, gooseDaylight } from '../../client/shared/goose.js';
 
 // The ion storm's peak, mirrored locally off the weather-event signal so the
 // hazard roll never has to reach into the weather plugin. `weather.event` fires
@@ -35,6 +38,66 @@ import {
 // `eject` also belongs to broadcast (eject a cassette); flight wins it by load
 // order and hands back when you're not bailing out of an aircraft.
 import { commands as broadcastCommands } from '../broadcast/index.js';
+
+// ── BIRD STRIKE — THE GEESE YOU CAN SEE ───────────────────────────────────────
+//
+// This used to be `Math.random() < 0.05` per tick while low, slow and over inhabited ground: a
+// hazard that happened TO you, with nothing in the world to connect it to and nothing you could
+// have done differently. There are real flocks in the sky now — `drawGeese` in windshield.js paints
+// them, and where a flock is and what it is doing is a pure function of the world tile and the wall
+// clock. So the same question the renderer asks, this asks: was there a flock on the path you just
+// flew? If there was, you hit it. If there was not, nothing happens, however long you loiter.
+//
+// ⚠ THE GEOMETRY IS IN client/shared/goose.js, NOT HERE, and that is the point rather than tidiness.
+// A copy of it in this file would be a strike that fires over empty sky, or a flock you can watch a
+// wing pass through. This function's whole job is to hand that one answer the two things only the
+// server knows: where the aircraft has been, and what the ground underneath is made of.
+//
+// ⚠ AND THE THROTTLE GATE IS GONE. The old roll wanted you low AND slow, which was a way of making
+// a dice roll feel situational. Speed has nothing to do with whether a flock is in front of you —
+// if anything a fast aircraft covers more ground and meets more of them, which the swept segment
+// now expresses directly.
+function flockOnThePath(live) {
+  const a = live.row;
+  // Only down among them. The circuit tops out at GOOSE_Z tiles, which is the low band and nothing
+  // above it — so this stays the altitude gate it always was, for a reason rather than by habit.
+  if (a.altitude_band !== 'low') { live._birdPos = null; return null; }
+  const x = live.fx ?? a.grid_x, y = live.fy ?? a.grid_y;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) { live._birdPos = null; return null; }
+
+  const from = live._birdPos;
+  live._birdPos = [x, y];
+  // The first airborne tick has nothing to sweep from, and a zero-length segment tests a POINT —
+  // the exact thing the swept test exists to avoid. Wait a tick rather than test badly.
+  if (!from) return null;
+
+  // ⚠ THE GAME HOUR, NOT THE WALL CLOCK. The flock CYCLE runs on wall time, which is what lets this
+  // and the windshield agree about where a bird is this second; whether it is DAY is the game's own
+  // clock, and the two are unrelated. Reading the real hour here would put the geese to bed at
+  // whatever time it happens to be where the server is racked.
+  if (!gooseDaylight(getGameHour())) return null;
+
+  return flockOnSegment(from[0], from[1], x, y, Date.now(), (wx, wy) => {
+    // The habitat test is the caller's, and the server's is the zone's own TERRAIN — the other
+    // spelling of the biome the renderer reads. GOOSE_HABITAT answers to both.
+    const z = surfaceAt(wx, wy);
+    return !!(z && !z.flags?.building_type && !z.flags?.is_building && gooseHabitat(z.flags?.terrain));
+  }, undefined, 1, (wx, wy) => {
+    // ⚠ AND WHAT THE BIRDS TURN AWAY FROM, which is a SECOND question and not the negation of the
+    // first. A road is not habitat and a flock happily crosses one; a building is neither habitat
+    // nor crossable. The circuit bends around these tiles (see flockClearance), so leaving this out
+    // would sweep the plain circle the renderer stopped drawing — a strike over empty sky, and a
+    // flock you can watch a wing pass through.
+    //
+    // ⚠ `building_type` ALONE, unlike the habitat test just above, which also refuses `is_building`.
+    // That is not an inconsistency: the flock turns away from what the RENDERER DRAWS, and the
+    // flight sim only extrudes `building_type` — a walk-in building without one renders as flat
+    // grass out the canopy. `deriveSurfaceCell` sets the `bt` the windscreen reads from this field
+    // and nothing else, so this is the same question asked of the same column.
+    const z = surfaceAt(wx, wy);
+    return !!(z && z.flags?.building_type);
+  });
+}
 
 function requirePilot(player) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
@@ -116,11 +179,13 @@ export async function rollHazards(live) {
     return;
   }
 
-  // BIRD STRIKE — low, slow, over inhabited ground.
-  if (a.altitude_band === 'low' && below && a.throttle < 70 && Math.random() < 0.05) {
-    a.damage = Math.min(1, a.damage + 0.08);
-    a.engine_temp += 18;   // ingestion spikes the temp — can seed a fire
-    toOccupants(live, '<span class="text-amber">⚠ BIRD STRIKE — a heavy thud, a smear on the glass, and the engine note changes.</span>');
+  // BIRD STRIKE — you flew through a flock that was there.
+  const struck = flockOnThePath(live);
+  if (struck) {
+    // Bigger flock, more of it down the intake.
+    a.damage = Math.min(1, a.damage + 0.05 + struck.n * 0.012);
+    a.engine_temp += 12 + struck.n * 2;   // ingestion spikes the temp — can seed a fire
+    toOccupants(live, `<span class="text-amber">⚠ BIRD STRIKE — you go straight through the middle of them. A heavy thud, a smear on the glass, and the engine note changes.</span>`);
     if (a.damage >= 1) { await crash(live, 'birdstrike'); return; }
   }
 

@@ -1,0 +1,19 @@
+{
+  "description": "About forty bottles on a cellar rack, older than the shop, each with a name on the label in pencil. He will tell you whose, one at a time, at some length, and he will not sell you one, and he has turned down an amount of money that he will also tell you.",
+  "flags": {
+    "aliases": "bottles,named,cellar,not for sale",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_spirit_named",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the named bottles",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_spirit_shop"
+}

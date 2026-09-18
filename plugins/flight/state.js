@@ -336,6 +336,28 @@ export function invalidateCoordIndex() { _coordIndex = null; _bounds = null; }
 // wrong by Monday with nothing to say so.
 let _cellOverlay = null;
 export function registerCellOverlay(fn) { _cellOverlay = typeof fn === 'function' ? fn : null; }
+
+// ── THE SAME GROUND, AT A RANGE THE WINDOW CANNOT REACH ──────────────────────
+//
+// The overlay above puts the highway in the map window, which is 36 tiles. From a cockpit the
+// ground runs to the horizon — hundreds of tiles — and the corridor is the one man-made thing out
+// there: a four-lane road with boards counting down the miles, crossing open waste, and by far the
+// most useful thing a pilot could navigate by. Past the window it simply stopped, in mid-desert.
+//
+// ⚠ IT ARRIVES AS A POLYLINE, NOT AS CELLS, AND THAT IS THE WHOLE DESIGN. Reaching 200 tiles by
+// widening the window means 160,000 cells a push against 5,300 — a 30x per-tick payload on a free
+// tier whose egress budget is measured daily (docs/ops-usage-watch.md) — to carry a road that is,
+// at that range, a LINE. A route already IS a polyline (`route.legs`), so this hands over the few
+// dozen points that survive simplification and the client rasterises them onto the floor.
+//
+// ⚠ AND IT IS A RENDER PROVIDER, exactly as the overlay is, for exactly the reason written above
+// it: nothing here may reach `surfaceAt`. A pilot cannot land on it, walk on it, or resolve a zone
+// id from it. It is something you can SEE.
+let _farRoads = null;
+export function registerFarRoads(fn) { _farRoads = typeof fn === 'function' ? fn : null; }
+// Polylines within `radius` tiles of (x, y), in ABSOLUTE world tiles — or null when no system has
+// registered any, which is the shape the client already treats as "draw nothing".
+export function farRoadsNear(x, y, radius) { return _farRoads ? _farRoads(x, y, radius) : null; }
 // The provider a live surface read should go through: the overlay when one is registered, the
 // placed world otherwise. A caller that wants ONLY placed ground keeps calling `surfaceAt`.
 export function renderCells() { return _cellOverlay || surfaceAt; }
@@ -1216,6 +1238,29 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
       // `each` in plugins/trucking, and the rule in plugins/fuelstation.
       .map(r => ({ g: String(r.grade).toUpperCase().slice(0, 8), p: r.each ?? r.price, u: r.unit }))
     : undefined;
+  // `gft` is WHAT SOMEBODY SPRAYED ON THIS BUILDING, and it is here for the reason `brd` is:
+  // the words on a wall are a fact about the world at this moment, so a renderer can only know
+  // them by being told. `plugins/graffiti` has written them to `zone_graffiti` since it shipped
+  // and nothing has ever drawn one — the tag landed in the room description, and the same wall
+  // out of the windscreen was blank.
+  //
+  // ⚠ SYNC, and gated on the tile being a BUILDING. This function runs for every cell of a
+  // ~73×73 window, so it uses `gatherHookSync` (never `gatherHook` — see the contract on it) and
+  // only asks on the tiles that can carry paint at all. The contributor answers from RAM.
+  //
+  // ⚠ EACH ENTRY CARRIES THE WALL S OWN OUTWARD NORMAL, worked out where both grid positions
+  // exist — the facade tile and the pavement tile the row is keyed on. The renderer hands that
+  // vector to `facePt` in place of the entrance s and gets the tag s whole local frame from it,
+  // which is what puts the paint on the wall the player stood in front of rather than on the
+  // door. Nothing in the client works out which side of a building it is looking at.
+  const gft = cell.flags?.is_building
+    // ⚠ THE COORDS ARE PASSED, NEVER READ OFF THE CELL. `buildCoordIndex` stores a PROJECTION of
+    // each zone — `{ id, name, flags, danger }` — so a cell here has no `grid_x` at all, and a
+    // contributor reaching for one gets undefined, bails, and draws nothing. No error, no
+    // warning, just walls that stay clean: the same silent shape as every other bug in this
+    // feature. These two are the real grid position, because they are what indexed the lookup.
+    ? gatherHookSync('wall.tags', cell, x, y).filter((t) => t && t.t && Array.isArray(t.n))
+    : undefined;
   const pw = getZonePowerStatus(cell.id) === 'powered' ? 1 : 0;
   // `sgn` carries the board's ROWS and its facing, the same way `brd` carries a forecourt's prices:
   // the words are worked out where the road is (which limb, how far, which way the arrow points)
@@ -1225,13 +1270,17 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // (plugins/trucking/corridor.js): sun-bleached and sand-drifted, its paint half gone, patched and
   // cracked. Every baked world tile leaves it undefined and paints exactly as it always did.
   const wr = cell.flags?.road_wear ? 1 : undefined;
-  return { kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined };
+  return { kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
 // rather than each writing 36 down again: the yacht helm window, and the street-actor window
 // in contextPayload (an actor outside the map the client holds has no cell to stand on).
 export const FLIGHT_RADIUS = 36;
+// How far out the far-road polyline reaches. Well past anything the floor still resolves as road
+// rather than as haze, and cheap to be generous with: the cost of this number is a few more
+// points surviving simplification, not a wider grid.
+export const FAR_ROAD_R = 320;
 
 export function mapWindow(a, radius = FLIGHT_RADIUS, at = surfaceAt) {
   const rows = [];
@@ -1669,6 +1718,10 @@ export function contextPayload(live) {
     type: 'flight_ctx',
     fuel: Math.round(a.fuel), fuelCap: Math.round(cap), fuelPct: Math.max(0, Math.round(a.fuel / cap * 100)),
     map: mapWindow(a, FLIGHT_RADIUS, cellAt), mapX: a.grid_x, mapY: a.grid_y, sky: skyState(a.grid_x, a.grid_y),   // window centre → client keeps map+centre paired (no recenter pop)
+    // The highway past the edge of that window, as geometry rather than as cells — see
+    // registerFarRoads. Airborne only: on the deck the window already covers everything the
+    // canopy can see past the nose, and the airport scene does not draw a floor to put it on.
+    roads: a.airborne ? farRoadsNear(a.grid_x, a.grid_y, FAR_ROAD_R) : null,
     // Everyone standing on the surface grid inside the same window, so a low pass shows the
     // street population rather than an empty city. Absolute tile coords, paired with mapX/mapY
     // exactly as `map` is. No exclusion list is needed here: this payload goes to every occupant

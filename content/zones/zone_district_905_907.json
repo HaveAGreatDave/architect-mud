@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "description": "The road narrows here for no reason anybody living can account for, then widens again twenty feet on. A bench faces the green with its slats replaced one at a time in four different woods.",
   "exits": {
     "east": "zone_district_906_907",
     "west": "zone_district_904_907"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 905,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_905_907",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Greenside Row",
   "parent_zone": null
 }

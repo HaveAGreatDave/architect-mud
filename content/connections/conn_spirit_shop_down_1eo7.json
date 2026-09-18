@@ -1,0 +1,9 @@
+{
+  "a": "zone_spirit_shop",
+  "b": "zone_util_zone_spirit_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_spirit_shop_down_1eo7",
+  "lockable": false,
+  "one_way": false
+}

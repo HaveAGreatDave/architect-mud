@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#23211b",
+  "description": "One long room under a glazed lantern, and the light comes down rather than in, which does something to the room that nobody who works in here can explain and everybody who reads in here has noticed. Stacks down both sides to a height nobody can reach without the ladder, a run of sloped desks down the middle with brass lamps on them, and a stove at the far end that is lit from October. The issue desk is by the door with the date stamp on it and the fines book beside the date stamp, open, always, at today.",
+  "exits": {
+    "down": "zone_util_zone_fineprint_room",
+    "east": "zone_fineprint_stack",
+    "north": "zone_district_903_908"
+  },
+  "flags": {
+    "building_name": "Fine Print",
+    "building_type": "lending_library",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The roof lantern, forty feet of it, running the length of the room. You do not see the street through it. You see the weather, directly, from underneath, which is a thing almost no room in Coldwater offers.",
+      "light": 0.95,
+      "name": "the roof lantern",
+      "visibility": 0.35
+    },
+    "world_exit_zone": "zone_district_903_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_fineprint_room",
+  "map_id": "map_int_fineprint",
+  "name": "Fine Print — The Reading Room",
+  "parent_zone": "zone_district_903_908"
+}

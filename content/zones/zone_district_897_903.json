@@ -1,8 +1,12 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_events": [
+    "One of the lamp columns buzzes, thinks about it, and settles.",
+    "Somebody has chalked a boat name and a tide on the hut door. Both are months old.",
+    "The far lamp picks up the beam off the water and loses it again."
+  ],
+  "ambient_theme": "coast",
+  "color": "#6f7478",
+  "description": "Six bays of hardstanding marked out in yellow that has not been repainted since anyone can remember, a kerb on three sides, and a lamp column at each corner of the seaward end. The harbourmaster's hut sits in the corner nearest the water — a bolted steel cabin with one lit window and a sign that has kept its colour better than the paint on the ground. The road is SOUTH; the jetty is NORTH.",
   "exits": {
     "east": "zone_district_898_903",
     "north": "zone_district_897_902",
@@ -10,15 +14,20 @@
     "west": "zone_district_896_903"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Jetty Yard",
+    "building_type": "harbour_yard",
+    "district": "docks",
+    "entrance": "south",
+    "floors": 1,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "asphalt"
   },
   "grid_x": 897,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_897_903",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Jetty Yard",
   "parent_zone": null
 }

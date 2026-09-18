@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_seedling_tray",
+  "name": "tray of seedlings",
+  "tags": {
+    "description": "A shallow tray of twelve cells, each with something pale and hopeful an inch out of it. It has to be carried flat and level, which changes how a person walks and is visible from some distance away.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 19,
+  "weight": 1100
+}

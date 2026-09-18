@@ -1,0 +1,19 @@
+{
+  "description": "Forty lines on a wall panel in his handwriting, dated, sequenced and entirely certain. Almost none of it is right. It is laid out with such care, and reads with such conviction, that people get to the end of it before they start doubting, and most of them never do.",
+  "flags": {
+    "aliases": "chronology,panel,wall panel,handoff,timeline",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_past_chronology",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "THE HANDOFF: A CHRONOLOGY",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pastperf_hall"
+}

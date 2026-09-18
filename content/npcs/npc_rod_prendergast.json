@@ -1,0 +1,298 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Yusuf winds something round something, thumb over the turns, without watching his hands.",
+    "He opens a drawer in the wall, finds what he expected, and shuts it again.",
+    "He holds a length of line up to the window and squints along it.",
+    "He rubs out one word on the board with his sleeve and writes a better one.",
+    "The bait fridge changes note. He glances at it and goes back to what he was doing.",
+    "\"Turning over,\" he says, to the window. \"It'll be dead by Thursday.\"",
+    "He turns a reel handle three times, slowly, listening to it.",
+    "He looks across the road at the statue for a while, the way you look at a colleague.",
+    "He picks a hook out of a tin, holds it against the light, and puts it in a different tin.",
+    "\"Somebody'll ask me today,\" he says. \"Somebody asks me every day.\""
+  ],
+  "description": "A lean, unhurried man of about sixty who is always doing something small with his hands, tying or untying or winding, and who can carry on a whole conversation without once looking at what they are doing. He has the weathered squint of somebody who has spent a great deal of his life looking at water in bad light, and a habit of answering a question with the answer to a slightly better question.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "The statue over the road.",
+          "next": "statue"
+        },
+        {
+          "label": "Is the bay safe to eat out of?",
+          "next": "water"
+        },
+        {
+          "label": "I've never done this.",
+          "next": "starting"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Board's by the door, it's current, I wrote it this morning.\" He goes on winding something round something. \"Ask me what's taking and I'll tell you. Ask me where and I'll tell you that too, which surprises people.\"",
+      "text_by_relation": {
+        "familiar": "\"Right,\" he says, before you've got the door shut. \"Don't go where you went last week. It's turned over, it'll be dead for a fortnight and you'll stand there four hours being stubborn about it.\"\n\nHe writes something on a scrap and pushes it over.\n\n\"There. Go in the hour after the light goes. Don't tell people.\"",
+        "first": "The old man behind the counter is doing something to a reel with a screwdriver the size of a match and does not stop.\n\n\"Prendergast. Yusuf.\" He tips his head at the window without looking at it. \"Yes, I know what's standing across the road. No, I didn't put it there. It went up about ninety years before I did and it is the single best piece of luck I have ever had, and I will not pretend otherwise.\"\n\nThe reel makes a better noise than it did.\n\n\"Board by the door's the week's water. It's current.\"",
+        "known": "\"Back.\" He puts the screwdriver down, which is as close as he comes to a welcome. \"Board's changed since Tuesday. Read it properly this time, the bottom line's the one that matters.\""
+      }
+    },
+    "starting": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Then you want the cheap rod, the small hooks and about a third of the line you think you want.\" He sets the reel down and is, briefly, entirely present. \"Everybody starts by buying tackle for the fish they intend to catch, which is the wrong end of it. Buy for the fish you will actually catch, which is small and stupid and plentiful, and you will catch some, and catching some is the only thing that makes anybody come back.\"\n\nHe picks the reel up again.\n\n\"Come back and I'll sell you the other end of it in a year.\""
+    },
+    "statue": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A fisherman,\" he says, with a long pause after it. \"Bronze. Hauling a net that has got nothing in it, which is either very honest or nobody thought it through.\"\n\nHe goes back to winding.\n\n\"People leave flowers at it. Have done for as long as I've been here. Nobody I have ever asked can tell me for who, and I have asked a lot of people, including three who were old when I was young.\" A shrug. \"It's a nice thing to not know.\""
+    },
+    "water": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He looks at you for the first time.\n\n\"No.\"\n\nHe lets that sit exactly as long as it needs to.\n\n\"It's on the board at the bottom in permanent pen and it's been there since before I owned the shop. You can fish it. People do, all day, every day, and I sell them the tackle to do it and I take their money happily. What you do with the thing on the end is yours.\" He goes back to the reel. \"I'd not give it to a child.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a quilted waistcoat with a dozen small pockets",
+      "a flannel shirt buttoned to the wrist",
+      "canvas trousers and rubber boots turned down at the top"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_rodalmighty_shop",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_rod_prendergast",
+  "name": "Yusuf Prendergast",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_fishing_rod",
+      "price": 44
+    },
+    {
+      "item_id": "item_bloodworm_bait",
+      "price": 6
+    },
+    {
+      "item_id": "item_hook_tin",
+      "price": 15
+    },
+    {
+      "item_id": "item_line_spool",
+      "price": 19
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Rod Almighty",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_rodalmighty_shop"
+}

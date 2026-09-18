@@ -1,0 +1,20 @@
+{
+  "description": "Wooden boxes on slatted racks to the ceiling, each chalked with a name and a time. The times are when it came out of the water, not when it came into the shop, and the difference between those two numbers is the entire business.",
+  "flags": {
+    "aliases": "boxes,box,racks,store",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cod_boxes",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the boxes",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_codfather_ice"
+}

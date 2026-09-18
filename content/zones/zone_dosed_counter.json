@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#18241f",
+  "color": "#4f9d7a",
+  "description": "Narrow, high-ceilinged, and lined to the picture rail with drawers and jars, most of the jars decorative and a few of them not. The dispensing counter is raised a step so the person behind it is looking down at you, which is a very old trick and still works. Behind it, shelves of amber glass in an order nobody out front is meant to follow. It smells of aniseed, surgical spirit and warm paper bags.",
+  "exits": {
+    "down": "zone_util_zone_dosed_counter",
+    "south": "zone_district_917_911"
+  },
+  "flags": {
+    "building_name": "Dosed & Confused",
+    "building_type": "chem_supply",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Boxes in the window that have gone pale down one side from standing in the light, and past them the corner where Foundry Way runs into the Gate Road. It is the busiest thing this street has to look at.",
+      "light": 0.85,
+      "name": "the faded window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_917_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_dosed_counter",
+  "map_id": "map_int_dosed",
+  "name": "Dosed & Confused — Counter",
+  "parent_zone": "zone_district_917_911"
+}

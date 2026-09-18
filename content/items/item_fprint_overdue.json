@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_fprint_overdue",
+  "name": "an overdue notice",
+  "tags": {
+    "stackable": true,
+    "description": "A printed slip filled in by hand: the title, the date it was due, the amount so far, and the amount it will be by next Friday. The last line is not a threat and does not read as one, which is somehow worse. He writes four of these a week and has never once not sent one."
+  },
+  "type": "media",
+  "value": 1,
+  "weight": 4
+}

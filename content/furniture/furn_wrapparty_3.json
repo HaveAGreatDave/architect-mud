@@ -1,0 +1,16 @@
+{
+  "description": "A slate by the door with tomorrow's studio calls chalked on it, copied down by whoever comes in first with the sheet. The names get rubbed out as people read them. An empty board at midnight is very good news for somebody.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_wrapparty_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the call board",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_wrapparty_bar"
+}

@@ -1,0 +1,16 @@
+{
+  "description": "Four tall carboys of coloured water on the high shelf, which have never held anything and have been in chemists' windows for longer than anyone can account for. They are dusted. Nobody has worked out how to dust behind them.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_dosed_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the show jars",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_dosed_counter"
+}

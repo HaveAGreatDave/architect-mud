@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_justmytype_floor",
+  "id": "map_int_justmytype",
+  "name": "Just My Type",
+  "parent_zone_id": "zone_district_913_911"
+}

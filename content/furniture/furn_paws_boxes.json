@@ -1,0 +1,19 @@
+{
+  "description": "A shelf of small boxes down here, each one labelled with a name and a date, waiting for somebody to decide whether they are coming back for it. Some of the dates are very old indeed. She does not throw them out and has never given a reason for that either.",
+  "flags": {
+    "aliases": "boxes,box,shelf,ashes",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_paws_boxes",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the small boxes",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_paws_wait"
+}

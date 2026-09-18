@@ -1,0 +1,19 @@
+{
+  "description": "Cast iron on a cast iron pedestal, taller than the man who runs it, with two magazines like ears and a lamphouse behind the gate that has its own flue through the roof. It is oiled everywhere a hand goes and dull everywhere one does not. It is threaded. It has been threaded since Friday.",
+  "flags": {
+    "aliases": "projector,machine,head,lamphouse",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": 400,
+  "hp_max": 400,
+  "id": "furn_reel_projector",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the projector",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_reel_box"
+}

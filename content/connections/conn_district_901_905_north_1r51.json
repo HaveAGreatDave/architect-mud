@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_901_905",
+  "b": "zone_regerts_stair",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_901_905_north_1r51",
+  "lockable": true,
+  "one_way": false
+}

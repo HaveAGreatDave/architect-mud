@@ -1,0 +1,18 @@
+{
+  "description": "A caged bulkhead lamp over the cabinet, the only light down here and entirely sufficient for the one job anybody does.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_util_zone_restassured_hall",
+  "light_type": "lamp",
+  "lumen_output": 500,
+  "name": "caged bulkhead lamp",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 20,
+  "zone_id": "zone_util_zone_restassured_hall"
+}

@@ -1,0 +1,320 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Abel turns a tray end for end, looks at it, and turns it back.",
+    "He scrapes the bench flat with the edge of a blade in one pass and does not look at what he is doing.",
+    "He slides a tray into the rack, misses the runner, and gets it on the second go without comment.",
+    "He takes a loaf off the top tray, taps the bottom of it with two knuckles, listens, and puts it back.",
+    "\"That one's an hour off,\" he says, to nobody, about something out of sight.",
+    "He wipes his hands on his front. It does not help and he does it again.",
+    "The hatch to the ovens bangs and a wave of heat comes through the room.",
+    "He looks at the window stools, counts them occupied, and seems satisfied by the number.",
+    "\"Been up since three,\" he says, to the bench, not as a complaint.",
+    "He writes a number on the back of a bag, looks at it, and crosses it out."
+  ],
+  "description": "A short wide man with forearms out of all proportion to the rest of him and flour worked so far into the creases of his hands that washing has stopped being the point. He has been awake since three and it shows in the eyes and nowhere else. He talks while he works and the work does not slow down for it, and if you stop him mid-sentence he will finish the sentence later, exactly where he left it.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "coffee": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because I got asked four hundred times and I got tired.\" He nods at the till. \"There's a place two streets up that does it properly and does nothing else, and if I started doing it badly at half the price I'd take their trade and give people a worse morning. That's not a kindness, it's just bad bread with extra steps.\"\n\nA pause.\n\n\"Somebody's written underneath that it isn't very good. That's not me. I know who it is.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People talk in here. I don't go looking for it.\" A shrug. \"Doesn't mean I've got a bad memory.\""
+    },
+    "green": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Best on the row and I did nothing to earn it.\" He wipes his hands. \"Four stools in that window and people will wait for one. They're not waiting for the bread, they've already got the bread. They want to sit and look at the grass for ten minutes before whatever it is they're going to.\"\n\nHe goes back to the bench.\n\n\"I keep the glass clean at eye height and let the rest of it steam up. That's deliberate. It's warmer looking in than it is looking out.\""
+    },
+    "hours": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Dough doesn't care what time you'd prefer.\" He shrugs with his whole upper body, which is a lot of upper body. \"It's ready when it's ready and if you're not there it goes past ready, and past ready is a thing you can taste and can't fix. So, three. Sometimes half two.\"\n\nHe scrapes the bench flat.\n\n\"The advantage is I'm finished at two in the afternoon and everybody who works normal hours thinks I'm on holiday.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Four in the morning?",
+          "next": "hours"
+        },
+        {
+          "label": "Why the card about the coffee?",
+          "next": "coffee"
+        },
+        {
+          "label": "Good spot, facing the park.",
+          "next": "green"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Morning. It's morning somewhere.\" He doesn't look up from the bench. \"Trays are out, what's on them is what there is, and if you want something that isn't on them you want somewhere that isn't here.\"",
+      "text_by_relation": {
+        "familiar": "There is already a bag on the corner of the counter with the top folded over when you come in, and he hasn't looked up.\n\n\"Held it back,\" he says. \"You can not want it. It won't offend me and it won't go to waste.\"",
+        "first": "The baker glances up, registers a stranger, and goes back to what he's doing without breaking rhythm.\n\n\"Abel. This is mine, my father's before that, and before that it was a place that sold hats, which nobody believes.\" He turns a tray end for end. \"Trays are out. What's on them is what there is. I'm not being short with you, I've been up since three and this is as long as my sentences get.\"",
+        "known": "\"You again.\" He tips his chin at the second tray down without stopping. \"That one. They came out right this morning and they will not be there in an hour.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a white coat gone grey at the cuffs",
+      "a collarless shirt with the sleeves rolled past the elbow",
+      "heavy cotton trousers and an apron tied twice round"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_loafing_shop",
+  "hp": 42,
+  "hp_max": 42,
+  "id": "npc_loafing_coyne",
+  "name": "Abel Coyne",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_grey_loaf",
+      "price": 8
+    },
+    {
+      "item_id": "item_mother_loaf",
+      "price": 26
+    },
+    {
+      "item_id": "item_flat_bread",
+      "price": 5
+    },
+    {
+      "item_id": "item_dripping_bread",
+      "price": 9
+    },
+    {
+      "item_id": "item_dough_ball",
+      "price": 6
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 4,
+        "to": 14
+      }
+    ],
+    "mon": [
+      {
+        "from": 4,
+        "to": 14
+      }
+    ],
+    "sat": [
+      {
+        "from": 4,
+        "to": 14
+      }
+    ],
+    "sun": [
+      {
+        "from": 4,
+        "to": 14
+      }
+    ],
+    "thu": [
+      {
+        "from": 4,
+        "to": 14
+      }
+    ],
+    "tue": [
+      {
+        "from": 4,
+        "to": 14
+      }
+    ],
+    "wed": [
+      {
+        "from": 4,
+        "to": 14
+      }
+    ]
+  },
+  "vendor_shop_name": "Loafing Around",
+  "vendor_stock_size": 15,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_loafing_shop"
+}

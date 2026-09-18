@@ -1,0 +1,14 @@
+{
+  "description": "An angled tin shade on a jointed arm over the rewind bench, the bulb in it bare and the shade hot enough to leave a mark. It is aimed at the ledger rather than at the machines.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_reel_box",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "the bench light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_reel_box"
+}

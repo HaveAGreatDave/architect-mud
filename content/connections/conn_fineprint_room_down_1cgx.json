@@ -1,0 +1,9 @@
+{
+  "a": "zone_fineprint_room",
+  "b": "zone_util_zone_fineprint_room",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_fineprint_room_down_1cgx",
+  "lockable": false,
+  "one_way": false
+}

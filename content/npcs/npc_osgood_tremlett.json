@@ -1,0 +1,90 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Blackout lining. Two layers of it. You can still read a paper by that lamp at two in the morning.\"",
+    "stands at the window with a cup of something, looking down at the lamp with real personal feeling",
+    "\"I have written to them. There is nobody to write to, but I have written to them.\"",
+    "counts the coins in his palm twice and puts the same amount back in his pocket",
+    "\"Best flat in the building, everyone says. Everyone who does not have to sleep in it.\""
+  ],
+  "description": "A heavy, slow-moving man with a lifetime of somebody else's paperwork behind him and a front flat with the streetlight directly outside the window. He has fitted three different curtains to that window and describes the failure of each at length to anybody who asks and several who do not.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Evening.\" He checks the sky. It is not evening. \"Well. Whatever it is.\"",
+        "He shifts in the doorway to let you past and does not quite manage it."
+      ],
+      "text_by_relation": {
+        "familiar": "\"Come up, I have got the good chair out.\" He has had the good chair out since 1600.",
+        "first": "\"Tremlett. Third floor front.\" He says the last part as though it explains something, and in this building it does. \"Do not take the front flat. Whatever they offer you on it, do not take it.\"",
+        "known": "\"You will want to know about the curtains.\" You did not."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a pilled brown dressing gown, worn outdoors without embarrassment",
+      "a shirt with no collar",
+      "a vest and drawers"
+    ],
+    "personality": "gruff"
+  },
+  "home_activities": [],
+  "home_zone": "zone_filament_unit_3",
+  "hp": 22,
+  "hp_max": 22,
+  "id": "npc_osgood_tremlett",
+  "name": "Osgood Tremlett",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

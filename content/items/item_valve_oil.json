@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_valve_oil",
+  "name": "bottle of valve oil",
+  "tags": {
+    "description": "A small bottle of thin clear oil with a needle spout, the label worn off one side from being held the same way every time. It smells faintly of nothing, which is the whole point of it.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 11,
+  "weight": 90
+}

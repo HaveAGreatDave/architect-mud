@@ -112,7 +112,8 @@ factors of the egress model directly, from **production**:
   and it landed on the divergence check below, which is the one thing here that
   cannot afford a constant offset. Corrected 2026-09-02: real cold-start payload
   is ~13.7 MB, `zones` is 63% of it, and the report now names what it left out.
-- **World loads/day** — cold starts from **Render's CPU timeline** (§5).
+- **World loads/day** — two sources added together: cold starts from **Render's
+  CPU timeline** (§5), plus **deploy reboots** counted from `deployments` rows.
 
 ⚠ **Not from `player_count_log`, which undercounts by roughly half.** That was
 the original source and it is wrong: the log is written by `schedule('1m', …)`
@@ -123,6 +124,33 @@ restart merges into a single gap. Measured 2026-09-01: Render said **13.4
 cold starts/day**, `player_count_log` said **6.8** — and the low figure is the
 dangerous direction for a budget alarm. It survives only as a fallback for when
 Render is unreachable, and the report labels which source it used.
+
+⚠ **A DEPLOY IS A WORLD LOAD AND THE CPU TIMELINE CANNOT SEE IT** (added
+2026-09-18). Every scheduled `deploy-content` run POSTs the Render hook, the
+service restarts, and the server cold-loads the whole boot payload. But cold
+starts are derived from **gaps** in `/metrics/cpu`, and a deploy restart leaves
+no meaningful gap — the replacement instance comes straight back up. So none of
+them were counted. Measured 2026-09-17: Render's timeline said **0.30 loads/day**
+while the workflow was deploying **four times a day**, and the model therefore
+reported 4 MB/day against a measured baseline of ~67 MB/day.
+
+That was not a small offset, it was a **stuck signal**: the divergence check read
+"something OTHER than boot is leaking" on every single run for weeks, when the
+leak *was* boot, once per deploy. A check that cannot change state is not a
+check. The count comes from the `deployments` row the deploy workflow's last
+step writes, filtered to `deployed_by='ci'` — the devpanel's staging publisher
+writes to the same table but stamps a person's name and never touches the Render
+hook, so that filter is the whole distinction between "content changed" and "the
+world was reloaded". ⚠ The two terms are **added**, so a deploy restart that ever
+*did* register as a gap would be double-counted; that is bounded by the deploy
+rate and is the safe direction, on the same reasoning that makes
+`player_count_log`'s undercount the dangerous one. The pure arithmetic
+(`deployRate`, `combineLoads`) is gated in `npm run ops:smoke`.
+
+**Once it is counted, the cadence is a lever.** At 4-hourly, ~120 deploys a month
+× ~13.3 MB is **~1.6 GB of a 5 GB cap before a player connects**. The deploy
+workflow's own header did this arithmetic at 4.7 MB and has not been revisited
+since the payload grew into 13.3.
 
 **The divergence is the point.** If model ≈ API, world boot is the budget and the
 payload is the lever. If Neon reports much more, something *else* is leaking and

@@ -1,0 +1,9 @@
+{
+  "a": "zone_compostmentis_yard",
+  "b": "zone_util_zone_compostmentis_yard",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_compostmentis_yard_down_comp2",
+  "lockable": false,
+  "one_way": false
+}

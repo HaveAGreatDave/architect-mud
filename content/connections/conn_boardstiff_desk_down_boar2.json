@@ -1,0 +1,9 @@
+{
+  "a": "zone_boardstiff_desk",
+  "b": "zone_util_zone_boardstiff_desk",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_boardstiff_desk_down_boar2",
+  "lockable": false,
+  "one_way": false
+}

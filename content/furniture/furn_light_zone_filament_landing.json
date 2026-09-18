@@ -1,0 +1,18 @@
+{
+  "description": "A bare bulb on a twisted flex, hanging a little too low for the taller residents, who have learned.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_filament_landing",
+  "light_type": "lamp",
+  "lumen_output": 700,
+  "name": "landing bulb",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_filament_landing"
+}

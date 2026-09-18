@@ -1,0 +1,9 @@
+{
+  "a": "zone_skelcrew_shop",
+  "b": "zone_util_zone_skelcrew_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_skelcrew_shop_down_15rj",
+  "lockable": false,
+  "one_way": false
+}

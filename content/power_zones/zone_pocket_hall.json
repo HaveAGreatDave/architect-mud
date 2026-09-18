@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_pocket_hall",
+  "id": "zone_pocket_hall",
+  "max_capacity_kw": 200,
+  "name": "Pocket Money — The Hall",
+  "source_type": "city_grid"
+}

@@ -21,7 +21,29 @@
 // ⚠ DEPTH-TESTED, DEPTH-WRITE OFF. A bush must not punch its own alpha-shaped hole in the depth
 // buffer: the quad is mostly empty, and writing depth from it would let the empty half occlude
 // whatever is behind. Testing is the whole point; writing would be a second bug.
+//
+// ⚠ EXCEPT FOR WHAT FLIES, WHICH IS AN OPT-IN AND HAD TO BE. A billboard writes no depth, so it
+// leaves nothing behind for a LATER pass to sort against — and there is exactly one later pass:
+// the cloud deck, which clears colour only and tests against the depth the world left. A goose and
+// an air contact are the two billboards that habitually share sky with a cloud, and both were
+// painted over by the deck whatever their altitude: the deck is drawn after the world and the
+// depth buffer, at the birds' own pixels, still held the ground four hundred tiles away. Nothing
+// on the ground has this problem, because a cloud is never in front of a tree.
+//
+// ⚠ AND IT IS A DEPTH-ONLY PREPASS, NEVER A RAISED CUTOFF ON THE ONE DRAW. The obvious version
+// discards below ~0.5 and writes depth in the same pass, which also deletes every texel between
+// 0.004 and 0.5 from the PICTURE — a goose's antialiased rim, and on a contact the canopy glass,
+// the nav-lamp glow and the exhaust, none of which are fringe. So the colour pass is byte-for-byte
+// the one that always shipped, and a second draw with `colorMask` off lays the silhouette into the
+// depth buffer ahead of it. ⚠ With no batch asking for it the prepass is not merely cheap, it is
+// the absence of a code path — which is what makes the flag's `0` provably the old renderer.
 import { viewProjMatrix } from './camera.js';
+
+// What alpha counts as the SHAPE rather than as its edge, in the depth-only prepass. A billboard is
+// baked from flat fills, so its interior is 1 and only the rim is between; half is the middle of
+// the rim and moves the silhouette by well under a pixel.
+const DEPTH_CUT = 0.5;
+const COLOUR_CUT = 0.004;
 
 // pos3, pixel offset2, uv2, alpha1
 const STRIDE = 8;
@@ -61,10 +83,19 @@ in float vAlpha;
 in float vFog;
 uniform sampler2D uTex;
 uniform vec3 uFog;
+uniform float uCut;
+uniform float uCutFade;
 out vec4 outColor;
 void main() {
   vec4 t = texture(uTex, vUV);        // premultiplied on upload
-  if (t.a < 0.004) discard;
+  // ⚠ THE QUAD'S OWN ALPHA COUNTS IN THE DEPTH PREPASS AND NOWHERE ELSE. A goose dissolving into
+  // the far haze and a bogey faded by distance are both drawn at a fraction of themselves, and a
+  // shape that is 40% there must not take 100% of the cloud behind it — that is a bird-shaped HOLE
+  // in the deck, which is a worse artefact than the one this fixes and it sits exactly at the fade
+  // where every flock spends most of its time. 'uCutFade' is 0 in the colour pass, so 'cover' is
+  // 't.a' and that test is the one that always shipped, to the bit.
+  float cover = t.a * mix(1.0, vAlpha, uCutFade);
+  if (cover < uCut) discard;
   // Un-premultiply to mix the colour, then re-premultiply — mixing a premultiplied colour toward
   // an opaque fog washes the edges out instead of tinting them.
   vec3 c = t.rgb / max(t.a, 1e-4);
@@ -109,6 +140,8 @@ export function createBillboardLayer(gl) {
     fogNear: gl.getUniformLocation(prog, 'uFogNear'),
     fogFar: gl.getUniformLocation(prog, 'uFogFar'),
     fogAmt: gl.getUniformLocation(prog, 'uFogAmt'),
+    cut: gl.getUniformLocation(prog, 'uCut'),
+    cutFade: gl.getUniformLocation(prog, 'uCutFade'),
   };
 
   const vao = gl.createVertexArray();
@@ -180,12 +213,12 @@ export function createBillboardLayer(gl) {
     const byKey = new Map();
     for (const b of list) {
       if (!b || !b.img || !(b.w > 0) || !(b.h > 0)) continue;
-      let a = byKey.get(b.key); if (!a) byKey.set(b.key, a = { img: b.img, fresh: !!b.fresh, flipY: !!b.flipY, items: [] });
-      a.items.push(b);
+      let a = byKey.get(b.key); if (!a) byKey.set(b.key, a = { img: b.img, fresh: !!b.fresh, flipY: !!b.flipY, items: [], deep: [] });
+      (b.depth ? a.deep : a.items).push(b);
     }
     evict(byKey);
     let quads = 0;
-    for (const a of byKey.values()) quads += a.items.length;
+    for (const a of byKey.values()) quads += a.items.length + a.deep.length;
     const verts = quads * 6;
     if (data.length < verts * STRIDE) data = new Float32Array(Math.max(verts * STRIDE, 2048));
     batches = [];
@@ -197,17 +230,39 @@ export function createBillboardLayer(gl) {
       data[o + 7] = b.alpha == null ? 1 : b.alpha;
       o += STRIDE;
     };
-    for (const [key, a] of byKey) {
-      for (const b of a.items) {
-        // The anchor is the tile's ground point. `ax`/`ay` say where that point sits inside the
-        // baked canvas, so the quad hangs off it exactly as the 2-D drawing did around it.
-        const L = -b.ax, R = b.w - b.ax, T = -b.ay, B = b.h - b.ay;
-        put(b, L, T, 0, 0); put(b, R, T, 1, 0); put(b, R, B, 1, 1);
-        put(b, L, T, 0, 0); put(b, R, B, 1, 1); put(b, L, B, 0, 1);
+    const quad = (b) => {
+      // The anchor is the tile's ground point. `ax`/`ay` say where that point sits inside the
+      // baked canvas, so the quad hangs off it exactly as the 2-D drawing did around it.
+      const L = -b.ax, R = b.w - b.ax, T = -b.ay, B = b.h - b.ay;
+      // ⚠ `rot` TURNS THE CORNERS, NEVER THE TEXTURE, and it is what lets a bird bank without a
+      // texture per bank angle: one baked pose, rotated about its own anchor. The offsets are in
+      // SCREEN pixels with y DOWN (see the T/B assignment above, which puts the canvas's top row at
+      // a negative offset), so this is the same clockwise sense `ctx.rotate` gives the 2-D path —
+      // which is what keeps the two renderers drawing one bird.
+      // ⚠ AND THE ZERO CASE IS NOT A CODE PATH. Every billboard but the geese omits `rot`, so the
+      // corners are the ones that always shipped, to the bit.
+      if (b.rot) {
+        const c = Math.cos(b.rot), s = Math.sin(b.rot);
+        const rx = (x, y) => x * c - y * s, ry = (x, y) => x * s + y * c;
+        put(b, rx(L, T), ry(L, T), 0, 0); put(b, rx(R, T), ry(R, T), 1, 0); put(b, rx(R, B), ry(R, B), 1, 1);
+        put(b, rx(L, T), ry(L, T), 0, 0); put(b, rx(R, B), ry(R, B), 1, 1); put(b, rx(L, B), ry(L, B), 0, 1);
+        return;
       }
-      const n = a.items.length * 6;
-      batches.push({ tex: textureFor(key, a.img, a.fresh, a.flipY), first, count: n });
-      first += n;
+      put(b, L, T, 0, 0); put(b, R, T, 1, 0); put(b, R, B, 1, 1);
+      put(b, L, T, 0, 0); put(b, R, B, 1, 1); put(b, L, B, 0, 1);
+    };
+    for (const [key, a] of byKey) {
+      // ⚠ ONE TEXTURE, UP TO TWO BATCHES. `depth` is GL STATE set once per draw call, so it belongs
+      // in the batch grouping and not merely on the item — the same rule `cull` follows in the
+      // decal layer, and for the same reason: two quads sharing a texture and disagreeing about it
+      // would be one draw, and one of them would silently get the other's answer. It stays OUT of
+      // the texture cache key, which is what `evict` reads: keying the cache on it would upload the
+      // same species twice and halve a cache whose overflow is already the layer's worst failure.
+      const tex = textureFor(key, a.img, a.fresh, a.flipY);
+      for (const b of a.items) quad(b);
+      if (a.items.length) { const n = a.items.length * 6; batches.push({ tex, first, count: n, depth: false }); first += n; }
+      for (const b of a.deep) quad(b);
+      if (a.deep.length) { const n = a.deep.length * 6; batches.push({ tex, first, count: n, depth: true }); first += n; }
     }
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -233,11 +288,36 @@ export function createBillboardLayer(gl) {
     gl.uniform1i(loc.tex, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.DEPTH_TEST);
+    // ⚠ STATED HERE RATHER THAN INHERITED, because the prepass below makes it load-bearing: it
+    // lays the quad's own depth down first, so under the GL default of LESS the colour pass would
+    // then fail its own test at every pixel and the bird would simply not be drawn. Every pass in
+    // this renderer already sets LEQUAL; what changed is that this one now depends on it.
+    gl.depthFunc(gl.LEQUAL);
     gl.depthMask(false);       // see the ⚠ at the top: a mostly-empty quad must not write depth
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(vao);
+    // The silhouette of what flies, into the depth buffer only — see the ⚠ at the top. Nothing is
+    // written to the colour buffer here, so the pass below is unchanged for every billboard
+    // including these; all this leaves behind is a depth the CLOUD deck can sort against.
+    let deep = 0;
+    for (const b of batches) if (b.depth) deep++;
+    if (deep) {
+      gl.uniform1f(loc.cut, DEPTH_CUT);
+      gl.uniform1f(loc.cutFade, 1);
+      gl.colorMask(false, false, false, false);
+      gl.depthMask(true);
+      for (const b of batches) {
+        if (!b.depth) continue;
+        gl.bindTexture(gl.TEXTURE_2D, b.tex);
+        gl.drawArrays(gl.TRIANGLES, b.first, b.count);
+      }
+      gl.depthMask(false);
+      gl.colorMask(true, true, true, true);
+    }
+    gl.uniform1f(loc.cut, COLOUR_CUT);
+    gl.uniform1f(loc.cutFade, 0);
     let n = 0;
     for (const b of batches) {
       gl.bindTexture(gl.TEXTURE_2D, b.tex);

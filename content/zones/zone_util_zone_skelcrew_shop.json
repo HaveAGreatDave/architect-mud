@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cupboard with a ladder in it rather than a cellar, holding the junction cabinet and the safe stock: eleven bodies on a shelf, all of them second-hand, all of them stripped and reassembled by him before they go out, because he will not sell a lock he has not had open himself.",
+  "exits": {
+    "up": "zone_skelcrew_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_898_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_skelcrew_shop",
+  "map_id": "map_int_skelcrew",
+  "name": "Skeleton Crew — The Shop — Utility Room",
+  "parent_zone": "zone_district_898_905"
+}

@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1d2220",
+  "description": "A scrubbed steel table in the middle of a small tiled room, and everything else against the walls where it can be reached without letting go. A gas bottle on a trolley, a drip stand, an instrument tray, and a cabinet of drugs with a real lock on it and a register beside it that is filled in every single time. There is a folded blanket on the shelf under the table. It is the softest object in the building and it is not for the animals that are going home.",
+  "exits": {
+    "south": "zone_paws_wait"
+  },
+  "flags": {
+    "building_name": "Paws for Thought",
+    "building_type": "vet",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_926_912"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_paws_surgery",
+  "map_id": "map_int_paws",
+  "name": "Paws for Thought — The Surgery",
+  "parent_zone": "zone_district_926_912"
+}

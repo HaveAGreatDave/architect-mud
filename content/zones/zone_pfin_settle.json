@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221f1a",
+  "description": "Behind the grille, and warmer than the shop by ten degrees because of the machines. A long desk down one side under a strip light, a comptometer at either end with the keys worn through the lacquer, and a rack of settled slips spiked on four spikes by date. The safe is old, green, and bolted through the floor into something underneath. Framed on the wall above the desk is a photograph of a finish so close that two noses share one line, and it is the only decoration in the building.",
+  "exits": {
+    "south": "zone_pfin_shop"
+  },
+  "flags": {
+    "building_name": "Photo Finish",
+    "building_type": "bookmaker",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_914_914"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_pfin_settle",
+  "map_id": "map_int_pfin",
+  "name": "Photo Finish — The Settling Room",
+  "parent_zone": "zone_district_914_914"
+}

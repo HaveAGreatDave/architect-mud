@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_restassured_hall",
+  "id": "zone_restassured_hall",
+  "max_capacity_kw": 1200,
+  "name": "Rest Assured — Front Hall",
+  "source_type": "junction_box"
+}

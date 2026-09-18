@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "Bins, mostly. Bins, and the bikes nobody bothers locking any more, chained to a rail that came off a ship. It smells of wet cardboard and, underneath, of the water at the far end.",
   "exits": {
     "east": "zone_district_900_909",
     "north": "zone_district_899_908",
@@ -10,16 +9,17 @@
     "west": "zone_district_898_909"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 899,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_899_909",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Kettle Lane",
   "parent_zone": null
 }

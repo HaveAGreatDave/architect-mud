@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "description": "The verge widens into a sort of apron where the boulevard pulls out, striped once with white paint that has gone the colour of the road. A dead streetlight stands in the middle of it.",
   "exits": {
     "east": "zone_district_898_909",
     "north": "zone_district_897_908",
@@ -10,9 +9,8 @@
     "west": "zone_district_896_909"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
     "terrain": "grass"
   },
   "grid_x": 897,
@@ -20,6 +18,6 @@
   "grid_z": 0,
   "id": "zone_district_897_909",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Halcyon Verge",
   "parent_zone": null
 }

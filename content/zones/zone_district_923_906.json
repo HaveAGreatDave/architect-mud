@@ -1,22 +1,28 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "waterfront",
+  "color": "#a98b63",
+  "description": "The older gantry: plate steel where its neighbour is lattice, a tall A-frame, and a boom that stops well short of the channel. It was built to swing sacks and crates, and the year the containers arrived it became scenery with a maintenance bill. The trolley is parked over the portal and the grease on the rail has gone to varnish.",
   "exits": {
     "east": "zone_district_924_906",
     "north": "zone_district_923_905"
   },
   "flags": {
+    "building_name": "The Boom Economy",
+    "building_type": "wharf",
     "district": "docks",
+    "entrance": "east",
+    "fishing_table_id": "fish_coldwater_bay",
+    "floors": 14,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_industrial_salvage",
+    "terrain": "concrete"
   },
   "grid_x": 923,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_923_906",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Boom Economy",
   "parent_zone": null
 }

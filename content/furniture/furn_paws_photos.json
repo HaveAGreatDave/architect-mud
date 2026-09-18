@@ -1,0 +1,19 @@
+{
+  "description": "Dozens, pinned above the desk, all sent in by people afterwards. Every single one is an animal doing nothing in particular in somebody’s kitchen. There is no order to them and none is labelled, and she can tell you every name without looking.",
+  "flags": {
+    "aliases": "photographs,photos,pictures,wall,board",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_paws_photos",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the sent-in photographs",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_paws_wait"
+}

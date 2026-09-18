@@ -1,0 +1,125 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "120,200,235",
+      "s": 13,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Rod Almighty"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.3,
+      "hh": 0.016,
+      "kind": "parapet",
+      "pal": "ty_slip",
+      "z": 0.72
+    },
+    {
+      "bars": 5,
+      "cx": 0,
+      "cy": 0.32,
+      "depth": 0.018,
+      "glass": "#0e1c22",
+      "glow": "#bfe6f2",
+      "half": 0.22,
+      "hh": 0.032,
+      "kind": "windowBay",
+      "pal": "ty_shop_c",
+      "z": 0.11
+    },
+    {
+      "color": "#0d2530",
+      "cx": 0,
+      "cy": 0.32,
+      "font": "condensed",
+      "half": 0.21,
+      "hh": 0.028,
+      "ink": "#9fe0f5",
+      "kind": "signBoard",
+      "label": "ROD ALMIGHTY",
+      "z": 0.3
+    },
+    {
+      "color": "#e8e2d2",
+      "cx": 0.24,
+      "cy": 0.32,
+      "font": "stencil",
+      "half": 0.06,
+      "hh": 0.018,
+      "ink": "#16242b",
+      "kind": "signBoard",
+      "label": "BAIT",
+      "z": 0.13
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.32,
+      "half": 0.07,
+      "hh": 0.045,
+      "kind": "shutter",
+      "pal": "ty_slip",
+      "z": 0.01
+    },
+    {
+      "cx": -0.18,
+      "cy": 0.32,
+      "d": 0.05,
+      "drip": 0.6,
+      "hh": 0.03,
+      "kind": "acUnit",
+      "pal": "ty_slip",
+      "w": 0.09,
+      "z": 0.5
+    }
+  ],
+  "id": "rodalmighty",
+  "neon": "#5cc7e8",
+  "note": "A tackle shop opposite a bronze fisherman, which its owner regards as the best luck of his life. NARROW, because the plot is: the rods stand upright in a rank against the glass and the shop is organised front to back rather than side to side. The whiteboard by the door faces out and carries the week's water.",
+  "pal": "ty_shop_c",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.06
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.32,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.06,
+      "z1": 0.58
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_slip",
+      "roof": true,
+      "z0": 0.58,
+      "z1": 0.72
+    }
+  ],
+  "trade": "mercantile"
+}

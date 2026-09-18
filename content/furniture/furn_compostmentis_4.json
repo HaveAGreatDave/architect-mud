@@ -1,0 +1,16 @@
+{
+  "description": "Fat iron pipes running the length of the staging at shin height, warm most of the year and hot in a frost. Cats know about them. So do a number of people, and the shop's policy on that has always been to notice nothing before opening.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_compostmentis_4",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the heating pipes",
+  "object_type": "fixture",
+  "power_draw_kw": 1.8,
+  "price": 0,
+  "zone_id": "zone_compostmentis_yard"
+}

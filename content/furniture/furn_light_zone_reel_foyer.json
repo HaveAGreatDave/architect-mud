@@ -1,0 +1,14 @@
+{
+  "description": "Two brass-armed fittings hung from the foyer ceiling, five lamps each, three lamps out between them. They put more light on the carpet than anything in this building puts on the screen.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_reel_foyer",
+  "light_type": "overhead",
+  "lumen_output": 2600,
+  "name": "the foyer chandeliers",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_reel_foyer"
+}

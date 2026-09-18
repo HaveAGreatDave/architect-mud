@@ -1,0 +1,9 @@
+{
+  "a": "zone_floristgump_shop",
+  "b": "zone_util_zone_floristgump_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_floristgump_shop_down_flor2",
+  "lockable": false,
+  "one_way": false
+}

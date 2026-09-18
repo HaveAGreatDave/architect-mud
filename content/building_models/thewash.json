@@ -1,0 +1,285 @@
+{
+  "adorn": [
+    {
+      "cx": -0.06,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "190,230,250",
+      "s": 20,
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "150,200,220",
+      "s": 14,
+      "z": 0.76
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "150,210,235",
+      "s": 16,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Wash"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.42,
+      "hh": 0.014,
+      "kind": "parapet",
+      "pal": "ty_ff_white",
+      "z": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.31,
+      "hh": 0.011,
+      "kind": "parapet",
+      "pal": "ty_ff_white",
+      "z": 0.8
+    },
+    {
+      "bars": 5,
+      "cx": -0.06,
+      "cy": 0.43,
+      "depth": 0.018,
+      "glass": "#1a2830",
+      "glow": "#dff2ff",
+      "half": 0.3,
+      "hh": 0.15,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "transom": 0.74,
+      "z": 0.3
+    },
+    {
+      "bars": 1,
+      "cx": 0.32,
+      "cy": 0.435,
+      "depth": 0.016,
+      "glass": "#232e34",
+      "glow": "#43555e",
+      "half": 0.06,
+      "hh": 0.125,
+      "kind": "windowBay",
+      "pal": "ty_ff_white",
+      "z": 0.24
+    },
+    {
+      "cx": 0,
+      "cy": 0.43,
+      "half": 0.38,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.11,
+      "pal": "ty_ff_white",
+      "soffit": "#2b3a42",
+      "strip": "#7fe3ff",
+      "z": 0.47
+    },
+    {
+      "color": "#12202a",
+      "cx": -0.06,
+      "cy": 0.43,
+      "font": "condensed",
+      "half": 0.27,
+      "hh": 0.028,
+      "ink": "#9fe8ff",
+      "kind": "signBoard",
+      "label": "THE WASH",
+      "z": 0.513
+    },
+    {
+      "cx": 0,
+      "cy": 0.435,
+      "half": 0.34,
+      "kind": "conduit",
+      "pal": "ty_cold",
+      "r": 0.012,
+      "z": 0.575
+    },
+    {
+      "cx": -0.1,
+      "cy": -0.42,
+      "drip": 1,
+      "half": 0.13,
+      "hh": 0.075,
+      "kind": "louvreBank",
+      "n": 6,
+      "pal": "ty_cold",
+      "z": 0.44
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "cx": -0.26,
+        "cy": 0.42,
+        "drip": 1,
+        "face": "x",
+        "hh": 0.036,
+        "kind": "vent",
+        "pal": "ty_cold",
+        "w": 0.048,
+        "z": 0.2
+      },
+      "step": {
+        "cx": 0.15
+      }
+    },
+    {
+      "cx": 0.24,
+      "cy": -0.42,
+      "kind": "ductRun",
+      "pal": "ty_cold",
+      "r": 0.028,
+      "run": -0.18,
+      "z0": 0.1,
+      "z1": 0.6
+    },
+    {
+      "cx": 0.18,
+      "cy": -0.06,
+      "hh": 0.16,
+      "kind": "stack",
+      "pal": "ty_cold",
+      "r": 0.045,
+      "z": 0.8
+    },
+    {
+      "cx": 0.14,
+      "cy": 0.2,
+      "hh": 0.065,
+      "kind": "roofTank",
+      "pal": "ty_cold",
+      "r": 0.085,
+      "z": 0.8
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.455,
+      "d": 0.036,
+      "glow": "#bfe8ff",
+      "hh": 0.075,
+      "kind": "vendingMachine",
+      "pal": "ty_cold",
+      "rgb": "160,220,255",
+      "s": 7,
+      "w": 0.05,
+      "z": 0.004
+    },
+    {
+      "cx": 0.4,
+      "cy": -0.42,
+      "d": 0.032,
+      "hh": 0.028,
+      "kind": "binStack",
+      "lid": "#2b3238",
+      "n": 2,
+      "pal": "ty_cold",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_ff_white",
+      "z": 0.004
+    },
+    {
+      "cx": 0.14,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_ff_white",
+      "z": 0.004
+    },
+    {
+      "cx": 0.42,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_ff_white",
+      "r": 0.026,
+      "rgb": "186,226,240",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.09
+    }
+  ],
+  "id": "thewash",
+  "neon": "#7fe3ff",
+  "note": "THE WASH — the launderette on the west side of Ironside Street, and the lowest thing on it.\n\nIt was the plainest building on the street by measurement rather than by opinion: four mass\nsegments, two wall palettes and a roof at 0.61, against a street whose next-plainest was 0.70.\n\n⚠ THE HEIGHT IS THE EXTRACT, NOT THE BUILDING. A launderette is one room and has no business being\ntall, so the shed stays low and what puts it on the skyline is the flue — which is also the only\nhonest answer to where the steam goes. The lantern over the machines is the same argument one\nstorey down: it is how a single-storey room with thirty tumble dryers in it gets any light at all.\n\n⚠ AND THE GLAZING IS ONE BAND WITH THE DOOR BESIDE IT, not a pair of punched windows. Everybody\ninside is waiting, so the whole frontage is a window with people sitting behind it, which is what a\nlaunderette looks like from the far pavement at ten at night.",
+  "pal": "ty_trm_wash",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_trm_wash",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_ff_white",
+      "roof": true,
+      "z0": 0.62,
+      "z1": 0.8
+    },
+    {
+      "cx": -0.22,
+      "cy": -0.2,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_cold",
+      "roof": true,
+      "z0": 0.8,
+      "z1": 0.96
+    },
+    {
+      "cap": false,
+      "cx": -0.22,
+      "cy": -0.2,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_cold",
+      "rb": 0.05,
+      "rt": 0.045,
+      "z0": 0.96,
+      "z1": 1.3
+    }
+  ],
+  "trade": "laundromat"
+}

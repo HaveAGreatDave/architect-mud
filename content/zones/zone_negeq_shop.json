@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#20221f",
+  "description": "A small waiting room with a desk, two chairs, and every wall covered in work, hung edge to edge and floor to picture rail without a gap anywhere. Faces, mostly. A few groups. Three of a building. The frames do not match and the hanging is immaculate. A ledger on the desk is open at a page of names with times beside them, and a second column, headed only with a dash, in which most of the entries are a single word.",
+  "exits": {
+    "up": "zone_negeq_studio",
+    "west": "zone_district_895_904",
+    "down": "zone_util_zone_negeq_shop"
+  },
+  "flags": {
+    "building_name": "Negative Equity",
+    "building_type": "photographer",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A shopfront window mostly filled by the back of the display case, so what you get of the street is a strip above the frames and a strip below them. People stop at the case and she watches them decide.",
+      "light": 0.6,
+      "name": "the shopfront",
+      "visibility": 0.55
+    },
+    "world_exit_zone": "zone_district_895_904"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_negeq_shop",
+  "map_id": "map_int_negeq",
+  "name": "Negative Equity — The Front",
+  "parent_zone": "zone_district_895_904"
+}

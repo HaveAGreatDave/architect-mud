@@ -1,0 +1,19 @@
+{
+  "description": "A black japanned cash box under the counter with the maker's transfer still on the lid and a key in the lock, because the key has been lost twice and the second time she gave up. It is heavier than it looks and it is not where a thief would look, which she considers sufficient.",
+  "flags": {
+    "aliases": "cash box,box,till,money",
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_stuffit_vandersloot",
+    "vendor_safe": true
+  },
+  "hp": 180,
+  "hp_max": 180,
+  "id": "furn_stuffit_till",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the cash box",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_stuffit_shop"
+}

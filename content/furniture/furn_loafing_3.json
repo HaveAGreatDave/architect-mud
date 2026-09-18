@@ -1,0 +1,16 @@
+{
+  "description": "A postcard propped against the till, hand-lettered, reading WE DO NOT DO COFFEE, THERE IS A PLACE FOR THAT, TWO STREETS UP. Somebody has added underneath, in a different pen and a worse hand, AND IT IS NOT VERY GOOD.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_loafing_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the till card",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_loafing_shop"
+}

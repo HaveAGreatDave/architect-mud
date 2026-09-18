@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#291f1a",
+  "description": "Six tables and a counter with a machine on it that is worth more than the lease. The walls are a gallery of other people's photographs of the green in every weather, all of them slightly crooked and none of them for sale. A shelf by the window holds board games with the boxes taped at the corners, and a jar for the honesty box that people are mostly honest with.",
+  "exits": {
+    "north": "zone_district_906_908"
+  },
+  "flags": {
+    "building_name": "Grounds for Concern",
+    "building_type": "shop",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_906_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_grounds_cafe",
+  "map_id": "map_int_grounds",
+  "name": "Grounds for Concern",
+  "parent_zone": "zone_district_906_908"
+}

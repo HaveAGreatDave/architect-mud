@@ -1,0 +1,19 @@
+{
+  "description": "Two key-driven adding machines at either end of the desk, cast iron under crackle enamel, the keys worn through the lacquer to bare metal in the columns that get used. They make a noise like a small industrial accident and they have never yet been wrong.",
+  "flags": {
+    "aliases": "comptometer,machine,adder,keys",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pfin_comptometer",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the comptometers",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 340,
+  "zone_id": "zone_pfin_settle"
+}

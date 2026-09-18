@@ -1,0 +1,19 @@
+{
+  "description": "Most of the room. A cast last stand with five lasts on it by size, the finishing wheel on a countershaft underneath that he starts with his knee, and a hammer whose handle has gone the shape of the hand that holds it. Everything within one reach and nothing beyond it.",
+  "flags": {
+    "aliases": "bench,last,lasts,wheel,stand",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sole_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the bench",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_sole_shop"
+}

@@ -1,0 +1,19 @@
+{
+  "description": "A shallow drawer in the bench with no lock on it at all, which is the joke everybody makes and which he lets them make. It is empty every night. What is not empty is a box elsewhere in the building that nobody has ever found, including two people who looked properly.",
+  "flags": {
+    "aliases": "till,cash,money,box",
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_skel_bandy",
+    "vendor_safe": true
+  },
+  "hp": 160,
+  "hp_max": 160,
+  "id": "furn_skel_till",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the cash drawer",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_skelcrew_shop"
+}

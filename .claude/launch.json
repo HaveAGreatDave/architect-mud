@@ -4,33 +4,76 @@
     {
       "name": "combat-test",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-p", "5555", "."],
+      "runtimeArgs": [
+        "serve",
+        "-p",
+        "5555",
+        "."
+      ],
       "port": 5555
     },
     {
       "name": "game-server",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["server/index.js"],
+      "runtimeArgs": [
+        "server/index.js"
+      ],
       "port": 3000
     },
     {
       "name": "studio",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["tools/studio/serve.mjs", "5180"],
+      "runtimeArgs": [
+        "tools/studio/serve.mjs",
+        "5180"
+      ],
       "port": 5180
     },
-
     {
       "name": "modelshop",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["tools/modelshop/serve.mjs"],
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs"
+      ],
       "port": 5181
     },
     {
       "name": "client-static",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-p", "5182", "client"],
+      "runtimeArgs": [
+        "serve",
+        "-p",
+        "5182",
+        "client"
+      ],
       "port": 5182
+    },
+    {
+      "name": "modelshop-5201",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5201"
+      ],
+      "port": 5201
+    },
+    {
+      "name": "modelshop-5202",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5202"
+      ],
+      "port": 5202
+    },
+    {
+      "name": "modelshop-5203",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5203"
+      ],
+      "port": 5203
     }
   ]
 }

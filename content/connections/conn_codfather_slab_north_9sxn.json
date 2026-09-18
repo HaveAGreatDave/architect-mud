@@ -1,0 +1,9 @@
+{
+  "a": "zone_codfather_slab",
+  "b": "zone_codfather_ice",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_codfather_slab_north_9sxn",
+  "lockable": false,
+  "one_way": false
+}

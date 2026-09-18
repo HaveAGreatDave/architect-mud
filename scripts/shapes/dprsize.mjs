@@ -55,9 +55,25 @@ const SCENE = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, 
 }));
 // A bogey in the air ahead, which is the only way into `bakeContacts`.
 const CONTACTS = [{ id: 7, cls: 'prop', reg: 'N7', dx: 1.5, dy: -6, altDiff: 40, pitch: 0, bank: 0 }];
+// ⚠ AND THE SOLIDS LAYER IS OFF, OR THERE IS NO CONTACT CARD TO MEASURE. Every contact is real
+// triangles now (see contactIsSolid), so `bakeContacts` hands the billboard layer nothing at all
+// while `glShip` is on and this gate's contact case goes vacuous — which it says out loud rather
+// than passing, and it was right to. The card path is not dead: it is what the renderer does with
+// the solids slider at 0, which is a shipping configuration, and its bake still has to rasterise at
+// the display's own ratio. So the sweep runs there. ⚠ `RENDER_TUNE` and not the view's `tune`,
+// because `glShip` is deliberately not in VIEW_TUNABLE — a seat cannot opt out of it.
+ws.RENDER_TUNE.glShip = 0;
 // Which producer a billboard came from. The whole point of the gate is per-PRODUCER coverage, and
 // after a bake the only thing left saying where a quad came from is its key.
-const producerOf = (k) => (/\blm:/.test(k) ? 'landmark' : /\bct:/.test(k) ? 'contact' : /\bmq\|/.test(k) ? 'marquee' : 'scatter');
+const producerOf = (k) => (/^goose\|/.test(k) ? 'goose' : /\blm:/.test(k) ? 'landmark' : /\bct:/.test(k) ? 'contact' : /\bmq\|/.test(k) ? 'marquee' : 'scatter');
+
+// ⚠ WHICH PRODUCERS BAKE AT THE LIVE CAMERA, said as a positive rather than as "not scatter". The
+// texture-resolution check below only applies to those: a landmark and a contact re-bake at the
+// real camera every frame, which is what makes a device-sized quad over a CSS-sized bake visible.
+// A scatter species, a goose and a marquee all bake a FIXED drawing with no camera in it, so their
+// canvas is correctly the same size at every ratio and the check fails them. Spelled the other way
+// round it was right by accident for one set and wrong for the next thing added.
+const CAMERA_BAKED = new Set(['landmark', 'contact']);
 
 // Frozen, for framecost's reasons: a live clock moves the animated art and both adaptive dials,
 // and this is measuring one variable. It also pins `resStep` at its ceiling, so the ratio under
@@ -107,9 +123,18 @@ for (const layer of ['billboard', 'light', 'stroke']) {
 // table, never the biome), and all three have TYPE_MODEL arms, so `modelFor` answers first and
 // `drawBuilding`'s `case 'marquee'` never runs. If a model-less building type is ever put on that
 // archetype the branch comes alive — delete this line then and the gate covers it.
-const UNREACHABLE = { marquee: 'no model-less building type sits on the marquee archetype — see bldgStyle/TYPE_MODEL' };
+const UNREACHABLE = {
+  marquee: 'no model-less building type sits on the marquee archetype — see bldgStyle/TYPE_MODEL',
+  // ⚠ A turf strip WAS added here and it reached no goose, because this scene is at hour 2 and the
+  // flock pass is day-gated — the same collision worldresidue's own note records, from the other
+  // side. One scene cannot be both: the lights, lamps and lit scatter this file measures are all
+  // night-gated. The geese get the identical sweep in scripts/shapes/fauna.mjs, which has a day
+  // scene, and they matter because drawGooseAir is the one producer outside this file that pushes
+  // a billboard DIRECTLY rather than through scatterBillboard.
+  goose: 'day-gated, and this scene is at hour 2 for the lights — swept in scripts/shapes/fauna.mjs instead',
+};
 const reached = new Set(base.billboard.map((b) => producerOf(b.id)));
-for (const p of ['landmark', 'scatter', 'marquee', 'contact']) {
+for (const p of ['landmark', 'scatter', 'marquee', 'contact', 'goose']) {
   if (reached.has(p) || UNREACHABLE[p]) continue;
   problems.push(`scene reached no ${p} billboard — that producer is ungated, fix the scene`);
 }
@@ -132,7 +157,7 @@ for (const [dpr, cap] of runs) {
       // The bake's own resolution, for the quads that bake at the live camera. A species canvas is
       // a FIXED drawing scaled by 1/f (see BB_W) and carries no camera, so it is exempt by nature
       // rather than by permission — it is the same texture at every ratio, correctly.
-      if (layer === 'billboard' && producerOf(a.id) !== 'scatter' && a.tex > 0 && b.tex > 0) {
+      if (layer === 'billboard' && CAMERA_BAKED.has(producerOf(a.id)) && a.tex > 0 && b.tex > 0) {
         const want = Math.max(1, Math.round(a.tex * dpr));
         if (Math.abs(b.tex - want) > 1) {
           problems.push(`billboard ${a.id}: baked ${b.tex}px wide at dpr ${dpr}, wanted ~${want}`
@@ -155,6 +180,7 @@ if (DETAIL) {
     ['scatter', (c) => first(c, 'billboard', (k) => producerOf(k) === 'scatter')],
     ['marquee', (c) => first(c, 'billboard', (k) => producerOf(k) === 'marquee')],
     ['contact', (c) => first(c, 'billboard', (k) => producerOf(k) === 'contact')],
+    ['goose', (c) => first(c, 'billboard', (k) => producerOf(k) === 'goose')],
   ];
   const fmt = (v) => (v == null ? 'n/a' : v.toFixed(2));
   console.log(`CSS frame held at ${CW}x${CH} — only devicePixelRatio moves.`);

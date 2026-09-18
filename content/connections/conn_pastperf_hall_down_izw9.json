@@ -1,0 +1,9 @@
+{
+  "a": "zone_pastperf_hall",
+  "b": "zone_util_zone_pastperf_hall",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_pastperf_hall_down_izw9",
+  "lockable": false,
+  "one_way": false
+}

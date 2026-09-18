@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_paws_muzzle",
+  "name": "a soft muzzle",
+  "tags": {
+    "stackable": true,
+    "description": "Webbing and fleece with a quick release under the jaw. She will explain, patiently and every time, that an animal in pain bites the person it loves most, and that this is not a judgement about anybody in the room."
+  },
+  "type": "misc",
+  "value": 20,
+  "weight": 90
+}

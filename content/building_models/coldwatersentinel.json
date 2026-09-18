@@ -3,24 +3,40 @@
     {
       "cx": 0,
       "cy": 0,
-      "kind": "blinkLight",
-      "r": 1.4,
-      "rgb": "110,215,255",
-      "z": 0.99
+      "kind": "mast",
+      "z0": 1.17,
+      "z1": 1.47
     },
     {
       "cx": 0,
       "cy": 0,
-      "kind": "mast",
-      "z0": 0.99,
-      "z1": 1.18
+      "kind": "blinkLight",
+      "r": 1.6,
+      "rgb": "255,196,120",
+      "z": 1.47
     },
     {
-      "cx": -0.2,
-      "cy": 0.47,
+      "cx": 0,
+      "cy": 0,
       "kind": "glowPool",
-      "rgb": "70,180,255",
-      "s": 18,
+      "rgb": "255,206,140",
+      "s": 12,
+      "z": 0.9550000000000001
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "255,196,130",
+      "s": 17,
+      "z": 0.09
+    },
+    {
+      "cx": 0,
+      "cy": 0.46,
+      "kind": "glowPool",
+      "rgb": "255,190,120",
+      "s": 13,
       "z": 0.02
     }
   ],
@@ -36,128 +52,451 @@
   ],
   "detail": [
     {
+      "color": "#5c5544",
       "cx": 0,
-      "cy": 0,
-      "half": 0.44,
-      "hh": 0.015,
-      "kind": "parapet",
-      "pal": "ty_sentinel",
-      "z": 0.13
+      "cy": 0.428,
+      "font": "deco",
+      "half": 0.255,
+      "hh": 0.026,
+      "ink": "#e8c878",
+      "kind": "signBoard",
+      "label": "THE SENTINEL",
+      "z": 0.142
     },
     {
-      "bars": 7,
+      "bars": 2,
       "cx": 0,
-      "cy": 0.44,
-      "depth": 0.023,
-      "glass": "#0e1720",
-      "glow": "#cfe8ff",
-      "half": 0.36,
-      "hh": 0.039,
+      "cy": 0.425,
+      "depth": 0.018,
+      "glass": "#241c12",
+      "glow": "#ffcf8a",
+      "half": 0.105,
+      "hh": 0.05,
       "kind": "windowBay",
-      "pal": "ty_sentinel",
-      "z": 0.0546
+      "pal": "ty_meridian_bronze",
+      "z": 0.055
     },
     {
       "cx": 0,
-      "cy": 0.44,
-      "half": 0.32,
+      "cy": 0.425,
+      "half": 0.165,
       "hh": 0.011,
       "kind": "canopy",
-      "out": 0.105,
-      "pal": "ty_sentinel",
-      "soffit": "#28618c",
-      "strip": "#9fd8ff",
-      "z": 0.10400000000000001
+      "out": 0.088,
+      "pal": "ty_meridian_bronze",
+      "soffit": "#3a2a18",
+      "strip": "#ffd9a0",
+      "z": 0.108
     },
     {
-      "cx": -0.34,
-      "cy": 0.46,
-      "kind": "bollard",
-      "pal": "ty_sentinel",
-      "z": 0.004
+      "bars": 3,
+      "cx": -0.255,
+      "cy": 0.425,
+      "depth": 0.014,
+      "glass": "#1b2430",
+      "glow": "#ffdca8",
+      "half": 0.07,
+      "hh": 0.036,
+      "kind": "windowBay",
+      "pal": "ty_meridian_bronze",
+      "z": 0.06
     },
     {
-      "cx": 0.34,
-      "cy": 0.46,
-      "kind": "bollard",
-      "pal": "ty_sentinel",
-      "z": 0.004
+      "bars": 3,
+      "cx": 0.255,
+      "cy": 0.425,
+      "depth": 0.014,
+      "glass": "#1b2430",
+      "glow": "#ffdca8",
+      "half": 0.07,
+      "hh": 0.036,
+      "kind": "windowBay",
+      "pal": "ty_meridian_bronze",
+      "z": 0.06
     },
     {
-      "color": "#0e1520",
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.19,
+        "cy": 0.375,
+        "depth": 0.014,
+        "glass": "#1b2430",
+        "glow": "#ffdca8",
+        "half": 0.056,
+        "hh": 0.044,
+        "kind": "windowBay",
+        "pal": "ty_archive_col",
+        "transom": 0.52,
+        "z": 0.185
+      },
+      "step": {
+        "z": 0.148
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": 0,
+        "cy": 0.375,
+        "depth": 0.014,
+        "glass": "#1b2430",
+        "glow": "#ffdca8",
+        "half": 0.056,
+        "hh": 0.044,
+        "kind": "windowBay",
+        "pal": "ty_archive_col",
+        "transom": 0.52,
+        "z": 0.185
+      },
+      "step": {
+        "z": 0.148
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": 0.19,
+        "cy": 0.375,
+        "depth": 0.014,
+        "glass": "#1b2430",
+        "glow": "#ffdca8",
+        "half": 0.056,
+        "hh": 0.044,
+        "kind": "windowBay",
+        "pal": "ty_archive_col",
+        "transom": 0.52,
+        "z": 0.185
+      },
+      "step": {
+        "z": 0.148
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.2,
+        "cy": 0.3,
+        "depth": 0.01,
+        "glass": "#1b2430",
+        "glow": "#ffdca8",
+        "half": 0.05,
+        "hh": 0.032,
+        "kind": "windowBay",
+        "pal": "ty_archive_col",
+        "z": 0.745
+      },
+      "step": {
+        "cx": 0.2
+      }
+    },
+    {
       "cx": 0,
-      "cy": 0.44,
-      "font": "slab",
-      "half": 0.24,
+      "cy": 0,
+      "half": 0.33,
+      "hh": 0.014,
+      "kind": "parapet",
+      "pal": "ty_verdigris",
+      "z": 0.9
+    },
+    {
+      "cx": -0.17,
+      "cy": -0.19,
+      "d": 0.06,
+      "hh": 0.026,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.075,
+      "z": 0.9
+    },
+    {
+      "cx": 0.19,
+      "cy": -0.17,
+      "hh": 0.075,
+      "kind": "antennaCluster",
+      "n": 5,
+      "pal": "ty_cold",
+      "r": 0.055,
+      "z": 0.9
+    },
+    {
+      "cx": -0.09,
+      "cy": 0.375,
+      "face": "x",
+      "flights": 3,
+      "half": 0.075,
+      "kind": "fireEscape",
+      "out": 0.045,
+      "pal": "ty_cold",
+      "z0": 0.22,
+      "z1": 0.585
+    },
+    {
+      "cx": 0.12,
+      "cy": -0.375,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.012,
+      "z0": 0.178,
+      "z1": 0.6
+    },
+    {
+      "cx": -0.16,
+      "cy": -0.42,
+      "d": 0.033,
       "hh": 0.03,
-      "ink": "#cfe8ff",
-      "kind": "signBoard",
-      "label": "SENTINEL",
-      "z": 0.101
+      "kind": "binStack",
+      "lid": "#2a2e32",
+      "n": 3,
+      "pal": "ty_cold",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": -0.33,
+      "cy": 0.465,
+      "kind": "bollard",
+      "pal": "ty_archive_col",
+      "z": 0.004
+    },
+    {
+      "cx": 0.33,
+      "cy": 0.465,
+      "kind": "bollard",
+      "pal": "ty_archive_col",
+      "z": 0.004
+    },
+    {
+      "cx": -0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_archive_col",
+      "r": 0.026,
+      "rgb": "255,208,150",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.082
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.47,
+      "flip": true,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_archive_col",
+      "r": 0.026,
+      "rgb": "255,208,150",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.082
     }
   ],
   "id": "coldwatersentinel",
-  "neon": "#5fd0ff",
-  "note": "The city paper, mid-basin — the transition band, so it is modern but not glass: a stepped block with one cantilevered floor, a centred chamfered clock stage and a drum lantern with a mast. The restraint is the gradient doing its job. West of here the towers twist; east of here they are boxes; this is the middle and should look like somebody rebuilt the top two floors in 2070 and left the rest alone. ⚠ A CANTILEVER AND A ROTATION NEVER SHARE A SEGMENT — see the warning in aurelia.json. An offset box and a yawed box are each safe; a box that is both puts the derived kit where its own solid is not, and glself catches it. So asymmetry here is offset-only and every chamfer is CENTRED. RENDER_TUNE.legacyArms puts the sentinel arm back.",
-  "pal": "ty_sentinel",
+  "neon": "#e8c878",
+  "note": "THE COLDWATER SENTINEL — the city paper, and now a PERIOD building rather than a modern one.\n\nIt was a stepped modern block with a chamfered clock stage and a drum lantern, which was a\nreasonable answer to \"mid-basin, transition band\" and the wrong answer to what this building\nIS. A newspaper of this age does not rebuild its own front office; it puts its name in stone\nover the door and leaves it there. So it is the Meridian's vocabulary at a quarter of the\nMeridian's height: granite plinth, reeded deco limestone shaft, pilaster strips between five\nbays, corner piers, a deep projecting cornice, a set-back attic storey, and a stone lantern\nunder a copper ogee cap.\n\n⚠ IT IS DELIBERATELY NOT A SECOND MERIDIAN, and the differences are the whole point of putting\nthem on the same street. The Meridian is a residential ziggurat: buff stone, a verdigris\ncupola, gargoyles, setbacks all the way up, no signage of any kind. This is a four-storey\ncommercial block: it is GREY at the bottom where the Meridian is buff, it steps once rather\nthan three times, it carries gilt lettering on a frieze (a newspaper is in the business of\nhaving its name read), and its crown is a working lamp rather than an ornament. Two buildings\nof one period by two different hands, which is what a real street looks like.\n\n⚠ EVERY OFF-CENTRE BOX HERE IS SQUARE IN PLAN. `F()` rotates a box's POSITION to the entrance\nand leaves its footprint pointing north, so an off-centre box wider than it is deep reaches a\ndifferent radius at each of the four facings and `gl:mesh` fails it — the divebar false-front\nbug, which failed on three models at once. Pilasters, piers and the lantern are all square or\nradial; the only non-square box is centred, where the footprint cannot rotate out from under\nitself.\n\n⚠ THE COPPER IS ITS OWN SEGMENT, NOT A ROOF FACE. `facePals` is a code-arm facility and there\nis no authored equivalent — a segment takes ONE palette — so the cornice caps are thin boxes in\nty_verdigris sitting on the stone below them. That is also the honest construction: a stone\ncornice with a copper flashing over it is two materials, not one material with two faces.\n\nRENDER_TUNE.legacyArms puts the sentinel arm back.",
+  "pal": "ty_meridian",
   "replaces": "sentinel",
   "segs": [
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.44,
+      "hw": 0.425,
       "kind": "box",
+      "pal": "ty_gate_dk",
       "roof": true,
       "z0": 0,
-      "z1": 0.13
+      "z1": 0.105
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.39,
+      "hw": 0.428,
       "kind": "box",
+      "pal": "ty_archive_col",
       "roof": true,
-      "z0": 0.13,
-      "z1": 0.44
-    },
-    {
-      "cx": -0.1,
-      "cy": 0,
-      "hw": 0.29,
-      "kind": "box",
-      "roof": true,
-      "z0": 0.44,
-      "z1": 0.72
+      "z0": 0.105,
+      "z1": 0.178
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.19,
+      "hw": 0.375,
       "kind": "box",
+      "pal": "ty_meridian",
       "roof": true,
-      "z0": 0.72,
-      "z1": 0.88
+      "z0": 0.178,
+      "z1": 0.6
+    },
+    {
+      "cx": -0.285,
+      "cy": 0.383,
+      "fd": 0.052,
+      "hw": 0.052,
+      "kind": "box",
+      "pal": "ty_archive_col",
+      "roof": false,
+      "z0": 0.178,
+      "z1": 0.655
+    },
+    {
+      "cx": -0.095,
+      "cy": 0.383,
+      "fd": 0.052,
+      "hw": 0.052,
+      "kind": "box",
+      "pal": "ty_archive_col",
+      "roof": false,
+      "z0": 0.178,
+      "z1": 0.655
+    },
+    {
+      "cx": 0.095,
+      "cy": 0.383,
+      "fd": 0.052,
+      "hw": 0.052,
+      "kind": "box",
+      "pal": "ty_archive_col",
+      "roof": false,
+      "z0": 0.178,
+      "z1": 0.655
+    },
+    {
+      "cx": 0.285,
+      "cy": 0.383,
+      "fd": 0.052,
+      "hw": 0.052,
+      "kind": "box",
+      "pal": "ty_archive_col",
+      "roof": false,
+      "z0": 0.178,
+      "z1": 0.655
+    },
+    {
+      "cx": -0.34,
+      "cy": -0.34,
+      "fd": 0.062,
+      "hw": 0.062,
+      "kind": "box",
+      "pal": "ty_archive_col",
+      "roof": false,
+      "z0": 0.178,
+      "z1": 0.683
+    },
+    {
+      "cx": 0.34,
+      "cy": -0.34,
+      "fd": 0.062,
+      "hw": 0.062,
+      "kind": "box",
+      "pal": "ty_archive_col",
+      "roof": false,
+      "z0": 0.178,
+      "z1": 0.683
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.34,
+      "fd": 0.062,
+      "hw": 0.062,
+      "kind": "box",
+      "pal": "ty_archive_col",
+      "roof": false,
+      "z0": 0.178,
+      "z1": 0.683
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.34,
+      "fd": 0.062,
+      "hw": 0.062,
+      "kind": "box",
+      "pal": "ty_archive_col",
+      "roof": false,
+      "z0": 0.178,
+      "z1": 0.683
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.16,
+      "hw": 0.44,
       "kind": "box",
+      "pal": "ty_archive_col",
       "roof": true,
-      "yaw": 0.785,
-      "z0": 0.72,
-      "z1": 0.88
+      "z0": 0.6,
+      "z1": 0.655
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_verdigris",
+      "roof": true,
+      "z0": 0.655,
+      "z1": 0.679
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_meridian",
+      "roof": true,
+      "z0": 0.679,
+      "z1": 0.865
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.335,
+      "kind": "box",
+      "pal": "ty_verdigris",
+      "roof": true,
+      "z0": 0.865,
+      "z1": 0.9
     },
     {
       "cap": true,
       "cx": 0,
       "cy": 0,
       "kind": "drum",
+      "n": 8,
+      "pal": "ty_archive_col",
+      "rb": 0.115,
+      "rt": 0.098,
+      "z0": 0.9,
+      "z1": 1.015
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
       "n": 10,
-      "rb": 0.075,
-      "rt": 0.055,
-      "z0": 0.88,
-      "z1": 0.99
+      "pal": "ty_verdigris",
+      "rb": 0.122,
+      "rt": 0.022,
+      "z0": 1.015,
+      "z1": 1.085
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.022,
+      "kind": "box",
+      "pal": "ty_archive_col",
+      "roof": true,
+      "z0": 1.085,
+      "z1": 1.17
     }
   ]
 }

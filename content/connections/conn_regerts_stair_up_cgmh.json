@@ -1,0 +1,9 @@
+{
+  "a": "zone_regerts_stair",
+  "b": "zone_regerts_room",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_regerts_stair_up_cgmh",
+  "lockable": false,
+  "one_way": false
+}

@@ -12,7 +12,7 @@
 //   setPosition, isSailing, destroy }. opts: { gx, gy, hour, weather, onArrive(gx,gy) }.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx } from './windshield.js';
-import { createFreeCam, FREECAM_HINT, bindFreeCamPointer } from './freecam.js';
+import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 
 // Live world clock/weather via the shared (non-flight) env system — loaded OPTIONALLY so a
 // standalone/embed context that can't provide it (or fails to load it) still runs on opts
@@ -369,6 +369,10 @@ export function openHelmChase(container, opts = {}) {
   }
   st.raf = requestAnimationFrame(frame);
 
+  // Per helm as well, and for the same reason: it listens on the window and must not outlive this
+  // wheelhouse — see the ⚠ on freeCam above.
+  const freeIdle = bindFreeCamIdle(freeCam);
+
   // ── THE CAMERA OFF ITS MOUNT ──────────────────────────────────────────────
   // The wheelhouse had no keyboard at all — she is steered with the wheel widget and the verbs —
   // so this is the one panel of the three where the listener is new rather than borrowed. It is
@@ -394,6 +398,17 @@ export function openHelmChase(container, opts = {}) {
           + 'border-radius:11px;border:1px solid rgba(255,255,255,0.16);pointer-events:none;white-space:nowrap';
         container.appendChild(el);
       } else if (!on) hint?.remove();
+      // THE CONSOLE OUT OF THE SHOT. A body class, because the console is not in this container —
+      // it is helm-mode's `.helm-dash`, wrapped round this chase view — and a class on the body is
+      // how every other layout state here already crosses that line (`helm-fullscreen` is one).
+      // ⚠ NOT the same argument as the cab's and the cockpit's, and worth not conflating: she is
+      // steered from that console with a pointer, so hiding it while the camera is out does take a
+      // control away rather than tidying an inert one. That is the right trade for a mode you hold
+      // her course in and leave with one key — but it is the reason the wheel is behind a class
+      // that clears on the same keypress, not behind anything with a state of its own.
+      document.body.classList.toggle('helm-freecam', on);
+      // Entering arms the fade on the chips and the hint, leaving clears it — see bindFreeCamIdle.
+      freeIdle.wake();
       e.preventDefault();
       return;
     }
@@ -544,9 +559,13 @@ export function openHelmChase(container, opts = {}) {
     destroy() {
       st.alive = false; cancelAnimationFrame(st.raf); audio.stop(); disposeWindshield(id);
       // The camera is stowed with the view, and its keys with it — see the same note in closeCab.
+      // The chrome class goes too: it outlives this container, and a helm closed with the camera
+      // out would leave the next one's console hidden by a mode nothing is in.
       freeCam.close();
+      document.body.classList.remove('helm-freecam');
       window.removeEventListener('keydown', onHelmKey); window.removeEventListener('keyup', onHelmKey);
       unbindFreeCamPointer?.();
+      freeIdle.unbind();
       container.innerHTML = '';
     },
   };

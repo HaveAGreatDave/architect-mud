@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_903_908",
+  "b": "zone_fineprint_room",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_903_908_south_13b5",
+  "lockable": true,
+  "one_way": false
+}

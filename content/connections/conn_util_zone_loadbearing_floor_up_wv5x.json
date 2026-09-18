@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_loadbearing_floor",
+  "b": "zone_loadbearing_floor",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_loadbearing_floor_up_wv5x",
+  "lockable": false,
+  "one_way": true
+}

@@ -1,15 +1,13 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "description": "The green ends at a wall of dark brick with a door in it that has been bricked up so carefully you could miss it. Children use the flat of it for football and the mortar is worn pale at knee height.",
   "exits": {
     "east": "zone_district_897_908",
-    "north": "zone_district_896_907",
     "south": "zone_district_896_909"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
     "terrain": "grass"
   },
@@ -18,6 +16,6 @@
   "grid_z": 0,
   "id": "zone_district_896_908",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Kettle Green",
   "parent_zone": null
 }

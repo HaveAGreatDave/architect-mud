@@ -1,0 +1,90 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"That stair light has not been off in my lifetime and I have had a long one.\"",
+    "shifts the cushion, sits back down on it, and settles",
+    "\"Number four is empty again. It is always empty. It is the best of them and it is always empty.\"",
+    "raises a hand to somebody halfway down the street without breaking off",
+    "\"They put the allotments in when I was small. I had a strip. I had beans off it for forty years.\""
+  ],
+  "description": "An old woman who sits on the front step of Filament Buildings in all weathers with a cushion she brings out and takes back in. She knows the name of everybody who goes past and roughly half of them know hers, which she considers a fair return.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "She looks up from the step. \"You are new, or you are lost, and the two look the same from down here.\"",
+        "\"Mind the kerb there. It has had three ankles this month.\""
+      ],
+      "text_by_relation": {
+        "familiar": "\"There you are.\" She has, evidently, been expecting you, and will not say since when.",
+        "first": "\"Berenice.\" She pats the step beside her without much hope that you will use it. \"Fourth door up. I have been here since the year they turned the lamps on, so you will forgive me for knowing things.\"",
+        "known": "\"Sit down a minute.\" She moves the cushion an inch, which is the invitation."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a man's overcoat, far too big, worn like a blanket",
+      "a floral housedress",
+      "a slip and thick stockings"
+    ],
+    "personality": "chatty"
+  },
+  "home_activities": [],
+  "home_zone": "zone_filament_unit_1",
+  "hp": 18,
+  "hp_max": 18,
+  "id": "npc_berenice_gowdy",
+  "name": "Berenice Gowdy",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

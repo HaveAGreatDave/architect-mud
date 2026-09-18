@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_wrapparty_bar",
+  "id": "zone_util_zone_wrapparty_bar",
+  "max_capacity_kw": 1000,
+  "name": "Wrap Party — Utility Room",
+  "source_type": "junction_box"
+}

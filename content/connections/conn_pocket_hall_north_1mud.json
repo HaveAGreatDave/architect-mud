@@ -1,0 +1,9 @@
+{
+  "a": "zone_pocket_hall",
+  "b": "zone_pocket_back",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_pocket_hall_north_1mud",
+  "lockable": false,
+  "one_way": false
+}

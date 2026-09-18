@@ -184,6 +184,8 @@ for what the machine can do, `__glPhases()` for where the frame goes with the fl
 whether the buildings still have their names on them, `__glLights()` for whether a sign lights the
 wall it is bolted to, `__glMaterials()` for whether the city looks like it is made
 of anything, `__glClouds()` for whether the deck is still the same sky,
+`__glGooseSky()` for whether that deck is in front of the birds,
+`__glBoardSky()` for whether it is in front of the billboards,
 `__glLeak()` for whether anything still shows through a building,
 `__glFrame()` for where the whole frame goes
 now, and `__glBench()` for the original ceiling question.
@@ -824,6 +826,105 @@ At 640×360, on a bare plain:
 is the reason `glLastFrame()` carries the count. `saved` is deterministic and is the number to
 compare across days; the milliseconds are not.
 
+### Is the deck in front of the birds? — `__glGooseSky()`
+
+Reported as *"the clouds seem to be appearing in front of the geese"*, and the mechanism is two
+lines of GL state in two files. A billboard is deliberately kept out of the depth buffer — see the
+⚠ at the top of `gl/billboards.js`, a bush must not punch its own alpha-shaped hole in it — so it
+leaves nothing behind for a later pass to sort against, and the deck is exactly that later pass: it
+clears **colour only** and tests against the depth the world left, which at a bird's own pixels is
+the ground a few hundred tiles behind it. Every card passed. `RENDER_TUNE.glAirDepth` lays the
+silhouette of what flies into the buffer in a depth-only prepass ahead of the unchanged colour draw.
+
+⚠ **Reading that is not the same as measuring it**, because the deck also paints a screen-space
+haze band and a whiteout flood over the whole frame — both correct, neither depth-testable — and a
+screenshot cannot tell one from the other. So the subject is **the birds' own pixels and nothing
+else**: the mask comes from a render with the deck switched off, which is the only way to know where
+a goose is without asking the thing under test, and `survives` is how many of those pixels still
+differ from the same frame with no geese in it once the deck is drawn over them.
+
+⚠ **THE SCENE PICKED THE ANSWER TWICE BEFORE IT STOPPED.** A flock becomes `airborne` at the
+instant it leaves the grass, where z is about a hundredth of a tile — so taking the FIRST airborne
+moment measured birds standing in a field with no cloud within reach and reported a large fix for a
+case it was not testing. Taking the PEAK measured the opposite extreme, a flock well above the
+camera with the deck behind it rather than in front, and reported no fix at all. Both are true, both
+are one frame of a cycle the player watches all of. Nine moments across the climb, the circuit and
+the descent are sampled and the pixels pooled, and the **worst** frame is reported beside the
+average, because an average over a whole flight hides the moment somebody takes a screenshot.
+
+| weather | deck base | survives, today | survives, fixed | worst frame | px outside the flock |
+|---|---|---|---|---|---|
+| clear | 7.47 tiles | 90.4% | 92.9% | 80% → 90% | 0 |
+| cloudy | 5.35 | 74.6% | 84.4% | 41% → 72% | 0 |
+| rain | 4.67 | 73.7% | 84.1% | 40% → 74% | 0 |
+| storm | 5.66 | 76.5% | 83.5% | 44% → 65% | 0 |
+| snow | 5.19 | 75.7% | 84.0% | 44% → 69% | 0 |
+| ash | 4.07 | 73.8% | 86.8% | 39% → 82% | 0 |
+| dust | 3.62 | 71.3% | 84.1% | 37% → 82% | 0 |
+| fog | 1.81 | 55.9% | 69.6% | 5% → 51% | 0 |
+
+⚠ **`clear` is the control, not a weak row.** Its deck sits at 7.5 tiles with nothing near a goose,
+so a fix that merely deleted cloud wherever a bird was would move it as far as the rest; it moves
+2.5 points, which is what says the other rows are cards rather than a wash. ⚠ **`offBirds` must be
+0**, and it is the check that makes the headline worth reading — it counts pixels outside the flock
+that moved with the flag, and a non-zero there means the change is not confined to what flies.
+⚠ **It needs TWO masks and that is not pedantry**: a bird is dark grey against a grey overcast, so
+its own body can cover the sky and differ from it by almost nothing — an opaque texel that writes
+depth and still scores under the bar. Counting those as "outside the flock" reports a leak into the
+sky when what happened was a cloud being removed from behind a bird you can barely see.
+⚠ **What is left over is the wash and is correct.** A bird in haze is hazy.
+
+### Is the deck in front of the billboards? — `__glBoardSky()`
+
+Reported as *"clouds appear thru billboards"*, with a shot of a hoarding standing against an
+overcast and cloud puffs drawn across the middle of it. It is the goose bug one layer along and the
+mechanism is the same two lines of GL state, but the quad is a **building** rather than something
+that flies.
+
+`emitFlat`'s `paint` path sends a per-tile sign board to the decal layer rather than into the mesh,
+because a board carrying `$name` takes its words off the TILE and a mesh is captured once per MODEL
+— there is no single appearance to record. That layer deliberately writes no depth ("a sign is on a
+wall, not a wall"), which is right for lettering on a facade and wrong for the one decal that is not
+on anything: a roof hoarding stands on its own legs against the sky. `RENDER_TUNE.glBoardDepth` lays
+the board's own slab into the buffer in a depth-only prepass ahead of the unchanged colour draw —
+the same shape of fix, and for the same reason it is a prepass rather than one raised cutoff.
+
+⚠ **The mask is the fix's own footprint, not "where the building is".** A flock is the whole subject
+of its frame; a hoarding is a few hundred pixels of a building that is otherwise mass already on the
+depth buffer, so a building-wide mask dilutes the measurement into noise. The footprint is the
+pixels that MOVE when the flag flips, and what is asked of each is which way it moved.
+
+⚠ **And "does it match the deck-off frame" is the wrong question, which the first cut asked and
+scored the fix at 2.6% for.** The deck is not only cards: it lays a screen-space haze band and a
+whiteout flood over the whole frame, and neither of those is depth-testable or should be. A board
+the cards no longer cover still does not match a frame drawn with no deck at all — it matches that
+board seen through haze. The haze is the same offset in both frames, so it cancels in a comparison
+of the two, and the direction is what is left to ask.
+
+| seat | cards | footprint | closer to the board | mean distance from it | px off the city |
+|---|---|---|---|---|---|
+| cab, overcast | 296 | 1,509 px | 95.7% | 150 → 28 | 0 |
+| cab, rain | 296 | 1,928 px | 96.6% | 158 → 37 | 0 |
+| low pass, overcast | 296 | 670 px | 96.6% | 164 → 23 | 0 |
+
+⚠ **`offCity` must be 0** — a pixel of open sky in the footprint means the change is not confined to
+buildings and the headline is measuring vapour. ⚠ **What is left over is the haze and is correct.**
+A board in haze is hazy, which is what the residual ~30 of 765 is.
+
+⚠ **THE SCENE HAS TO STAND TWO TILES AWAY**, and that is not a taste in framing. `detailLayer` drops
+a part whose own height projects below its `DETAIL_PX` floor, so the whole derived kit — every
+board, canopy, pipe, lamp and neon run — is gone by four tiles out; `glresidue` measured 0 decals at
+8, 4, 3 and 2.5 tiles and 8 at 2. A row of frontages at five tiles is a scene with no boards in it,
+which reports VACUOUS and reads exactly like the flag doing nothing.
+
+⚠ **AND IT FOUND A SECOND BUG THAT ONLY A DEPTH BUFFER COULD SEE.** The lit frame round a hoarding
+was mounted `FACE_EPS` off `y` — the slab's MIDDLE — which was right until `gantry3d` gave the slab
+a thickness and moved its painted face forward to `yF`. The frame was then inside the board it is
+bolted to. A painter's queue drew it anyway (a later entry at the same lift simply paints over), so
+nothing was visibly wrong for as long as nothing wrote depth; the moment the board did, the gold rim
+vanished off every hoarding in the city. Measured at 371 quad pairs where the later quad is the
+farther one, and visible in the A/B before anything else was.
+
 ### Two things a bench in this file cannot see
 
 Both cost most of a day in September 2026, chasing three symptoms a player reported — buildings
@@ -1153,6 +1254,14 @@ they are the ones to reach for when a model looks like a boxy excuse for a build
 | `canopy` | a slab cantilevered over the storey below, authored soffit colour, optional strip light | not `balcony`, whose underside comes off the wall palette |
 | `signGantry` | a billboard standing on its own legs | not `signBoard`, which is flat on a wall |
 | `bladePanel` | a sign slab hung proud, with a visible edge return | not `neonBlade` — see below |
+| `pilaster` | a rank of `n` vertical fins standing proud of a frontage, at `step` pitch, from the plinth to the crown | not `parapet`, which bands a building across |
+
+⚠ **`pilaster` is the one that makes a facade a facade.** `cap` gathers each fin into a stepped
+capital (art deco) and `glow` runs a lit line up it (the neon skyline); `glowFrom` shortens that run
+to the fin's crown, which is what a 1930s tower does with its verticals. One part draws all of it,
+because a rhythm means nothing at a count of one and every fin would otherwise be a claim on the
+kit's budget. The light is a stroke and the fin is geometry: a glowing FACE would be a mesh quad per
+fin per building, so the geometry is rationed and the part that reads at range is nearly free.
 
 ⚠ **`depth` on a `windowBay` is how far the frame STANDS PROUD, never how far the glass is set
 back.** A recess is not drawable here at any price: nothing can cut a hole in a wall, so glazing
@@ -1323,6 +1432,50 @@ a static file server: it owns no geometry, no palette and no camera.
 It draws no terrain, no sky pass, no traffic and no weather. One model on a flat ground
 plane, so the thing you are looking at is the thing you are editing.
 
+## `__street()` — the model beside its neighbours
+
+The viewport answers *is this building right*. It cannot answer *does this STREET look
+good*, and that is a different question with a different answer: what you are judging
+there is what a row of particular buildings does beside each other, at a height a player's
+eye is actually at.
+
+Every bench in this repo builds a **synthetic** city — `__glFrame`'s density sweep,
+`__glLeak`'s wall of warehouses, `__glBench`'s terrace. That is right for a measurement
+(`__glFrame`'s own ⚠ records a hand-picked scene costing three wrong conclusions in a row)
+and useless for a design review, because a city of `bt: 'shop'` tiles has no Meridian
+across the junction from your new shopfront. So [street.js](street.js) paints the **real
+world**, at a grid coordinate, from a cab or a cockpit:
+
+```js
+__street({ at: 'In Hock We Trust' })                     // stand in the road outside a named building
+__street({ x: 911, y: 909, heading: 112, eyeH: 0.34 })   // look east down Marrow Street
+__street({ x: 916, y: 909, heading: 180, hour: 2 })      // the same frontage after dark
+__street({ x: 916, y: 909, heading: 180, off: { y: -0.4 } })
+__street({ at: 'Layers', seat: 'air' })                  // 73-tile window, cockpit height
+__streetHide()
+```
+
+`at` finds the building by name, stands one tile off it **on the side its entrance faces**
+and points back at it — the only place a frontage is the thing you see. `seat` is `cab`
+(the truck: eye 0.12, 33-tile window), `street` or `air`. `eyeH` lifts the eye for a 3/4
+view of a whole terrace; `off` is where you stand *inside* the centre tile, because a
+fractional `y` would miss every cell and paint an empty world.
+
+⚠ **The cells are the baked snapshot, not a second derivation.**
+`client/game/flightsim-world.json` is written by `buildFlightSnapshot`, which calls the same
+`deriveSurfaceCell` a live flight streams to the cockpit — and that sharing exists precisely
+because the bake once kept its own copy and drifted twice, silently losing 144 street tiles
+and then every park feature. A third copy here would be the same mistake a third time. The
+cost is that the file is only as fresh as the last `npm run snapshot:flight`, so a building
+renamed or re-typed in `content/` since then still answers to its old name. `cells` patches
+that for one render — `{ cells: { '916,910': { bn: 'Cash & Carrion' } } }` — and cannot
+reach the file.
+
+⚠ **It is a picture, never a measurement.** No clock is frozen, no dial is pinned, no
+resolution is forced, because all three change what you are looking at. Nothing here should
+grow a number to compare across days; that is what the benches in `glbench.js` are for, and
+they are deliberately a different file.
+
 ### ⚠ The one place it is now the OTHER renderer
 
 The rule above was written when GLASS 1 was the renderer. The viewport is still GLASS 1 —
@@ -1356,6 +1509,30 @@ this measurement used one, and it scored the fix as worse than the bug.
 
 **The honest check is still the GL toggle.** Press it: the mass comes back
 perspective-correct because a GPU is drawing it, which is what the player gets.
+
+## `__tagSheet()` — the graffiti, at the size it is baked
+
+The sibling of `__street` for the one adornment a street cannot show you. A throw-up is a
+couple of dozen pixels on a shopfront, and everything being decided about it — is the word
+legible, does the cloud read as overspray or as a badge, is the outline a keyline or a
+casing — is decided at the size it is **baked**, not at the size it is drawn.
+
+```js
+__tagSheet()                                       // the house word list, three schemes, by day
+__tagSheet({ night: 1, colour: '#5fd0ff' })
+__tagSheet({ words: ['COLDWATER LIES'], scale: 1 })  // a player's own can, unshrunk
+__tagSheetHide()
+```
+
+⚠ **It is the real bake, not a preview of one.** `tagArtwork` is `bakeTagText` with the
+style runs left out, so what lands on the sheet is the canvas the decal layer uploads —
+there is no second painter here to disagree with the wall.
+
+⚠ **And the sheet is the colour of a wall, not of a page.** Paint is judged against what it
+is sprayed on: on white every outline looks heavy and every cloud looks weak. The first cut
+of the bake was tuned on a light background and shipped an outline at 0.185 of a cell —
+twelve pixels, six of them eating inward on a stem about ten wide — so every piece came out
+as black letters on a coloured pill. It looked like a sticker, and it looked fine on white.
 
 ## What it shows
 

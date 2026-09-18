@@ -1,0 +1,19 @@
+{
+  "description": "Scrubbed deal, bleached pale by sixty years of being scrubbed, with a jeweller's loupe on a chain screwed to the corner. A ledger, a spike of dockets, and a saucer of dressmaking pins. Nothing on it is where it is by accident and nothing on it is more than a hand's reach from the stool.",
+  "flags": {
+    "aliases": "counter,deal,loupe,bench",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stuffit_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_stuffit_shop"
+}

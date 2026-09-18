@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "Washing lines cross overhead from window to window, low enough to duck under if you're tall. The road below is patched in three shades of tar and worn back to cobbles along the crown, where the wheels go.",
   "exits": {
     "east": "zone_district_903_906",
     "north": "zone_district_902_905",
@@ -9,9 +9,10 @@
     "west": "zone_district_901_906"
   },
   "flags": {
-    "district": "commercial",
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
     "terrain": "road"
   },
   "grid_x": 902,
@@ -19,6 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_902_906",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Filament Street + Cinder Lane",
   "parent_zone": null
 }

@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Down four steps behind the ice room: the junction cabinet, the compressor for the cold store thumping away beside it on rubber feet, and the icemaker, which is the single most valuable object the family owns and is serviced twice a year by a man who comes from somewhere else and is not asked questions.",
+  "exits": {
+    "up": "zone_codfather_slab"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_codfather_slab",
+  "map_id": "map_int_codfather",
+  "name": "The Codfather — The Slab — Utility Room",
+  "parent_zone": "zone_district_903_905"
+}

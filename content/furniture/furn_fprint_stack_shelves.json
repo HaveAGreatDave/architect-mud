@@ -1,0 +1,20 @@
+{
+  "description": "Shelving packed so tight that you turn sideways between the runs, holding everything too fragile, too valuable or too much trouble to leave on the open floor. There is no order to it that a stranger could use, and there is an order to it, and one man knows it.",
+  "flags": {
+    "aliases": "stack,shelves,closed stack,reserve",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fprint_stack_shelves",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the closed stack",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_fineprint_stack"
+}

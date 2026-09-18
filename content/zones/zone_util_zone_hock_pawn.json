@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hock_pawn",
   "map_id": "map_int_hock",
-  "name": "In Hock We Trust — Utility Room",
+  "name": "Cash & Carrion — Utility Room",
   "parent_zone": "zone_district_916_910"
 }

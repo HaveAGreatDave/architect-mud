@@ -1,0 +1,9 @@
+{
+  "a": "zone_paws_wait",
+  "b": "zone_util_zone_paws_wait",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_paws_wait_down_1k2z",
+  "lockable": false,
+  "one_way": false
+}

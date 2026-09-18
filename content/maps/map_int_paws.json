@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_paws_wait",
+  "id": "map_int_paws",
+  "name": "Paws for Thought",
+  "parent_zone_id": "zone_district_926_912"
+}

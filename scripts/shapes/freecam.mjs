@@ -106,7 +106,13 @@ ck(fc.view() === null, 'a closed camera contributes no view');
 fc.open({ yaw: 90, z: 1 });
 ck(fc.active, 'it opens');
 ck(fc.onKey('w', true) === true, 'an open camera takes its own keys');
-ck(fc.onKey('k', true) === false, '…and leaves everything else alone');
+ck(fc.onKey('n', true) === false, '…and leaves everything else alone');
+// ⚠ AND THE POINTER KEY IS CLAIMED ONLY WHILE THE CAMERA IS OUT. Every seat binds most of the
+// alphabet, so a key this file takes for good would silently shadow one of theirs — U is free
+// today and the next letter picked might not be. This is what keeps that a non-event.
+ck(createFreeCam().onKey('u', true) === false, 'a stowed camera does not claim the pointer key');
+ck(fc.onKey('u', true) === true, '…and an open one takes it');
+fc.onKey('u', false);
 
 // Forward is (sin, −cos) in the frame makeCam reads — the same two expressions the projection is
 // built from. At yaw 90 that is +x and no y, which is the cheapest possible statement of it.
@@ -188,12 +194,41 @@ fm.setButton('up', true); fm.close(); fm.open({ yaw: 0, z: 1 });
 const cz0 = fm.view().z; fm.step(0.1);
 ck(Math.abs(fm.view().z - cz0) < 1e-9, 'reopening does not inherit a held button');
 
-// The wheel dollies along the view axis rather than changing the focal length — at yaw 0 that is
-// −y, and it must be the SAME axis W drives along or the two controls disagree about "forward".
+// SHIFT+wheel dollies along the view axis — at yaw 0 that is −y, and it must be the SAME axis W
+// drives along or the two controls disagree about "forward".
 fm.open({ yaw: 0, z: 1 });
 const d0 = { ...fm.view() };
 fm.dolly(-1);
 ck(fm.view().y < d0.y && Math.abs(fm.view().x - d0.x) < 1e-9, 'the wheel dollies down the view axis');
+
+// ── THE LENS ────────────────────────────────────────────────────────────────
+// The bare wheel is a zoom, and the whole of what makes it a different control from the dolly above
+// is that it MOVES NOTHING. If it ever quietly walks the camera as well, the two are one control
+// with a longer name and the shot you set up drifts every time you reframe it.
+fm.open({ yaw: 0, z: 1 });
+ck(fm.view().fov === 1, 'it opens at the seat\'s own lens');
+const zp0 = { ...fm.view() };
+fm.zoom(-1);
+ck(fm.view().fov > 1, 'the wheel zooms in');
+ck(fm.view().x === zp0.x && fm.view().y === zp0.y && fm.view().z === zp0.z
+  && fm.view().yaw === zp0.yaw && fm.view().pitch === zp0.pitch, '…and does not move the camera doing it');
+// ⚠ REVERSIBLE, which the chase camera's own 1.1/0.9 is not (that is 0.99 a round trip, so a player
+// who reframes a dozen times has silently zoomed out). A notch each way is the lens you had.
+fm.zoom(1);
+ck(Math.abs(fm.view().fov - 1) < 1e-12, 'a notch out undoes a notch in');
+// Bounded both ways. A camera spun to a 40x lens is looking at four texels, and one spun the other
+// way has pulled the whole city into a vanishing point — neither is a shot, and neither should need
+// a player to count clicks to escape from.
+for (let i = 0; i < 80; i++) fm.zoom(-1);
+const hi = fm.view().fov;
+ck(hi > 1 && hi <= 4, `the zoom is bounded at the long end (${hi})`);
+for (let i = 0; i < 160; i++) fm.zoom(1);
+const lo = fm.view().fov;
+ck(lo < 1 && lo >= 0.25, `…and at the wide end (${lo})`);
+// And it comes back to the seat's own lens on reopening, exactly as roll does.
+fm.close(); fm.open({ yaw: 0, z: 1 });
+ck(fm.view().fov === 1, 'reopening does not inherit the zoom');
+ck(createFreeCam().zoom(-1) === false, 'a closed camera ignores the wheel');
 
 // Roll is the rotation a chase camera cannot have: it pins the horizon level by definition.
 fm.open({});
@@ -486,6 +521,40 @@ if (pbad) process.exit(1);
     ck(f && Math.abs(f.ax - x) < 1e-9 && Math.abs(f.ay - y) < 1e-9,
       `a detached camera at (${x}, ${y}) samples its floor at (${f ? f.ax.toFixed(2) : '?'}, ${f ? f.ay.toFixed(2) : '?'}) — the ground is sampled where the vehicle is, not where the camera is`);
   }
+  // ── AND DOES THE LENS REACH THE PICTURE? ──────────────────────────────────
+  //
+  // The wheel is a focal length, spent as `fovMul`. That number has FOUR readers — `makeCam`'s two
+  // axes, the floor's own vertical scale, the horizon solve and the scatter scalar — and the floor
+  // is the one that can be asked from outside, because it records the terms it rastered with.
+  //
+  // ⚠ IT IS THE READER THAT HAS ALREADY BEEN MISSED ONCE. `drawMode7Floor` takes the vertical scale
+  // as a PARAMETER from a call site that runs before `makeCam`, so when the cab's own `fovMul`
+  // arrived the floor went on rasterising from the unscaled focal while every building standing on
+  // it was projected from the scaled one — see the ⚠ at the top of that function. A zoom is the
+  // same number arriving by a different route, and would fail the same way: the city grows, the
+  // ground does not, and on the GPU floor the road loses the depth test and disappears.
+  {
+    const f1 = shot({ x: 0, y: 0, z: 2, yaw: 0, pitch: 0, roll: 0, fov: 1 });
+    for (const fov of [0.4, 0.75, 1.6, 3.2]) {
+      const f = shot({ x: 0, y: 0, z: 2, yaw: 0, pitch: 0, roll: 0, fov });
+      ck(f && Math.abs(f.depth - f1.depth * fov) < 1e-9,
+        `a ${fov}x lens rasters its floor at depth ${f ? f.depth.toFixed(2) : '?'} rather than ${(f1.depth * fov).toFixed(2)} — the ground is drawn through a different lens from the buildings on it`);
+    }
+    // ⚠ AND NO LENS AT ALL IS THE SAME NUMBER AS A 1x ONE. Every seat in the game passes no `fov`,
+    // so this is the identity the whole change rests on: `undefined` must land on `* 1`, not on
+    // `* 0` (a floor that returns before rastering) or on NaN (a floor that rasters nothing and
+    // says nothing about it).
+    const f0 = shot({ x: 0, y: 0, z: 2, yaw: 0, pitch: 0, roll: 0 });
+    ck(f0 && Object.is(f0.depth, f1.depth), 'a camera with no lens at all is not the same as a 1x one');
+    // The horizon is the third reader, and it is the one with no second opinion to check it against:
+    // through a longer lens the same tilt has to carry the sky/ground split further off the middle
+    // of the frame, by exactly the factor the world it is projecting grew by.
+    const hz = (fov) => shot({ x: 0, y: 0, z: 2, yaw: 0, pitch: 0.4, roll: 0, fov }).horizonY;
+    const [h1, h2] = [hz(1), hz(2)];
+    const mid = shot({ x: 0, y: 0, z: 2, yaw: 0, pitch: 0, roll: 0, fov: 1 }).horizonY;
+    ck(Math.abs((h2 - mid) - 2 * (h1 - mid)) < 1e-6,
+      `a 2x lens tilts its horizon to ${h2.toFixed(1)} rather than ${(mid + 2 * (h1 - mid)).toFixed(1)} — the horizon is drawn where a different lens would put it`);
+  }
   // ⚠ AND THE IDENTITY, which is what makes the change safe under every seat that passes no
   // detached camera at all: with no `freeCam` the floor must read exactly the seat's own eye height.
   // An INTERIOR seat, deliberately: with `external` set and no detached camera the CHASE rig is
@@ -514,6 +583,7 @@ if (cbad) process.exit(1);
     const l = {};
     return {
       _l: l,
+      style: { cursor: 'grab' },
       addEventListener(t, fn) { (l[t] ||= []).push(fn); },
       removeEventListener(t, fn) { l[t] = (l[t] || []).filter((f) => f !== fn); },
       fire(t, ev) { for (const fn of (l[t] || []).slice()) fn(ev); return ev; },
@@ -554,6 +624,11 @@ if (cbad) process.exit(1);
   // the lock needs — a camera that made you click first would waste the gesture you just made.
   fs.open({ yaw: 0, z: 0.6, x: 0, y: 2 });
   sk(doc.pointerLockElement === el, 'opening the camera takes the pointer');
+  // ⚠ AND HIDES THE CURSOR ITSELF. Under a granted lock the browser does this too, so this line
+  // looks redundant — it is not: where the lock is REFUSED it is the only half of "the cursor is out
+  // of the shot" still available, and that is the environment the game is most often looked at
+  // through. It has to beat the cab's `.ws-wrap{cursor:grab}` rule, hence an inline style.
+  sk(el.style.cursor === 'none', '…and hides the cursor');
 
   // Freelook: the mouse moves, the camera looks, and no button was involved in saying so.
   const ly0 = fs.view().yaw;
@@ -590,18 +665,63 @@ if (cbad) process.exit(1);
   for (let i = 0; i < 5; i++) fs.step(0.1);
   sk(Math.abs(fs.view().z - ez0) < 1e-9, 'losing the lock releases a held button');
 
-  // ── UNLOCKED, THE MOUSE STILL LOOKS ──────────────────────────────────────
-  // ⚠ NOT A HYPOTHETICAL. The Claude desktop app's browser pane refuses pointer lock outright —
-  // `featurePolicy.allowsFeature('pointer-lock')` is false at the top level, measured — so this
-  // branch is the one the game is most often LOOKED at through. It aims off the cursor's own travel
-  // instead of `movementX`, which costs only the edge of the screen.
+  // ── THE WHEEL IS THE LENS, SHIFT ON IT IS THE DOLLY ───────────────────────
+  // Two verbs on one control, which is exactly the wiring that goes wrong quietly: both of them
+  // change the picture, so a modifier routed to the wrong one looks like the camera working.
+  const wf0 = fs.view().fov, wp0 = { ...fs.view() };
+  const wv = el.fire('wheel', ev({ deltaY: -120 }));
+  sk(fs.view().fov > wf0, 'the bare wheel zooms in');
+  sk(fs.view().x === wp0.x && fs.view().y === wp0.y && fs.view().z === wp0.z, '…and moves the camera nowhere');
+  sk(wv.prevented && wv.stopped, '…and is taken off the panel underneath');
+  el.fire('wheel', ev({ deltaY: 120 }));
+  sk(Math.abs(fs.view().fov - wf0) < 1e-12, 'a notch back out is the lens it started at');
+  const wy0 = fs.view().y;
+  el.fire('wheel', ev({ deltaY: -120, shiftKey: true }));
+  sk(fs.view().y < wy0, 'SHIFT+wheel dollies instead');
+  sk(Math.abs(fs.view().fov - wf0) < 1e-12, '…and leaves the lens alone');
+  // ⚠ AND ON THE AXIS CHROME ACTUALLY DELIVERS IT ON. A shifted vertical wheel arrives as
+  // HORIZONTAL scroll in Chrome and Edge: `deltaY` is 0 and the notch is in `deltaX`. Read off
+  // deltaY alone, the modifier is a no-op on the commonest desktop browser and the wheel just
+  // zooms — which is indistinguishable, from the outside, from nobody having wired shift up at all.
+  const wy1 = fs.view().y;
+  el.fire('wheel', ev({ deltaY: 0, deltaX: -120, shiftKey: true }));
+  sk(fs.view().y < wy1, 'a shifted wheel delivered as horizontal scroll still dollies');
+  sk(Math.abs(fs.view().fov - wf0) < 1e-12, '…and still leaves the lens alone');
+  // A stowed camera must not eat the wheel: the panels underneath have their own (the cab's chase
+  // zoom is one), and they go on working the moment the camera is put away.
+  fs.close();
+  sk(el.fire('wheel', ev({ deltaY: -120 })).prevented === false, 'a stowed camera does not eat the wheel');
+  fs.open({ yaw: 0, z: 0.6, x: 0, y: 2 });
+  doc.exitPointerLock();
+
+  // ── ESC HANDS THE MOUSE BACK, AND IT STAYS BACK ──────────────────────────
+  // `exitPointerLock` above is what Esc does, and the camera is still out afterwards — stowing it is
+  // O's job, not Esc's. So what the player is holding is a cursor, and the contract is that it
+  // behaves like one: it aims nothing until they ask for it back. A look still running off the
+  // cursor's own travel is the whole of what this was built against — the shot swinging while you
+  // cross the glass to reach a button, and the pointer walking out of the window on the way.
   const uy0 = fs.view().yaw;
-  sk(win.fire('pointermove', ev({ clientX: 400, clientY: 300 })).prevented === false,
-    'the first unlocked move only takes a bearing');
-  sk(fs.view().yaw === uy0, '…and aims nothing, so coming back from elsewhere cannot snap the shot round');
+  sk(fs.mouseHeld === false, 'losing the pointer hands the mouse back');
+  win.fire('pointermove', ev({ clientX: 400, clientY: 300 }));
   const um = win.fire('pointermove', ev({ clientX: 460, clientY: 300 }));
-  sk(fs.view().yaw > uy0, 'the next one turns the camera');
-  sk(um.prevented && um.stopped, '…and is taken off the panel underneath, same as a locked one');
+  sk(fs.view().yaw === uy0, '…and a free mouse aims nothing');
+  // ⚠ AND IS LEFT ALONE. Every other move here is swallowed off the panel underneath; these must not
+  // be, or the cursor that was just handed back cannot reach anything with the camera still out.
+  sk(um.prevented === false && um.stopped === false, '…and its events are left for the page');
+  // ⚠ TWO KEYDOWNS IN A ROW ARE A KEY BEING HELD, NOT TWO PRESSES. Two of the three panels forward
+  // the key without `e.repeat`, so a held M would hand the mouse back and take it again at the
+  // keyboard's own repeat rate — which reads as the key doing nothing at all.
+  fs.onKey('u', true); fs.onKey('u', true);
+  sk(fs.mouseHeld === true && doc.pointerLockElement === el, 'U takes the mouse back');
+  const mk = win.fire('pointermove', ev({ movementX: 40 }));
+  sk(fs.view().yaw > uy0, '…and the look is live again');
+  sk(mk.prevented && mk.stopped, '…and its events are taken off the panel once more');
+  fs.onKey('u', false); fs.onKey('u', true);
+  sk(fs.mouseHeld === false && doc.pointerLockElement === null, 'U again gives it back');
+  // ⚠ RESTORED, NOT BLANKED. The panels style this surface themselves (the cab parks `grab` on it),
+  // so putting the cursor back by clearing the inline value would quietly delete theirs.
+  sk(el.style.cursor === 'grab', '…and gives the panel its own cursor back, rather than blanking it');
+  fs.onKey('u', false);
   // ⚠ A stow and a re-open must drop the remembered cursor, or a camera put away with the pointer at
   // one edge of the screen and brought out at the other swings by the whole width on the first twitch.
   fs.close(); fs.open({ yaw: 0, z: 0.6, x: 0, y: 2 });
@@ -616,12 +736,14 @@ if (cbad) process.exit(1);
   const cz0 = fs.view().z;
   el.fire('pointerdown', ev({ button: 0 }));
   sk(doc.pointerLockElement === el, 'clicking the glass takes the pointer back');
+  sk(fs.mouseHeld === true, '…and the held/free state goes back with it, so M still disagrees with nothing');
   for (let i = 0; i < 5; i++) fs.step(0.1);
   sk(Math.abs(fs.view().z - cz0) < 1e-9, '…and that click does not also lift the camera');
   win.fire('pointerup', ev({ button: 0 }));
 
   fs.close();
   sk(doc.pointerLockElement === null, 'stowing the camera gives the pointer back');
+  sk(el.style.cursor === 'grab', '…and the cursor with it');
   unbind();
   sk(el.count() === 0 && win.count() === 0 && doc.count() === 0, 'unbinding leaves no listener behind');
   // ⚠ And the cab rebinds on every panel open, so a teardown must not unhook the LIVE surface.
@@ -667,6 +789,36 @@ if (cbad) process.exit(1);
     w2.fire('pointermove', ev({ clientX: 100, clientY: 100 }));
     w2.fire('pointermove', ev({ clientX: 180, clientY: 100 }));
     sk(f2.view().yaw > ry, '…and the mouse still looks');
+    // ⚠ AND M IS THE ONLY WAY OUT HERE. There is no lock to lose, so no `pointerlockchange` for Esc
+    // to arrive on — which is why the binder listens for the key itself. Without that, a surface
+    // that refuses the lock is one where the cursor is hidden and nothing gives it back.
+    const ry2 = f2.view().yaw;
+    f2.onKey('u', true); f2.onKey('u', false);
+    sk(f2.mouseHeld === false, 'U frees the mouse even where the lock was refused');
+    w2.fire('pointermove', ev({ clientX: 260, clientY: 100 }));
+    w2.fire('pointermove', ev({ clientX: 340, clientY: 100 }));
+    sk(f2.view().yaw === ry2, '…and it aims nothing once it is free');
+    f2.onKey('u', true); f2.onKey('u', false);
+    sk(f2.mouseHeld === true, 'U takes it again');
+    // Esc, with no lock behind it. The binder hears the key directly or the cursor never comes back.
+    w2.fire('keydown', ev({ key: 'Escape' }));
+    sk(f2.mouseHeld === false, 'Esc frees it too, with no lock to lose');
+    // ⚠ AND THE REMEMBERED CURSOR IS DROPPED ON EVERY EDGE — stow, re-open, and each time the mouse
+    // changes hands. Otherwise a camera put away with the pointer at one side of the screen and
+    // brought out at the other swings by the whole width on the first twitch.
+    //
+    // ⚠ IT HAS TO BE TESTED HERE, ON THE REFUSING SURFACE. The identical assertion higher up runs
+    // against a fake that GRANTS the lock, where the move is read off `movementX` and the remembered
+    // cursor is never consulted at all — so it passes whatever this does. Held AND unlocked is the
+    // only state that reads the cursor's own travel, and this block is the only place it exists.
+    // Held again, and still unlocked — the only state that reads the remembered cursor at all.
+    f2.onKey('u', true); f2.onKey('u', false);
+    w2.fire('pointermove', ev({ clientX: 100, clientY: 300 }));
+    w2.fire('pointermove', ev({ clientX: 140, clientY: 300 }));   // …so `last` is now a real position
+    f2.close(); f2.open({ yaw: 0, z: 0.6, x: 0, y: 2 });
+    const ro = f2.view().yaw;
+    w2.fire('pointermove', ev({ clientX: 900, clientY: 300 }));
+    sk(f2.view().yaw === ro, 'reopening forgets where the cursor was');
     f2.close(); un2();
   }
 

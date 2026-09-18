@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_regerts_salve",
+  "name": "pot of aftercare salve",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "restore_sanity": 2,
+    "description": "Unscented, in a screw-top pot, with the instruction printed on the lid in four words: THIN LAYER. TWICE DAILY. She puts one in the bag whether you buy it or not and she has never once charged for the first pot."
+  },
+  "type": "consumable",
+  "value": 16,
+  "weight": 90
+}

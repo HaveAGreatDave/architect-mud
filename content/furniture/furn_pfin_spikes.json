@@ -1,0 +1,20 @@
+{
+  "description": "Four steel spikes on wooden blocks along the back of the desk, one for each week of the month, each with its own drift of settled slips driven down onto it. A slip on a spike is a slip that is finished with. Nobody has ever taken one off.",
+  "flags": {
+    "aliases": "spikes,spike,slips,settled",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pfin_spikes",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the spikes",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pfin_settle"
+}

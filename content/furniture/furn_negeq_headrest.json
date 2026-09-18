@@ -1,0 +1,19 @@
+{
+  "description": "A cast iron stand with a padded fork on it at head height, for holding a sitter still through a long exposure. Nobody has needed one in forty years. Taking it out would be a decision and she has decided not to make it about five hundred times.",
+  "flags": {
+    "aliases": "headrest,stand,clamp",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_negeq_headrest",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the headrest",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_negeq_studio"
+}

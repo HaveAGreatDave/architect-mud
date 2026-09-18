@@ -1,0 +1,19 @@
+{
+  "description": "Newer cloth, tighter pockets, and a bed that has been levelled with a spirit level and shims rather than with an opinion. It is the best table in the district and it is in the room where money changes hands, and nobody has ever suggested those two facts are unrelated.",
+  "flags": {
+    "aliases": "table,back table,good table",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pocket_backtable",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the back table",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pocket_back"
+}

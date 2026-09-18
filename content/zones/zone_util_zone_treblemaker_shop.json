@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A low utility room under the shop: bare brick, a concrete floor that slopes to a drain, and the building junction box humming in its steel cabinet. The room was sound-lined at some point by somebody who meant well, which means the junction box sits behind a panel of carpet tiles and nobody has ever found a torch down here when they needed one.",
+  "exits": {
+    "up": "zone_treblemaker_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_915_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_treblemaker_shop",
+  "map_id": "map_int_treblemaker",
+  "name": "Treble Maker — Utility Room",
+  "parent_zone": "zone_district_915_911"
+}

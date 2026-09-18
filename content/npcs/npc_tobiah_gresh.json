@@ -1,0 +1,262 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"I can do it without the chicory, but I want it on record that you asked.\"",
+    "taps out a puck, knocks the basket twice, and starts again from the beginning",
+    "\"The board says four things. Three of them are rubbed out. That is the menu.\"",
+    "wipes down a table nobody has sat at yet, then does the one beside it",
+    "\"The roaster goes on at half five. I have had the conversation. It goes on at half five.\""
+  ],
+  "description": "A young man with a burn scar across one forearm in the exact shape of a steam wand, which he will explain to anybody and has never once presented as a cautionary tale. He roasts on the premises, at volume, at half five in the morning, and the whole of Greenside Row has an opinion about it that he has heard.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"What can I get you?\" He is already reaching for a cup.",
+        "He looks up from the machine. \"Take a table, I'll bring it over.\""
+      ],
+      "text_by_relation": {
+        "familiar": "\"Sit down.\" He nods at the window table, which he keeps free longer than he should.",
+        "first": "\"Tobiah.\" He puts down the jug. \"Roast is done on the premises, which you will already know if you live anywhere near here and have ears.\"",
+        "known": "\"Usual?\" He is halfway to making it before you answer, which is a small kindness and also efficient."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a canvas apron gone dark at the front",
+      "a rolled-sleeve work shirt",
+      "a pair of boxers"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_filament_unit_4",
+  "hp": 21,
+  "hp_max": 21,
+  "id": "npc_tobiah_gresh",
+  "name": "Tobiah Gresh",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_coffee_grounds",
+      "price": 12
+    },
+    {
+      "item_id": "item_cold_brew_can",
+      "price": 10
+    },
+    {
+      "item_id": "item_chicory_sachet",
+      "price": 5
+    },
+    {
+      "item_id": "item_chipped_mug",
+      "price": 4
+    },
+    {
+      "item_id": "item_dripping_bread",
+      "price": 9
+    },
+    {
+      "item_id": "item_drink_bishops_blend",
+      "price": 20
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 17
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 17
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 17
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 17
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 17
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 17
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 17
+      }
+    ]
+  },
+  "vendor_shop_name": "Grounds for Concern",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_grounds_cafe"
+}

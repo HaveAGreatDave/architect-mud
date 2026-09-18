@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_past_postcard",
+  "name": "a museum postcard",
+  "tags": {
+    "stackable": true,
+    "description": "A photograph of one case, printed small, with the object named on the back and a line about what it was for. The line about what it was for is wrong on about half of them in ways that are funnier than they are misleading."
+  },
+  "type": "media",
+  "value": 4,
+  "weight": 10
+}

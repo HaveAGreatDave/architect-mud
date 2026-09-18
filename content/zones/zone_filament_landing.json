@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2b2620",
+  "description": "A landing wide enough for two doors and a window that looks out over the drying green. Somebody keeps a spider plant on the sill and somebody else keeps watering it, and the two of them have never met. A bicycle is chained to the banister in defiance of a notice about chaining bicycles to the banister.",
+  "exits": {
+    "down": "zone_filament_stair",
+    "east": "zone_filament_unit_4",
+    "north": "zone_filament_unit_3"
+  },
+  "flags": {
+    "building_name": "Filament Buildings",
+    "building_type": "apartment",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_filament_landing",
+  "map_id": "map_int_filament",
+  "name": "Filament Buildings — Second Landing",
+  "parent_zone": "zone_district_897_905"
+}

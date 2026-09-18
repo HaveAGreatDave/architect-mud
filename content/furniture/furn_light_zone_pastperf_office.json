@@ -1,0 +1,14 @@
+{
+  "description": "A brass lamp with a green shade on a desk covered in paper, which is the only light in the room and is on from about seven in the morning.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_pastperf_office",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "the desk lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_pastperf_office"
+}

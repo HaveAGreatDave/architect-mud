@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221f1b",
+  "description": "A front room with the furniture taken out and eight chairs put round the walls, and a rug that somebody keeps meaning to remove. A low table with three years of magazines on it in no order. A weighing scale on the floor by the desk with a rubber mat on it, worn shiny in the middle by a great many feet of several kinds. Pinned above the desk: photographs, dozens of them, sent in by people, and every one of them is an animal doing nothing in particular in somebody's kitchen.",
+  "exits": {
+    "north": "zone_paws_surgery",
+    "south": "zone_district_926_912",
+    "down": "zone_util_zone_paws_wait"
+  },
+  "flags": {
+    "building_name": "Paws for Thought",
+    "building_type": "vet",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The bay, square, three sides of glass with a deep sill, looking onto the lane. People sit in the bay rather than on the chairs when they are waiting for bad news, and she has never worked out why and has stopped moving the chairs.",
+      "light": 0.85,
+      "name": "the bay window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_926_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_paws_wait",
+  "map_id": "map_int_paws",
+  "name": "Paws for Thought — The Waiting Room",
+  "parent_zone": "zone_district_926_912"
+}

@@ -1,0 +1,19 @@
+{
+  "description": "A wire above each table with wooden beads on it, pushed along by hand, which is the only scoring system that has never once failed in this building. Every board reads a different number and only two of the tables have anybody at them.",
+  "flags": {
+    "aliases": "scoreboards,board,beads,wire",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pocket_boards",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the scoreboards",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pocket_hall"
+}

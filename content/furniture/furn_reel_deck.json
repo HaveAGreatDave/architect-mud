@@ -1,0 +1,31 @@
+{
+  "description": "A squat plastic top-loader on a milk crate between the two machines, wired into the house feed with a cable clipped up the wall by somebody who took real care over it. Three piano keys and a counter. It is why the screen has a picture six days a week, and nobody here says so aloud.",
+  "flags": {
+    "aliases": "deck,tape player,tape,bantam,crate",
+    "beta_player": true,
+    "media_deck": true,
+    "mini_deck": true,
+    "channel_id": "ch_0_vcr",
+    "deck_brand": "Bantam",
+    "deck_style": "keys",
+    "deck_mark": "▚",
+    "deck_cassettes": [
+      "bc_the_meter_reader",
+      "bc_sister_steel",
+      "bc_night_shift_number_four"
+    ],
+    "deck_active": "bc_the_meter_reader",
+    "deck_default": "bc_the_meter_reader",
+    "deck_owner_npc": "npc_reel_nissen"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_deck",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "the tape player",
+  "object_type": "media_deck",
+  "power_draw_kw": 0.03,
+  "price": null,
+  "zone_id": "zone_reel_box"
+}

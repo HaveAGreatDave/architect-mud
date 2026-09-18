@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1b1915",
+  "description": "Through a door marked STAFF that is never locked: the closed stack, which is two rooms' worth of shelving crammed into one and lit by a single bulb on a cord you move with you as you go. Everything in here is either too fragile to browse, too valuable to browse, or was put here in a temper and never brought back out. The floor is reinforced with steel plate under the boards and you can feel the change underfoot at the threshold.",
+  "exits": {
+    "west": "zone_fineprint_room"
+  },
+  "flags": {
+    "building_name": "Fine Print",
+    "building_type": "lending_library",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_908"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_fineprint_stack",
+  "map_id": "map_int_fineprint",
+  "name": "Fine Print — The Closed Stack",
+  "parent_zone": "zone_district_903_908"
+}

@@ -227,7 +227,98 @@ let builds = 0;
 // the wall wash to 0.18 would have dimmed every neon reflection on a rainy street to 40% of what
 // it was swept at, without a word about it in a change that is only supposed to be about walls.
 // It keeps 0.45, which is the value it was tuned at, and the two can move apart now.
-export const LIGHT_TUNE = { minR: 0.8, span: 3.2, gain: 0.18, wet: 0.45, wrap: 0.35, rise: 0.22, fall: 0.38 };
+//
+// ── AND THE REACH IS THE KNOB NOBODY TURNED ─────────────────────────────────
+//
+// The gain has been cut four times now — 1.5 → 0.45 → 0.70 → 0.45 → 0.18 — every one of them off a
+// live report that the wash reads as a tint over the city rather than as a sign lighting its own
+// wall, and every one of them turning the same knob. Put the numbers in the units the city is
+// actually built in and the cause is arithmetic rather than taste:
+//
+//   a storey is FLOOR_Z × bldgH × bldgStretch ≈ 0.196 tiles
+//   a building is BUILDING_FOOT × 2 ≈ 0.76 tiles wide
+//   an ordinary neon (I ≈ 0.5) reaches minR + span·√I ≈ 3.06 TILES
+//
+// which is fifteen storeys up the facade and four building-widths across. A sign on a shopfront was
+// lighting the whole block, and the falloff is gentle enough that seven storeys up still carried a
+// quarter of the peak. That is not a wash that is too bright; it is a wash the size of a city
+// block, and the only way to stop one of those flattening a facade is to turn it down until it does
+// nothing — which is the ratchet the four cuts were walking down.
+//
+// So the wall takes a SHARE of the reach rather than all of it. At `wallR` 0.32 an ordinary neon
+// reaches 0.98 tiles: five storeys, a little over one building wide, room to spill onto a neighbour
+// and no further. `focus` is the falloff over it, and 2 is exactly the term that shipped, so the
+// broad wash stays expressible and stays in the sweep.
+//
+// ⚠ AND THE REACH IS NOT THE WALL'S TO SHRINK — THE SAME TRAP `wet` WAS SPLIT OUT OF ONE PARAGRAPH
+// AGO. `r` has THREE readers: this wash, and the wet road in both ground.js and floor.js, where it
+// is the length of a neon streak on tarmac and was swept at these values. Shrinking `minR`/`span`
+// would have taken every reflection on a rainy street down with the wall, silently, inside a change
+// that is only about walls. So `minR`/`span` keep their meaning and their numbers, the road goes on
+// reading `r`, and the wall reads `rw`.
+//
+// ⚠ AND A LIT FACADE IS AN AREA SOURCE, NOT A POINT ONE. `facadeGlow` tags its lights `wash`, and a
+// storey of lit windows genuinely does throw a broad dim field across the street — that is what it
+// is. Tightening it would delete `glWash` by arithmetic instead of by a decision, so a wash keeps
+// its own share of the reach and its own gain, with `washK` × `gain` landing on the 0.18 it was
+// last tuned at. What changed here is the point sources.
+//
+// ⚠ AND THE GAIN GOES UP BECAUSE THE AREA CAME DOWN — BY FOURTEEN TIMES, WHICH IS NOT A NUMBER
+// ANYBODY WOULD HAVE GUESSED. 0.18 was the right gain for a light three tiles across and it is
+// nowhere near the right one for a light one tile across: the first cut of this change kept the
+// reach and the exponent below and put the gain at 0.55, which reads as three times brighter and
+// measured as SIX PER CENT of the light the wash had been putting on the city. The feature was
+// gone, and it looked from the numbers like it was working.
+//
+// So the row below was swept rather than reasoned, over wallR × focus × gain on a lit street from
+// a cab, scored against the old wash on the three things that separate a bloom from a tint — the
+// AREA it covers, the PEAK at its centre, and whether that centre has gone white. What ships:
+//
+//   area 0.31x     a third of the wall it used to cover
+//   peak 1.56x     and half again as bright where the sign is
+//   energy 0.34x   a third of the total light laid on the city
+//   white 0px      the core still carries the sign's own colour rather than blowing to white
+//
+// ⚠ AND THE WHITE COLUMN IS THE ONE THAT BOUNDS IT, not the peak. Every row above gain 2.5 at this
+// reach starts turning the middle of the pool white, which throws away the one thing the wash is
+// for: a pink sign has to lay PINK on its wall. `glHdr` keeps that from CLIPPING — the frame has
+// headroom over 1.0 — but headroom is not a licence, because the tonemap still has to bring it back
+// and a core that arrives desaturated arrives desaturated.
+export const LIGHT_TUNE = {
+  // The reach, in tiles. ⚠ THIS IS THE WET ROAD'S and it was swept at these — see above.
+  minR: 0.8, span: 3.2,
+  wallR: 0.32,   // the share of it the wall's bloom takes — about a tile, five storeys
+  washR: 0.99,   // the share an AREA source keeps — unchanged, deliberately
+  focus: 3.0,    // falloff exponent over the bloom; 2 is the broad wash that shipped
+  // ⚠ OFF, ON THE SIXTH REPORT, AND THE KNOB IS THE WHOLE REVERT. Every cut above was made off a
+  // live report that the wash reads as a light show over the city rather than as a sign lighting its
+  // own wall — 1.5 → 0.45 → 0.70 → 0.45 → 0.18, then up to 2.5 when the reach came down by fourteen
+  // times. That last row was swept on area, peak, energy and whether the core blew to white, and it
+  // passed all four; what it cannot measure is the thing being judged, which the note above says in
+  // as many words — nothing in `__glLights()` scores whether an effect draws attention to itself. It
+  // does. Measured at the shopfront it was reported from, with the clock settled and then frozen so
+  // the two sides differ by nothing else (noise floor 0, bit-identical on a repeat): the wash moves
+  // 37.8% of the building half of the frame, mean 34/255, worst 101. That is a facade lit past its
+  // own signage — the lettering on Nuts to That is unreadable with it on and readable with it off.
+  //
+  // ⚠ 0 HERE AND NOT `RENDER_TUNE.glLights` 0, WHICH IS A DIFFERENT AND BIGGER SWITCH. That flag
+  // skips `pickLights` altogether, and the list it builds is also what the wet road and the mirror
+  // reflect — so it would take every neon reflection on a rainy street with it. `gain` is read by the
+  // wall term alone: `rgbRaw` carries `wet`, the reach and the ranking carry neither, and at 0
+  // `wallLights` is null, so the mass shader is handed no lights and the per-fragment loop costs
+  // nothing at all. Measured on that same frozen frame: the picked list is identical light for
+  // light (`rgbRaw`, `r` and the keys all match), and the road band moves 0.00% of its pixels.
+  //
+  // Putting it back is this one number, and it belongs with the reach it was tuned against — see the
+  // ⚠ above, where the gain and the reach move together. 0.18 is the last value it shipped at.
+  gain: 0,
+  // ⚠ MOVES WHENEVER `gain` DOES, and it is the whole of what keeps `glWash` where it was tuned:
+  // washK × gain is the 0.18 a facade glow was last set at. Change one without the other and every
+  // lit window in the city silently gets fourteen times the throw. ⚠ AT `gain` 0 THE PRODUCT IS 0
+  // AND THIS NUMBER IS PARKED rather than wrong: it is the ratio to restore alongside the gain.
+  washK: 0.072,
+  wet: 0.45, wrap: 0.35, rise: 0.22, fall: 0.38,
+};
 
 // ── CONTACT OCCLUSION, AS TWO NUMBERS ───────────────────────────────────────
 //
@@ -340,7 +431,12 @@ function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
     // The light own colour, weighted the way an eye weights it. NO ALPHA — see the ⚠ above.
     const I = Math.min(1, (c[0] * 0.3 + c[1] * 0.6 + c[2] * 0.1) / 255);
     const r = LIGHT_TUNE.minR + LIGHT_TUNE.span * Math.sqrt(I);
-    const k = s.a * nightGain;
+    // ⚠ A POINT SOURCE BLOOMS, AN AREA SOURCE WASHES, AND BOTH COME OFF THE SAME `r` — see the ⚠ on
+    // LIGHT_TUNE. The road is handed `r` untouched; only what the WALL gets is split, in reach and
+    // in gain, so the wet street cannot move when the bloom is tuned.
+    const isWash = !!s.wash;
+    const rw = r * (isWash ? LIGHT_TUNE.washR : LIGHT_TUNE.wallR);
+    const k = s.a * nightGain * (isWash ? LIGHT_TUNE.washK : 1);
     // A stable name for this light, so last frame own choices can be recognised in this one. The
     // sprite objects are rebuilt every frame and share no identity, so the POSITION is the identity
     // — quantised, or a light drifting a thousandth of a tile is a different light every frame.
@@ -362,8 +458,11 @@ function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
       // this line has always run at.
       rgbRaw: [c[0] / 255 * s.a * LIGHT_TUNE.wet, c[1] / 255 * s.a * LIGHT_TUNE.wet, c[2] / 255 * s.a * LIGHT_TUNE.wet],
       r,
+      // What the WALL reaches, as opposed to what the road does. ⚠ A SEPARATE FIELD RATHER THAN A
+      // SHRUNK `r`, because `r` is the road's and context.js is the only reader that wants this one.
+      rw,
       key,
-      wash: !!s.wash,
+      wash: isWash,
       score: I * r / f,
     });
   }
@@ -1227,7 +1326,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // zero up there when the gain is, so this is belt and braces, and it keeps the daylight frame
   // exactly the shape it was.
   const wallLights = (LIGHT_TUNE.gain * Math.min(1, Math.max(0, opts.night || 0)) > 0.01) ? lightList : null;
-  const drawOpts = { ...(opts.draw || {}), lights: wallLights, lightWrap: LIGHT_TUNE.wrap, cssH,
+  const drawOpts = { ...(opts.draw || {}), lights: wallLights, lightWrap: LIGHT_TUNE.wrap,
+    lightFocus: LIGHT_TUNE.focus, cssH,
     ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),
     // ── THE MATERIAL RESPONSE ───────────────────────────────────────────────────────────────
     //
@@ -1282,10 +1382,18 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // ⚠ AND THE SHED GOES UP WITH IT, BEFORE THE MIRROR. Same argument as the rig one line above:
   // the reflection pass runs BEFORE the main one, so anything that is to appear in a puddle has to
   // be in the buffer by now. A depot standing over a wet apron is exactly the case.
-  if (g.view.uploadSolids) g.view.uploadSolids([opts.ship, opts.bay]);
+  if (g.view.uploadSolids) g.view.uploadSolids([opts.ship, opts.bay, opts.fauna]);
   const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
   const reflTex = (mirrorGain > 0 && opts.glWet > 0 && g.view.drawMirror)
     ? g.view.drawMirror(cam, { sprites: opts.sprites, decals: opts.decals, cssH, scale: opts.glMirrorRes,
+        // ⚠ AND THE SKY, WHICH IS MOST OF WHAT A PUDDLE IS LOOKING AT. Measured on a city street
+        // with grass verges: the mirror term moved 20.1% of the lower half of the frame and the
+        // CITY accounted for 4.0 of it — four fifths of every reflection was the flat two-stop
+        // fallback in ground.js, one colour over the whole road, which is what "the puddles are
+        // opaque and show nothing" turned out to mean. The buffer is composited OVER that fallback
+        // (premultiplied, see `img` there), so cards in here become the cloud and the fallback
+        // becomes the gap between them, with no change to the ground shader at all.
+        clouds: (opts.glMirrorSky === 0) ? null : opts.clouds, cloudState: opts.cloudState,
         massCam: camAt, mass: opts.glMirrorMass == null ? 1 : opts.glMirrorMass, massOpts: drawOpts,
         // ⚠ THE BAND, NOT THE MASS PASS'S `fog`. Two things in this renderer are called fog and they
         // are different shapes: the mass shader takes a COLOUR array, this takes {col, near, far,
@@ -1348,6 +1456,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // The two ends of the sky, for the water to reflect where the city does not cover it. See the
     // ⚠ on `uSkyHor` in ground.js for why this is a pair rather than the fog band alone.
     skyBand: opts.skyBand,
+    // …and the sky itself, which is what those two colours were standing in for. See the ⚠ on
+    // `uSky` in ground.js: the pair stays as the fallback for a frame that has no band to capture.
+    skyStrip: opts.glMirrorSky === 0 ? null : opts.skyStrip,
+    // How much darker standing water is than the road it lies on — the contrast the image is read
+    // against. See the note on `uWetDark` in ground.js.
+    wetDark: opts.glWetDark,
     // The wet road. `lightList` is already in this pass's own frame — see the ⚠ above — and the
     // camera's ground point is the window shift, because `camAt` is the shifted camera.
     // ⚠ NOT GATED ON THERE BEING LIGHTS, AND IT WAS. `pickLights` hands back null in daylight, so
@@ -1356,6 +1470,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // two terms: the first needs only water, the second needs something to reflect. The shader
     // skips the reflection loop on its own when `uNWet` is 0.
     wet: opts.glWet > 0 ? opts.glWet : 0,
+    // How much water is STANDING, which is what decides the puddle level — as opposed to how wet
+    // the surface is, which decides the darkening and the mirror. See POND_RISE_S in windshield.js.
+    pond: opts.glPond == null ? (opts.glWet > 0 ? opts.glWet : 0) : opts.glPond,
+    pudRoad: opts.glPudRoad,
     // ⚠ THE ROAD PICKS ITS OWN SIX, AND HANDING IT `lightList` RAW MEANT WASHES NEVER REACHED IT.
     // `pickLights` satisfies `WASH_SLOTS` by replacing the WEAKEST sources, so a wash sits at
     // position 10 or 11 of the twelve — and `MAX_WET` in ground.js takes the FIRST SIX. A facade
@@ -1468,6 +1586,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // product of three things that can each be zero for a different reason — the tune, the wetness,
   // and whether the framebuffer was accepted — and a reflection that silently never ran looks
   // exactly like one that ran and was too faint to see.
-  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, solids, ship: (opts.ship || []).length, bay: (opts.bay || []).length, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, solids, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 

@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2b2620",
+  "description": "One room and a scullery behind a curtain. The bed folds up into a cabinet against the wall and the cabinet door has been off its top hinge for a while now. The window faces the green, which means washing, which means a grey light that is nonetheless daylight.",
+  "exits": {
+    "south": "zone_filament_stair"
+  },
+  "flags": {
+    "floor": "boards",
+    "is_apartment": true,
+    "rent_cost": 45,
+    "window": {
+      "description": "A sash window onto the drying green, painted shut at some point and then freed with a chisel by somebody impatient.",
+      "light": 0.7,
+      "name": "the green window",
+      "visibility": 0.75
+    }
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_filament_unit_1",
+  "map_id": "map_int_filament",
+  "marker": "1",
+  "name": "Unit 1",
+  "parent_zone": "zone_district_897_905"
+}

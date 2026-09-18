@@ -1,0 +1,14 @@
+{
+  "description": "One lamp over the cutting machine and a second on a flex above the vice, both of them aimed at work rather than at the room. Everything in here that matters is within the two pools of light and everything else is a shape.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_skelcrew_shop",
+  "light_type": "overhead",
+  "lumen_output": 2000,
+  "name": "the machine lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_skelcrew_shop"
+}

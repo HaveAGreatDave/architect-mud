@@ -1,0 +1,20 @@
+{
+  "description": "Four galvanised bins of pennies under the stairs, counted by weight against a card of conversions taped to the wall. Counting them properly was attempted once, by two people, over a weekend, and the note at the bottom of the card says NEVER AGAIN in a different pen.",
+  "flags": {
+    "aliases": "bins,coins,pennies,store",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penny_bins",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the coin bins",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_penny_floor"
+}

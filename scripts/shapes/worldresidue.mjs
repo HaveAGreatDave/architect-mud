@@ -136,6 +136,14 @@ if (!control || !residue) problems.push('the tally never started — __emitWhoSt
 // ⚠ NAME THE PASS, NOT THE DRAWER. The tally tags a face with the function that QUEUED it, and a
 // figure is queued by its pass — `emitScatterFace < drawStreetActors` — so looking for the drawer
 // underneath it (drawActorFigure) finds nothing and fails a scene that is perfectly correct.
+// ⚠ THE GEESE ARE NOT IN THIS LIST, AND CANNOT BE. `drawGeese` is day-gated — a flock stops drawing
+// above `GOOSE_NIGHT_OFF`, as the ambient birds already do — and this census runs at hour 22 on
+// purpose, because the lamps, the signal lenses and the lit scatter are all night-gated and a
+// daylight sweep would miss most of the surface it exists to find. One scene cannot be both.
+// So the same question is asked of the geese in scripts/shapes/fauna.mjs, which has a day scene
+// and a field of turf, with the same instrument. Adding them here instead of there produces a
+// control that never draws them, which fails for its own reason — and adding the name without the
+// check would be the vacuous-gate mistake this file's own header is about.
 for (const w of ['drawTrafficSignals', 'drawStreetLamps', 'drawStreetActors', 'drawRoadside', 'yacht']) {
   if (!control || !control.some((r) => r.tag.includes(w))) {
     problems.push(`the GLASS 1 control drew no ${w} — the scene does not contain what this measures, so an empty GLASS 2 tally would mean nothing`);

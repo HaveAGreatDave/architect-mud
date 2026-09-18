@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_pillcollins_counter",
+  "id": "map_int_pillcollins",
+  "name": "Pill Collins",
+  "parent_zone_id": "zone_district_904_908"
+}

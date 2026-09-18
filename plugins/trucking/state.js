@@ -20,7 +20,7 @@ import { streetActors } from '../../server/engine/street-actors.js';
 import { emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
-import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState } from '../flight/state.js';
+import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState, farRoadsNear, FAR_ROAD_R } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
   nodeAt, sOfNode, roomLenOf, addWreck, wreckAhead, signsBetween, ARROW_WORDS, pavedAt,
   attachSigns, joinRoutes, reverseRoute, pairKey, composeRoad, milesOf } from './corridor.js';
@@ -1441,6 +1441,18 @@ export function cabContext(rig, extra = {}) {
     leg: rig.leg,
     map: mapWindow({ grid_x: cx, grid_y: cy }, CAB_RADIUS, providerFor(rig)),
     mapX: cx, mapY: cy,
+    // The road past the edge of that window, as geometry rather than as cells — the same payload a
+    // cockpit gets, and for the same reason. The cab window is 30 tiles and the ground runs to the
+    // horizon; without this the highway a driver is ON visibly stops, and they are the one person
+    // in the game guaranteed to be looking straight down it.
+    //
+    // ⚠ READ BACK THROUGH THE SEAM THIS PLUGIN REGISTERED, NOT STRAIGHT OUT OF roadnet.js.
+    // `roadnet.js` imports THIS file (for buildRoad and the gates), so importing it here would close
+    // a cycle — and it would be a cycle between the module that builds roads and the module that
+    // decides where their mouths are, which is exactly the pair you least want evaluating in an
+    // order nobody chose. index.js already hands `farRoadLines` to flight, and flight is upstream of
+    // both, so asking it back costs one indirection and no new edge.
+    roads: farRoadsNear(cx, cy, FAR_ROAD_R),
     // Everyone standing on the surface grid inside the same window, so the cab draws a figure
     // per person on the pavement. Absolute tile coords, paired with mapX/mapY exactly as `map`
     // is. Corridor legs are void road with no placed tiles, so this is empty out there by

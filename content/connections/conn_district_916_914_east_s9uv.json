@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_916_914",
+  "b": "zone_pastperf_hall",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_916_914_east_s9uv",
+  "lockable": true,
+  "one_way": false
+}

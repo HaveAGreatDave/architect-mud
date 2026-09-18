@@ -1,0 +1,14 @@
+{
+  "description": "A single strip light in a dish shade directly over the desk, low enough that a tall man stoops under it and nobody tall works in here.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_pfin_settle",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "the desk strip",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_pfin_settle"
+}

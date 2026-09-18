@@ -1,0 +1,293 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Onyeka looks up at the ceiling and listens to the room above with his head on one side.",
+    "He turns the lamp on its arm, gets the light where he wants it, and loses it again.",
+    "He puts a screw somewhere sensible and immediately cannot find it.",
+    "He plays four notes on something within reach, stops, and adjusts one thing.",
+    "\"Sorry about the noise,\" he says, to the room, having no intention of doing anything about it.",
+    "He wipes a fingerprint off the glass case, and then another, and then gives up.",
+    "He reads the hire board, sees the same three initials on Wednesday, and smiles at it.",
+    "Something upstairs starts and stops and starts again. He waits it out, patiently.",
+    "He turns the thing on the bench so a customer could see into it, in case one wanted to."
+  ],
+  "description": "A patient, distractible man who is always halfway through a repair and will show you the inside of it whether you asked or not. He hears the building the way other people see it and will break off mid-sentence to look at the ceiling because the room above has changed what it is doing. He apologises for the noise roughly once an hour and has never once done anything about it.",
+  "dialogue_tree": {
+    "bench": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"In view of everybody, yes.\" He turns the lamp on its arm. \"Two reasons. One is that a person who has handed over something they love wants to see it in one piece on a bench rather than imagine it in a box out the back.\"\n\nHe finds a screw and puts it somewhere sensible.\n\n\"The other is that I am much better at this when somebody might be watching, which is not a thing I am proud of but it is a thing I have accepted.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "noise": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"We rehearse upstairs, we are sorry, we are not stopping.\" He recites it comfortably. \"I had it printed round the corner. Ludd set it and then told me the middle clause was doing no work and I told him to leave it in, and he left it in, and then he charged me for the argument.\"\n\nA glance upward.\n\n\"It is genuinely an apology. It is just not an offer.\""
+    },
+    "rooms": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Two of them, by the hour, and the board's the board.\" He nods at the grid. \"Wednesday evenings have been the same three initials for about nine years. They're not good. I want to be straightforward about that. They are not good and they have not got better and they turn up every single Wednesday.\"\n\nHe listens to the ceiling for a second.\n\n\"They've paid for the roof twice over. Nobody is ever going to tell them.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "You do repairs in the shop window, effectively.",
+          "next": "bench"
+        },
+        {
+          "label": "The rehearsal rooms.",
+          "next": "rooms"
+        },
+        {
+          "label": "The card in the window.",
+          "next": "noise"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Bench is in view on purpose, have a look if you like.\" He does not stop what he is doing. \"Rooms upstairs are by the hour, board's on the wall, and yes, that's a drum kit, and no, I'm not going to ask them to stop.\"",
+      "text_by_relation": {
+        "familiar": "He puts the work down entirely, which he does for nobody.\n\n\"Room two's free for an hour and nobody's booked it and I'd rather it was used than sat empty,\" he says. \"Don't pay me. It's an hour. The building's louder when there's something in it.\"",
+        "first": "The man behind the counter is looking into the open body of something and talking before he looks up.\n\n\"Bramble. Onyeka.\" He turns the thing so you can see into it, assuming an interest you have not expressed. \"Somebody has had a go at this with a screwdriver and a theory.\"\n\nHe sets it down.\n\n\"Right. Walls are stock, case is the delicate stuff, bench is repairs and I do them out here where you can watch, which people find either reassuring or unbearable.\" He glances at the ceiling. \"Rooms up there are by the hour. It's loud. I did warn you, I'm warning you now, that's the warning.\"",
+        "known": "\"Ah, good.\" He is pleased and makes no attempt to hide it. \"Listen to this a moment.\" He does something, somewhere, and it sounds different. \"That. That was not doing that on Tuesday.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a cardigan with a burn hole near the pocket",
+      "a shirt with a pen in the breast pocket that has leaked",
+      "corduroy trousers and soft shoes"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_treblemaker_shop",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_treble_bramble",
+  "name": "Onyeka Bramble",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_instrument_strings",
+      "price": 24
+    },
+    {
+      "item_id": "item_valve_oil",
+      "price": 12
+    },
+    {
+      "item_id": "item_metronome",
+      "price": 52
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 21
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 21
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 21
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 21
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 21
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 21
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 21
+      }
+    ]
+  },
+  "vendor_shop_name": "Treble Maker",
+  "vendor_stock_size": 9,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_treblemaker_shop"
+}

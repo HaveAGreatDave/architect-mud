@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1f222a",
+  "color": "#9aa3b5",
+  "description": "Louder than anywhere else on the street and smelling of solvent and hot metal. Two presses, one of them running, both of them older than the building they are standing in. Paper stacked on pallets to shoulder height, cut sheets on a bench, and a drying line overhead with the morning's work pegged to it. Everything is either ink black or paper white and there is no middle.",
+  "exits": {
+    "down": "zone_util_zone_justmytype_floor",
+    "south": "zone_district_913_911"
+  },
+  "flags": {
+    "building_name": "Just My Type",
+    "building_type": "store",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The roller door, up to shoulder height, which is how this place does a window. You get a horizontal slot of Foundry Way, feet going past, and the weather arriving in the room before anyone announces it.",
+      "light": 0.85,
+      "name": "the roller door",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_913_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_justmytype_floor",
+  "map_id": "map_int_justmytype",
+  "name": "Just My Type — Print Floor",
+  "parent_zone": "zone_district_913_911"
+}

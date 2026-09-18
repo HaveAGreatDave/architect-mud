@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_904_908",
+  "b": "zone_pillcollins_counter",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_904_908_south_pabz",
+  "lockable": true,
+  "one_way": false
+}

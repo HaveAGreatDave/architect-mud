@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1d1915",
+  "description": "Narrow, dark past the hatch light, and stacked to the ceiling on both sides. Bottles in cases on steel racking with the labels turned out, sorted by strength rather than by kind, which is a system he will defend at length. A ledger by the turntable and a pencil on a string. A cosh under the ledger, which he has never used and does not pretend is there for any other reason.",
+  "exits": {
+    "east": "zone_spirit_store",
+    "west": "zone_district_919_914",
+    "down": "zone_util_zone_spirit_shop"
+  },
+  "flags": {
+    "building_name": "Spirit Level",
+    "building_type": "off_licence",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The hatch, and the hatch is a hole rather than a window: a lit rectangle at chest height with a turntable in the sill. You can see about a foot of the road through it and the road can see about a foot of you.",
+      "light": 0.35,
+      "name": "the hatch",
+      "visibility": 0.2
+    },
+    "world_exit_zone": "zone_district_919_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_spirit_shop",
+  "map_id": "map_int_spirit",
+  "name": "Spirit Level — Behind the Hatch",
+  "parent_zone": "zone_district_919_914"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_stuff_pin",
+  "name": "card of entomology pins",
+  "tags": {
+    "stackable": true,
+    "description": "Steel pins three inches long with black enamelled heads, forty to a card, thinner than anything else you own. She sells more of these than anything else in the shop and has never once asked what they are for."
+  },
+  "type": "misc",
+  "value": 9,
+  "weight": 20
+}

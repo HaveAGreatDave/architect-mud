@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pfin_ledger",
+  "name": "a settled season ledger",
+  "tags": {
+    "description": "A bound year of one league, hand-ruled, every fixture entered in ink with the price it opened at, the price it went off at, and what it did. She keeps one copy and sells the duplicate. It is the only complete record of a season that exists anywhere, and the man who keeps the other one is dead."
+  },
+  "type": "media",
+  "value": 260,
+  "weight": 900
+}

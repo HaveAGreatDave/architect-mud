@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2b2620",
+  "description": "A stone stair going up into the dark, worn into a shallow trough at the middle of every tread. The tiles on the wall are the municipal green of somewhere you would rather not be treated, cracked and scrubbed to a shine at hand height. Post for eleven flats sits on the sill in four leaning piles, sorted by somebody with a system.",
+  "exits": {
+    "east": "zone_filament_unit_2",
+    "north": "zone_filament_unit_1",
+    "south": "zone_district_897_905",
+    "up": "zone_filament_landing"
+  },
+  "flags": {
+    "building_name": "Filament Buildings",
+    "building_type": "apartment",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_filament_stair",
+  "map_id": "map_int_filament",
+  "name": "Filament Buildings — Stair Hall",
+  "parent_zone": "zone_district_897_905"
+}

@@ -1,0 +1,19 @@
+{
+  "description": "A green cast-iron safe on a plinth, bolted through the floorboards into something that rings when you knock the boards beside it. Gold lining on the door, half of it gone. Three numbers on the dial are worn shinier than the rest, which tells you nothing useful, and everybody tries it anyway.",
+  "flags": {
+    "aliases": "safe,strongbox,green safe,till",
+    "hack_difficulty": 6,
+    "vendor_npc_id": "npc_pfin_glennie",
+    "vendor_safe": true
+  },
+  "hp": 2400,
+  "hp_max": 2400,
+  "id": "furn_pfin_safe",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "the green safe",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pfin_settle"
+}

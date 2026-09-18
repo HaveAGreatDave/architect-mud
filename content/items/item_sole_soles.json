@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_sole_soles",
+  "name": "pair of leather soles",
+  "tags": {
+    "stackable": true,
+    "description": "Cut from the bend, matched, edges squared, the grain running the length. Heavier than the thing you are replacing and the point of them is that they will outlast it twice."
+  },
+  "type": "material",
+  "value": 46,
+  "weight": 260
+}

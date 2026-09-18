@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#26261f",
+  "description": "One large room under a wall of glass, and almost nothing in it, which is the point. A plate camera on a wooden tripod the size of a stepladder, a stool, a headrest on a stand that nobody has used in forty years and which she keeps because removing it would be a decision. Rolls of backdrop on a rail: grey, a lighter grey, and one that was a landscape. The light in here changes every twenty minutes and she works to it rather than against it.",
+  "exits": {
+    "down": "zone_negeq_shop"
+  },
+  "flags": {
+    "building_name": "Negative Equity",
+    "building_type": "photographer",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The north slope, glass from the wall plate to the ridge, in small panes with an iron glazing bar every eighteen inches. You do not see the street through it. You see the sky, all of it, all day, and what the sky is doing is the entire working condition of this room.",
+      "light": 0.98,
+      "name": "the north light",
+      "visibility": 0.5
+    },
+    "world_exit_zone": "zone_district_895_904"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_negeq_studio",
+  "map_id": "map_int_negeq",
+  "name": "Negative Equity — The Studio",
+  "parent_zone": "zone_district_895_904"
+}

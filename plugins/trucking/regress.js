@@ -40,7 +40,7 @@ import { TRAILER_TYPES, trailersAt, trailersOf, getTrailer, buyTrailer, hitchTra
   sellTrailer, trailerResale } from './trailers.js';
 import { runScale, scaleAt, clearCustoms, afterDrive } from './scale.js';
 import { hitcherAt, hitcherAhead, hitcherSOf, HITCHER_KINDS } from './hitchers.js';
-import { roadNetwork, roadCellAt, worldRoadProvider, clearRoadNet } from './roadnet.js';
+import { roadNetwork, roadCellAt, worldRoadProvider, clearRoadNet, farRoadLines, FAR_TOL } from './roadnet.js';
 import { tryDoorBoard, rigLocked, passHitcher } from './state.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
@@ -1015,6 +1015,56 @@ export default async function regress({ run, check, getPlayer }) {
     // A miss costs one Map lookup and answers null — the case that runs 26,000 times a push for a
     // pilot who is nowhere near a road.
     check('a tile nowhere near a road has no road on it', roadCellAt(-9999, -9999) === null);
+
+    // ── 1c-ter. THE SAME ROAD, FROM TEN MILES UP ──────────────────────────────
+    // The overlay above answers one tile, which is the right question for a 36-tile map window and
+    // the wrong one for a horizon. `farRoadLines` hands the flight sim the GEOMETRY instead, so a
+    // pilot sees the corridor running away into the haze rather than stopping dead in mid-desert at
+    // the edge of the window. See registerFarRoads in plugins/flight/state.js for why widening the
+    // window instead would have been a 30× per-tick payload to carry what is, at that range, a line.
+    {
+      const anchorRoute = _previewRoute(VOIDKEY, win);
+      const at = anchorRoute ? corridorPos(anchorRoute, anchorRoute.L * 0.5) : null;
+      const far = at ? farRoadLines(Math.round(at.x), Math.round(at.y), 320) : null;
+      check('a road in range comes back as polylines',
+        !!far && far.lines.length > 0, far ? `${far.lines.length} lines` : 'nothing');
+      if (far) {
+        // ⚠ THE SIMPLIFIED LINE MUST STILL LIE ON THE TARMAC. Douglas-Peucker cuts corners by up to
+        // its tolerance and the client paints a band around whatever it is handed — so a tolerance
+        // wider than the carriageway would draw a road running BESIDE the real one: visible from the
+        // air, and gone the moment you flew close enough for cells to take over, which is the worst
+        // possible shape for a bug. FAR_TOL is half a tile against a paved half-width of 0.95, and
+        // this is the assertion that keeps those two numbers in that order.
+        let pts = 0, offRoad = null;
+        for (const L of far.lines) {
+          for (let i = 0; i < L.length; i += 2) {
+            pts++;
+            if (!roadCellAt(Math.round(L[i]), Math.round(L[i + 1])) && !offRoad) offRoad = `${L[i]},${L[i + 1]}`;
+          }
+        }
+        check('…and every point of it is on a road', !offRoad, offRoad ? `first miss at ${offRoad}` : `${pts} points`);
+        // The cap is the RENDERER's array length, not a round number: the floor shader carries a
+        // vec4[48] and draws nothing past it, so a point the server sends beyond that is a byte on a
+        // per-tick wire that the client throws away. It goes over that wire on a free tier whose
+        // egress is measured daily (docs/ops-usage-watch.md).
+        check('…and the whole payload stays inside its point budget', pts <= 48, `${pts} points`);
+        // ⚠ AND THE SIMPLIFICATION TOLERANCE MUST STAY UNDER THE CARRIAGEWAY'S OWN HALF-WIDTH.
+        // That is the relationship the check above it rests on: Douglas-Peucker moves a kept point by
+        // up to the tolerance, so at anything wider the line leaves the tarmac and the far road is
+        // drawn beside the real one. Asserted here rather than left as a comment because the obvious
+        // way to fit a long road into a tight budget is to coarsen it, and that is the one lever that
+        // must never be pulled — see buildFarRoadLines, which gives up LENGTH instead.
+        check('…and its simplification can never walk off the carriageway', FAR_TOL < PAVED_R,
+          `tol ${FAR_TOL} vs paved half-width ${PAVED_R}`);
+        check('…the band it describes is the graded strip, not just the carriageway',
+          far.w > PAVED_R && far.w < PAVED_R + 2, `w=${far.w}`);
+      }
+      // ⚠ NULL, NOT AN EMPTY LIST. The client assigns this unconditionally so that flying off the end
+      // of a road CLEARS it; a shape that never came back empty would leave the last highway painted
+      // across a desert three regions away from the one it belongs to.
+      check('…and nothing at all comes back where there is no road',
+        farRoadLines(-99999, -99999, 320) === null);
+    }
 
     // ── EVERY REGION REACHES EVERY NEIGHBOUR THROUGH THE EXIT THAT FACES IT ──
     //

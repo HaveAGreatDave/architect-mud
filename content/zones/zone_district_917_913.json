@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#1d2128",
+  "color": "#6d7d92",
+  "description": "A lender on the corner of the Gate Road, positioned so that it is the last frontage you pass on the way out of the city and the first one on the way back in, which took some thought. Frosted glass to head height with the name in gold leaf across it, a heavy door, and rates on a card in the corner of the window in a type size that requires you to stop walking and lean in.",
   "exits": {
-    "east": "zone_district_918_913",
     "north": "zone_district_917_912",
-    "south": "zone_district_917_914",
-    "west": "zone_district_916_913"
+    "south": "zone_loanwolf_office"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Loan Wolf",
+    "building_type": "bank",
+    "district": "marrow",
+    "entrance": "north",
+    "facade": true,
+    "floors": 3,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_917_912"
   },
   "grid_x": 917,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_917_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "LN",
+  "name": "Loan Wolf",
   "parent_zone": null
 }

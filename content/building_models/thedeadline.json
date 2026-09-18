@@ -1,0 +1,308 @@
+{
+  "adorn": [
+    {
+      "cx": -0.06,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,180,90",
+      "s": 17,
+      "z": 0.2
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "125,255,176",
+      "s": 14,
+      "z": 0.7
+    },
+    {
+      "cx": 0.285,
+      "cy": 0.285,
+      "kind": "glowPool",
+      "rgb": "125,255,176",
+      "s": 10,
+      "z": 0.9
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Deadline"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 4,
+      "cx": -0.06,
+      "cy": 0.4,
+      "depth": 0.019,
+      "glass": "#20141a",
+      "glow": "#ffc46a",
+      "half": 0.255,
+      "hh": 0.072,
+      "kind": "windowBay",
+      "pal": "ty_marble_col",
+      "transom": 0.74,
+      "z": 0.175
+    },
+    {
+      "cx": -0.06,
+      "cy": 0.4,
+      "half": 0.29,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.1,
+      "pal": "ty_marble_col",
+      "soffit": "#123a22",
+      "strip": "#7dffb0",
+      "z": 0.258
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.278,
+        "cy": 0.4,
+        "depth": 0.014,
+        "glass": "#241820",
+        "glow": "#ffbe72",
+        "half": 0.068,
+        "hh": 0.056,
+        "kind": "windowBay",
+        "pal": "ty_marble_col",
+        "z": 0.435
+      },
+      "step": {
+        "cx": 0.185
+      }
+    },
+    {
+      "color": "#10241a",
+      "cx": -0.06,
+      "cy": 0.4,
+      "font": "condensed",
+      "half": 0.245,
+      "hh": 0.032,
+      "ink": "#7dffb0",
+      "kind": "signBoard",
+      "label": "THE DEADLINE",
+      "z": 0.664
+    },
+    {
+      "color": "#7dffb0",
+      "cx": 0,
+      "cy": 0.4,
+      "drop": 0.05,
+      "half": 0.36,
+      "kind": "neonRun",
+      "z": 0.752
+    },
+    {
+      "color": "#10241a",
+      "cx": -0.16,
+      "cy": -0.16,
+      "font": "condensed",
+      "half": 0.2,
+      "hh": 0.055,
+      "ink": "#7dffb0",
+      "kind": "signGantry",
+      "label": "OPEN TILL THREE",
+      "neon": true,
+      "pal": "ty_cold",
+      "rise": 0.055,
+      "z": 0.93
+    },
+    {
+      "cx": -0.07,
+      "cy": -0.4,
+      "face": "x",
+      "flights": 3,
+      "half": 0.072,
+      "kind": "fireEscape",
+      "out": 0.044,
+      "pal": "ty_cold",
+      "z0": 0.33,
+      "z1": 0.76
+    },
+    {
+      "color": "#1d1a12",
+      "cx": -0.02,
+      "cy": 0.4,
+      "face": "x",
+      "font": "deco",
+      "half": 0.2,
+      "hh": 0.055,
+      "ink": "#e8c878",
+      "kind": "signBoard",
+      "label": "READ THE SENTINEL",
+      "z": 0.5
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.425,
+      "hh": 0.011,
+      "kind": "parapet",
+      "pal": "ty_marble_col",
+      "z": 0.832
+    },
+    {
+      "cx": 0.16,
+      "cy": -0.24,
+      "d": 0.055,
+      "hh": 0.025,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.07,
+      "z": 0.832
+    },
+    {
+      "cx": -0.05,
+      "cy": -0.3,
+      "hh": 0.1,
+      "kind": "stack",
+      "pal": "ty_cold",
+      "r": 0.033,
+      "z": 0.832
+    },
+    {
+      "cx": 0.1,
+      "cy": -0.4,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.011,
+      "z0": 0.062,
+      "z1": 0.74
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.42,
+      "d": 0.034,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#233026",
+      "n": 3,
+      "pal": "ty_cold",
+      "w": 0.042,
+      "z": 0.004
+    },
+    {
+      "cx": -0.36,
+      "cy": 0.465,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    },
+    {
+      "cx": -0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_marble_col",
+      "r": 0.026,
+      "rgb": "190,235,255",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.085
+    }
+  ],
+  "id": "thedeadline",
+  "neon": "#7dffb0",
+  "note": "THE DEADLINE — the press bar on the corner of Meltwater Row, as 1930s streamline moderne:\ncream stucco, a rounded corner drum that runs past the parapet, three string courses and a\nwrapped canopy. Curved and period at once, which is the shape this street needed at its west end\nto stop the old half reading as one material in one rectangle.\n\n⚠ THE CORNER IS A DRUM AND NOT A CHAMFER, and that is forced rather than styled: a chamfer is an\noff-centre box turned 45°, and a box that is both offset and yawed puts the derived kit somewhere\nits own solid is not — see the ⚠ in aurelia.json, which cost that model its rotation. A drum is\nradially symmetric, so it reaches the same radius at every entrance facing and carries no yaw at\nall.\n\n⚠ THE STRING COURSES ARE WIDER THAN THE WALL THEY BAND. `draw3DBoxAt` clamps a half-width to 0.44,\nso the only way to get a projecting band is to set the wall BACK — the body is 0.40 and the courses\nare 0.415. That is the same trick the Sentinel's cornice uses and the reason both buildings have a\nnarrower shaft than plinth.",
+  "pal": "ty_dw_paint",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.062
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_dw_paint",
+      "roof": true,
+      "z0": 0.062,
+      "z1": 0.78
+    },
+    {
+      "cap": true,
+      "cx": 0.285,
+      "cy": 0.285,
+      "kind": "drum",
+      "n": 16,
+      "pal": "ty_dw_paint",
+      "rb": 0.15,
+      "rt": 0.15,
+      "z0": 0,
+      "z1": 0.875
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": false,
+      "z0": 0.3,
+      "z1": 0.328
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": false,
+      "z0": 0.545,
+      "z1": 0.573
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.425,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.78,
+      "z1": 0.832
+    },
+    {
+      "cap": true,
+      "cx": 0.285,
+      "cy": 0.285,
+      "kind": "drum",
+      "n": 16,
+      "pal": "ty_marble_col",
+      "rb": 0.158,
+      "rt": 0.158,
+      "z0": 0.875,
+      "z1": 0.915
+    },
+    {
+      "cx": -0.16,
+      "cy": -0.16,
+      "fd": 0.14,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_dw_paint",
+      "roof": true,
+      "z0": 0.832,
+      "z1": 0.93
+    }
+  ],
+  "trade": "bar"
+}

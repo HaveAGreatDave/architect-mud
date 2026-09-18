@@ -1,0 +1,19 @@
+{
+  "description": "A steel cage the size of a wardrobe with a scoop under the glass and a bakelite dish beside it worn white where the coins land. A card over the scoop: NO REFUNDS, NO TILTING, NO SITTING ON THE PUSHERS. The third line is underlined twice and is the only one anybody has broken.",
+  "flags": {
+    "aliases": "booth,cage,change,kiosk",
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_penny_alabaster",
+    "vendor_safe": true
+  },
+  "hp": 300,
+  "hp_max": 300,
+  "id": "furn_penny_booth",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the change booth",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_penny_floor"
+}

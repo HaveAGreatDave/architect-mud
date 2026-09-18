@@ -1,0 +1,19 @@
+{
+  "description": "Four tables’ worth of slate bed on edge in a padded rack under blankets, each piece numbered in chalk so the three that make one table stay together. Slate is the one part of a table nobody can make any more. She is not selling it and has stopped being asked.",
+  "flags": {
+    "aliases": "slate,beds,rack,stock",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pocket_slates",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the slate beds",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_pocket_hall"
+}

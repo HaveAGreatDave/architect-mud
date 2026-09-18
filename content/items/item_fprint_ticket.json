@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_fprint_ticket",
+  "name": "a library ticket",
+  "tags": {
+    "stackable": true,
+    "description": "A stiff buff card with a pocket in it, your name written on the front in a copperplate hand that is not yours, and four lines ruled on the back for the four books you are allowed out at once. It is the only document in Coldwater that says who you are and is believed."
+  },
+  "type": "misc",
+  "value": 6,
+  "weight": 3
+}

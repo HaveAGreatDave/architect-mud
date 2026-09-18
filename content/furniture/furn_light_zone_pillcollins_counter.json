@@ -1,0 +1,18 @@
+{
+  "description": "Two long lamps over the dispensary bench and a warmer one over the counter, because one of those jobs needs seeing clearly and the other needs seeing kindly.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_pillcollins_counter",
+  "light_type": "overhead",
+  "lumen_output": 1500,
+  "name": "dispensary lamps",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_pillcollins_counter"
+}

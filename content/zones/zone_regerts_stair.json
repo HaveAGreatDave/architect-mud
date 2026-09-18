@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1b1722",
+  "description": "Eighteen steps and both walls solid with flash: sheets of card, inked and painted, pinned up in ranks with the oldest at the bottom where the damp has got at them. Snakes, hearts, anchors, a great many birds, a whole panel of things that are clearly meant to be seen on a shoulder from behind. Some of them have a small red dot in the corner, and the dots are not explained anywhere, and everybody who has been up these stairs twice has a theory.",
+  "exits": {
+    "up": "zone_regerts_room",
+    "south": "zone_district_901_905",
+    "down": "zone_util_zone_regerts_stair"
+  },
+  "flags": {
+    "building_name": "No Regerts",
+    "building_type": "tattooist",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The stair window, four tall panes running the full height of the flight, with the flash sheets pinned across it edge to edge. It lets in almost nothing and it lets out a great deal, which is the correct way round for this building.",
+      "light": 0.4,
+      "name": "the flash window",
+      "visibility": 0.3
+    },
+    "world_exit_zone": "zone_district_901_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_regerts_stair",
+  "map_id": "map_int_regerts",
+  "name": "No Regerts — The Stair",
+  "parent_zone": "zone_district_901_905"
+}

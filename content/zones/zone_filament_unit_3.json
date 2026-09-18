@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2b2620",
+  "description": "A front flat on the second floor, two windows onto Filament Street and the streetlight directly outside one of them, which is either a feature or the reason the last tenant left. The floor slopes toward the front wall by an amount you stop noticing in about a week.",
+  "exits": {
+    "south": "zone_filament_landing"
+  },
+  "flags": {
+    "floor": "boards",
+    "is_apartment": true,
+    "rent_cost": 55,
+    "window": {
+      "description": "Two sash windows onto Filament Street, the nearer one washed in flat orange all night from the lamp outside.",
+      "light": 0.8,
+      "name": "the street windows",
+      "visibility": 0.85
+    }
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 1,
+  "id": "zone_filament_unit_3",
+  "map_id": "map_int_filament",
+  "marker": "3",
+  "name": "Unit 3",
+  "parent_zone": "zone_district_897_905"
+}

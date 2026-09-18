@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hook_tin",
+  "name": "tin of hooks",
+  "tags": {
+    "description": "A flat tin with a hinged lid and a dozen compartments, most of them holding hooks and two of them holding whatever was nearest when somebody was in a hurry. It rattles in a way that carries.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 13,
+  "weight": 120
+}

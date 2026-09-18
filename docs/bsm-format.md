@@ -2,6 +2,18 @@
 
 `.bsm` is a plain-text scripting format for authoring TV broadcast content (news segments, ads, scripted shows) outside the dev panel, then importing it. The importer/compiler lives at [client/devpanel/js/bsm-compiler.js](../client/devpanel/js/bsm-compiler.js) (`compileBsm(text)`), which turns the script into a VINE broadcast graph (`broadcastGraph`), a flat `messages` list, ASCII `assets`, and dependency lists (`rooms`, `cameras`, `npcIds`, `actorIds`). Import entry points are in [client/devpanel/js/panels/broadcast.js](../client/devpanel/js/panels/broadcast.js) (`bcImportBsm`, `_bcCommImportBsm`) — accepts `.bsm` or `.txt` files.
 
+**Authoring.** [BSM Studio](../client/game/bsm-studio.html) is a visual editor for this format — a
+wizard over the directives below, with a preview of the finished broadcast and a `.bsm` export, so
+nothing here has to be typed from memory. The dev panel reaches it two ways: a **📝 BSM Studio**
+entry in the nav under Broadcasts, and a **✎ BSM** button beside that panel's **↑ BSM** importer.
+It isn't a local tool like the Studio or the Modelshop and shouldn't be made into one: it's a single
+self-contained page served from the game origin at `/bsm-studio.html`, with no process to start, no
+localhost gate, and no network call of its own. It hands you a file; the import button eats it.
+
+⚠ It vendors a **verbatim copy** of `compileBsm()` to validate its own export and drive the
+preview, so **re-vendor that copy whenever [bsm-compiler.js](../client/devpanel/js/bsm-compiler.js)
+changes**. A divergence reads as a file the editor calls valid and the importer refuses.
+
 This doc describes the format **as parsed by the compiler**, line by line. There is no formal grammar elsewhere — this file is the spec.
 
 ## File Structure

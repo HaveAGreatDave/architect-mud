@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2d2822",
+  "description": "The twin of the room next door, reversed, so the basin is on the wrong side and everybody staying here bangs the same hip on the same corner for the first two nights. A sign on the back of the door lists eleven rules. The eleventh is BE KIND, which sits oddly after the other ten.",
+  "exits": {
+    "east": "zone_restassured_hall"
+  },
+  "flags": {
+    "floor": "boards",
+    "is_apartment": true,
+    "rent_cost": 25,
+    "window": {
+      "description": "A window onto the back green, its catch replaced with a bent nail that works better than the catch did.",
+      "light": 0.5,
+      "name": "the small window",
+      "visibility": 0.4
+    }
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_restassured_room_b",
+  "map_id": "map_int_restassured",
+  "marker": "B",
+  "name": "Room 4",
+  "parent_zone": "zone_district_900_905"
+}

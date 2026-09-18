@@ -1,0 +1,19 @@
+{
+  "description": "A squat riveted boiler with a coal bunker beside it holding about a third of a winter. A card on the junction cabinet lists what may be switched off and in what order, four items, and the boiler is not one of the four.",
+  "flags": {
+    "aliases": "boiler,coal,bunker,fire",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fprint_boiler",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the boiler",
+  "object_type": "appliance",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_fineprint_room"
+}

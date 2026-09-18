@@ -98,11 +98,27 @@ captures every model at `ADORN_NEAR` and at `ADORN_RICH` and fails if the segmen
 
 The first twelve detail kinds are all things **attached to** a wall — a pipe, a vent, a cable, a
 board. That is why a model built entirely out of them still reads as a box: none of them changes
-the silhouette or gives the facade any depth. Four kinds do, and they are the ones to reach for
+the silhouette or gives the facade any depth. Five kinds do, and they are the ones to reach for
 when a building looks flat: **`windowBay`** (a surround, glazing, a shadowed head and a lit sill),
 **`canopy`** (a slab cantilevered over the storey below, with an authored soffit colour),
-**`signGantry`** (a billboard standing on its own legs) and **`bladePanel`** (a sign slab hung
-proud of a wall with a visible edge return).
+**`signGantry`** (a billboard standing on its own legs), **`bladePanel`** (a sign slab hung
+proud of a wall with a visible edge return) and **`pilaster`** (a rank of vertical fins standing
+proud of a frontage, from the plinth to the crown).
+
+⚠ **`pilaster` is one part drawing `n` fins, and that is not a convenience.** Every fin on a facade
+would otherwise be a claim on `KIT_MAX`, and a rhythm is the one thing that means nothing at a count
+of one — the same argument `bollard` already makes. `cap` gives each fin a stepped capital and
+`glow` runs a lit line up it, which is the whole style axis: a stone fin gathered into a capital is
+art deco, and the identical fin with the light on is the skyline this game is set in. `glowFrom`
+shortens that run to the top of the fin, which is what a 1930s tower does with its verticals.
+
+⚠ **The light is a STROKE and the fin is geometry, which is the whole cost story.** A lit line
+through `emitLightRunner` is a quad in the stroke layer on the GPU and one polyline on the canvas —
+the cheapest bright thing this renderer has — where a glowing FACE would be a mesh quad per fin per
+building, on every building in the city. So the geometry is rationed (a front face always, its two
+returns in the mesh only, a cap when one is asked for) and the part that actually reads at range
+costs almost nothing. The rank the derived kit places is rich-list only, so the 2-D fallback is
+provably the renderer it was and `framecost` cannot move.
 
 ⚠ **A RECESS IS NOT DRAWABLE HERE, AT ANY PRICE, AND THE FIRST CUT OF `windowBay` WAS ONE.** Nothing
 can cut a hole in a wall — a box face is a single quad — so glazing set back behind the wall plane
@@ -189,6 +205,19 @@ trade the merge exists to stop. ⚠ And the stair takes **the flank the riser di
 side of the facade, and both reading the same coin flip put a downpipe through the middle of a
 staircase on about half of them.
 
+⚠ **The fire escape goes on a flank, never across the street front, and the balcony stack still
+does.** Every wall part in the kit is placed on `fy`, the front face, because until `face` worked
+that was the only plane it had — arbitrary for a downpipe, and wrong for a zigzag escape. Fourteen
+quads of landing and railing bolted across a street elevation reads as a **cage over the frontage**,
+and since the kit reaches every model without an authored `stair` it was doing that to shopfronts,
+to a hotel entrance, and to The Meridian, the most deliberately composed facade in Coldwater. It
+takes `face: 'x'` now, the same rotated frame the service kit in §1d already uses, so this is a
+placement rather than a mechanism: **148 of 184 models** moved their escape off the frontage and
+nothing else changed. The balcony branch does **not** move — a balcony is where somebody steps out
+of a window, so it belongs on the elevation with the windows in it, which is also why §1c puts a
+whole grid of them across the front of a residential block. A lopsided mass (`faceY` assumes a
+roughly centred building) falls back to balconies rather than back to the front.
+
 ⚠ **The three wall arms are excluded** (`trm_wall`, `thornwall`, `damwall`), and it is the same
 correctness rule their own arms open with: a wall is the same tile seventy times, each deriving its
 own entrance facing from a door that is not there, so anything placed on a "front" points a
@@ -251,6 +280,32 @@ inside the spread and is not a finding, at 2.3× the trim geometry. GLASS 1 meas
 inside `RENDER_TUNE.detailNear`, so its cost is bounded by how many buildings are near you; the mesh
 is not gated, which is why `KIT_MAX` and `WIN_MAX` cap what one building can spend.
 
+⚠ **AND THE SCREEN-SIZE GATE IS SKIPPED IN A GLASS 2 FRAME, WHICH IS THE SAME SENTENCE ONE STEP
+LATER.** `detailLayer` drops a part whose own height projects below its `DETAIL_PX` floor. That gate
+is a 2-D cost control, and the capture already skips it (`MESH_SINK`) precisely so the mesh carries
+every part at every distance — so in a GLASS 2 frame the GPU draws a board the live pass has just
+decided not to complete. What reaches the screen is the board without its name: the "blank sign"
+this file already has a paragraph about, arriving by the same route as the rich-list bug and fixed
+by the same test, `FLAT_OFF`.
+
+It is not an edge case. The floor is measured off `hh`, the part's own half-HEIGHT, and a name board
+is deliberately many times wider than it is deep — so the one dimension an author minimises on
+purpose is the one the gate reads. [signfloor](../../scripts/shapes/signfloor.mjs) measured **25 of
+186 models losing their lettering between 1.2 and 2.9 tiles** before the fix and 0 after, the
+Embassy's two boards among them. ⚠ **It reads as an ANGLE rather than a distance**, which is why it
+was reported that way and why driving closer never reproduced it: the floor is measured against
+`hostF`, the building's FORWARD distance, so a shopfront two tiles away is at f = 2.0 square-on and
+f = 1.3 with the cab turned fifty degrees. The sign crosses its own floor without anything moving.
+GLASS 1 is unchanged by construction (`FLAT_OFF` is false there, and the canvas face count over a
+dense night block is identical either way), and in a GLASS 2 frame the same block measured 527 → 529
+decals and 1,203 → 1,211 sprites.
+
+⚠ **WHAT IS NOT FIXED, AND THE NUMBER THAT SAYS WHY.** Past `detailNear` the live kit does not run at
+all, so beyond three tiles every board in the city is still a blank board for the same reason one
+tile inside it used to be. Closing that means running the detail painters over the whole window:
+measured on a dense night block, raising `detailNear` from 3 to 6 took the frame from **21.0 to
+24.3 ms**, and to 9 took it to **36.2**. That is a decision somebody makes on purpose.
+
 ⚠ **The jambs and mullions of a `windowBay` are MESH-ONLY**, which is the same bargain `ADORN_NEAR`
 itself is struck on: a depth-buffered quad is nearly free and a canvas one is not. GLASS 2 carries
 the whole reveal; the painter draws the four faces that read (surround, head, sill, glass) and skips
@@ -292,8 +347,10 @@ Three things here are load-bearing and easy to get wrong:
 
 - **`hwRaw` is pre-clamp.** `draw3DBoxAt` clamps a half-width to `0.44`, an absolute world constant,
   while everything else is a multiple of `fh`. A post-clamp number would only be valid at the one
-  footprint it was captured at. **Consumers re-apply `min(hwRaw·fh, 0.44)`**, and the data stays
-  invariant to the `bldgFoot` / `bldgH` / `bldgStretch` sliders.
+  footprint it was captured at. The data stays invariant to the `bldgFoot` / `bldgH` / `bldgStretch`
+  sliders, and **consumers re-apply the clamps through `segFit`** — see *The plot line* below. Do not
+  write `min(V(s.hwRaw), 0.44)` by hand: there were eight copies of that expression and the second
+  clamp had to be added to all eight.
 - **A box has TWO half-extents, and the second one is why.** `fdRaw` is the half-*depth*; for the
   ~500 square boxes it equals `hwRaw` and nothing behaves differently. It exists because
   `draw3DBoxAt`'s footprint used to be square only, which meant an **awning wide enough to span a
@@ -309,6 +366,50 @@ Three things here are load-bearing and easy to get wrong:
 - **The constant term `c` is real.** The Layover's cone apex passes a literal `0.001` radius.
   Supporting `c` keeps that arm untouched; the bake **warns** on any non-negligible constant, since
   a constant is also what a modelling slip looks like.
+
+### The plot line — a building stays on its own tile
+
+`draw3DBoxAt` has always capped a box's half-*width* so a wide model keeps a setback inside its plot.
+It never capped the box's **position**, and the two are different rules. An arm authors a canopy at
+`fh * 1.14` and a display case at `fh * 1.06`; `fh` itself is capped at `0.44` and those offsets are
+not, so the wider the model the further its projecting parts land **outside** the tile — over the
+pavement first, and past that over the carriageway. **79 of the 173 arms did it and the worst reached
+1.1 tiles from their own centre**, which is a slab of masonry over the middle of the road.
+
+Nothing could see it. `shapes:smoke` asks whether a model throws, `glmesh` whether its mesh matches
+the shape it collides as, `anchored` whether its parts are on a wall. A building reaching over the
+road is none of those — it draws perfectly, every frame, and the only thing that ever noticed was
+somebody standing in the street looking at it.
+
+`segFit(s, V)` is now the one function that turns a captured box into the footprint the renderer
+actually draws, and every consumer goes through it. `RENDER_TUNE.tileFit = 0` puts the overhangs back.
+Four things are load-bearing:
+
+- **The entrance side only.** `E` is where the door is, which is where the street is, and it is the
+  side every projecting part in the registry is authored to. An arm that offsets its whole mass
+  *backwards* (the foundry, the glasshouse, the depot apron) is reaching over its own yard, and
+  pulling those in would shrink landmark buildings to fix something nobody can see. In a captured
+  segment's own frame that side is simply local **+y**, because capture runs every arm at `E = [0,1]`.
+- **It trims the outer edge and leaves the inner one.** Sliding the whole box back keeps its size and
+  buries an awning inside the facade it is bolted to — a worse picture than the one being fixed.
+  Trimming gives a shallower awning, which is a shape awnings actually have, and the box's **back face
+  does not move at all** (the arithmetic is exact: `cy − fd` is identical before and after).
+- **Capture never sees it.** The fit runs *after* `SHAPE_SINK` has returned, exactly where the `0.44`
+  clamp runs, because every field in a captured segment must be affine in `fh`/`h` and a clamp is
+  piecewise linear. `shapeLinearityError` is the gate that would fail.
+- **⚠ The exemption is by ARM, never by palette.** The Reach, the Thornwarren and Terminus are built
+  the way a frontier town is built — a covered boardwalk out over the dirt, a shaded yard — and there
+  is no carriageway for any of it to hang over, so `NO_TILE_FIT` keeps their reach. Keying that on the
+  `ty_reach_*` / `ty_sw_*` / `ty_trm_*` palette prefixes looks obvious and is wrong: `laundromat`,
+  `citybathhouse`, `comicshop`, `bar` and `pawn` are all **Coldwater** buildings wearing a frontier
+  palette, and a prefix test exempts all five.
+
+`node scripts/shapes/tilefit.mjs` is the gate (in both `shapes:smoke` and the push chain);
+`npm run models:tilefit` reports every model the rule moves, worst first. It sweeps **three scales**,
+because `cy + fd` is affine in `fh`/`h` and a model that fits at one footprint can fail at another —
+a single-scale gate would pass most of the registry and mean nothing. Its own mutation control is the
+sweep re-run with the flag off, which has to find **278** crossings; if that number collapses the fit
+has stopped being applied somewhere and the green above is green about nothing.
 
 ### The `yaw` trap
 
@@ -546,6 +647,7 @@ building looks right. Use the wireframe overlay for that.
 | `occlude` | 1 | skip fully-hidden buildings |
 | `shapeShadow` | 1 | hull shadows (0 = the old square) |
 | `glowFar` | 11 | distance within which neon earns a real `shadowBlur` |
+| `tileFit` | 1 | keep a building's mass inside its own plot on the street side (0 = the old overhangs) |
 
 **`lodNear = 0` and `shapeShadow = 0` together restore the pre-capture appearance**, which is worth
 knowing when judging whether something looks wrong because of this system or in spite of it.

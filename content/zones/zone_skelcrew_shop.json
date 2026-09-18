@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#211f1b",
+  "description": "Standing room for two and only if they know each other. A cutting machine bolted to the bench with a tray of swarf under it and a wire brush on a chain. Blanks on the wall in banks, thousands of them, sorted by profile in a system that is either genius or the residue of forty years. A vice, a set of files rolled in canvas, and a card by the till: I CUT KEYS. I OPEN DOORS. THEY ARE DIFFERENT SERVICES AND I DO NOT DO THE SECOND ONE WITHOUT THE FIRST.",
+  "exits": {
+    "north": "zone_skelcrew_back",
+    "south": "zone_district_898_905",
+    "down": "zone_util_zone_skelcrew_shop"
+  },
+  "flags": {
+    "building_name": "Skeleton Crew",
+    "building_type": "locksmith",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Four feet of glass beside the door with a board of key blanks hung across it on nails, so what the street sees through the window is about six hundred keys in silhouette and no room at all.",
+      "light": 0.5,
+      "name": "the blank board",
+      "visibility": 0.35
+    },
+    "world_exit_zone": "zone_district_898_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_skelcrew_shop",
+  "map_id": "map_int_skelcrew",
+  "name": "Skeleton Crew — The Shop",
+  "parent_zone": "zone_district_898_905"
+}

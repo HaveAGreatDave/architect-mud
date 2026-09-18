@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_codfather_slab",
+  "id": "zone_codfather_slab",
+  "max_capacity_kw": 200,
+  "name": "The Codfather — The Slab",
+  "source_type": "city_grid"
+}

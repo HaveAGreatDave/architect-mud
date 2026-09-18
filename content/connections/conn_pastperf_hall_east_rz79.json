@@ -1,0 +1,9 @@
+{
+  "a": "zone_pastperf_hall",
+  "b": "zone_pastperf_office",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_pastperf_hall_east_rz79",
+  "lockable": false,
+  "one_way": false
+}

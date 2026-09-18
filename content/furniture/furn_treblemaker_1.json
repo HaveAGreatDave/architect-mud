@@ -1,0 +1,16 @@
+{
+  "description": "A bench behind the counter in plain view of the shop, with a job in pieces on it and every part laid out in the order it came off. There is a lamp on an arm, a jar of screws that are not going back in anything, and a sign facing the customer side reading YES I CAN HEAR YOU, NO I AM NOT STOPPING.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_treblemaker_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the repair bench",
+  "object_type": "table",
+  "power_draw_kw": 0.6,
+  "price": 0,
+  "zone_id": "zone_treblemaker_shop"
+}

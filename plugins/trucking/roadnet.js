@@ -39,7 +39,7 @@
 import { VOIDS, currentWindow } from '../voidwalking/index.js';
 import { surfaceAt } from '../flight/state.js';
 import { buildRoad, destsFor, gatePair, gateGeneration } from './state.js';
-import { corridorAt, corridorLocate, composeRoad, bucketOf, routeBuckets, pairKey, OFFROAD_R } from './corridor.js';
+import { corridorAt, corridorLocate, composeRoad, bucketOf, routeBuckets, pairKey, OFFROAD_R, PAVED_R, SHOULDER_W } from './corridor.js';
 
 // One built network per (week, gate generation). The roads are a pure function of exactly those two
 // things, so this is a memo rather than a cache with a coherence problem.
@@ -256,6 +256,192 @@ export function worldRoadProvider() { return _provider; }
 export function onRoadNetwork(x, y) {
   const c = roadCellAt(Math.round(x), Math.round(y));
   return !!c;
+}
+
+// ── THE ROAD AS SOMETHING YOU CAN SEE FROM TEN MILES UP ──────────────────────
+//
+// `roadCellAt` answers one tile, which is the right question for a map window and the wrong one for
+// a horizon: at 200 tiles the corridor is two pixels across and asking it tile by tile would be
+// forty thousand lookups to draw a line. A route already IS a polyline — `legs` is a list of
+// straight segments with an origin and a unit direction — so this hands that over and lets the
+// client rasterise it onto the floor. See registerFarRoads in plugins/flight/state.js for why it
+// must never become a cell provider.
+//
+// ⚠ THE SIMPLIFICATION IS THE FEATURE, NOT AN OPTIMISATION. A route is built to a minimum turn
+// radius, so a long bend is dozens of legs each a degree or two off the last — several hundred
+// points for a crossing, all of which project onto the same few pixels. Douglas-Peucker at a
+// tolerance in TILES keeps exactly the points that would be visible as a change of direction, and
+// the tolerance is deliberately coarse (a road is 1.9 tiles wide; half a tile of corner-cutting is
+// invisible at the near end of this range and physically sub-pixel at the far end).
+export const FAR_TOL = 0.5;   // Douglas-Peucker tolerance, tiles — regress asserts it stays under PAVED_R
+// ⚠ THE POINT CAP IS THE RENDERER’S SEGMENT CAP, NOT A ROUND NUMBER. The floor shader carries a
+// vec4[MAX_ROAD] and draws nothing past it (gl/floor.js, and MAX_ROAD_SEG beside it in
+// windshield.js). P points over L lines is P−L segments, so capping POINTS at the shader’s array
+// length can never overrun it — and anything above this would be bytes on a per-tick wire that the
+// client throws away.
+const FAR_MAX_PTS = 48;
+
+// Perpendicular distance from p to the segment a-b, in tiles.
+function segDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+  if (l2 < 1e-9) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+// Douglas-Peucker, iterative rather than recursive: a crossing can be several hundred points and a
+// recursive split on a nearly-straight road recurses nearly that deep.
+function simplify(pts, tol) {
+  const n = pts.length / 2;
+  if (n < 3) return pts;
+  const keep = new Uint8Array(n);
+  keep[0] = keep[n - 1] = 1;
+  const stack = [[0, n - 1]];
+  while (stack.length) {
+    const [i0, i1] = stack.pop();
+    if (i1 - i0 < 2) continue;
+    let best = -1, bestD = tol;
+    for (let i = i0 + 1; i < i1; i++) {
+      const d = segDist(pts[i * 2], pts[i * 2 + 1], pts[i0 * 2], pts[i0 * 2 + 1], pts[i1 * 2], pts[i1 * 2 + 1]);
+      if (d > bestD) { bestD = d; best = i; }
+    }
+    if (best < 0) continue;
+    keep[best] = 1;
+    stack.push([i0, best], [best, i1]);
+  }
+  const out = [];
+  for (let i = 0; i < n; i++) if (keep[i]) out.push(pts[i * 2], pts[i * 2 + 1]);
+  return out;
+}
+
+// One route as a flat [x0,y0, x1,y1, …] of ABSOLUTE world tiles, clipped to what is near (cx, cy).
+//
+// ⚠ CLIPPING KEEPS THE LEG THAT LEAVES THE CIRCLE, not just the legs inside it. Dropping a leg the
+// moment its far end is out of range ends the road short of the horizon and puts a hard stop in
+// mid-air; keeping one extra leg either side means the polyline always runs off past anything the
+// floor can still draw.
+function routeLine(route, cx, cy, radius) {
+  const legs = route.legs || [];
+  if (!legs.length) return null;
+  const r2 = radius * radius;
+  const near = (x, y) => { const dx = x - cx, dy = y - cy; return dx * dx + dy * dy <= r2; };
+  const pts = [];
+  let run = null;
+  const runs = [];
+  for (const l of legs) {
+    const ax = l.x0, ay = l.y0, bx = l.x0 + l.ux * l.len, by = l.y0 + l.uy * l.len;
+    // A leg counts as in range when either end is, OR when the circle sits beside its middle —
+    // which is the case for the long leg you are flying along.
+    const hit = near(ax, ay) || near(bx, by) || segDist(cx, cy, ax, ay, bx, by) <= radius;
+    if (hit) { if (!run) { run = [ax, ay]; } run.push(bx, by); }
+    else if (run) { runs.push(run); run = null; }
+  }
+  if (run) runs.push(run);
+  if (!runs.length) return null;
+  for (const r of runs) {
+    const sm = simplify(r, FAR_TOL);
+    if (sm.length >= 4) pts.push({ pts: sm, d: runDist(r, cx, cy) });
+  }
+  return pts.length ? pts : null;
+}
+
+// How near a run comes to the viewer, so the point budget can be spent on the road you are
+// actually looking down before the one over the horizon behind you.
+// The longest contiguous stretch of `pts` that fits in `budget` points, centred on the vertex
+// nearest (cx, cy) and grown outward a point at a time from whichever side is nearer.
+function aroundNearest(pts, cx, cy, budget) {
+  const n = pts.length / 2;
+  let best = 0, bestD = Infinity;
+  for (let i = 0; i < n; i++) {
+    const dx = pts[i * 2] - cx, dy = pts[i * 2 + 1] - cy, d = dx * dx + dy * dy;
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  let lo = best, hi = best;
+  const distAt = (i) => { const dx = pts[i * 2] - cx, dy = pts[i * 2 + 1] - cy; return dx * dx + dy * dy; };
+  while (hi - lo + 1 < budget && (lo > 0 || hi < n - 1)) {
+    const canLo = lo > 0, canHi = hi < n - 1;
+    if (canLo && (!canHi || distAt(lo - 1) <= distAt(hi + 1))) lo--; else hi++;
+  }
+  return pts.slice(lo * 2, (hi + 1) * 2);
+}
+
+function runDist(run, cx, cy) {
+  let best = Infinity;
+  for (let i = 0; i + 3 < run.length; i += 2) {
+    const d = segDist(cx, cy, run[i], run[i + 1], run[i + 2], run[i + 3]);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+// Every road within `radius` of (x, y), as polylines the client can draw.
+//
+// ⚠ ONE BAND, NOT TWO, AND THAT IS WHAT THE GROUND ACTUALLY LOOKS LIKE. `corridorAt` answers
+// `terrain: 'road'` + `road_dirt` for the carriageway and `terrain: 'dirt_road'` for the shoulder,
+// and `deriveSurfaceCell` turns BOTH into `ft: 'dust'` — the packed-dirt look. The only thing that
+// tells them apart out the canopy is the lane markings, which are a near-field detail. So `w` is
+// the outer edge of the graded strip, which is the whole width of the scar this road leaves.
+//
+// ⚠ ONE WIDTH FOR THE WHOLE ROAD, AND THAT IS A RANGE ARGUMENT RATHER THAN A SHORTCUT. `pavedAt`
+// tapers the carriageway over the last 26 tiles at each end, which matters when you are driving
+// onto it; this is drawn from 36 tiles out to the horizon, where the whole taper is a fraction of
+// one pixel. The near half of the road is real cells and keeps the taper.
+//
+// ⚠ MEMOISED ON A COARSE CELL, BECAUSE THIS RUNS ON A PER-TICK PATH FOR EVERY PILOT AND EVERY CAB.
+// Rebuilding it means walking every leg of every road in the world and simplifying each run — a few
+// hundred segment-distance solves — to answer a question whose answer does not change while you
+// move a few tiles. The query point is snapped to FAR_CELL and the clip radius grown by the
+// snapping error, so the cached answer is valid everywhere inside the cell rather than merely
+// close: without that margin a craft at the far corner of a cell would be handed a road clipped
+// short of its own horizon. One slot, keyed on the network OBJECT — a new week or a moved gate
+// builds a new network, and a stale entry cannot survive that.
+const FAR_CELL = 48;
+let _farMemo = null;
+export function farRoadLines(x, y, radius) {
+  const net = roadNetwork();
+  if (!net.routes.length) return null;
+  const cx = Math.round(x / FAR_CELL) * FAR_CELL, cy = Math.round(y / FAR_CELL) * FAR_CELL;
+  const r = radius + FAR_CELL * 0.71;   // half a cell diagonal — the worst the snap can be out by
+  const m = _farMemo;
+  if (m && m.net === net && m.cx === cx && m.cy === cy && m.r === r) return m.out;
+  const out = buildFarRoadLines(net, cx, cy, r);
+  _farMemo = { net, cx, cy, r, out };
+  return out;
+}
+// ⚠ WHAT A TIGHT BUDGET GIVES UP IS LENGTH, FROM THE FAR END, AND NEVER DETAIL OR THE NEAR END.
+//
+// Two obvious ways to bound this are both wrong. Coarsening the tolerance is wrong because the
+// tolerance is what keeps the drawn line ON THE TARMAC — Douglas-Peucker cuts corners by up to its
+// tolerance, so anything above the paved half-width draws a road running beside the real one, and
+// the regress case for that is in plugins/trucking/regress.js. And slicing a run at its own start
+// is wrong because a run is built in the ROUTE’S order, not yours: the part kept would be whichever
+// end is nearest the road’s ORIGIN, which may be a hundred tiles behind you, so the road you are
+// flying down would be the half that got dropped.
+//
+// So the budget is spent nearest-first, and a run too long for what is left is grown OUTWARD from
+// its closest vertex until the budget runs out. The road then always reaches you and always runs
+// away in both directions; what it loses is its far end, under the haze, where nothing can be seen
+// of it anyway.
+function buildFarRoadLines(net, x, y, radius) {
+  const cand = [];
+  for (const r of net.routes) {
+    const lines = routeLine(r, x, y, radius);
+    if (lines) for (const l of lines) cand.push(l);
+  }
+  cand.sort((a, b) => a.d - b.d);
+  const out = [];
+  let budget = FAR_MAX_PTS;
+  for (const c of cand) {
+    if (budget < 2) break;
+    const line = c.pts.length / 2 <= budget ? c.pts : aroundNearest(c.pts, x, y, budget);
+    if (line.length < 4) continue;   // a single point is not a road
+    out.push(line);
+    budget -= line.length / 2;
+  }
+  if (!out.length) return null;
+  // Rounded to a tenth of a tile: this goes over the wire on a tick and a tenth of a tile is two
+  // orders of magnitude finer than one far pixel.
+  return { w: PAVED_R + SHOULDER_W, lines: out.map((p) => p.map((v) => Math.round(v * 10) / 10)) };
 }
 
 export const _test = { buildNetwork, mergeIndices };

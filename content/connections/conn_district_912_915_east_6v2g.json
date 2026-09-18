@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_912_915",
+  "b": "zone_pocket_hall",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_912_915_east_6v2g",
+  "lockable": true,
+  "one_way": false
+}

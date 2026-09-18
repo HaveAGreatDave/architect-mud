@@ -1,0 +1,14 @@
+{
+  "description": "A run of cold white tubes in a tin trough directly over the ice, angled down at it, so the fish is the brightest thing in the building by a long way and the man selling it stands in his own shadow. He picked them and he knows exactly what they do.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_codfather_slab",
+  "light_type": "overhead",
+  "lumen_output": 2400,
+  "name": "the slab lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_codfather_slab"
+}

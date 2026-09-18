@@ -1,0 +1,18 @@
+{
+  "description": "A glass bulkhead lamp in a wire cage, screwed to the wall at the turn of the stair. It has been on for longer than anyone in the building has been alive.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_filament_stair",
+  "light_type": "lamp",
+  "lumen_output": 900,
+  "name": "stair bulkhead light",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_filament_stair"
+}

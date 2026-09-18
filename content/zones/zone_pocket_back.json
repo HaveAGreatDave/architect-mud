@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#14100e",
+  "description": "One table, through a door with no handle on this side, and it is the best table in the building by a distance nobody in here would insult you by explaining. The cloth is newer, the pockets are cut tighter, and there are four chairs against the wall at the height people sit to watch rather than to wait. A slate is screwed up beside the door with two columns on it and no headings. Nobody plays in here for fun and nobody in here is having any.",
+  "exits": {
+    "south": "zone_pocket_hall"
+  },
+  "flags": {
+    "building_name": "Pocket Money",
+    "building_type": "pool_hall",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_912_915"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_pocket_back",
+  "map_id": "map_int_pocket",
+  "name": "Pocket Money — The Back Table",
+  "parent_zone": "zone_district_912_915"
+}

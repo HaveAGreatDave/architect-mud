@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_negeq_fixer",
+  "name": "jar of fixer",
+  "tags": {
+    "stackable": true,
+    "description": "Sodium thiosulphate in solution, in a screw-top jar, smelling faintly of a swimming pool. Exhausted fixer is the single commonest reason a print does not last, and she sells it cheap to anybody trying, on the grounds that bad photographs are still photographs."
+  },
+  "type": "material",
+  "value": 22,
+  "weight": 480
+}

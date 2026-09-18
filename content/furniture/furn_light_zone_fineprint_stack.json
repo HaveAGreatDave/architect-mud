@@ -1,0 +1,14 @@
+{
+  "description": "One bulb in a wire cage on a long flex, run along a track in the ceiling so you can drag it down the aisle with you. It is the only light in here and it is deliberately not enough to read by.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_fineprint_stack",
+  "light_type": "lamp",
+  "lumen_output": 420,
+  "name": "the cord bulb",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_fineprint_stack"
+}

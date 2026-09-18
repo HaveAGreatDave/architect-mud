@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_filament_stair",
+  "id": "map_int_filament",
+  "name": "Filament Buildings",
+  "parent_zone_id": "zone_district_897_905"
+}

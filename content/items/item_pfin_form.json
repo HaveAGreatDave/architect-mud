@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pfin_form",
+  "name": "the form book",
+  "tags": {
+    "stackable": true,
+    "description": "Forty pages of small print, stapled twice, listing both leagues: every side, every fixture, and for each player a column of numbers going back further than the league has existed. The margins of a used one are always full of somebody else's working, and the working is always wrong."
+  },
+  "type": "media",
+  "value": 14,
+  "weight": 60
+}

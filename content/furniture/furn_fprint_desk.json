@@ -1,0 +1,19 @@
+{
+  "description": "Oak, waist high, worn into a shallow dish where eighty years of forearms have leaned on it. A date stamp on a felt pad, a tray of tickets, a bell that is not for ringing, and a card propped against the bell reading THE BELL IS NOT FOR RINGING. Everything on it is within one reach of the chair.",
+  "flags": {
+    "aliases": "desk,issue desk,counter,stamp",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fprint_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the issue desk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_fineprint_room"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_statuequo_hall",
+  "b": "zone_util_zone_statuequo_hall",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_statuequo_hall_down_stat2",
+  "lockable": false,
+  "one_way": false
+}

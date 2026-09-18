@@ -1,0 +1,16 @@
+{
+  "description": "A wide desk facing the door with two chairs on the visitor side and one behind, and nothing on it but a blotter, a pen and whatever the current conversation is about. The drawers on the far side are locked and the ones on the near side are not drawers.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_loanwolf_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the desk",
+  "object_type": "table",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_loanwolf_office"
+}

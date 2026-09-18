@@ -1,0 +1,14 @@
+{
+  "description": "A run of small lamps down the stair wall, one every four steps, angled at the flash rather than at the treads, so you go up in the dark looking at pictures. They are on a separate switch from everything else and the switch is taped in the on position.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_regerts_stair",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the flash lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_regerts_stair"
+}

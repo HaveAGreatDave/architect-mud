@@ -234,6 +234,7 @@ function _bcRenderSidebar() {
     <div style="padding:8px;border-bottom:1px solid var(--border);display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap">
       <button class="action-btn" style="flex:1;font-size:11px" onclick="bcSelectBroadcast(null)">+ New</button>
       <button class="action-btn" style="font-size:11px" title="Import .bsm file" onclick="bcImportBsm()">↑ BSM</button>
+      <button class="action-btn" style="font-size:11px" title="Open BSM Studio — write a .bsm script visually, then bring it back through ↑ BSM" onclick="bcOpenBsmStudio()">✎ BSM</button>
       <button class="action-btn" style="width:100%;font-size:10px;color:var(--text-dim)" title="Remove playlist slots, camera references, and channel links pointing at deleted entities" onclick="bcCleanOrphans()">🧹 Clean Orphans</button>
     </div>
     <div style="flex:1;overflow-y:auto">
@@ -877,6 +878,17 @@ async function cloneBroadcast(rec) {
     toast('Broadcast cloned.');
     await bcSuiteRefresh('broadcasts');
   } catch (err) { toast(err.message, true); }
+}
+
+// ── BSM Studio ───────────────────────────────────────────────────────────────
+// The visual editor for the format bcImportBsm() below reads. It is a single
+// self-contained page under client/game/ with no network call of its own — not
+// a local tool like the Studio or the Modelshop, so there is nothing to spawn
+// and no localhost gate: a plain link on this same origin is the whole of it.
+// It hands back a .bsm FILE, which is why this sits beside the import button
+// rather than replacing it.
+function bcOpenBsmStudio() {
+  window.open('/bsm-studio.html', '_blank');
 }
 
 // ── BSM import ───────────────────────────────────────────────────────────────

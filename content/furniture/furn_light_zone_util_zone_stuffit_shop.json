@@ -1,0 +1,14 @@
+{
+  "description": "A caged bulkhead light over the steps, on a switch at the top so nobody ever comes down here in the dark.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_util_zone_stuffit_shop",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "the cellar bulkhead",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_util_zone_stuffit_shop"
+}

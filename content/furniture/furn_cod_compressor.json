@@ -1,0 +1,19 @@
+{
+  "description": "The most valuable object the family owns, on rubber feet, thumping. A card wired to the guard gives a date twice a year and a name that is not a local name. It has failed once, for two days, and there is a photograph in the house of what that cost.",
+  "flags": {
+    "aliases": "icemaker,compressor,plant,machine",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cod_compressor",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the icemaker",
+  "object_type": "appliance",
+  "power_draw_kw": 2.4,
+  "price": 0,
+  "zone_id": "zone_util_zone_codfather_slab"
+}

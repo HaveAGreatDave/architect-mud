@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_statuequo_hall",
+  "id": "map_int_statuequo",
+  "name": "Statue Quo",
+  "parent_zone_id": "zone_district_910_914"
+}

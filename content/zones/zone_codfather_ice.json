@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#182024",
+  "description": "Cold enough that your breath goes and the back of your neck knows about it. Wooden boxes stacked to the ceiling on slatted racks, each one with a chalked name and a chalked time, and a mound of crushed ice in the corner under a tarpaulin with a shovel standing in it. The floor falls to a drain in the middle and everything in here is hosed at the end of the day, in a fixed order, which he learned from his father and has never once varied.",
+  "exits": {
+    "south": "zone_codfather_slab"
+  },
+  "flags": {
+    "building_name": "The Codfather",
+    "building_type": "fishmonger",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_905"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_codfather_ice",
+  "map_id": "map_int_codfather",
+  "name": "The Codfather — The Ice Room",
+  "parent_zone": "zone_district_903_905"
+}

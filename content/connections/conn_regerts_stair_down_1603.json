@@ -1,0 +1,9 @@
+{
+  "a": "zone_regerts_stair",
+  "b": "zone_util_zone_regerts_stair",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_regerts_stair_down_1603",
+  "lockable": false,
+  "one_way": false
+}

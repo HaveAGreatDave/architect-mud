@@ -2853,6 +2853,11 @@ export function getGameDateTime() {
   return { date: state.date, time: formatHHMM(state.minutes) };
 }
 
+// The hour, and nothing else. `getEnvironmentState()` also carries it, but that spreads the whole
+// HUD payload to build one integer — which is fine for a caller that wants the weather and wrong
+// for one on the every-move describe path.
+export function getGameHour() { return Math.floor(state.minutes / 60); }
+
 // The whole-world snapshot. Most callers want one clock or weather field off it —
 // the NPC/enemy AI asks for `minutes`, `hour`, `dayOfWeek` or `timePhase` on a
 // per-entity basis, every second — but building it eagerly also rebuilt the

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_926_912",
+  "b": "zone_paws_wait",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_926_912_north_1lab",
+  "lockable": true,
+  "one_way": false
+}

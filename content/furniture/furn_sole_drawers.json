@@ -1,0 +1,20 @@
+{
+  "description": "A wall of them, forty-odd, every colour of thread and every gauge of tack, labelled in a hand nobody else alive can read. He can find any drawer without looking up. Asked what the labels say, he has said, more than once, that he knows what is in them.",
+  "flags": {
+    "aliases": "drawers,drawer,tacks,thread,wall",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sole_drawers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the little drawers",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_sole_shop"
+}

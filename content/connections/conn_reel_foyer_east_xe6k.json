@@ -1,0 +1,9 @@
+{
+  "a": "zone_reel_foyer",
+  "b": "zone_reel_house",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_reel_foyer_east_xe6k",
+  "lockable": false,
+  "one_way": false
+}

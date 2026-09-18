@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_916_911",
+  "b": "zone_primesuspect_shop",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_916_911_north_prim1",
+  "lockable": true,
+  "one_way": false
+}

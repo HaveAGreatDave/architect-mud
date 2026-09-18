@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#25282a",
+  "description": "Eleven machines down one wall and six dryers down the other, numbered in marker pen because the numbers that came with them rubbed off. A row of moulded plastic chairs faces the machines because the machines are what there is to look at. A noticeboard by the door is entirely small ads, three of them for the same sofa at descending prices.",
+  "exits": {
+    "north": "zone_district_896_907"
+  },
+  "flags": {
+    "building_name": "Load Bearing",
+    "building_type": "laundromat",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_loadbearing_floor",
+  "map_id": "map_int_loadbearing",
+  "name": "Load Bearing",
+  "parent_zone": "zone_district_896_907"
+}

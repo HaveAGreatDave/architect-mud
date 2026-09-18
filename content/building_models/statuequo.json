@@ -1,0 +1,134 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "180,220,200",
+      "s": 12,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Statue Quo"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.37,
+      "hh": 0.022,
+      "kind": "parapet",
+      "pal": "ty_apt_a",
+      "z": 1.3
+    },
+    {
+      "bars": 6,
+      "cx": 0,
+      "cy": 0.41,
+      "depth": 0.016,
+      "glass": "#12161a",
+      "glow": "#ffe3ba",
+      "half": 0.3,
+      "hh": 0.036,
+      "kind": "windowBay",
+      "pal": "ty_apt_b",
+      "z": 0.14
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.41,
+      "half": 0.12,
+      "kind": "balcony",
+      "out": 0.07,
+      "pal": "ty_apt_a",
+      "rail": 0.028,
+      "z": 0.86
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.41,
+      "half": 0.12,
+      "kind": "balcony",
+      "out": 0.07,
+      "pal": "ty_apt_a",
+      "rail": 0.028,
+      "z": 1.02
+    },
+    {
+      "cx": 0,
+      "cy": 0.41,
+      "face": "x",
+      "flights": 4,
+      "half": 0.15,
+      "kind": "fireEscape",
+      "out": 0.09,
+      "pal": "ty_apt_a",
+      "z0": 0.22,
+      "z1": 1.14
+    },
+    {
+      "cx": -0.16,
+      "cy": -0.14,
+      "hh": 0.1,
+      "kind": "roofTank",
+      "pal": "ty_apt_a",
+      "r": 0.09,
+      "z": 1.3
+    },
+    {
+      "color": "#16211d",
+      "cx": 0,
+      "cy": 0.41,
+      "font": "deco",
+      "half": 0.16,
+      "hh": 0.024,
+      "ink": "#bfe8d6",
+      "kind": "signBoard",
+      "label": "STATUE QUO",
+      "z": 0.33
+    }
+  ],
+  "id": "statuequo",
+  "neon": "#9fd8c0",
+  "note": "Five floors on the end of the terrace, and the only block on this side with a park view — which the letting board mentions in larger letters than the rent. Front two flats on every floor look at the Green and the back two look at a wall nine feet away, same rent. The top two floors have window boxes doing better than they have any right to; the ground floor windows are barred and the second floor ones are not.",
+  "pal": "ty_apt_b",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.09
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.41,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.09,
+      "z1": 1.16
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.37,
+      "kind": "box",
+      "pal": "ty_apt_a",
+      "roof": true,
+      "z0": 1.16,
+      "z1": 1.3
+    }
+  ],
+  "trade": "apartment"
+}

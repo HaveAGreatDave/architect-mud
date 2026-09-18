@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "description": "Front steps come straight down onto the road, no pavement worth the name. People sit out on them in the evening because the light is free and the flats are small.",
   "exits": {
     "east": "zone_district_905_906",
     "north": "zone_district_904_905",
@@ -9,8 +9,10 @@
     "west": "zone_district_903_906"
   },
   "flags": {
-    "district": "commercial",
+    "district": "filaments",
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
     "terrain": "road"
   },
   "grid_x": 904,
@@ -18,6 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_904_906",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Filament Street",
   "parent_zone": null
 }

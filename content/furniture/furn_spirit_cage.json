@@ -1,0 +1,20 @@
+{
+  "description": "A mesh cage in the corner of the store with a better lock on it than the front of the building has, holding the things people come a long way for. That the cage is stronger than the door tells you exactly how he has arranged his fears and he is aware of it.",
+  "flags": {
+    "aliases": "cage,corner,locked,good stuff",
+    "interactions": [
+      "examine"
+    ],
+    "hack_difficulty": 6
+  },
+  "hp": 800,
+  "hp_max": 800,
+  "id": "furn_spirit_cage",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the cage",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_spirit_store"
+}

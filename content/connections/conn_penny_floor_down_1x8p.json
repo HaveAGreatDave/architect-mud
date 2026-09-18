@@ -1,0 +1,9 @@
+{
+  "a": "zone_penny_floor",
+  "b": "zone_util_zone_penny_floor",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_penny_floor_down_1x8p",
+  "lockable": false,
+  "one_way": false
+}

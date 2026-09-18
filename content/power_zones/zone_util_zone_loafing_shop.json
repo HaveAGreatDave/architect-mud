@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_loafing_shop",
+  "id": "zone_util_zone_loafing_shop",
+  "max_capacity_kw": 1000,
+  "name": "Loafing Around — Utility Room",
+  "source_type": "junction_box"
+}

@@ -1,0 +1,293 @@
+{
+  "adorn": [
+    {
+      "cx": -0.1,
+      "cy": 0.45,
+      "kind": "glowPool",
+      "rgb": "255,210,120",
+      "s": 16,
+      "z": 0.155
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "255,210,60",
+      "s": 12,
+      "z": 0.28
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Nuts to That"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 4,
+      "cx": -0.2,
+      "cy": 0.415,
+      "depth": 0.017,
+      "glass": "#241f14",
+      "glow": "#ffdf8e",
+      "half": 0.165,
+      "hh": 0.062,
+      "kind": "windowBay",
+      "pal": "ty_kerb",
+      "transom": 0.74,
+      "z": 0.135
+    },
+    {
+      "bars": 2,
+      "cx": 0.235,
+      "cy": 0.415,
+      "depth": 0.016,
+      "glass": "#241f14",
+      "glow": "#ffdf8e",
+      "half": 0.105,
+      "hh": 0.055,
+      "kind": "windowBay",
+      "pal": "ty_kerb",
+      "z": 0.128
+    },
+    {
+      "cx": 0,
+      "cy": 0.415,
+      "half": 0.405,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.135,
+      "pal": "ty_kerb",
+      "soffit": "#243c26",
+      "strip": "#ffd23c",
+      "z": 0.212
+    },
+    {
+      "color": "#1b2c1d",
+      "cx": 0,
+      "cy": 0.402,
+      "font": "slab",
+      "half": 0.29,
+      "hh": 0.03,
+      "ink": "#ffd23c",
+      "kind": "signBoard",
+      "label": "NUTS TO THAT",
+      "z": 0.276
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.2,
+        "cy": 0.4,
+        "depth": 0.012,
+        "glass": "#20241e",
+        "glow": "#e8d08a",
+        "half": 0.058,
+        "hh": 0.05,
+        "kind": "windowBay",
+        "pal": "ty_kerb",
+        "z": 0.395
+      },
+      "step": {
+        "cx": 0.2
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.2,
+        "cy": 0.4,
+        "depth": 0.012,
+        "glass": "#20241e",
+        "glow": "#20241e",
+        "half": 0.058,
+        "hh": 0.05,
+        "kind": "windowBay",
+        "pal": "ty_kerb",
+        "z": 0.565
+      },
+      "step": {
+        "cx": 0.2
+      }
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.4,
+      "depth": 0.014,
+      "glass": "#191c18",
+      "glow": "#1d201c",
+      "half": 0.082,
+      "hh": 0.058,
+      "kind": "windowBay",
+      "pal": "ty_embassy_iron",
+      "z": 0.735
+    },
+    {
+      "color": "#1b2c1d",
+      "cx": 0,
+      "cy": 0,
+      "font": "slab",
+      "half": 0.29,
+      "hh": 0.052,
+      "ink": "#ffd23c",
+      "kind": "signGantry",
+      "label": "KEYS CUT · PAINT MIXED",
+      "pal": "ty_helpings",
+      "rise": 0.048,
+      "z": 0.955
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.398,
+      "hh": 0.011,
+      "kind": "parapet",
+      "pal": "ty_kerb",
+      "z": 0.9
+    },
+    {
+      "cx": -0.33,
+      "cy": 0.455,
+      "d": 0.038,
+      "hh": 0.036,
+      "kind": "binStack",
+      "lid": "#2b3a2c",
+      "n": 3,
+      "pal": "ty_helpings",
+      "w": 0.048,
+      "z": 0.004
+    },
+    {
+      "cx": 0.345,
+      "cy": 0.452,
+      "d": 0.034,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#6a5a1c",
+      "n": 2,
+      "pal": "ty_kerb",
+      "w": 0.042,
+      "z": 0.004
+    },
+    {
+      "cx": -0.08,
+      "cy": 0.468,
+      "kind": "bollard",
+      "pal": "ty_kerb",
+      "z": 0.004
+    },
+    {
+      "cx": 0.09,
+      "cy": 0.468,
+      "kind": "bollard",
+      "pal": "ty_kerb",
+      "z": 0.004
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.24,
+      "d": 0.05,
+      "hh": 0.022,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.062,
+      "z": 0.9
+    },
+    {
+      "cx": 0.16,
+      "cy": -0.22,
+      "hh": 0.068,
+      "kind": "roofTank",
+      "pal": "ty_cold",
+      "r": 0.08,
+      "z": 0.9
+    },
+    {
+      "cx": -0.32,
+      "cy": -0.4,
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.011,
+      "z0": 0.05,
+      "z1": 0.83
+    }
+  ],
+  "id": "nutstothat",
+  "neon": "#ffd23c",
+  "note": "NUTS TO THAT — the ironmonger, which had no model of its own at all. It resolved to\n`type:hardware`, the arm every hardware shop in the world shares, so its whole identity was its\nname substituted into a sign on a generic box.\n\nWhat it is now is the thing an ironmonger has been for two hundred years: dark green paint, yellow\ntrim, an awning the full width of the pavement with the stock stacked out under it, and a LOADING\nDOOR at the top of the building under a hoist beam, because in a narrow shop the stock goes up the\noutside.\n\n⚠ THE HOIST DOOR IS THE READ, AND IT IS ALSO WHY THE TOP FLOOR HAS NO WINDOW. A pair of dark\ndoors where a window should be, with a beam over them, is the one detail that says STOREROOM rather\nthan flat — and a building that is a shop at the bottom and storage all the way up is what a trade\ncounter actually is. Putting a lit window there instead would make it a shop with people living\nover it, which is the building next door.\n\n⚠ GREEN AND YELLOW RATHER THAN AMBER. Amber is the industrial east's colour in this city and this\nis mid-basin, so the yellow here is PAINT on a shopfront rather than a sodium light on a yard.",
+  "pal": "ty_helpings",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.415,
+      "kind": "box",
+      "pal": "ty_kerb",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.235
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_helpings",
+      "roof": true,
+      "z0": 0.235,
+      "z1": 0.845
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.428,
+      "kind": "box",
+      "pal": "ty_kerb",
+      "roof": true,
+      "z0": 0.845,
+      "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.395,
+      "kind": "box",
+      "pal": "ty_helpings",
+      "roof": true,
+      "z0": 0.9,
+      "z1": 0.955
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "fd": 0.028,
+      "hw": 0.028,
+      "kind": "box",
+      "pal": "ty_embassy_iron",
+      "roof": true,
+      "z0": 0.8,
+      "z1": 0.845
+    }
+  ],
+  "trade": "hardware"
+}

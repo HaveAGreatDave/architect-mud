@@ -1,0 +1,335 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Moye brushes a table with the nap, one pass, and puts the brush back on its nail.",
+    "She racks a set without looking at her hands and lifts the triangle off clean.",
+    "She pushes four beads along a wire for a game nobody is playing.",
+    "\"Your hour's got about six minutes in it. I'm telling you now so you can hurry, not so you can argue.\"",
+    "She chalks a cue, blows the dust off the tip sideways, and puts it back in the rack.",
+    "\"Table three runs low to the corner pocket. Everybody knows. That's why it's free.\"",
+    "She wipes a mark off the rail with her thumb and looks at her thumb.",
+    "\"Don't lean on it. I don't care how you play, I care how you lean.\"",
+    "She stands at the end of a table for a moment, looking down it, and says nothing about what she saw.",
+    "\"Money on the table's your business. Money on my table's mine, and mine is that it stays on the table.\"",
+    "The lamp over table six goes out. Nobody moves. After a moment somebody gets a token.",
+    "She irons a crease out of the cloth with the flat of her hand, which does nothing, and which she does anyway.",
+    "\"Back room's spoken for. It's spoken for most nights and tonight isn't different.\"",
+    "She counts the tokens in the meter by the weight of the box and writes a number on the door frame.",
+    "\"No, I won't play you. Ask somebody else, they'll say yes and you'll enjoy it more.\"",
+    "She tightens a pocket net that did not need tightening, and looks faintly annoyed about it."
+  ],
+  "description": "A compact woman of about sixty in a cardigan with the sleeves pushed up, moving between eight tables in a room where she is the only person who never seems to hurry. Her right forearm is noticeably heavier than her left. She racks, she takes the tokens, she settles arguments with one sentence and no second one, and she has not played a frame in front of a customer in eleven years, which everybody in the hall has a theory about and nobody has confirmed.",
+  "dialogue_tree": {
+    "back": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The back table's not a better table you can pay for,\" she says. \"It's a different room.\"\n\nShe pushes a bead along a wire.\n\n\"People go through that door to settle something. Sometimes it's money and sometimes it's older than money. I put a good cloth on it because if it's going to happen in my building it's going to happen properly, and I sit outside the door, and twice in twenty years I've gone in.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Lamp's off in four minutes. Just so you know.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People talk over a table like it isn't a room,\" she says. \"They're concentrating. It's the most honest anybody gets in here.\""
+    },
+    "play": {
+      "options": [
+        {
+          "label": "Go on. One frame.",
+          "next": "play_no"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No.\" She says it pleasantly and completely. \"I'll rack for you, I'll tell you what you're doing wrong if you ask me straight, and I'll find you somebody about your standard who'll give you a proper game.\"\n\nShe puts the triangle back on its hook.\n\n\"But I don't play customers.\""
+    },
+    "play_no": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She looks at you for a second longer than is comfortable, and then, unexpectedly, answers properly.\n\n\"Because there's two outcomes and I've had both,\" she says. \"I beat you, and you were never going to win, and you paid me for the table you lost on. Or I don't beat you, and by Thursday it's a thing, and by the Thursday after that there's six men in here who want their turn and none of them are here to play pool.\"\n\nShe picks up the brush.\n\n\"Either way I've sold you something I didn't mean to. So: no. It isn't modesty and it isn't a trick to make you ask again.\""
+    },
+    "tokens": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Light's the rent,\" she says. \"Table's free. Cues are free. Chalk I'd rather you bought but I'm not going to search you.\"\n\nShe nods at the brass box by the door.\n\n\"A token's an hour of the lamp over one table. When it goes out it goes out, and there's no grace on it, because the minute there's grace on it there's an argument about how much, and I'd rather have the dark.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How does the light work?",
+          "next": "tokens"
+        },
+        {
+          "label": "Chalk, tips, a cue.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's the back room?",
+          "next": "back"
+        },
+        {
+          "label": "Give me a game?",
+          "next": "play"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just watching.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Take any of them except three, and three's fine if you know about three.\" She is already reaching for the triangle. \"Token in the box by the door buys the lamp for an hour. Everything else in here is free.\"",
+      "text_by_relation": {
+        "familiar": "She has the triangle in her hand before you are through the door, and she is already walking to table five, which is the one with the true cloth and no low corner and which nobody else gets sent to.\n\n\"I've put a token in it,\" she says, over her shoulder. \"Don't make anything of it.\"",
+        "first": "A woman brushing a table straightens up, one hand flat on the cushion.\n\n\"Hesper Moye. Mine.\" She nods at the room, all eight tables of it. \"Table's free and the cues are free. The lamp isn't. Token in the brass box by the door, one token one hour, and when the hour's up the lamp goes off and you'll find out how dark it is in here.\"\n\nShe goes back to the nap.\n\n\"Take any table except three. Three runs low to the corner. I'm telling you because you'd have found out, and then you'd have thought I hadn't.\"",
+        "known": "\"You.\" She glances at the meter. \"Five's free and it's the good one. Go on before somebody else works that out.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey cardigan with the sleeves pushed past the elbow",
+      "a plain blouse with chalk at the right cuff and nowhere else",
+      "dark trousers and soft flat shoes that make no sound on board"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_pocket_back",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_pocket_moye",
+  "name": "Hesper Moye",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_pocket_token",
+      "price": 12
+    },
+    {
+      "item_id": "item_pocket_chalk",
+      "price": 3
+    },
+    {
+      "item_id": "item_pocket_tips",
+      "price": 14
+    },
+    {
+      "item_id": "item_pocket_cue",
+      "price": 260
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 14,
+        "to": 26
+      }
+    ],
+    "tue": [
+      {
+        "from": 14,
+        "to": 26
+      }
+    ],
+    "wed": [
+      {
+        "from": 14,
+        "to": 26
+      }
+    ],
+    "thu": [
+      {
+        "from": 14,
+        "to": 26
+      }
+    ],
+    "fri": [
+      {
+        "from": 14,
+        "to": 26
+      }
+    ],
+    "sat": [
+      {
+        "from": 14,
+        "to": 26
+      }
+    ],
+    "sun": [
+      {
+        "from": 14,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": "Pocket Money",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_pocket_hall"
+}

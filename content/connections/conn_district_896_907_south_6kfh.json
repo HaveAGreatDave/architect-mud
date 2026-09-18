@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_896_907",
+  "b": "zone_loadbearing_floor",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_896_907_south_6kfh",
+  "lockable": true,
+  "one_way": false
+}

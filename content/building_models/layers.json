@@ -1,0 +1,286 @@
+{
+  "adorn": [
+    {
+      "cx": -0.12,
+      "cy": 0.45,
+      "kind": "glowPool",
+      "rgb": "255,154,198",
+      "s": 18,
+      "z": 0.22
+    },
+    {
+      "cx": 0.275,
+      "cy": 0.275,
+      "kind": "glowPool",
+      "rgb": "255,120,180",
+      "s": 15,
+      "z": 0.55
+    },
+    {
+      "cx": 0.275,
+      "cy": 0.275,
+      "kind": "glowPool",
+      "rgb": "255,154,198",
+      "s": 11,
+      "z": 0.97
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Layers"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 3,
+      "cx": -0.12,
+      "cy": 0.395,
+      "depth": 0.02,
+      "glass": "#14121a",
+      "glow": "#ffd9ea",
+      "half": 0.235,
+      "hh": 0.135,
+      "kind": "windowBay",
+      "pal": "ty_marble_col",
+      "transom": 0.8,
+      "z": 0.225
+    },
+    {
+      "cx": -0.12,
+      "cy": 0.395,
+      "half": 0.27,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.11,
+      "pal": "ty_marble_col",
+      "soffit": "#5a1038",
+      "strip": "#ff9ac6",
+      "z": 0.372
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 4,
+        "cx": -0.12,
+        "cy": 0.395,
+        "depth": 0.014,
+        "glass": "#191620",
+        "glow": "#f2c9dd",
+        "half": 0.225,
+        "hh": 0.05,
+        "kind": "windowBay",
+        "pal": "ty_marble_col",
+        "z": 0.565
+      },
+      "step": {
+        "z": 0.185
+      }
+    },
+    {
+      "color": "#1a0e16",
+      "cx": -0.375,
+      "cy": 0.4,
+      "font": "condensed",
+      "half": 0.048,
+      "ink": "#ff9ac6",
+      "kind": "bladePanel",
+      "label": "LAYERS",
+      "out": 0.034,
+      "pal": "ty_vig_trim",
+      "z0": 0.4,
+      "z1": 0.83
+    },
+    {
+      "color": "#1a0e16",
+      "cx": -0.12,
+      "cy": 0.395,
+      "font": "hanzi",
+      "half": 0.155,
+      "hh": 0.026,
+      "ink": "#ff9ac6",
+      "kind": "signBoard",
+      "label": "時裝",
+      "z": 0.415
+    },
+    {
+      "cx": -0.07,
+      "cy": -0.395,
+      "face": "x",
+      "flights": 3,
+      "half": 0.072,
+      "kind": "fireEscape",
+      "out": 0.044,
+      "pal": "ty_cold",
+      "z0": 0.22,
+      "z1": 0.8
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.42,
+      "hh": 0.011,
+      "kind": "parapet",
+      "pal": "ty_marble_col",
+      "z": 0.845
+    },
+    {
+      "color": "#1a0e16",
+      "cx": -0.1,
+      "cy": 0,
+      "font": "condensed",
+      "half": 0.235,
+      "hh": 0.055,
+      "ink": "#ff9ac6",
+      "kind": "signGantry",
+      "label": "ALL WEATHERS",
+      "neon": true,
+      "pal": "ty_vig_trim",
+      "rise": 0.05,
+      "z": 0.895
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.2,
+      "d": 0.055,
+      "hh": 0.024,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.07,
+      "z": 0.895
+    },
+    {
+      "cx": 0.02,
+      "cy": -0.26,
+      "hh": 0.072,
+      "kind": "roofTank",
+      "pal": "ty_cold",
+      "r": 0.085,
+      "z": 0.895
+    },
+    {
+      "cx": 0,
+      "cy": -0.395,
+      "face": "x",
+      "half": 0.2,
+      "kind": "conduit",
+      "pal": "ty_cold",
+      "r": 0.007,
+      "z": 0.6
+    },
+    {
+      "cx": -0.26,
+      "cy": -0.4,
+      "d": 0.033,
+      "hh": 0.028,
+      "kind": "binStack",
+      "lid": "#2b2530",
+      "n": 2,
+      "pal": "ty_cold",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    },
+    {
+      "cx": -0.08,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    },
+    {
+      "cx": -0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_marble_col",
+      "r": 0.026,
+      "rgb": "255,170,215",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.085
+    }
+  ],
+  "id": "layers",
+  "neon": "#ff4a9a",
+  "note": "LAYERS — the outfitter on the Ironside Street corner. A full-height curved glass corner drum\nover a double-height vitrine, banded once in white, with the shop's name on a hung panel and its\ntrade word on the corner.\n\n⚠ IT IS PUT AT THE EAST END ON PURPOSE. This corner faces The Meridian across the junction, which\nis the most emphatically period building in Coldwater — so the most emphatically modern frontage on\nthe street goes here, where the two have to look at each other, rather than in the middle where it\nwould merely be a third thing.\n\n⚠ THE VITRINE IS DOUBLE HEIGHT AND THE WINDOWS ABOVE IT ARE NOT. A clothes shop's whole argument\nis the ground floor, so the glass there runs two storeys and the offices above get an ordinary\nribbon. Making all four storeys glass reads as an office block with a shop in the bottom of it.",
+  "pal": "ty_secondskin",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.055
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.395,
+      "kind": "box",
+      "pal": "ty_secondskin",
+      "roof": true,
+      "z0": 0.055,
+      "z1": 0.845
+    },
+    {
+      "cap": true,
+      "cx": 0.275,
+      "cy": 0.275,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_halcyon",
+      "rb": 0.15,
+      "rt": 0.15,
+      "z0": 0,
+      "z1": 0.95
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.41,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": false,
+      "z0": 0.455,
+      "z1": 0.492
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.845,
+      "z1": 0.895
+    },
+    {
+      "cap": true,
+      "cx": 0.275,
+      "cy": 0.275,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_marble_col",
+      "rb": 0.16,
+      "rt": 0.16,
+      "z0": 0.95,
+      "z1": 0.985
+    }
+  ],
+  "trade": "outfitter"
+}

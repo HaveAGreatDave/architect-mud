@@ -1,0 +1,384 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.418,
+      "kind": "glowPool",
+      "rgb": "255,206,110",
+      "s": 6,
+      "z": 0.422
+    },
+    {
+      "cx": -0.082,
+      "cy": 0.418,
+      "kind": "glowPool",
+      "rgb": "255,206,110",
+      "s": 6,
+      "z": 0.51
+    },
+    {
+      "cx": 0.082,
+      "cy": 0.418,
+      "kind": "glowPool",
+      "rgb": "255,206,110",
+      "s": 6,
+      "z": 0.51
+    },
+    {
+      "cx": 0.15,
+      "cy": 0.418,
+      "kind": "glowPool",
+      "rgb": "255,196,110",
+      "s": 16,
+      "z": 0.19
+    },
+    {
+      "cx": 0,
+      "cy": 0.424,
+      "kind": "glowPool",
+      "rgb": "255,180,70",
+      "s": 13,
+      "z": 0.322
+    },
+    {
+      "cx": 0,
+      "cy": 0.408,
+      "kind": "glowPool",
+      "rgb": "255,214,120",
+      "s": 12,
+      "z": 1.044
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Cash & Carrion"
+    }
+  ],
+  "detail": [
+    {
+      "cx": -0.258,
+      "cy": 0.4,
+      "half": 0.124,
+      "hh": 0.1,
+      "kind": "shutter",
+      "pal": "ty_embassy_iron",
+      "z": 0.146
+    },
+    {
+      "bars": 3,
+      "cx": -0.024,
+      "cy": 0.4,
+      "depth": 0.016,
+      "glass": "#1b1508",
+      "glow": "#ffd08a",
+      "half": 0.066,
+      "hh": 0.098,
+      "kind": "windowBay",
+      "pal": "ty_thumb_brass",
+      "transom": 0.72,
+      "z": 0.144
+    },
+    {
+      "bars": 6,
+      "cx": 0.226,
+      "cy": 0.4,
+      "depth": 0.018,
+      "glass": "#171308",
+      "glow": "#ffcf8a",
+      "half": 0.152,
+      "hh": 0.092,
+      "kind": "windowBay",
+      "pal": "ty_thumb_brass",
+      "transom": 0.6,
+      "z": 0.146
+    },
+    {
+      "cx": 0.112,
+      "cy": 0.4,
+      "half": 0.272,
+      "hh": 0.01,
+      "kind": "canopy",
+      "out": 0.056,
+      "pal": "ty_thumb_brass",
+      "soffit": "#3a2c0e",
+      "strip": "#ffd97a",
+      "z": 0.262
+    },
+    {
+      "band": "#ffcf3e",
+      "count": 3,
+      "cx": -0.318,
+      "cy": 0.452,
+      "hh": 0.052,
+      "kind": "bollard",
+      "pal": "ty_gate_dk",
+      "r": 0.014,
+      "step": 0.126,
+      "z": 0.004
+    },
+    {
+      "cx": -0.29,
+      "cy": -0.392,
+      "d": 0.032,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#2c2820",
+      "n": 3,
+      "pal": "ty_cold",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "color": "#b8f03a",
+      "cx": 0.15,
+      "cy": -0.392,
+      "hh": 0.055,
+      "kind": "tag",
+      "n": 4,
+      "v": 2,
+      "w": 0.1,
+      "z": 0.15
+    },
+    {
+      "color": "#1a1408",
+      "cx": 0,
+      "cy": 0.416,
+      "font": "slab",
+      "half": 0.33,
+      "hh": 0.021,
+      "ink": "#ffd97a",
+      "kind": "signBoard",
+      "label": "CASH & CARRION",
+      "z": 0.322
+    },
+    {
+      "color": "#ffcf3e",
+      "cx": 0,
+      "cy": 0.416,
+      "half": 0.35,
+      "kind": "neonRun",
+      "z": 0.3
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.264,
+        "cy": 0.384,
+        "depth": 0.012,
+        "glass": "#171410",
+        "glow": "#c8a24e",
+        "half": 0.05,
+        "hh": 0.05,
+        "kind": "windowBay",
+        "pal": "ty_dw_stone",
+        "z": 0.4505
+      },
+      "step": {
+        "z": 0.197
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": 0.264,
+        "cy": 0.384,
+        "depth": 0.012,
+        "glass": "#171410",
+        "glow": "#c8a24e",
+        "half": 0.05,
+        "hh": 0.05,
+        "kind": "windowBay",
+        "pal": "ty_dw_stone",
+        "z": 0.4505
+      },
+      "step": {
+        "z": 0.197
+      }
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.094,
+        "cy": 0.4,
+        "depth": 0.013,
+        "glass": "#171410",
+        "glow": "#e8c878",
+        "half": 0.044,
+        "hh": 0.048,
+        "kind": "windowBay",
+        "pal": "ty_adequate_stone",
+        "z": 0.6475
+      },
+      "step": {
+        "z": 0.197
+      }
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": 0.094,
+        "cy": 0.4,
+        "depth": 0.013,
+        "glass": "#171410",
+        "glow": "#e8c878",
+        "half": 0.044,
+        "hh": 0.048,
+        "kind": "windowBay",
+        "pal": "ty_adequate_stone",
+        "z": 0.6475
+      },
+      "step": {
+        "z": 0.197
+      }
+    },
+    {
+      "color": "#14120e",
+      "cx": 0,
+      "cy": 0.4,
+      "font": "deco",
+      "half": 0.16,
+      "hh": 0.028,
+      "ink": "#e8c878",
+      "kind": "signBoard",
+      "label": "H. HOCK",
+      "z": 1.044
+    }
+  ],
+  "id": "cashcarrion",
+  "neon": "#ffcf3e",
+  "note": "CASH & CARRION — the Marrow Street fence, and the building the authored pass started from.\n\nIt was `In Hock We Trust` on the `pawn` arm: four stacked boxes of alternating half-width, which\nproduced a wedding cake of projecting ledges with a billboard on stilts over it. The first rewrite\nfixed the name and the materials and left the proportions alone, and the proportions were the half\nthat was still wrong.\n\nThe name says the trade — you bring it in, they give you cash, and what they buy is what somebody\nelse is finished with — and the building says it too: granite you can't kick in, a brass fascia, a\nroller shutter, barred windows and the three gilt balls that have meant pawnbroker for seven\nhundred years.\n\n⚠ IT IS FOUR STOREYS, AND THE FLOOR COUNT WAS THE BUG. `TYPE_FLOORS.fence` is 2, the tile carried\nno override, and every neighbour on this stretch of Marrow Street is three or four — so it drew to\n0.052 world-z against Co-Pay & Pray's 0.103 next door and read as a bungalow between two blocks.\nNothing in this file could have fixed that: every `z` here is a fraction of `h`, so the whole model\nscales together and a taller one is the same squat building drawn bigger. `flags.floors: 4` on\nzone_district_916_910 is the fix, and the proportions below are authored against it — a tall\ntrading hall, then three shorter storeys over it, which is the right way round for the type.\n\n⚠ THE THREE BALLS ARE MASS, NOT LIGHTS. The arm hung them as `blinkLight`s, so by daylight the\ntrade sign on a pawnbroker was invisible, which is the one hour of the day it most needs to be\nread. They are three brass drums with a warm light AT each of them, so they read as objects by day\nand as lamps after dark. They sit two-over-one, which is the arrangement the symbol actually has.\n\n⚠ AND A BALL IS TALLER IN AUTHORED UNITS THAN IT LOOKS. The projection draws world-z and world-plan\nat about the same scale (`depth / FL` ≈ 0.87 at the sim's aspect), but an authored `h` unit is\nworth about 0.77 of an authored `fh` unit on this tile — so a drum authored round comes out a\npancake. The old set spanned 0.046 in z against a radius of 0.03 and read as three brass pucks on a\nband. These span 0.090, which is `2.3 × r` carried through the basis.\n\n⚠ THE STEP UP IS IN THE MIDDLE AND IT IS STONE. The old arm stepped IN — each box narrower than the\none under it — which is what made it a stack of shelves. Here a projecting centre bay rises through\nthe shaft, breaks the cornice and is capped in bronze, so the silhouette has one event in it and\nthe name is cut where a building of this kind would cut it.\n\nThe signs are a ladder rather than copies of one another: the name across the fascia at eye\nlevel, H. HOCK cut into the crest. The Chinese trade word is the derived kit's blade and the\nroof hoarding is the kit's too, so nothing up there is authored here — an authored crest board\nsaying CASH & CARRION under the kit's hoarding saying CASH & CARRION was the old wedding cake\nin signage, and the kit already carries `$name` for any building that does not sign its own roof.\n\n⚠ AN AUTHORED glowPool HAS NO NIGHT TERM. `AUTHORED_ADORN` hands it `c.alpha` and nothing else,\nwhere neonBlade, marqueeBand, awning and roofCross all take `c.night` — so a glow sized to read\nas a lamp after dark is a hot core painted over the brass at noon, and the three balls came out\nas three lit panels. Every glow here is smaller than the thing it sits on.",
+  "pal": "ty_dw_stone",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.414,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.03
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_gate",
+      "roof": true,
+      "z0": 0.03,
+      "z1": 0.292
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.416,
+      "kind": "box",
+      "pal": "ty_thumb_brass",
+      "roof": true,
+      "z0": 0.292,
+      "z1": 0.352
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.384,
+      "kind": "box",
+      "pal": "ty_dw_stone",
+      "roof": true,
+      "z0": 0.352,
+      "z1": 0.944
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.412,
+      "kind": "box",
+      "pal": "ty_thumb_brass",
+      "roof": true,
+      "z0": 0.944,
+      "z1": 0.998
+    },
+    {
+      "cx": 0,
+      "cy": 0.06,
+      "fd": 0.34,
+      "hw": 0.175,
+      "kind": "box",
+      "pal": "ty_adequate_stone",
+      "roof": true,
+      "z0": 0.352,
+      "z1": 0.998
+    },
+    {
+      "cx": 0,
+      "cy": 0.11,
+      "fd": 0.29,
+      "hw": 0.245,
+      "kind": "box",
+      "pal": "ty_dw_stone",
+      "roof": true,
+      "z0": 0.998,
+      "z1": 1.092
+    },
+    {
+      "cx": 0,
+      "cy": 0.11,
+      "fd": 0.305,
+      "hw": 0.262,
+      "kind": "box",
+      "pal": "ty_thumb_brass",
+      "roof": true,
+      "z0": 1.092,
+      "z1": 1.13
+    },
+    {
+      "cx": 0,
+      "cy": 0.41,
+      "kind": "drum",
+      "n": 14,
+      "pal": "ty_thumb_brass",
+      "rb": 0.036,
+      "rt": 0.036,
+      "z0": 0.382,
+      "z1": 0.462
+    },
+    {
+      "cx": -0.082,
+      "cy": 0.41,
+      "kind": "drum",
+      "n": 14,
+      "pal": "ty_thumb_brass",
+      "rb": 0.036,
+      "rt": 0.036,
+      "z0": 0.47,
+      "z1": 0.55
+    },
+    {
+      "cx": 0.082,
+      "cy": 0.41,
+      "kind": "drum",
+      "n": 14,
+      "pal": "ty_thumb_brass",
+      "rb": 0.036,
+      "rt": 0.036,
+      "z0": 0.47,
+      "z1": 0.55
+    }
+  ],
+  "trade": "pawn"
+}
+

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_sole_laces",
+  "name": "pair of waxed laces",
+  "tags": {
+    "stackable": true,
+    "description": "Round, waxed, four feet, with the ends whipped rather than plastic-dipped so that when they fray you can whip them again. He gives a pair away with every repair and has done since before anybody thought of it as a policy."
+  },
+  "type": "misc",
+  "value": 5,
+  "weight": 20
+}

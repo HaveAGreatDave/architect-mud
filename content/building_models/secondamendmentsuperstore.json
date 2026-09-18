@@ -1,0 +1,235 @@
+{
+  "adorn": [
+    {
+      "cx": -0.2,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "255,120,80",
+      "s": 11,
+      "z": 0.4
+    },
+    {
+      "cx": 0.24,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "255,140,96",
+      "s": 13,
+      "z": 0.02
+    },
+    {
+      "cx": 0,
+      "cy": -0.26,
+      "kind": "blinkLight",
+      "r": 1,
+      "rgb": "255,90,60",
+      "z": 0.88
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Second Amendment Superstore"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 4,
+      "cx": -0.2,
+      "cy": 0.44,
+      "depth": 0.016,
+      "glass": "#140f0e",
+      "glow": "#ff9a74",
+      "half": 0.16,
+      "hh": 0.035,
+      "kind": "windowBay",
+      "pal": "ty_stack_dk",
+      "z": 0.4
+    },
+    {
+      "cx": 0.24,
+      "cy": 0.44,
+      "half": 0.11,
+      "hh": 0.14,
+      "kind": "shutter",
+      "pal": "ty_stack_dk",
+      "z": 0.24
+    },
+    {
+      "color": "#160f0d",
+      "cx": -0.08,
+      "cy": 0.44,
+      "font": "stencil",
+      "half": 0.3,
+      "hh": 0.028,
+      "ink": "#ff8a64",
+      "kind": "signBoard",
+      "label": "SECOND AMENDMENT",
+      "z": 0.545
+    },
+    {
+      "color": "#160f0d",
+      "cx": -0.08,
+      "cy": 0.44,
+      "font": "stencil",
+      "half": 0.3,
+      "hh": 0.016,
+      "ink": "#c9b8a8",
+      "kind": "signBoard",
+      "label": "YOU BREAK THE GLASS, YOU MEET THE OWNER",
+      "z": 0.49
+    },
+    {
+      "cx": -0.06,
+      "cy": -0.43,
+      "drip": 1,
+      "half": 0.14,
+      "hh": 0.08,
+      "kind": "louvreBank",
+      "n": 7,
+      "pal": "ty_stack_dk",
+      "z": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "half": 0.4,
+      "kind": "conduit",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z": 0.585
+    },
+    {
+      "cx": -0.4,
+      "cy": 0.43,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.013,
+      "z0": 0.07,
+      "z1": 0.6
+    },
+    {
+      "cx": 0.26,
+      "cy": -0.1,
+      "hh": 0.1,
+      "kind": "antennaCluster",
+      "n": 4,
+      "pal": "ty_stack_dk",
+      "r": 0.055,
+      "z": 0.7
+    },
+    {
+      "cx": -0.24,
+      "cy": 0.12,
+      "d": 0.055,
+      "hh": 0.026,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.075,
+      "z": 0.7
+    },
+    {
+      "band": "#d8d2c8",
+      "count": 2,
+      "cx": -0.3,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "step": 0.1,
+      "z": 0.004
+    },
+    {
+      "band": "#d8d2c8",
+      "count": 2,
+      "cx": 0,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "step": 0.1,
+      "z": 0.004
+    },
+    {
+      "band": "#d8d2c8",
+      "count": 2,
+      "cx": 0.3,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "step": 0.1,
+      "z": 0.004
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_stack_dk",
+      "r": 0.026,
+      "rgb": "255,168,130",
+      "s": 9,
+      "z0": 0,
+      "z1": 0.085
+    }
+  ],
+  "id": "secondamendmentsuperstore",
+  "neon": "#ff6a4a",
+  "note": "SECOND AMENDMENT SUPERSTORE — the gun shop on Ironside Street, and the meanest object on it.\n\n⚠ THE MODEL IS BUILT TO THE TILE'S OWN PROSE RATHER THAN BESIDE IT. The room description has said\n\"a low blockhouse of riveted plate with a slit window and a door like a bank vault\" and quoted the\nboard over it — YOU BREAK THE GLASS, YOU MEET THE OWNER — for as long as the tile has existed, and\nthe generic armory arm drew a shop with a shutter. Both boards are here, and the window is a slit.\n\n⚠ IT IS THE LOWEST BUILDING ON THE STREET AND STAYS THAT WAY. A blockhouse gets its menace from\nbeing wide, windowless and close to the ground; make it tall and it is an office with a gun counter.\nThe only thing above the parapet is the range extension at the back, which is where the noise is.\n\n⚠ AND NOBODY HAS TAGGED IT. Every other frontage on this street carries a `tag`; this one\ndeliberately does not, and that absence is the single most characterful thing on the building.",
+  "pal": "ty_wharf_steel",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.07
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.43,
+      "kind": "box",
+      "pal": "ty_wharf_steel",
+      "roof": true,
+      "z0": 0.07,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.7
+    },
+    {
+      "cx": 0,
+      "cy": -0.26,
+      "hw": 0.17,
+      "kind": "box",
+      "pal": "ty_foundry",
+      "roof": true,
+      "z0": 0.07,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": 0.345,
+      "fd": 0.06,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_slag",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.17
+    }
+  ],
+  "trade": "armory"
+}

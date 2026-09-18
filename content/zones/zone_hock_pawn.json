@@ -7,7 +7,7 @@
     "north": "zone_district_916_910"
   },
   "flags": {
-    "building_name": "In Hock We Trust",
+    "building_name": "Cash & Carrion",
     "building_type": "fence",
     "floor": "boards",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hock_pawn",
   "map_id": "map_int_hock",
-  "name": "In Hock We Trust",
+  "name": "Cash & Carrion",
   "parent_zone": "zone_district_916_910"
 }

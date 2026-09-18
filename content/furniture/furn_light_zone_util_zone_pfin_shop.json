@@ -1,0 +1,14 @@
+{
+  "description": "A bare bulb on a flex between the cabinet and the paper, with a pull cord that has been extended twice with string.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_util_zone_pfin_shop",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "the cellar bulb",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_util_zone_pfin_shop"
+}

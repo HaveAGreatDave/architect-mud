@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_reel_corn",
+  "name": "cone of corn",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "restore_hunger": 10,
+    "description": "Popped in the machine behind the kiosk, in a paper cone twisted at the bottom, salted with a hand that has done it ten thousand times and is not measuring. The bottom third is the unpopped ones, and everybody eats them anyway."
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 120
+}

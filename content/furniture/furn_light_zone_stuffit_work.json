@@ -1,0 +1,14 @@
+{
+  "description": "A jointed lamp over the bench with a shade the size of a dinner plate and a bulb in it far brighter than anything else in the building. It is the one thing in here bought new.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_stuffit_work",
+  "light_type": "overhead",
+  "lumen_output": 2800,
+  "name": "the bench lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_stuffit_work"
+}

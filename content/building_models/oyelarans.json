@@ -1,0 +1,353 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "kind": "glowPool",
+      "rgb": "255,170,90",
+      "s": 19,
+      "z": 0.13
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,90,60",
+      "s": 14,
+      "z": 0.3
+    },
+    {
+      "cx": 0.372,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,138,92",
+      "s": 12,
+      "z": 0.54
+    },
+    {
+      "cx": -0.355,
+      "cy": 0.4,
+      "kind": "blinkLight",
+      "r": 1.2,
+      "rgb": "255,120,80",
+      "z": 0.2
+    },
+    {
+      "cx": 0.355,
+      "cy": 0.4,
+      "kind": "blinkLight",
+      "r": 1.2,
+      "rgb": "255,120,80",
+      "z": 0.2
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Oyelaran's"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 4,
+      "cx": 0,
+      "cy": 0.3,
+      "depth": 0.014,
+      "glass": "#2a1a12",
+      "glow": "#ffbe6a",
+      "half": 0.235,
+      "hh": 0.058,
+      "kind": "windowBay",
+      "pal": "ty_honky",
+      "transom": 0.66,
+      "z": 0.128
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "half": 0.4,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.1,
+      "pal": "ty_honky",
+      "soffit": "#5c1a12",
+      "strip": "#ff5a3c",
+      "z": 0.238
+    },
+    {
+      "color": "#1c0f0c",
+      "cx": -0.06,
+      "cy": 0.42,
+      "font": "condensed",
+      "half": 0.245,
+      "hh": 0.028,
+      "ink": "#ff8a5c",
+      "kind": "signBoard",
+      "label": "OYELARAN'S",
+      "z": 0.296
+    },
+    {
+      "color": "#1c0f0c",
+      "cx": 0.372,
+      "cy": 0.42,
+      "font": "hanzi",
+      "half": 0.055,
+      "ink": "#ff8a5c",
+      "kind": "bladePanel",
+      "label": "麵",
+      "out": 0.036,
+      "pal": "ty_honky",
+      "z0": 0.3,
+      "z1": 0.78
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.215,
+        "cy": 0.42,
+        "depth": 0.013,
+        "glass": "#241a16",
+        "glow": "#ffd2a0",
+        "half": 0.088,
+        "hh": 0.048,
+        "kind": "windowBay",
+        "pal": "ty_honky",
+        "z": 0.335
+      },
+      "step": {
+        "z": 0.175
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0.215,
+        "cy": 0.42,
+        "depth": 0.013,
+        "glass": "#241a16",
+        "glow": "#241a16",
+        "half": 0.088,
+        "hh": 0.048,
+        "kind": "windowBay",
+        "pal": "ty_honky",
+        "z": 0.335
+      },
+      "step": {
+        "z": 0.175
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "cx": -0.215,
+        "cy": 0.42,
+        "half": 0.1,
+        "kind": "balcony",
+        "out": 0.042,
+        "pal": "ty_embassy_iron",
+        "rail": 0.02,
+        "z": 0.288
+      },
+      "step": {
+        "z": 0.175
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "cx": 0.215,
+        "cy": 0.42,
+        "half": 0.1,
+        "kind": "balcony",
+        "out": 0.042,
+        "pal": "ty_embassy_iron",
+        "rail": 0.02,
+        "z": 0.288
+      },
+      "step": {
+        "z": 0.175
+      }
+    },
+    {
+      "color": "#1c0f0c",
+      "cx": 0,
+      "cy": 0,
+      "font": "condensed",
+      "half": 0.175,
+      "hh": 0.05,
+      "ink": "#ff8a5c",
+      "kind": "signGantry",
+      "label": "OPEN ALL NIGHT",
+      "neon": true,
+      "pal": "ty_honky",
+      "rise": 0.045,
+      "z": 0.935
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.432,
+      "hh": 0.011,
+      "kind": "parapet",
+      "pal": "ty_honky",
+      "z": 0.8
+    },
+    {
+      "cx": 0.06,
+      "cy": 0.42,
+      "face": "x",
+      "kind": "ductRun",
+      "pal": "ty_cold",
+      "r": 0.02,
+      "run": 0.15,
+      "z0": 0.24,
+      "z1": 0.79
+    },
+    {
+      "cx": -0.14,
+      "cy": -0.26,
+      "hh": 0.1,
+      "kind": "stack",
+      "pal": "ty_cold",
+      "r": 0.032,
+      "z": 0.8
+    },
+    {
+      "cx": 0.26,
+      "cy": -0.24,
+      "d": 0.05,
+      "hh": 0.022,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.062,
+      "z": 0.8
+    },
+    {
+      "cx": 0,
+      "cy": 0.424,
+      "half": 0.34,
+      "kind": "cableRun",
+      "pal": "ty_cold",
+      "r": 0.005,
+      "sag": 0.034,
+      "z": 0.745
+    },
+    {
+      "cx": -0.26,
+      "cy": -0.42,
+      "d": 0.034,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#33241e",
+      "n": 3,
+      "pal": "ty_cold",
+      "w": 0.042,
+      "z": 0.004
+    },
+    {
+      "cx": -0.18,
+      "cy": 0.468,
+      "kind": "bollard",
+      "pal": "ty_honky",
+      "z": 0.004
+    },
+    {
+      "cx": 0.18,
+      "cy": 0.468,
+      "kind": "bollard",
+      "pal": "ty_honky",
+      "z": 0.004
+    }
+  ],
+  "id": "oyelarans",
+  "neon": "#ff5a3c",
+  "note": "OYELARAN'S — the noodle bar, which had no model of its own either and resolved to the shared\n`type:noodle_bar` arm.\n\nIts architecture is one idea: the ground floor is not a room. It is a counter under the building,\nopen to the pavement, with three storeys of flats over it on two posts. Neither renderer here can\ncut a hole in a wall, so the ground floor is SET BACK and the block above OVERHANGS it — which is\nthe same building from the street, and is literally what an arcade shophouse is.\n\n⚠ THE POSTS ARE STRUCTURE, NOT DECORATION. An overhanging box with nothing under its leading edge\nreads as a mistake from every angle that can see under it, and this is a frontage a truck cab sits\nlevel with. Two square posts at the front corners carry it, which is both true and cheap.\n\n⚠ THE FLATS ABOVE HAVE BALCONIES AND THE BALCONIES CLAIM `stair`. `SECTION_OF` maps `balcony` to\nthe same section as a fire escape, so authoring these keeps the derived kit out of it — and\nbalconies hung with somebody's washing over a food counter is the building, where a steel escape\nwould be a different one.",
+  "pal": "ty_broth",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.038
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.3,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_broth",
+      "roof": true,
+      "z0": 0.038,
+      "z1": 0.215
+    },
+    {
+      "cx": -0.355,
+      "cy": 0.355,
+      "fd": 0.048,
+      "hw": 0.048,
+      "kind": "box",
+      "pal": "ty_embassy_iron",
+      "roof": true,
+      "z0": 0.038,
+      "z1": 0.235
+    },
+    {
+      "cx": 0.355,
+      "cy": 0.355,
+      "fd": 0.048,
+      "hw": 0.048,
+      "kind": "box",
+      "pal": "ty_embassy_iron",
+      "roof": true,
+      "z0": 0.038,
+      "z1": 0.235
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_broth",
+      "roof": true,
+      "z0": 0.215,
+      "z1": 0.8
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.435,
+      "kind": "box",
+      "pal": "ty_honky",
+      "roof": true,
+      "z0": 0.8,
+      "z1": 0.845
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.17,
+      "hw": 0.17,
+      "kind": "box",
+      "pal": "ty_broth",
+      "roof": true,
+      "z0": 0.845,
+      "z1": 0.935
+    }
+  ],
+  "trade": "noodlebar"
+}

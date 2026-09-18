@@ -1,0 +1,20 @@
+{
+  "description": "A galvanised bin by the door that has never been full, because everything aimed at it lands within a foot of it instead. The paper on the floor around it is all the same paper: slips torn in half, and a few torn in half twice by somebody making a point.",
+  "flags": {
+    "aliases": "bin,basket,paper,floor",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pfin_bin",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the bin",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pfin_shop"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_justmytype_floor",
+  "b": "zone_util_zone_justmytype_floor",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_justmytype_floor_down_just2",
+  "lockable": false,
+  "one_way": false
+}

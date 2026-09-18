@@ -1,0 +1,18 @@
+{
+  "description": "A bare bulb in an ornate plaster ceiling rose, the two of them from centuries that have nothing to say to each other.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_filament_unit_1",
+  "light_type": "lamp",
+  "lumen_output": 600,
+  "name": "ceiling rose and bulb",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_filament_unit_1"
+}

@@ -1,0 +1,332 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "faction": null,
+  "home_activities": [],
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "npc_type": "vendor",
+  "id": "npc_spirit_cassavetes",
+  "name": "Dermot Cassavetes",
+  "sex": "male",
+  "hp": 46,
+  "hp_max": 46,
+  "home_zone": "zone_spirit_store",
+  "work_zone_id": "zone_spirit_shop",
+  "vendor_shop_name": "Spirit Level",
+  "vendor_restock_rate": 5,
+  "vendor_stock_size": 16,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 11,
+        "to": 27
+      }
+    ],
+    "tue": [
+      {
+        "from": 11,
+        "to": 27
+      }
+    ],
+    "wed": [
+      {
+        "from": 11,
+        "to": 27
+      }
+    ],
+    "thu": [
+      {
+        "from": 11,
+        "to": 27
+      }
+    ],
+    "fri": [
+      {
+        "from": 11,
+        "to": 27
+      }
+    ],
+    "sat": [
+      {
+        "from": 11,
+        "to": 27
+      }
+    ],
+    "sun": [
+      {
+        "from": 12,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_inventory": [
+    {
+      "item_id": "item_spirit_flask",
+      "price": 26
+    },
+    {
+      "item_id": "item_spirit_beer",
+      "price": 42
+    },
+    {
+      "item_id": "item_spirit_wine",
+      "price": 64
+    },
+    {
+      "item_id": "item_spirit_bottle",
+      "price": 88
+    }
+  ],
+  "flags": {
+    "clothing_layers": [
+      "a quilted waistcoat, because the hatch is open to the road all night",
+      "a flannel shirt buttoned to the throat",
+      "heavy trousers and boots he does not take off in the shop"
+    ],
+    "personality": "vendor"
+  },
+  "description": "A broad, watchful man of about fifty framed in a lit rectangle cut into a steel shutter, with the dark of his own shop behind him. He is friendly through the hatch and will not open the door for anybody, and those two facts have coexisted for eleven years without anybody on the road finding it rude. He knows every bottle on his racking by where it sits rather than by its label, which is how he can serve you without turning the light on.",
+  "chitchat": [
+    "Cassavetes puts a bottle on the turntable and sends it round without looking at it.",
+    "He glances past you up the Gate Road, at nothing, and then back.",
+    "\"Not until you're through the gate. That's the only advice I give and I give it to everybody.\"",
+    "He writes a line in the ledger and hangs the pencil back on its string.",
+    "\"Sorted by strength. Not by kind. Nobody has ever come in here asking for a region.\"",
+    "He takes a note off the turntable, holds it up, and does not comment on it.",
+    "\"Door doesn't open. Not for you, not for anybody, not since a Tuesday eleven years ago.\"",
+    "The hatch light flickers. He hits the frame with the side of his fist and it stops.",
+    "\"I'll sell you that. I'll sell you it now and I'd rather sell it to you at eight in the morning.\"",
+    "He names a price, and then, unprompted, names a cheaper bottle that will do the same job.",
+    "\"That one's not stock, that's the cellar, and the cellar is not for sale.\"",
+    "He looks at somebody's hands through the hatch for a moment before he takes their money.",
+    "\"Crate deposit's on the end in marker. Bring it back and I'll believe you about the crate.\""
+  ],
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Go carefully. It's dark all the way to the gate and it's meant to be.\""
+    },
+    "cellar": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Forty-odd bottles down there and every one has a name on it in pencil,\" he says. \"Not brands. Names of people.\"\n\nHe leans on the sill of the hatch.\n\n\"When somebody who drank here dies, I put one down with their name on it. That's all it is. It started as one bottle for one man and I did not decide to keep doing it, I just did it again the next time and here we are.\"\n\nA pause.\n\n\"Somebody offered me two hundred for one last year, for the bottle, not knowing. I told him what it was. He apologised for about four minutes.\""
+    },
+    "door": {
+      "options": [
+        {
+          "label": "What happened?",
+          "next": "door_what"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The door doesn't open,\" he says, without any edge on it at all. \"Not for you, not for anybody, and it has nothing to do with you personally because I have never opened it for anybody.\"\n\nHe taps the steel.\n\n\"Everything comes round the turntable. Money one way, bottle the other. Nobody's hand ever crosses that line, which means nobody ever has to decide whether they trust me and I never have to decide about them.\""
+    },
+    "door_what": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Eleven years ago,\" he says. \"Four of them, about two in the morning, and the man who had this shop then opened the door because one of them was bleeding.\"\n\nHe straightens up.\n\n\"He was right to. I want to be clear about that, because everybody expects the story to end with him being a fool. He was not a fool. One of them was genuinely bleeding and he genuinely helped him and the other three came in behind.\"\n\nHe checks the road again, out of habit.\n\n\"He lived. He sold me the shop about eight months after and the first thing I did was put that shutter in. And if somebody's bleeding out there at two in the morning I will put a dressing on the turntable and send it round, and I have done, twice, and I still will not open the door.\""
+    },
+    "gate": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Last shop before the gate,\" he says. \"So I get two trades. People coming in off the road who want something now, and people going out who want something for later.\"\n\nHe nods up the road.\n\n\"The second lot are the ones I say it to. Not until you're through. Out there a drink is a coat you think you're wearing, and the Wildlands do not care what you think you are wearing.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everybody who leaves and everybody who comes back goes past this hatch,\" he says. \"I see who goes out. I see who comes back. The difference between those two lists is a thing I try not to keep in my head and do anyway.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Why won't the door open?",
+          "next": "door"
+        },
+        {
+          "label": "What's the cellar?",
+          "next": "cellar"
+        },
+        {
+          "label": "Much trade from the gate?",
+          "next": "gate"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing tonight.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Evening.\" The voice comes out of a lit rectangle and the rest of the building is black. \"Everything goes round the turntable. Tell me roughly what you want it to do and I'll tell you what to buy.\"",
+      "text_by_relation": {
+        "familiar": "The bottle is on the turntable before you have got to the hatch, and it is the right one.\n\n\"Same,\" he says. \"And you're going out rather than coming in, so I'll say it, and you can tell me you know.\"",
+        "first": "A face appears in the lit rectangle and looks at you for a moment longer than a shopkeeper needs to.\n\n\"Dermot Cassavetes.\" A hand indicates the turntable in the sill. \"Everything comes round this. The door doesn't open. That's not about you, it has never been about anybody, and I'll tell you the story if you're ever standing here long enough.\"\n\nHe glances up the road behind you.\n\n\"Going out through the gate, or come in off it?\"",
+        "known": "\"You.\" He is already reaching behind him into the dark. \"Out, or in?\""
+      }
+    }
+  }
+}

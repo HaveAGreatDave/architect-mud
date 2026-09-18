@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A shallow cellar under the front of the shed with the junction cabinet on the wall and the coin store beside it: four galvanised bins of pennies, counted by weight rather than by number, because counting them was tried once and is not being tried again.",
+  "exits": {
+    "up": "zone_penny_floor"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_910_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_penny_floor",
+  "map_id": "map_int_penny",
+  "name": "The Penny Drops — The Floor — Utility Room",
+  "parent_zone": "zone_district_910_915"
+}

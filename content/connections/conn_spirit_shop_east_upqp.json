@@ -1,0 +1,9 @@
+{
+  "a": "zone_spirit_shop",
+  "b": "zone_spirit_store",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_spirit_shop_east_upqp",
+  "lockable": false,
+  "one_way": false
+}

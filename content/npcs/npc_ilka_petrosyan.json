@@ -1,0 +1,90 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"You want the green at four. Everybody else wants it at eleven. That is the whole trick.\"",
+    "pegs out a line with the practised speed of somebody doing it half asleep",
+    "\"I sleep through the roaster. I sleep through most things. It is a skill and it took work.\"",
+    "checks a sheet with the back of her hand and leaves it out another hour",
+    "\"Berenice knows who everybody is. I know where everybody is. Between us we have the building.\""
+  ],
+  "description": "A wiry woman who works nights somewhere she does not name and is therefore permanently in the wrong half of the day. She hangs washing at four in the afternoon and eats breakfast standing up at nine at night, and she is the only person in the building who has met everybody in it.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"You after the line? Half of it is free.\" Half of it is not free.",
+        "She squints at the light as though checking what time it is by it, which she is."
+      ],
+      "text_by_relation": {
+        "familiar": "\"Kettle.\" She says it as an offer and goes to put it on before you answer.",
+        "first": "\"Ilka.\" She has a peg in her mouth and takes it out. \"One up from Berenice. If you hear somebody come in at five, that is me, and I am sorry about the door.\"",
+        "known": "\"You are up early.\" It is four in the afternoon."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a quilted jacket with a burn hole in one sleeve",
+      "work trousers and a jumper",
+      "a plain bra and shorts"
+    ],
+    "personality": "labourer"
+  },
+  "home_activities": [],
+  "home_zone": "zone_filament_unit_1",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_ilka_petrosyan",
+  "name": "Ilka Petrosyan",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

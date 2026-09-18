@@ -15,6 +15,9 @@
 import { assess, shouldNotify, worstBand } from './usage-report.mjs';
 import { LIMITS, staleLimits, fmt, BYTES_PER_GB } from './limits.js';
 import { toBytes, pickService } from './render-usage.mjs';
+// Importing attribution.mjs does NOT open a connection — its pool is built lazily
+// inside getPool(), on the first query. These two are the pure half.
+import { deployRate, combineLoads } from './attribution.mjs';
 
 let passed = 0;
 const failures = [];
@@ -123,6 +126,26 @@ check('no web service at all resolves to nothing', pickService([{ id: 's', name:
 check('two unknown web services is ambiguous, not a coin flip', pickService([
   { id: 'a', name: 'aaa', type: 'web_service' }, { id: 'b', name: 'bbb', type: 'web_service' },
 ]).service === null);
+
+// -------------------------------------------------------- world-load model
+// A deploy reboots Render, which re-reads the whole boot payload, and Render's
+// CPU timeline cannot see it (no gap — the replacement instance is immediate).
+// So the model adds the two sources, and the thing that must never regress is
+// the null handling: a null total disarms the divergence check by zeroing
+// modelled egress, which is exactly the broken state this term was added to fix.
+check('cold starts and deploys add up', combineLoads(0.3, 4.0) === 4.3);
+check('a missing deploy count still yields the cold-start rate', combineLoads(0.3, null) === 0.3);
+check('a missing cold-start count still yields the deploy rate', combineLoads(null, 4.0) === 4.0);
+check('neither known is null, NOT zero', combineLoads(null, null) === null);
+// Zero deploys is a real answer and must not read as "unknown" — an idle week
+// genuinely has none, and turning that into null would blank the whole model.
+check('zero deploys is a number, not an absence', combineLoads(0.3, 0) === 0.3);
+
+check('deploy rate is per observed day', deployRate(28, 7) === 4);
+// A table only hours old would otherwise divide one row by a sliver of a day and
+// report hundreds of deploys a day. The floor is half a day.
+check('a young table is floored, not extrapolated', deployRate(1, 0.01) === 2);
+check('an empty window is zero, not NaN', deployRate(0, 0) === 0);
 
 // ------------------------------------------------------------------- report
 if (failures.length) {

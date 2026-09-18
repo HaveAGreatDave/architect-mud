@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_stuff_mount",
+  "name": "a finished mount",
+  "tags": {
+    "description": "Something small on a turned wooden base with a brass plate on the front and nothing written on the plate. Whoever brought it in never came back for it, and after two years on the board it goes in the window, and after another year it goes on the shelf."
+  },
+  "type": "misc",
+  "value": 420,
+  "weight": 2600
+}

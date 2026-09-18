@@ -1,0 +1,9 @@
+{
+  "a": "zone_pfin_shop",
+  "b": "zone_util_zone_pfin_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_pfin_shop_down_1kku",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,301 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Sabra folds her hands on the raised counter and waits, which is most of what she does.",
+    "She turns a box a quarter turn so the faded side is against the glass.",
+    "She writes something in a book, closes it, and puts it under the counter.",
+    "The green cross outside flickers on the downstroke. Nobody looks at it.",
+    "She listens to somebody the whole way through without moving.",
+    "She takes an amber bottle off the shelf behind her without turning round.",
+    "\"Not the tidy version,\" she says, gently, to somebody who has started over.",
+    "She looks up at the carboys with an expression that is nine-tenths dust.",
+    "She checks the night hatch is latched, which it is."
+  ],
+  "description": "A quiet, exact woman who is a full step above you on the raised counter and knows exactly what that is worth. She listens to a symptom the whole way through without interrupting, which almost nobody does, and then gives an answer with no softening on it at all. She is a great deal kinder than she sounds and has arranged things so that this is not obvious.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "cash": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"True, and in the window on purpose.\" She says it flatly. \"We do not keep cash overnight. We have never kept cash overnight. The float goes out at close in somebody's coat and everybody on this street knows it does.\"\n\nShe straightens something that is already straight.\n\n\"What we do keep overnight is behind three locks in the cellar that are better than anything else in this building, and that card is there so that anybody working out which to come for has the answer before they break anything.\""
+    },
+    "hatch": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It pays for itself about once a fortnight,\" she says. \"The alternative is unlocking the street door at three in the morning to whoever is on the other side of it, which I did for two years and will not do again.\"\n\nShe glances at the panel.\n\n\"Bell, grille, drawer. You can do a great deal of good through a grille. You can also decline through one, which is the part people do not think about until they have needed to.\""
+    },
+    "jars": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Carboys. Coloured water. Never held anything.\" She looks up at them without affection. \"Chemists have had them in the window since before anybody now living was born and nobody has ever satisfactorily explained why. I inherited them with the lease and I would feel like a vandal taking them down.\"\n\nA pause.\n\n\"I have never worked out how to dust behind them. If you ever see me on a ladder, that is what is happening, and I would rather you walked straight past.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "The night hatch.",
+          "next": "hatch"
+        },
+        {
+          "label": "The big coloured jars.",
+          "next": "jars"
+        },
+        {
+          "label": "The card about the cash.",
+          "next": "cash"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Tell me the whole thing before I say anything.\" She waits, from up on her step. \"People stop halfway through because they think they're wasting my time. The half they leave out is usually the half I need.\"",
+      "text_by_relation": {
+        "familiar": "She comes down off the step, which is the single most alarming thing she does.\n\n\"Sit on the chair a minute,\" she says. \"No, I'm not selling you anything. You look like somebody who has not sat down today and I want two minutes of you sitting down before you tell me what you came in for.\"",
+        "first": "The woman behind the raised counter is looking down at you, which is a decision the building made for her and which she has clearly made peace with.\n\n\"Ivarsen.\" She folds her hands. \"Front of the shop is what you can take off the shelf. Behind me is what you can't. The step is because the counter was built in about nineteen-forty and I have never seen any reason to take it out.\"\n\nA very small pause.\n\n\"Tell me the whole thing, not the tidy version. I have heard worse than yours today and it is only half eleven.\"",
+        "known": "\"Back again.\" She does not make it sound like a judgement, quite. \"Did the last lot do what I said it would, or did it do what you hoped it would?\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a white dispensing coat with one pocket stretched out of shape",
+      "a high-collared blouse",
+      "a plain skirt and flat shoes"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_dosed_counter",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_dosed_ivarsen",
+  "name": "Sabra Ivarsen",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_bandage",
+      "price": 11
+    },
+    {
+      "item_id": "item_rag_bandage",
+      "price": 6
+    },
+    {
+      "item_id": "item_pain_pills",
+      "price": 18
+    },
+    {
+      "item_id": "item_antirad_tablets",
+      "price": 33
+    },
+    {
+      "item_id": "item_tonic_water",
+      "price": 6
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 8,
+        "to": 23
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": "Dosed & Confused",
+  "vendor_stock_size": 15,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dosed_counter"
+}

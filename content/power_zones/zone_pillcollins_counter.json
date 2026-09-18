@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_pillcollins_counter",
+  "id": "zone_pillcollins_counter",
+  "max_capacity_kw": 1200,
+  "name": "Pill Collins",
+  "source_type": "junction_box"
+}

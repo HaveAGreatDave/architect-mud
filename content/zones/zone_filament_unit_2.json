@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2b2620",
+  "description": "A back flat, narrow, with the good fortune of a chimney breast that stays warm because somebody downstairs still burns something. The wallpaper has been painted over rather than stripped, four times, and has begun to have opinions about it.",
+  "exits": {
+    "west": "zone_filament_stair"
+  },
+  "flags": {
+    "floor": "boards",
+    "is_apartment": true,
+    "rent_cost": 45,
+    "window": {
+      "description": "A small window into the lane, with a view of the opposite wall at a distance of about nine feet.",
+      "light": 0.45,
+      "name": "the back window",
+      "visibility": 0.5
+    }
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_filament_unit_2",
+  "map_id": "map_int_filament",
+  "marker": "2",
+  "name": "Unit 2",
+  "parent_zone": "zone_district_897_905"
+}

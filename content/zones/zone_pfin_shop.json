@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c2022",
+  "description": "One room, standing height, no chairs and no daylight. The left wall is the board: Deadball on the upper half in white chalk, Cluster Puck on the lower half in yellow, every price written in a hand that does not hesitate and rubbed out with the heel of that same hand. The right wall is a shelf at elbow height with a row of little pencils on strings, three of which still have pencils. At the far end is a counter with a brass grille in it and a drawer under the grille that goes both ways. The floor by the bin is an inch deep in torn paper and nobody sweeps it until close.",
+  "exits": {
+    "down": "zone_util_zone_pfin_shop",
+    "east": "zone_district_914_914",
+    "north": "zone_pfin_settle"
+  },
+  "flags": {
+    "building_name": "Photo Finish",
+    "building_type": "bookmaker",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_914_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_pfin_shop",
+  "map_id": "map_int_pfin",
+  "name": "Photo Finish — The Shop",
+  "parent_zone": "zone_district_914_914"
+}

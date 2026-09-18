@@ -1,0 +1,119 @@
+{
+  "adorn": [
+    {
+      "cx": -0.08,
+      "cy": -0.52,
+      "kind": "glowPool",
+      "rgb": "210,220,235",
+      "s": 14,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Just My Type"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.4,
+      "hh": 0.018,
+      "kind": "parapet",
+      "pal": "ty_precast_dk",
+      "z": 0.68
+    },
+    {
+      "cx": -0.08,
+      "cy": -0.44,
+      "half": 0.24,
+      "hh": 0.13,
+      "kind": "shutter",
+      "pal": "ty_precast_dk",
+      "z": 0.01
+    },
+    {
+      "color": "#1b1f25",
+      "cx": -0.08,
+      "cy": -0.44,
+      "font": "mono",
+      "half": 0.22,
+      "hh": 0.026,
+      "ink": "#e4e9ef",
+      "kind": "signBoard",
+      "label": "JUST MY TYPE",
+      "z": 0.32
+    },
+    {
+      "cx": 0.26,
+      "cy": -0.44,
+      "drip": 0.7,
+      "half": 0.1,
+      "hh": 0.06,
+      "kind": "louvreBank",
+      "n": 5,
+      "pal": "ty_precast_dk",
+      "z": 0.2
+    },
+    {
+      "cx": 0,
+      "cy": -0.44,
+      "half": 0.34,
+      "kind": "conduit",
+      "pal": "ty_precast_dk",
+      "r": 0.012,
+      "z": 0.48
+    },
+    {
+      "cx": 0.22,
+      "cy": 0,
+      "d": 0.09,
+      "hh": 0.045,
+      "kind": "acUnit",
+      "pal": "ty_precast_dk",
+      "w": 0.11,
+      "z": 0.68
+    }
+  ],
+  "id": "justmytype",
+  "neon": "#c9d2dd",
+  "note": "A jobbing printer wedged into the back of the studio block, with a ROLLER DOOR instead of a window and the door up more often than not — so there is no shopfront to speak of, just an opening with handbills drying on a line across it. The board outside lists what they do in order of how much of it they do, and the last item is WRITS.",
+  "pal": "ty_precast",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.06
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.06,
+      "z1": 0.56
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_precast_dk",
+      "roof": true,
+      "z0": 0.56,
+      "z1": 0.68
+    }
+  ],
+  "trade": "store"
+}

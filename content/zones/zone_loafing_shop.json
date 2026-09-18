@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2e2318",
+  "color": "#d9a35c",
+  "description": "Hot, close and smelling of yeast and burnt sugar. A counter runs the length of the room with the trays racked behind it at head height, and the empty trays go back out through a hatch to the ovens, which you can hear more than see. Four stools face the window so you can eat looking at the Green. A hand-lettered card on the till reads WE DO NOT DO COFFEE, THERE IS A PLACE FOR THAT, TWO STREETS UP. Somebody has added, in different pen, AND IT IS NOT VERY GOOD.",
+  "exits": {
+    "down": "zone_util_zone_loafing_shop",
+    "north": "zone_district_907_914"
+  },
+  "flags": {
+    "building_name": "Loafing Around",
+    "building_type": "diner",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A wide pane onto Meltwater Row, fogged from the inside all day and wiped clear at eye height by whoever last leaned on it. Through the clear strip, the Green and the back of the statue.",
+      "light": 0.85,
+      "name": "the steamed front window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_907_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_loafing_shop",
+  "map_id": "map_int_loafing",
+  "name": "Loafing Around — Shop",
+  "parent_zone": "zone_district_907_914"
+}

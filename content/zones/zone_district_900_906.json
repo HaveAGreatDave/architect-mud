@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "description": "The tarmac gives way to a stretch of old setts here, polished smooth and slick in the damp. A bollard leans out of true with a bicycle wheel still locked to it, the rest of the bicycle long since resolved elsewhere.",
   "exits": {
     "east": "zone_district_901_906",
     "north": "zone_district_900_905",
@@ -10,15 +9,17 @@
     "west": "zone_district_899_906"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 900,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_900_906",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Filament Street",
   "parent_zone": null
 }

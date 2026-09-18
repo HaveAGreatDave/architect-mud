@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_penny_floor",
+  "id": "map_int_penny",
+  "name": "The Penny Drops",
+  "parent_zone_id": "zone_district_910_915"
+}

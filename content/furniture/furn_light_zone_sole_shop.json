@@ -1,0 +1,14 @@
+{
+  "description": "An articulated lamp clamped to the bench with a green tin shade, pulled down until it is about nine inches off the work. Everything above waist height in this room is lit by whatever is left over, which is not much, and he has worked like that for thirty years and does not own an overhead light.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_sole_shop",
+  "light_type": "overhead",
+  "lumen_output": 2200,
+  "name": "the bench lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_sole_shop"
+}

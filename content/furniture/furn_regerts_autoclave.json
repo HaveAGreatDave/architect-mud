@@ -1,0 +1,19 @@
+{
+  "description": "A steel drum on the counter with a pressure gauge and a log book beside it, and the log has a line for today with a time and a temperature and her initials. She will show you the book before she will show you a design, and she does it to everybody, every time.",
+  "flags": {
+    "aliases": "autoclave,steriliser,log,book",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_regerts_autoclave",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the autoclave",
+  "object_type": "appliance",
+  "power_draw_kw": 1.6,
+  "price": 0,
+  "zone_id": "zone_regerts_room"
+}

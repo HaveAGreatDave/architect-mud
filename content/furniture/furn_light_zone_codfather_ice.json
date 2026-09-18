@@ -1,0 +1,14 @@
+{
+  "description": "One caged lamp over the door, because the room is cold and a cold room with good lighting is a room people linger in. He does not want anybody lingering in here, including himself.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_codfather_ice",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "the caged lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_codfather_ice"
+}

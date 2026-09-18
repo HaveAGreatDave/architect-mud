@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_cod_smoked",
+  "name": "smoked basin fish",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "restore_hunger": 24,
+    "well_fed": true,
+    "description": "Hung in the family smokehouse over oak that came out of a building, gone the colour of a violin. Keeps for a week without a cold store, which is why it costs more than the fresh, which nobody ever believes until it is explained once."
+  },
+  "type": "consumable",
+  "value": 54,
+  "weight": 300
+}

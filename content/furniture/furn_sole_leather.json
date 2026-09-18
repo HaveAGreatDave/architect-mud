@@ -1,0 +1,20 @@
+{
+  "description": "Shoulders and bends rolled and standing on end in a rack, out of the light, because light is what ruins them. Three or four hides at a time, and never the cheap one, which is the single most expensive decision he makes and the only one he has never once reconsidered.",
+  "flags": {
+    "aliases": "leather,hides,store,rack,bends",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sole_leather",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the leather store",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_sole_shop"
+}

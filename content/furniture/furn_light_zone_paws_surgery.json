@@ -1,0 +1,14 @@
+{
+  "description": "A proper operating lamp on a jointed arm over the table, which is the one thing in this building she bought new and went into debt for. It is shadowless directly under it and almost useless three feet away, which is exactly what it is supposed to be.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_paws_surgery",
+  "light_type": "overhead",
+  "lumen_output": 3200,
+  "name": "the surgery lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_paws_surgery"
+}

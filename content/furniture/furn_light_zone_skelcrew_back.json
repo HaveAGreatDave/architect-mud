@@ -1,0 +1,14 @@
+{
+  "description": "Two lamps on jointed arms brought right down onto the work, plus a magnifier with a ring light in it that is the single most expensive object in the building and is treated accordingly.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_skelcrew_back",
+  "light_type": "overhead",
+  "lumen_output": 2600,
+  "name": "the bench lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_skelcrew_back"
+}

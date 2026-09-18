@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
+  "ambient_theme": "urban",
+  "bg_color": "#26210f",
+  "color": "#c9a227",
+  "description": "An assay counter for people who have come back in off the flats with something heavy in a bag and want to know what it is before somebody else tells them. Small frontage, heavy door, and a brass plate that reads THE ACID TEST, WEIGHED AND STATED, NO OPINIONS OFFERED. There is a queue outside it some mornings and never at any other time of day.",
   "exits": {
-    "east": "zone_district_915_913",
     "north": "zone_district_914_912",
-    "south": "zone_district_914_914",
-    "west": "zone_district_913_913"
+    "south": "zone_acidtest_counter"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "The Acid Test",
+    "building_type": "assay",
+    "district": "nightlife",
+    "entrance": "north",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true,
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_914_912"
   },
   "grid_x": 914,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_914_913",
   "map_id": "map_world",
-  "name": "Foundry Way",
+  "marker": "AQ",
+  "name": "The Acid Test",
   "parent_zone": null
 }

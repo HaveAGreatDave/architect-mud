@@ -1,24 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#22211c",
+  "description": "Four columns and a pediment on a building one room deep, which is a joke somebody built rather than told: the portico is stone, correct, and about two and a half times the architectural seriousness the shed behind it can support. Cut into the pediment, in Roman capitals, spaced by somebody who had run out of room by the fourth word: THE COLDWATER MVSEVM OF THE WORLD BEFORE. The doors under it are open in the day and there is no charge and there never has been, and a slotted box on a post beside them says DONATIONS and is almost empty.",
   "exits": {
-    "east": "zone_district_917_914",
-    "north": "zone_district_916_913",
-    "south": "zone_district_916_915",
-    "west": "zone_district_915_914"
+    "west": "zone_district_915_914",
+    "east": "zone_pastperf_hall"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Past Perfect",
+    "building_type": "museum",
+    "district": "ashway",
+    "entrance": "west",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_915_914"
   },
   "grid_x": 916,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_916_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "MU",
+  "name": "Past Perfect",
   "parent_zone": null
 }

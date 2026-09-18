@@ -1,0 +1,9 @@
+{
+  "a": "zone_rodalmighty_shop",
+  "b": "zone_util_zone_rodalmighty_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_rodalmighty_shop_down_roda2",
+  "lockable": false,
+  "one_way": false
+}

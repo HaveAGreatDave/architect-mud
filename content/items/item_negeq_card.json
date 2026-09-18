@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_negeq_card",
+  "name": "a carte de visite",
+  "tags": {
+    "stackable": true,
+    "description": "A small mounted print the size of a playing card, six to a sitting, for giving away. People put them in wallets and in lockets and behind the visor of a truck. Hers have a blind-stamped border and nothing else on the back, on principle."
+  },
+  "type": "media",
+  "value": 34,
+  "weight": 20
+}

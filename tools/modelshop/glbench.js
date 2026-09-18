@@ -19,6 +19,7 @@
 import { createGLView } from '/client/game/js/panels/gl/context.js';
 import { installGL, glLastFrame, glCapabilities } from '/client/game/js/panels/gl/install.js';
 import { LIGHT_TUNE } from '/client/game/js/panels/gl/world.js';
+import { flocksNear, flockState } from '/client/shared/goose.js';
 import { paintWindshield, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 
 const R = 16, N = R * 2 + 1;
@@ -857,13 +858,29 @@ const LIGHT_SWEEP = [
   { tag: 'wrap 0.25', set: { wrap: 0.25 } },
   { tag: 'span x1.5', set: { span: 4.8 } },
   { tag: 'minR 2.0', set: { minR: 2 } },
+  // ── THE BLOOM AXIS ─────────────────────────────────────────────────────────────────────────
+  //
+  // ⚠ AND `litPct` SCORES THIS ONE BACKWARDS, WHICH IS WHY `conc` EXISTS. Every row below moves
+  // FEWER wall pixels than the wash it replaced, and that is the change rather than a regression:
+  // a sign is supposed to light the wall it is bolted to and not the block. The column to read on
+  // these rows is `conc` — peak over mean across the pixels that moved, so a flat tint sits near
+  // 1 and a bloom climbs. See the ⚠ on LIGHT_TUNE for why the gain and the reach move together.
+  { tag: 'old broad wash', set: { wallR: 1, focus: 2, gain: 0.18 } },
+  { tag: 'wallR 0.22', set: { wallR: 0.22 } },
+  { tag: 'wallR 0.45', set: { wallR: 0.45 } },
+  { tag: 'wallR 0.65', set: { wallR: 0.65 } },
+  { tag: 'focus 2.0 (shipped shape)', set: { focus: 2 } },
+  { tag: 'focus 4.0', set: { focus: 4 } },
   // ⚠ AND THE GAIN ROWS HAVE TO BRACKET THE SHIPPING VALUE ON BOTH SIDES. They were 0.70/1.00/1.40
   // — every one of them brighter than what ships — which is fine while the question is "how much
   // headroom is left" and useless the moment the answer is another cut. The shipping row is 0.18.
-  { tag: 'gain 0.12', set: { gain: 0.12 } },
-  { tag: 'gain 0.30', set: { gain: 0.30 } },
-  { tag: 'gain 0.45', set: { gain: 0.45 } },
-  { tag: 'gain 1.00', set: { gain: 1.00 } },
+  // ⚠ AND THEY MOVED WITH THE BLOOM. The shipping gain is 2.5 now, not 0.18 — a gain is only ever
+  // meaningful against the reach it is spread over, so the old rows (0.12 … 1.00) all sit below a
+  // setting that would now be most of the way to switching the feature off.
+  { tag: 'gain 1.20', set: { gain: 1.20 } },
+  { tag: 'gain 1.80', set: { gain: 1.80 } },
+  { tag: 'gain 3.20', set: { gain: 3.20 } },
+  { tag: 'gain 4.50', set: { gain: 4.50 } },
 ];
 
 // ── A FROZEN CLOCK HIDES THE LIGHTS, AND EVERY LIGHT MEASUREMENT HERE WAS BLIND ────────────────
@@ -985,7 +1002,15 @@ export function runLights({ W = 640, H = 360, frames = 30, warm = 10 } = {}) {
         sweep.push({ seat: seat.tag, setting: cfg.tag, wallPx: mask,
           litPct: mask ? +(moved / mask * 100).toFixed(1) : null,
           meanOnLit: moved ? +(sum / moved / 255 * 100).toFixed(1) : null,
-          worst: Math.round(worst) });
+          worst: Math.round(worst),
+          // ⚠ THE COLUMN THE OTHER THREE COULD NOT PROVIDE. This file's own note records that
+          // `litPct` says how far a setting is from SATURATING a wall and says nothing about
+          // whether the effect draws attention to itself — and every live complaint about this
+          // pass has been the second thing. Peak over mean across the moved pixels is not that
+          // question either, but it is the axis the complaint sits on: a light smeared evenly over
+          // a whole facade lands near 1, and a pool with a hot centre and a dark edge climbs. It
+          // is a ratio, so it does not move when the gain does — only the SHAPE reaches it.
+          conc: moved ? +(worst / Math.max(1e-6, sum / moved)).toFixed(2) : null });
       }
       Object.assign(LIGHT_TUNE, held);
       performance.now = realNow;
@@ -3007,3 +3032,437 @@ export function runHdr({ W = 640, H = 360, frames = 26, warm = 8 } = {}) {
   return rows;
 }
 if (typeof window !== 'undefined') window.__glHdr = runHdr;
+
+
+// ── DO THE GEESE DRAW ON THE GL PATH LIKE EVERY OTHER THING IN THAT LAYER? ────────────────────
+//
+// The headless gate (scripts/shapes/fauna.mjs) proves the flock ARRIVES: correct sink, correct
+// device-pixel sizes, nothing left painting on the canvas, a bounded key space. That is the whole
+// of what CI can say, because every harness in the repo installs a GL hook that returns null and so
+// never reaches a draw call. Whether a goose is actually VISIBLE through GLASS 2 is only answerable
+// here, with a real context.
+//
+// ⚠ THE CONTROL IS THE TREES, NOT THE 2-D PATH — and that correction is the whole value of this
+// function. Measured GL-against-2-D, the geese changed a ninth as many pixels on the GL path and
+// the obvious reading was a bug in the flock. It is not: the SCATTER SPECIES measure 0.08 in the
+// same scene where the geese measure 0.11. Whatever accounts for it — the compositing arrangement
+// in this harness, the layer itself — it is a property of the billboard layer that predates any of
+// this, and the only question a goose can answer is whether it behaves like the species that
+// already ship. An A/B between two renderers needs a control that is known-good IN THE SAME
+// HARNESS, or the harness's own quirks are read as the subject's bugs.
+//
+// ⚠ AND `geese on vs geese off` ALONE WOULD NOT DO EITHER. A flock that draws nothing reports 0.0%,
+// which is indistinguishable from a feature that is inert — the failure the allowlist warnings in
+// gl/install.js keep re-recording. Hence four paints per subject and a second subject to compare to.
+//
+// ⚠ ONE FINDING THIS TURNED UP THAT IS NOT ABOUT GEESE, and somebody should chase it: in this
+// arrangement BOTH subjects change far fewer pixels through the GL composite than through the 2-D
+// path — the scatter species measure 0.036-0.084 and the geese 0.11-0.25. That is an order of
+// magnitude, it is the same for a subject that has shipped for months, and it is either a property
+// of how this harness composites or of the billboard layer itself. It is not investigated here
+// because a goose cannot answer it; it is written down because a future reader will otherwise
+// re-derive it and blame whatever they are measuring at the time.
+export function runGeese({ W = 640, H = 360, dist = 2, thresh = 12 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__geesebench'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+
+  const realNow = performance.now.bind(performance);
+  const realDate = Date.now;
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, geese: RENDER_TUNE.geese, trees: RENDER_TUNE.treeDensity };
+  const out = { ok: false };
+  try {
+    // A flock that really exists, found by asking the same function the renderer reads — never a
+    // hand-picked tile, which is a coin flip that goes vacuous the first time a constant moves.
+    const A = flocksNear(900, 900, 30, 1, () => true)[0];
+    if (!A) throw new Error('no flock anchor near the seed tile');
+    const centre = { x: A.ax, y: A.ay + dist };
+    const park = (wx, wy) => (Math.abs(wx - A.ax) <= 6 && Math.abs(wy - A.ay) <= 6
+      ? { kind: 'land', biome: 'parkland', flr: 0 }
+      : { kind: 'land', biome: 'citycore', flr: 0 });
+    const RR = 20, NN = RR * 2 + 1;
+    const map = Array.from({ length: NN }, (_, ry) => Array.from({ length: NN }, (_, rx) => park(centre.x - RR + rx, centre.y - RR + ry)));
+    const view = { cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0,
+      eyeH: 0.12, fovMul: 1.22, hour: 12, weather: 'clear', speed: 0, resFloor: 1,
+      map, heading: 0, mapCenter: { ...centre }, mapOffset: { x: 0, y: -0.5 } };
+
+    // A moment the anchor flock is on the grass. ⚠ Both clocks pinned: the frame animations run on
+    // performance.now() and the FLOCK CYCLE runs on wall time (see the ⚠ on drawGeese), so pinning
+    // one leaves the half this measures free to move between paints.
+    let T = 1e6;
+    for (let i = 0; i < 4000; i++) { const t = 1e6 + i * 250; if (!flockState(A, t).airborne) { T = t; break; } }
+    performance.now = () => T; Date.now = () => T;
+
+    const paint = (gl, { geese, trees }) => {
+      RENDER_TUNE.gl = gl ? 1 : 0; RENDER_TUNE.glFloor = gl ? 1 : 0;
+      RENDER_TUNE.geese = geese; RENDER_TUNE.treeDensity = trees;
+      paintWindshield('__geesebench', view);   // settle every lazy bake
+      paintWindshield('__geesebench', view);
+      return shot();
+    };
+    const changed = (a, b) => {
+      let n = 0, sx = 0, sy = 0;
+      for (let p = 0, i = 0; i < a.length; i += 4, p++) {
+        const d = Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+        if (d <= thresh) continue;
+        n++; sx += p % W; sy += (p / W) | 0;
+      }
+      return { n, cx: n ? sx / n : 0, cy: n ? sy / n : 0 };
+    };
+    // Four paints per subject; each pair shares a renderer, so the only thing that moved is the
+    // subject. `trees: 0` / `geese: 0` are the off switches, and both are the absence of the pass.
+    const subject = (on, off) => {
+      const g = changed(paint(true, on), paint(true, off));
+      const c = changed(paint(false, on), paint(false, off));
+      return { gl: g.n, canvas: c.n, ratio: c.n ? +(g.n / c.n).toFixed(3) : null,
+        shiftPx: g.n && c.n ? +Math.hypot(g.cx - c.cx, g.cy - c.cy).toFixed(1) : null };
+    };
+    out.geese = subject({ geese: was.geese || 1, trees: was.trees }, { geese: 0, trees: was.trees });
+    out.trees = subject({ geese: 0, trees: was.trees }, { geese: 0, trees: 0 });
+
+    if (!out.geese.canvas) out.verdict = 'VACUOUS — the 2-D control drew no geese, so the scene is wrong rather than the renderer';
+    else if (!out.trees.canvas) out.verdict = 'VACUOUS — no scatter species in the scene, so there is nothing to compare against';
+    else if (!out.geese.gl) out.verdict = 'FAILED — the 2-D path drew a flock and GLASS 2 drew nothing at all';
+    else {
+      // ⚠ A LOWER BOUND ONLY. The question is whether the flock is DISAPPEARING where the shipping
+      // species do not; drawing more faithfully than the control is never a bug, and an upper bound
+      // fails it for being better. Measured over distances 1-6 the geese sit at 0.11-0.25 against
+      // the trees' 0.036-0.084 — consistently the good end — and a two-sided band called three of
+      // those four runs a failure.
+      const rel = out.geese.ratio / out.trees.ratio;
+      out.relativeToTrees = +rel.toFixed(2);
+      out.verdict = rel > 0.4
+        ? 'OK — the flock survives GLASS 2 at least as well as the scatter species'
+        : `FADING — geese ${out.geese.ratio} against trees ${out.trees.ratio} on the same scene, so the flock is being lost where the species are not`;
+    }
+    out.anchor = `${A.ax},${A.ay}`;
+    out.ok = true;
+  } finally {
+    performance.now = realNow; Date.now = realDate;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor;
+    RENDER_TUNE.geese = was.geese; RENDER_TUNE.treeDensity = was.trees;
+    uninstall(); holder.remove();
+  }
+  console.table([{ verdict: out.verdict, geese: out.geese && out.geese.ratio, trees: out.trees && out.trees.ratio, rel: out.relativeToTrees }]);
+  return out;
+}
+if (typeof window !== 'undefined') window.__glGeese = runGeese;
+
+// `__glGooseSky()`. Reported as "the clouds seem to be appearing in front of the geese", and the
+// mechanism is two lines of GL state in two files: a billboard writes no depth, the cloud deck
+// clears COLOUR ONLY and tests against the depth the world left behind, so at a bird's own pixels
+// the buffer still holds the ground a few hundred tiles away and every card passes. Reading that is
+// not the same as measuring it, because the deck also lays a screen-space HAZE BAND and a whiteout
+// flood over the whole frame — both of them correct, neither of them depth-testable — and a
+// screenshot cannot tell one from the other.
+//
+// So the subject is THE BIRDS' OWN PIXELS and nothing else. The mask comes from a render with the
+// deck switched off entirely, which is the only way to know where a goose is without asking the
+// thing under test; `survives` is then how many of those pixels still differ from the same frame
+// with no geese in it once the deck is drawn over them. A wash that dims the birds and the sky
+// together leaves them differing and scores high; a card that covers one deletes it.
+//
+// ⚠ BOTH CLOCKS PINNED, for the reason runGeese records: the frame animates on performance.now()
+// and the flock cycle runs on wall time, so pinning one leaves the half this measures free to move.
+// ⚠ AND `offBirds` IS THE CONTROL THAT MAKES THE REST WORTH READING — the pixels outside the mask
+// must be IDENTICAL with the flag on and off, or the change is not confined to what flies and the
+// headline number is measuring the sky.
+export function runGooseSky({ W = 640, H = 360, wx = 'rain', dist = 3, thresh = 10, shots = false } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__goosesky'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+
+  const realNow = performance.now.bind(performance);
+  const realDate = Date.now;
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, geese: RENDER_TUNE.geese,
+    clouds: RENDER_TUNE.glClouds, vol: RENDER_TUNE.volClouds, air: RENDER_TUNE.glAirDepth };
+  const out = { ok: false, wx };
+  try {
+    const A = flocksNear(900, 900, 30, 1, () => true)[0];
+    if (!A) throw new Error('no flock anchor near the seed tile');
+    // ⚠ THE WHOLE FLIGHT, NOT ONE INSTANT, AND TWO DRAFTS PICKED THE ANSWER BEFORE THIS ONE. Taking
+    // the FIRST airborne moment measures a flock that has just left the grass at a hundredth of a
+    // tile, with a field behind it and no cloud within reach — and it reported a large fix for a
+    // case it was not testing. Taking the PEAK measures the opposite extreme, a flock well above the
+    // camera with the deck behind rather than in front, and it reported no fix at all. Both are
+    // true, both are one frame of a cycle the player watches all of, and neither is the answer. The
+    // climb, the circuit and the descent are sampled evenly and the pixels are pooled.
+    const moments = [];
+    for (let i = 0; i < 6000; i++) {
+      const t = 1e6 + i * 250;
+      if (flockState(A, t).airborne) moments.push(t);
+    }
+    if (!moments.length) throw new Error('the anchor flock is never airborne in the search window');
+    const SAMPLES = 9;
+    const times = Array.from({ length: SAMPLES }, (_, i) => moments[Math.min(moments.length - 1, Math.round(i * (moments.length - 1) / (SAMPLES - 1)))]);
+    out.samples = SAMPLES;
+
+    const centre = { x: A.ax, y: A.ay + dist };
+    const RR = 20, NN = RR * 2 + 1;
+    const cell = (wxT, wyT) => (Math.abs(wxT - A.ax) <= 6 && Math.abs(wyT - A.ay) <= 6
+      ? { kind: 'land', biome: 'parkland', flr: 0 }
+      : { kind: 'land', biome: 'grass', flr: 0 });
+    const map = Array.from({ length: NN }, (_, ry) => Array.from({ length: NN }, (_, rx) => cell(centre.x - RR + rx, centre.y - RR + ry)));
+    const field = {
+      tick: 30, bounds: { minX: centre.x - 20, maxX: centre.x + 20, minY: centre.y - 20, maxY: centre.y + 20 },
+      wind: { dir: 220, kph: 18 }, baseCloud: 0.55, precipFloor: 0, floorType: 'none',
+      cells: [0, 1, 2].map((i) => ({ x: centre.x + (i - 1) * 9, y: centre.y - 12 + i * 8, r: 13 - i * 2,
+        vx: 0, vy: 0, type: i === 1 ? 'precip' : 'cloud', intensity: 0.9 - i * 0.1, precip: 'rain' })),
+    };
+    const view = { cls: 'prop', phase: 'cruise', worldBlend: 1, height: 0.08, hour: 12, weather: wx,
+      speed: 0.2, resFloor: 1, map, heading: 0, mapCenter: { ...centre }, mapOffset: { x: 0, y: 0 },
+      wxField: field, acX: centre.x, acY: centre.y, tune: { gl: 1, perfDS: 0 } };
+
+    const paint = ({ geese, vol, air }) => {
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.glClouds = 1;
+      RENDER_TUNE.geese = geese; RENDER_TUNE.volClouds = vol; RENDER_TUNE.glAirDepth = air;
+      paintWindshield('__goosesky', view);   // settle every lazy bake
+      paintWindshield('__goosesky', view);
+      return shot();
+    };
+    const differs = (a, b, i) => (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2])) > thresh;
+
+    let mask = 0, survBefore = 0, survAfter = 0, offBirds = 0, cards = 0, worst = null;
+    const perSample = [];
+    for (const t of times) {
+      performance.now = () => t; Date.now = () => t;
+      const birdsNoDeck = paint({ geese: 1, vol: 0, air: 0 });
+      const bareNoDeck = paint({ geese: 0, vol: 0, air: 0 });
+      const bareDeck = paint({ geese: 0, vol: 1, air: 0 });
+      const before = paint({ geese: 1, vol: 1, air: 0 });
+      const beforePng = shots ? el.toDataURL('image/png') : null;
+      const after = paint({ geese: 1, vol: 1, air: 1 });
+      // ⚠ READ BEFORE ANY FURTHER PAINT. `glLastFrame()` is the LAST frame, so taking it at the
+      // bottom of the function reports whatever the shots repaint drew — which is a deck-off frame,
+      // and `cards: 0` there reads exactly like the deck having silently stopped working.
+      cards = Math.max(cards, (glLastFrame() || {}).cloudCards || 0);
+      let afterPng = null, noDeckPng = null;
+      if (shots) { afterPng = el.toDataURL('image/png'); paint({ geese: 1, vol: 0, air: 0 }); noDeckPng = el.toDataURL('image/png'); }
+
+      // The mask: where a goose is, measured with nothing drawn over it.
+      //
+      // ⚠ TWO MASKS, AND THE SECOND ONE IS NOT PEDANTRY. The survival statistic wants the pixels a
+      // goose is legible on, so it uses `thresh`. The confinement test wants the pixels a goose
+      // TOUCHES, and those are not the same set: a bird is dark grey against a grey overcast, so
+      // its own body can cover the sky and differ from it by almost nothing — an opaque texel that
+      // writes depth and scores below the bar. Counting those as "outside the flock" reports the
+      // fix leaking into the sky when what it did was remove a cloud from behind a bird you can
+      // barely see. Anything the flock touched at all, grown by a pixel for the quad's rim.
+      const touched = new Uint8Array(W * H);
+      for (let p = 0, i = 0; i < birdsNoDeck.length; i += 4, p++) {
+        if (birdsNoDeck[i] !== bareNoDeck[i] || birdsNoDeck[i + 1] !== bareNoDeck[i + 1] || birdsNoDeck[i + 2] !== bareNoDeck[i + 2]) touched[p] = 1;
+      }
+      const near = new Uint8Array(W * H);
+      for (let p = 0; p < touched.length; p++) {
+        if (!touched[p]) continue;
+        const X = p % W, Y = (p / W) | 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = X + dx, ny = Y + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H) near[ny * W + nx] = 1;
+        }
+      }
+      let m = 0, sb = 0, sa = 0;
+      for (let p = 0, i = 0; i < birdsNoDeck.length; i += 4, p++) {
+        if (differs(birdsNoDeck, bareNoDeck, i)) {
+          m++;
+          if (differs(before, bareDeck, i)) sb++;
+          if (differs(after, bareDeck, i)) sa++;
+        }
+        if (!near[p] && differs(before, after, i)) offBirds++;
+      }
+      mask += m; survBefore += sb; survAfter += sa;
+      const st = flockState(A, t);
+      const row = { z: +st.z.toFixed(2), px: m, before: m ? +(sb / m * 100).toFixed(0) : null, after: m ? +(sa / m * 100).toFixed(0) : null };
+      perSample.push(row);
+      // The frame the deck took the most of, which is the one the report is actually about — an
+      // average over a whole flight hides the moment somebody screenshots.
+      // ⚠ AND IT IS THE FRAME THE SHOTS COME FROM. A fixed sample index is a coin toss: the first
+      // draft shot the middle one, which in rain is a frame the flag moves nothing on, so the
+      // comparison image was two identical panels of a working fix.
+      if (m >= 8 && (worst == null || row.before < worst.before)) {
+        worst = row;
+        if (shots) { out.beforePng = beforePng; out.afterPng = afterPng; out.noDeckPng = noDeckPng; }
+      }
+    }
+    out.perSample = perSample;
+    out.worstFrame = worst;
+    out.deckCards = cards;
+    out.birdPx = mask;
+    out.survivesBefore = mask ? +(survBefore / mask * 100).toFixed(1) : null;
+    out.survivesAfter = mask ? +(survAfter / mask * 100).toFixed(1) : null;
+    out.offBirds = offBirds;
+    out.anchor = `${A.ax},${A.ay}`;
+
+    if (!mask) out.verdict = 'VACUOUS — no goose reached the frame, so the scene is wrong rather than the renderer';
+    else if (!out.deckCards) out.verdict = 'VACUOUS — the deck drew no cards, so there is nothing in front of anything';
+    else if (offBirds) out.verdict = `LEAKED — ${offBirds} px outside the flock moved with the flag, so this is not confined to what flies`;
+    else if (out.survivesAfter <= out.survivesBefore) out.verdict = 'NO CHANGE — the deck takes the same share of the flock either way';
+    else out.verdict = `FIXED — ${out.survivesBefore}% of the flock survived the deck over a whole flight, ${out.survivesAfter}% does now`
+      + (worst ? ` (worst frame ${worst.before}% → ${worst.after}%)` : '');
+    out.ok = true;
+  } finally {
+    performance.now = realNow; Date.now = realDate;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor; RENDER_TUNE.geese = was.geese;
+    RENDER_TUNE.glClouds = was.clouds; RENDER_TUNE.volClouds = was.vol; RENDER_TUNE.glAirDepth = was.air;
+    uninstall(); holder.remove();
+  }
+  console.table([out]);
+  console.log('   survivesBefore/After is the share of the BIRDS OWN PIXELS still readable under the deck; offBirds must be 0.');
+  return out;
+}
+if (typeof window !== 'undefined') window.__glGooseSky = runGooseSky;
+
+// `__glBoardSky()`. Reported from the game as "clouds appear thru billboards", with a shot of a
+// hoarding standing against an overcast and cloud puffs drawn across the middle of it.
+//
+// It is the goose bug one layer along, and the mechanism is the same two lines of GL state. A
+// per-tile sign board goes to the DECAL layer rather than into the mesh — a board carrying `$name`
+// takes its words off the TILE and a mesh is captured once per MODEL, so there is no single
+// appearance to record — and that layer deliberately writes no depth ("a sign is on a wall, not a
+// wall"). True of lettering on a facade; false of the one decal that is not on anything, because a
+// roof hoarding stands on its own legs against the sky. So at the board's own pixels the buffer
+// still held the ground far behind it, and every cloud card passed.
+//
+// ⚠ THE MASK IS THE FIX'S OWN FOOTPRINT, NOT "WHERE THE BUILDING IS", and that is the difference
+// between this and runGooseSky. A flock is the whole subject of its frame; a hoarding is a few
+// hundred pixels of a building that is otherwise mass already on the depth buffer, so a
+// building-wide mask dilutes the thing being measured into noise. The footprint is the pixels that
+// MOVE when the flag flips, and the question asked of each one is which truth it lands on:
+//   restored — it matches the deck-off frame now, which is to say the board is back
+//   other    — it matches neither, which is what a board occluding something it should not would
+//              look like
+// ⚠ AND `offCity` IS THE CONTROL THAT MAKES THE REST WORTH READING: a pixel of open sky must never
+// be in the footprint, or this is not confined to buildings and the headline is measuring vapour.
+const BOARD_SEATS = [
+  { tag: 'cab, overcast', cls: 'truck', h: 0, wx: 'cloudy', hour: 13, field: CLOUD_FIELD(0.55, ['cloud', 'precip', 'cloud']) },
+  { tag: 'cab, rain', cls: 'truck', h: 0, wx: 'rain', hour: 13, field: CLOUD_FIELD(0.6, ['precip', 'cloud', 'precip']) },
+  { tag: 'low pass, overcast', cls: 'prop', h: 0.12, wx: 'cloudy', hour: 13, field: CLOUD_FIELD(0.55, ['cloud', 'precip', 'cloud']) },
+];
+export function runBoardSky({ W = 640, H = 360, thresh = 10, seats = BOARD_SEATS, shots = false, at = [2, 3], flr = 2, span = 4 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+
+  // ⚠ A ROW OF NAMED TILES RATHER THAN ONE CHOSEN BUILDING. Whether a model gets a roof hoarding is
+  // a seeded roll inside the derived kit, so "the subject has one" is not something a scene can
+  // assert — and a `bn` is what makes the board draw at all, since a `$name` board with no name is
+  // deliberately not drawn. Nine frontages at two and three storeys put several boards against the
+  // sky whatever any one roll says, and an empty footprint reports VACUOUS rather than passing.
+  const RR = 16, NN = RR * 2 + 1;
+  const NAMES = ['THE DRY GOODS', 'OHM SWEET OHM', 'BODEGA VU', 'THE LAYOVER', 'WATTS THE DAMAGE',
+    'THE TALLY', 'SECOND SKIN', 'LATHER & LYE', 'THE QUIET TRADE'];
+  // ⚠ AND IT STANDS TWO TILES AWAY, WHICH IS NOT A TASTE IN FRAMING. `detailLayer` drops a part
+  // whose own height projects below its DETAIL_PX floor, so the whole derived kit — every board,
+  // canopy, pipe, lamp and neon run — is gone by four tiles out: glresidue measured 0 decals at 8,
+  // 4, 3 and 2.5 tiles and 8 at 2. A row at five tiles is a scene with no boards in it, which this
+  // reports as VACUOUS and which reads exactly like the flag doing nothing.
+  const build = (withCity) => Array.from({ length: NN }, (_, y) => Array.from({ length: NN }, (_, x) => {
+    if (!withCity) return { kind: 'land', biome: 'citycore', flr: 0 };
+    const row = at.indexOf(RR - y);
+    if (row >= 0 && x >= RR - span && x <= RR + span) {
+      const i = (x - RR + span + row * 3) % NAMES.length;
+      return { kind: 'land', biome: 'citycore', bt: i % 2 ? 'shop' : 'store', bn: NAMES[i],
+        ent: 'south', flr: flr + (i % 2) };
+    }
+    return { kind: 'land', biome: 'citycore', flr: 0 };
+  }));
+
+  const realNow = performance.now.bind(performance);
+  const realRandom = Math.random;
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, clouds: RENDER_TUNE.glClouds,
+    vol: RENDER_TUNE.volClouds, board: RENDER_TUNE.glBoardDepth };
+  const rows = [];
+  try {
+    // Pinned, for the two reasons runLeak records: the deck drifts and the sky throws meteors, so
+    // two renders of one scene differ for reasons that have nothing to do with the flag.
+    performance.now = () => 1e6;
+    let rngS = 0;
+    Math.random = () => { rngS = (rngS * 1664525 + 1013904223) >>> 0; return rngS / 4294967296; };
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+    for (const seat of seats) {
+      const ID = '__board' + seats.indexOf(seat) + '_' + (runBoardSky.n = (runBoardSky.n || 0) + 1);
+      el.id = ID;
+      const view = (map) => ({ cls: seat.cls, phase: 'cruise', worldBlend: 1, height: seat.h, eyeH: 0.24,
+        hour: seat.hour, weather: seat.wx, speed: 0, map, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0, y: 0 },
+        wxField: seat.field, acX: 100, acY: 100, resFloor: 1, tune: { gl: 1, perfDS: 0 } });
+      const paint = (map, opt) => {
+        RENDER_TUNE.glClouds = 1; RENDER_TUNE.volClouds = opt.vol; RENDER_TUNE.glBoardDepth = opt.board;
+        rngS = 12345; paintWindshield(ID, view(map));      // settle every lazy bake — see boarddepth.mjs
+        rngS = 12345; paintWindshield(ID, view(map));
+        return shot();
+      };
+      const city = build(true), bare = build(false);
+      const noDeck = paint(city, { vol: 0, board: 1 });
+      const noDeckPng = shots ? el.toDataURL('image/png') : null;
+      const bareNoDeck = paint(bare, { vol: 0, board: 1 });
+      const before = paint(city, { vol: 1, board: 0 });
+      const beforePng = shots ? el.toDataURL('image/png') : null;
+      const after = paint(city, { vol: 1, board: 1 });
+      // ⚠ READ BEFORE ANY FURTHER PAINT — glLastFrame() is the LAST frame, and a shots repaint would
+      // report a deck-off frame's `cards: 0`, which reads exactly like the deck not working.
+      const cards = (glLastFrame() || {}).cloudCards || 0;
+      const afterPng = shots ? el.toDataURL('image/png') : null;
+
+      const d = (a, b, i) => Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+      // ⚠ NOT "DOES IT MATCH THE DECK-OFF FRAME", AND THE FIRST CUT WAS, WHICH REPORTED 2.6%. The
+      // deck is not only cards: it lays a screen-space HAZE BAND and a whiteout flood over the whole
+      // frame, and neither of those is depth-testable or should be. So a board the cards no longer
+      // cover still does not match the frame drawn with no deck at all — it matches that board seen
+      // through haze — and an equality test against it scores the fix at nearly nothing.
+      // The haze is the SAME OFFSET in both frames, so it cancels in a comparison of the two: the
+      // footprint already has it out, and the direction is what is left to ask. `closer` is the
+      // share of the footprint where the flag moved the pixel TOWARD the board's own colour, and the
+      // two means say how far — the board coming back out from under the cloud, in 0..765 per pixel.
+      let foot = 0, closer = 0, offCity = 0, cityPx = 0, sumB = 0, sumA = 0;
+      for (let i = 0; i < noDeck.length; i += 4) {
+        const isCity = d(noDeck, bareNoDeck, i) > thresh;
+        if (isCity) cityPx++;
+        if (d(before, after, i) <= thresh) continue;
+        foot++;
+        if (!isCity) offCity++;
+        const dB = d(before, noDeck, i), dA = d(after, noDeck, i);
+        sumB += dB; sumA += dA;
+        if (dA < dB) closer++;
+      }
+      const pct = foot ? closer / foot * 100 : 0;
+      rows.push({ seat: seat.tag, cards, cityPx, footprintPx: foot,
+        closerPct: foot ? +pct.toFixed(1) : null,
+        fromBoardBefore: foot ? +(sumB / foot).toFixed(1) : null,
+        fromBoardAfter: foot ? +(sumA / foot).toFixed(1) : null,
+        offCityPx: offCity, beforePng, afterPng, noDeckPng,
+        verdict: !cards ? 'VACUOUS — the deck drew no cards, so nothing was in front of anything'
+          : !foot ? 'VACUOUS — the flag moved no pixel: no board reached this frame, or none was covered'
+          : offCity ? offCity + ' px of open sky moved with the flag — this is not confined to buildings'
+          : pct < 90 ? 'MIXED — only ' + pct.toFixed(1) + '% of the footprint moved toward the board'
+          : 'FIXED — ' + foot + ' px, ' + pct.toFixed(1) + '% of them closer to the board, mean distance ' + (sumB / foot).toFixed(0) + ' → ' + (sumA / foot).toFixed(0) });
+    }
+  } finally {
+    performance.now = realNow; Math.random = realRandom;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor; RENDER_TUNE.glClouds = was.clouds;
+    RENDER_TUNE.volClouds = was.vol; RENDER_TUNE.glBoardDepth = was.board;
+    uninstall(); holder.remove();
+  }
+  console.table(rows.map((r) => ({ ...r, beforePng: undefined, afterPng: undefined, noDeckPng: undefined })));
+  console.log('   footprintPx is what the flag moves; offCityPx must be 0; fromBoard* is the mean distance from the board own colour (0..765), before and after.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glBoardSky = runBoardSky;

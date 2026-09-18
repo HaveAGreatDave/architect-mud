@@ -1,0 +1,449 @@
+{
+  "adorn": [
+    {
+      "cx": 0.33,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "146,214,255",
+      "s": 13,
+      "z": 0.23
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Unit 4, Marrow Street"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 2,
+      "cx": -0.235,
+      "cy": 0.402,
+      "depth": 0.018,
+      "glass": "#5c564c",
+      "glow": "#3a3630",
+      "half": 0.145,
+      "hh": 0.056,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "z": 0.152
+    },
+    {
+      "bars": 1,
+      "cx": 0.0945,
+      "cy": 0.402,
+      "depth": 0.018,
+      "glass": "#6b6459",
+      "glow": "#413d36",
+      "half": 0.12,
+      "hh": 0.056,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "z": 0.152
+    },
+    {
+      "cx": 0.3295,
+      "cy": 0.402,
+      "depth": 0.014,
+      "glass": "#20211f",
+      "glow": "#26272a",
+      "half": 0.05,
+      "hh": 0.078,
+      "kind": "windowBay",
+      "pal": "ty_unit_shut",
+      "z": 0.128
+    },
+    {
+      "cx": 0.3295,
+      "cy": 0.404,
+      "half": 0.054,
+      "hh": 0.04,
+      "kind": "shutter",
+      "pal": "ty_unit_shut",
+      "z": 0.178
+    },
+    {
+      "color": "#b09a2c",
+      "cx": 0.3295,
+      "cy": 0.404,
+      "font": "stencil",
+      "half": 0.052,
+      "hh": 0.024,
+      "ink": "#191507",
+      "kind": "signBoard",
+      "label": "TO LET",
+      "z": 0.088
+    },
+    {
+      "color": "#ff4ad2",
+      "cx": -0.235,
+      "cy": 0.437,
+      "drop": 0.028,
+      "half": 0.145,
+      "kind": "neonRun",
+      "pal": "ty_unit_board",
+      "z": 0.276
+    },
+    {
+      "color": "#ff4ad2",
+      "cx": 0.155,
+      "cy": 0.437,
+      "drop": 0.028,
+      "half": 0.145,
+      "kind": "neonRun",
+      "pal": "ty_unit_board",
+      "z": 0.276
+    },
+    {
+      "color": "#b8f03a",
+      "cx": -0.3,
+      "cy": 0.403,
+      "hh": 0.042,
+      "kind": "tag",
+      "n": 5,
+      "v": 11,
+      "w": 0.1,
+      "z": 0.112
+    },
+    {
+      "color": "#ff4ad2",
+      "cx": 0.14,
+      "cy": 0.403,
+      "hh": 0.038,
+      "kind": "tag",
+      "n": 4,
+      "v": 14,
+      "w": 0.088,
+      "z": 0.122
+    },
+    {
+      "bars": 1,
+      "cx": -0.315,
+      "cy": 0.402,
+      "depth": 0.016,
+      "glass": "#272c33",
+      "glow": "#1d2127",
+      "half": 0.05,
+      "hh": 0.082,
+      "kind": "windowBay",
+      "pal": "ty_unit",
+      "transom": 0.32,
+      "z": 0.452
+    },
+    {
+      "bars": 1,
+      "cx": -0.168,
+      "cy": 0.402,
+      "depth": 0.016,
+      "glass": "#272c33",
+      "glow": "#1d2127",
+      "half": 0.05,
+      "hh": 0.082,
+      "kind": "windowBay",
+      "pal": "ty_unit",
+      "transom": 0.32,
+      "z": 0.452
+    },
+    {
+      "bars": 0,
+      "cx": 0.035,
+      "cy": 0.402,
+      "depth": 0.016,
+      "glass": "#5c564c",
+      "glow": "#3a3630",
+      "half": 0.048,
+      "hh": 0.082,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "transom": 0,
+      "z": 0.452
+    },
+    {
+      "bars": 1,
+      "cx": 0.152,
+      "cy": 0.402,
+      "depth": 0.016,
+      "glass": "#272c33",
+      "glow": "#1d2127",
+      "half": 0.048,
+      "hh": 0.082,
+      "kind": "windowBay",
+      "pal": "ty_unit",
+      "transom": 0.32,
+      "z": 0.452
+    },
+    {
+      "bars": 1,
+      "cx": 0.3295,
+      "cy": 0.402,
+      "depth": 0.016,
+      "glass": "#272c33",
+      "glow": "#1d2127",
+      "half": 0.042,
+      "hh": 0.082,
+      "kind": "windowBay",
+      "pal": "ty_unit",
+      "transom": 0.32,
+      "z": 0.452
+    },
+    {
+      "color": "#3c3228",
+      "cx": -0.03,
+      "cy": 0.42,
+      "face": "x",
+      "font": "block",
+      "half": 0.2,
+      "hh": 0.055,
+      "ink": "#6e6050",
+      "kind": "signBoard",
+      "label": "LINEN ON A PRAYER",
+      "z": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.44,
+      "hh": 0.011,
+      "kind": "parapet",
+      "pal": "ty_gate_dk",
+      "z": 0.05
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.24,
+      "hh": 0.072,
+      "kind": "stack",
+      "pal": "ty_cold",
+      "r": 0.026,
+      "z": 0.545
+    },
+    {
+      "cx": 0.22,
+      "cy": -0.22,
+      "d": 0.045,
+      "hh": 0.02,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.055,
+      "z": 0.545
+    },
+    {
+      "cx": 0.3,
+      "cy": -0.42,
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.53
+    },
+    {
+      "cx": -0.16,
+      "cy": -0.42,
+      "d": 0.033,
+      "hh": 0.028,
+      "kind": "binStack",
+      "lid": "#2e2a24",
+      "n": 2,
+      "pal": "ty_cold",
+      "w": 0.04,
+      "z": 0.004
+    }
+  ],
+  "id": "unit4marrowstreet",
+  "note": "UNIT 4, MARROW STREET — the north side’s empty one, and deliberately nothing like the south\nside’s. Unit 9 is a slim precast infill with a frosted stair bow and a shutter; this is a wide,\nlow, post-war brick parade shop with a stepped false front, boarded glazing and a ghost sign.\n\n⚠ THE FALSE FRONT IS THE WHOLE BUILDING AND IT WAS NOT BUILT. The note above has said \"stepped\nfalse front\" since the file was written, and the geometry under it was five boxes at hw 0.42,\n0.435, 0.425 and 0.44 — four steps inside three hundredths of a tile, which is nothing anybody\ncan see from anywhere. It read as a flat tan slab with dark rectangles scattered on it, standing\nbetween a four-storey store and a glass spire. A false front is a PARAPET WALL STANDING PROUD OF\nAND TALLER THAN THE ROOF BEHIND IT — that is the only thing that makes it one — so it is its own\nthin slab now (`fd` 0.055 at cy 0.375), the brick body is set back behind it, and the centre\nsteps up above the shoulders with a pale coping over both.\n\n⚠ AND A PARADE SHOP GLAZES ITS WHOLE GROUND FLOOR. The first cut of that false front was correct\nand still read as a blank wall, because the frontage under it was a window a little over half the\nwidth with nothing above it — so two thirds of the elevation was unbroken brick. The storey\nheights are what fix that, and they are the ordinary ones: glass from the stall riser to the\nfascia, the painted band the fascia was bolted to directly over it, three first-floor windows\nabove that, and only then the parapet. The blank brick is the top fifth now instead of the\nmiddle three.\n\n⚠ ITS BRICK IS RED AND THAT IS A DECISION ABOUT THE STREET, NOT ABOUT THE BUILDING. `ty_kitchen`\nis [74,68,58] and Adequate! next door is [78,66,52]: four levels apart on every channel, which is\nno distance at all once the daylight wash is over both of them, so the two buildings read as one\nmaterial with a gap in it. The strip had no red in it anywhere.\n\n⚠ TWO VACANT UNITS FACING EACH OTHER HAVE TO DIFFER MORE THAN TWO SHOPS DO. A pair of occupied\nfrontages reads as a street whatever they have in common; a pair of IDENTICAL empty ones reads as\nthe same asset placed twice, which is the one thing a hand-authored building must never look like.\nSo they share no palette, no massing, no height and no closure — boards here, a roller shutter\nthere.\n\n⚠ THE GHOST SIGN IS ON THE GABLE AND THE TO LET BILL IS BY THE DOOR, which is the right way round\nand says the whole story in two objects: the wall has not been repainted since the last tenant,\nand nobody has bothered with a proper agent’s board.\n\n⚠ AND THERE IS NO CANOPY, WHICH IS AUTHORED RATHER THAN MISSING. The zone says the fascia has been\nunbolted and left four bright screw-holes; a shop with its fascia off does not still have its\nblind. The painted band is what it was bolted to, and it is the only warm thing on the building.\n\n⚠ AND A FALSE FRONT IS STILL A SLAB IF IT HAS NO PIERS IN IT. The note above is the record of\nbuilding one, and it was right about everything except the thing you actually see: what stood\nthere afterwards was ONE PLANE, 0.88 of a tile wide and 0.65 tall, with a painted band across it\nand three dark rectangles in it. From the road it read as a red card with holes punched in it,\nwhich is the same failure one storey up. A parade shop is piers and recessed panels — and since a\nmass list is ADDITIVE and nothing here can subtract, the recess has to be made the other way\nround: the slab moved BACK to 0.40 and four brick piers stand in front of it at 0.43. Every\ndetail on the front mounts on the recessed plane, so the piers cast over them and the bays are\nbays rather than a pattern.\n\n⚠ THE PIERS ARE BRICK AND THAT IS THE SECOND ANSWER, NOT THE FIRST. They went in as painted\nrender (`ty_unit`, the pale trim colour this building already uses for its coping), which is a\nreal parade-shop idiom and which put the tan straight back on it: four pale pilasters under a\npale fascia over a pale boarded shopfront, and the red that the note above argues for was down\nto the panels between them. Pale is for the HORIZONTALS only — the sill course, the head course,\nthe cornice and the three copings — so the relief is drawn in shadow and the colour stays red.\n\n⚠ THE STEP IS IN THE SILHOUETTE NOW. A stepped false front that steps by three hundredths is the\nbug the note above already names, and the fix stopped at the centre: shoulders and centre were\n0.70 and 0.775 with a 0.44 coping over the lot. It is shoulders at 0.615, centre at 0.745 and a\nsmall attic at 0.828, each with its own coping, so the roofline says three things from across the\nroad instead of one.\n\n⚠ THE TUBE IS THE ONE LIVE THING ON IT, AND IT HAS A SECTION OUT. The note above says the fascia\nwas unbolted and left four bright screw-holes; nobody unbolts the TUBE behind it, and nobody rings\nthe landlord to have a dead unit taken off the meter. So the magenta is two runs with a gap in the\nmiddle rather than one clean run — a working sign and a sign with a section gone are the same\nobject and completely different buildings. It is also the whole night read: everything else here\nis a cold security lamp over a door.\n\n⚠ AND THE BOARDS ARE GREY, WHICH IS WHAT MAKES THE NOTE ABOVE TRUE. The painted band is supposed\nto be \"the only warm thing on the building\" and the plywood over the glazing was the same\n`ty_unit_board` khaki, so the whole ground floor was one warm strip and the claim was false. The\nply is grey now and the band is on its own.",
+  "pal": "ty_unit_brick",
+  "replaces": "vacantunit",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": -0.02,
+      "fd": 0.37,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.545
+    },
+    {
+      "cx": 0,
+      "cy": 0.345,
+      "fd": 0.055,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.235
+    },
+    {
+      "cx": 0,
+      "cy": 0.375,
+      "fd": 0.06,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_unit_board",
+      "roof": true,
+      "z0": 0.235,
+      "z1": 0.318
+    },
+    {
+      "cx": 0,
+      "cy": 0.345,
+      "fd": 0.055,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "z0": 0.318,
+      "z1": 0.615
+    },
+    {
+      "cx": -0.412,
+      "cy": 0.39,
+      "fd": 0.04,
+      "hw": 0.028,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.615
+    },
+    {
+      "cx": -0.058,
+      "cy": 0.39,
+      "fd": 0.04,
+      "hw": 0.028,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.615
+    },
+    {
+      "cx": 0.247,
+      "cy": 0.39,
+      "fd": 0.04,
+      "hw": 0.028,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.615
+    },
+    {
+      "cx": 0.412,
+      "cy": 0.39,
+      "fd": 0.04,
+      "hw": 0.028,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.615
+    },
+    {
+      "cx": 0,
+      "cy": 0.3485,
+      "fd": 0.0625,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_unit",
+      "roof": true,
+      "z0": 0.352,
+      "z1": 0.364
+    },
+    {
+      "cx": 0,
+      "cy": 0.3485,
+      "fd": 0.0625,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_unit",
+      "roof": true,
+      "z0": 0.528,
+      "z1": 0.54
+    },
+    {
+      "cx": 0,
+      "cy": 0.3485,
+      "fd": 0.0625,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_unit",
+      "roof": true,
+      "z0": 0.585,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0.3725,
+      "fd": 0.0625,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_unit",
+      "roof": true,
+      "z0": 0.615,
+      "z1": 0.632
+    },
+    {
+      "cx": 0,
+      "cy": 0.345,
+      "fd": 0.055,
+      "hw": 0.26,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "z0": 0.632,
+      "z1": 0.745
+    },
+    {
+      "cx": 0,
+      "cy": 0.3625,
+      "fd": 0.0625,
+      "hw": 0.265,
+      "kind": "box",
+      "pal": "ty_unit",
+      "roof": true,
+      "z0": 0.745,
+      "z1": 0.762
+    },
+    {
+      "cx": 0,
+      "cy": 0.345,
+      "fd": 0.055,
+      "hw": 0.115,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "z0": 0.762,
+      "z1": 0.812
+    },
+    {
+      "cx": 0,
+      "cy": 0.3625,
+      "fd": 0.0625,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_unit",
+      "roof": true,
+      "z0": 0.812,
+      "z1": 0.828
+    }
+  ]
+}

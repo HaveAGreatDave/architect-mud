@@ -1,0 +1,361 @@
+{
+  "adorn": [
+    {
+      "cx": 0.13,
+      "cy": -0.01,
+      "kind": "mast",
+      "z0": 1.34,
+      "z1": 1.46
+    },
+    {
+      "cx": 0.13,
+      "cy": -0.01,
+      "kind": "latticeTower",
+      "r0": 0.075,
+      "r1": 0.022,
+      "z0": 0.92,
+      "z1": 1.34
+    },
+    {
+      "cx": 0,
+      "cy": 0.45,
+      "kind": "blinkLight",
+      "r": 1.6,
+      "rgb": "255,86,64",
+      "z": 0.93
+    },
+    {
+      "cx": 0,
+      "cy": -0.56,
+      "kind": "blinkLight",
+      "r": 1.3,
+      "rgb": "255,86,64",
+      "z": 0.93
+    },
+    {
+      "cx": 0,
+      "cy": 0.1,
+      "kind": "glowPool",
+      "rgb": "255,196,120",
+      "s": 28,
+      "z": 0.03
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "255,214,150",
+      "s": 10,
+      "z": 0.74
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Crane Damage"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.3,
+      "hh": 0.018,
+      "kind": "parapet",
+      "pal": "ty_stack_dk",
+      "z": 0.92
+    },
+    {
+      "color": "#1d2430",
+      "cx": 0,
+      "cy": 0.25,
+      "font": "stencil",
+      "half": 0.21,
+      "hh": 0.03,
+      "ink": "#ffc85a",
+      "kind": "signBoard",
+      "label": "$name",
+      "z": 0.872
+    },
+    {
+      "cx": 0.19,
+      "cy": -0.18,
+      "d": 0.05,
+      "hh": 0.03,
+      "kind": "acUnit",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.92
+    },
+    {
+      "cx": -0.11,
+      "cy": -0.21,
+      "half": 0.055,
+      "hh": 0.028,
+      "kind": "louvreBank",
+      "n": 5,
+      "pal": "ty_stack_dk",
+      "z": 0.985
+    },
+    {
+      "band": "#e8c34a",
+      "count": 4,
+      "cx": -0.24,
+      "cy": 0.36,
+      "hh": 0.026,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "r": 0.017,
+      "step": 0.16,
+      "z": 0
+    },
+    {
+      "cx": -0.034,
+      "cy": -0.03,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.009,
+      "z0": 0.645,
+      "z1": 0.765
+    },
+    {
+      "cx": 0.034,
+      "cy": -0.03,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.009,
+      "z0": 0.645,
+      "z1": 0.765
+    },
+    {
+      "cx": -0.034,
+      "cy": 0.03,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.009,
+      "z0": 0.645,
+      "z1": 0.765
+    },
+    {
+      "cx": 0.034,
+      "cy": 0.03,
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.009,
+      "z0": 0.645,
+      "z1": 0.765
+    }
+  ],
+  "id": "cranedamage",
+  "neon": "#ffb43a",
+  "note": "CRANE DAMAGE — a ship-to-shore gantry over the wharf, and the only building in Coldwater whose\nwhole silhouette is a machine rather than a shell.\n\n⚠ THE LOAD HUNG IN MIDAIR, BECAUSE A HOIST IS A ROPE AND A ROPE WAS THE ONE PART NOBODY DREW. The\nspreader finishes at z 0.65 and the hoist block starts at 0.76, and between them was eleven\nhundredths of clear sky with a red container swinging under it. From a cockpit that reads exactly\nas it is: freight floating below a crane it is not attached to.\n\n⚠ AND THE ROPES ARE `pipe`, WHICH IS GEOMETRY, NOT A STROKE. Two flat strips at right angles —\nthe idiom’s own note says it \"reads as a round pipe from any angle a wall is seen from and costs\ntwo quads instead of a drum\" — and it goes through `detailQuad` into the per-model MESH, so the\ndepth buffer draws it at every distance. A `cableRun` would have been wrong twice over: it SAGS,\nand a hoist rope under a full container is the straightest thing on the wharf.\n\n⚠ THEY ARE VERTICAL AND THEREFORE DO NOT SPLAY. A real spreader is rigged from the trolley out to\nits four corners, and `pipe` runs between one (cx, cy) and two z values — so the ropes are set\ninside BOTH footprints (the block is hw 0.05 / fd 0.05, the spreader hw 0.048 / fd 0.105) rather\nthan at the spreader’s corners, where they would leave the block’s underside and hang off\nnothing. Four of them, because two would read as a single bar edge-on.\n\n⚠ AND THE WHOLE HOIST HANGS ON THE CENTRELINE, BECAUSE A `seg` IS TRIMMED TO THE PLOT AND A\n`detail` IS NOT. The trolley, the spreader and the container were authored at cy 0.48, which is\npast the tile’s own half — so `segFit` cut each of them back to the plot line by a different\namount and stood all three flush against it, while the four ropes, being details, stayed exactly\nwhere they were written. The forward pair ended up in front of the load entirely: two cables in\nclear air with the container behind them. Nothing in the assembly reaches past the plot now, so no\nfootprint roll can pull the ropes off the block again, and the crane holds its box between its own\nlegs instead of off the end of the boom.\n\n⚠ THE BOOM-TIP BEACON IS THE SAME BUG ONE PART OVER. An `adorn` is not trimmed either, and it was\nblinking at cy 0.88 — four tenths of a tile past the end of a boom the renderer stops at the plot\nline. It sits on the drawn tip at every footprint in the roll now.",
+  "pal": "ty_gantry",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": -0.21,
+      "fd": 0.035,
+      "hw": 0.33,
+      "kind": "box",
+      "pal": "ty_wharf_steel",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0.21,
+      "fd": 0.035,
+      "hw": 0.33,
+      "kind": "box",
+      "pal": "ty_wharf_steel",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": -0.27,
+      "cy": -0.21,
+      "fd": 0.033,
+      "hw": 0.033,
+      "kind": "box",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.86
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.21,
+      "fd": 0.033,
+      "hw": 0.033,
+      "kind": "box",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.86
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.21,
+      "fd": 0.033,
+      "hw": 0.033,
+      "kind": "box",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.86
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.21,
+      "fd": 0.033,
+      "hw": 0.033,
+      "kind": "box",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": -0.21,
+      "fd": 0.028,
+      "hw": 0.29,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.3,
+      "z1": 0.37
+    },
+    {
+      "cx": 0,
+      "cy": 0.21,
+      "fd": 0.028,
+      "hw": 0.29,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.3,
+      "z1": 0.37
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.25,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_wharf_steel",
+      "roof": true,
+      "z0": 0.82,
+      "z1": 0.92
+    },
+    {
+      "cx": -0.11,
+      "cy": -0.09,
+      "fd": 0.12,
+      "hw": 0.16,
+      "kind": "box",
+      "pal": "ty_junk_crane",
+      "roof": true,
+      "z0": 0.92,
+      "z1": 1.05
+    },
+    {
+      "cx": 0,
+      "cy": 0.32,
+      "fd": 0.26,
+      "hw": 0.075,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.84,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0.71,
+      "fd": 0.17,
+      "hw": 0.06,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.85,
+      "z1": 0.91
+    },
+    {
+      "cx": 0,
+      "cy": -0.38,
+      "fd": 0.18,
+      "hw": 0.07,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.84,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": -0.5,
+      "fd": 0.09,
+      "hw": 0.115,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.72,
+      "z1": 0.88
+    },
+    {
+      "cx": 0.13,
+      "cy": -0.01,
+      "fd": 0.055,
+      "hw": 0.055,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.92,
+      "z1": 1.34
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.05,
+      "hw": 0.05,
+      "kind": "box",
+      "pal": "ty_junk_crane",
+      "roof": true,
+      "z0": 0.76,
+      "z1": 0.84
+    },
+    {
+      "cx": 0.11,
+      "cy": 0.26,
+      "fd": 0.05,
+      "hw": 0.045,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.71,
+      "z1": 0.82
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.105,
+      "hw": 0.048,
+      "kind": "box",
+      "pal": "ty_junk_crane",
+      "roof": true,
+      "z0": 0.62,
+      "z1": 0.65
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.12,
+      "hw": 0.055,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.48,
+      "z1": 0.62
+    }
+  ],
+  "signWorks": true,
+  "trade": "wharf"
+}
+

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_895_904",
+  "b": "zone_negeq_shop",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_895_904_east_hrdm",
+  "lockable": true,
+  "one_way": false
+}

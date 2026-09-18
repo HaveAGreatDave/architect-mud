@@ -1,0 +1,19 @@
+{
+  "description": "A glass case of soft toys gone grey at the seams, and a three-fingered claw that closes with real conviction and opens again about a foot later. The middle finger is bent. Winnie will tell you it is bent and she will not tell you it is bent on purpose.",
+  "flags": {
+    "aliases": "claw,grabber,crane,machine",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penny_claw",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the claw",
+  "object_type": "fixture",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_penny_floor"
+}

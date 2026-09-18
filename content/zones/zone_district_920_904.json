@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Embassy Hotel & Bar.",
+  "description": "Rose stucco between cream fins, a dark brick plinth, and gilt cut a finger deep into the parapet: EMBASSY HOTEL. Two corner turrets under lead domes, and the clock in one of them has said ten past four for nine years. Nobody's been up to argue. It's the only door on Ironside Street with a canopy over it, and the only building down here anybody still bothers to floodlight. The bar's windows are lit. The lobby's aren't.",
   "exits": {
     "east": "zone_residential_lobby",
     "west": "zone_district_919_904"

@@ -1,0 +1,16 @@
+{
+  "description": "A board of numbered hooks behind the desk. A key on the hook means the room is empty, and anybody who has stayed here more than a week reads that board on the way in without meaning to. Two of the hooks have no key and no tag and have been like that for a while.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_boardstiff_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the key board",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_boardstiff_desk"
+}

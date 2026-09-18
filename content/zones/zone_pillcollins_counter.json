@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#20262a",
+  "description": "A wall of small mahogany drawers behind the counter, each with a ceramic label in Latin, most of them now holding something entirely unrelated to what they say. The dispensary is a half-height partition with a bench behind it and the sound of a pill counter going. There is a chair by the door for people who need one, and it gets used.",
+  "exits": {
+    "north": "zone_district_904_908"
+  },
+  "flags": {
+    "building_name": "Pill Collins",
+    "building_type": "clinic",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_904_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_pillcollins_counter",
+  "map_id": "map_int_pillcollins",
+  "name": "Pill Collins",
+  "parent_zone": "zone_district_904_908"
+}

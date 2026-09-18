@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_fprint_pencil",
+  "name": "a reading-desk pencil",
+  "tags": {
+    "stackable": true,
+    "description": "Four inches, hexagonal, unsharpened at one end and chewed at the other, stamped FINE PRINT along one flat in letters that have half worn off. He buys them a gross at a time and they go at about a gross a year and he has never worked out where."
+  },
+  "type": "misc",
+  "value": 2,
+  "weight": 5
+}

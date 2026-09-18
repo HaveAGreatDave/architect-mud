@@ -1,0 +1,19 @@
+{
+  "description": "A japanned cash drawer on the shelf under the kiosk window, opened with a lever rather than a key, with a bell in it that rings on a night this quiet like something in the next street. The compartments are labelled in a hand that is not the current owner's.",
+  "flags": {
+    "aliases": "till,drawer,cash drawer,register",
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_reel_nissen",
+    "vendor_safe": true
+  },
+  "hp": 220,
+  "hp_max": 220,
+  "id": "furn_reel_till",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "the cash drawer",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_reel_foyer"
+}

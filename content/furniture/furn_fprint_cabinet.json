@@ -1,0 +1,20 @@
+{
+  "description": "A cabinet of small drawers by the door, each with a brass frame on the front and a handwritten label in it, holding a card for every book in the building filed three ways. It is entirely up to date. It is up to date because he does it in the evenings, on his own, for nothing.",
+  "flags": {
+    "aliases": "catalogue,cards,cabinet,drawers,index",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fprint_cabinet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the catalogue",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_fineprint_room"
+}

@@ -1,0 +1,19 @@
+{
+  "description": "Every wall, edge to edge, floor to picture rail, without a gap. Faces mostly. The frames do not match and the hanging is immaculate, which takes a kind of person. Three are of a building rather than a person, and the building is not standing any more.",
+  "flags": {
+    "aliases": "work,photographs,photos,walls,frames",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_negeq_walls",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the hung work",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_negeq_shop"
+}

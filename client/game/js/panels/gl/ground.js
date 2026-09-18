@@ -11,7 +11,7 @@
 //
 // Measured with scripts/shapes/armcost.mjs: once GLASS 2 owns the city's mass, 97% of the canvas
 // calls a frame still makes are path construction, and the single biggest producer is the ground —
-// `stripeA`, the helper behind every road surface, pavement, lane line and dash, at roughly 12,000
+// 'stripeA', the helper behind every road surface, pavement, lane line and dash, at roughly 12,000
 // calls a frame on a 33x33 window. Buildings, by then, account for almost none of it: the same
 // window with every building deleted costs MORE, because you can see more road.
 //
@@ -33,7 +33,7 @@
 import { viewProjMatrix } from './camera.js';
 
 // pos3, colour3
-const STRIDE = 8;   // pos3, colour3, alpha1, road1
+const STRIDE = 10;  // pos3, colour3, alpha1, road1, lat1, kerb1
 // ⚠ THE SAME SIX AS THE SHADER'S OWN MAX_WET, AND THEY HAVE TO AGREE. The GLSL one is inside a
 // template literal and cannot be read from here, so this is the second copy — the shader would
 // accept a longer array and silently ignore the tail, which is a reflection that is there on one
@@ -49,6 +49,26 @@ in vec3 aPos;
 in vec3 aColor;
 in float aAlpha;
 in float aRoad;          // 1 on the carriageway, 0 on an apron, a forecourt or a verge
+// ── WHERE THIS POINT SITS ACROSS THE CARRIAGEWAY ──────────────────────────────────────────────
+//
+// A road is not a flat plane with water thrown at it. It is built with a CROWN and a crossfall of
+// about two and a half per cent either side, precisely so that water does NOT stand on it: the
+// camber delivers everything to the channel against the kerb, and the channel carries it to a
+// gully. So where water is actually found on a road is not a random question. It is the gutter
+// line, the wheel ruts traffic has worn into the travelled way, and whatever sags between one
+// gully and the next.
+//
+// 'aLat' is tiles from the crown, signed. 'aKerb' is where the kerb is, in the same units. Both
+// are LINEAR in position along a straight carriageway, so interpolating them across a quad is
+// exact rather than an approximation.
+//
+// ⚠ 'aKerb' 0 MEANS THERE IS NO CROSS-SECTION HERE, and that is an answer rather than missing
+// data: a junction is where two crossfalls meet and neither wins, which is exactly why
+// intersections are the classic ponding location. An apron, a forecourt and a depot hardstand
+// have no camber to speak of either. All of them fall back to the isotropic field, which is the
+// right shape for a surface with no drainage direction.
+in float aLat;
+in float aKerb;
 uniform mat4 uViewProj;
 uniform float uFogNear;
 uniform float uFogFar;
@@ -59,6 +79,8 @@ out vec3 vColor;
 out float vFog;
 out float vAlpha;
 out float vRoad;
+out float vLat;
+out float vKerb;
 out vec3 vWorld;   // the quad's own map-window position, for the wet reflections in the fragment shader
 void main() {
   vec4 clip = uViewProj * vec4(aPos, 1.0);
@@ -75,6 +97,8 @@ void main() {
   // own curve would disagree with the road the cab is actually driving on. The haze uniforms stay
   // for a caller that has no alpha to give.
   vRoad = aRoad;
+  vLat = aLat;
+  vKerb = aKerb;
   vAlpha = aAlpha * (uHazeFar > uHazeNear ? 1.0 - smoothstep(uHazeNear, uHazeFar, clip.w) : 1.0);
 }`;
 
@@ -84,6 +108,8 @@ in vec3 vColor;
 in float vFog;
 in float vAlpha;
 in float vRoad;
+in float vLat;
+in float vKerb;
 in vec3 vWorld;
 uniform vec3 uFog;
 // ── THE SKY THE WATER IS LOOKING AT, AT BOTH ENDS ──────────────────────────────────────────────
@@ -103,6 +129,15 @@ uniform vec3 uFog;
 // changes when somebody moves the fog slider is the coupling worth spending a uniform to avoid.
 uniform vec3 uSkyHor;
 uniform vec3 uSkyTop;
+// ── …AND THE SKY ITSELF, WHEN THERE IS ONE ─────────────────────────────────────────────────────
+//
+// The two colours above are the ends of a gradient, and a gradient is not what a puddle shows.
+// This is the frame's OWN painted sky band — gradient, sun or moon, stars, the dome cloud, the
+// distant ridge, the skyline — downscaled to a strip by windshield.js before the world pass runs.
+// Sampled at this pixel's own column and at the row for the elevation the reflected ray leaves at,
+// which is the same 'cosI · 0.86' the two-stop mix was already using. See the ⚠ at the capture.
+uniform sampler2D uSky;
+uniform float uSkyOn;
 
 // ── WET TARMAC ─────────────────────────────────────────────────────────────────────────────────
 //
@@ -121,12 +156,30 @@ uniform vec3 uSkyTop;
 // all — a frame over bare grass has zero of them — so the surface this draws on is already the
 // surface it belongs on.
 const int MAX_WET = 6;
-uniform int   uNWet;
+// The nominal width of a lane, in tiles — the same figure the marking pass lays its lane lines on.
+// Used to round a carriageway's half-width to a whole number of lanes, so the wheel tracks land
+// where the lanes are. Shared with nothing, because the marking pass is in another file and
+// another language; if that pitch ever changes, this is the number to change with it.
+const float LANE_W = 0.5;uniform int   uNWet;
 uniform vec3  uWetP[MAX_WET];   // light ground point xy + its height
 uniform vec3  uWetC[MAX_WET];   // colour, 0-1
 uniform float uWetR[MAX_WET];   // reach in tiles
 uniform float uWet;             // how wet the ground is, 0-1
 uniform float uPudScale;        // the puddle field's frequency — bigger is smaller and more of them
+// ── ⚠ HOW MUCH WATER IS STANDING, WHICH IS NOT HOW WET THE ROAD IS ───────────────────────────
+//
+// 'uWet' is the FILM: tarmac is wet within a second of rain starting, and that is what darkens it
+// and makes it mirror. Standing water is a different quantity on a different clock — it is the
+// integral of what has fallen minus what has drained, so it builds over minutes of sustained rain
+// and takes minutes to go after it stops. Driving the puddle LEVEL off 'uWet' meant a downpour
+// arrived with its puddles already full, four seconds in, and they never grew again.
+//
+// Splitting them is what makes a storm have a shape: the road goes dark and reflective at once,
+// then the gutters start to hold, then the ruts, then the hollows between them join up.
+uniform float uPond;
+// How much of the puddle field is the ROAD'S OWN CROSS-SECTION rather than isotropic noise.
+// 0 is the field that shipped, exactly — see the mix below.
+uniform float uPudRoad;
 uniform vec2  uEye;             // the camera's ground point, in vWorld's frame
 uniform float uEyeH;            // and how high it is — see the Fresnel gate on the reflections
 uniform vec2  uWc;             // window centre in WORLD tiles, so a puddle stays on its bit of road
@@ -157,6 +210,20 @@ uniform vec2  uReflVP;
 uniform float uTime;            // seconds, the frame's own clock — see the ripple below
 uniform float uRipple;          // how far the water bends what it reflects, in PIXELS of the canvas
 uniform float uGlint;           // how hard a light lands IN the water rather than on the tarmac beside it
+// ── HOW MUCH DARKER STANDING WATER IS THAN THE ROAD IT LIES ON ─────────────────────────────────
+//
+// Reported as reflections that are there and *dim*, and it is a CONTRAST problem rather than a
+// strength one. At 'glMirror' 32 the water already blends at exactly the Fresnel value, so there
+// is nothing left to turn up: a cab looking a metre ahead reflects 24% because that is what water
+// does at 75 degrees. What decides whether you can SEE that 24% is what the other 76% is.
+//
+// Measured on a wet city street, on the water pixels alone: dry road 58, wet road 42, and the
+// image worth 4.6 of 255 on top of it. Real wet asphalt is about a twentieth as bright as the sky
+// it reflects; this road was a fifth. So the image was correct and it was lying on a grey card.
+//
+// 0.45 is the road that shipped, which is what makes this the revert. It is a LOOK decision, so it
+// is a slider rather than a constant — the same rule the puddle scale is under.
+uniform float uWetDark;
 
 out vec4 outColor;
 
@@ -270,12 +337,71 @@ void main() {
     // than stamped out with a cutter.
     float nC = sin(pw.x * 9.3 - 1.1) * sin(pw.y * 8.7 + 2.2);
     float hollow = nA * 0.62 + nB * 0.27 + nC * 0.11;   // -1..1, low ground is high here
-    // ⚠ AND THE FLOOR IS 0.30 BECAUSE THAT IS WHERE A DOWNPOUR STOPS, NOT WHERE IT STARTS. The
+    // ── ⚠ AND ON A CARRIAGEWAY THE GROUND IS NOT NOISE. IT IS A ROAD. ───────────────────────────
+    //
+    // The field above is isotropic, which means the water lands in blobs that have no relationship
+    // to the kerb, the crown, the lane it is in or the direction of travel. That reads as spilt
+    // paint rather than as rain, and it is the whole of the 'why do the puddles look haphazard'
+    // report. What a road actually does with water is three things, and all three are functions of
+    // ONE variable, the distance across the carriageway:
+    //
+    //   CAMBER  the crown is the high point and the surface falls away either side, so nothing
+    //           stands in the middle of a lane that is not rutted. Quadratic, because a crown is.
+    //   GUTTER  the channel against the kerb takes the whole crossfall and is where water is
+    //           deepest, stands longest and dries last. This is the single strongest term, and it
+    //           is why a wet street reads as two bright ribbons down its edges.
+    //   RUTS    traffic wears two depressions per lane into the travelled way, and those hold
+    //           water once they are deep enough to. It is the reason a wet road photographs as
+    //           stripes ALONG it rather than as patches on it, and the reason aquaplaning is a
+    //           wheel-path problem rather than an everywhere problem.
+    //
+    // ⚠ THE NOISE STAYS, AND IT HAS TO. The cross-section says where water COLLECTS; it does not
+    // say where the road happens to sag, where a gully is blocked, where a trench was backfilled
+    // or where a patch has settled. Without the noise this draws four perfect ribbons down every
+    // street in the city, which is a different kind of wrong from the one being fixed.
+    //
+    // ⚠ AND THE LANE PITCH IS IN TILES, NOT NORMALISED. The marking pass lays a lane line every
+    // half tile whatever the carriageway's width, so a rut phase taken in tiles lands in the same
+    // place in every lane of a one-tile street and a four-tile artery alike. Normalise it and the
+    // ruts stretch with the road, which puts them under the lane lines on a wide one.
+    // ⚠ AND ALL THREE STOP AT THE KERB, WHICH IS NOT THE SAME AS BEING CLAMPED AT IT. The kerb is
+    // the edge of the TRAFFICKED surface, and the pavement band beyond it comes through this same
+    // shader as paint laid on the road. Clamping 'a' at 1 would hand the whole footway the gutter
+    // term at full strength and a set of wheel ruts it has never had a wheel in — a pavement
+    // standing in more water than the road it edges. Past the kerb every structural term falls
+    // away and what is left is the isotropic field, which is the right answer for a footway: it
+    // does hold water, in whatever happens to have sunk.
+    if (uPudRoad > 0.0 && vKerb > 0.001) {
+      float a = abs(vLat) / vKerb;                       // 0 at the crown, 1 at the kerb
+      float onRoad = 1.0 - smoothstep(0.98, 1.22, a);
+      float camber = min(a, 1.0) * min(a, 1.0);
+      float gutter = smoothstep(0.72, 0.99, a) * (1.0 - smoothstep(1.00, 1.30, a));
+      // ⚠ THE LANE COUNT IS DERIVED FROM THE CARRIAGEWAY, NOT A FIXED PITCH IN TILES. A first cut
+      // took the rut phase straight off vLat with a half-tile period, which is the pitch the
+      // marking pass lays lane lines at on a wide block and is NOT the pitch on a one-tile street
+      // — that one is under two thirds of a lane wide in total, so the tracks landed off the
+      // tarmac and the only rut left on the road was half of one. Rounding the half-width to whole
+      // lanes puts a pair of tracks in every lane of a one-tile street and of a four-tile artery
+      // alike, which is what traffic actually wears.
+      float lanes = max(1.0, floor(vKerb / LANE_W + 0.5));
+      float phase = fract(a * lanes);                    // 0..1 across one lane, from the crown out
+      float rut = exp(-pow((phase - 0.30) * 6.0, 2.0)) + exp(-pow((phase - 0.70) * 6.0, 2.0));      // ⚠ THE THREE WEIGHTS ARE AN ORDER OF FILLING, NOT A LOOK. What they have to say is which
+      // part of the road holds water FIRST as the level comes up, and the real answer is not in
+      // doubt: the gutter takes the entire crossfall, so it is wet in a shower that leaves the
+      // rest of the carriageway merely damp; the wheel ruts go next, once there is more falling
+      // than the gullies are taking; and the middle of an unrutted lane is the last place on a
+      // street to hold anything, because the camber is there to make sure of it.
+      float road = camber * 0.25 * onRoad + gutter * 0.62 + rut * 0.45 * onRoad;
+      // ⚠ AND THE NOISE HAS TO BE THE SMALLER HALF OR NONE OF THAT SURVIVES. At an even split the
+      // field still chose where the water went and the cross-section only nudged it: measured, the
+      // puddles landed in the same places with the structure on and off. It is a texture on top of
+      // a drainage model, not a partner to it.
+      hollow = mix(hollow, road * 0.95 + hollow * 0.30, uPudRoad);    }    // ⚠ AND THE FLOOR IS 0.30 BECAUSE THAT IS WHERE A DOWNPOUR STOPS, NOT WHERE IT STARTS. The
     // level is what the rain raises, so this number is only ever reached at uWet 1 and the whole
     // shower happens above it: 0.2 of a shower wets 0.3% of the road, 0.35 wets 1.1%, 0.6 wets
     // 5.4%, and a full downpour 25%. A few damp hollows, then real puddles, then a street with
     // water lying in it — and never a sheet, which is what the level floor is guarding.
-    float level = mix(0.94, 0.24, uWet);
+    float level = mix(0.94, 0.24, uPond);
     // ── ⚠ A SHORELINE, NOT A GRADIENT ───────────────────────────────────────────────────────────
     //
     // The transition used to be 0.30 wide against a field that only spans −1..1, so a "puddle" was
@@ -379,7 +505,7 @@ void main() {
     // and the first pair (0.38 over mix(0.55, 1.00)) was 21% — enough to measure and not enough to
     // look at, a soft mottle rather than standing water. This is 33%: tarmac between the puddles at
     // 0.82 of dry, the puddles themselves at 0.55.
-    c *= 1.0 - 0.45 * damp;
+    c *= 1.0 - uWetDark * damp;
     // Slightly cooler as well as darker: a wet surface reflects more sky and less of itself.
     c = mix(c, c * vec3(0.94, 0.98, 1.06), damp * 0.5);
   }
@@ -498,7 +624,17 @@ void main() {
     // along that gradient rather than at the end of it. Using 1.0 here would give the water a sky
     // slightly deeper than the one painted above it, which is the kind of disagreement nobody can
     // point at and everybody can see.
-    vec3 img = im.rgb + mix(uSkyHor, uSkyTop, cosI * 0.86) * (1.0 - im.a);
+    // ⚠ THE STRIP WINS WHERE THERE IS ONE, AND THE GRADIENT IS STILL THE FALLBACK'S FALLBACK — a
+    // frame with the horizon off the top of the screen has no band to capture, and a machine that
+    // refused the upload has no texture. Both land here with uSkyOn at 0 and get the road that
+    // shipped.
+    vec3 sky = mix(uSkyHor, uSkyTop, cosI * 0.86);
+    if (uSkyOn > 0.5) {
+      // v = 1 at the horizon (a grazing ray looks along it) and 0.14 at the zenith, which is where
+      // 'drawSky' puts the top of its own gradient — see the 0.86 note above.
+      sky = texture(uSky, vec2(gl_FragCoord.x / max(1.0, uReflVP.x), 1.0 - cosI * 0.86)).rgb;
+    }
+    vec3 img = im.rgb + sky * (1.0 - im.a);
     // The water's own weight. 'uReflGain' is a 0…32 strength where 32 means standing water reflects
     // exactly as hard as the Fresnel term says it should, which at a cab's grazing angle is very
     // nearly a perfect mirror — what the reference boards actually show.
@@ -633,9 +769,36 @@ void main() {
     // ⚠ AND IT KEEPS THE HEADROOM TERM, for the same reason the streak does: a light source only
     // reads on a surface darker than itself, so a wet road at noon washes this out by arithmetic
     // rather than by a clock deciding in advance that it should.
+    //
+    // ── ⚠ AND A HIGHLIGHT MAY NOT PAINT WHITE, WHICH IS WHAT IT WAS DOING ───────────────────────
+    //
+    // The headroom term above was carrying the whole daylight argument and it cannot: it is
+    // measured against 'c', and 'c' is the WET road, which this pass has just darkened by 45%. So
+    // the brighter the day, the darker the surface the glint is allowed to fill — the wash-out was
+    // reasoning about a dry road that is never the one under the water.
+    //
+    // What that left is 'c + k*(1-c)', which for k >= 1 is EXACTLY 1.0: pure white, per channel, so
+    // the hue goes too. And k was routinely far past 1 — 'uGlint' was 50 (see the note on its
+    // default, which came down to 8 with this) because 'rgbRaw' colours are small, and the six the
+    // road picks reserve two slots for facade WASHES, which are broad and bright and cover a whole
+    // carriageway rather than a lane. Measured on a daylit street in
+    // front of the Sentinel, against the same street at glint 0: 6.7% of the near ground over
+    // luminance 170, peak 255, and the standard deviation of the road 19 -> 56. Reported from the
+    // game as puddles showing flat opaque colour with no reflection in them, which is what a
+    // saturated additive term looks like — the pools were the brightest thing in the frame and
+    // every one of them was the same white.
+    //
+    // ⚠ THE CAP IS ON THE BRIGHTNESS AND NOT PER CHANNEL. Clamping each channel at 1.0
+    // independently is the same bug with an extra step: a sodium lamp is (0.45, 0.32, 0.16) and at
+    // 50x all three are over 1, so all three clamp to 1 and the highlight is white again. Dividing
+    // by the largest channel holds the RATIO, so what a pool fills with is the lamp's own colour at
+    // its own strongest — an amber highlight, never a white hole.
     if (uGlint > 0.0 && imgW > 0.001) {
       float spark = waterSparkle(vWorld.xy + uWc);
-      c += glint * (imgW * uGlint * refl * (0.35 + 0.65 * spark)) * max(vec3(0.0), 1.0 - c);
+      vec3 gcol = glint * (imgW * uGlint * refl * (0.35 + 0.65 * spark));
+      float gmax = max(gcol.r, max(gcol.g, gcol.b));
+      if (gmax > 1.0) gcol /= gmax;
+      c += gcol * max(vec3(0.0), 1.0 - c);
     }
   }
   outColor = vec4(c * vAlpha, vAlpha);   // premultiplied, like every other layer on this canvas
@@ -668,6 +831,8 @@ export function createGroundLayer(gl) {
     color: gl.getAttribLocation(prog, 'aColor'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     road: gl.getAttribLocation(prog, 'aRoad'),
+    lat: gl.getAttribLocation(prog, 'aLat'),
+    kerb: gl.getAttribLocation(prog, 'aKerb'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     fog: gl.getUniformLocation(prog, 'uFog'),
     skyHor: gl.getUniformLocation(prog, 'uSkyHor'),
@@ -681,6 +846,8 @@ export function createGroundLayer(gl) {
     wetR: gl.getUniformLocation(prog, 'uWetR'),
     wet: gl.getUniformLocation(prog, 'uWet'),
     pudScale: gl.getUniformLocation(prog, 'uPudScale'),
+    pond: gl.getUniformLocation(prog, 'uPond'),
+    pudRoad: gl.getUniformLocation(prog, 'uPudRoad'),
     eye: gl.getUniformLocation(prog, 'uEye'),
     eyeH: gl.getUniformLocation(prog, 'uEyeH'),
     wc: gl.getUniformLocation(prog, 'uWc'),
@@ -691,9 +858,12 @@ export function createGroundLayer(gl) {
     reflOn: gl.getUniformLocation(prog, 'uReflOn'),
     reflGain: gl.getUniformLocation(prog, 'uReflGain'),
     reflVP: gl.getUniformLocation(prog, 'uReflVP'),
+    sky: gl.getUniformLocation(prog, 'uSky'),
+    skyOn: gl.getUniformLocation(prog, 'uSkyOn'),
     time: gl.getUniformLocation(prog, 'uTime'),
     ripple: gl.getUniformLocation(prog, 'uRipple'),
     glint: gl.getUniformLocation(prog, 'uGlint'),
+    wetDark: gl.getUniformLocation(prog, 'uWetDark'),
   };
 
   const vao = gl.createVertexArray();
@@ -757,11 +927,16 @@ export function createGroundLayer(gl) {
       const as = q.as;
       const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
       const rdw = q.road ? 1 : 0;
+      // ⚠ PER VERTEX BECAUSE IT VARIES ACROSS THE QUAD, and 'kerb' does not — but a vertex buffer
+      // has no other place to put a per-quad number, and writing it four times costs nothing
+      // measurable against the four positions already being written beside it.
+      const lats = q.lat, kb = q.kerb == null ? 0 : q.kerb;
       const put = (v, i) => {
         const k = cs && cs[i];
         data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2];
         data[o + 3] = k ? k[0] / 255 : r; data[o + 4] = k ? k[1] / 255 : g; data[o + 5] = k ? k[2] / 255 : b;
-        data[o + 6] = as ? as[i] : qa; data[o + 7] = rdw; o += STRIDE;
+        data[o + 6] = as ? as[i] : qa; data[o + 7] = rdw;
+        data[o + 8] = lats ? lats[i] : 0; data[o + 9] = kb; o += STRIDE;
       };
       // A fan, because a shadow is the convex hull of a footprint and its offset copy and can
       // carry up to eight corners; a road quad is the four-point case of the same loop.
@@ -773,6 +948,7 @@ export function createGroundLayer(gl) {
     const S = STRIDE * 4;
     const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
     bind(loc.pos, 3, 0); bind(loc.color, 3, 12); bind(loc.alpha, 1, 24); bind(loc.road, 1, 28);
+    bind(loc.lat, 1, 32); bind(loc.kerb, 1, 36);
     gl.bindVertexArray(null);
     return quads.length;
   }
@@ -842,6 +1018,11 @@ export function createGroundLayer(gl) {
     gl.uniform1f(loc.reflOn, on ? 1 : 0);
     gl.uniform1f(loc.reflGain, on ? opts.reflGain : 0);
     gl.uniform1f(loc.pudScale, opts.pudScale > 0 ? opts.pudScale : 1.9);
+    // ⚠ FALLS BACK TO 'wet', WHICH IS WHAT MAKES A CALLER THAT HAS NOT BEEN TAUGHT ABOUT PONDING
+    // BIT-IDENTICAL. Every bench, the Modelshop and any direct user of this layer hands over a
+    // wetness and no pond; the level then reads exactly the number it always did.
+    gl.uniform1f(loc.pond, opts.pond == null ? (opts.wet || 0) : opts.pond);
+    gl.uniform1f(loc.pudRoad, opts.pudRoad == null ? 1 : opts.pudRoad);
     gl.uniform2f(loc.reflVP, opts.vpW || 1, opts.vpH || 1);
     gl.uniform1f(loc.time, opts.time || 0);
     gl.uniform1f(loc.ripple, on ? (opts.ripple > 0 ? opts.ripple : 0) : 0);
@@ -849,7 +1030,18 @@ export function createGroundLayer(gl) {
     // reflection buffer and means nothing without one; the glint is the light list reflected in
     // the water and needs no buffer at all, so it survives `glMirror 0` exactly as the streak does.
     gl.uniform1f(loc.glint, opts.glint > 0 ? opts.glint : 0);
+    // ⚠ NOT `|| 0.45`, because 0 is a legal setting (a wet road exactly as bright as a dry one) and
+    // `0 || 0.45` is 0.45. The caller always sends a number; this only covers an undefined.
+    gl.uniform1f(loc.wetDark, opts.wetDark == null ? 0.45 : opts.wetDark);
     gl.uniform1i(loc.refl, 1);
+    // ⚠ UNIT 2, AND BOUND WHATEVER HAPPENS, for the same reason the reflection above is: sampling an
+    // incomplete unit is undefined rather than black on some drivers, so the shader's own branch is
+    // what saves the fetch and `uSkyOn` is what decides.
+    const skyT = on ? (opts.skyTex || null) : null;
+    gl.uniform1i(loc.sky, 2);
+    gl.uniform1f(loc.skyOn, skyT ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, skyT);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, on ? rt : null);
     gl.activeTexture(gl.TEXTURE0);

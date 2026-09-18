@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_loadbearing_floor",
+  "id": "map_int_loadbearing",
+  "name": "Load Bearing",
+  "parent_zone_id": "zone_district_896_907"
+}

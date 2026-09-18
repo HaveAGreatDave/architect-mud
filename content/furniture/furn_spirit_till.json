@@ -1,0 +1,19 @@
+{
+  "description": "The money side of the turntable drops into a steel box bolted through the floor, and he cannot open it during opening hours because it takes two keys and he only carries one. That is the arrangement and everybody on the road knows it is the arrangement.",
+  "flags": {
+    "aliases": "till,cash,money,box",
+    "hack_difficulty": 5,
+    "vendor_npc_id": "npc_spirit_cassavetes",
+    "vendor_safe": true
+  },
+  "hp": 600,
+  "hp_max": 600,
+  "id": "furn_spirit_till",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the turntable box",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_spirit_shop"
+}

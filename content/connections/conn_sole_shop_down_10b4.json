@@ -1,0 +1,9 @@
+{
+  "a": "zone_sole_shop",
+  "b": "zone_util_zone_sole_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_sole_shop_down_10b4",
+  "lockable": false,
+  "one_way": false
+}

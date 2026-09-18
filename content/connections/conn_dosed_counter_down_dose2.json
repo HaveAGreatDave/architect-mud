@@ -1,0 +1,9 @@
+{
+  "a": "zone_dosed_counter",
+  "b": "zone_util_zone_dosed_counter",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_dosed_counter_down_dose2",
+  "lockable": false,
+  "one_way": false
+}

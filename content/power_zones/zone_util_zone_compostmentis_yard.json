@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_compostmentis_yard",
+  "id": "zone_util_zone_compostmentis_yard",
+  "max_capacity_kw": 1000,
+  "name": "Compost Mentis — Utility Room",
+  "source_type": "junction_box"
+}

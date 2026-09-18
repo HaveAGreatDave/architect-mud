@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A low utility room under the shop: bare brick, a concrete floor that slopes to a drain, and the building junction box humming in its steel cabinet. The chill plant is down here and it is the loudest thing in the building by a distance. The walls sweat. Everything is on pallets, two inches clear of the floor, for good reason.",
+  "exits": {
+    "up": "zone_primesuspect_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_primesuspect_shop",
+  "map_id": "map_int_primesuspect",
+  "name": "Prime Suspect — Utility Room",
+  "parent_zone": "zone_district_916_911"
+}

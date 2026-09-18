@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A small cellar reached by a trap behind the racking, cool all year, holding the junction cabinet and about forty bottles that are not for sale. They are not for sale because they are older than the shop and because each one has a name on the label in pencil. He will tell you whose. He will not sell you one.",
+  "exits": {
+    "up": "zone_spirit_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_spirit_shop",
+  "map_id": "map_int_spirit",
+  "name": "Spirit Level — Behind the Hatch — Utility Room",
+  "parent_zone": "zone_district_919_914"
+}

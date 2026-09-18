@@ -1,0 +1,282 @@
+{
+  "adorn": [
+    {
+      "cx": -0.2,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,190,110",
+      "s": 13,
+      "z": 0.2
+    },
+    {
+      "cx": 0.18,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,190,110",
+      "s": 13,
+      "z": 0.2
+    },
+    {
+      "cx": 0,
+      "cy": 0.52,
+      "kind": "glowPool",
+      "rgb": "255,180,100",
+      "s": 16,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Ration Nine"
+    }
+  ],
+  "detail": [
+    {
+      "cx": -0.2,
+      "cy": 0.43,
+      "half": 0.15,
+      "hh": 0.135,
+      "kind": "shutter",
+      "pal": "ty_trm_board",
+      "z": 0.24
+    },
+    {
+      "cx": 0.18,
+      "cy": 0.43,
+      "half": 0.15,
+      "hh": 0.135,
+      "kind": "shutter",
+      "pal": "ty_trm_board",
+      "z": 0.24
+    },
+    {
+      "cx": 0,
+      "cy": 0.43,
+      "half": 0.4,
+      "hh": 0.014,
+      "kind": "canopy",
+      "out": 0.19,
+      "pal": "ty_trm_board",
+      "soffit": "#2e3024",
+      "strip": "#ffb43a",
+      "z": 0.4
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "cx": -0.34,
+        "cy": 0.42,
+        "kind": "pipe",
+        "pal": "ty_trm_board",
+        "r": 0.013,
+        "z0": 0,
+        "z1": 0.4
+      },
+      "step": {
+        "cx": 0.34
+      }
+    },
+    {
+      "color": "#20220f",
+      "cx": -0.26,
+      "cy": 0.43,
+      "font": "stencil",
+      "half": 0.115,
+      "hh": 0.048,
+      "ink": "#ffcf70",
+      "kind": "signBoard",
+      "label": "NINE",
+      "z": 0.5
+    },
+    {
+      "color": "#20220f",
+      "cx": 0.16,
+      "cy": 0.43,
+      "font": "stencil",
+      "half": 0.22,
+      "hh": 0.022,
+      "ink": "#d8d0b0",
+      "kind": "signBoard",
+      "label": "RATION STATION 9 · COLDWATER",
+      "z": 0.5
+    },
+    {
+      "cx": -0.02,
+      "cy": -0.42,
+      "drip": 1,
+      "half": 0.16,
+      "hh": 0.08,
+      "kind": "louvreBank",
+      "n": 8,
+      "pal": "ty_cold",
+      "z": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0.435,
+      "half": 0.38,
+      "kind": "conduit",
+      "pal": "ty_cold",
+      "r": 0.011,
+      "z": 0.575
+    },
+    {
+      "cx": 0.36,
+      "cy": 0.43,
+      "drip": 1,
+      "hh": 0.032,
+      "kind": "vent",
+      "pal": "ty_cold",
+      "w": 0.05,
+      "z": 0.54
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.435,
+      "hh": 0.013,
+      "kind": "parapet",
+      "pal": "ty_trm_board",
+      "z": 0.62
+    },
+    {
+      "cx": -0.02,
+      "cy": 0.22,
+      "hh": 0.06,
+      "kind": "roofTank",
+      "pal": "ty_cold",
+      "r": 0.08,
+      "z": 0.7
+    },
+    {
+      "band": "#ffcf70",
+      "count": 2,
+      "cx": -0.34,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_trm_board",
+      "step": 0.1,
+      "z": 0.004
+    },
+    {
+      "band": "#ffcf70",
+      "count": 2,
+      "cx": 0,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_trm_board",
+      "step": 0.1,
+      "z": 0.004
+    },
+    {
+      "band": "#ffcf70",
+      "count": 2,
+      "cx": 0.34,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_trm_board",
+      "step": 0.1,
+      "z": 0.004
+    },
+    {
+      "cx": -0.42,
+      "cy": -0.4,
+      "d": 0.036,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#2a2c1c",
+      "n": 3,
+      "pal": "ty_trm_board",
+      "w": 0.045,
+      "z": 0.004
+    },
+    {
+      "color": "#ffb43a",
+      "cx": 0.34,
+      "cy": 0.42,
+      "hh": 0.06,
+      "kind": "tag",
+      "n": 3,
+      "v": 4,
+      "w": 0.07,
+      "z": 0.16
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_trm_board",
+      "r": 0.026,
+      "rgb": "255,200,130",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.086
+    }
+  ],
+  "id": "rationnine",
+  "neon": "#ffb43a",
+  "note": "RATION NINE — the municipal ration store on the east side of Ironside Street.\n\n⚠ THE QUEUE IS THE BUILDING. Everything a ration store does happens on the pavement outside it, so\nthe composition is a long canopy on posts with shutters behind it and almost nothing else: one hall,\none awning, two hatches and a number. A shopfront would be wrong — there is nothing to display and\nnobody is browsing.\n\n⚠ AND THE NUMBER IS BIGGER THAN THE NAME. Nine is what people call it and NINE is what is painted on\nit; the full name is the small lettering underneath, the way a municipal building actually signs\nitself. That is also why the hand is stencil and the palette is olive rather than anything a shop\nwould choose: this is issued, not sold.\n\n⚠ IT REPLACES ITS OWN ARM RATHER THAN STANDING BESIDE IT. `rationnine` is a NAMED arm drawing this\none tile, so the bind key and the arm key are the same and `replaces` is a true statement about the\nrevert path as well as about the trade — `LEGACY_MODELS` holds the arm and `RENDER_TUNE.legacyArms`\nputs it back. A file that merely bound by name would lose to it (the registry merge is `??=`).",
+  "pal": "ty_fallow",
+  "replaces": "rationnine",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_fallow",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.435,
+      "kind": "box",
+      "pal": "ty_trm_board",
+      "roof": true,
+      "z0": 0.62,
+      "z1": 0.7
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.18,
+      "hw": 0.145,
+      "kind": "box",
+      "pal": "ty_cold",
+      "roof": true,
+      "z0": 0.7,
+      "z1": 0.86
+    },
+    {
+      "cap": true,
+      "cx": 0.22,
+      "cy": -0.14,
+      "kind": "drum",
+      "n": 12,
+      "pal": "ty_cold",
+      "rb": 0.1,
+      "rt": 0.1,
+      "z0": 0.7,
+      "z1": 0.95
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_897_905",
+  "b": "zone_filament_stair",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_897_905_north_z6fx",
+  "lockable": true,
+  "one_way": false
+}

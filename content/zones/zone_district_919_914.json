@@ -1,23 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#1a1714",
+  "description": "The last shop before the South Gate and it is built like it knows that. The whole frontage is behind a folding grille, and behind the grille the window is glass block rather than glass, so there is nothing to see in and nothing to throw at. What is open is a hatch: a steel shutter with a rectangle cut in it at chest height, lit from inside, with a lipped sill and a turntable set into the sill so that nothing ever passes hand to hand. After dark the hatch is the only lit thing on this road, and the shop behind it is entirely black.",
   "exits": {
-    "east": "zone_district_920_914",
-    "south": "zone_district_919_915",
-    "west": "zone_district_918_914"
+    "west": "zone_district_918_914",
+    "east": "zone_spirit_shop"
   },
   "flags": {
+    "building_name": "Spirit Level",
+    "building_type": "off_licence",
     "district": "residential",
+    "entrance": "west",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_918_914"
   },
   "grid_x": 919,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_919_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "SP",
+  "name": "Spirit Level",
   "parent_zone": null
 }

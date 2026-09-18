@@ -1,24 +1,22 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "Allotment strips, pegged out with string and stakes and defended with a seriousness the plots do not obviously merit. Beans climb a frame of scaffold pole. The soil is better than it has any right to be.",
   "exits": {
     "east": "zone_district_901_904",
     "north": "zone_district_900_903",
-    "south": "zone_district_900_905",
     "west": "zone_district_899_904"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "dirt"
   },
   "grid_x": 900,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_900_904",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Filament Allotments",
   "parent_zone": null
 }

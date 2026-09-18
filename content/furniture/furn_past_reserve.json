@@ -1,0 +1,20 @@
+{
+  "description": "About four hundred objects on shelving under the portico steps, every one bagged, numbered and tied to a card in the index. It is a better archive of the period than the Hall of Records keeps, and nobody official has ever been down here to find that out.",
+  "flags": {
+    "aliases": "reserve,collection,archive,shelves,store",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_past_reserve",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the reserve collection",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_pastperf_hall"
+}

@@ -1,0 +1,126 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "255,200,130",
+      "s": 16,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Loafing Around"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.38,
+      "hh": 0.018,
+      "kind": "parapet",
+      "pal": "ty_shop_b",
+      "z": 0.74
+    },
+    {
+      "bars": 3,
+      "cx": -0.04,
+      "cy": 0.44,
+      "depth": 0.02,
+      "glass": "#241a10",
+      "glow": "#ffd79a",
+      "half": 0.3,
+      "hh": 0.03,
+      "kind": "windowBay",
+      "pal": "ty_diner",
+      "z": 0.12
+    },
+    {
+      "cx": 0.24,
+      "cy": 0.44,
+      "half": 0.13,
+      "hh": 0.01,
+      "kind": "canopy",
+      "out": 0.1,
+      "pal": "ty_diner",
+      "soffit": "#6b4a24",
+      "strip": "#ffcf8a",
+      "z": 0.29
+    },
+    {
+      "color": "#2a1a0c",
+      "cx": -0.04,
+      "cy": 0.44,
+      "font": "slab",
+      "half": 0.26,
+      "hh": 0.03,
+      "ink": "#ffd79a",
+      "kind": "signBoard",
+      "label": "LOAFING AROUND",
+      "z": 0.3
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.44,
+      "drip": 0.5,
+      "hh": 0.03,
+      "kind": "vent",
+      "pal": "ty_shop_b",
+      "w": 0.1,
+      "z": 0.5
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.4,
+      "d": 0.06,
+      "hh": 0.035,
+      "kind": "binStack",
+      "n": 2,
+      "pal": "ty_shop_b",
+      "w": 0.07,
+      "z": 0.005
+    }
+  ],
+  "id": "loafingaround",
+  "neon": "#ffb34d",
+  "note": "The bakery on the south side of the Green. A flat-fronted terrace end with ONE wide window that steams up from the inside all day, wiped clear at eye height by whoever last leaned on it — so the glazing is a single low band rather than a grid, and the warm glow behind it is the whole silhouette after dark. Trays go in at four and the good ones are gone by seven.",
+  "pal": "ty_diner",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.07
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.07,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.38,
+      "kind": "box",
+      "pal": "ty_shop_b",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.74
+    }
+  ],
+  "trade": "diner"
+}

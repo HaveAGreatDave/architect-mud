@@ -1,0 +1,19 @@
+{
+  "description": "A tobacco tin in a drawer under the issue desk with FINES on the lid in pencil, and under that, in the same pencil, NOT PETTY CASH. It holds more than anybody expects, because the fines are small and nobody has ever been let off one.",
+  "flags": {
+    "aliases": "tin,fines tin,box,till",
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_fprint_ashgrove",
+    "vendor_safe": true
+  },
+  "hp": 140,
+  "hp_max": 140,
+  "id": "furn_fprint_till",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the fines tin",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_fineprint_room"
+}

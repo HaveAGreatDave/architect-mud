@@ -1,0 +1,20 @@
+{
+  "description": "The deep sill of the bay, cushioned by whoever lived here before, wide enough to sit on. People sit here rather than on the chairs when they are waiting for bad news. She noticed that years ago, and stopped moving the chairs, and has never mentioned it to anybody.",
+  "flags": {
+    "aliases": "bay,seat,sill,window seat",
+    "interactions": [
+      "examine",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_paws_bay",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the bay seat",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_paws_wait"
+}

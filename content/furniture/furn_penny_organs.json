@@ -1,0 +1,20 @@
+{
+  "description": "Nine cabinets along the wall with their backs off and their boards out, each with a card taped to the glass listing what has gone and what is still good. None of them will ever work again. Every one of them is the reason something out front still does.",
+  "flags": {
+    "aliases": "donors,cabinets,spares,backs off",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penny_organs",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the donor cabinets",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_penny_donors"
+}

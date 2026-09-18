@@ -1,25 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#1d1a24",
+  "description": "A deep narrow shed with no front wall. The whole street elevation is a roller shutter and the shutter is up from noon until whenever she decides, so the building simply opens onto the pavement, and the light comes out at ankle height and lies across the road in a bright rectangle you can see from the top of Meltwater Row. Above the opening, in bulbs, about a third of them out: THE PENNY DROPS. The noise is constant, mechanical, and much louder than you expect, and none of it is music.",
   "exits": {
     "east": "zone_district_911_915",
-    "north": "zone_district_910_914",
-    "south": "zone_district_910_916",
-    "west": "zone_district_909_915"
+    "west": "zone_penny_floor"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "The Penny Drops",
+    "building_type": "amusements",
+    "district": "nightlife",
+    "entrance": "east",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_911_915"
   },
   "grid_x": 910,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_910_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "PD",
+  "name": "The Penny Drops",
   "parent_zone": null
 }

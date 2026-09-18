@@ -1,0 +1,19 @@
+{
+  "description": "A black iron stove at the far end with a guard round it and four chairs in a half circle that are nothing to do with the desks. It is lit from October and it is the reason the reading room is fuller in winter than in summer, which the man at the desk has never once pretended is about the books.",
+  "flags": {
+    "aliases": "stove,fire,heater",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fprint_stove",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the stove",
+  "object_type": "appliance",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_fineprint_room"
+}

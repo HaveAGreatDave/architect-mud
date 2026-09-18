@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "description": "Where the lane meets Ironside. The surface is the old railway approach, patched so many times it reads like a map of itself, and the corner kerb has been levered up and never put back. The signal box stands over the mouth of it with its frame rusted solid.",
   "exits": {
     "east": "zone_district_918_904",
     "north": "zone_district_917_903",
@@ -10,16 +9,17 @@
     "west": "zone_district_916_904"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "yards",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 917,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_917_904",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Lever Lane",
   "parent_zone": null
 }

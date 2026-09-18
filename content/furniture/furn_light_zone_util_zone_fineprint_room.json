@@ -1,0 +1,14 @@
+{
+  "description": "A bulkhead light over the boiler, switched from the top of the steps, next to the card that says which four things may be switched off.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_util_zone_fineprint_room",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "the boiler light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_util_zone_fineprint_room"
+}

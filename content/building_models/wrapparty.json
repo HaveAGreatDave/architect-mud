@@ -1,0 +1,143 @@
+{
+  "adorn": [
+    {
+      "color": "#ff4d4d",
+      "cx": 0.28,
+      "cy": -0.3,
+      "kind": "neonBlade",
+      "label": "WRAP PARTY",
+      "z0": 0.24,
+      "z1": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": -0.36,
+      "kind": "blinkLight",
+      "r": 0.9,
+      "rgb": "255,60,60",
+      "z": 0.21
+    },
+    {
+      "cx": 0,
+      "cy": -0.42,
+      "kind": "glowPool",
+      "rgb": "255,70,70",
+      "s": 12,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Wrap Party"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.32,
+      "hh": 0.016,
+      "kind": "parapet",
+      "pal": "ty_bar_a",
+      "z": 0.66
+    },
+    {
+      "color": "#2a1108",
+      "cx": 0,
+      "cy": -0.34,
+      "font": "deco",
+      "half": 0.21,
+      "hh": 0.028,
+      "ink": "#e8c46a",
+      "kind": "signBoard",
+      "label": "WRAP PARTY",
+      "z": 0.3
+    },
+    {
+      "color": "#c8a94e",
+      "cx": 0.2,
+      "cy": -0.34,
+      "font": "deco",
+      "half": 0.05,
+      "hh": 0.013,
+      "ink": "#241206",
+      "kind": "signBoard",
+      "label": "BAR",
+      "z": 0.13
+    },
+    {
+      "cx": 0,
+      "cy": -0.34,
+      "half": 0.1,
+      "hh": 0.01,
+      "kind": "canopy",
+      "out": 0.07,
+      "pal": "ty_bar_a",
+      "soffit": "#3a0f10",
+      "strip": "#ff6a6a",
+      "z": 0.22
+    },
+    {
+      "cx": -0.26,
+      "cy": -0.3,
+      "d": 0.07,
+      "hh": 0.04,
+      "kind": "binStack",
+      "n": 3,
+      "pal": "ty_bar_a",
+      "w": 0.08,
+      "z": 0.005
+    },
+    {
+      "color": "#7ad6ff",
+      "cx": 0.24,
+      "cy": -0.34,
+      "hh": 0.035,
+      "kind": "tag",
+      "n": 2,
+      "w": 0.1,
+      "z": 0.16,
+      "v": 7
+    }
+  ],
+  "id": "wrapparty",
+  "neon": "#ff4d4d",
+  "note": "The back-door pub for the studio block. It opens at eleven at night and does its best trade at two in the morning, so there is NO WINDOW worth the name: one door, a red bulb over it that is on when the bar is, and a brass plate by the handle. The blade is the only thing on this street you can find in the dark.",
+  "pal": "ty_bar_b",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.06
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.06,
+      "z1": 0.52
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_bar_a",
+      "roof": true,
+      "z0": 0.52,
+      "z1": 0.66
+    }
+  ],
+  "trade": "bar"
+}

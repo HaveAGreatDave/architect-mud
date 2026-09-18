@@ -1,0 +1,14 @@
+{
+  "description": "A row of little brass picture lights on the brackets, one over each mount, angled down so the light lands on the animal and nowhere else. The ceiling of this room has never been properly lit and never will be.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_stuffit_shop",
+  "light_type": "overhead",
+  "lumen_output": 2200,
+  "name": "the picture lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_stuffit_shop"
+}

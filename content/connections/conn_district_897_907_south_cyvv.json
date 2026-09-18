@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_897_907",
+  "b": "zone_cornermarket_shop",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_897_907_south_cyvv",
+  "lockable": true,
+  "one_way": false
+}

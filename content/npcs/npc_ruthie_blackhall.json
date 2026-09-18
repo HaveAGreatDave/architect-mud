@@ -1,0 +1,90 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"They will reject it for the date being in the wrong box. That is not a guess, that is the pattern.\"",
+    "squares a sheaf of forms on the table edge and puts a mug on top of it",
+    "\"Bring me the letter and the envelope. The envelope tells you more than the letter does, usually.\"",
+    "crosses something out, thinks, and writes the same thing back in different words",
+    "\"I do not charge. If you insist on paying me, pay me in something I can eat.\""
+  ],
+  "description": "A young woman with ink on three fingers who does other people's letters at the kitchen table for whatever they can pay, which is usually nothing and occasionally a chicken. She is better at it than the Office of Permitted Suffering would prefer and knows exactly which form is which.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "She moves a pile of paper off the other chair. \"Sit, then.\"",
+        "\"Is it a form?\" It is usually a form."
+      ],
+      "text_by_relation": {
+        "familiar": "\"I have already done yours.\" She has, and it is in the pocket, and she was going to bring it round.",
+        "first": "\"Ruthie.\" She caps the pen. \"Third floor back. If the Ward has sent you something you do not understand, that is most of what I am for.\"",
+        "known": "\"Let me see it.\" She puts a hand out for the letter before you have said what it is."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a long knitted cardigan with pockets full of paper",
+      "a shirt buttoned to the throat",
+      "a camisole and briefs"
+    ],
+    "personality": "clerk"
+  },
+  "home_activities": [],
+  "home_zone": "zone_filament_unit_3",
+  "hp": 19,
+  "hp_max": 19,
+  "id": "npc_ruthie_blackhall",
+  "name": "Ruthie Blackhall",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

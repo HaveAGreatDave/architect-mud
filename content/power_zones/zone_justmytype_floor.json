@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_justmytype_floor",
+  "id": "zone_justmytype_floor",
+  "max_capacity_kw": 200,
+  "name": "Just My Type — Print Floor",
+  "source_type": "city_grid"
+}

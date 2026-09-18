@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_dosed_counter",
+  "id": "map_int_dosed",
+  "name": "Dosed & Confused",
+  "parent_zone_id": "zone_district_917_911"
+}

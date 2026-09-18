@@ -1,0 +1,14 @@
+{
+  "description": "One lamp over the turntable and nothing at all over the aisles, which is deliberate: the customer sees a lit hatch and a man in it, and cannot see how much stock is on the shelves behind him or where in the room it is.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_spirit_shop",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "the hatch light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_spirit_shop"
+}

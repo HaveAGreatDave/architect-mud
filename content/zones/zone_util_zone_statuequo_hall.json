@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A low utility room under the shop: bare brick, a concrete floor that slopes to a drain, and the building junction box humming in its steel cabinet. Meters for all six flats on one board, five of them turning, and a bicycle that has been chained to the pipework long enough for the chain to have rusted into the paint.",
+  "exits": {
+    "up": "zone_statuequo_hall"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_910_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_statuequo_hall",
+  "map_id": "map_int_statuequo",
+  "name": "Statue Quo — Utility Room",
+  "parent_zone": "zone_district_910_914"
+}

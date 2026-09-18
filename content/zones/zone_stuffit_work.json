@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1d1f1b",
+  "description": "The room the smell comes from: a tiled bench under a window that has been painted over, a stone sink, a stove with a flue going up through the roof, and a rack of tools in size order with not one of them out of place. Forms in wound tow and wire hang from the ceiling on hooks like a mobile in a nursery for a very specific child. A blackboard by the sink lists what is in progress with a name and a date beside each, and the list is longer than the room suggests.",
+  "exits": {
+    "south": "zone_stuffit_shop"
+  },
+  "flags": {
+    "building_name": "Stuff It",
+    "building_type": "taxidermist",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_917_914"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_stuffit_work",
+  "map_id": "map_int_stuffit",
+  "name": "Stuff It — The Workroom",
+  "parent_zone": "zone_district_917_914"
+}

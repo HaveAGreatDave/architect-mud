@@ -1,0 +1,19 @@
+{
+  "description": "Handwritten, propped, and read by everybody: I CUT KEYS. I OPEN DOORS. THEY ARE DIFFERENT SERVICES AND I DO NOT DO THE SECOND ONE WITHOUT THE FIRST. Underneath, smaller, in a different pen and clearly added later: YES I HAVE HEARD THAT ONE.",
+  "flags": {
+    "aliases": "card,sign,notice",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skel_card",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the card by the till",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_skelcrew_shop"
+}

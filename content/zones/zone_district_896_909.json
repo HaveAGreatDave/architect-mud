@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "Scrub grass and a bus shelter with no glass and no bus, the timetable frame empty except for the four screws. People wait in it anyway when it rains.",
   "exits": {
     "east": "zone_district_897_909",
     "north": "zone_district_896_908",
@@ -10,9 +9,8 @@
     "west": "zone_district_895_909"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
     "terrain": "grass"
   },
   "grid_x": 896,
@@ -20,6 +18,6 @@
   "grid_z": 0,
   "id": "zone_district_896_909",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Halcyon Verge",
   "parent_zone": null
 }

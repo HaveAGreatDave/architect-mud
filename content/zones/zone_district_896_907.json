@@ -1,23 +1,32 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_events": [
+    "A drum somewhere inside hits its spin cycle and the whole shopfront hums.",
+    "Condensation runs down the inside of the window in a long clean line.",
+    "The door opens, a wall of warm damp air comes out, and somebody leaves with a bag on their hip."
+  ],
+  "ambient_theme": "urban",
+  "bg_color": "#25282a",
+  "description": "A launderette in a shopfront, lit like an operating theatre and steamed up from the inside so the light comes out soft and green. The name is spelled out across the fascia in individual letters, one of which has been replaced with a slightly different font and is now what everyone looks at. Warm air pushes out under the door and smells of hot cotton.",
   "exits": {
-    "east": "zone_district_897_907",
     "north": "zone_district_896_906",
-    "south": "zone_district_896_908"
+    "south": "zone_loadbearing_floor"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Load Bearing",
+    "building_type": "laundromat",
+    "district": "filaments",
+    "entrance": "north",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_896_906"
   },
   "grid_x": 896,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_896_907",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "LO",
+  "name": "Load Bearing",
   "parent_zone": null
 }

@@ -1,25 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#20201c",
+  "description": "A squat masonry box on the corner with no shopfront at all, which on this street makes it look like it is sulking. Five stone steps up to a pair of doors under a plain lintel, and cut into the lintel, in letters somebody was paid properly for: FINE PRINT · LENDING LIBRARY · SUBSCRIBERS AND CASUALS. The windows start above head height and tell you nothing. What tells you something is the roof: a long glazed lantern runs the whole length of the building, and at night it is the only thing in the Filaments throwing light UPWARDS.",
   "exits": {
-    "east": "zone_district_904_908",
     "north": "zone_district_903_907",
-    "south": "zone_district_903_909",
-    "west": "zone_district_902_908"
+    "south": "zone_fineprint_room"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Fine Print",
+    "building_type": "lending_library",
+    "district": "filaments",
+    "entrance": "north",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_903_907"
   },
   "grid_x": 903,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_903_908",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "LI",
+  "name": "Fine Print",
   "parent_zone": null
 }

@@ -41,12 +41,21 @@ stubCanvas('__rp', W, H);
 // ⚠ IT HAS TO BE AHEAD OF THE CAMERA. The camera sits at the window centre and the near clip drops
 // the tile at its own feet, so a junction on the centre tile is a junction nothing draws — and an
 // empty tally is exactly what this check is least entitled to report as a pass.
+//
+// AND A BEND OFF TO ONE SIDE, because a swept corner is the other thing that lays paint over paint
+// and the crossroads above cannot produce one. Its own little L, clear of the junction, with the
+// inside of the turn left as open ground — which is exactly the condition `elbowSweep` asks about,
+// so this scene sweeps and a scene with a building on that tile would not.
 const N = 41, R = 20, CROSS = R - 6;
+const BX = R + 4, BY = R - 3;            // the elbow itself; its arms run south and west from here
 const rdAt = (x, y) => {
   const ns = x === R || x === R + 1, ew = y === CROSS;
   if (ns && ew) return 'nesw';
   if (ns) return 'ns';
   if (ew) return 'ew';
+  if (x === BX && y === BY) return 'sw';
+  if (x === BX && (y === BY + 1 || y === BY + 2)) return 'ns';
+  if (y === BY && (x === BX - 1 || x === BX - 2)) return 'ew';
   return null;
 };
 const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
@@ -75,6 +84,15 @@ surface.width = W; surface.height = H;
 ws.installGLWorld((cells, cam, o) => { ground = o.ground || []; return { faces: 1, canvas: surface }; });
 ws.paintWindshield('__rp', VIEW);        // settle every lazy cache and bake
 ws.paintWindshield('__rp', VIEW);
+// THE CONTROL FOR THE BEND. The same scene with `roadArc` off has to produce no angled paint at
+// all — without it, "there is a curve in here" could be answered by something that was always
+// there, and the check below would pass on a build where the sweep never ran.
+const arcWas = ws.RENDER_TUNE.roadArc;
+ws.RENDER_TUNE.roadArc = 0;
+let square = null;
+ws.installGLWorld((cells, cam, o) => { square = o.ground || []; return { faces: 1, canvas: surface }; });
+ws.paintWindshield('__rp', VIEW);
+ws.RENDER_TUNE.roadArc = arcWas;
 ws.installGLWorld(null);
 ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas;
 globalThis.performance = clock;
@@ -148,6 +166,50 @@ for (const [A, B] of buried.slice(0, 6)) {
 }
 if (buried.length > 6) problems.push(`…and ${buried.length - 6} more buried yellow overlap(s)`);
 
+// ── 3. THE CORNER SWEEPS, AND ONLY BECAUSE IT WAS ASKED TO ──────────────────
+// A city of axis-aligned streets has exactly one way to put a marking on a diagonal, and that is a
+// swept corner: kerb strokes, lane dashes, crossing bars, pavement bands and tile fills all have
+// their edges on x or y. So "is there angled paint in this scene" IS "did the bend sweep", with no
+// second definition of a curve for this to drift away from. The control renders the same scene with
+// `roadArc` off and demands NONE — without it, a check that merely finds a diagonal could be
+// answered by something that was in the frame all along.
+const angled = (list) => (list || []).filter((q) => {
+  if (!q.paint) return false;
+  for (let i = 0; i < q.p.length; i++) {
+    const a = q.p[i], b = q.p[(i + 1) % q.p.length];
+    const ex = b[0] - a[0], ey = b[1] - a[1];
+    if (Math.abs(ex) < 1e-9 && Math.abs(ey) < 1e-9) continue;
+    const off = Math.abs(Math.atan2(ey, ex) % (Math.PI / 2));
+    if (off > 0.09 && off < Math.PI / 2 - 0.09) return true;      // more than 5° off both axes
+  }
+  return false;
+});
+const swept = angled(ground), squared = angled(square);
+if (!swept.length) problems.push(`no marking anywhere runs at an angle to the grid — the elbow at ${BX},${BY} drew a right angle, so roadArc is off or elbowSweep refused a corner whose inside is open ground`);
+if (squared.length) problems.push(`${squared.length} angled marking(s) survive with roadArc = 0 — the sweep is not what put them there, so the check above is measuring something else`);
+
+// ── 4. AND WHICH CORNERS SWEEP IS A QUESTION ABOUT THE INSIDE OF THE TURN ───
+// The pixels above say a corner swept; this says the RULE that picks the corners is the one the
+// world was surveyed against. 12 of Coldwater's 21 elbows sweep and 9 stay square, and every one of
+// the 9 is refused for one of exactly two reasons — so those two reasons are asserted directly
+// rather than through a scene, which would need a building placed in it to test the first.
+const N4 = [0, -1], E4 = [1, 0], S4 = [0, 1], W4 = [-1, 0];
+const cell = (o) => ({ kind: 'land', biome: 'city', flr: 0, ...o });
+const openAt = (o) => (dx, dy) => (dx === 1 && dy === -1 ? cell(o) : cell({ road: 1, rd: 'ns' }));
+if (!ws._elbowSweep(openAt({}), 0, 0, N4, E4)) problems.push('an elbow with open ground on the inside of the turn refuses to sweep');
+if (ws._elbowSweep(openAt({ bt: 'shop' }), 0, 0, N4, E4)) problems.push('an elbow sweeps past a building standing on the inside of the turn — a block corner is square because the block is');
+if (ws._elbowSweep(openAt({ road: 1, rd: 'ew' }), 0, 0, N4, E4)) problems.push('an elbow sweeps with ROAD on the inside — that is not a corner, it is the edge of a wider mat, and the sweep curves one carriageway into another');
+if (ws._elbowSweep(() => null, 0, 0, N4, E4)) problems.push('an elbow sweeps with no tile at all on the inside of the turn');
+if (ws._elbowSweep(openAt({}), 0, 0, N4, S4)) problems.push("'ns' resolved to a corner — a straight is not an elbow");
+if (ws._elbowSweep(openAt({}), 0, 0, E4, W4)) problems.push("'ew' resolved to a corner — a straight is not an elbow");
+// ⚠ A quarter-circle, every time. A corner that swept through more than 90° would be sweeping the
+// long way round the block, which atan2 hands back on two of the four corners if nobody normalises.
+for (const [a, b, lbl] of [[N4, E4, 'ne'], [E4, S4, 'es'], [S4, W4, 'sw'], [N4, W4, 'nw']]) {
+  const q = ws._elbowSweep((dx, dy) => cell(dx === a[0] + b[0] && dy === a[1] + b[1] ? {} : { road: 1, rd: 'ns' }), 0, 0, a, b);
+  if (!q) { problems.push(`the ${lbl} corner refused to sweep with its inside left open`); continue; }
+  if (Math.abs(Math.abs(q.t1 - q.t0) - Math.PI / 2) > 1e-9) problems.push(`the ${lbl} corner sweeps ${(Math.abs(q.t1 - q.t0) * 180 / Math.PI).toFixed(1)}° — a tile corner is a quarter of a circle, so this one goes the long way round the block`);
+}
+
 if (REPORT) {
   const tally = new Map();
   for (const [A, B] of pairs) {
@@ -171,3 +233,4 @@ const painted = ground.filter((q) => q.paint).length;
 console.log(`✓ roadpaint: ${pairs.length} overlapping coplanar pair(s) across ${ground.length} ground quads, every one of them in the paint range.`);
 console.log(`  · ${painted} marking quads test depth and write none; the other ${ground.length - painted} are surfaces`);
 console.log(`  · ${mixed.length} yellow-over-white overlap(s), all of them with the centreline on top`);
+console.log(`  · ${swept.length} angled marking quad(s) at the swept corner, against ${squared.length} with roadArc = 0`);

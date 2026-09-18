@@ -1,22 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "description": "The lane stops here. The back of a noodle bar closes the south end and the wind piles whatever it's carrying against it. The only useful light is a work lamp on a stalk, and it belongs to the workshop opposite, which isn't lending it.",
   "exits": {
     "north": "zone_district_917_906",
     "west": "zone_district_916_907"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "yards",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 917,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_917_907",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Lever Lane",
   "parent_zone": null
 }

@@ -1,0 +1,16 @@
+{
+  "description": "A slanted case running the length of the front with a light in the top that makes everything under it look better than it does in daylight, which is the case doing its job. Sawdust underneath, swept out and relaid daily.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_primesuspect_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the chilled case",
+  "object_type": "fixture",
+  "power_draw_kw": 2.4,
+  "price": 0,
+  "zone_id": "zone_primesuspect_shop"
+}

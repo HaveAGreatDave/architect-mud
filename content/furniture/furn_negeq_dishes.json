@@ -1,0 +1,19 @@
+{
+  "description": "Three enamel dishes on a slate slab under a safelight, in an order: developer, stop, fix. A line corner to corner above them with prints pegged by their corners, all faces, all looking straight out of the paper at whoever is standing in the middle of the room.",
+  "flags": {
+    "aliases": "dishes,darkroom,slab,fixer,trays",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_negeq_dishes",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the developing dishes",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_negeq_shop"
+}

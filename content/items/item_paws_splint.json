@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_paws_splint",
+  "name": "a padded splint",
+  "tags": {
+    "stackable": true,
+    "description": "Shaped alloy with felt bonded to the inside and a roll of conforming bandage taped to it. There are four sizes and she gives you the right one after looking, not after asking, and the right one is usually smaller than you expected."
+  },
+  "type": "misc",
+  "value": 44,
+  "weight": 220
+}

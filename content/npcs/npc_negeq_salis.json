@@ -1,0 +1,315 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "faction": null,
+  "home_activities": [],
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "npc_type": "vendor",
+  "id": "npc_negeq_salis",
+  "name": "Benedetta Salis",
+  "sex": "female",
+  "hp": 36,
+  "hp_max": 36,
+  "home_zone": "zone_negeq_studio",
+  "work_zone_id": "zone_negeq_shop",
+  "vendor_shop_name": "Negative Equity",
+  "vendor_restock_rate": 2,
+  "vendor_stock_size": 10,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "fri": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 15
+      }
+    ],
+    "sun": []
+  },
+  "vendor_inventory": [
+    {
+      "item_id": "item_negeq_card",
+      "price": 34
+    },
+    {
+      "item_id": "item_negeq_fixer",
+      "price": 22
+    },
+    {
+      "item_id": "item_negeq_plate",
+      "price": 62
+    },
+    {
+      "item_id": "item_negeq_portrait",
+      "price": 180
+    }
+  ],
+  "flags": {
+    "clothing_layers": [
+      "a black cotton work coat with the cuffs turned back",
+      "a grey shirt, buttoned, with nothing at the collar",
+      "plain trousers and shoes chosen for standing in"
+    ],
+    "personality": "vendor"
+  },
+  "description": "A woman of about forty-five in a black work coat, with the stillness of somebody whose job is mostly waiting for a cloud to move. She looks at your face for slightly too long the first time and then never again, having got what she needed. Her hands smell faintly of fixer all the time and she has stopped noticing. She is the only person on this boulevard who is not selling you a future.",
+  "chitchat": [
+    "Salis looks up at the roof, at nothing, and goes back to the ledger.",
+    "She turns a print face down on the desk without letting you see it.",
+    "She squares a frame on the wall that was already square, and steps back, and squares it again.",
+    "\"Four minutes for one exposure. If that sounds long, we are about to find out how long.\"",
+    "She writes a single word in the third column of the ledger and rules a line under the entry.",
+    "\"Don't smile. You can if you want. Nobody has ever been glad of it in twenty years.\"",
+    "She wipes her hands on a cloth that is already wet and puts it back on the same nail.",
+    "\"The light's gone. Come back Tuesday and I'll do you a better one than I'd have done now.\"",
+    "She holds a plate up to the safelight for a second and puts it into the dish.",
+    "\"It's not a likeness. A mirror's a likeness. This is what you were like.\"",
+    "She moves the stool about two inches and does not explain the two inches.",
+    "\"Chrome Court's four doors down. I know. They send me a lot of trade.\"",
+    "She looks at the sky through the studio glass for a long moment, judging something.",
+    "\"That one's not for sale, it's not for showing, and it's on the wall because it's the best thing I've done.\""
+  ],
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Tuesday, then. Earlier if it's bright.\""
+    },
+    "chrome": {
+      "options": [
+        {
+          "label": "Do they know why they're here?",
+          "next": "chrome_know"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They come the day before, mostly,\" she says. \"Sometimes two days. It's in the diary as a word and the word is usually the same word.\"\n\nShe closes the ledger without hurrying.\n\n\"Nobody has ever said to me that is why they are here. Not once, in twenty years. They book a sitting, they sit very straight, and they ask, at the end, how long the print will last.\""
+    },
+    "chrome_know": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They know,\" she says.\n\nShe puts the pen down, which she does not often do.\n\n\"Whatever comes back out of that building is going to have this face on it. It will have this face for the rest of its life and it will be a very good face and it will not be this one. They know that perfectly well and they have decided, and then they walk down here and spend a week's money on a piece of paper.\"\n\nA pause.\n\n\"I don't ask and I don't charge them less. Both of those would be me having an opinion about it, in the room, while they sit there. That's not what they came for.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People say things during a four-minute exposure,\" she says. \"They can't move and they can't leave and they get bored, and bored is when it comes out.\""
+    },
+    "light": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"North,\" she says, and points at the ceiling. \"The whole slope, facing away from the sun, which everybody thinks is a mistake until it's explained once.\"\n\nShe holds a hand up, flat, and turns it.\n\n\"Sunlight moves and it's hard and it puts a shadow under everything a face has. North light doesn't move all day and it has no edge in it. You can't buy it, you can't fake it with a lamp, and you can't put it in somewhere that wasn't built for it. That roof is the business. The camera's a box.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Cards, plates, a sitting.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Why is the roof facing that way?",
+          "next": "light"
+        },
+        {
+          "label": "Who books a sitting?",
+          "next": "chrome"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just looking at the case.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sittings by arrangement, and the arrangement is the weather.\" She does not get up. \"If it's bright I can do you today. If it isn't I'll do you Tuesday and it'll be better, and I'd rather you had the better one.\"",
+      "text_by_relation": {
+        "familiar": "She has the plate box out and the stool already moved before you have got the door shut, and she glances at the roof once.\n\n\"Good light,\" she says. \"Twenty minutes of it. Don't take your coat off, it's right as it is.\"",
+        "first": "The woman at the desk looks at your face for about two seconds longer than is comfortable, and then does not look at it again.\n\n\"Benedetta Salis.\" She turns the ledger round. \"Sittings by arrangement, and what I'm arranging is the weather rather than my time. Bright, and it's today. Not bright, and it's Tuesday, and Tuesday will be better.\"\n\nShe finds a pen.\n\n\"Don't smile. You can. Nobody ever has been glad of it.\"",
+        "known": "\"You.\" She glances up at the roof glass. \"It's flat out there. Come back when it isn't, or sit today and don't complain to me about it in a year.\""
+      }
+    }
+  }
+}

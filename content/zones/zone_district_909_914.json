@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#2a1c25",
+  "color": "#b96f96",
+  "description": "Flowers on the pavement in galvanised buckets, three deep, pulled in at dusk. Half the trade is the park across the road: people take a stem over to the statue's plinth and leave it there, and the shop has never once explained who started that or why. The window is mostly wreath frames. The sign is painted in a loopy hand and nobody has ever asked the owner whether the name is deliberate.",
   "exits": {
-    "east": "zone_district_910_914",
     "north": "zone_district_909_913",
-    "south": "zone_district_909_915",
-    "west": "zone_district_908_914"
+    "south": "zone_floristgump_shop"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Florist Gump",
+    "building_type": "boutique",
+    "district": "commercial",
+    "entrance": "north",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_909_913"
   },
   "grid_x": 909,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_909_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "FW",
+  "name": "Florist Gump",
   "parent_zone": null
 }

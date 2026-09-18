@@ -1,0 +1,9 @@
+{
+  "a": "zone_reel_foyer",
+  "b": "zone_reel_box",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_reel_foyer_up_g49e",
+  "lockable": false,
+  "one_way": false
+}

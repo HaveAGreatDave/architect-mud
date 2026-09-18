@@ -331,7 +331,15 @@ export function isRuntimeResidueId(table, id) {
 // they have no table and never reach the database: `npm run models:bake` compiles them into
 // client/shared/building-models.js, which the renderer imports. The CODEX pipeline must therefore
 // leave them alone, and `shapes:smoke` owns their gate instead of `content:lint`.
-export const NON_TABLE_DIRS = new Set(['map', 'building_models', 'vehicle_models']);
+//
+// ⚠ EVERY `*_models` DIRECTORY IS ONE OF THESE, AND A NEW ONE MISSING FROM THIS SET BLOCKS THE
+// WHOLE PIPELINE rather than just itself. `content/fauna_models/` (scripts/shapes/bake-fauna.mjs →
+// client/shared/fauna-models.js, "the sibling of vehicles:bake, for the animals") shipped without
+// its word here, and the result is not a warning about fauna — `content:lint` and `content:import`
+// both refuse outright, for everybody, on every table. The three that were listed have the same
+// shape: hand-authored, versioned in git, baked into a module, never a row. Add the word in the
+// same commit as the directory.
+export const NON_TABLE_DIRS = new Set(['map', 'building_models', 'vehicle_models', 'fauna_models']);
 
 // ── Asset refs ──────────────────────────────────────────────────────────────
 //

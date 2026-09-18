@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2d2822",
+  "description": "A front hall with a counter cut into what used to be the parlour wall, a bell on it, and a ledger open at today. Keys hang on a board of numbered hooks, about half of them occupied. The lino is patterned to hide wear and does, up to a point about four feet inside the door where it gives up entirely.",
+  "exits": {
+    "east": "zone_restassured_room_a",
+    "south": "zone_district_900_905",
+    "west": "zone_restassured_room_b"
+  },
+  "flags": {
+    "building_name": "Rest Assured",
+    "building_type": "residential",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_restassured_hall",
+  "map_id": "map_int_restassured",
+  "name": "Rest Assured — Front Hall",
+  "parent_zone": "zone_district_900_905"
+}

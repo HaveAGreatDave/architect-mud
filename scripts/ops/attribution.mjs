@@ -161,6 +161,77 @@ export async function worldLoadsPerDay({ days = 7 } = {}) {
 }
 
 /**
+ * World reloads caused by the content deploy — the ones the cold-start count
+ * structurally cannot see.
+ *
+ * Every scheduled deploy-content run POSTs RENDER_DEPLOY_HOOK_URL, Render
+ * restarts the service, and the server cold-loads the entire boot payload. That
+ * is a world load in every sense this model cares about. `coldStartsPerDay`
+ * misses all of them: it is derived from GAPS in Render's /metrics/cpu timeline,
+ * and a deploy restart leaves no meaningful gap because the replacement instance
+ * comes straight back up. Measured 2026-09-17 — Render's timeline said 0.30
+ * loads/day while the workflow was deploying four times a day.
+ *
+ * Leaving them out understated modelled egress by more than 10x on a quiet
+ * cycle, which broke the divergence check in the worst way available: it read
+ * "something OTHER than boot is leaking" on every single run, when the leak WAS
+ * boot, once per deploy. A signal that cannot change is not a signal, and this
+ * one had been stuck for weeks.
+ *
+ * The count is exact rather than inferred. The deploy workflow's last step
+ * writes one `deployments` row per successful deploy with deployed_by='ci'. The
+ * devpanel's staging publisher writes to the same table but stamps a person's
+ * name and never touches the Render hook, so that filter is the whole
+ * distinction between "content changed" and "the world was reloaded".
+ *
+ * ⚠ IT IS ADDITIVE, DELIBERATELY. If a deploy restart ever does register as a
+ * CPU-timeline gap, this double-counts it — bounded by deploysPerDay, and in the
+ * safe direction. The same argument that makes player_count_log's undercount the
+ * dangerous error for a budget alarm makes a small overcount the tolerable one.
+ */
+export async function deployReloadsPerDay({ days = 7 } = {}) {
+  // One query. The window start is clamped to the table's own first row, or a
+  // young table divides a real count by a span it was never observed over and
+  // reports a rate below the truth — the dangerous direction again.
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS deploys,
+            EXTRACT(EPOCH FROM (NOW() - GREATEST(
+              NOW() - ($1 || ' days')::interval,
+              COALESCE((SELECT MIN(deployed_at) FROM deployments), NOW())
+            ))) / 86400 AS observed_days
+       FROM deployments
+      WHERE deployed_by = 'ci'
+        AND deployed_at > NOW() - ($1 || ' days')::interval`,
+    [String(days)],
+  );
+  const deploys = rows[0]?.deploys ?? 0;
+  const observedDays = Number(rows[0]?.observed_days ?? 0);
+  return { deploys, observedDays, deploysPerDay: deployRate(deploys, observedDays) };
+}
+
+/**
+ * The rate arithmetic, kept pure so `npm run ops:smoke` can hold it to account
+ * without a database. The 0.5-day floor stops a table only hours old from
+ * reporting a wild per-day figure off one row.
+ */
+export function deployRate(deploys, observedDays) {
+  return deploys / Math.max(Number(observedDays) || 0, 0.5);
+}
+
+/**
+ * How many times a day the whole boot payload is read off Neon.
+ *
+ * Two independent causes, counted from two independent sources: an idle instance
+ * spinning back up, and a deploy rebooting it. Returns null only when NEITHER is
+ * known — a null here zeroes the modelled egress and silently disarms the
+ * divergence check, so it must never stand in for "one of the two was missing".
+ */
+export function combineLoads(coldStartsPerDay, deploysPerDay) {
+  if (coldStartsPerDay === null && deploysPerDay === null) return null;
+  return (coldStartsPerDay ?? 0) + (deploysPerDay ?? 0);
+}
+
+/**
  * Storage trend from the table the server already keeps.
  *
  * server/usage-log.js has been snapshotting pg_database_size + the top 20 tables
@@ -210,18 +281,29 @@ export async function storageTrend({ days = 30 } = {}) {
  * does not depend on the game server having booted at all.
  */
 export async function collectAttribution({ days = 7, coldStartsPerDay = null } = {}) {
-  const [payload, loads, storage] = await Promise.all([
+  const [payload, loads, storage, deploys] = await Promise.all([
     bootPayload(),
     worldLoadsPerDay({ days }),
     storageTrend(),
+    // A database without the deployments table — a fresh local one — degrades to
+    // the old cold-starts-only model rather than taking the whole report down.
+    deployReloadsPerDay({ days }).catch(() => null),
   ]);
-  const usePerDay = coldStartsPerDay ?? loads.loadsPerDay;
+  const coldPerDay = coldStartsPerDay ?? loads.loadsPerDay;
+  const deploysPerDay = deploys?.deploysPerDay ?? null;
+  const usePerDay = combineLoads(coldPerDay, deploysPerDay);
   const resolved = {
     ...loads,
     loadsPerDay: usePerDay,
-    source: coldStartsPerDay !== null ? 'Render CPU timeline' : 'player_count_log gaps (undercounts — see note)',
+    coldStartsPerDay: coldPerDay,
+    deploysPerDay,
+    source: [
+      coldPerDay === null ? null
+        : coldStartsPerDay !== null ? 'Render CPU timeline' : 'player_count_log gaps (undercounts — see note)',
+      deploysPerDay === null ? null : 'deployments rows',
+    ].filter(Boolean).join(' + ') || 'unknown',
     fallbackComparison: coldStartsPerDay !== null ? loads.loadsPerDay : null,
   };
   const modelledEgressPerDay = usePerDay !== null ? payload.totalBytes * usePerDay : null;
-  return { payload, loads: resolved, storage, modelledEgressPerDay };
+  return { payload, loads: resolved, deploys, storage, modelledEgressPerDay };
 }

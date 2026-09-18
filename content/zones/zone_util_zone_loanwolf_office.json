@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A low utility room under the shop: bare brick, a concrete floor that slopes to a drain, and the building junction box humming in its steel cabinet. Tidier than any other cellar on the street, swept, dry, with the box strapped shut and a second lock on it that is not a fitting the building came with.",
+  "exits": {
+    "up": "zone_loanwolf_office"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_917_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_loanwolf_office",
+  "map_id": "map_int_loanwolf",
+  "name": "Loan Wolf — Utility Room",
+  "parent_zone": "zone_district_917_913"
+}

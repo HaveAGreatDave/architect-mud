@@ -1,0 +1,19 @@
+{
+  "description": "Bodies wound out of tow and wire hanging from ceiling hooks, each one the shape of an animal with no outside on it. Turning slightly in the draught from the door. They are the part of the trade that unsettles people and the part she is proudest of, and she has noticed that those go together.",
+  "flags": {
+    "aliases": "forms,tow,wire,shapes,hooks",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stuffit_forms",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the hanging forms",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_stuffit_work"
+}

@@ -95,6 +95,7 @@ async function hydrate() {
           'SELECT zone_id, target_zone_id, target_name, author_id, author_handle, text, style, day_index FROM zone_graffiti'
         );
         for (const r of rows) {
+          indexTag(r.zone_id, r.target_zone_id);
           tags.set(r.zone_id, {
             text: r.text, style: Array.isArray(r.style) ? r.style : null,
             authorId: r.author_id, authorHandle: r.author_handle,
@@ -134,9 +135,93 @@ export function tagAt(zoneId, today = gameToday()) {
 /** Remove the tag on a tile. Returns what was there, or null. Used by `clean`. */
 export async function removeTag(zoneId) {
   const had = tagAt(zoneId);
+  // ⚠ `byBuilding` IS DELIBERATELY NOT PRUNED HERE. It is a hint whose every entry is checked
+  // back through `tagAt` before it is used, so a scrubbed wall drops out of the render on the
+  // next snapshot with no second delete path to keep in step with this one.
   tags.delete(zoneId);
   if (had) await query('DELETE FROM zone_graffiti WHERE zone_id=$1', [zoneId]).catch(() => {});
   return had;
+}
+
+
+// --- What the windshield paints ---------------------------------------------
+//
+// ⚠ A TAG HAS ALWAYS BEEN KEYED ON THE TILE THE PLAYER STOOD ON, AND THE RENDERER NEEDS THE TILE
+// THE PAINT IS ON. Those are different zones — `target_zone_id` is the facade, `zone_id` is the
+// pavement in front of it — and the flight window derives its cells building by building, so the
+// question it asks is "what is on THIS wall", which the `tags` map cannot answer without a scan.
+// A scan is out: `deriveSurfaceCell` runs for every cell of a ~73×73 window.
+//
+// ⚠ THE INDEX IS A HINT AND THE READ RE-VALIDATES, which is what makes it safe to keep a second
+// copy of a relationship at all. `tags` has three writers and `_test` hands the map out whole, so
+// an index maintained beside it can go stale; every id it yields is therefore checked back through
+// `tagAt` — the one function that already owns expiry — and a stale entry drops out rather than
+// painting a wall somebody scrubbed. Over-listing is harmless; wrong-listing is impossible.
+const byBuilding = new Map();   // buildingZoneId -> Set<streetZoneId>
+
+function indexTag(streetId, targetZoneId) {
+  if (!targetZoneId) return;
+  let s = byBuilding.get(targetZoneId);
+  if (!s) { s = new Set(); byBuilding.set(targetZoneId, s); }
+  s.add(streetId);
+}
+
+// The inverse of `esc`. The table stores text ESCAPED because it lands in a stranger's room
+// description as HTML; a canvas takes the characters the player actually typed.
+// ⚠ `&amp;` LAST, or "&amp;lt;" — which is what somebody typing "&lt;" gets stored as — decodes
+// into a "<" that was never sprayed.
+const unesc = (s) => String(s ?? '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+
+// At most this many tags on one facade. A building tile has four sides and each can only carry the
+// one tag its own street tile holds, so this is already the ceiling — it is here so that a corrupt
+// index can never hand the renderer an unbounded list to bake textures from.
+const WALL_TAGS_MAX = 4;
+
+/**
+ * `wall.tags` — what is sprayed on this building, for the flight window to paint.
+ *
+ * ⚠ SYNC AND QUERY-FREE BY CONTRACT, the same as `tagAt` and for a harder reason: this is called
+ * from `deriveSurfaceCell`, which derives thousands of cells per snapshot. It is gated there on the
+ * tile being a building, and it does one Map lookup for the tiles that are.
+ *
+ * ⚠ AND IT SPEAKS A NORMAL, NOT A COMPASS POINT. The renderer builds the tag's whole local frame by
+ * handing `facePt` the wall's outward vector in place of the entrance's, so a direction is the one
+ * thing it needs and a name would only have to be turned into one at the far end. It is derived
+ * here because here is where both grid positions exist.
+ */
+// ⚠ `bx`/`by` ARE ARGUMENTS BECAUSE THE CALLER S CELL HAS NO GRID ON IT. The flight window looks
+// tiles up through a coord index that stores `{ id, name, flags, danger }` and nothing else, so
+// `zone.grid_x` is undefined there — and a normal derived from undefined is a wall that quietly
+// never gets painted. The caller passes the coordinates it indexed by; the zone s own fields are
+// the fallback for a caller holding a real row.
+function wallTags(zone, gx, gy) {
+  hydrate();
+  const ids = zone && byBuilding.get(zone.id);
+  if (!ids || !ids.size) return undefined;
+  const bx = gx ?? zone.grid_x, by = gy ?? zone.grid_y;
+  if (bx == null || by == null) return undefined;
+  const out = [];
+  for (const streetId of ids) {
+    if (out.length >= WALL_TAGS_MAX) break;
+    const t = tagAt(streetId);
+    if (!t || t.targetZoneId !== zone.id) continue;     // scrubbed, weathered, or painted over
+    const s = getZone(streetId);
+    if (!s || s.grid_x == null || s.grid_y == null) continue;
+    const dx = s.grid_x - bx, dy = s.grid_y - by;
+    // An interior tag is keyed on the room it is in, so it has no offset and no facade — and a
+    // diagonal is not a thing the exit graph can produce. Either way there is no wall to paint.
+    if ((dx === 0 && dy === 0) || (dx !== 0 && dy !== 0)) continue;
+    const len = Math.hypot(dx, dy);
+    out.push({
+      t: unesc(t.text).slice(0, TAG_MAX_LEN),
+      r: Array.isArray(t.style) && t.style.length ? t.style : undefined,
+      n: [dx / len, dy / len],
+      // The variant only has to differ between two tags on one building, so that two walls of the
+      // same word do not get the identical wobble. The street tile is already that.
+      v: (String(streetId).split('').reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) | 0, 7) & 0xffff),
+    });
+  }
+  return out.length ? out : undefined;
 }
 
 // --- Finding a wall ---------------------------------------------------------
@@ -230,6 +315,7 @@ async function doTag(args, raw, player) {
 // The row write, shared by the player's hand and the world's. Kept in one place
 // so the RAM map and the table can never disagree about what is on a wall.
 async function persistTag(zoneId, entry) {
+  indexTag(zoneId, entry.targetZoneId);
   tags.set(zoneId, entry);
   await query(
     `INSERT INTO zone_graffiti (zone_id, target_zone_id, target_name, author_id, author_handle, text, style, day_index)
@@ -512,6 +598,7 @@ function describeTag(zone) {
 
 export const hooks = {
   'zone.describeRoom': describeTag,
+  'wall.tags': wallTags,
 };
 
 export const commands = {
@@ -522,6 +609,6 @@ export const commands = {
   spraydel: doSprayDelete,
 };
 
-export const _test = { wallsNear, pickWall, expired, tags, hydrate, esc, applyTag, paintedText };
+export const _test = { wallsNear, pickWall, expired, tags, hydrate, esc, applyTag, paintedText, wallTags, byBuilding, unesc };
 
 console.log('[graffiti] Plugin loaded.');

@@ -1,0 +1,331 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Winnie counts a bag of coppers by weight, folds the top over twice, and slides it under the glass.",
+    "She taps the side of the second pusher with a knuckle as she goes past, the way you would a horse.",
+    "\"Third one along's honest tonight. I'd not say that if it wasn't.\"",
+    "She writes something in a notebook and turns the page so you cannot see the column.",
+    "\"The claw's a claw, love. It's not a promise.\"",
+    "She reaches under the counter without looking and comes up with a screwdriver.",
+    "\"Don't sit on the pushers. I've said it to three generations of the same family.\"",
+    "The noise of the room changes as a cabinet gives up. She listens, sighs, and writes that down too.",
+    "\"That one at the back takes your coin and shouts at you. That's all it does. It's written on the tape.\"",
+    "She fills the scoop with coppers and does not look at how many, because she never has to.",
+    "\"My husband put these in. He's dead and they're not, and I've made my peace with the arithmetic.\"",
+    "She wipes the glass of the claw case with her sleeve, which makes it worse, which she knows.",
+    "\"Come in out of it for a bit. Nobody's going to make you spend anything.\"",
+    "She turns the notebook back over and puts a rubber band round it.",
+    "\"It's not a machine that pays. It's a machine that stops taking for a while. Learn the difference and you'll be all right.\"",
+    "She lets a child behind the counter for exactly four seconds, to look, and then out again."
+  ],
+  "description": "A small round woman somewhere past eighty in a quilted housecoat, sitting in a steel cage the size of a wardrobe with a notebook, a screwdriver and an electric fire at her feet. She is the warmest person on this street by a distance and also the only one who will tell you, unprompted and accurately, which of her own machines are worth your money tonight and which are not. She has never played any of them.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the step on the way out. It's not a step, it's the pavement, and it gets everybody.\""
+    },
+    "dead": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The back room.\" She says it comfortably. \"Nine of them in there with their backs off. People think it's sad. It isn't sad, it's how anything still works.\"\n\nShe taps the counter.\n\n\"Every one of those nine is keeping two out here alive. When the last board comes out of the last one I'll shut, and not before, and I've worked out roughly when that is and I'd rather not say it out loud.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everybody stands in front of a machine and talks to it,\" she says. \"Half of them forget I'm a person and not a fitting. I hear a great deal.\""
+    },
+    "honest": {
+      "options": [
+        {
+          "label": "Why tell me?",
+          "next": "honest_why"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Third cabinet along and the near pusher,\" she says, without lowering her voice. \"Those two are right tonight. The far pusher's been shoved and it's sitting funny and I've not had the front off it yet. The claw is the claw.\"\n\nShe takes her glasses off and polishes them on the housecoat.\n\n\"The five at the back take your money and give you a noise. It says so on the tape along the top. I wrote the tape.\""
+    },
+    "honest_why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because they're going to find out in about four minutes,\" she says, \"and then they'll be somebody who got had, in a room with an old woman in a cage, and they'll not come back.\"\n\nShe puts the glasses on.\n\n\"Whereas if I say it first, they spend the same money on the one that's honest, they lose it anyway, and they come in again Thursday. It's not kindness. It's just that being straight is cheaper than being clever and I've had a long time to notice.\"\n\nA pause, and something a bit rueful.\n\n\"It is also kindness. I'd rather you didn't tell anybody.\""
+    },
+    "pushers": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's never going to fall,\" she says, cheerfully. \"Not all of it. It's been about to fall since before you were born and that's the machine working exactly as it was built to.\"\n\nShe nods at the cliff of coppers leaning out over the drop.\n\n\"There's a lip under there you can't see and a bit of felt and the whole front two inches is glued. That's not a secret, it's an engineering drawing, and anybody could ask. Nobody asks. They stand there and they watch it not fall and they put another one in.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Which ones are worth it tonight?",
+          "next": "honest"
+        },
+        {
+          "label": "Coppers and tokens.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Is that pile ever going to fall?",
+          "next": "pushers"
+        },
+        {
+          "label": "What's the back room?",
+          "next": "dead"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just sheltering.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in, come in, there's no door to shut.\" She is already reaching for the scoop. \"Coppers or tokens? And before you spend anything, ask me which ones are worth it, because I'll tell you and I'll tell you honestly.\"",
+      "text_by_relation": {
+        "familiar": "She has the bag folded and under the glass before you have got your hand out of your pocket, and there is a little more in it than there should be.\n\n\"The near pusher,\" she says. \"Tonight. Don't hang about, I've said it to two other people and one of them was listening.\"",
+        "first": "The old woman in the cage puts down a screwdriver and looks genuinely pleased, which takes a moment to adjust to.\n\n\"Hello, love. Winnie Alabaster. Coppers under the glass, tokens in the dish.\" She taps the card over the scoop without turning round. \"No refunds, no tilting, and don't sit on the pushers, and that last one I mean.\"\n\nShe leans forward slightly, confidentially, at a volume the whole room can hear.\n\n\"And before you spend anything: ask me which of them are honest tonight. I'll tell you. I always tell you.\"",
+        "known": "\"There you are.\" She is already weighing a bag. \"Third along and the near pusher. The rest of it's decoration tonight.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a quilted housecoat in a floral that was loud forty years ago",
+      "two cardigans, because the cage is on the street side",
+      "thick stockings and slippers with the backs trodden down"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_penny_donors",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_penny_alabaster",
+  "name": "Winnie Alabaster",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_penny_token",
+      "price": 2
+    },
+    {
+      "item_id": "item_penny_bag",
+      "price": 20
+    },
+    {
+      "item_id": "item_penny_toy",
+      "price": 15
+    }
+  ],
+  "vendor_restock_rate": 5,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 12,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 12,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 12,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 12,
+        "to": 24
+      }
+    ],
+    "fri": [
+      {
+        "from": 12,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 12,
+        "to": 26
+      }
+    ],
+    "sun": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": "The Penny Drops",
+  "vendor_stock_size": 16,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_penny_floor"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "A pendant lamp with a shade of pressed glass, wiped often enough that you can tell somebody cares and not often enough to be clean.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_restassured_hall",
+  "light_type": "lamp",
+  "lumen_output": 1000,
+  "name": "hall pendant",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_restassured_hall"
+}

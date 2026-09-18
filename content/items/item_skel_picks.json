@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_skel_picks",
+  "name": "a rolled pick set",
+  "tags": {
+    "description": "Nine picks and three tension wrenches in a canvas roll, ground by him out of hacksaw blade, which is better steel than anything sold as a pick. The roll ties with a leather thong. He sells about four a year and asks each buyer nothing at all."
+  },
+  "type": "misc",
+  "value": 220,
+  "weight": 140
+}

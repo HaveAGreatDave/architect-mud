@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_fineprint_room",
+  "id": "zone_fineprint_room",
+  "max_capacity_kw": 200,
+  "name": "Fine Print — The Reading Room",
+  "source_type": "city_grid"
+}

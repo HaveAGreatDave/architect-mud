@@ -1,0 +1,19 @@
+{
+  "description": "A drawer in the desk with the money in it and, on top of the money, a folded list in her handwriting of about nine names, each with a figure beside it and a line through the figure. The list is longer every year and she does not appear to regard it as a problem.",
+  "flags": {
+    "aliases": "till,cash,money,box",
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_paws_tiplady",
+    "vendor_safe": true
+  },
+  "hp": 160,
+  "hp_max": 160,
+  "id": "furn_paws_till",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the fees drawer",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_paws_wait"
+}

@@ -1,0 +1,112 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "150,220,130",
+      "s": 13,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Compost Mentis"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 7,
+      "cx": 0,
+      "cy": 0.42,
+      "depth": 0.01,
+      "glass": "#16210f",
+      "glow": "#cfeeb0",
+      "half": 0.34,
+      "hh": 0.014,
+      "kind": "windowBay",
+      "pal": "ty_fallow",
+      "z": 0.07
+    },
+    {
+      "color": "#1a2a12",
+      "cx": 0,
+      "cy": 0.42,
+      "font": "script",
+      "half": 0.2,
+      "hh": 0.022,
+      "ink": "#bde79a",
+      "kind": "signBoard",
+      "label": "COMPOST MENTIS",
+      "z": 0.15
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.36,
+      "d": 0.07,
+      "hh": 0.03,
+      "kind": "binStack",
+      "n": 3,
+      "pal": "ty_fallow_canvas",
+      "w": 0.08,
+      "z": 0.005
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.42,
+      "drip": 0.5,
+      "hh": 0.02,
+      "kind": "vent",
+      "pal": "ty_fallow_canvas",
+      "w": 0.08,
+      "z": 0.12
+    }
+  ],
+  "id": "compostmentis",
+  "neon": "#8fd46a",
+  "note": "The last building on this side before the ground gives up and goes to grass, and the only one on Foundry Way with any glass to speak of: a long LOW span of it, about a third replaced with mismatched panes and a couple of panels of bare board where the glass lost. One storey and nearly all roof, which is why the mass is a shallow box under a barrel rather than a storey stack.",
+  "pal": "ty_fallow",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.22
+    },
+    {
+      "archH": 0.13,
+      "base": [
+        164,
+        186,
+        150
+      ],
+      "cx": 0,
+      "cxL": 0,
+      "cy": 0,
+      "hl": 0.42,
+      "hw": 0.4,
+      "kind": "barrel",
+      "nf": 10,
+      "pal": "ty_fallow_canvas",
+      "z0": 0.22
+    }
+  ],
+  "trade": "greenhouse"
+}

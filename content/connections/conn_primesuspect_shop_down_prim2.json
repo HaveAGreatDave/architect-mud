@@ -1,0 +1,9 @@
+{
+  "a": "zone_primesuspect_shop",
+  "b": "zone_util_zone_primesuspect_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_primesuspect_shop_down_prim2",
+  "lockable": false,
+  "one_way": false
+}

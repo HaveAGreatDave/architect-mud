@@ -1,0 +1,25 @@
+{
+  "description": "Thirty feet of perforated white sheet in a black masking frame, stretched on a curve so the sides come toward you. Close up it is a wall of tiny holes with the speakers audible behind it. From row F it is not a sheet at all, and it has been doing that to people for sixty years.",
+  "flags": {
+    "aliases": "screen,picture,sheet",
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 0,
+    "tuned_channel": 0,
+    "tv": true,
+    "tv_dial_freq": 0,
+    "interactions": [
+      "watch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_screen",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the screen",
+  "object_type": "tv",
+  "power_draw_kw": 0.4,
+  "price": null,
+  "zone_id": "zone_reel_house"
+}

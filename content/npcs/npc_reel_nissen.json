@@ -1,0 +1,408 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Nissen licks a thumb, turns a page of the ledger, and writes a number in the right-hand column.",
+    "He winds the ticket roll on by one and tears the stub off square.",
+    "He steps out from behind the kiosk, looks at the carpet, and steps back in.",
+    "He counts the float. It takes him about four seconds and he does not move his lips.",
+    "He takes the letter tray down, looks in it, and puts it back without taking anything out.",
+    "He straightens the card in the glass. It was straight.",
+    "\"Eight o'clock,\" he says, to the door. \"It says eight o'clock on the board.\"",
+    "\"That's rates,\" he says, tapping a figure. \"That's not the film. People always think it's the film.\"",
+    "\"Second floor's late again.\" He does not look up. \"Second floor is always late and second floor always pays.\"",
+    "\"Row F,\" he says. \"If you're on your own, row F. I'm not going to explain it, just sit there.\"",
+    "He listens to the ceiling for a moment. The reel is turning. He goes back to the page.",
+    "\"The corn's fresh. The choc ice is a gamble. I'm telling you that before you buy it, not after.\"",
+    "\"No, I don't do matinees. There isn't the trade and there isn't the carbon.\"",
+    "He wipes the brass dish with the side of his hand, which does nothing, and which he does anyway.",
+    "\"It's a bad film,\" he says, apropos of nothing. \"I've never said otherwise. It's the print I've got.\"",
+    "\"Somebody left a scarf in 1997 and it's still in the lost property tin. It'll be there when I'm not.\"",
+    "He takes his glasses off, holds them up, puts them back on unpolished.",
+    "\"People ask if it's haunted. It's a building. It's got mice.\"",
+    "\"You want the organ? Nobody wants the organ. Go on, then.\"",
+    "He looks at the clock, then at the door, then at the clock, in that order, and gets on with the books."
+  ],
+  "description": "A narrow, dry man of about sixty in a cardigan with the elbows gone shiny, sitting on the stool in the kiosk with a ledger open on the shelf in front of him. He has the flat, unhurried manner of a landlord doing sums, which is what he mostly is: the flats upstairs are his, the shop next door is his, and the cinema is the hole all of it goes into. He is entirely unsentimental about films. He can tell you what one costs him to show, to the credit, without looking it up.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\" He finds his place in the ledger with a finger and is gone before you've turned round."
+    },
+    "close": {
+      "options": [
+        {
+          "label": "Then why don't you?",
+          "next": "close_why"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Every quarter,\" he says. \"I do the figures every quarter and every quarter the figures say shut it, and they're right. It's not close. It isn't a hard sum.\"\n\nHe turns the ledger round so you can see it, which nobody has ever asked him to do.\n\n\"That's the flats. That's the shop. That's this. The flats and the shop carry this and they carry it easily, so it isn't as if I'm ruining anybody. But it is a hole and I dug it and I go on digging it.\""
+    },
+    "close_why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He turns the ledger back round.\n\n\"I don't know,\" he says.\n\nA pause, and he's clearly decided that's not good enough, and is annoyed about it.\n\n\"My father had it. That's the answer people want and it's not the answer, because I didn't like him and I don't miss him. I've thought about it. I've had a long time to think about it and a very quiet building to think in.\"\n\nHe squares the pencil against the spine of the book.\n\n\"Best I can do is this. There are two people in that room most nights and they don't know each other and they never speak, and if I shut it they'd be two people at home. That's it. That's the whole of it. It's not worth what it costs and I'm not going to pretend it is.\""
+    },
+    "film": {
+      "options": [
+        {
+          "label": "Sloat says the film's a crime.",
+          "next": "film_sloat"
+        },
+        {
+          "label": "Why that one?",
+          "next": "film_print"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Meter Reader,\" he says. \"Eight o'clock. Ninety-four minutes, and about eleven of them are good.\"\n\nHe says it the way you'd read a gas meter.\n\n\"It's the one everybody's seen and the one everybody's got an opinion about. I have heard the opinion. I have heard it in this foyer at some length, more than once, and I'll tell you now I don't disagree with any of it.\""
+    },
+    "film_print": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because it's the print I've got,\" he says. \"That's the whole of the reason. There are nine cans downstairs with film still on them and four of those are this, because somebody ordered spares in a year when people thought there'd be spares needed.\"\n\nHe shrugs, one shoulder.\n\n\"The rest have gone to vinegar or they're shorts about crop rotation. I run what I can thread. It isn't programming, it's inventory.\""
+    },
+    "film_sloat": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "film"
+        }
+      ],
+      "text": "\"Sloat,\" he says, and there is a very small pause that does a lot of work. \"Sloat is right. That's what's annoying about Sloat.\"\n\nHe turns a page.\n\n\"Twenty-four pages of that book are blank forms and the man who made the film couldn't work out what to do with them, so he cut them, and the thing that was actually good about it went in the bin. Sloat has explained this to me. Sloat has explained it to me sitting in row F, during it.\"\n\nA beat.\n\n\"He still comes. Every fortnight, near enough. Don't tell him I said so.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I let four flats and I sit in a glass box by the front door,\" he says. \"I hear a fair amount and I repeat about a tenth of it.\""
+    },
+    "organ": {
+      "options": [
+        {
+          "label": "Does it work?",
+          "next": "organ_works"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Wurlitzer.\" He nods at the auditorium doors. \"Three manuals, twelve ranks, and a lift under it that's been down since before I had the building.\"\n\nHe goes back to the page.\n\n\"I've had one offer for it and it was a serious offer and I said no, and that was a worse piece of business than anything else I've done in here. Go and play it if you like. It's not locked. Nothing in this building is locked except the box and the till.\""
+    },
+    "organ_works": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It works,\" he says. \"It's out of tune with itself in about three places and the tremulant sticks, and if you hold a low note long enough the blower downstairs starts making a noise like an argument.\"\n\nHe licks a thumb and turns the page.\n\n\"Don't let that stop you. It's a hundred and eighty empty seats and a machine designed to fill them with noise. That's not a thing you leave alone out of politeness.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's on?",
+          "next": "film"
+        },
+        {
+          "label": "Tickets and the counter.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's the organ?",
+          "next": "organ"
+        },
+        {
+          "label": "You're selling the seats?",
+          "next": "seats"
+        },
+        {
+          "label": "Why not just close it?",
+          "next": "close"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Evening.\" He turns the ledger face down, which is as close as he gets to giving you his attention. \"One price, and it's on the card. Corn's fresh, choc ice is a gamble.\"",
+      "text_by_relation": {
+        "familiar": "He's already reaching for the roll before you're through the doors, and he tears one off and puts it in the slot without being asked.\n\n\"Row F,\" he says. \"I've kept it clear. Don't make anything of it.\"",
+        "first": "The man in the kiosk looks up over a pair of glasses that have been mended at one hinge with fuse wire.\n\n\"Evening. Gower Nissen, this is mine.\" He says it the way a man says it about a building rather than about a business. \"One price, it's on the card, and it's eight o'clock. The board outside says eight o'clock and the board is correct.\"\n\nHe goes back to the ledger, then stops, and adds, without warmth but not unkindly:\n\n\"First time, sit in row F. Don't ask.\"",
+        "known": "\"You again.\" He turns the ledger face down. \"Same as last time, or are we branching out?\""
+      }
+    },
+    "seats": {
+      "options": [
+        {
+          "label": "How many have you got?",
+          "next": "seats_many"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I've got a hundred and eighty seats and an average house of two,\" he says, without any particular expression. \"You do that sum however you like, I've done it my way.\"\n\nHe taps the ledger.\n\n\"They come off the standards in about a minute with the right spanner. Cast frame, sprung bottom, best chair you'll ever own, and I'll sell you as many as you can carry, which is one.\""
+    },
+    "seats_many": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Enough,\" he says. \"Rows A through E and G through N. That's what's for sale.\"\n\nHe looks at you for the first time in the conversation.\n\n\"Row F is not for sale. Not the six. I'll not be talked round on it and I'll not be asked twice, and if you want to know why, come back when you've sat in one.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a brown cardigan with the elbows worn shiny",
+      "a collarless shirt buttoned at the neck, no tie",
+      "flannel trousers and slippers he changes out of to lock up"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_reel_box",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_reel_nissen",
+  "name": "Gower Nissen",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_reel_ticket",
+      "price": 18
+    },
+    {
+      "item_id": "item_reel_corn",
+      "price": 7
+    },
+    {
+      "item_id": "item_reel_choc",
+      "price": 11
+    },
+    {
+      "item_id": "item_reel_programme",
+      "price": 4
+    },
+    {
+      "item_id": "item_reel_seat",
+      "price": 90
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 18,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 18,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 18,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 18,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 18,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 18,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 18,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": "Reel Estate",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_reel_foyer"
+}

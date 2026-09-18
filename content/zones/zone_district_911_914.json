@@ -5,8 +5,7 @@
   "exits": {
     "east": "zone_district_912_914",
     "north": "zone_district_911_913",
-    "south": "zone_district_911_915",
-    "west": "zone_district_910_914"
+    "south": "zone_district_911_915"
   },
   "flags": {
     "district": "ashway",

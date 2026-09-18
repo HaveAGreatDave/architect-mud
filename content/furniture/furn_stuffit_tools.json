@@ -1,0 +1,19 @@
+{
+  "description": "A rack over the bench, tools in size order, each one sitting in a slot cut for it. Scalpels, a set of tiny scissors, wire nippers, a stuffing iron, four brushes. Two slots are empty and both of the tools that live in them are on the bench, in use, exactly where you would expect.",
+  "flags": {
+    "aliases": "tools,rack,knives,scalpels",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stuffit_tools",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tool rack",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_stuffit_work"
+}

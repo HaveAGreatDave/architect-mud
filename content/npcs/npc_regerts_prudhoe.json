@@ -1,0 +1,328 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "faction": null,
+  "home_activities": [],
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "npc_type": "vendor",
+  "id": "npc_regerts_prudhoe",
+  "name": "Nell Prudhoe",
+  "sex": "female",
+  "hp": 40,
+  "hp_max": 40,
+  "home_zone": "zone_regerts_room",
+  "work_zone_id": "zone_regerts_room",
+  "vendor_shop_name": "No Regerts",
+  "vendor_restock_rate": 3,
+  "vendor_stock_size": 10,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 13,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 13,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 13,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 13,
+        "to": 23
+      }
+    ],
+    "fri": [
+      {
+        "from": 13,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 13,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 14,
+        "to": 20
+      }
+    ]
+  },
+  "vendor_inventory": [
+    {
+      "item_id": "item_regerts_salve",
+      "price": 16
+    },
+    {
+      "item_id": "item_regerts_flash",
+      "price": 26
+    },
+    {
+      "item_id": "item_regerts_ink",
+      "price": 48
+    }
+  ],
+  "flags": {
+    "clothing_layers": [
+      "a short-sleeved black tunic, laundered, with nothing on the forearms to catch",
+      "a plain vest underneath",
+      "dark trousers and shoes that get bleached at the end of every week"
+    ],
+    "personality": "vendor"
+  },
+  "description": "A woman in her thirties with both forearms worked from wrist to elbow and a room so clean it surprises everybody who climbs the stairs expecting otherwise. She is unhurried, undramatic, and completely uninterested in talking anybody into anything. Her single professional vanity is the autoclave log, which she will show you before she will show you a design, and which she has never once been asked to see.",
+  "chitchat": [
+    "Prudhoe writes a line in the autoclave log and puts the pen back in the same place.",
+    "She snaps a fresh sheet of paper down the chair and tucks it under at both ends.",
+    "\"Sit down and look at it in the mirror first. I'll wait. I've got all afternoon and you've got the rest of your life.\"",
+    "She wipes down the counter, the tray arm and the lamp stand, in that order, which is always the order.",
+    "\"That's a nice idea for a drawing. It's a bad idea for an arm. They're different things.\"",
+    "She peels a glove off inside out and drops it without looking at the bin.",
+    "\"Come back Thursday sober and if you still want it Thursday you can have it Thursday.\"",
+    "She holds a stencil against somebody's shoulder, steps back, and moves it half an inch.",
+    "\"I don't do faces and I don't do hands and I'll tell you why if you're going to be difficult about it.\"",
+    "The machine starts, runs for eleven seconds, and stops. Nobody in the room says anything.",
+    "\"Thin layer, twice a day. If it's weeping on Friday that's normal. If it's hot, that's me and you come back.\"",
+    "She looks at somebody's existing work for a while and says, eventually, \"whoever did that knew what they were doing.\"",
+    "She checks the date on an ink bottle, puts it back, and takes a different one."
+  ],
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Thin layer. Twice a day. Go on.\""
+    },
+    "clean": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People come up those stairs past four hundred pictures expecting a den,\" she says, \"and they get a room that looks like a dentist, and I watch their face do it every time.\"\n\nShe taps the log book.\n\n\"Autoclave, logged, every cycle, dated, signed. Needles out of a sealed strip in front of you. Ink dated on the cap. None of that is a selling point, it is the minimum, and the reason it looks like a selling point is that in this city it is not the minimum.\""
+    },
+    "dots": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She glances at the stair door, amused.\n\n\"The red dots.\" She lets it sit for a second. \"Everybody who comes up twice asks. I have been asked about four hundred times and I have never answered, and I am not going to start with you.\"\n\nShe snaps a glove on.\n\n\"I will tell you this much, because it is not the answer and it will annoy you more: the dots are not about the design.\""
+    },
+    "regrets": {
+      "options": [
+        {
+          "label": "So what do you do?",
+          "next": "regrets_do"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It is spelled wrong,\" she says, before you can. \"It has been spelled wrong since nineteen years before I bought it and I have had four separate people offer to repaint it for nothing.\"\n\nShe checks a needle strip against the light.\n\n\"The man who painted it did it on purpose. He told me so himself and he told me why, and the why is the only useful thing anybody has ever said to me about this trade.\""
+    },
+    "regrets_do": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"He said: nobody walks past a sign that is spelled right.\" She shrugs. \"That is not the useful bit. The useful bit was what he said next, which is that the ones who laugh at it and come in are fine, and the ones who do not notice it are fine, and the ones who come in to tell you about it are the ones who will hate what you put on them.\"\n\nShe looks up.\n\n\"Twenty-two years. He was right every single time. It is the cheapest filter in the building and it is painted on the front of it where everybody can see it.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Somebody in that chair for three hours will tell you the whole thing,\" she says. \"All of it. And then they come back in a year and they are embarrassed, and I pretend I have forgotten, and I have not.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Flash, ink, salve.",
+          "next": "__shop__"
+        },
+        {
+          "label": "The sign's spelled wrong.",
+          "next": "regrets"
+        },
+        {
+          "label": "It's cleaner up here than I expected.",
+          "next": "clean"
+        },
+        {
+          "label": "What are the red dots?",
+          "next": "dots"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just looking at the stairs.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit down if you want, the chair's clean.\" She is wiping something that is already wiped. \"Half up front on anything over an hour. Not about the money. It is about people turning up.\"",
+      "text_by_relation": {
+        "familiar": "She has a stencil on the counter already, and it is the one you have been thinking about and have not said out loud.\n\n\"I drew it Tuesday,\" she says. \"If you hate it I'll put it on the stairs and nobody will ever know it was for you.\"",
+        "first": "A woman in black looks up from a counter she is wiping and does not stop wiping it.\n\n\"Nell Prudhoe.\" She nods at the chair. \"Sit down, look at whatever you're thinking about in that mirror, and take as long as you like. I am not going to talk you into anything, today or ever.\"\n\nShe puts the cloth down and picks up a log book.\n\n\"Before anything else: this is the autoclave log. Have a read. Nobody ever does and everybody should.\"",
+        "known": "\"You're back.\" She is already looking at the arm rather than the face. \"That's healed well. Sit down.\""
+      }
+    }
+  }
+}

@@ -1,22 +1,28 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "waterfront",
+  "color": "#a98b63",
+  "description": "A hammerhead crane on a stub of quay, yellow once and rust now, the jib swung out over the water and left there. The hook block hangs off a wire with more splices in it than wire. Somebody painted a joke down the portal leg in pink, years back, and the weather has taken all of it but the setup.",
   "exits": {
     "east": "zone_district_923_902",
     "north": "zone_district_922_901"
   },
   "flags": {
+    "building_name": "Load of Old Rope",
+    "building_type": "wharf",
     "district": "docks",
+    "entrance": "east",
+    "fishing_table_id": "fish_coldwater_bay",
+    "floors": 10,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_harbor",
+    "terrain": "concrete"
   },
   "grid_x": 922,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_922_902",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Load of Old Rope",
   "parent_zone": null
 }

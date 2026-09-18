@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A low utility room under the shop: bare brick, a concrete floor that slopes to a drain, and the building junction box humming in its steel cabinet. Three of the shelving units down here are bolted to the floor and locked, and the locks are better than anything else in the building.",
+  "exits": {
+    "up": "zone_dosed_counter"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_917_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_dosed_counter",
+  "map_id": "map_int_dosed",
+  "name": "Dosed & Confused — Utility Room",
+  "parent_zone": "zone_district_917_911"
+}

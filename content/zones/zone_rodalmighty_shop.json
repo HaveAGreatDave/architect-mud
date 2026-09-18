@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1b262b",
+  "color": "#5c8fa3",
+  "description": "Long and narrow and organised to within an inch of its life. Rods racked vertically on the left wall by length, reels in a locked case, and on the right a wall of small drawers, each labelled, holding hooks and swivels and weights down to sizes that seem theoretical. The bait fridge hums at the back beside a sink with a tidemark. It smells of cold water, old rope and, underneath that, of a fridge that has held bait for a long time.",
+  "exits": {
+    "down": "zone_util_zone_rodalmighty_shop",
+    "north": "zone_district_908_914"
+  },
+  "flags": {
+    "building_name": "Rod Almighty",
+    "building_type": "mercantile",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Nine rods stood upright in a rank with their tips against the glass, and behind them a whiteboard facing out with the week's water written on it. Past the rods, the road, and the statue with its back to you.",
+      "light": 0.85,
+      "name": "the rod window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_908_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_rodalmighty_shop",
+  "map_id": "map_int_rodalmighty",
+  "name": "Rod Almighty — Shop",
+  "parent_zone": "zone_district_908_914"
+}

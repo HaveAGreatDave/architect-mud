@@ -1,0 +1,20 @@
+{
+  "description": "A short upright pushed against the end wall with the front panel off and leaning beside it, so the whole action is on show. It is in tune, aggressively so, and there is a card on the music desk reading PLAY IT. NOT THE BLACK ONES ONLY. THAT IS NOT A TUNE.",
+  "flags": {
+    "instrument": "piano",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_treblemaker_upright",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Shop Upright",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 1400,
+  "zone_id": "zone_treblemaker_shop"
+}

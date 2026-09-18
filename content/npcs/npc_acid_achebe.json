@@ -1,0 +1,276 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Winifred puts both hands flat on the counter where they can be seen.",
+    "She swings the lamp down onto the work and back up again.",
+    "The two-way drawer goes across, and comes back, and nothing is said.",
+    "She lifts the glass case off the balance, waits for it to settle, and reads it once.",
+    "She puts a bottle back in the rack by feel, in its own slot.",
+    "\"Weight and a statement,\" she says, to somebody starting an argument. \"That's what's on the plate.\"",
+    "She wipes the stone with a cloth, and the bright streaks stay exactly as bright.",
+    "She looks up at the barred slot of window, at the weather, and back down.",
+    "She stands still with her hands flat for a while, which is what she does instead of sitting."
+  ],
+  "description": "A contained, unreadable woman who has made herself deliberately boring to watch, because everything she does is watched. She wears nothing on her hands and nothing with pockets, which is the first thing regulars notice and the last thing anybody comments on. She states a result once, clearly, in a level voice, and does not repeat it or defend it.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "hands": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She looks down at them as though she had not noticed, which is not true.\n\n\"No pockets, nothing on the fingers, hands on the counter.\" She leaves it there for a moment. \"Everybody who walks in here has been cheated before, usually by somebody very pleasant. I can't undo that with a manner. I can only make it so that there is nowhere for the trick to be.\"\n\nA beat.\n\n\"It took me two years to stop feeling ridiculous about it.\""
+    },
+    "noopinion": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because the moment I tell you what it's worth, I am in the trade,\" she says. \"And if I am in the trade then every weight I ever give you has a reason behind it, and you will never be able to tell which ones.\"\n\nHer hands do not move.\n\n\"A weight is a fact. What it's worth is an argument, and there are eleven places within a mile who will have that argument with you happily. I am the only one who will not, and that is the entire business.\""
+    },
+    "queue": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People walking back in,\" she says. \"They come through the gate at first light with something heavy and they want to know what it is before somebody in a warmer room tells them.\"\n\nA very slight pause.\n\n\"By ten it is empty and it stays empty. I have thought about shutting at noon and I don't, because somebody once came in at twenty past four having walked since the night before, and I would rather sit here six hours for that than not be here.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Why no opinions?",
+          "next": "noopinion"
+        },
+        {
+          "label": "There's a queue some mornings.",
+          "next": "queue"
+        },
+        {
+          "label": "You keep your hands flat.",
+          "next": "hands"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Drawer takes it, drawer brings it back.\" Her hands stay flat on the counter. \"You get a weight and a statement. You do not get an opinion, and the plate on the door says so.\"",
+      "text_by_relation": {
+        "familiar": "She does something she does for almost nobody, which is to say the thing before you have put anything in the drawer.\n\n\"Whatever that is, weigh it somewhere else first,\" she says quietly. \"Not because I'd be wrong. Because you came in fast and you've got a number in your head already, and if I say a different one you will go away thinking I am the problem.\"",
+        "first": "The woman on the far side of the grille puts both hands flat on the counter where you can see them, which is plainly a habit rather than a courtesy.\n\n\"Achebe. The drawer takes it, the drawer brings it back, and nothing on my side of this counter is within reach of yours, which is not an insult, it is the reason you can leave something here.\"\n\nA level look.\n\n\"You will get a weight and a statement of what it is. You will not get what I think it's worth, or who'll pay it, or whether you were done. That is on the plate outside and it is not a pose.\"",
+        "known": "\"Morning.\" Hands flat. \"Same as last time. Drawer, wait, result. It doesn't get shorter with familiarity.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a plain dark tunic with no pockets at all",
+      "sleeves buttoned close at the wrist",
+      "flat shoes, and nothing on the hands"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_acidtest_counter",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_acid_achebe",
+  "name": "Winifred Achebe",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 5,
+        "to": 12
+      }
+    ],
+    "mon": [
+      {
+        "from": 5,
+        "to": 12
+      }
+    ],
+    "sat": [
+      {
+        "from": 5,
+        "to": 12
+      }
+    ],
+    "sun": [
+      {
+        "from": 5,
+        "to": 12
+      }
+    ],
+    "thu": [
+      {
+        "from": 5,
+        "to": 12
+      }
+    ],
+    "tue": [
+      {
+        "from": 5,
+        "to": 12
+      }
+    ],
+    "wed": [
+      {
+        "from": 5,
+        "to": 12
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_acidtest_counter"
+}

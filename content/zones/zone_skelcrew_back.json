@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1b1917",
+  "description": "Where the actual trade happens, and it is a watchmaker's room rather than an ironmonger's. Locks in pieces on a green cloth, each one on its own square of paper with its screws in a dish. A board of picks and tension wrenches in order of thickness, and a second board of them in order of how often they are used, which is a different order and is the one he actually reaches from. Notes pinned everywhere in tiny capitals, most of them a lock's name and a number.",
+  "exits": {
+    "south": "zone_skelcrew_shop"
+  },
+  "flags": {
+    "building_name": "Skeleton Crew",
+    "building_type": "locksmith",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_898_905"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_skelcrew_back",
+  "map_id": "map_int_skelcrew",
+  "name": "Skeleton Crew — The Bench",
+  "parent_zone": "zone_district_898_905"
+}

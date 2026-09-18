@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Under the shuttered unit, with the junction cabinet and the stock: inks in racked bottles by colour with the dates written on the caps, needles in sealed strips in a lidded box, and a second autoclave that does not work and is kept because the man who could repair it says he is coming.",
+  "exits": {
+    "up": "zone_regerts_stair"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_regerts_stair",
+  "map_id": "map_int_regerts",
+  "name": "No Regerts — The Stair — Utility Room",
+  "parent_zone": "zone_district_901_905"
+}

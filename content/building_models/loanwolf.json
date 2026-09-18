@@ -1,0 +1,120 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "220,185,110",
+      "s": 13,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Loan Wolf"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.32,
+      "hh": 0.024,
+      "kind": "parapet",
+      "pal": "ty_marble_col",
+      "z": 0.9
+    },
+    {
+      "bars": 3,
+      "cx": 0,
+      "cy": 0.34,
+      "depth": 0.012,
+      "glass": "#1a1812",
+      "glow": "#6b5f45",
+      "half": 0.24,
+      "hh": 0.026,
+      "kind": "windowBay",
+      "pal": "ty_marble",
+      "z": 0.14
+    },
+    {
+      "bars": 4,
+      "cx": 0,
+      "cy": 0.34,
+      "depth": 0.01,
+      "glass": "#1a1812",
+      "glow": "#e8d5a8",
+      "half": 0.24,
+      "hh": 0.026,
+      "kind": "windowBay",
+      "pal": "ty_marble",
+      "z": 0.46
+    },
+    {
+      "color": "#1d1a10",
+      "cx": 0,
+      "cy": 0.34,
+      "font": "deco",
+      "half": 0.22,
+      "hh": 0.026,
+      "ink": "#e8c46a",
+      "kind": "signBoard",
+      "label": "LOAN WOLF",
+      "z": 0.3
+    },
+    {
+      "cx": -0.26,
+      "cy": 0.38,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.38,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    }
+  ],
+  "id": "loanwolf",
+  "neon": "#d8b45c",
+  "note": "A lender on the corner of the Gate Road, positioned so it is the last frontage out of the city and the first one back in — which took some thought. FROSTED to head height with the name in gold leaf across it, so people outside see a shape moving and that is all either side gets. Three floors, a heavy door, and rates on a card in a type size that makes you stop walking.",
+  "pal": "ty_marble",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.1
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.1,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.78,
+      "z1": 0.9
+    }
+  ],
+  "trade": "bank"
+}

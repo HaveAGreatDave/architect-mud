@@ -5899,10 +5899,17 @@ export function depthPassBuild(ctx, drawn, {
 // Returns FALSE when the blit could not land (a headless harness has no canvas to compose through),
 // which is the caller's cue to fall the whole way back to its own sort — not to skip the fills it
 // is no longer doing. A rasterOK set on faith there is a model drawn nowhere at all.
-export function depthPassCommit(ctx, pass, drawn) {
+// ⚠ `skipBlit` KEEPS THE VERDICT AND DROPS THE PICTURE, which is a real thing to want and not a
+// debug switch. When the body has already been drawn as real triangles on the depth buffer, the
+// canvas must not lay it down a second time — but the four detail passes below still have to know
+// which faces WON, because a face that lost cannot paint its splatter, its glass or its lamp onto
+// whatever is hiding it. That verdict is this function's other half, and it is the expensive half's
+// only consumer. ⚠ It returns TRUE with no blit, and that is honest rather than optimistic: there
+// is no image to fail to land, and the stamping below is exactly as valid either way.
+export function depthPassCommit(ctx, pass, drawn, opts = {}) {
   if (!pass) return false;
   const { res, occWin, occBias, x0, y0, sc, ptsKey, zKey } = pass;
-  if (!blitRaster(ctx, res, x0, y0)) return false;
+  if (!opts.skipBlit && !blitRaster(ctx, res, x0, y0)) return false;
   for (const fc of drawn) {
     const P = fc[ptsKey];
     let cx = 0, cy = 0, cz = 0;

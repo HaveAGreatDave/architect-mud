@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2d2822",
+  "description": "A single bed, a chair, a basin in the corner with a mirror above it that has lost most of its silver. The wardrobe does not open all the way because of the bed and the bed cannot be moved because of the wardrobe. Somebody has written a phone number on the wall behind the door in pencil and then crossed out the last two digits.",
+  "exits": {
+    "west": "zone_restassured_hall"
+  },
+  "flags": {
+    "floor": "boards",
+    "is_apartment": true,
+    "rent_cost": 25,
+    "window": {
+      "description": "A window onto the back green, its lower pane frosted so that the view is a rumour of washing.",
+      "light": 0.5,
+      "name": "the small window",
+      "visibility": 0.4
+    }
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_restassured_room_a",
+  "map_id": "map_int_restassured",
+  "marker": "A",
+  "name": "Room 3",
+  "parent_zone": "zone_district_900_905"
+}

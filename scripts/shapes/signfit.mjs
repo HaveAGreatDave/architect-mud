@@ -78,6 +78,16 @@ const KNOWN = new Map([
     "lateral rule on either one can clear the other."],
   ['named:theluckybastard',
     "the same, with a 0.6-tile podium offset."],
+  // ⚠ THE THIRD OF THE SAME SHAPE, AND THE FIRST WHERE BOTH PARTS ARE THE KIT'S OWN. Two walls at
+  // two depths again, which no lateral rule on either one can clear.
+  ['type:asc_clinic',
+    "the lit pilaster rank is on the FRONT face at x ±0.117 and the gable ad panel is on the −x " +
+    "FLANK (`face: 'x'`, half 0.273, spanning most of that wall), so they are on two different " +
+    "walls and coincide only in screen space, from ONE heading out of four. Narrowing the rank " +
+    "cannot reach it — the fins are already 0.32 of a tile inside the corner, because the two " +
+    "front blades reserve it — and the panel is what the blank flank of a building is FOR. A lit " +
+    "vertical on a frontage passing a foreshortened advertisement on the side wall beside it is a " +
+    "city rather than a defect, which is the same call the two entries above record."],
   ['named:thecoyotesrest',
     "a saloon with a full-width porch, whose rail the arm draws as STROKES standing 0.6 of a tile " +
     "proud of the wall. The kit's Chinese trade blade is hung on that frontage and is therefore " +
@@ -85,6 +95,27 @@ const KNOWN = new Map([
     "not something the kit can avoid: it places parts off the captured MASS, and a stroke is not " +
     "mass, so the porch is invisible to it. Raising the blade a floor and projecting it past the " +
     "kit's own canopy (0.075) both helped and neither can reach past 0.6."],
+  // ⚠ THE SAME 0.6 AS THE ENTRY ABOVE, FROM THE OTHER SIDE, AND THIS ONE NAMES THE MECHANISM.
+  // `emitWire` pulls a stroke `DECO_LIFT` — 0.6 of a tile — toward the eye, because on the canvas
+  // that lift was a QUEUE POSITION and a mast standing at its tile's centre has to clear its own
+  // front wall to be drawn at all. `emitSurfaceText` gets the 0.05 tie-breaker instead, for the
+  // opposite reason: paint is coplanar with its wall and a tie is a loss. So a stroke and a sign on
+  // one building are pulled by twelve times different amounts, and wherever they overlap in screen
+  // space the stroke wins whatever the world says. Here the world says the mast is BEHIND the board:
+  // it rises from cy −0.1 on a roof the penthouse fronts at +0.22, and the penthouse should hide its
+  // lower half. Nothing the model can do reaches it — the mast has to stand on the hw-0.22 penthouse
+  // roof, the board is centred on that same box at half 0.205, and the only position that clears all
+  // four headings (cy 0.18) puts the mast on the front parapet edge with 0.04 to spare.
+  //
+  // The fix for the class is to cap the stroke pull the way the quad pulls were capped. That is not
+  // a change to make on one building's evidence: the 0.6 is what stops The Dynamo's external fire
+  // stair disappearing into the wall it is bolted to, which is a worse bug than this one.
+  ['named:mintcondition',
+    "the model's own mast rises from cy −0.1 behind an hw-0.22 penthouse whose front face carries " +
+    "the name board. emitWire pulls a stroke 0.6 of a tile toward the eye and emitSurfaceText is " +
+    "capped at the 0.05 tie-breaker, so the mast wins the depth test against a board it physically " +
+    "stands behind, at three headings out of four. No position on that roof clears it with any " +
+    "margin; the pull is the thing to fix, and not from one building."],
 ]);
 
 const len = (p, q) => Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);

@@ -1,0 +1,365 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Glennie rubs out a price with the heel of her hand and writes a shorter one without stepping back to look at it.",
+    "She marks a slip, spikes it, and has the next one out of the drawer before the first has stopped moving.",
+    "She looks at the board for a moment, then at the door, then shortens something by a point.",
+    "The comptometer goes off in the back like a dropped tray. She does not react.",
+    "She counts a payout into the drawer, slides it through, and is already looking past you at the man behind.",
+    "\"Price is the price when I take it. Not when you thought of it.\"",
+    "\"Write it yourself. I'm not having that conversation twice.\"",
+    "She chalks a new line under Cluster Puck and does not explain it.",
+    "\"That's a bad bet,\" she says, taking it. \"I'll still take it. It's a bad bet.\"",
+    "\"No credit. Not to you, not to anybody, not once, not ever, and I've heard the story.\"",
+    "She wipes chalk off her palm onto the same spot on her skirt she always wipes it on.",
+    "\"Both leagues are on the board. If it isn't on the board I'm not taking it.\"",
+    "\"Deadball's soft this week and I know it's soft and it's still the price.\"",
+    "She reaches under the counter, comes up with the exact slip somebody is about to ask about, and waits.",
+    "\"You're owed. Don't queue, I'll do you now.\" She does, and it takes eleven seconds.",
+    "\"Anybody wants their money, they get their money. I don't want to hear about the weather.\"",
+    "She squares the spike, which is not something that can be squared.",
+    "\"If it's a dead heat I pay both. It's on the wall in the back. Go and look if you want.\"",
+    "She writes a number on her hand, looks at it, and rubs it off.",
+    "\"Closing at two. I said two and it will be two.\""
+  ],
+  "description": "A short, square-shouldered woman of about fifty behind the grille, in a cardigan with chalk down one sleeve and a pencil she never uses behind her ear. She does not smile at customers and she does not commiserate with them, and both of those turn out to be a kindness once you have been in a few times. Everything about her is fast: the arithmetic, the hands, the decision about whether she is taking your bet. She has never once been asked twice for a payout.",
+  "dialogue_tree": {
+    "board": {
+      "options": [
+        {
+          "label": "Who sets the prices?",
+          "next": "board_price"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Two leagues, both on the wall.\" She does not look at it. \"Deadball up top, in white. Cluster Puck underneath, in yellow, because three people once bet on the wrong sport in one week and I am not going through that again.\"\n\nShe taps the counter with one knuckle.\n\n\"Right-hand column's what the price was before it moved. That's there so nobody has to take my word for it.\""
+    },
+    "board_price": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I do,\" she says. \"Out of my own head, off the form, and then off what walks in the door.\"\n\nShe rubs chalk off her palm.\n\n\"If eleven people come in on one side in an hour, either eleven people know something or one person told ten. Either way the price moves, and it moves whether they were right or not. That's not cheating anybody, that's the whole job. The price isn't what I think will happen. The price is what I can stand.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "She is already chalking. \"Mm.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People tell a bookmaker things,\" she says. \"They think it buys them a price. It doesn't, so they've told me for nothing, and I've still got it.\""
+    },
+    "honest": {
+      "options": [
+        {
+          "label": "Nobody's that straight.",
+          "next": "honest_why"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "For the first time she stops what she is doing.\n\n\"I pay,\" she says. \"That's it. That's the whole of the reputation and I'd rather it wasn't one, because in a town where that's remarkable you've told me something about the town.\"\n\nShe goes back to the board.\n\n\"Dead heat, I pay both. Price moved after I took it, I pay what I took it at. Board's wrong because I wrote it wrong, I pay the wrong price. Written on the wall in the back, and it has cost me actual money four times, and all four times I paid.\""
+    },
+    "honest_why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It isn't straightness,\" she says, and she sounds mildly irritated to have to explain it. \"It's arithmetic. I make my money off the margin, every week, for thirty years. The only thing that can stop that is people not coming in.\"\n\nShe chalks a price and steps back from it, once, which is rare.\n\n\"A man who thinks he might not get paid doesn't bet small. He doesn't bet at all. So the day I keep four hundred credits I shouldn't have kept is the day I start earning less for the rest of my life, and I can do that sum, and so could anybody who sat down for a minute.\"\n\nA pause.\n\n\"Most of them don't sit down for a minute. That's the business, really.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's on the board?",
+          "next": "board"
+        },
+        {
+          "label": "Form, slips, the rest.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's the rule on the slip?",
+          "next": "rule"
+        },
+        {
+          "label": "They say you always pay.",
+          "next": "honest"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Board's up.\" She does not stop writing. \"Write your own slip, shelf on the right, pencils are on strings for a reason. Price is the price when I take it.\"",
+      "text_by_relation": {
+        "familiar": "She has the slip half written before you reach the grille, and turns it round for you to check rather than to sign.\n\n\"That's the one you were going to ask for,\" she says. \"If it isn't, say so and I'll tear it up. I'd rather tear it up than be clever at you.\"",
+        "first": "The woman behind the grille finishes a line of chalk, spikes a slip, and looks at you properly, once, for about a second and a half.\n\n\"Ada Glennie. Two leagues, both on that wall, and I take what's on the wall and nothing else.\" She puts a blank slip in the drawer and pushes it through. \"You write it. I'm not writing it for you and then arguing about what you meant.\"\n\nShe picks the chalk back up.\n\n\"No credit. Price is the price when I take it. And you'll get paid, so don't stand there working out how you'd ask.\"",
+        "known": "\"You.\" She spikes the slip in her hand. \"Board's the same as it was an hour ago except the one you're going to ask about, which has gone.\""
+      }
+    },
+    "rule": {
+      "options": [
+        {
+          "label": "What if you're wrong?",
+          "next": "rule_wrong"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I AGREE THE RULE.\" She says it flatly, the way it is printed. \"It's on every slip and it has been since before me. People sign it about a hundred times before they ask.\"\n\nShe nods at the back room.\n\n\"The rule's on the wall behind the grille, one page, eleven lines, and the first line is that the rule cannot be changed after a bet is taken. That's the only one that matters and the other ten are there to stop anybody arguing about that one.\""
+    },
+    "rule_wrong": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Then I'm wrong and I pay,\" she says. \"Line four.\"\n\nShe finds a slip on the third spike without looking for it, holds it up, and puts it back.\n\n\"That one cost me four hundred and ten. I'd chalked a six where the form said a three and a man took the six and he knew, and I knew he knew, and he stood there while I worked it out.\" A short breath through the nose that might be a laugh. \"Paid him in front of the whole shop. Best four hundred and ten I ever spent and I'd have burned the building down rather than admit that at the time.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a heavy grey cardigan with chalk dust down the right sleeve",
+      "a plain blouse buttoned to the collar",
+      "a straight dark skirt and flat shoes worn on one side"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_pfin_settle",
+  "hp": 42,
+  "hp_max": 42,
+  "id": "npc_pfin_glennie",
+  "name": "Ada Glennie",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_pfin_form",
+      "price": 14
+    },
+    {
+      "item_id": "item_pfin_slip",
+      "price": 1
+    },
+    {
+      "item_id": "item_pfin_pencil",
+      "price": 2
+    },
+    {
+      "item_id": "item_pfin_ledger",
+      "price": 260
+    }
+  ],
+  "vendor_restock_rate": 4,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 26
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 26
+      }
+    ],
+    "sun": [
+      {
+        "from": 12,
+        "to": 20
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": "Photo Finish",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_pfin_shop"
+}

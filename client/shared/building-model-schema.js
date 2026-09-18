@@ -153,6 +153,14 @@ export const DETAIL_SCHEMA = {
   // no name worth setting in type — which is most of a city and all of the boring half of it.
   neonRun: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', drop: 'h' }, required: ['z', 'half'],
     plain: { color: 'string', pal: 'string', face: 'string' }, px: 5 },
+  // A rank of vertical pilasters standing proud of a face, from the plinth to the crown: the
+  // pier-and-spandrel front, which is art deco's whole silhouette and, with `glow` set, the
+  // cyberpunk skyline's. ONE part draws `n` of them at `step` pitch — a rhythm is meaningless at a
+  // count of one, and every fin would otherwise be a claim on the kit's budget. `cap` gives each
+  // one a stepped capital; `glow` runs a lit line up its face. See the ⚠ on pilaster in windshield.js.
+  pilaster: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', w: 'fh', out: 'fh', step: 'fh' },
+    required: ['z0', 'z1', 'w'],
+    plain: { pal: 'string', face: 'string', n: 'number', cap: 'boolean', glow: 'string', glowFrom: 'number' }, px: 7 },
   // A balcony slab with an optional railing, projecting from a face.
   balcony: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', out: 'fh', rail: 'h' }, required: ['z', 'half', 'out'],
     plain: { pal: 'string', face: 'string' }, px: 10 },
@@ -170,13 +178,23 @@ export const DETAIL_SCHEMA = {
   // the air a flat roof is the biggest surface on the building and usually the emptiest.
   roofTank: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h' }, required: ['z', 'r', 'hh'],
     plain: { pal: 'string' }, px: 9 },
+  // The stair head: the box that brings the stairs up through a flat deck, with a door in it and a
+  // lid dressed over the edge. Every flat roof in the world has one and this vocabulary had no word
+  // for it — a tank and a condenser say a roof is a shelf, and this is what says somebody comes up
+  // here. It is also the part that breaks the roofline, which from the air is most of what a
+  // building's silhouette is.
+  roofBulkhead: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', d: 'fh', hh: 'h' }, required: ['z', 'w', 'hh'],
+    plain: { pal: 'string' }, px: 9 },
   // A sagging cable strung across a face. The one silhouette that says this city more than any
   // other: a curve, in a place made entirely of straight lines.
   cableRun: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', sag: 'h', r: 'fh' }, required: ['z', 'half', 'sag', 'r'],
     plain: { pal: 'string', face: 'string' }, px: 7 },
   // A roller shutter: the ground floor of a street that is closed, which is most of them.
+  // ⚠ `bay` TURNS A SHUT SHOP INTO A LOADING BAY: it adds the roller housing, the two guide
+  // channels and the heavy bottom rail -- the fittings that say a vehicle drives through this one.
+  // Off by default, so every shutter authored before it is untouched.
   shutter: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
-    plain: { pal: 'string', face: 'string' }, px: 9 },
+    plain: { pal: 'string', face: 'string', bay: 'boolean' }, px: 9 },
   // A spray of aerials on a roof. Read from the air, which is where this game looks from.
   antennaCluster: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h' }, required: ['z', 'r', 'hh'],
     plain: { pal: 'string', n: 'number' }, px: 7 },
@@ -195,7 +213,7 @@ export const DETAIL_SCHEMA = {
   // script hand while a gantry could not is a rule nobody would remember. `font` is one of
   // SIGN_FONT's keys (mono, script, block, slab, deco, condensed, stencil, techno, gothic, western, hanzi, estate)
   // — `hanzi` being a CJK face, for a short trade word rather than a name; `picto` is one of
-  // SIGN_PICTO's (martini, mug, fork, bed, bolt, pill, fuel, arrow) and defaults to none. Both
+  // SIGN_PICTO's (martini, mug, fork, bed, bolt, pill, fuel, arrow, pan, hook, eye, money, balls) and defaults to none. Both
   // live in windshield.js, and an unknown value FALLS BACK rather than throwing — a typo in a
   // model file must never be able to stop a building drawing.
   // ⚠ `font` NO LONGER DEFAULTS TO MONO — it defaults to the building's own hand, which `signFontOf`
@@ -207,8 +225,16 @@ export const DETAIL_SCHEMA = {
   // ⚠ AND `font` IS NOT `face`. signBoard already has a `face`, and it means which WALL the board is
   // bolted to. Two keys one letter apart on the same part, meaning the side of a building and the
   // shape of its letters, is the reason this paragraph names both.
+  // ⚠ `bare` DELETES THE BOARD AND LEAVES THE LETTERING -- the name painted straight onto the
+  // wall, which is how a works, a depot and a cold store identify themselves. `color` is then
+  // unread (there is no board to fill) and the ink is picked against the WALL instead of against
+  // it. A bare name is also clamped to the wall it is on, which a board never had to be: a board
+  // is small and centred, and painted lettering spans a frontage.
   signBoard: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
-    plain: { color: 'string', ink: 'string', label: 'string', face: 'string', font: 'string', picto: 'string' }, px: 7 },
+    // `badge` drops the flat board quad and paints a ROUNDED plate into the sign's own texture
+    // instead — the only way this renderer can show a curve, since every surface it has is a quad.
+    // A mark on a badge is a logo; a name on a board is a name.
+    plain: { color: 'string', ink: 'string', label: 'string', face: 'string', font: 'string', picto: 'string', bare: 'boolean', badge: 'boolean' }, px: 7 },
 
   // ── THE STREET ITSELF ───────────────────────────────────────────────────────
   // Building parts rather than ground scatter, so they know the footprint, the entrance and the
@@ -224,11 +250,15 @@ export const DETAIL_SCHEMA = {
   // otherwise meets the building at a clean line. `n` is how many, `w` the half-width of one.
   binStack: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', d: 'fh', hh: 'h' }, required: ['z', 'w'],
     plain: { pal: 'string', lid: 'string', n: 'number' }, px: 7 },
-  // Spray paint on a wall: `n` sweeping strokes in one saturated colour, deliberately not lettering.
-  // `v` is the variant the caller rolls per building — leave it out and every tag in the city is
-  // the same tag, which reads as signage rather than as graffiti.
+  // Spray paint on a wall, as a throw-up: a word in bubble letters with a cloud behind it. `word`
+  // is what it says, and leaving it out picks one off the house list rather than drawing nothing —
+  // a wall with a blank piece on it is worse than a bare wall. `color` is the letters and every
+  // other colour is derived from it (see tagPalette); `n` is how many scrawled satellite tags share
+  // the patch, 0 to 4. `v` is the variant the caller rolls per building, and it picks both the word
+  // and the colour scheme — leave it out and every tag in the city is the same tag, which reads as
+  // signage rather than as graffiti.
   tag: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', hh: 'h' }, required: ['z', 'w'],
-    plain: { color: 'string', n: 'number', v: 'number' }, px: 5 },
+    plain: { color: 'string', word: 'string', n: 'number', v: 'number' }, px: 5 },
 
   // ── THE STRUCTURAL FOUR ─────────────────────────────────────────────────────
   // Everything above is bolted TO a wall. These four give a wall a front and a back, and they are
@@ -287,7 +317,24 @@ export const ADORN_SCHEMA = {
   blinkLight: { geom: { cx: 'fh', cy: 'fh', z: 'h' }, required: ['z'], plain: { rgb: 'string', r: 'number' } },
   glowPool: { geom: { cx: 'fh', cy: 'fh', z: 'h' }, required: ['z'], plain: { rgb: 'string', s: 'number' } },
   helideck: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh' }, required: ['z', 'r'], plain: { glow: 'string', paint: 'string', yaw: 'number' } },
-  latticeTower: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', r0: 'fh', r1: 'fh' }, required: ['z0', 'z1', 'r0', 'r1'], plain: {} },
+  latticeTower: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', r0: 'fh', r1: 'fh' }, required: ['z0', 'z1', 'r0', 'r1'],
+    // `rgb` is "r,g,b" and re-tints the whole lattice. Omitted, it is the broadcast mast's own pale
+    // steel and lavender — right for a transmitter, wrong for a yard derrick or a crane.
+    plain: { rgb: 'string' } },
+  // A light-runner spiralling up a corner of a twisting shaft. `r0`/`r1` are the corner's distance
+  // from the axis at each end — for a square plate of half-width w that is w·√2, not w — `turns` is
+  // the rotation in RADIANS over the span and must match the segments' own total yaw, `at` is the
+  // corner it starts on (π/4 for the +x+y corner) and `n` how many points the polyline is cut into.
+  //
+  // ⚠ IT IS THE ONE ADORNMENT WHOSE SHAPE IS NOT DIRECTLY AUTHORED, and that is forced rather than
+  // chosen: every geometric scalar here is affine in (fh, h) and a helix is not, so the renderer
+  // builds the polyline from these six numbers. The alternative inside the existing vocabulary is
+  // one `neonBlade` per plate, which is forty adornments for one line of light and still reads as a
+  // dashed stack rather than a spiral. Without it a twisted tower has no way to say what makes it
+  // legible after dark — the `luxtower` and `asc_spire` arms both drew one and neither authored
+  // model that replaced them could, which is why Halcyon went dark when it was ported.
+  helixRunner: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', r0: 'fh', r1: 'fh' },
+    required: ['z0', 'z1', 'r0', 'r1'], plain: { rgb: 'string', turns: 'number', at: 'number', n: 'int' } },
   neonBlade: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h' }, required: ['z0', 'z1'], plain: { color: 'string', label: 'string' } },
   marqueeBand: { geom: { cx: 'fh', cy: 'fh', half: 'fh', z: 'h' }, required: ['half', 'z'], plain: { color: 'string', label: 'string' } },
   awning: { geom: { cx: 'fh', cy: 'fh', half: 'fh', lip: 'fh', z0: 'h', z1: 'h' }, required: ['half', 'z0', 'z1'], plain: { pal: 'string', depth: 'number' } },

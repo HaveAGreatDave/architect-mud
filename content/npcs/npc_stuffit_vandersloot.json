@@ -1,0 +1,390 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Vandersloot turns a mount a quarter inch on its bracket and steps back to see whether that was right.",
+    "She pins something under the loupe and does not blink for a length of time that becomes noticeable.",
+    "She washes her hands at the sink in the back, comes out drying them, and picks the loupe straight back up.",
+    "She chalks a line through the top job on the board and writes a new one at the bottom.",
+    "\"Don't touch the hare.\" She has not looked up. \"Everybody touches the hare.\"",
+    "She holds two glass eyes up to the window, side by side, and puts the left one back in the tin.",
+    "\"It's four weeks. It's been four weeks since before you were born and it'll be four weeks after.\"",
+    "She sorts a handful of pins back into the saucer, points all the same way, without appearing to think about it.",
+    "\"No, I can't do it faster. You can have it in four weeks or you can have it bad.\"",
+    "\"That is not a pet,\" she says to nobody. \"That has never been a pet. Read the sign.\"",
+    "She lifts a form off its hook, weighs it in one hand, and hangs it back on a different hook.",
+    "\"People ask if it's sad work.\" A pause. \"It's careful work. That's a different thing.\"",
+    "The stove in the back changes note. She listens for two seconds and goes back to what she was doing.",
+    "She measures something with her thumb against the counter edge and writes a number on a docket.",
+    "\"Bring it cold. Bring it whole. Bring it soon. In that order and I'll do you a nice one.\"",
+    "\"I don't do pets and I don't discuss why, and if you push me on it I'll tell you, and then you'll wish you hadn't.\"",
+    "She turns a skull over in both hands, finds a mark on it, and puts it in the box for the back.",
+    "\"Six credits for that and I'm robbing myself. Don't tell me what it's worth, I know what it's worth.\"",
+    "She unhooks a picture light, blows on the bulb, and hooks it back up.",
+    "\"That one's not for sale. No. That one's not for sale either. Ask about a third and we'll fall out.\""
+  ],
+  "description": "A tall, spare woman in her forties in a canvas apron over good clothes, with her sleeves rolled past the elbow and her forearms scrubbed pink to a hard line. She is brisk to the point of rudeness about everything except the work, which she is unhurried about to the point of obstruction, and the gap between those two speeds is most of what people find difficult about her. Her hands are extraordinary to watch and she has never once noticed anybody watching them.",
+  "dialogue_tree": {
+    "bring": {
+      "options": [
+        {
+          "label": "Why cold?",
+          "next": "bring_cold"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Cold, whole, and soon.\" She counts it off without looking up. \"In that order, and every one of the three is the difference between a nice one and a shame.\"\n\nShe puts the loupe down.\n\n\"Soon means hours, not days. Whole means you have not opened it to see what it had for breakfast. And cold means cold, which people hear as cool, which it is not.\""
+    },
+    "bring_cold": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because the hair lets go,\" she says.\n\nShe says it the way a mechanic says a bearing has gone: a fact, with no drama in it at all.\n\n\"Warm, it starts inside the skin and you cannot see it and you cannot stop it, and then four weeks later I hand you something with a bald patch behind the ear and you think I did that. I did not do that. You did that, in the back of a truck, on a Thursday.\"\n\nShe picks the loupe back up.\n\n\"So: cold. There's a cold store up in the Yards that will hold anything overnight for nothing, because I send them the work.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mm.\" She is already back under the loupe before the bell has finished."
+    },
+    "eyes": {
+      "options": [
+        {
+          "label": "GOOD and WILL DO?",
+          "next": "eyes_grade"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The eyes are the whole thing,\" she says, and for a moment she is almost enthusiastic, which is alarming. \"Everything else is technique. Anybody can learn the technique. The eyes are a decision.\"\n\nShe opens the tin and turns it so you can see.\n\n\"Blown glass, pupil painted on the back so it sits at a depth, and the depth is what your own eye is reading whether you know it or not. Put a flat one in and you have made a toy. Nobody can tell you why it is wrong. Everybody knows it is wrong.\""
+    },
+    "eyes_grade": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"My grading, not anybody's,\" she says. \"GOOD means I would put it in something I was going to be proud of. WILL DO means it is the right size and the right colour and there is something the matter with it.\"\n\nShe closes the tin.\n\n\"I have never once run out of GOOD and sold somebody a WILL DO without saying so. Four people in this town make things I would call work, and all four of them are the same about the same kind of thing, and none of us has ever discussed it.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People stand in here for twenty minutes deciding,\" she says. \"They talk to fill it. I'd rather they didn't and they always do.\""
+    },
+    "pets": {
+      "options": [
+        {
+          "label": "You said I'd wish I hadn't asked.",
+          "next": "pets_why"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"NO PETS.\" She points at the window without turning round, at the sign, at the third line of it. \"It is on the door, it is on the docket, and it is the first thing I say to anybody who comes in carrying a box with a towel over it.\"\n\nShe goes back to the bench.\n\n\"I'll give you the name of a man up on Ironside who will. He is not as good as me and he charges twice what I would and I send him every one of them, gladly.\""
+    },
+    "pets_why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She puts the tool down. She does not do this often.\n\n\"Because I can make you something that is nearly it,\" she says. \"That is the problem. Not that I can't. That I can.\"\n\nShe wipes her hands on the apron, one and then the other.\n\n\"A hare, nobody in this city has ever met that hare. You look at it and you see a hare. Bring me the animal that slept on your bed for eleven years and I will give you back something the right size, in the right colour, in the right shape, with the wrong everything, and you will keep it on a shelf and it will be the worst object you own.\"\n\nShe picks the tool back up.\n\n\"I did four of them when I started. I know exactly what I am talking about. Ironside. Ask for Sowerby.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you take in?",
+          "next": "bring"
+        },
+        {
+          "label": "Eyes, hides, the rest.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Tell me about the eyes.",
+          "next": "eyes"
+        },
+        {
+          "label": "What's on the roof?",
+          "next": "roof"
+        },
+        {
+          "label": "Why no pets?",
+          "next": "pets"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"With you in a moment.\" She finishes what she is doing first, which takes about as long as it takes, and then she is entirely with you. \"Right. Bringing me something, or buying?\"",
+      "text_by_relation": {
+        "familiar": "She looks up, and then at the board, and then back at you.\n\n\"Thursday,\" she says. \"I said four weeks and it's four weeks Thursday, and it is better than the last one, and I'm not going to tell you why because you'll only look for it.\"",
+        "first": "The woman at the counter holds up one finger without looking, finishes a stitch you cannot see, and only then puts the loupe down.\n\n\"Marnie Vandersloot.\" She wipes her hands. \"Mounts, tanning, skulls. Four weeks, and four weeks is not a negotiation, it is how long it takes.\"\n\nShe nods at the window without turning her head.\n\n\"No pets. It's on the sign. And don't touch the hare.\"",
+        "known": "\"You.\" She does not stop working. \"Either you've brought me something or you want to look at the hare. Both are fine. One of them you may not do with your hands.\""
+      }
+    },
+    "roof": {
+      "options": [
+        {
+          "label": "But what is it?",
+          "next": "roof_what"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It was up there when I took the lease,\" she says, \"and it is the only thing in the building I did not make and will not touch.\"\n\nShe lets that sit for a second.\n\n\"It has come through nine winters and an ash fall and it is still standing on that bracket with its wings out, and whoever did it has been dead longer than I have been alive. So no, I do not take it down and clean it up. I go out twice a year and I look at it.\""
+    },
+    "roof_what": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everybody asks,\" she says, and goes back to the bench.\n\n\"The man in the noodle place says it's a crane. The woman who had the shop before me told me it was a heron and told somebody else it was a swan. The freight lads coming up from the gate have had a bet running on it for six years and both of them are wrong.\"\n\nShe threads something, holds it up, and squints past it.\n\n\"I know what it is. I worked it out in about a week, from the bracket, from underneath, in the rain. I am not going to tell you, and I am not going to tell them, and that is the single most pleasure I get out of this building.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a heavy canvas apron, stiff down the front and soft at the straps",
+      "a good wool shirt with the sleeves rolled past the elbow",
+      "plain dark trousers and boots kept clean on purpose"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_stuffit_work",
+  "hp": 44,
+  "hp_max": 44,
+  "id": "npc_stuffit_vandersloot",
+  "name": "Marnie Vandersloot",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_stuff_eyes",
+      "price": 22
+    },
+    {
+      "item_id": "item_stuff_pin",
+      "price": 9
+    },
+    {
+      "item_id": "item_stuff_tanned",
+      "price": 85
+    },
+    {
+      "item_id": "item_stuff_skull",
+      "price": 140
+    },
+    {
+      "item_id": "item_stuff_mount",
+      "price": 420
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 9,
+        "to": 13
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Stuff It",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_stuffit_shop"
+}

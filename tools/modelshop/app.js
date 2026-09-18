@@ -12,6 +12,8 @@ import { glDraw, glHide, glShown, glAvailable } from './glview.js';
 // The cost half of the spike. It registers window.__glBench and nothing else — a benchmark with
 // a button is a benchmark somebody runs by accident.
 import './glbench.js';
+// __street() — the real city at a grid coordinate, from a cab or a cockpit. See street.js.
+import './street.js';
 import {
   shapeModelRegistry, renderModelPreview, shapeForModel, shapeWireList,
   shapeConstantWarnings, shapeAdornCost, shapeLinearityError, shapeIsSeedVariant,
@@ -19,6 +21,10 @@ import {
   renderVehiclePreview, VEHICLE_CLASSES, TRUCK_VARIANTS, vehicleBounds, previewFit,
   VEHICLE_PARAM_TABLE, vehicleParamBase, setVehicleParams, clearVehicleParams,
 } from '/client/game/js/panels/windshield.js';
+import {
+  renderFaunaPreview, renderFaunaSheet, faunaBounds, faunaParamBase, setFaunaParams,
+  clearFaunaParams, faunaParamIds, faunaEl, FAUNA_POSES,
+} from '/client/game/js/panels/fauna3d.js';
 import {
   initEditor, renderEditor, editorRecordFor, editorDocFor, markDirty, renderPalette,
   pushUndoFor, undo, redo, openToolPicker, refreshToolbox,
@@ -44,9 +50,26 @@ const VEHICLES = [
   // ended up being the one you could not look at.
   { key: 'vehicle:heli/viper', vehicle: { cls: 'heli', variant: '', armed: true }, m: { type: 'viper' } },
 ];
-const MODELS = [...shapeModelRegistry(), ...VEHICLES];
+// The animals. A third renderer, and the shortest of the three: fauna3d.js has no camera at all,
+// so a subject is a pose and a bearing rather than a seat.
+const FAUNA = faunaParamIds('bird').map((id) => ({ key: 'fauna:bird/' + id, fauna: { kind: 'bird', id }, m: { type: id } }));
+
+const MODELS = [...shapeModelRegistry(), ...VEHICLES, ...FAUNA];
 const entryOf = (key) => MODELS.find((r) => r.key === key) || null;
-const isVehicle = (key) => !!entryOf(key)?.vehicle;
+
+// ⚠ ONE FUNCTION ANSWERS WHICH RENDERER A SUBJECT BELONGS TO, and every branch switches on it.
+// This was a pair of booleans (`isVehicle`, and nothing else) and a third renderer is exactly when
+// that stops working: `isVehicle(key) ? vehicle : building` sends every goose to drawTypeModel,
+// which finds no arm for its type and falls through to the default shop — the same failure the ⚠
+// on paintViewport records for the spin loop, one renderer later. A string forces the third case
+// to be written down rather than falling out of an else.
+const kindOf = (key) => { const e = entryOf(key); return e?.fauna ? 'fauna' : e?.vehicle ? 'vehicle' : 'building'; };
+const isVehicle = (key) => kindOf(key) === 'vehicle';
+const isFauna = (key) => kindOf(key) === 'fauna';
+// Neither a vehicle nor an animal is authored as mass: no capture, no cage, no scale strip, no
+// diff. Several call sites only care about that, and asking it directly is clearer than asking
+// twice and remembering to OR them.
+const isAuthoredMass = (key) => kindOf(key) === 'building';
 let selectedSeg = -1;
 let glNote = '';   // what the GL spike drew, if it is on — see paintViewport
 let lastCam = null;
@@ -57,6 +80,11 @@ const state = {
   floors: 6, seed: 3, night: 0,
   E: [0, 1], tier: ADORN_RICH, wire: false, spin: false, gl: false, preset: 'cockpit',
   mode: 'move',
+  // The animal viewport. `faunaEl` is an OFFSET on the pose's own baked elevation rather than an
+  // absolute, so releasing it returns you to the viewpoint the game actually bakes from — which is
+  // the one the silhouette has to work at. `faunaUnit` is the pixels-per-model-unit the bake sheet
+  // renders at, and it is the number the renderer's own size constant will end up being.
+  faunaState: 'walk', faunaWing: 0, faunaEl: 0, faunaUnit: 13,
 };
 
 const editCache = new Map();
@@ -119,6 +147,7 @@ const LIVE_PREFIXES = (() => {
 })();
 
 function familyOf(key, m) {
+  if (key && key.startsWith('fauna:')) return 'Fauna';
   if (key && key.startsWith('vehicle:')) return key.startsWith('vehicle:truck') ? 'Road vehicles' : 'Aircraft';
   const t = (m && m.type) || '';
   if (t === 'authored') return 'Authored';
@@ -129,7 +158,7 @@ function familyOf(key, m) {
   // building somebody drew on purpose. "Landmarks" is a truer label for it than "Other".
   return key && key.startsWith('named:') ? 'Landmarks' : 'Other';
 }
-const FAMILY_ORDER = ['Authored', 'Aircraft', 'Road vehicles', ...Object.values(PREFIX_NAMES), ...FAMILIES.map((f) => f[0]), 'Landmarks', 'Other'];
+const FAMILY_ORDER = ['Authored', 'Aircraft', 'Road vehicles', 'Fauna', ...Object.values(PREFIX_NAMES), ...FAMILIES.map((f) => f[0]), 'Landmarks', 'Other'];
 
 // ── FRAMING IS DERIVED FROM THE MODEL ───────────────────────────────────────
 // A shopfront is 0.8 tiles tall and Halcyon is 2.9, so one fixed distance either buries
@@ -172,6 +201,13 @@ function buildingBounds(m) {
 // The bounds of whatever is on screen, building or vehicle, in the units the camera works
 // in. One place, so the fit and the locked orbit cannot disagree about where the model is.
 function currentBounds() {
+  if (isFauna(state.key)) {
+    // Only the orbit grab asks, and an animal's orbit ignores the sphere entirely — but it must
+    // still get a finite subject back rather than a building's stub.
+    const f = entryOf(state.key).fauna;
+    const b = faunaBounds(f.kind, f.id, state.faunaState, state.faunaWing, state.heading * Math.PI / 180);
+    return { halfW: Math.max(0.05, b.w / 2), height: Math.max(0.05, b.h), baseH: 0 };
+  }
   if (isVehicle(state.key)) {
     const v = entryOf(state.key).vehicle;
     const b = vehicleBounds(v.cls, !!v.armed, v.variant);
@@ -314,7 +350,7 @@ function paintViewport() {
     // the same model at the same seat rather than two pictures taken at different times. It is
     // off unless asked for, and a vehicle has no captured mesh, so it falls through to the
     // renderer that can draw one.
-    if (state.gl && !isVehicle(state.key)) {
+    if (state.gl && isAuthoredMass(state.key)) {
       lastCam = renderModelPreview(view, previewOpts());
       const r = glDraw(view.parentElement, modelOf(state.key), lastCam, { mesh: { fh: scale().fh, h: scale().h, seed: state.seed } });
       // Kept rather than written straight to the HUD, because drawHud runs after this and would
@@ -325,12 +361,29 @@ function paintViewport() {
     }
     glHide();
     glNote = '';
-    if (isVehicle(state.key)) {
+    const kind = kindOf(state.key);
+    if (kind === 'vehicle') {
       const v = entryOf(state.key).vehicle;
       lastCam = renderVehiclePreview(view, {
         ...v, night: state.night, heading: state.heading, dist: state.dist, camPitch: state.pitch,
         eyeH: state.eye, panX: state.panX, panY: state.panY, sizeMul: state.vehSizeMul || 1,
       });
+    } else if (kind === 'fauna') {
+      const f = entryOf(state.key).fauna;
+      // No camera: an animal is drawn straight, so the orbit's heading IS the bearing and the eye
+      // height is the elevation. `lastCam` stays null, which is what keeps the cage, the selection
+      // overlay and the pick test from trying to project a subject none of them understands.
+      // ⚠ `state.heading` is DEGREES — the building camera's own unit, shared by the orbit drag —
+      // and every bearing in fauna3d.js is radians. A bearing handed over unconverted is 57 times
+      // round the compass per drag, which reads as the bird spinning rather than as a unit slip.
+      // …and heading 0 shows the animal BROADSIDE rather than tail-on, because side-on is the
+      // angle a silhouette is judged at and an editor that opens at the least informative view is
+      // an editor you begin every session by dragging.
+      renderFaunaPreview(view, {
+        ...f, state: state.faunaState, wing: state.faunaWing, night: state.night,
+        bearing: (state.heading + 90) * Math.PI / 180, el: faunaEl(state.faunaState) + state.faunaEl,
+      });
+      lastCam = null;
     } else {
       lastCam = renderModelPreview(view, previewOpts());
       paintSelection();
@@ -345,7 +398,9 @@ function paintViewport() {
 
 function draw() {
   paintViewport();
+  // ⚠ The same switch as paintViewport, and for the same reason. Two forks on one question.
   if (isVehicle(state.key)) return drawVehicleRail();
+  if (isFauna(state.key)) return drawFaunaRail();
   drawHud();
   drawScales();
   renderSidebar();
@@ -368,6 +423,41 @@ function drawVehicleRail() {
   const ed = $('editor'); ed.textContent = '';
   drawVehicleTuner(ed, v);
   $('scaleread').textContent = '';
+}
+
+// An animal: no camera, no capture, no cage — a pose, a bearing, and the bake sheet.
+function drawFaunaRail() {
+  const f = entryOf(state.key).fauna;
+  $('hud').textContent = 'drag to turn the animal · drag up and down to lift the viewpoint off the one it bakes from · pick a pose in the rail';
+  const meta = $('meta'); meta.textContent = '';
+  row(meta, 'key', state.key);
+  row(meta, 'kind', f.kind);
+  row(meta, 'pose', state.faunaState + (state.faunaState === 'air' ? ' · wing ' + state.faunaWing : ''));
+  row(meta, 'bearing', Math.round(state.heading) + '°');
+  row(meta, 'viewpoint', (state.faunaEl ? (state.faunaEl > 0 ? '+' : '') + state.faunaEl.toFixed(2) + ' off the baked ' : 'as baked, ')
+    + faunaEl(state.faunaState).toFixed(2) + ' rad');
+  row(meta, 'mesh', 'fauna3d.js ' + f.kind + '/' + f.id);
+  for (const id of ['bake', 'checks', 'diffimgs', 'diffnum'] ) $(id).textContent = '';
+  drawFaunaSheet(f);
+  const ed = $('editor'); ed.textContent = '';
+  drawFaunaTuner(ed, f);
+  $('scaleread').textContent = '';
+}
+
+// THE BAKE SHEET — every texture the game will hold, at the size it will hold it. It goes in the
+// scales strip because that is where the Modelshop already puts "the same subject at sizes you do
+// not choose", and because a rail with the real-size strip in it is the only honest way to judge a
+// silhouette that draws at a dozen pixels.
+function drawFaunaSheet(f) {
+  const host = $('scales'); host.textContent = '';
+  const fig = document.createElement('figure');
+  const c = document.createElement('canvas');
+  const cap = document.createElement('figcaption');
+  cap.textContent = 'the bake sheet — every pose × bearing at ' + state.faunaUnit + ' px per model unit, and magnified ×4 beneath';
+  fig.append(c, cap);
+  host.append(fig);
+  try { renderFaunaSheet(c, { ...f, unit: state.faunaUnit, night: state.night }); } catch (e) { cap.textContent = 'sheet threw: ' + e.message; }
+  c.style.width = c.width + 'px';
 }
 
 function drawHud() {
@@ -436,6 +526,43 @@ function applyVehPatch(ref) {
   draw();
 }
 
+// ⚠ ONLY THE SCALARS ARE EXPOSED, and that rule is shared rather than restated. A row may also
+// carry lists and sub-objects — engine stations, a canopy spec — and a text box over a nested
+// object is a way to paste in something that throws inside a mesh builder three frames later. The
+// COLOURS are the one string that gets a real widget, because a colour typed as text is the
+// #rrggbb trap the fauna schema exists to close.
+const isHex = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
+
+function scalarFields(host, base, patch, commit) {
+  const keys = Object.keys(base)
+    .filter((k) => typeof base[k] === 'number' || typeof base[k] === 'boolean' || isHex(base[k]))
+    .sort();
+  for (const k of keys) {
+    const cur = k in patch ? patch[k] : base[k];
+    const d = document.createElement('div'); d.className = 'fld';
+    const lab = document.createElement('label'); lab.textContent = k; lab.style.flex = '0 0 74px';
+    lab.title = 'ships as ' + base[k];
+    const inp = document.createElement('input');
+    if (typeof base[k] === 'boolean') {
+      inp.type = 'checkbox'; inp.checked = !!cur; inp.style.flex = '0 0 auto';
+    } else if (isHex(base[k])) {
+      inp.type = 'color'; inp.value = String(cur); inp.style.flex = '0 0 auto';
+    } else {
+      inp.type = 'number'; inp.step = '0.005'; inp.value = String(cur);
+    }
+    if (k in patch) inp.classList.add('warn');
+    inp.onchange = () => {
+      const val = inp.type === 'checkbox' ? inp.checked : inp.type === 'color' ? inp.value : Number(inp.value);
+      if (inp.type === 'number' && !Number.isFinite(val)) return;
+      commit(k, val);
+    };
+    // A colour picker fires continuously while it is open, and waiting for `change` means dragging
+    // a hue slider against a preview that does not move.
+    if (inp.type === 'color') inp.oninput = inp.onchange;
+    d.append(lab, inp); host.append(d);
+  }
+}
+
 function drawVehicleTuner(host, v) {
   const ref = vehRowOf(v);
   const note = document.createElement('div'); note.className = 'dim';
@@ -448,32 +575,14 @@ function drawVehicleTuner(host, v) {
   note.textContent = 'Tuning ' + ref.kind + '/' + ref.id + ' — Save writes content/vehicle_models/' + ref.kind + '_' + ref.id + '.json and re-bakes.';
   host.append(note);
 
-  const keys = Object.keys(base).filter((k) => typeof base[k] === 'number' || typeof base[k] === 'boolean').sort();
-  for (const k of keys) {
-    const cur = k in patch ? patch[k] : base[k];
-    const d = document.createElement('div'); d.className = 'fld';
-    const lab = document.createElement('label'); lab.textContent = k; lab.style.flex = '0 0 74px';
-    lab.title = 'ships as ' + base[k];
-    const inp = document.createElement('input');
-    if (typeof base[k] === 'boolean') {
-      inp.type = 'checkbox'; inp.checked = !!cur; inp.style.flex = '0 0 auto';
-    } else {
-      inp.type = 'number'; inp.step = '0.005'; inp.value = String(cur);
-    }
-    if (k in patch) inp.classList.add('warn');
-    const commit = () => {
-      const val = inp.type === 'checkbox' ? inp.checked : Number(inp.value);
-      if (inp.type === 'number' && !Number.isFinite(val)) return;
-      const p = { ...(vehPatch.get(ref.kind + '/' + ref.id) || {}) };
-      // Back to the shipping value is a DELETION, not a patch that happens to match — otherwise
-      // the field stays flagged as changed and Reset has something to undo that is not a change.
-      if (val === base[k]) delete p[k]; else p[k] = val;
-      vehPatch.set(ref.kind + '/' + ref.id, p);
-      applyVehPatch(ref);
-    };
-    inp.onchange = commit;
-    d.append(lab, inp); host.append(d);
-  }
+  scalarFields(host, base, patch, (k, val) => {
+    const p = { ...(vehPatch.get(ref.kind + '/' + ref.id) || {}) };
+    // Back to the shipping value is a DELETION, not a patch that happens to match — otherwise
+    // the field stays flagged as changed and Reset has something to undo that is not a change.
+    if (val === base[k]) delete p[k]; else p[k] = val;
+    vehPatch.set(ref.kind + '/' + ref.id, p);
+    applyVehPatch(ref);
+  });
 
   const changed = Object.keys(patch).length;
   const bar = document.createElement('div'); bar.className = 'row'; bar.style.marginTop = '6px';
@@ -491,6 +600,91 @@ function drawVehicleTuner(host, v) {
   host.append(n);
   if (vehSaveMsg) {
     const m = document.createElement('div'); m.className = 'dim'; m.textContent = vehSaveMsg; host.append(m);
+  }
+}
+
+// ── THE FAUNA TUNER ──────────────────────────────────────────────────────────
+// The same shape as the vehicle tuner above and for the same reasons — live on edit, saved on
+// request, the whole row posted rather than the patch — with the pose controls in front of it,
+// because which pose you are looking at is the first thing you want to change and the last thing
+// that should require a trip to the viewport.
+const faunaPatch = new Map();        // '<kind>/<id>' -> the fields changed from the shipping row
+let faunaSaveMsg = '';
+
+function applyFaunaPatch(ref) {
+  const patch = faunaPatch.get(ref.kind + '/' + ref.id);
+  setFaunaParams(ref.kind, ref.id, patch && Object.keys(patch).length ? patch : null);
+  draw();
+}
+
+function drawFaunaTuner(host, f) {
+  const ref = { kind: f.kind, id: f.id };
+
+  const poses = document.createElement('div'); poses.className = 'row'; poses.style.flexWrap = 'wrap';
+  for (const p of FAUNA_POSES) {
+    const b = document.createElement('button');
+    b.textContent = p.state === 'air' ? 'air ' + p.wing : p.state;
+    b.classList.toggle('on', state.faunaState === p.state && (p.state !== 'air' || state.faunaWing === p.wing));
+    b.onclick = () => { state.faunaState = p.state; state.faunaWing = p.wing; draw(); };
+    poses.append(b);
+  }
+  host.append(poses);
+
+  const uRow = document.createElement('div'); uRow.className = 'fld';
+  const uLab = document.createElement('label'); uLab.textContent = 'bake px/unit'; uLab.style.flex = '0 0 74px';
+  uLab.title = 'the renderer\'s own size constant — this is the number the goose will actually draw at';
+  const u = document.createElement('input');
+  u.type = 'range'; u.min = '4'; u.max = '40'; u.step = '1'; u.value = String(state.faunaUnit);
+  u.oninput = () => { state.faunaUnit = Number(u.value); draw(); };
+  uRow.append(uLab, u); host.append(uRow);
+
+  const base = faunaParamBase(ref.kind, ref.id) || {};
+  const patch = faunaPatch.get(ref.kind + '/' + ref.id) || {};
+  const note = document.createElement('div'); note.className = 'dim';
+  note.textContent = 'Tuning ' + ref.kind + '/' + ref.id + ' — Save writes content/fauna_models/' + ref.kind + '_' + ref.id + '.json and re-bakes.';
+  host.append(note);
+
+  scalarFields(host, base, patch, (k, val) => {
+    const p = { ...(faunaPatch.get(ref.kind + '/' + ref.id) || {}) };
+    if (val === base[k]) delete p[k]; else p[k] = val;
+    faunaPatch.set(ref.kind + '/' + ref.id, p);
+    applyFaunaPatch(ref);
+  });
+
+  const changed = Object.keys(patch).length;
+  const bar = document.createElement('div'); bar.className = 'row'; bar.style.marginTop = '6px';
+  const reset = document.createElement('button'); reset.textContent = 'Reset this row';
+  reset.disabled = !changed;
+  reset.onclick = () => { faunaPatch.delete(ref.kind + '/' + ref.id); applyFaunaPatch(ref); };
+  const all = document.createElement('button'); all.textContent = 'Reset all fauna';
+  all.onclick = () => { faunaPatch.clear(); clearFaunaParams(); draw(); };
+  const save = document.createElement('button'); save.textContent = 'Save row';
+  save.disabled = !changed;
+  save.onclick = () => saveFaunaRow(ref);
+  bar.append(reset, save, all); host.append(bar);
+  const n = document.createElement('div'); n.className = 'dim';
+  n.textContent = changed ? changed + ' field(s) changed from the shipping row' : 'unchanged';
+  host.append(n);
+  if (faunaSaveMsg) { const m = document.createElement('div'); m.className = 'dim'; m.textContent = faunaSaveMsg; host.append(m); }
+}
+
+async function saveFaunaRow(ref) {
+  const base = faunaParamBase(ref.kind, ref.id) || {};
+  const patch = faunaPatch.get(ref.kind + '/' + ref.id) || {};
+  const doc = { id: ref.id, kind: ref.kind, params: { ...base, ...patch } };
+  faunaSaveMsg = 'saving…'; draw();
+  try {
+    const r = await fetch('/api/fauna', {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ doc }),
+    });
+    const j = await r.json();
+    if (!r.ok) { faunaSaveMsg = (j.errors || [r.statusText]).join(' · '); draw(); return; }
+    // ⚠ THE PATCH IS KEPT, NOT CLEARED — the same trap the vehicle save records. This page
+    // imported the baked module once, so faunaParamBase still hands back what was baked at load.
+    faunaSaveMsg = 'saved to content/fauna_models/' + j.file + ' and re-baked — reload to make it the baseline';
+    draw();
+  } catch (e) {
+    faunaSaveMsg = 'save failed: ' + e.message; draw();
   }
 }
 
@@ -586,7 +780,8 @@ const HIT_PX = 34;
 const AUTH_ZERO = [0, 0, 0];
 
 function segScreenPoints() {
-  if (isVehicle(state.key)) return [];
+  // Neither a vehicle nor an animal has a capture, so neither has a piece to pick.
+  if (!isAuthoredMass(state.key)) return [];
   const doc = editorDocFor(state.key);
   const m = modelOf(state.key);
   if (!doc || !m || !lastCam) return [];
@@ -674,6 +869,7 @@ function initViewport() {
       kind: 'orbit', locked, sx, sy, k, heading: state.heading, zMid,
       radius: Math.max(0.2, Math.hypot(state.dist, dz)),
       elev: Math.atan2(dz, Math.max(0.05, state.dist)),
+      faunaEl: state.faunaEl,
       // Solved once per grab rather than per frame: the subject does not change size mid-drag,
       // and re-solving it under the mouse would make the floor itself move.
       minDist: MIN_DEPTH,
@@ -745,6 +941,15 @@ function initViewport() {
 
     if (act.kind === 'orbit') {
       state.heading = (act.heading + dsx * 0.35 + 360000) % 360;
+      // An animal has no camera to orbit — it is painted straight — so the same drag means the
+      // same two things by the shortest route: sideways turns the subject, vertically it lifts the
+      // viewpoint off the one the pose bakes from. Clamped well short of overhead, because a plan
+      // view of a bird is not a picture any seat in this game can produce.
+      if (isFauna(state.key)) {
+        state.faunaEl = Math.max(-0.7, Math.min(0.9, (act.faunaEl ?? 0) - dsy * 0.004));
+        draw();
+        return;
+      }
       // ⚠ VERTICAL DRAG MOVES ON THE SPHERE, never up a line. Raising the eye while holding the
       // distance is a CRANE: the camera climbs and the subject stays as far away in plan, so it
       // flattens and slides rather than turning under you. The orbit holds the RADIUS about the
@@ -924,6 +1129,13 @@ $('mode-rotate').onclick = () => setMode('rotate');
 // at eye height 0 and a cockpit almost never sees it — so authoring only from a cockpit is
 // exactly how near-tier detail ships broken. The cab preset is the only way to look at it.
 function preset(which) {
+  if (isFauna(state.key)) {
+    // There is no camera to place. Framing an animal means going back to the viewpoint its pose
+    // is actually baked from, which is the only one a player ever sees it at.
+    state.faunaEl = 0;
+    draw();
+    return;
+  }
   if (isVehicle(state.key)) {
     // ⚠ A VEHICLE IS SCALED UP, NOT APPROACHED. These meshes are authored to read as a
     // contact seen from an aeroplane — a rig stands about 0.05 tiles tall — so no camera

@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#171c18",
+  "description": "Eight full-size tables in two rows under eight low lamps, and the rest of the room is dark in a way that feels deliberate rather than cheap. Cues in a rack on the end wall, most of them house cues with the tips gone flat, four of them in locked slots with names on. Scoreboards on wires above each table, the beads pushed along by hand. The floor is bare board worn into a pale track round every table at exactly the distance a person stands. It smells of chalk, blue chalk specifically, and old smoke that is in the plaster now.",
+  "exits": {
+    "north": "zone_pocket_back",
+    "west": "zone_district_912_915",
+    "down": "zone_util_zone_pocket_hall"
+  },
+  "flags": {
+    "building_name": "Pocket Money",
+    "building_type": "pool_hall",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The clerestory band down the long wall, at head height and above, so you get the sky and the tops of the buildings opposite and none of the street at all. Whatever the weather is doing is doing it over the tables.",
+      "light": 0.55,
+      "name": "the clerestory band",
+      "visibility": 0.4
+    },
+    "world_exit_zone": "zone_district_912_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_pocket_hall",
+  "map_id": "map_int_pocket",
+  "name": "Pocket Money — The Hall",
+  "parent_zone": "zone_district_912_915"
+}

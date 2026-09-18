@@ -1,0 +1,19 @@
+{
+  "description": "Steel racking to the ceiling both sides, labels turned out, sorted by strength rather than by kind. He will defend that at length and the defence is good: nobody comes in here for a grape variety and everybody comes in here knowing roughly what they want to happen.",
+  "flags": {
+    "aliases": "racking,shelves,bottles,stock",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_spirit_racks",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the racking",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_spirit_shop"
+}

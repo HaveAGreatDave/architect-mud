@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_906_908",
+  "b": "zone_grounds_cafe",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_906_908_south_rz25",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,16 @@
+{
+  "description": "About a third of the glass has been replaced over the years with whatever came to hand, so the span is a patchwork of thicknesses and tints and two panels of plain board where the glass lost and nobody had a pane. The light coming through is a different colour in every bay.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_compostmentis_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the mismatched panes",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_compostmentis_yard"
+}

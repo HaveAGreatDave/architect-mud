@@ -102,6 +102,10 @@ export const CORRIDOR_R = 6;
 // ramp can be rather than as narrow as a street is; regress flood-fills the whole paved set and
 // demands one 8-connected piece, at every width the taper passes through.
 export const PAVED_R = 0.95;   // full half-width — 1.9 tiles. Was 1.2; "smaller" was the note.
+// The graded strip beside the carriageway. Exported because the far-field renderer draws the same
+// two bands from a hundred tiles up (roadnet.js farRoadLines), and a second copy of this number
+// would be a road whose shoulder was a different width depending on how far away you were standing.
+export const SHOULDER_W = 1.2;
 const RAMP_R = 0.62;           // …where it meets the map
 const RAMP_LEN = 26;           // tiles the taper runs over
 // LANES ARE SHIPPED, NOT INFERRED. The renderer would otherwise need this file's two width
@@ -1190,7 +1194,6 @@ export function corridorAt(route, x, y) {
   // inside it at all: you crossed from tarmac straight to verge with nothing in between, which is
   // exactly the band that exists so that drifting off READS before it costs. 1.2 is what the
   // shoulder has always measured (2.4 − 1.2), so nothing about the verge changes here.
-  const SHOULDER_W = 1.2;
   const PAVED = pavedAt(route, s), SHOULDER = PAVED + SHOULDER_W;
   if (at < PAVED) {
     return { id, name: 'The Highway', danger,

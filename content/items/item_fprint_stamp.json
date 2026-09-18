@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_fprint_stamp",
+  "name": "a date stamp",
+  "tags": {
+    "description": "A self-inking date stamp with the bands set to a Tuesday, in a wooden handle worn to a shine on the left side only. It is the second one the library has owned and the first one is in a drawer and will not be thrown away."
+  },
+  "type": "misc",
+  "value": 34,
+  "weight": 180
+}

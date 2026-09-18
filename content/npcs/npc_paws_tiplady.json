@@ -1,0 +1,327 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "faction": null,
+  "home_activities": [],
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "npc_type": "vendor",
+  "id": "npc_paws_tiplady",
+  "name": "Constance Tiplady",
+  "sex": "female",
+  "hp": 34,
+  "hp_max": 34,
+  "home_zone": "zone_paws_surgery",
+  "work_zone_id": "zone_paws_wait",
+  "vendor_shop_name": "Paws for Thought",
+  "vendor_restock_rate": 3,
+  "vendor_stock_size": 12,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "fri": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 13
+      }
+    ],
+    "sun": []
+  },
+  "vendor_inventory": [
+    {
+      "item_id": "item_paws_wormer",
+      "price": 24
+    },
+    {
+      "item_id": "item_paws_muzzle",
+      "price": 20
+    },
+    {
+      "item_id": "item_paws_salve",
+      "price": 30
+    },
+    {
+      "item_id": "item_paws_splint",
+      "price": 44
+    }
+  ],
+  "flags": {
+    "clothing_layers": [
+      "a green surgical tunic, washed to a paler green than it started",
+      "a cardigan over it in the waiting room and never in the back",
+      "trousers and clogs that get hosed at the end of the day"
+    ],
+    "personality": "vendor"
+  },
+  "description": "A tall woman in her fifties in a faded green tunic, with a cardigan she puts on to come through to the front and takes off to go back. She talks to the animal first and the owner second, every time, and the order is not an affectation. She is kind in a way that never once shades into soft, and the small number of people who have heard her say no have not asked twice.",
+  "chitchat": [
+    "Tiplady crouches to the level of whatever has just come in and speaks to it before she speaks to anybody.",
+    "She writes a weight on a card and underlines it.",
+    "She puts a hand flat on a cat carrier for a moment without opening it.",
+    "\"Get him on the mat for me. Don't lift him, just walk him on.\"",
+    "She fills the bowl on the step from a jug, which she does twice a day.",
+    "\"That's a bite and it's a bite from something with a flat tooth, and I'd like to know what.\"",
+    "She reads a photograph on the wall for a second, smiles at it, and gets on.",
+    "\"He's not being difficult. He's frightened and you are the only thing in the room he knows.\"",
+    "She writes in the drug register, in ink, and dates it, which she does every single time.",
+    "\"Pay me Friday. Or don't. Bring him back Friday either way and that's the part I'm asking for.\"",
+    "She folds the blanket on the shelf under the table, which was already folded.",
+    "\"No, I don't do chrome. I know a man who does and I'm not sending you to him.\"",
+    "She turns a splint over in her hands, picks a smaller one, and does not explain."
+  ],
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Bowl's on the step if he wants it on the way out.\""
+    },
+    "chrome": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No,\" she says, pleasantly, and keeps writing. \"I don't fit it to animals. There is a man out past the Yards who will and he is competent and I still won't send anybody to him.\"\n\nShe caps the pen.\n\n\"An animal cannot tell you it has changed its mind. It cannot tell you the socket aches in the cold in four years. Everything else I do to them in this building I do because they would choose it if they could work out the choice, and that one I cannot say that about, and so I don't.\""
+    },
+    "fees": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"There's a list in that drawer,\" she says. \"Names, figures, lines through the figures. It's longer every year and it does not keep me awake.\"\n\nShe closes the drawer with her hip.\n\n\"If I turn somebody away over money, the animal is still in pain, it is just in pain somewhere I cannot see it. That is not a better outcome, it is a tidier one, and I've never been able to make myself want it.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People say a very great deal in a waiting room,\" she says. \"They are worried and they need to fill it. I hear about a lot of marriages.\""
+    },
+    "paw": {
+      "options": [
+        {
+          "label": "Did you know about it?",
+          "next": "paw_know"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She stops writing, which is unusual.\n\n\"The cat with the paw,\" she says. \"Yes. I have seen it. Twice, at a distance, and once close enough to matter, and it would not let me near the second time.\"\n\nShe puts the pen down.\n\n\"Somebody did beautiful work on that animal. Whoever it was understood the joint, not just the wiring, and that is a much smaller number of people than you would think.\""
+    },
+    "paw_know": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It wasn't me and it wasn't anybody I trained with,\" she says. \"I have asked. I have asked everybody who could have, and two of them lied to me about something else in the same conversation and neither lied about this.\"\n\nShe looks toward the window for a moment.\n\n\"It walks well. That is what I keep coming back to. Anybody can bolt a thing on. Making an animal walk well on it means somebody watched it walk, for weeks, and adjusted, and watched again, and cared about the outcome.\"\n\nShe picks the pen back up.\n\n\"So somewhere in this city there is a person who did that, and did not take the credit, and I would very much like to buy them a drink.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Wormer, salve, a splint.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What if I can't pay?",
+          "next": "fees"
+        },
+        {
+          "label": "Have you seen the cat with the paw?",
+          "next": "paw"
+        },
+        {
+          "label": "Do you fit augments?",
+          "next": "chrome"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just asking.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Bring him in, put him on the mat, and don't apologise for him.\" She is already crouching. \"Whatever he's doing in here he doesn't do at home. I know.\"",
+      "text_by_relation": {
+        "familiar": "She is on the floor with her hand out before you have got through the door properly, and she uses the animal's name without being reminded of it.\n\n\"He's put weight back on,\" she says, to him rather than to you. \"Hasn't he. Hasn't he.\"",
+        "first": "A tall woman in a green tunic comes through from the back pulling a cardigan on, and crouches immediately, at the level of whatever you have brought.\n\n\"Hello, you.\" A pause, and then, upward, almost as an afterthought: \"Constance Tiplady. Put him on the mat for me, don't lift him, just walk him on.\"\n\nShe does not look up.\n\n\"And don't apologise for him. Whatever he's doing in here, he doesn't do at home.\"",
+        "known": "\"Ah.\" She is already up and moving toward the back. \"On the mat. Then through.\""
+      }
+    }
+  }
+}

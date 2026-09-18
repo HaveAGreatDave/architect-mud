@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#231718",
+  "color": "#a8423f",
+  "description": "Cold, bright and wet-looking, all white tile and stainless, with a block in the middle worn into a dish from one end of its life to the other. The chilled case runs the length of the front, the rail runs the length of the back, and between them there is exactly enough room for two people who know each other's habits. It smells of cold fat and bleach, in that order, and the bleach is winning.",
+  "exits": {
+    "down": "zone_util_zone_primesuspect_shop",
+    "south": "zone_district_916_911"
+  },
+  "flags": {
+    "building_name": "Prime Suspect",
+    "building_type": "butcher",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The back of the slanted window case, and past it the street. Everything in the case faces out, so from in here it is a row of backs and a strip of Foundry Way above them with the light coming through cold.",
+      "light": 0.85,
+      "name": "the chilled case",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_916_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_primesuspect_shop",
+  "map_id": "map_int_primesuspect",
+  "name": "Prime Suspect — Shop",
+  "parent_zone": "zone_district_916_911"
+}

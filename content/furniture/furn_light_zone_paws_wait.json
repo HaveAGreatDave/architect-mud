@@ -1,0 +1,14 @@
+{
+  "description": "A plain glass shade in the middle of the ceiling, domestic, left from when this was a front room, throwing exactly the light a front room has. Nobody has ever replaced it with anything more clinical and the effect on people sitting in here with a box on their knees is measurable.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_paws_wait",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "the ceiling light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_paws_wait"
+}

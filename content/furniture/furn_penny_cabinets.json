@@ -1,0 +1,19 @@
+{
+  "description": "Four uprights with their screens gone soft and violet at the corners, and five more at the back that take your coin and answer with a noise. Somebody has written what each of the five actually does on masking tape along the top, in the same hand, honestly.",
+  "flags": {
+    "aliases": "cabinets,cabinet,machines,screens",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penny_cabinets",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the cabinets",
+  "object_type": "fixture",
+  "power_draw_kw": 0.4,
+  "price": 0,
+  "zone_id": "zone_penny_floor"
+}

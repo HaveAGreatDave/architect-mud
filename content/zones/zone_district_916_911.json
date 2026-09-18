@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#231718",
+  "color": "#a8423f",
+  "description": "White tile to shoulder height, scrubbed every night, and above it a fascia in dried-blood red with PRIME SUSPECT in cream capitals. The window is a chilled case on a slant with sawdust under it, and there is a hook rail across the top of the opening that is usually empty by four. The pavement outside this one door is the cleanest thirty square feet on Foundry Way and it is not an accident.",
   "exits": {
-    "east": "zone_district_917_911",
-    "south": "zone_district_916_912",
-    "west": "zone_district_915_911"
+    "north": "zone_primesuspect_shop",
+    "south": "zone_district_916_912"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Prime Suspect",
+    "building_type": "butcher",
+    "district": "marrow",
+    "entrance": "south",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_916_912"
   },
   "grid_x": 916,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_916_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "BU",
+  "name": "Prime Suspect",
   "parent_zone": null
 }

@@ -1,0 +1,294 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Doreen twists wire, snips, and the thing in her hands becomes a shape.",
+    "She runs a thumb up a stem, strips it bare, and drops the leaves on the floor with the rest.",
+    "She lifts a bucket, looks at the water, and tips it into the drain without hurrying.",
+    "She takes the wire from behind her ear, uses an inch of it, and puts it back.",
+    "The cold room door sucks shut on its seal and the room gets a degree warmer.",
+    "She pulls an order off the spike, reads it, and puts it back on lower down.",
+    "\"Short,\" she says, holding something up. \"Can't sell short.\"",
+    "She looks out at the buckets on the pavement and counts them without moving her lips.",
+    "She wipes her hands on the apron. They are red before and red after.",
+    "She takes down a wreath frame, holds it against nothing in particular, and hangs it back up a size along."
+  ],
+  "description": "A brisk woman with red hands and a length of binding wire tucked behind one ear like a pencil. She works cold and wet all day and has stopped noticing. There is a practised gentleness in how she handles the stock and absolutely none of it in how she handles anybody who is wasting her morning, and she can switch between the two inside a single sentence.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "name": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She keeps working.\n\n\"The sign was up when I bought the lease. The man who painted it is dead and the man who paid him is dead and neither of them left a note.\"\n\nA beat.\n\n\"I've had eleven years of people asking me that with a certain look on their face, and I've found the best thing is to give them nothing at all and let them decide for themselves what kind of shop this is.\" She looks up, briefly. \"You've had your go now.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Why do people leave flowers at the statue?",
+          "next": "statue"
+        },
+        {
+          "label": "The big frame on the wall.",
+          "next": "wreaths"
+        },
+        {
+          "label": "Is the name deliberate?",
+          "next": "name"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Buckets on the floor are what's in. Frames on the wall are what I can make.\" She doesn't stop wiring. \"Sympathy by noon for same day, and before you ask, yes, really by noon.\"",
+      "text_by_relation": {
+        "familiar": "She puts the wire down when the bell goes, which she does not do for everybody.\n\n\"Right. I put something by, it's nothing, don't make a thing of it.\" She pushes a small wrapped cone across the zinc. \"It's the ones that came in short and I can't sell short. They're perfectly good and they'd be in the bin.\"",
+        "first": "The woman at the bench doesn't look up from the wire.\n\n\"Doreen. Buckets are what's in, wall's what I can make, and the cold room is what's promised to other people.\" A twist, a snip, and the thing in her hands becomes a shape. \"If you want something for the statue, the cheap stems on the end are the ones for that. Everyone takes the expensive ones the first time and they blow over by tea.\"",
+        "known": "\"You know where they are.\" She tips her head at the end bucket. \"Those went in this morning. Take two, they're better in twos, I don't know why and I've stopped wondering.\""
+      }
+    },
+    "statue": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No idea.\" She says it without any curiosity at all, which is itself interesting. \"I've been here eleven years and it was happening when I got here. Nobody organises it, nobody clears it, and the council has never once sent anybody to sweep it up, which for that lot is practically a religious observance.\"\n\nShe snips something.\n\n\"I sell about forty stems a week to it. I'm not going to be the one who asks.\""
+    },
+    "wreaths": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Six rings of wire and the width of a door.\" She glances at it. \"Four times I've dressed that. Two of them were the Marrow and one was a fire and one I'm not going to tell you about.\"\n\nA pause, and she goes back to the bench.\n\n\"It takes two people to carry and about nine hours to dress and I do it for cost, which is not generosity, it's that I would not know what to charge and I don't want to find out.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a waxed apron over a thick jumper",
+      "fingerless gloves with the wool gone hard at the tips",
+      "a long skirt and wellingtons"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_floristgump_shop",
+  "hp": 36,
+  "hp_max": 36,
+  "id": "npc_florist_fairweather",
+  "name": "Doreen Fairweather",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_cut_stems",
+      "price": 10
+    },
+    {
+      "item_id": "item_posy",
+      "price": 6
+    },
+    {
+      "item_id": "item_wreath_small",
+      "price": 38
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 7,
+        "to": 17
+      }
+    ],
+    "mon": [
+      {
+        "from": 7,
+        "to": 17
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 17
+      }
+    ],
+    "sun": [
+      {
+        "from": 7,
+        "to": 17
+      }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 17
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 17
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 17
+      }
+    ]
+  },
+  "vendor_shop_name": "Florist Gump",
+  "vendor_stock_size": 9,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_floristgump_shop"
+}

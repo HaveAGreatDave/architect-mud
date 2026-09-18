@@ -1,0 +1,20 @@
+{
+  "description": "Steel racking down the long wall, four cans deep, every can lying flat the way they are supposed to. The labels are in a round careful hand that stops abruptly about a third of the way along the shelf, after which the labels are in biro on masking tape. Some of the cans are light when you lift them.",
+  "flags": {
+    "aliases": "racking,cans,film,reels,rack",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_cans",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the film racking",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_reel_foyer"
+}

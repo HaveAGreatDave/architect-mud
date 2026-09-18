@@ -1,0 +1,33 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2a1e20",
+  "description": "Carpet the colour of an old wound, worn to the weave in two tracks: door to kiosk, kiosk to the auditorium doors. Everything else in here is immaculate, which tells you nobody walks on it. The kiosk is a glazed booth with a brass dish under the window and a handwritten card taped inside the glass reading ONE PRICE. The confectionery cabinet beside it holds four things, spaced out to look like more. A stairway goes up to the box behind a rope, and a hatch in the floor behind the kiosk goes down to where the building's wiring lives.",
+  "exits": {
+    "down": "zone_util_zone_reel_foyer",
+    "east": "zone_reel_house",
+    "up": "zone_reel_box",
+    "west": "zone_district_912_914"
+  },
+  "flags": {
+    "building_name": "Reel Estate",
+    "building_type": "cinema",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The glazed doors onto Meltwater Row, with the canopy lamps burning outside them. Whatever the weather is doing, it is doing it eight feet away and the carpet knows about it.",
+      "light": 0.6,
+      "name": "the entrance doors",
+      "visibility": 0.75
+    },
+    "world_exit_zone": "zone_district_912_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_reel_foyer",
+  "map_id": "map_int_reel",
+  "name": "Reel Estate — The Foyer",
+  "parent_zone": "zone_district_912_914"
+}

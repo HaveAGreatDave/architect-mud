@@ -1,0 +1,19 @@
+{
+  "description": "A length of hose filled with something, under the ledger, where his hand already is. He has never used it. He does not pretend it is there for another reason and he does not enjoy having it, and both of those are unusual on this road.",
+  "flags": {
+    "aliases": "cosh,ledger,under,stick",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_spirit_cosh",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the thing under the ledger",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_spirit_shop"
+}

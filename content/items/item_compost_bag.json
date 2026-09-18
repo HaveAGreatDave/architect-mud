@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_compost_bag",
+  "name": "bag of compost",
+  "tags": {
+    "description": "A sack of dark crumbly soil, heavier than it looks and warm in the middle if it has been sitting. Sold by weight from the heap at the back, into your bag or theirs.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 14,
+  "weight": 9000
+}

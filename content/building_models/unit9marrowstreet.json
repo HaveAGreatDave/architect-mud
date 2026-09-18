@@ -1,0 +1,211 @@
+{
+  "adorn": [
+    {
+      "cx": -0.2,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "170,196,210",
+      "s": 8,
+      "z": 0.27
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Unit 9, Marrow Street"
+    }
+  ],
+  "detail": [
+    {
+      "cx": -0.2,
+      "cy": 0.375,
+      "half": 0.155,
+      "hh": 0.1,
+      "kind": "shutter",
+      "pal": "ty_embassy_iron",
+      "z": 0.155
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.2,
+        "cy": 0.375,
+        "depth": 0.012,
+        "glass": "#14171a",
+        "glow": "#191d21",
+        "half": 0.125,
+        "hh": 0.055,
+        "kind": "windowBay",
+        "pal": "ty_unit",
+        "z": 0.4
+      },
+      "step": {
+        "z": 0.215
+      }
+    },
+    {
+      "color": "#b09a2c",
+      "cx": -0.2,
+      "cy": 0.375,
+      "font": "stencil",
+      "half": 0.15,
+      "hh": 0.03,
+      "ink": "#191507",
+      "kind": "signBoard",
+      "label": "UNIT 9",
+      "z": 0.285
+    },
+    {
+      "color": "#b09a2c",
+      "cx": 0,
+      "cy": 0,
+      "font": "stencil",
+      "half": 0.2,
+      "hh": 0.052,
+      "ink": "#191507",
+      "kind": "signGantry",
+      "label": "TO LET",
+      "pal": "ty_unit",
+      "rise": 0.045,
+      "z": 0.845
+    },
+    {
+      "cx": -0.07,
+      "cy": -0.375,
+      "face": "x",
+      "flights": 3,
+      "half": 0.072,
+      "kind": "fireEscape",
+      "out": 0.044,
+      "pal": "ty_cold",
+      "z0": 0.21,
+      "z1": 0.755
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.4,
+      "hh": 0.01,
+      "kind": "parapet",
+      "pal": "ty_unit",
+      "z": 0.845
+    },
+    {
+      "color": "#ff4a9a",
+      "cx": -0.21,
+      "cy": 0.376,
+      "hh": 0.058,
+      "kind": "tag",
+      "n": 5,
+      "v": 13,
+      "w": 0.13,
+      "z": 0.145
+    },
+    {
+      "color": "#5fd0ff",
+      "cx": 0.06,
+      "cy": -0.375,
+      "hh": 0.05,
+      "kind": "tag",
+      "n": 4,
+      "v": 17,
+      "w": 0.11,
+      "z": 0.2
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.2,
+      "d": 0.045,
+      "hh": 0.02,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.055,
+      "z": 0.845
+    },
+    {
+      "cx": 0.05,
+      "cy": -0.26,
+      "hh": 0.075,
+      "kind": "stack",
+      "pal": "ty_cold",
+      "r": 0.026,
+      "z": 0.845
+    },
+    {
+      "cx": 0.09,
+      "cy": -0.375,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.78
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.4,
+      "d": 0.032,
+      "hh": 0.026,
+      "kind": "binStack",
+      "lid": "#2a2c2e",
+      "n": 2,
+      "pal": "ty_cold",
+      "w": 0.038,
+      "z": 0.004
+    }
+  ],
+  "id": "unit9marrowstreet",
+  "note": "UNIT 9, MARROW STREET — the empty one. A slim precast infill from the 2060s with a glazed\nstair bow on the front, three storeys, a shutter that has been down long enough to be tagged twice\nand a TO LET board nobody has taken down.\n\n⚠ IT IS THE ONE BUILDING HERE WITH NO WARM LIGHT, AND THAT IS THE DESIGN. Every frontage on this\nstreet glows after dark; a terrace where they all do reads as a strip of neon rather than as a\nstreet with businesses in it. This one has a single cold security lamp over the shutter and\nnothing else — its windows take a near-black `glow`, so they stay dark at night instead of being\nlit rooms in an empty building.\n\n⚠ ITS BOW IS FROSTED, NOT CLEAR. `ty_clone_vat` is the one `frost` palette in the table, which is\nexactly right for a stair core nobody has fitted out: a surface that is obviously glass and\nobviously has nothing behind it.",
+  "pal": "ty_precast",
+  "replaces": "vacantunit",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.375,
+      "kind": "box",
+      "pal": "ty_precast",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.8
+    },
+    {
+      "cap": true,
+      "cx": 0.175,
+      "cy": 0.215,
+      "kind": "drum",
+      "n": 14,
+      "pal": "ty_clone_vat",
+      "rb": 0.185,
+      "rt": 0.185,
+      "z0": 0.05,
+      "z1": 0.855
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_unit",
+      "roof": true,
+      "z0": 0.8,
+      "z1": 0.845
+    }
+  ]
+}

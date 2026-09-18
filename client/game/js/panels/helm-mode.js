@@ -85,6 +85,30 @@ export function ensureHelmStyles() {
        nav chart) opt pointer events back in below. Without this, the invisible dash rectangle swallowed
        every drag that began level with it, so you could only orbit by grabbing ABOVE the whole console. */
     .helm-dash{ position:absolute; left:0; right:0; bottom:0; z-index:5; pointer-events:none; }
+    /* ⚠ AND NOT AT ALL WITH THE CAMERA OFF ITS MOUNT. The station is the bottom third of the frame,
+       which is most of the shot the free camera exists to compose, and while she is holding her
+       course it is showing numbers about a passage nobody is steering. The class is set and cleared
+       by the same O keypress in helm-view.js — never latched — because unlike the cab's shelf and
+       the cockpit's stick, this one IS how she is steered. */
+    body.helm-freecam .helm-dash{ display:none; }
+    /* ── AND THE REST OF THE WHEELHOUSE WITH IT ───────────────────────────────
+       The console was the first thing out of the shot and for a while it was the only one, which
+       left a mode for taking photographs with ECHELON · HELM lettered across the top-left corner
+       and a weather chip, a clock and four buttons across the top-right. The placard is a caption
+       and the chips are a readout, and both are in the picture.
+       The placard simply goes. The chips cannot: one of them is ✕, which is a way off the helm, and
+       another is ⛶, which is how you got the pane big enough to photograph in the first place — so
+       they fade on the idle timer instead (see bindFreeCamIdle in freecam.js) and are back on the
+       first thing the player does. The hint strip rides with them for the same reason.
+       ⚠ THE PANE'S OWN LABEL GOES TOO, and the A-pillars with it. '.ws-label' is 'ECHELON · AFT' in
+       the top-left corner of the chase view, which is the same caption a second time, and
+       '.ws-frame's ::after is the glazing down each edge — which the cab and the cockpit also drop
+       while keeping the bezel and the vignette (the reasoning is written out in cab-view.js). */
+    body.helm-freecam .helm-placard, body.helm-freecam .ws-label,
+    body.helm-freecam .ws-frame::after{ display:none; }
+    body.helm-freecam .helm-chips, body.helm-freecam .helm-freecam-hint{ transition:opacity .5s ease; }
+    body.helm-freecam.freecam-idle .helm-chips,
+    body.helm-freecam.freecam-idle .helm-freecam-hint{ opacity:0; pointer-events:none; }
     .helm-console, .helm-console-face{ pointer-events:none; }
     .helm-left, .helm-right, .helm-tele, .helm-nav-bezel{ pointer-events:auto; }
     /* The console is now a single machined BLACK-GLASS station in every state — an expensive slab of

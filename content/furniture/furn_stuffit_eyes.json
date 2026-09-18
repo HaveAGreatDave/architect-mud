@@ -1,0 +1,20 @@
+{
+  "description": "A flat tin the size of a book, lidded, with dividers in it and a strip of card in each compartment. Species on the left of the card, and on the right one of two words: GOOD, or WILL DO. There are about nine hundred eyes in here and she can find any one of them without looking.",
+  "flags": {
+    "aliases": "eyes,tin,glass eyes,box",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stuffit_eyes",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the eye tin",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_stuffit_shop"
+}

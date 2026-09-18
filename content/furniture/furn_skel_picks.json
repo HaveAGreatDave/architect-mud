@@ -1,0 +1,19 @@
+{
+  "description": "Two boards. The first has every pick and tension wrench he owns in order of thickness, which is beautiful. The second has the same tools in order of how often he reaches for them, which is ugly and is the one he actually uses, and he built the first one for visitors.",
+  "flags": {
+    "aliases": "picks,pick,boards,wrenches,tension",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skel_picks",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the pick boards",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_skelcrew_back"
+}

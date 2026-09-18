@@ -1,0 +1,16 @@
+{
+  "description": "A butcher's block of end-grain hardwood, a hand thick at the edges and rather less in the middle, where a working life has taken it away. It gets scraped down and salted every night and will still need replacing inside five years, which everyone concerned is quietly not discussing.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_primesuspect_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the block",
+  "object_type": "table",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_primesuspect_shop"
+}

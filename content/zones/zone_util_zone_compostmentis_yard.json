@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A low utility room under the shop: bare brick, a concrete floor that slopes to a drain, and the building junction box humming in its steel cabinet. Barely a room at all, more a brick box at the end of the span with the supply coming in overhead and the heating pipes for the glasshouse running out of it in four directions.",
+  "exits": {
+    "up": "zone_compostmentis_yard"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_compostmentis_yard",
+  "map_id": "map_int_compostmentis",
+  "name": "Compost Mentis — Utility Room",
+  "parent_zone": "zone_district_916_913"
+}

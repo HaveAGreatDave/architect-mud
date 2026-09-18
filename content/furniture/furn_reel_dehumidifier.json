@@ -1,0 +1,19 @@
+{
+  "description": "A squat grey unit in the corner with a hose run into the floor drain and a tally of dates on the housing in marker, one a week, going back years. Film that gets damp goes to vinegar and then to nothing, and everybody who has smelled that happen owns one of these.",
+  "flags": {
+    "aliases": "dehumidifier,unit,hose",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_dehumidifier",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the dehumidifier",
+  "object_type": "appliance",
+  "power_draw_kw": 0.3,
+  "price": 0,
+  "zone_id": "zone_util_zone_reel_foyer"
+}

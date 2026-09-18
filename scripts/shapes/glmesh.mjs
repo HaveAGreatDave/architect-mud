@@ -292,12 +292,30 @@ for (const { key, m } of ws.shapeModelRegistry()) {
 // the lean one. The window grid's own sub-budget is what keeps this true; this is what notices if
 // somebody removes it.
 {
+  // ⚠ `signGantry` IS IN THE `sign` SECTION, AND LEAVING IT OUT WAS A FALSE RED ON TWELVE MODELS.
+  // The rich kit does not merely ADD a rooftop hoarding: where the arm has not lettered its own
+  // frontage the hoarding TAKES the name and the plate over the door stands down, which
+  // `roofTakesName` says at length ("THE ROOF WINS THE NAME, NOT THE DOOR"). So the rich list
+  // carries `signGantry` exactly where the lean one carried `signBoard`, the section is present in
+  // both, and a map that knows only about the board reports the building as having lost its sign.
+  //
+  // Twelve models reported it and every one of them turned out to be wearing a `$name` hoarding.
+  // That is the cost of a false red rather than a missed one: nine of those twelve were printed on
+  // every run of this gate, and a real loss on FOUR OTHER models — `type:office` and
+  // `type:corporate_office` among them — sat in the same list, indistinguishable, until somebody
+  // read the rich list part by part.
+  //
+  // ⚠ AND `bladePanel` IS DELIBERATELY NOT IN IT. A corner blade carries a PICTOGRAM and never
+  // `$name` — its own ⚠ in derivedKit says why, the length of a name is not known when the list is
+  // built — and a gable-end ad panel is somebody else's advertisement on a blank flank. Neither is
+  // a substitute for the board with the building's name on it, so counting them here would let a
+  // genuine loss pass on the strength of the building having been rented an advert.
   const SECTION = {
     windowBay: 'wall', louvreBank: 'wall',
     pipe: 'riser', cableRun: 'riser', ductRun: 'riser',
     fireEscape: 'stair', balcony: 'stair',
     roofTank: 'roof', antennaCluster: 'roof', tankFrame: 'roof', stack: 'roof',
-    canopy: 'ground', shutter: 'ground', signBoard: 'sign',
+    canopy: 'ground', shutter: 'ground', signBoard: 'sign', signGantry: 'sign',
     streetLamp: 'street', bollard: 'street', vendingMachine: 'street', parapet: 'cope',
   };
   const sections = (list) => new Set((list || []).map((d) => SECTION[d.kind]).filter(Boolean));
@@ -308,6 +326,38 @@ for (const { key, m } of ws.shapeModelRegistry()) {
     const rich = sections(ws.derivedTrim(m, FH, H, SEED, true));
     const lost = [...lean].filter((s) => !rich.has(s));
     if (lost.length) problems.push(`${key}: the rich kit LOST ${lost.join(', ')} — a section that fits in the lean budget must fit in the bigger one; something earlier in derivedKit is eating the counter`);
+  }
+}
+
+// ── AND A BUILDING THAT PUTS ITS NAME UP MUST STILL PUT IT SOMEWHERE ────────
+//
+// The check above works in SECTIONS, which is one level too coarse for the one thing a sign is for.
+// Three fittings can carry `$name` — the plate over the door, the works' painted elevation and the
+// rooftop hoarding — and they hand it between them: `roofTakesName` is rolled in section 2 so that
+// section 3b knows whether the name is spoken for and can stand down. A section map cannot see that
+// handover. It sees `sign` present in both lists and passes, or it sees the kinds swap and fails,
+// and neither answer is the question.
+//
+// The question is whether the building says what it is called. Asked directly:
+//
+// ⚠ IT IS WHAT CATCHES A HANDOVER TO A FITTING THAT IS THEN NOT BUILT. Section 4 sizes the hoarding
+// and looks for an offset clear of the arm's aerial masts, and declines when it finds none — a call
+// its own ⚠ defends, and rightly, while the plate over the door is still there to fall back on. It
+// was not: 3b had already stood down two hundred lines earlier. `type:office`,
+// `type:corporate_office`, `type:asc_spire` and `type:asc_shrine` each carried a lettered board in
+// the lean kit and NOTHING in the rich one, on the renderer that ships, and the section map reported
+// them in the same undifferentiated list as twelve models that were perfectly fine.
+//
+// ⚠ LEAN AGAINST RICH RATHER THAN A COUNT, the same reason `signrange` gives for its own shape: "this
+// model emits two sign decals" is a fact about today's content and would need editing every time
+// somebody names a building. What cannot become true is that a building letters itself on the
+// budget the 2-D painter can afford and goes anonymous on the bigger one.
+{
+  const namesItself = (list) => (list || []).some((d) => d.label === '$name');
+  for (const { key, m } of ws.shapeModelRegistry()) {
+    if (!namesItself(ws.derivedTrim(m, FH, H, SEED, false))) continue;
+    if (namesItself(ws.derivedTrim(m, FH, H, SEED, true))) continue;
+    problems.push(`${key}: the lean kit letters this building and the rich kit does not — its name is on nothing, on the renderer that ships. A fitting that CLAIMS the name (see roofTakesName) has to be one that will actually be built`);
   }
 }
 

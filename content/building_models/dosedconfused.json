@@ -1,0 +1,136 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "kind": "roofCross",
+      "lit": 1,
+      "rgb": "80,230,160",
+      "rise": 0.05,
+      "span": 0.09,
+      "z": 0.42
+    },
+    {
+      "cx": -0.08,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "90,220,165",
+      "s": 14,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Dosed & Confused"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.34,
+      "hh": 0.016,
+      "kind": "parapet",
+      "pal": "ty_stitch",
+      "z": 0.94
+    },
+    {
+      "bars": 3,
+      "cx": -0.08,
+      "cy": 0.36,
+      "depth": 0.016,
+      "glass": "#101b17",
+      "glow": "#cdf0df",
+      "half": 0.21,
+      "hh": 0.03,
+      "kind": "windowBay",
+      "pal": "ty_shop_d",
+      "z": 0.12
+    },
+    {
+      "bars": 4,
+      "cx": 0,
+      "cy": 0.36,
+      "depth": 0.01,
+      "glass": "#101b17",
+      "glow": "#9fd8c0",
+      "half": 0.26,
+      "hh": 0.028,
+      "kind": "windowBay",
+      "pal": "ty_shop_d",
+      "z": 0.5
+    },
+    {
+      "color": "#0e2a20",
+      "cx": -0.08,
+      "cy": 0.36,
+      "font": "condensed",
+      "half": 0.24,
+      "hh": 0.028,
+      "ink": "#7fe8bd",
+      "kind": "signBoard",
+      "label": "DOSED & CONFUSED",
+      "picto": "pill",
+      "z": 0.32
+    },
+    {
+      "cx": 0.24,
+      "cy": 0.36,
+      "half": 0.06,
+      "hh": 0.03,
+      "kind": "shutter",
+      "pal": "ty_stitch",
+      "z": 0.11
+    },
+    {
+      "cx": 0.2,
+      "cy": 0,
+      "d": 0.08,
+      "hh": 0.04,
+      "kind": "acUnit",
+      "pal": "ty_stitch",
+      "w": 0.1,
+      "z": 0.94
+    }
+  ],
+  "id": "dosedconfused",
+  "neon": "#4fd39a",
+  "note": "A chemist on the corner where Foundry Way meets the Gate Road, with a green cross over the door that flickers on the downstroke and a night hatch beside it with a bell. The window is full of boxes that have faded down one side from standing in the light. Three floors, and the dispensing counter is up a step.",
+  "pal": "ty_shop_d",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.38,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.07
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.07,
+      "z1": 0.82
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "pal": "ty_stitch",
+      "roof": true,
+      "z0": 0.82,
+      "z1": 0.94
+    }
+  ],
+  "trade": "chem_supply"
+}

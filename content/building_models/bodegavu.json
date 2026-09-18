@@ -1,0 +1,310 @@
+{
+  "adorn": [
+    {
+      "cx": -0.1,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "255,214,140",
+      "s": 20,
+      "z": 0.24
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "255,198,120",
+      "s": 15,
+      "z": 0.02
+    },
+    {
+      "cx": -0.24,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "255,208,150",
+      "s": 8,
+      "z": 0.6
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Bodega Vu"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 3,
+      "cx": -0.1,
+      "cy": 0.43,
+      "depth": 0.019,
+      "glass": "#1c1712",
+      "glow": "#ffe6b0",
+      "half": 0.24,
+      "hh": 0.115,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "transom": 0.7,
+      "z": 0.235
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.432,
+      "half": 0.115,
+      "hh": 0.075,
+      "kind": "shutter",
+      "pal": "ty_unit_shut",
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0.43,
+      "half": 0.38,
+      "hh": 0.013,
+      "kind": "canopy",
+      "out": 0.125,
+      "pal": "ty_unit_board",
+      "soffit": "#3a2a1c",
+      "strip": "#ffe08a",
+      "z": 0.375
+    },
+    {
+      "color": "#1c1206",
+      "cx": -0.1,
+      "cy": 0.43,
+      "font": "slab",
+      "half": 0.235,
+      "hh": 0.026,
+      "ink": "#ffe08a",
+      "kind": "signBoard",
+      "label": "BODEGA VU",
+      "z": 0.418
+    },
+    {
+      "color": "#1c1206",
+      "cx": 0.3,
+      "cy": 0.43,
+      "font": "hanzi",
+      "half": 0.07,
+      "hh": 0.026,
+      "ink": "#ffe08a",
+      "kind": "signBoard",
+      "label": "雜貨",
+      "z": 0.418
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.24,
+        "cy": 0.4,
+        "depth": 0.014,
+        "glass": "#221a16",
+        "glow": "#ffdca0",
+        "half": 0.075,
+        "hh": 0.065,
+        "kind": "windowBay",
+        "pal": "ty_unit_board",
+        "z": 0.6
+      },
+      "step": {
+        "z": 0.22
+      }
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0.06,
+        "cy": 0.4,
+        "depth": 0.014,
+        "glass": "#221a16",
+        "glow": "#3a2e26",
+        "half": 0.075,
+        "hh": 0.065,
+        "kind": "windowBay",
+        "pal": "ty_unit_board",
+        "z": 0.6
+      },
+      "step": {
+        "z": 0.22
+      }
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0.28,
+        "cy": 0.4,
+        "depth": 0.014,
+        "glass": "#221a16",
+        "glow": "#ffdca0",
+        "half": 0.075,
+        "hh": 0.065,
+        "kind": "windowBay",
+        "pal": "ty_unit_board",
+        "z": 0.6
+      },
+      "step": {
+        "z": 0.22
+      }
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.43,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_unit_board",
+      "z": 1.02
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "half": 0.34,
+      "kind": "cableRun",
+      "pal": "ty_unit_shut",
+      "r": 0.006,
+      "sag": 0.05,
+      "z": 0.8
+    },
+    {
+      "cx": 0.22,
+      "cy": -0.1,
+      "hh": 0.13,
+      "kind": "antennaCluster",
+      "n": 5,
+      "pal": "ty_unit_shut",
+      "r": 0.07,
+      "z": 1.02
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.4,
+      "d": 0.04,
+      "drip": 1,
+      "hh": 0.026,
+      "kind": "acUnit",
+      "pal": "ty_unit_shut",
+      "w": 0.055,
+      "z": 0.7
+    },
+    {
+      "cx": 0.4,
+      "cy": 0.44,
+      "d": 0.034,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#2a2118",
+      "n": 3,
+      "pal": "ty_unit_board",
+      "w": 0.042,
+      "z": 0.004
+    },
+    {
+      "cx": -0.4,
+      "cy": 0.455,
+      "d": 0.034,
+      "glow": "#ffd88a",
+      "hh": 0.072,
+      "kind": "vendingMachine",
+      "pal": "ty_unit_board",
+      "rgb": "255,200,120",
+      "s": 7,
+      "w": 0.048,
+      "z": 0.004
+    },
+    {
+      "cx": -0.26,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_unit_board",
+      "z": 0.004
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_unit_board",
+      "r": 0.026,
+      "rgb": "255,206,150",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.088
+    }
+  ],
+  "id": "bodegavu",
+  "neon": "#ffe08a",
+  "note": "BODEGA VU — the corner shop at the south end of Ironside Street, with a flat over it.\n\n⚠ THE FLAT IS THE POINT. A bodega is a shop somebody LIVES above, and the arm drew it as a shop with\na lid: one palette, one storey, nothing to say anybody was up there. So the upper floor is a\ndifferent colour from the shop, has curtains in some windows and not others, and carries the\nwashing line and the aerial — which is the cheapest possible way to say a building is occupied.\n\n⚠ AND THE SHUTTER IS HALF DOWN RATHER THAN UP OR CLOSED. A shop that is open reads as a shopfront\nand a shop that is shut reads as a blank wall; half down is the only one of the three that says\nsomebody is in there and it is late.",
+  "pal": "ty_honky_front",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_signal_brick",
+      "roof": false,
+      "z0": 0.05,
+      "z1": 0.44
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.425,
+      "kind": "box",
+      "pal": "ty_unit_board",
+      "roof": false,
+      "z0": 0.44,
+      "z1": 0.48
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_honky_front",
+      "roof": true,
+      "z0": 0.48,
+      "z1": 0.94
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.425,
+      "kind": "box",
+      "pal": "ty_unit_board",
+      "roof": true,
+      "z0": 0.94,
+      "z1": 1.02
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.18,
+      "hw": 0.13,
+      "kind": "box",
+      "pal": "ty_unit_shut",
+      "roof": true,
+      "z0": 1.02,
+      "z1": 1.14
+    }
+  ],
+  "trade": "bodega"
+}

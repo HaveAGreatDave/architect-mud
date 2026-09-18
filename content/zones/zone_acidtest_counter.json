@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#26210f",
+  "color": "#c9a227",
+  "description": "One room, split across the middle by a counter with a grille in it and a drawer under the grille that goes both ways. On the customer side there is standing room and a bench. On the other side there is a balance under a glass case, a row of bottles in a rack, a stone, and a lamp on an arm that can be swung right down onto the work. Nothing on the far side of the grille is within arm's reach of the near side, and that is the whole design.",
+  "exits": {
+    "down": "zone_util_zone_acidtest_counter",
+    "north": "zone_district_914_913"
+  },
+  "flags": {
+    "building_name": "The Acid Test",
+    "building_type": "assay",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A slot of window above head height with a bar across it, which lets in the sky over Foundry Way and nothing else. You cannot see the street from in here and you cannot be seen from it, and both of those were the point.",
+      "light": 0.85,
+      "name": "the barred slot",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_914_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_acidtest_counter",
+  "map_id": "map_int_acidtest",
+  "name": "The Acid Test — Counter",
+  "parent_zone": "zone_district_914_913"
+}

@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "ambient_theme": "urban",
+  "bg_color": "#241f18",
+  "color": "#8c7a5e",
+  "description": "Four floors of rooms by the night, the week or, at a rate that is genuinely good value, the month. A card in the door glass lists the terms in a hand that got tired: NIGHTLY, WEEKLY, MONTHLY, NO GUESTS AFTER TEN, NO COOKING, NO EXCEPTIONS. Every window on the upper floors has a different curtain and two of them have a blanket.",
   "exits": {
-    "east": "zone_district_914_913",
     "north": "zone_district_913_912",
-    "south": "zone_district_913_914"
+    "south": "zone_boardstiff_desk"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Board Stiff",
+    "building_type": "hotel",
+    "district": "nightlife",
+    "entrance": "north",
+    "facade": true,
+    "floors": 4,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true,
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_913_912"
   },
   "grid_x": 913,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_913_913",
   "map_id": "map_world",
-  "name": "Foundry Way",
+  "marker": "BD",
+  "name": "Board Stiff",
   "parent_zone": null
 }

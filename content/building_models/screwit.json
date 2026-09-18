@@ -1,0 +1,283 @@
+{
+  "adorn": [
+    {
+      "cx": 0.26,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "150,255,130",
+      "s": 14,
+      "z": 0.26
+    },
+    {
+      "cx": -0.16,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "140,230,120",
+      "s": 15,
+      "z": 0.02
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.2,
+      "kind": "blinkLight",
+      "r": 1.2,
+      "rgb": "255,90,60",
+      "z": 1.57
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.18,
+      "kind": "glowPool",
+      "rgb": "160,220,150",
+      "s": 9,
+      "z": 1.1
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Screw It"
+    }
+  ],
+  "detail": [
+    {
+      "cx": -0.16,
+      "cy": 0.43,
+      "half": 0.19,
+      "hh": 0.16,
+      "kind": "shutter",
+      "pal": "ty_fab_metal",
+      "z": 0.26
+    },
+    {
+      "bars": 2,
+      "cx": 0.26,
+      "cy": 0.43,
+      "depth": 0.016,
+      "glass": "#16200f",
+      "glow": "#c8ffb4",
+      "half": 0.09,
+      "hh": 0.11,
+      "kind": "windowBay",
+      "pal": "ty_fab_metal",
+      "transom": 0.68,
+      "z": 0.26
+    },
+    {
+      "cx": 0,
+      "cy": 0.43,
+      "half": 0.37,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.1,
+      "pal": "ty_fab_metal",
+      "soffit": "#243020",
+      "strip": "#7dff6a",
+      "z": 0.45
+    },
+    {
+      "color": "#111a0e",
+      "cx": -0.06,
+      "cy": 0.43,
+      "font": "stencil",
+      "half": 0.26,
+      "hh": 0.028,
+      "ink": "#9cff8a",
+      "kind": "signBoard",
+      "label": "SCREW IT",
+      "z": 0.495
+    },
+    {
+      "color": "#d8c018",
+      "cx": 0.3,
+      "cy": 0.43,
+      "font": "stencil",
+      "half": 0.055,
+      "hh": 0.028,
+      "ink": "#161206",
+      "kind": "signBoard",
+      "label": "3",
+      "z": 0.495
+    },
+    {
+      "cx": -0.06,
+      "cy": -0.42,
+      "drip": 1,
+      "half": 0.15,
+      "hh": 0.085,
+      "kind": "louvreBank",
+      "n": 8,
+      "pal": "ty_fab_metal",
+      "z": 0.4
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.43,
+      "kind": "ductRun",
+      "pal": "ty_fab_metal",
+      "r": 0.03,
+      "run": 0.16,
+      "z0": 0.18,
+      "z1": 0.6
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.4,
+      "kind": "pipe",
+      "pal": "ty_fab_metal",
+      "r": 0.016,
+      "z0": 0.1,
+      "z1": 0.66
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "half": 0.36,
+      "kind": "conduit",
+      "pal": "ty_fab_metal",
+      "r": 0.014,
+      "z": 0.5
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.435,
+      "hh": 0.013,
+      "kind": "parapet",
+      "pal": "ty_fab_metal",
+      "z": 0.6
+    },
+    {
+      "cx": 0.4,
+      "cy": 0.42,
+      "d": 0.04,
+      "hh": 0.036,
+      "kind": "binStack",
+      "lid": "#3a3010",
+      "n": 3,
+      "pal": "ty_cont_y",
+      "w": 0.05,
+      "z": 0.004
+    },
+    {
+      "cx": -0.42,
+      "cy": -0.4,
+      "d": 0.04,
+      "hh": 0.036,
+      "kind": "binStack",
+      "lid": "#3a1410",
+      "n": 2,
+      "pal": "ty_cont_r",
+      "w": 0.05,
+      "z": 0.004
+    },
+    {
+      "color": "#7dff6a",
+      "cx": 0.34,
+      "cy": 0.44,
+      "hh": 0.07,
+      "kind": "tag",
+      "n": 3,
+      "v": 1,
+      "w": 0.08,
+      "z": 0.18
+    },
+    {
+      "band": "#d8c018",
+      "count": 2,
+      "cx": -0.3,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_fab_metal",
+      "step": 0.1,
+      "z": 0.004
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_fab_metal",
+      "r": 0.026,
+      "rgb": "180,240,160",
+      "s": 9,
+      "z0": 0,
+      "z1": 0.086
+    }
+  ],
+  "id": "screwit",
+  "neon": "#7dff6a",
+  "note": "SCREW IT — the chemical supply on Ironside Street. A trade counter with a works behind it.\n\n⚠ THE PLANT IS THE BUILDING. Everything a chem supply is actually for happens above the parapet:\nthe scrubber that takes what comes off the drums, and the stack that puts the rest over the roofs.\nThe arm drew a depot with drums outside, which is the storage and not the trade.\n\n⚠ THE STACK IS TALLER THAN THE SCRUBBER AND THAT IS NOT A STYLE CHOICE. A fume stack has to clear\neverything near it or it is a nuisance rather than a stack, and on this street the thing it has to\nclear is the Embassy's shoulder two doors down. It is the second vertical on Ironside — the first is\nthe crane at Salvage Rites — and the two are deliberately different shapes so the street does not\nread as having one landmark twice.\n\n⚠ AND THE HAZARD PLATE IS THE SMALLEST SIGN AND THE ONE PEOPLE READ. A works does not sign itself\n(see UNSIGNED_TRADE) — it carries a placard, a unit number and nothing else. This one signs itself\nanyway because it sells over a counter, which is the stated exception, so it gets both.",
+  "pal": "ty_giardia",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_giardia",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.435,
+      "kind": "box",
+      "pal": "ty_fab_metal",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.68
+    },
+    {
+      "cap": true,
+      "cx": -0.24,
+      "cy": -0.18,
+      "kind": "drum",
+      "n": 12,
+      "pal": "ty_fab_metal",
+      "rb": 0.105,
+      "rt": 0.095,
+      "z0": 0.68,
+      "z1": 1.12
+    },
+    {
+      "cap": false,
+      "cx": 0.2,
+      "cy": -0.2,
+      "kind": "drum",
+      "n": 10,
+      "pal": "ty_stack_dk",
+      "rb": 0.048,
+      "rt": 0.042,
+      "z0": 0.68,
+      "z1": 1.55
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.24,
+      "hw": 0.11,
+      "kind": "box",
+      "pal": "ty_fab_metal",
+      "roof": true,
+      "z0": 0.68,
+      "z1": 0.84
+    }
+  ],
+  "trade": "chemsupply"
+}

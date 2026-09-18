@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_spirit_wine",
+  "name": "bottle of greenhouse wine",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "abv": 12,
+    "drink_noun": "wine",
+    "drink_profile": "wine",
+    "pour_units": 12,
+    "restore_thirst": 14,
+    "description": "Made under glass at Terminus out of something that was never a grape, and it is the single strangest thing in the shop and the thing he is proudest of stocking. Pale, dry, and faintly of a thing you cannot name and then can."
+  },
+  "type": "consumable",
+  "value": 64,
+  "weight": 1100
+}

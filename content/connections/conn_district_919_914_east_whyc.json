@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_919_914",
+  "b": "zone_spirit_shop",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_919_914_east_whyc",
+  "lockable": true,
+  "one_way": false
+}

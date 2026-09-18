@@ -55,7 +55,7 @@ uniform float uHorizonY;   // in CSS pixels, and it can sit off the canvas in a 
 uniform float uDepth;      // the vertical focal length
 uniform float uCx;         // principal point across
 uniform float uHalfW;
-uniform float uLAT;        // the lateral 1.15 the projection carries
+uniform float uLAT;        // halfW / the camera's lateral focal length — see viewLatFocal
 uniform float uSinh;
 uniform float uCosh;
 uniform vec2  uA;          // the craft's ground point, chase offset already folded in
@@ -75,6 +75,27 @@ uniform float uFreq;       // RENDER_TUNE.tile
 uniform float uCwarp;      // coast warp amplitude, in tiles
 uniform vec2  uWc;         // the window centre in WORLD tiles — the warp phase is absolute
 uniform float uSeamEB;
+
+// The wildlands palette, for the ground past the window. Uniforms rather than literals because
+// these two are BIOME_GROUND.badlands and .redrock, which the LUT paints the near half of the same
+// desert with: a second copy here would be a copy that could be retuned on one side only, and the
+// symptom would be a colour step at the window edge that looks like the blend being wrong.
+uniform vec3 uFarDirt;
+uniform vec3 uFarRock;
+uniform float uFarOn;     // RENDER_TUNE.farTerrain; 0 puts the clamp back
+
+// THE VOID HIGHWAY, PAST THE WINDOW. Segment endpoints in window-relative tiles (the frame wx/wy
+// are already in), a half-width, and the packed-dirt colour the near road paints with. See farRoad.
+// ⚠ AN ARRAY THIS LONG IS A UNIFORM BUDGET QUESTION, AND THE ANSWER WAS MEASURED RATHER THAN
+// ASSUMED. A vec4[48] is 48 of the fragment shader’s uniform vectors; WebGL2 only GUARANTEES 224,
+// and a floor that will not link does not degrade — it throws, which hands the whole city back to
+// the 2-D renderer. Linked and counted: 114 of 224, so there is room for this and for the twelve
+// the wet-road reflection already takes. Raise it and re-count.
+const int MAX_ROAD = 48;
+uniform int   uNRoad;
+uniform vec4  uRoadSeg[MAX_ROAD];   // xy = one end, zw = the other
+uniform float uRoadW;
+uniform vec3  uRoadCol;
 
 // The N64 fog band, which is a SECOND distance term and not the haze above it: the haze is a
 // per-row wash toward the horizon, and this is a squared ramp between two world distances that the
@@ -167,6 +188,103 @@ float vnoise2(float x, float y) {
   return a + (b - a) * u + (c - a) * v + (a - b - c + e) * u * v;
 }
 
+// ── THE GROUND PAST THE MAP WINDOW ───────────────────────────────────────
+//
+// The long note lives in windshield.js beside 'farGround'. The short of it: 'lut0At' CLAMPS, and a
+// clamp radiating outward is one ring of tiles smeared to infinity — the long converging streaks
+// that run to the horizon over open country and never change however far you fly. Past the window
+// the ground is synthesised from the absolute world coordinate instead.
+//
+// ⚠ AND THIS IS THE ONE PLACE THE SHADER DOES NOT GET ITS OWN GRAIN. The note at the top of this
+// file says the raster's 'frac' hash cannot survive highp and that running a different one here is
+// harmless — true of the cracked clay, and false of this. It is the same ground the CPU raster
+// paints when glFloor is 0, and it is the same ground the LUT itself carries on the near side of
+// the boundary: a relief that disagreed would hang a ring of mismatched hillshade round the
+// aircraft at exactly the window edge. So the terrain hashes through THIS hash on both sides —
+// windshield.js runs the identical integer mix, because 'Math.imul' is a 32-bit multiply and
+// '>>> 0' is the unsigned read.
+
+const float GE_WARP = 80.0, GE_WARP_F = 0.0055;
+float groundElev(float gx0, float gy0) {
+  float wx = gx0 + (vnoise2(gx0 * GE_WARP_F - 3.1, gy0 * GE_WARP_F + 7.7) - 0.5) * GE_WARP;
+  float wy = gy0 + (vnoise2(gx0 * GE_WARP_F + 17.3, gy0 * GE_WARP_F - 11.9) - 0.5) * GE_WARP;
+  return sin(wx * 0.085 + 1.3) * cos(wy * 0.07 - 0.7) * 0.78
+       + sin((wx + wy) * 0.043 + 2.1) * 0.5
+       + sin(wx * 0.13 - wy * 0.11 + 0.6) * 0.3
+       + sin(wx * 0.19 - wy * 0.16) * 0.16;
+}
+const float WILD_WARP = 42.0, WILD_PROV_F = 0.0065;
+float wildsRelief(float x, float y) {
+  float wx = x + (vnoise2(x * 0.021 + 13.7, y * 0.021 - 5.3) - 0.5) * WILD_WARP;
+  float wy = y + (vnoise2(x * 0.021 - 8.1, y * 0.021 + 21.9) - 0.5) * WILD_WARP;
+  float prov = vnoise2(x * WILD_PROV_F + 4.5, y * WILD_PROV_F + 9.25);
+  float ridgeAmp = 0.35 + prov * 1.45;
+  float terrAmp = 0.45 + (1.0 - prov) * 1.25;
+  float ridge = 1.0 - abs(sin(wx * 0.16 + 0.4) * cos(wy * 0.14 - 0.9));
+  // ⚠ floor(v + 0.5), NEVER round(v). JavaScript's Math.round breaks a .5 tie upward and GLSL's
+  // round() is implementation-defined there (most drivers round half to even). A terrace is a
+  // quantiser, so the tie lands on every escarpment edge in the field — precisely the lines the eye
+  // is drawn to — and the two renderers would disagree by a whole step along all of them.
+  float terrace = floor((sin(wx * 0.11 - 0.6) + sin(wy * 0.09 + 1.7)) * 1.5 + 0.5) / 1.5;
+  return terrace * 1.3 * terrAmp + ridge * ridge * 1.1 * ridgeAmp;
+}
+float aridElev(float x, float y) { return groundElev(x, y) + wildsRelief(x, y); }
+// The finite-difference hillshade 'reliefShade' runs, at arid = 1: the far field is dry land by
+// construction, and whether it is SEA out there is the boundary tile’s answer rather than this
+// function’s. See the windshield note on why that one bit stays with the clamp.
+float farShade(float awx, float awy, vec2 lit) {
+  float e0 = aridElev(awx, awy);
+  float gx = aridElev(awx + 0.5, awy) - e0, gy = aridElev(awx, awy + 0.5) - e0;
+  return clamp(1.0 + (-gx * lit.x - gy * lit.y) * 3.0, 0.66, 1.34);
+}
+// rgb + hillshade for one far tile.
+const float FAR_FADE = 26.0, DEEP_INTO = 0.786;
+vec4 farGround(float awx, float awy, vec2 lit) {
+  float rr = clamp(DEEP_INTO * 0.7 + vnoise2(awx * 0.06, awy * 0.06) * 0.6 - 0.15, 0.0, 1.0);
+  return vec4(mix(uFarDirt, uFarRock, rr), farShade(awx, awy, lit));
+}
+// How far outside the LUT a sampling position sits, in tiles; 0 anywhere inside it. Chebyshev, to
+// match the clamp's own per-axis shape — the band then runs parallel to the window edge instead of
+// bulging at the corners.
+float outsideBy(float fx, float fy) {
+  float m = float(uMh - 1);
+  return max(max(-fx, fx - m), max(-fy, fy - m));
+}
+
+// ── THE HIGHWAY AT A RANGE THE MAP WINDOW CANNOT REACH ────────────────────────────────────────
+//
+// The corridor is real ground: a truck drives it, a walker stands on it, and it carries boards
+// counting down the miles. Inside the window it arrives as ordinary cells and is drawn as tarmac
+// with lane markings on it. Past the window it used to stop dead in mid-desert, because the window
+// is where cells stop. The server sends the geometry instead (see registerFarRoads), and this is
+// the rasteriser: distance from the ground point to the nearest segment, against a half-width.
+//
+// ⚠ IT ONLY RUNS OUTSIDE THE WINDOW, AND THAT IS NOT AN OPTIMISATION. Inside it the road is drawn
+// from cells, with its markings, its wear and its taper; painting a flat band over that as well
+// would be two roads on top of each other disagreeing about the paint. The crossfade that brings
+// the far terrain in brings the far road in with it, so the band appears exactly as the cells run
+// out.
+//
+// ⚠ AND THE BAND IS WIDENED TO A PIXEL WITH THE SHORTFALL CARRIED IN THE BLEND. At 200 tiles a
+// 4.3-tile road is a fraction of one pixel across, and a hard in/out test on a sub-pixel line does
+// not draw a thin road — it draws a dotted one that crawls as you fly. Same rule gl/strokes.js
+// states for a sub-pixel wire, and for the same reason: ink is conserved, so a road half a pixel
+// wide is one pixel at half strength rather than a coin toss per pixel.
+float roadCoverage(vec2 gp, float fp) {
+  if (uNRoad <= 0 || uRoadW <= 0.0) return 0.0;
+  float best = 1e9;
+  for (int i = 0; i < MAX_ROAD; i++) {
+    if (i >= uNRoad) break;
+    vec4 sg = uRoadSeg[i];
+    vec2 ab = sg.zw - sg.xy;
+    float l2 = dot(ab, ab);
+    float t = l2 < 1e-9 ? 0.0 : clamp(dot(gp - sg.xy, ab) / l2, 0.0, 1.0);
+    best = min(best, length(gp - (sg.xy + t * ab)));
+  }
+  float hw = max(uRoadW, fp);
+  return (1.0 - smoothstep(hw - fp, hw + fp, best)) * min(1.0, uRoadW / max(fp, 1e-5));
+}
+
 void main() {
   // CSS pixel coordinates, which is the frame drawMode7Floor works in.
   float sx = gl_FragCoord.x / uDpr;
@@ -224,6 +342,47 @@ void main() {
   float grassW = m00.r * w00 + m10.r * w10 + m01.r * w01 + m11.r * w11;
   float shadeW = (m00.g * w00 + m10.g * w10 + m01.g * w01 + m11.g * w11) * 2.0;
   float pavedW = m00.b * w00 + m10.b * w10 + m01.b * w01 + m11.b * w11;
+
+  // Past the window edge all four taps above are the same clamped boundary tile. Replace what the
+  // ground LOOKS like with the synthesis, keeping the waterness the clamp gave us — see farGround.
+  // Grass and tarmac fade out with it: a park or an apron at the window edge used to smear its own
+  // colour to the horizon, and out here the ground is wildlands. (The one man-made thing that does
+  // run on is the highway, and it is put back below.)
+  //
+  // 'lit' is the raster's own litX/litY, spelled out rather than sent: a fixed north-west key after
+  // dark, the sun by day.
+  vec2 lit = uSunElev > 0.05 ? uSunDir : vec2(-0.62, -0.62);
+  float dbgRoad = 0.0;
+  float fOut = uFarOn > 0.5 ? outsideBy(fx, fy) : 0.0;
+  if (fOut > 0.0) {
+    float k = clamp(fOut / FAR_FADE, 0.0, 1.0);
+    vec4 far = farGround(wpx + uWc.x, wpy + uWc.y, lit);
+    base = mix(base, far.rgb, k);
+    shadeW = mix(shadeW, far.a, k);
+    grassW *= 1.0 - k;
+    pavedW *= 1.0 - k;
+    // Half the ground footprint of this pixel, in tiles. A screen row IS a depth here, so the
+    // vertical span is d*d / (EH * depth) and the lateral one is the ray spread; the road takes
+    // whichever is coarser, because that is the axis it can dissolve along.
+    float fp = 0.5 * max(d * d / max(uEH * uDepth, 1e-4), d * uLAT / max(uHalfW, 1.0));
+    float rc = roadCoverage(vec2(wx, wy), fp) * k;
+    dbgRoad = rc;
+    if (rc > 0.001) {
+      base = mix(base, uRoadCol, rc);
+      // A graded road is cut flat through whatever it crosses, so it does not take the hillside
+      // shading of the ground either side of it.
+      shadeW = mix(shadeW, 1.0, rc);
+      // ⚠ AND IT IS PAVED, WHICH IS THE ONLY THING THAT STOPS THE DESERT EATING IT AGAIN. Every
+      // arid term below reads dryW, and dryW is 1 wherever there is no water, no grass and no
+      // tarmac — so without this the far road gets wind-blown sand laid across it AND the
+      // aerial-perspective wash that fades an open plain into the horizon, both of which pull it
+      // straight back to the colour of the ground it is meant to stand out from. Measured, that
+      // was the difference between a road you can see and a 6/255 tint you cannot: it is the same
+      // mistake, in the same term, that the long note in windshield.js records the near road
+      // having shipped with for months.
+      pavedW = mix(pavedW, 1.0, rc);
+    }
+  }
   // Bare dry land: 1 over open desert, 0 over water, turf or tarmac. Asphalt has no water and no
   // grass, so without the paved term every road in the game reads as the driest ground there is
   // and gets sand blown across it — the long note on this is in windshield.js.
@@ -437,6 +596,10 @@ void main() {
   if (uDebug == 2) { outColor = vec4(vec3(tex * 0.5), 1.0); return; }
   if (uDebug == 3) { outColor = vec4(vec3(haze * 4.0), 1.0); return; }
   if (uDebug == 4) { outColor = vec4(vec3(shadeW * 0.5), 1.0); return; }
+  // 6 - the far field, as a map rather than as a picture: red is how far outside the window this
+  // pixel sampled, green is the far-road coverage. The only way to tell "the branch never ran"
+  // from "it ran and painted nothing", which are the same black screen in the finished frame.
+  if (uDebug == 6) { outColor = vec4(clamp(fOut / 60.0, 0.0, 1.0), dbgRoad, 0.0, 1.0); return; }
   // 5 — a disc at each light's own ground point, in THIS shader's frame. The only honest way to
   // settle the frame conversion: if the discs do not sit under the lights, the conversion is wrong,
   // and every other symptom of that is a reflection sitting beside its sign, which reads as art.
@@ -472,6 +635,11 @@ const WET_P = new Float32Array(MAX_WET * 3);
 const WET_C = new Float32Array(MAX_WET * 3);
 const WET_R = new Float32Array(MAX_WET);
 const EMPTY_WET = [];
+// Scratch for the far-road segment upload, allocated once: this is written every frame a road is
+// in range, and a fresh Float32Array per frame is exactly the kind of garbage the LUT's own cache
+// note exists to avoid.
+const MAX_ROAD = 48;
+const ROAD_SEG = new Float32Array(MAX_ROAD * 4);
 
 export function createFloorLayer(gl) {
   const prog = gl.createProgram();
@@ -487,6 +655,8 @@ export function createFloorLayer(gl) {
     lut0: U('uLut0'), lut1: U('uLut1'), mh: U('uMh'), R: U('uR'),
     hor: U('uHor'), hz: U('uHz'), hazeMax: U('uHazeMax'), nm: U('uNm'),
     freq: U('uFreq'), cwarp: U('uCwarp'), wc: U('uWc'), seamEB: U('uSeamEB'),
+    farDirt: U('uFarDirt'), farRock: U('uFarRock'), farOn: U('uFarOn'),
+    nRoad: U('uNRoad'), roadSeg: U('uRoadSeg'), roadW: U('uRoadW'), roadCol: U('uRoadCol'),
     fogAmt: U('uFogAmt'), fogNear: U('uFogNear'), fogFar: U('uFogFar'), fogCol: U('uFogCol'),
     t: U('uT'), ss: U('uSS'), sunDir: U('uSunDir'), sunElev: U('uSunElev'),
     moonDir: U('uMoonDir'), moonElev: U('uMoonElev'), night: U('uNight'),
@@ -538,6 +708,22 @@ export function createFloorLayer(gl) {
     gl.uniform1f(loc.hz, s.hz); gl.uniform1f(loc.hazeMax, s.hazeMax); gl.uniform1f(loc.nm, s.nm);
     gl.uniform1f(loc.freq, s.freq); gl.uniform1f(loc.cwarp, s.cwarp);
     gl.uniform2f(loc.wc, s.wcx, s.wcy); gl.uniform1f(loc.seamEB, s.seamEB);
+    const fd = s.farDirt || [150, 112, 72], fr = s.farRock || [150, 82, 54];
+    gl.uniform3f(loc.farDirt, fd[0] / 255, fd[1] / 255, fd[2] / 255);
+    gl.uniform3f(loc.farRock, fr[0] / 255, fr[1] / 255, fr[2] / 255);
+    gl.uniform1f(loc.farOn, s.farOn == null ? 1 : s.farOn);
+    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO ROAD — the same rule the wet-reflection
+    // lights below follow. A uniform holds its last value, so a pass that only set these when it had
+    // a road would leave the last highway painted across the desert after you flew off the end of it.
+    const rs = s.roadSegs, nr = rs ? Math.min(MAX_ROAD, rs.length / 4) : 0;
+    gl.uniform1i(loc.nRoad, nr);
+    gl.uniform1f(loc.roadW, nr ? (s.roadW || 0) : 0);
+    if (nr) {
+      ROAD_SEG.set(rs.subarray ? rs.subarray(0, nr * 4) : rs.slice(0, nr * 4));
+      gl.uniform4fv(loc.roadSeg, ROAD_SEG.subarray(0, nr * 4));
+      const rc = s.roadCol || [111, 92, 56];
+      gl.uniform3f(loc.roadCol, rc[0] / 255, rc[1] / 255, rc[2] / 255);
+    }
     gl.uniform1f(loc.fogAmt, s.fogAmt || 0);
     gl.uniform1f(loc.fogNear, s.fogNear == null ? 6 : s.fogNear);
     gl.uniform1f(loc.fogFar, s.fogFar == null ? 34 : s.fogFar);

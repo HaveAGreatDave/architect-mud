@@ -41,7 +41,7 @@ import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
 import { hex2rgb, visorSpecFor, VIPER_SCALE } from './aircraft3d.js';
-import { createFreeCam, bindFreeCamPointer } from './freecam.js';
+import { createFreeCam, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { compactHidePanel } from '../../../shared/compact-view.js';
 
 // Touch-primary devices (phones/tablets) have no keyboard for rudder pedals, so their fin
@@ -173,6 +173,22 @@ let _paxKeyHandlers = null;  // [onKeyDown, onKeyUp] once bound, so we can unbin
 // One detached camera for the sim, module-scoped beside the rest of the flight state — see
 // freecam.js for why it lives in its own file rather than three times over.
 const freeCam = createFreeCam();
+// The chrome that goes with it. A BODY class, exactly as the external view, fullscreen and
+// hide-panel are done, because what it changes is which of the page's controls are on screen —
+// and because the flight sim's controls are scattered across five overlays out here rather than
+// gathered on one shelf the way the cab's are.
+//
+// ⚠ IT HIDES CONTROLS THE CAMERA HAS ALREADY TAKEN, WHICH IS A HOLD AND NOT A LOOK. Detaching
+// releases the throttle and pedal keys because the keyboard is about to belong to the camera, but
+// `bindFreeCamPointer` captures on `.fsim-view` alone — the yoke, the throttle lever and the
+// pedals are siblings of it, so a pointer could still fly an aeroplane the mode says is holding
+// its trim. They also sit across the bottom third of the frame, which is most of the shot.
+// ⚠ AND THE LAST OF IT GOES ON A TIMER. What survives the rule above is the corner buttons and
+// nothing else — one of them is the way back to the chase camera, so it cannot simply be hidden.
+// See bindFreeCamIdle: it fades after a couple of seconds untouched and returns on any input, so a
+// held frame is clean and a lost pilot is one mouse-move from the row.
+let freeIdle = null;
+function setFreeCamChrome(on) { document.body.classList.toggle('fsim-freecam', !!on); freeIdle?.wake(); }
 
 function updatePaxViewTag() {
   const tag = document.getElementById('ck-pax-viewtag'); if (!tag) return;
@@ -1318,6 +1334,24 @@ const FSIM_TUNE = [
   // the depth buffer instead of painted over the finished city. 0 puts every one of them back on
   // the canvas, probe and all, which is what shipped before and is what draws them through walls.
   ['glDeco', 'GL adornments', 0, 1, 1],
+  // The parts of a building that move: a wharf crane slewing and lifting, a gantry trolley running
+  // its beam, a grab dropping into a scrap pile, an arc welder in an open shed, the clone facility's
+  // vats breathing. 0 parks every one of them at the pose its cycle calls home — a still crane, not
+  // a missing one — and is the renderer exactly as it shipped. A slider because the thing being
+  // judged is whether it draws attention to itself, which is not a number.
+  ['motion', 'Moving parts', 0, 1, 1],
+  // Where the rain is allowed to be. The curtain is a full-screen particle pass keyed off the
+  // day's weather string, so it fell in clear air on top of an overcast and over the half of the
+  // map with no cell above it. 1 gates it on the cloud base the deck is already drawn at and on
+  // the cover at your own position; 0 is that curtain back, which is the mutation control the
+  // headless gate uses to prove the ceiling is what stops it.
+  ['rainGate', 'Rain under cloud only', 0, 1, 1],
+  // How far a building still says its own NAME. The board is in the mesh and the GPU draws it at
+  // every distance; the lettering on it is a decal the arm has to emit, and the pass that emits
+  // one used to stop at `detailNear` — three tiles — so the city was full of lit, framed, empty
+  // plates. 0 is that renderer back. It is a slider rather than a constant because what it buys
+  // is legibility and what it costs is decals, and both of those are things you judge by looking.
+  ['signFar', 'Sign lettering range', 0, 24, 1],
   // Multisampling on the GL canvas. A creation attribute, so moving it rebuilds the context and the
   // vertex buffer — one visible hitch, then the new setting. Worth a slider because the 2-D canvas
   // underneath has no AA at all, so this is a cost nobody chose to pay.
@@ -1330,15 +1364,37 @@ const FSIM_TUNE = [
   // ⚠ BIGGER IS SMALLER — it is the puddle field's FREQUENCY, so turning it up cuts the same
   // water into more and smaller pools. 1.5 is the picture that shipped; 1.9 is the default now.
   ['glPuddle', 'Puddle density', 0.6, 9, 0.05],
+  // The puddle field as a ROAD rather than as noise: the crown, the gutter and the wheel ruts.
+  // 0 is the isotropic field that shipped, which put water in blobs with no relation to the kerb.
+  ['glPudRoad', 'Puddles follow the road', 0, 1, 0.05],
+  // How much the water GROWS over a storm rather than arriving at full depth. 0 pins the level to
+  // the surface film, which is what shipped — puddles full about four seconds into any rain.
+  ['glPondGrow', 'Puddles fill over time', 0, 1, 0.05],
   ['glMirrorMass', 'Buildings in water', 0, 1, 1],
+  // The other four fifths of what a puddle reflects. The buffer held the city and the ground shader
+  // filled the rest with a flat sky colour — one colour, because a grazing reflection reads the
+  // bottom fifth of a two-stop gradient. 0 is that road.
+  ['glMirrorSky', 'Sky in water', 0, 1, 1],
+  // The contrast the reflection is read against, not its strength — at glMirror 32 the water is
+  // already at the Fresnel value. 0.45 is the road that shipped; 0 is a wet road as bright as a dry one.
+  ['glWetDark', 'Wet road darkness', 0, 0.9, 0.01],
   ['glRipple', 'Puddle ripple', 0, 8, 0.1],
   // The lamps reflected IN the water rather than smeared on the tarmac beside it — the one term
   // that makes a wet road at night brighter anywhere. 0 is the road as it was.
   ['glGlint', 'Puddle glint', 0, 160, 2],
   ['glGroundBias', 'Road depth bias', -64, 0, 1],
   ['glBeam', 'Headlight pool', 0, 0.6, 0.01],
+  // The other headlight — the screen-space glare — and how much of its ground pool a wet road takes
+  // away. It is the largest single thing on the near carriageway at night and it is painted on the
+  // glass, so 0 is the road washed exactly as it shipped and 1 is the pool gone in a downpour.
+  ['hlWetPool', 'Glare off wet road', 0, 1, 0.05],
   ['glShip', 'Rig in the depth buffer', 0, 1, 1],
   ['glBay', 'Depot in the depth buffer', 0, 1, 1],
+  // The third of that family, and the one whose sorting problem is with the CLOUDS rather than with
+  // a wall. A goose and an air contact are billboards, billboards write no depth, and the deck runs
+  // after the world and tests against what the world left — so the deck painted over the flock
+  // whatever its altitude. 0 puts both back to writing none, which is what shipped.
+  ['glAirDepth', 'What flies in the depth buffer', 0, 1, 1],
   ['occlude', 'Occlusion cull', 0, 1, 1],
   ['shapeShadow', 'Shape shadows', 0, 1, 1],
   // The hero model's own per-pixel sun shadow and lamp spill (model-raster.js). Both double as an
@@ -1364,6 +1420,7 @@ const FSIM_TUNE = [
   ['fov', 'Tunnel (FOV)', 0.5, 1.6, 0.02],
   ['treeDensity', 'Trees', 0, 2, 0.05],
   ['treeForest', 'Forest clump', 0.2, 0.9, 0.02],
+  ['geese', 'Geese', 0, 3, 0.1],
   ['chaseBack', 'Chase dist', 0.5, 5, 0.1],
   ['chaseUp', 'Chase height', 0, 2, 0.05],
   ['chaseSink', 'Sit height', -0.2, 0.5, 0.01],
@@ -1430,7 +1487,53 @@ function ensureFlightSimStyles() {
   const s = document.createElement('style'); s.id = 'fsim-styles';
   s.textContent = `
     .fsim{ display:flex; flex-direction:column; gap:6px; font-family:var(--font,monospace); --cy:var(--accent,#8fd0ff); --mg:#ff4a9a; --gr:#5fe0a0; }
+    /* ── ⚠ THE COCKPIT FITS ITS PANE, WHICH IT DID NOT ─────────────────────────────────────
+       The view asked for a fraction of the WINDOW — clamp(215px,40vh,460px) — while it sits in a
+       pane that is at most 65% of one column of that window. The two numbers have nothing to do
+       with each other and the arithmetic never worked out: at 1400x900 the view took 360px, the
+       instrument band and the stick band below it wanted 329 more, and the pane had 585 to give.
+       Measured in the ordinary desktop state with nothing folded away: 122px of the stick band
+       BELOW THE FOLD, reachable only by scrolling the room pane — and scrolling down to reach the
+       throttle scrolls the windscreen off the top, so there was no scroll position that showed a
+       pilot the aeroplane and the controls at once. The real client fares worse than this test
+       rig, because main.js caps the pane against the log and the command box as well.
+
+       TWO RULES, and the order matters. First the pane may grow to the ceiling the client already
+       computes for it (--pane-cap: whatever is left after the handle, the command box and 72px of
+       log) rather than to the flat 65% — because 65% is the rule that stops a ROOM DESCRIPTION
+       eating the log, and this is not a room description, it is the aeroplane. Then the pane stops
+       scrolling and the view takes what is left inside it, which is the same contract the truck
+       cab has always had and the reason its glass fits exactly.
+       Measured after, in the layout rig, across window heights: 360px of view and NOTHING below
+       the fold at 900, 333 at 800, 233 at 700 — the view untouched at the size most people fly at,
+       and what pays for it is the scrollback, down from 279px to 145 and never below the 72 the
+       cap reserves. ⚠ THE RIG SITS HIGHER THAN THE REAL CLIENT, whose bottom stack (smartbar,
+       input row, d-pad) is much taller and lowers the cap, so a real pilot gets a smaller view
+       than those figures. The property that does not move is the one worth having: whatever the
+       ceiling turns out to be, the whole cockpit is inside it.
+
+       ⚠ THE FLOOR IS ON THE VIEW AND IT IS A SAFETY NET, NOT THE ALLOCATOR. Below roughly a 650px
+       window there is no layout that fits: 200 + 171 + 152 and the gaps is 535px of cockpit and
+       the pane has less. Something is lost there, and the view is what should lose it — a shorter
+       view is still a view, where half a throttle is not a throttle.
+       ⚠ AND :has() RATHER THAN A BODY CLASS, because the pane has to stop scrolling only while
+       this app is mounted in it. A body class would need adding on open and removing on every exit
+       path, and there are several; a selector that reads the DOM cannot be left switched on. */
+    #area-pane:has(.fsim){ overflow:hidden; max-height:var(--pane-cap,65%); }
+    #area-content:has(.fsim){ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+    #area-content:has(.fsim) > .fsim{ flex:1 1 auto; min-height:0; }
     .fsim-view{ position:relative; height:clamp(215px,40vh,460px); border-radius:8px; overflow:hidden; box-shadow:inset 0 0 0 2px #0f1c28, 0 0 12px rgba(0,0,0,.6); }
+    #area-content:has(.fsim) > .fsim > .fsim-view{ flex:1 1 auto; min-height:200px; }
+    /* ⚠ AND THE BANDS NEVER GIVE, WHICH WAS TRIED AND MEASURED AND TAKEN BACK OUT. Letting them
+       shrink to their own declared floors buys the view 63px and the floors are not floors: the
+       dial cluster and the stick band are content at fixed sizes, so a 122px control band with
+       152px of radio in it simply paints the bottom of the COM/NAV stack off the edge. The band
+       below the fold was the bug; the band with its bottom cut off is the same bug, smaller. So
+       the view is the only elastic member, with a floor of its own for the pane too short to
+       hold any of this — at which point something has to be lost and a shorter view is still a
+       view, where half a throttle is not a throttle. */
+    #area-content:has(.fsim) > .fsim > .fsim-glass,
+    #area-content:has(.fsim) > .fsim > .fsim-ctl{ flex:0 0 auto; }
     .fsim-lamp{ position:absolute; top:8px; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:3;
       color:#ff5a5b; background:rgba(40,4,6,.7); border:1px solid #ff5a5b; border-radius:5px; padding:3px 9px; opacity:0; transition:opacity .12s; }
     /* transient action toast (flap/gear/jettison confirmations) */
@@ -2315,7 +2418,51 @@ function ensureFlightSimStyles() {
          not the 150 px one it was written against. */
       body.fsim-external .fsim-weap,
       body.fsim-external .fsim-spraybtn, body.fsim-external .fsim-hopbtn{ bottom:130px; }
-    }`;
+    }
+    /* ── THE CAMERA OFF ITS MOUNT ───────────────────────────────────────────────
+       Everything the pilot flies with, gone, because while the camera is detached the aeroplane is
+       being held rather than flown and none of these is a control any more (see setFreeCamChrome).
+       The big external gauges go too: this is a mode for taking a picture, and a speed readout in
+       the corner of one is a HUD.
+       ⚠ AFTER THE \`fsim-external\` BLOCK AND WITH \`!important\`, because several of these are
+       turned ON by a rule up there at the same specificity — \`.fsim-extg\` most obviously — and
+       the external view is the only view the camera can be detached from, so the two always meet.
+       What stays: the chrome buttons in the corner (◎ is a way back) and the toast, which is what
+       the O key's own hint arrives as. */
+    body.fsim-freecam .fsim-ctl, body.fsim-freecam .fsim-glass,
+    body.fsim-freecam .fsim-pedals, body.fsim-freecam .fsim-weap,
+    body.fsim-freecam .fsim-spraybtn, body.fsim-freecam .fsim-hopbtn,
+    body.fsim-freecam .fsim-extg{ display:none !important; }
+    /* ── AND SO IS EVERYTHING ELSE OVER THE VIEW ────────────────────────────────
+       The rule above took the flying controls out of the shot and left every readout in it: the
+       fuel chip in the top-left corner and its REFUEL button, the stall lamp, the gunsight, the
+       kill feed, the view tag, the hopper, the boom diagram, ABORT, DISEMBARK and the admin rewind.
+       None of them is a control the pilot still has while the aeroplane is holding its trim, and
+       all of them are in the picture.
+       ⚠ AN ALLOW-LIST, NOT A LIST OF WHAT TO HIDE. \`.fsim-view\` has picked up a new overlay every
+       few months for as long as it has existed, and a list of things to hide is a list somebody has
+       to remember to add to — this way the next one is out of the shot the day it arrives. What is
+       spared: the picture itself, the toast (transient, and it carries the hint that names the way
+       out), and the corner chrome, which the timer below takes anyway.
+       ⚠ AND THE A-PILLARS, the same half of \`.ws-frame\` the cab and the wheelhouse drop (the
+       reasoning is written out in cab-view.js): the pillars are glazing and go, the bezel and the
+       vignette are the lens and stay. \`.ws-label\` is the aircraft's name, which is a caption. */
+    body.fsim-freecam .fsim-view > *:not(.ws-wrap):not(.fsim-toast):not(.fsim-fsbtn):not(.fsim-viewbtn):not(.fsim-orbitreset):not(.fsim-hidebtn):not(.fsim-tunebtn):not(.fsim-tune){ display:none !important; }
+    body.fsim-freecam .ws-label, body.fsim-freecam .ws-frame::after{ display:none; }
+    /* ── AND THEN THE CORNER, ON A TIMER ────────────────────────────────────────
+       See bindFreeCamIdle in freecam.js. ◎ is the way back, so the row cannot simply go: it fades
+       when nothing has been touched for a couple of seconds and comes back on the first thing the
+       player does. Opacity rather than display, because this one is a look and must not move the
+       layout under a shot being composed — with pointer-events, so a faded button cannot be clicked
+       by a cursor that cannot see it.
+       ⚠ THE TUNING PANEL IS NOT ON IT. A slider you are dragging is one you stop to look at, and a
+       settings panel that faded while you read it would be the mode fighting the player. */
+    body.fsim-freecam .fsim-fsbtn, body.fsim-freecam .fsim-viewbtn,
+    body.fsim-freecam .fsim-orbitreset, body.fsim-freecam .fsim-hidebtn,
+    body.fsim-freecam .fsim-tunebtn{ transition:opacity .5s ease; }
+    body.fsim-freecam.freecam-idle .fsim-fsbtn, body.fsim-freecam.freecam-idle .fsim-viewbtn,
+    body.fsim-freecam.freecam-idle .fsim-orbitreset, body.fsim-freecam.freecam-idle .fsim-hidebtn,
+    body.fsim-freecam.freecam-idle .fsim-tunebtn{ opacity:0; pointer-events:none; }`;
   document.head.appendChild(s);
 }
 
@@ -2838,6 +2985,9 @@ export function openFlightSim(opts = {}) {
   // detached camera take the left-drag away from the yoke without the yoke handler being told the
   // camera exists — and hand it straight back the moment the camera is stowed.
   bindFreeCamPointer(viewEl, freeCam);
+  // Same lifetime as the panel: it listens on the window, so closeFlightSim releases it.
+  freeIdle?.unbind();
+  freeIdle = bindFreeCamIdle(freeCam);
   if (viewEl) {
     let ox = 0, oy = 0;
     add(viewEl, 'pointerdown', (e) => {
@@ -3118,11 +3268,19 @@ export function openFlightSim(opts = {}) {
     // about to belong to the camera, so their key inputs are released: the aeroplane flies on its
     // trim at the throttle it had, straight and level, which is what you want to photograph. It
     // keeps flying — you can lose it off the edge of your own shot, and that is correct.
-    if (k === 'o' && !e.repeat && F.external) {
+    // ⚠ THE EXTERNAL VIEW IS REQUIRED TO ENTER AND MUST NEVER BE REQUIRED TO LEAVE, which is the
+    // trap cab-view's own O key has a paragraph about and this one was still standing in. The view
+    // button is a CLICK: a pilot could detach the camera and then click back to the cockpit, at
+    // which point the camera was still active — swallowing W/A/S/Z and the arrows, so the throttle
+    // and the stick were dead — with the one key that stows it gated off by the view they had just
+    // left. Entering is conditional; leaving is not. (`setExternal` stows it as well, so the click
+    // itself now puts the camera away rather than leaving it to be found.)
+    if (k === 'o' && !e.repeat && (F.external || freeCam.active)) {
       e.preventDefault();
       const on = freeCam.toggle({ yaw: (F.hdg || 0) + (F.extOrbit || 0), z: 0.55 });
       if (on) { F.throttleKey = 0; F.pedalKey = 0; F.firing = false; }
-      fsimToast(on ? '◎ FREE CAMERA — mouse looks, MMB orbit, LMB/RMB up-down, WASD move, O to stow' : '◎ CHASE CAMERA');
+      setFreeCamChrome(on);
+      fsimToast(on ? '◎ FREE CAMERA — mouse looks, MMB orbit, LMB/RMB up-down, WASD move, U frees the mouse, O to stow' : '◎ CHASE CAMERA');
       return;
     }
     if (freeCam.onKey(k, true)) { e.preventDefault(); return; }
@@ -3465,7 +3623,15 @@ export function openFlightSim(opts = {}) {
   // External / cockpit view toggle — the ◎ EXT button mirrors the V key; both call setExternal
   // so the button's lit state and F.external stay in sync however you flip it.
   const viewBtn = q('#fsim-viewbtn');
-  setExternal = (on) => { F.external = on; if (viewBtn) viewBtn.classList.toggle('on', on); document.body.classList.toggle('fsim-external', on); fsimToast(on ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW'); };
+  // ⚠ AND STEPPING BACK INSIDE STOWS THE DETACHED CAMERA, the way the cab's own view switch does.
+  // There is nothing to detach from behind the glass — `paintWindshield` only reads `freeCam` in
+  // the external view — so a camera left running there is one holding the keyboard with nothing on
+  // screen to say why. The death-cam borrows this to force the external view; that direction never
+  // has a camera out to stow, so the guard costs it nothing.
+  setExternal = (on) => {
+    if (!on && freeCam.active) { freeCam.close(); setFreeCamChrome(false); }
+    F.external = on; if (viewBtn) viewBtn.classList.toggle('on', on); document.body.classList.toggle('fsim-external', on); fsimToast(on ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW');
+  };
   F.setExternalView = setExternal;   // the crash death-cam borrows it to force the external view
   add(viewBtn, 'click', () => setExternal(!F.external));
 
@@ -4800,7 +4966,7 @@ function fsimFrame(now) {
     hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wind: F.sky?.wind, heading: s.heading,
     // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
     wxField: F.sky?.field, acX: F.pos.x, acY: F.pos.y,
-    map: F.map, mapCenter: F.mapCenter, phase: 'cruise', airport: F.airport, helipad: !!F.helipad, biomeBelow: F.biomeBelow,
+    map: F.map, mapCenter: F.mapCenter, roads: F.roads, phase: 'cruise', airport: F.airport, helipad: !!F.helipad, biomeBelow: F.biomeBelow,
     actors: F.actors,   // the street population under us — drawn only on a low pass (see drawStreetActors)
     regions: F.regions,   // drives the windshield region atmosphere grade (The Reach dust, …)
     mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
@@ -5435,6 +5601,11 @@ export function flightSimContext(msg) {
   if (msg.fuelCap != null) F.fuelCap = msg.fuelCap;
   // Update the map AND its window centre together so they stay paired (no recenter jump).
   if (msg.map) { F.map = msg.map; if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
+  // The highway past the edge of that window, as polylines in absolute world tiles. Assigned
+  // unconditionally for the same reason `actors` is: the server sends null the moment there is no
+  // road in range, and reading that as no news would leave a highway drawn across an empty desert
+  // three regions away from the one it belongs to.
+  if (msg.roads !== undefined) F.roads = msg.roads;
   // The street population, in absolute tile coords, paired with the map for the same reason it is.
   // Assigned unconditionally: an EMPTY list is a real answer (everybody went indoors) and must not
   // be read as "no news", or the last people seen would stand on the pavement forever.
@@ -5703,6 +5874,12 @@ export function closeFlightSim() {
   document.body.classList.remove('fsim-fullscreen');   // drop the immersive layout if it was on
   document.body.classList.remove('fsim-hidepanel');    // …and the lighter hide-panel layout
   document.body.classList.remove('fsim-external');     // …and the external chase-cam layout
+  // ⚠ AND THE DETACHED CAMERA IS PUT AWAY. `freeCam` is module-scoped (one sim, like `F`), so a
+  // pilot who climbed out with it still out would have found the NEXT aircraft holding its trim
+  // with the keyboard already spoken for — and the chrome class outlives the panel that set it.
+  freeCam.close();
+  document.body.classList.remove('fsim-freecam');      // …and the controls come back with it
+  freeIdle?.unbind(); freeIdle = null;
   document.body.classList.remove('fsim-active');       // …and the d-pad comes back: you're walking again
   window.dispatchEvent(new Event('pane:released'));    // phones collapse the area pane back to where they keep it
   suppressWeatherFx(false, 'cockpit');   // back to the room view — let the outdoor overlay resume

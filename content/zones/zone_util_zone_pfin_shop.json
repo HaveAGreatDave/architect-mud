@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cellar the size of two wardrobes, reached by a ladder more than a stair. The junction cabinet is on the end wall and everything else down here is paper: settled slips in tied bundles, by year, going back further than anybody in the shop upstairs has been alive. They are kept because the rule is that they are kept, and nobody has ever asked to see one.",
+  "exits": {
+    "up": "zone_pfin_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_914_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_pfin_shop",
+  "map_id": "map_int_pfin",
+  "name": "Photo Finish — The Shop — Utility Room",
+  "parent_zone": "zone_district_914_914"
+}

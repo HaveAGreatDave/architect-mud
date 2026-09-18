@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Under the portico steps, dry, with the junction cabinet on the wall and the reserve collection on shelving beyond it: about four hundred objects that are not on display because there is no room, each one bagged, numbered and cross-referenced to a card. It is a better archive than the Hall of Records keeps of the same period and nobody official has ever been down here.",
+  "exits": {
+    "up": "zone_pastperf_hall"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_pastperf_hall",
+  "map_id": "map_int_pastperf",
+  "name": "Past Perfect — The Collection — Utility Room",
+  "parent_zone": "zone_district_916_914"
+}

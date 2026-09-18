@@ -1,0 +1,18 @@
+{
+  "description": "Four twin-tube fluorescent fittings in a row, all of them on, one of them buzzing at a pitch you notice after nine minutes.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_loadbearing_floor",
+  "light_type": "overhead",
+  "lumen_output": 2600,
+  "name": "banks of fluorescents",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_loadbearing_floor"
+}

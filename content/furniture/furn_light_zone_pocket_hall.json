@@ -1,0 +1,14 @@
+{
+  "description": "Eight shaded lamps hung low on brass rods, one over each table, throwing a hard green rectangle onto the cloth and almost nothing anywhere else. The ceiling above them has never been seen by anybody in this room.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_pocket_hall",
+  "light_type": "overhead",
+  "lumen_output": 2600,
+  "name": "the table lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_pocket_hall"
+}

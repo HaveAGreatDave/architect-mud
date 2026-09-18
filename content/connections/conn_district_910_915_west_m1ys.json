@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_910_915",
+  "b": "zone_penny_floor",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_910_915_west_m1ys",
+  "lockable": true,
+  "one_way": false
+}

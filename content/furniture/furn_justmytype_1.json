@@ -1,0 +1,16 @@
+{
+  "description": "A flatbed press with a fly-wheel taller than a person, running a short job on a rhythm you feel through the floor. The guards are original, which means there are two of them, which means the operator stands in a particular place and does not move.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_justmytype_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the working press",
+  "object_type": "fixture",
+  "power_draw_kw": 3.5,
+  "price": 0,
+  "zone_id": "zone_justmytype_floor"
+}

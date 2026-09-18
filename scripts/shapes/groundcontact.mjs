@@ -117,16 +117,25 @@ if (!on || !on.ship.length) {
   if (on.cards.length) problems.push(`the rig arrived as geometry AND as ${on.cards.length} card(s) (${on.cards.join(', ')}) — it is being drawn twice`);
 }
 
-// ── AIR TRAFFIC KEEPS THE CARD ──────────────────────────────────────────────
-// ⚠ AND THIS IS ALSO THE CONTROL FOR THE SCENE. If the bogey does not come back as a card, the view
-// is not reaching the contact pipeline at all and every "no geometry" answer above means nothing.
+// ── AIR TRAFFIC IS SOLID TOO, AND THE BOGEY IS STILL THE CONTROL ───────────
+// ⚠ IT USED TO KEEP ITS CARD AND DELIBERATELY NO LONGER DOES. `contactIsSolid` answered "is this
+// one on the ground" and now answers `TUNE.glShip !== 0` for EVERY contact, so at glShip 1 there
+// are no cards in the scene at all — no per-frame `texImage2D`, and no 700px guard above which a
+// close bogey painted over the composited city. This gate asserted the old contract and went red
+// on the change rather than on a defect.
+//
+// ⚠ AND THE CONTROL HAD TO SURVIVE THE REWRITE. The card was doing double duty here: if the bogey
+// came back as nothing, the view was not reaching the contact pipeline and every "no geometry"
+// answer above meant nothing. Geometry is the control now — the bogey must ADD faces to the scene,
+// which is a stronger claim than the card was, because a card only proved `bakeContacts` ran.
 const both = collect({ ...BASE, contacts: [RIG(), BOGEY()] }, 1);
-const airCards = both ? both.cards.filter((k) => /^ct:2/.test(k)) : [];
-if (!airCards.length) {
-  problems.push('the airborne contact produced no card — the scene is not reaching bakeContacts, so nothing here is measuring what it claims');
+if (!both) {
+  problems.push('the two-contact scene produced no frame at all — nothing below is measuring what it claims');
+} else if (!(both.ship.length > on.ship.length)) {
+  problems.push(`adding an airborne contact added no geometry (${both.ship.length} faces against ${on.ship ? on.ship.length : 0} for the rig alone) — the scene is not reaching the contact pipeline, so nothing here is measuring what it claims`);
 }
-if (both && both.cards.some((k) => /^ct:1/.test(k))) {
-  problems.push('the ground rig produced a card alongside the bogey — the claim in bakeContacts is not being honoured');
+if (both && both.cards.length) {
+  problems.push(`glShip 1 still produced ${both.cards.length} card(s) (${both.cards.join(', ')}) — every contact should be triangles, so something is being drawn twice`);
 }
 if (both && !both.ship.length) problems.push('adding a bogey to the scene cost the rig its geometry');
 
@@ -138,6 +147,10 @@ if (both && !both.ship.length) problems.push('adding a bogey to the scene cost t
 const off = collect({ ...BASE, contacts: [RIG()] }, 0);
 if (off && off.ship.length) problems.push(`glShip 0 still collected ${off.ship.length} faces — the switch does not reach this path`);
 if (off && !off.cards.length) problems.push('glShip 0 left the rig as neither geometry nor a card — the claim was made and never released, so nothing draws it');
+// ⚠ AND THE BOGEY TAKES THE SAME WAY OUT, which it never needed while it was always a card.
+const offAir = collect({ ...BASE, contacts: [RIG(), BOGEY()] }, 0);
+if (offAir && offAir.ship.length) problems.push(`glShip 0 still collected ${offAir.ship.length} faces with air traffic in the scene`);
+if (offAir && !offAir.cards.some((k) => /^ct:2/.test(k))) problems.push('glShip 0 left the airborne contact as neither geometry nor a card');
 
 // ── DRIVING PAST IT MUST NOT MOVE IT ────────────────────────────────────────
 // The same pair of checks bay.mjs makes, and for the same reason: the collection runs in the
@@ -193,4 +206,4 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(`✓ groundcontact: a rig on the ground reaches the GPU as ${on.ship.length} faces standing ${span(on.ship).toFixed(3)} tiles tall`
-  + `, air traffic keeps its card, neither camera move shifts the geometry, and glShip 0 hands the rig back to the card path.`);
+  + `, air traffic arrives as triangles too, neither camera move shifts the geometry, and glShip 0 hands both back to the card path.`);

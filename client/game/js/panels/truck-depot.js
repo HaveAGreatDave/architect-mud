@@ -1914,7 +1914,94 @@ function ensureStyles() {
   .td-side::-webkit-scrollbar-thumb,.td-lots::-webkit-scrollbar-thumb,.td-rows.wide::-webkit-scrollbar-thumb{border-radius:4px;
     background:linear-gradient(180deg,color-mix(in srgb, var(--td-accent) 70%, var(--bg2)),color-mix(in srgb, var(--td-accent) 35%, var(--bg2)));
     box-shadow:inset 0 1px 0 var(--td-bevel-hi)}
-  @media (max-width:900px){.td-body{flex-direction:column}.td-side{width:auto}}
+  /* ── THE PHONE ──────────────────────────────────────────────────────────────
+     Three faults, and the first is why the other two were never reported.
+
+     ⚠ THE BODY CLIPPED WHAT IT COULDN'T FIT AND NOTHING SCROLLED. Side by side, the row
+     layout bounds .td-side and .td-side scrolls itself, so 'overflow:hidden' on the body
+     is right — it's what stops the pane scrolling the whole device. Stacked into a
+     column that bound is gone: .td-side is 'flex:none', so it stands at its content
+     height (1,229px on the yard screen) inside a 547px body, and the 973px difference
+     was painted nowhere and reachable by nothing. That is the whole of "I can't tow my
+     truck home" — the toolbar sits under the read-out, and the read-out is taller than
+     a phone. So the BODY is the scroller here and .td-side is just tall.
+
+     ⚠ THE HEAD IS A 52px ROW AND THE TAB STRIP WRAPPED INSIDE IT. Five tabs want 425px
+     and get 328, so .td-seg's own 'flex-wrap' stacked them into a 231px column centred
+     in a 52px head: two tabs above the top of the panel, where #td-root's 'overflow'
+     ate them, and two below it over the yard. Four of the five screens had no reachable
+     way in. The head's rows are real rows now, and the tabs get one to themselves —
+     scrolling sideways rather than wrapping, because a strip that doesn't fit is a strip
+     you swipe, and one that wraps is one that lies about its height.
+
+     ⚠ AND THE VERBS ARE PINNED RATHER THAN REORDERED. Moving .td-acts to the top of the
+     column would look the same and would put the buttons ahead of the machine they act
+     on for anybody reading in DOM order. Sticky keeps the order and keeps them on the
+     glass, which is what the toolbar is for. */
+  @media (max-width:900px){
+    /* The stack, and the scroller that has to come with it. */
+    .td-body{flex-direction:column;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+    .td-side{width:auto;flex:0 0 auto;overflow:visible}
+    /* The floor stops being the thing that takes up the slack: in a scrolling column
+       'flex:1' has no slack to take, and a canvas with no height at all is a canvas at 0. */
+    .td-floor{flex:0 0 auto}
+    .td-scene{flex:0 0 auto;height:min(30vh,200px)}
+    /* The toolbar, always on the glass. It needs a surface of its own now that content
+       scrolls under it — the head's frosted slab, so it reads as chrome rather than as a
+       row that failed to move. */
+    .td-side > .td-acts{position:sticky;bottom:0;z-index:3;margin:0 -4px;padding:8px 4px;
+      background:color-mix(in srgb, var(--td-surf) 88%, transparent);
+      -webkit-backdrop-filter:blur(11px) saturate(1.15);backdrop-filter:blur(11px) saturate(1.15);
+      border-top:1px solid color-mix(in srgb, var(--td-accent) 26%, transparent);
+      box-shadow:0 -6px 14px rgba(0,0,0,.28)}
+  }
+  /* The head repack is a separate question from the stack: at 880px the columns won't sit
+     side by side and the head is still fine, and it's the head that decides this one. 720px
+     is where the title, five tabs, the balance and three buttons stop fitting on a line —
+     and it's the breakpoint the rest of the client already turns at. */
+  @media (max-width:720px){
+    .td-head{height:auto;min-height:44px;flex-wrap:wrap;padding:7px 10px;gap:6px 10px;row-gap:6px}
+    /* ⚠ A BASIS, NOT auto. flex-wrap breaks the line before it shrinks anything, so a title at its
+       natural 171px pushed the three window buttons onto a row of their own and the head cost 110px
+       for two rows of content. Given a basis the three fit on one line and the title takes the slack. */
+    .td-title{flex:1 1 110px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    /* The region is on the sign outside and on every other screen in the app; the depot's
+       own name is the thing this line has to get across. */
+    .td-title .td-dim{display:none}
+    .td-bal{white-space:nowrap;font-size:13px}
+    /* The depot name is 16 characters of 14.5px mono at 2px tracking — 171px of a 148px slot, so
+       it arrived on a phone already ellipsised. It fits at the chrome size around it. */
+    .td-title b{font-size:13px;letter-spacing:1px}
+    .td-viewbtns{margin-left:0}
+    /* A row of its own, full width, swipeable. */
+    .td-nav{order:3;flex:1 0 100%;margin-left:0}
+    .td-seg{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:3px;gap:2px}
+    .td-seg::-webkit-scrollbar{display:none}
+    /* ⚠ THEY SHRINK RATHER THAN SCROLL. Five tabs want 336px of a 334px strip — two pixels over,
+       which as a scroller reads as a broken last tab rather than as a row you swipe. Shrinking
+       fits them at any width and only spends an ellipsis on a phone narrower than this one; the
+       overflow above is the last resort it now almost never reaches. display:block because the
+       icon is gone, and text-overflow has nothing to trim inside a flex container. */
+    .td-tab{display:block;flex:0 1 auto;min-width:0;padding:6px 5px;font-size:11px;letter-spacing:.2px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+    /* The glyph is decoration (it's aria-hidden), and decoration is what a 328px strip
+       gives up first. */
+    .td-tab .td-tab-ico{display:none}
+    /* ⚠ ONE ROW, NOT FOUR. The footer wrapped to 157px — a fifth of the screen, spent on
+       chips that mostly repeat the toolbar four inches above them. Same chips, same order,
+       one swipeable line. */
+    .td-foot{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:8px 10px;gap:6px}
+    .td-foot::-webkit-scrollbar{display:none}
+    .td-verb{flex:0 0 auto;white-space:nowrap}
+    /* ⚠ AND THE PINNED BAR HAS TO EARN ITS PIXELS, because it is the one thing on the
+       screen that is never scrolled away. Six keys at desktop metrics wrapped to four rows
+       and 241px — 40% of the body, held there permanently. The width is nearly all
+       letter-spacing and uppercase: a two-column grid at tighter type puts the same six in
+       three rows and 118px, with no label shortened and nothing dropped. */
+    .td-side > .td-acts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .td-side > .td-acts .td-act{padding:9px 8px;font-size:11.5px;letter-spacing:.3px;min-width:0}
+    .td-side > .td-acts .td-ico{font-size:13.5px}
+  }
   @media (prefers-reduced-motion:reduce){.td-board.near,.td-run{animation:none}.td-tab.on::after{animation:none}}
   `;
   document.head.appendChild(s);

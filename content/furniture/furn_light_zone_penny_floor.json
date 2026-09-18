@@ -1,0 +1,14 @@
+{
+  "description": "There is no ceiling light in here and there never has been. What lights the room is the machines: eleven cabinets and two pushers, all of them lit from inside, all of them a different colour, and the net effect at the back of the room is a sort of permanent shifting dusk.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_penny_floor",
+  "light_type": "overhead",
+  "lumen_output": 3000,
+  "name": "the machines themselves",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_penny_floor"
+}

@@ -1,0 +1,16 @@
+{
+  "description": "Two hundred small wooden drawers floor to ceiling, each with a brass frame and a card in it, each card written in the same hand at what must have been very different ages. Hooks, swivels, shot, beads. The bottom row is at ankle height and has not been opened in some years.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_rodalmighty_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the drawer wall",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_rodalmighty_shop"
+}

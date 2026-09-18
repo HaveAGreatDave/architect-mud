@@ -35,6 +35,8 @@ import { validateModel } from '../../client/shared/building-model-schema.js';
 import { bakeModels, readModelFiles, renderModule, OUT as BAKE_OUT } from '../../scripts/shapes/bake-models.mjs';
 import { bakeVehicles, readVehicleFiles, renderModule as renderVehicleModule } from '../../scripts/shapes/bake-vehicles.mjs';
 import { validateVehicleRow, vehicleFileName } from '../../client/shared/vehicle-model-schema.js';
+import { bakeFauna, readFaunaFiles, renderModule as renderFaunaModule } from '../../scripts/shapes/bake-fauna.mjs';
+import { validateFaunaRow, faunaFileName } from '../../client/shared/fauna-model-schema.js';
 // The canonical serialiser every content file in this repo is written with. Object keys sort,
 // ARRAY ORDER IS PRESERVED — which matters here, because a segment list is a paint order.
 import { canonicalJson } from '../../scripts/content/lib.mjs';
@@ -44,6 +46,8 @@ const ROOT = join(HERE, '..', '..');
 const MODEL_DIR = join(ROOT, 'content', 'building_models');
 const VEHICLE_DIR = join(ROOT, 'content', 'vehicle_models');
 const VEHICLE_BAKE_OUT = join(ROOT, 'client', 'shared', 'vehicle-models.js');
+const FAUNA_DIR = join(ROOT, 'content', 'fauna_models');
+const FAUNA_BAKE_OUT = join(ROOT, 'client', 'shared', 'fauna-models.js');
 const PORT = Number(process.argv[2]) || 5181;
 
 const send = (res, code, body, type = 'application/json') => {
@@ -164,6 +168,15 @@ const server = createServer(async (req, res) => {
     }
     // The dev panel's own palettes, so the Modelshop wears the same themes the rest
     // of the tooling does rather than a second set of colours.
+    // THE REAL CITY, for tools/modelshop/street.js. The baked flight world is derived by the same
+    // `deriveSurfaceCell` a live cockpit streams, so serving it is how the Modelshop can show a
+    // real street without this process growing a second opinion about what a tile is.
+    if (req.method === 'GET' && path === '/api/world') {
+      try {
+        return send(res, 200, await readFile(join(ROOT, 'client', 'game', 'flightsim-world.json')), 'application/json; charset=utf-8');
+      } catch { return json(res, 404, { error: 'no baked flight world — run npm run snapshot:flight' }); }
+    }
+
     if (req.method === 'GET' && path === '/shared/themes.css') {
       return send(res, 200, await readFile(join(ROOT, 'client', 'shared', 'themes.css')), 'text/css; charset=utf-8');
     }
@@ -269,6 +282,36 @@ const server = createServer(async (req, res) => {
         return json(res, 409, { errors, warnings, saved: false, rolledBack: true });
       }
       await writeFile(VEHICLE_BAKE_OUT, renderVehicleModule({ rows }), 'utf8');
+      return json(res, 200, { ok: true, file, warnings });
+    }
+
+    // The animals, on exactly the same four steps as the vehicles above: validate, write, re-bake
+    // from the DIRECTORY, and undo the write if the bake refuses it. Same reason too — a file left
+    // on disk that the build rejects reads as honest and just breaks the repo with a tool whose
+    // whole promise is that it cannot.
+    if (req.method === 'GET' && path === '/api/fauna') {
+      return json(res, 200, { rows: readFaunaFiles(FAUNA_DIR) });
+    }
+
+    if (req.method === 'PUT' && path === '/api/fauna') {
+      const body = await readJson(req);
+      const doc = body.doc;
+      const pre = validateFaunaRow(doc, '<posted>');
+      if (pre.errors.length) return json(res, 400, { errors: pre.errors, warnings: pre.warnings });
+      const file = faunaFileName(doc.kind, doc.id);
+      const target = join(FAUNA_DIR, file);
+      let prior = null;
+      try { prior = await readFile(target, 'utf8'); } catch { /* new row */ }
+
+      await mkdir(FAUNA_DIR, { recursive: true });
+      await writeFile(target, canonicalJson(doc) + '\n', 'utf8');
+      const { rows, errors, warnings } = bakeFauna(readFaunaFiles(FAUNA_DIR));
+      if (errors.length) {
+        if (prior != null) await writeFile(target, prior, 'utf8');
+        else await unlink(target).catch(() => {});
+        return json(res, 409, { errors, warnings, saved: false, rolledBack: true });
+      }
+      await writeFile(FAUNA_BAKE_OUT, renderFaunaModule({ rows }), 'utf8');
       return json(res, 200, { ok: true, file, warnings });
     }
 

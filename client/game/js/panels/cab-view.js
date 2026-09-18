@@ -20,7 +20,7 @@ import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshi
   groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas , ROAD_RIG_MUL,
   perfBegin, perfEnd, perfTick } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
-import { createFreeCam, FREECAM_HINT, bindFreeCamPointer } from './freecam.js';
+import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed, airHornOn, airHornOff } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
@@ -301,12 +301,31 @@ let st = null;
 // a dismount, and `closeCab` puts it away, but keeping it beside `st` means the key handler and the
 // paint call reach the same object without threading it through either.
 const freeCam = createFreeCam();
-// The hint strip, mounted and unmounted with the mode. It is one line of text over the glass rather
-// than a control panel on purpose: a camera you are using to take a picture should be covering as
-// little of the picture as possible.
-function paintFreeCamHint() {
+// …and the timer that takes the last of the chrome off the glass once nobody has touched anything.
+// Bound with the cab (openCab) and released with it, because it listens on the window.
+let freeIdle = null;
+// The mode's chrome, mounted and unmounted with it: the hint strip, and the shelf getting out of
+// the way. One line of text over the glass rather than a control panel on purpose — a camera you
+// are using to take a picture should be covering as little of the picture as possible, which is
+// the same sentence that says the dash should not be in the shot either.
+//
+// ⚠ THE SHELF IS HIDDEN, NOT MERELY FADED, AND THAT IS A HOLD RATHER THAN A LOOK. Detaching the
+// camera latches the throttle and centres the wheel (see the O key) because the keyboard is about
+// to belong to the camera — but `bindFreeCamPointer` captures on the GLASS, and every control down
+// here is outside it, so a pointer could still shift, steer and brake a truck the mode says it is
+// holding. `display:none` takes them out of the tab order with them, which is the reason the
+// external view hides the look buttons this way rather than with opacity.
+function paintFreeCamChrome() {
   const host = st?.container?.querySelector('.cab-wrap') || st?.container;
   if (!host) return;
+  // ⚠ THE RECORD SURVIVES IT. `.cab-sr` is the visually-hidden readout a screen reader gets in
+  // place of the painted gauges, and it is the one thing on the shelf that is not a control — so
+  // the CSS hides the shelf's children AROUND it rather than the shelf, and a driver who is
+  // listening to their speed does not lose it for taking a photograph.
+  host.classList?.toggle('cab-freecam', freeCam.active);
+  // Entering arms the fade, leaving clears it — see bindFreeCamIdle. Here rather than at the two
+  // callers because this function IS the cab's on/off switch for the mode's chrome.
+  freeIdle?.wake();
   host.querySelector('.cab-freecam-hint')?.remove();
   if (!freeCam.active) return;
   const el = document.createElement('div');
@@ -1165,6 +1184,8 @@ export function openCab(ctx = {}) {
   // The mouse, on the glass. Bound once with the cab and released with it; it does nothing at all
   // until the camera is off its mount, so the cab's own gestures are untouched.
   st.freeCamUnbind = bindFreeCamPointer(glass, freeCam);
+  // The same lifetime, for the same reason: it listens on the window and must not outlive the cab.
+  freeIdle = bindFreeCamIdle(freeCam);
   {
     let drag = null;
     const isChrome = (e) => !!e.target?.closest?.('.cab-chrome,.cab-dmg,.cab-help');
@@ -1837,7 +1858,7 @@ export function openCab(ctx = {}) {
         st.freeHold = { cruise: st.cruise };
         if (st.sim.speed >= 5.5 && !st.dry && !st.broken && st.sim.gear > 0) setCruise(st.sim.speed);
         st.input.steer = 0; st.input.throttle = 0; st.input.brake = 0;
-        paintFreeCamHint();
+        paintFreeCamChrome();
       }
       return;
     }
@@ -2369,7 +2390,7 @@ export function openCab(ctx = {}) {
     st.steerKey = st.keysDown.has('x') || st.keysDown.has('arrowleft') ? -1
       : st.keysDown.has('c') || st.keysDown.has('arrowright') ? 1 : 0;
     st.wheel?.setHeld(st.steerKey);
-    paintFreeCamHint();
+    paintFreeCamChrome();
   }
   st.exitFreeCam = exitFreeCam;
   // ── THE ROUTE PICKER ───────────────────────────────────────────────────────
@@ -2873,6 +2894,10 @@ export function cabContext(ctx) {
   // The damage HUD repaints on the SERVER push, never in the frame loop — see renderDamage.
   if (ctx.dmg) st.renderDamage?.(ctx.dmg);
   if (ctx.map) { st.map = ctx.map; st.mapX = ctx.mapX; st.mapY = ctx.mapY; st.renderMapApp?.(); }
+  // The road past the edge of that window, as polylines in absolute world tiles — the cab window is
+  // 30 tiles and the ground runs to the horizon. Same 'undefined vs null' rule as the two lines
+  // below: null is the server saying there is no road in range, and it has to CLEAR.
+  if (ctx.roads !== undefined) st.roads = ctx.roads;
   // The street population, paired with the map. An empty list is a real answer, not an absent one —
   // see the same note in cockpit.js flightSimContext.
   if (ctx.actors !== undefined) st.actors = ctx.actors;
@@ -4113,7 +4138,7 @@ function frame(now) {
       // trailers — the aircraft this cab was deliberately given so a driver could watch a Mule come
       // over the yard have never been drawn either.
       contacts: contactsFor(st),
-      map: st.map, mapCenter: { x: st.mapX, y: st.mapY },
+      map: st.map, mapCenter: { x: st.mapX, y: st.mapY }, roads: st.roads,
       actors: st.actors,   // the people on the pavement either side of the road
       roadside: st.hitcher || null,   // …and the one standing on the shoulder out on the void road
       mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
@@ -4507,7 +4532,36 @@ function ensureCabStyles() {
   /* IT WRAPS. Eleven switches is a long row on a 1280 pane and this shelf is the one surface here
      that must never scroll — so the panel folds onto a second line rather than shoving the pedals
      off the end of the world. */
-  .cab-rockers{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:660px}
+  .cab-rockers{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:100%}
+  /* ⚠ AND THE PLATE IS THE ELASTIC MEMBER OF THE SHELF, WHICH IT WAS NOT.
+     The shelf is one wrapping row of groups — gate, stalk, switch plate, pedals — and every one of
+     them was 'flex:0 0 auto', so the row's width was the sum of four content widths and the only
+     thing it could do when that overran was wrap. It overran by 68px on the dash a 1400px window
+     gives it, which put the PEDALS on a row of their own: 78px of shelf, taken off the road, at the
+     commonest desktop size there is. A narrower pane wrapped more of it and the road went with it.
+     Measured across dash widths before this: 1068px of dash left 237px of road, 948 left 83, and at
+     828 the glass was FIVE PIXELS — a truck cab with no road in it.
+
+     ⚠ THE COMPACT BLOCK DID NOT COVER THIS AND COULD NOT. It is gated on CAB_COMPACT_MQ, which is
+     'pointer:coarse' as well as a width — correctly, because what it mostly decides is whether the
+     touch controls are the only way in. Whether four groups fit on a line is a question about
+     pixels and nothing else, so it belongs on a width, unqualified, exactly as the client's own
+     note by the density flag says panel layout should.
+
+     The plate is the one group here with no natural width — it is a wrapping row of switches, so it
+     is as wide as it is allowed to be and stacks to suit. Given a basis it takes the slack instead
+     of forcing the wrap, and the shelf settles at the gate column's own 246px from a 948px dash up:
+     315px of road at 1068, 948 and 1208 alike, where it used to be 237, 83 and 315.
+
+     ⚠ A BASIS RATHER THAN '1 1 0', because flex-wrap breaks a line before it shrinks anything. At a
+     basis of 0 the plate never forces a wrap at all, so on a narrow pane it is crushed to a 121px
+     column of eleven stacked switches and the glass goes to nothing by the other road. 320px is
+     where the four groups genuinely stop fitting and the plate should take its own line, which is
+     what it has always done.
+
+     ⚠ AND IT SITS BEFORE THE COMPACT BLOCK, which sets its own 'flex:1 1 100%' for the phone: a
+     media query carries no specificity of its own and source order is the whole of what settles it. */
+  .cab-col-switch{flex:1 1 320px;min-width:0}
   /* THE CAB'S OWN LINE. The radio and the two cab switches, side by side under the panel. */
   .cab-cabrow{display:flex;gap:6px;align-items:stretch;flex-wrap:wrap;justify-content:center}
   .cab-btn.cab-rocker{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:46px;
@@ -5078,6 +5132,17 @@ function ensureCabStyles() {
        on a dash with room for one; here it's a control that has to earn its 44 pixels. */
     .cab-col-stalk .cab-stalk{width:auto;height:44px;min-width:52px}
     .cab-stalk-mount{display:none}
+    /* ── ⚠ AND THE KEYBOARD BADGE ONLY SPEAKS WHEN IT HAS NEWS ────────────────
+       '⌨ KEYS: CAB' is a 120x27 chip sitting on the windscreen saying that nothing is wrong. It
+       earns that on a desktop, where the thing it warns about — a click on the log handing the
+       command bar your A/Z/X/C — happens constantly and the chip is what tells you which of the
+       two has the keys. On a phone the glass is 36% of the screen and the steady state is a
+       label with no reader: there is no hardware keyboard to lose and no keys to lose to it.
+       ⚠ HIDDEN IN THE QUIET STATE ONLY, never removed. A tablet with a keyboard is pointer:coarse
+       and can absolutely lose its keys to the command bar, so the WARNING (.away, the amber one
+       that says KEYS: TEXT BAR) still appears, still on the glass, still one tap to take them
+       back. What goes is the half of it that never had anything to report. */
+    .cab-focustag:not(.away){display:none}
   }
   /* ── TOUCH-ONLY CONTROLS ────────────────────────────────────────────────────
      Steering, the shoulder-checks and the horn are all things a desktop driver already has a
@@ -5093,6 +5158,50 @@ function ensureCabStyles() {
      desktop driver in the external view has no pointer route to steering at all. The controls a
      cockpit made redundant stop being redundant the moment you leave the cockpit. */
   body .cab-wrap.cab-ext .cab-touch{display:flex !important}
+  /* ── AND NOT AT ALL WITH THE CAMERA OFF ITS MOUNT ───────────────────────────
+     The shelf is the truck's controls, and while the free camera is out the truck is being held
+     rather than driven (see paintFreeCamChrome): the keys belong to the camera and these belong to
+     nobody. They also cover the bottom of the shot, which is the part of the picture a low camera
+     is usually composing.
+     ⚠ CHILDREN, NOT THE SHELF, because \`.cab-sr\` lives on it — the visually-hidden speed/gear
+     record a screen reader reads, which is not a control and must stay in the tree. Hiding the
+     parent would take it with them.
+     ⚠ AND \`!important\`, because the rule directly above this one arms the touch controls in the
+     external view with the same weapon — and the external view is the only view you can detach the
+     camera FROM, so the two rules meet every time. This one is later and wins.
+     The shelf's own moulding goes with them: an empty lip and bolt line across the bottom of the
+     glass is the dash still being in the shot, just thinner. */
+  .cab-wrap.cab-freecam .cab-controls > *:not(.cab-sr){display:none !important}
+  .cab-wrap.cab-freecam .cab-controls{padding:0;border-top:0;background:none}
+  .cab-wrap.cab-freecam .cab-controls::before{display:none}
+
+  /* ── AND NEITHER IS ANYTHING ELSE ON THE GLASS ─────────────────────────────
+     The shelf was the first thing out of the shot and for a while it was the only one, which left
+     a mode for taking photographs with a fuel gauge in the top-left corner, a damage strip beside
+     it, a hunger warning under that and a route list down the side. Every one of them is a readout
+     about a vehicle nobody is driving while the camera is off its mount, and every one of them is
+     in the picture.
+     ⚠ AN ALLOW-LIST, NOT A LIST OF WHAT TO HIDE, which is the whole reason it is written this way:
+     the next panel somebody hangs on the glass is out of the shot the day it is added rather than
+     the day somebody remembers this rule exists. Four things survive — the picture, the shelf
+     (whose own children are handled above, so the screen-reader record stays in the tree), the
+     corner chrome and the hint, and the last two only until the timer below takes them as well.
+     ⚠ AND THE GLAZING, BUT ONLY HALF OF IT — the cockpit and the wheelhouse do the same. '.ws-frame'
+     draws two things: a bezel and vignette round the pane (::before) and the A-PILLARS down each
+     edge (::after). The camera is not behind the windscreen any more, so the pillars are a picture
+     OF a cab rather than a frame round one and they go; the vignette is the lens rather than the
+     vehicle, so it stays. '.ws-label' is the truck's name, which is a caption. */
+  .cab-wrap.cab-freecam > *:not(.ws-wrap):not(.cab-controls):not(.cab-chrome):not(.cab-freecam-hint){display:none !important}
+  .cab-wrap.cab-freecam .ws-frame::after, .cab-wrap.cab-freecam .ws-label{display:none}
+  /* ── AND THEN THE LAST TWO, ON A TIMER ─────────────────────────────────────
+     See bindFreeCamIdle in freecam.js. The buttons are a way back and the hint is the other way
+     back written down, so neither can simply go: they fade after a couple of seconds untouched and
+     they are back on the first thing the player does. Opacity rather than display, because this one
+     is a look and it must not move the layout under a shot being composed — and pointer-events with
+     it, so a faded button cannot be clicked by a cursor that cannot see it. */
+  .cab-wrap.cab-freecam .cab-chrome, .cab-wrap.cab-freecam .cab-freecam-hint{transition:opacity .5s ease}
+  body.freecam-idle .cab-wrap.cab-freecam .cab-chrome,
+  body.freecam-idle .cab-wrap.cab-freecam .cab-freecam-hint{opacity:0;pointer-events:none}
 
   /* ── THE GLASS CHROME ──────────────────────────────────────────────────────
      Deliberately the flight sim's chrome, moved: same corner, same glyphs, same
@@ -5125,6 +5234,25 @@ function ensureCabStyles() {
      We beat it rather than clearing it, because that height is the player's saved preference for
      ordinary rooms and fullscreen is a temporary mode — dispatching 'lookpaneauto' (the hangar
      bay's seam) would delete it for good on a passing glance at the road. */
+  /* ── ⚠ AND THE PANE MAY TAKE ITS REAL CEILING WHILE A TRUCK IS IN IT ───────
+     The pane is content-sized up to min(65%, --pane-cap), and for the cab the 65% is what binds:
+     at a 900px window it is 585px of pane, so the wrap gets 561 and the road gets 315 of that.
+     But 65% is the rule that stops a ROOM DESCRIPTION eating the scrollback, and this is not a
+     room description — it is the truck. --pane-cap is the ceiling main.js already computes for
+     exactly this question: everything left after the drag handle, the command box and a floor of
+     72px of log. Taking it gives the road the rest, with the log and the command box both still
+     there — and it is the identical rule the flight sim now takes (see the
+     :has(.fsim) block in cockpit.js) — the two seats are the same app in the same pane and there
+     is no reason for them to answer this differently.
+     ⚠ THE NUMBERS ABOVE ARE FROM THE LAYOUT RIG (a bare #area-pane over a stub command box) and
+     the real client sits lower, because its bottom stack — smartbar, input row, d-pad — is much
+     taller and that lowers the cap. What does not move is the shape: the road takes whatever the
+     ceiling allows rather than whatever 65% allows, at every window size.
+     ⚠ NOT !important, and it must not become one: the fullscreen and hide-panel rules below beat
+     both this and the inline drag height, and they have to go on doing so.
+     ⚠ AND :has() RATHER THAN A BODY CLASS, so it cannot be left switched on by an exit path that
+     forgot to clear it. */
+  #area-pane:has(.cab-wrap){max-height:var(--pane-cap,65%)}
   body.cab-fullscreen #area-pane,
   body.cab-hidepanel #area-pane{max-height:none !important;height:auto !important;flex:1 1 auto}
   body.cab-fullscreen #area-pane{padding:0}   /* reach every edge — the inset is stolen road */
@@ -5341,6 +5469,7 @@ export function closeCab() {
   // dismount while a movement key is down would leave that key latched for the next drive.
   freeCam.close();
   st.freeCamUnbind?.(); st.freeCamUnbind = null;
+  freeIdle?.unbind(); freeIdle = null;
   st.freeHold = null;
   suppressWeatherFx(false, 'cab');
   cancelAnimationFrame(st.raf);

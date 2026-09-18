@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#191622",
+  "description": "Two coin pushers at the front, lit like altars, with a shelf of tarnished pennies at each one leaning out over the drop in a way that has been about to fall for eleven years. Behind them a claw with a bent finger, four upright cabinets with their screens gone soft and violet at the corners, and a row of five more at the back that take a coin and give you nothing but a noise. Everything in here is bolted to the floor. A hand-lettered card over the change booth reads NO REFUNDS, NO TILTING, NO SITTING ON THE PUSHERS, and the third one is underlined twice.",
+  "exits": {
+    "west": "zone_penny_donors",
+    "east": "zone_district_910_915",
+    "down": "zone_util_zone_penny_floor"
+  },
+  "flags": {
+    "building_name": "The Penny Drops",
+    "building_type": "amusements",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "There is no window, because there is no wall. The front of the building is an opening and the weather comes about four feet into the room whenever it feels like it, which is why the first pusher stands on bricks.",
+      "light": 0.8,
+      "name": "the open front",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_910_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_penny_floor",
+  "map_id": "map_int_penny",
+  "name": "The Penny Drops — The Floor",
+  "parent_zone": "zone_district_910_915"
+}

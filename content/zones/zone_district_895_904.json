@@ -1,23 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#1c1e22",
+  "description": "A narrow front on the boulevard with a display case beside the door, lit, holding eleven portraits and a card that says SITTINGS BY ARRANGEMENT. The portraits are all of people looking directly at you and none of them is smiling, which is a house style rather than a mood. What makes the building worth looking up at is the roof: the whole of the north slope is glass, in small panes in an iron frame, tilted away from the sun rather than toward it, and it is the only roof on Halcyon Boulevard that is not a roof. Chrome Court is four doors down. A great many of the sittings are booked for the day before.",
   "exits": {
-    "east": "zone_district_896_904",
-    "west": "zone_district_894_904"
+    "west": "zone_district_894_904",
+    "east": "zone_negeq_shop"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Negative Equity",
+    "building_type": "photographer",
+    "district": "filaments",
+    "entrance": "west",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_894_904"
   },
   "grid_x": 895,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_895_904",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "NE",
+  "name": "Negative Equity",
   "parent_zone": null
 }

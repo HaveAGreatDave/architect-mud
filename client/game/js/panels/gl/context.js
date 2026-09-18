@@ -190,7 +190,10 @@ uniform vec3 uLightP[GLASS_MAX_LIGHTS];
 uniform vec3 uLightC[GLASS_MAX_LIGHTS];
 uniform float uLightR[GLASS_MAX_LIGHTS];
 uniform float uLightWrap;
-uniform float uAo;        // contact-occlusion strength; 0 makes the term exactly 1.0
+// The falloff exponent over the reach. 2.0 is the broad wash this pass shipped with; above it the
+// same energy moves in toward the source — a hot core, a fast edge, a faint tail. See LIGHT_TUNE.
+uniform float uLightFocus;
+uniform float uAo;      // contact-occlusion strength; 0 makes the term exactly 1.0
 uniform float uAoFall;    // how fast it lets go with height, in inverse tiles
 uniform float uBakedAo;   // strength of the PER-VERTEX bake; 0 makes that term exactly 1.0 too
 // ── THE SUN'S OWN DEPTH BUFFER ──────────────────────────────────────────────
@@ -588,7 +591,11 @@ void main() {
     // how far round the light reaches; 0 is exactly lambert, so the term the shader shipped with
     // is still expressible and still in the file.
     float diff = max(0.0, (dot(n, d / max(0.001, dist)) + uLightWrap) / (1.0 + uLightWrap));
-    base += uLightC[i] * (att * att * diff);
+    // ⚠ SHAPED, AND THE SHAPE IS MOST OF WHAT SEPARATES A BLOOM FROM A TINT. Linear-clamped and
+    // squared is a broad soft field: half way out it still carries a quarter of the peak, which
+    // over the reach this pass used to be given was a quarter of the light seven storeys up a
+    // facade. At uLightFocus 2.0 this line is exactly the term that shipped.
+    base += uLightC[i] * (pow(att, uLightFocus) * diff);
   }
   // ⚠ AND THERE IS NO EMISSION TERM HERE, WHICH WAS MEASURED RATHER THAN ASSUMED. One sat on this
   // line and moved 0.0% of wall pixels at every seat: everything above IS light arriving at a wall,
@@ -689,6 +696,7 @@ export function createGLView(canvas, opts = {}) {
     lightC: gl.getUniformLocation(prog, 'uLightC'),
     lightR: gl.getUniformLocation(prog, 'uLightR'),
     lightWrap: gl.getUniformLocation(prog, 'uLightWrap'),
+    lightFocus: gl.getUniformLocation(prog, 'uLightFocus'),
     ao: gl.getUniformLocation(prog, 'uAo'),
     aoFall: gl.getUniformLocation(prog, 'uAoFall'),
     bakedAo: gl.getUniformLocation(prog, 'uBakedAo'),
@@ -1107,12 +1115,19 @@ export function createGLView(canvas, opts = {}) {
       const L = lights[i];
       lightP[i * 3] = L.p[0]; lightP[i * 3 + 1] = L.p[1]; lightP[i * 3 + 2] = L.p[2];
       lightC[i * 3] = L.rgb[0]; lightC[i * 3 + 1] = L.rgb[1]; lightC[i * 3 + 2] = L.rgb[2];
-      lightR[i] = L.r;
+      // ⚠ `rw`, THE WALL'S REACH, NOT `r`. They are the same number until pickLights splits them,
+      // and `r` is the WET ROAD'S — a streak on tarmac is as long as it was swept at. A caller that
+      // sets neither (a bench, a preview) gets exactly what it always did.
+      lightR[i] = L.rw == null ? L.r : L.rw;
     }
     gl.uniform1i(loc.nLight, nL);
     if (nL) {
       gl.uniform3fv(loc.lightP, lightP); gl.uniform3fv(loc.lightC, lightC); gl.uniform1fv(loc.lightR, lightR);
       gl.uniform1f(loc.lightWrap, opts.lightWrap == null ? 0 : opts.lightWrap);
+      // ⚠ DEFAULTS TO 2, THE TERM THIS PASS SHIPPED WITH, so a caller that has never heard of the
+      // focus knob renders what it always rendered rather than pow(att, 0.0) — which is 1.0 at
+      // every distance, a light with no falloff at all and the whole city lit flat.
+      gl.uniform1f(loc.lightFocus, opts.lightFocus > 0 ? opts.lightFocus : 2);
     }
     // ── THE MATERIAL RESPONSE ───────────────────────────────────────────────────
     //
@@ -1287,11 +1302,15 @@ export function createGLView(canvas, opts = {}) {
   let mirror = null;
   const mirrorLayer = () => (mirror || (mirror = createMirrorLayer(gl)));
   function drawMirror(cam, opts = {}) {
-    const sp = opts.sprites, dc = opts.decals;
+    const sp = opts.sprites, dc = opts.decals, cl = opts.clouds;
     // ⚠ THE RIG COUNTS AS SOMETHING TO REFLECT. This used to ask only whether there were lights or
     // signs, which was the whole of what the buffer held — so on an unlit stretch of wet road the
     // prepass never ran and the truck standing in it had nothing to appear in.
-    if (!(sp && sp.length) && !(dc && dc.length) && !solidQuads) return null;
+    // ⚠ AND THE DECK COUNTS TOO. This asked only whether the city had anything emissive in it, which
+    // was the whole of what the buffer held — so on an unlit road under a heavy sky the prepass never
+    // ran and the water had nothing to show but the flat fallback, which is the commonest case there
+    // is rather than an edge one.
+    if (!(sp && sp.length) && !(dc && dc.length) && !(cl && cl.length) && !solidQuads) return null;
     let M;
     try { M = mirrorLayer(); } catch { return null; }
     if (!M.bind(canvas.width, canvas.height, opts.scale)) return null;
@@ -1337,6 +1356,31 @@ export function createGLView(canvas, opts = {}) {
       // the mesh is — see the ⚠ above on mMassCam — so it reflects through the same shifted camera
       // and lands on the same pixels at the same depth.
       if (solidQuads) drawSolids(mMassCam, cssH, { fog: opts.fog || null });
+      // ── AND THE SKY OVER ALL OF IT ────────────────────────────────────────────────────────────
+      //
+      // A puddle shows what is ABOVE it, and above most of a street is sky. The buffer held the city
+      // and the ground shader filled every empty pixel with a two-stop gradient that collapses to ONE
+      // COLOUR at exactly the grazing angles where Fresnel makes the reflection strongest — so the
+      // water was a flat sheet of paint over four fifths of its own area.
+      //
+      // ⚠ IT TAKES THE PLAIN MIRRORED CAMERA, NOT THE MASS ONE. The cards are collected as offsets
+      // from the ship in `cam`'s own frame, exactly as the lights and the signage are; the mesh is
+      // the odd one out because it is cached at map-window tiles.
+      //
+      // ⚠ AFTER THE MASS, SO A CLOUD BEHIND A TOWER IS BEHIND IT IN THE WATER. A card writes no
+      // depth (it is translucent all the way through) and tests LEQUAL, so it cannot hide the signage
+      // and lights that follow — those are nearer, and they win on their own depth.
+      //
+      // ⚠ AND THE VIEWPORT IS THE CANVAS'S, like the lights below and for the same reason: `aSize`
+      // is in device pixels and the shader turns it into an NDC offset, which does not care what
+      // resolution it is rasterised at. Hand it this buffer's own half size and every cloud in the
+      // water comes out twice as wide.
+      if (cl && cl.length) {
+        const L = cloudLayer(), cs = opts.cloudState || {};
+        if (cs.noise) L.setNoise(cs.noise);
+        L.upload(cl);
+        L.draw(mcam, canvas.width, canvas.height, cssH, cs);
+      }
       // Signage next and lights over it, which is the order the frame itself uses — a sign is
       // artwork and a glow is the light coming off it.
       if (dc && dc.length) { const L = decalLayer(); L.upload(dc); L.draw(mcam, cssH); }
@@ -1370,10 +1414,43 @@ export function createGLView(canvas, opts = {}) {
   // The road surface. Lazy like the others; a view over open water never compiles it.
   let grd = null;
   const groundLayer = () => (grd || (grd = createGroundLayer(gl)));
+  // ── THE FRAME'S OWN PAINTED SKY, AS A TEXTURE ───────────────────────────────────────────────
+  //
+  // windshield.js hands over a downscaled strip of the canvas above the horizon — see the ⚠ at
+  // `captureSkyStrip`. It is re-uploaded every frame because the sky changes every frame (the sun
+  // moves, the dome drifts, the weather grades), and it is 256x128, which is the whole reason that
+  // is affordable.
+  //
+  // ⚠ FLIP OFF, EXPLICITLY. `UNPACK_FLIP_Y_WEBGL` is global state on the context and this file is
+  // not the only thing uploading images into it. With it left on, the strip arrives upside down and
+  // every puddle reflects the ZENITH along the horizon — which reads as a wrong colour rather than
+  // as a flipped image, because a sky gradient inverted is still a smooth gradient.
+  //
+  // ⚠ CLAMP_TO_EDGE, because the grazing pixels — which is most of a road — sample at v = 1.0
+  // exactly, and those are the ones the whole feature is for.
+  let skyStripTex = null;
+  function uploadSkyStrip(src) {
+    if (!src) return null;
+    if (!skyStripTex) {
+      skyStripTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, skyStripTex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    try {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.bindTexture(gl.TEXTURE_2D, skyStripTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    } catch { return null; }   // a tainted or zero-sized source is a road with a gradient in it, not a dead frame
+    return skyStripTex;
+  }
   function drawGround(cam, quads, cssH, opts) {
     if (!quads || !quads.length) return 0;
     const L = groundLayer();
     L.upload(quads);
+    if (opts) opts.skyTex = uploadSkyStrip(opts.skyStrip);
     return L.draw(cam, cssH || canvas.height, opts);
   }
 

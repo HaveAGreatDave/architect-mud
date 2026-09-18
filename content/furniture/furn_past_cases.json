@@ -1,0 +1,19 @@
+{
+  "description": "Eleven, down the middle of the room, each one lit inside and immaculate: the glass cleaned, the cloth brushed, every object raised on a little stand he cut himself. A washing machine drum. A television. Nine bottle tops on a card. Each has a typed label and each label is confident.",
+  "flags": {
+    "aliases": "cases,case,glass,exhibits,display",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_past_cases",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the cases",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pastperf_hall"
+}

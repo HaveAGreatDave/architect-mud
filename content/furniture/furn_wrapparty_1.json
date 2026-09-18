@@ -1,0 +1,16 @@
+{
+  "description": "A clock behind the bar running twenty minutes fast, deliberately, for reasons everyone here agrees with and nobody says out loud to a stranger. Watching a newcomer work it out is one of the house entertainments.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_wrapparty_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the fast clock",
+  "object_type": "fixture",
+  "power_draw_kw": 0.05,
+  "price": 0,
+  "zone_id": "zone_wrapparty_bar"
+}

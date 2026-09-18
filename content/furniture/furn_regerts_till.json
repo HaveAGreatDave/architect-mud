@@ -1,0 +1,19 @@
+{
+  "description": "A tin on the shelf by the autoclave with a rubber band round it and DEPOSITS written on the lid. She takes half up front on anything over an hour, not because of the money but because half up front is the thing that makes people turn up sober.",
+  "flags": {
+    "aliases": "till,cash,money,box",
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_regerts_prudhoe",
+    "vendor_safe": true
+  },
+  "hp": 120,
+  "hp_max": 120,
+  "id": "furn_regerts_till",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the money tin",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_regerts_room"
+}

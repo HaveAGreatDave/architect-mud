@@ -1,0 +1,14 @@
+{
+  "description": "A brass lamp on every sloped desk with a green glass shade, all of them wired back to one switch by the issue desk, and the lantern above doing most of the work in daylight. Switching them on is the last thing that happens before opening and the first thing that happens at dusk.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_fineprint_room",
+  "light_type": "overhead",
+  "lumen_output": 3200,
+  "name": "the desk lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_fineprint_room"
+}

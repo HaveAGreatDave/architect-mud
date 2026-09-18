@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_cod_shellfish",
+  "name": "bag of basin shellfish",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "restore_hunger": 14,
+    "description": "Live, in a net bag, sounding like gravel when you move it. He will not sell you one that has opened and he checks the bag in front of you, tapping the open ones with a knuckle to see what they do about it."
+  },
+  "type": "consumable",
+  "value": 26,
+  "weight": 500
+}

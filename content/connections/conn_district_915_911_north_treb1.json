@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_915_911",
+  "b": "zone_treblemaker_shop",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_915_911_north_treb1",
+  "lockable": true,
+  "one_way": false
+}

@@ -501,6 +501,82 @@ async function main() {
     problems.push(`vehicle rows — ${e.message}`);
   }
 
+  // ── AUTHORED FAUNA ROWS ──
+  // The same four questions as the vehicles above, for the same reason: a fauna row never reaches
+  // the database either, so its gate belongs beside the renderer that reads it.
+  //
+  // ⚠ QUESTION 3 IS NOT REDUNDANT HERE EVEN THOUGH THE SCHEMA TYPES ITS FIELDS. A fauna row has no
+  // enums, so the schema can say "a string is only ever a colour" and refuse a NaN at the Save
+  // button — which the vehicle format cannot. That guard covers the AUTHOR; this one covers the
+  // BUILDER, where a field that is individually fine can still combine into a degenerate mesh (a
+  // zero-length axis, a divide by a radius somebody set to 0). They are different failures.
+  let faunaLine = 'Fauna rows: none.';
+  try {
+    const { bakeFauna, readFaunaFiles, renderModule: renderFaunaModule } = await import('./bake-fauna.mjs');
+    const { rows, errors } = bakeFauna(readFaunaFiles());
+    for (const e of errors) problems.push(`fauna row — ${e}`);
+    if (!errors.length) {
+      // 1. STALE BAKE, compared as the rendered MODULE rather than row by row.
+      const { readFileSync: rf } = await import('node:fs');
+      const onDisk = rf(new URL('../../client/shared/fauna-models.js', import.meta.url), 'utf8');
+      if (onDisk.replace(/\r\n/g, '\n') !== renderFaunaModule({ rows }).replace(/\r\n/g, '\n')) {
+        problems.push('stale fauna bake — client/shared/fauna-models.js differs from content/fauna_models/. Run: npm run fauna:bake');
+      }
+      // 2. THE ROW ACTUALLY REACHES THE MESH — the fauna half of the orphan check.
+      const fau = await import('../../client/game/js/panels/fauna3d.js');
+      let n = 0;
+      for (const kind of Object.keys(rows)) {
+        for (const id of Object.keys(rows[kind])) {
+          n++;
+          const live = fau.faunaParamBase(kind, id);
+          if (JSON.stringify(live) !== JSON.stringify(rows[kind][id])) {
+            problems.push(`fauna row ${kind}/${id} is authored but the renderer builds from something else`);
+          }
+        }
+      }
+      // 3. EVERY POSE STILL BUILDS A MESH, and 4. nothing non-finite reaches a canvas — both are
+      // `faunaRenderSmoke`, which also catches a colour that resolved to null. That one is the
+      // fauna version of the `sun`-is-a-shape trap: `rgb(null,null,null)` is a string the DOM stub
+      // accepts without a murmur and a real browser throws on.
+      for (const b of fau.faunaRenderSmoke(() => {
+        const calls = [];
+        const ctx = new Proxy({}, {
+          get: (_t, k) => {
+            if (k === 'canvas') return { width: 64, height: 64 };
+            if (k === 'fillStyle' || k === 'strokeStyle' || k === 'globalAlpha') return calls.__v?.[k];
+            return (...args) => { calls.push({ name: String(k), args }); };
+          },
+          set: (_t, k, v) => { (calls.__v ||= {})[k] = v; calls.push({ name: 'set ' + String(k), args: [v] }); return true; },
+        });
+        return { ctx, calls };
+      })) problems.push(`fauna row — ${b}`);
+      // 5. EVERY POSE OF THE BEAT BUILDS WORLD GEOMETRY, and every coordinate of it is finite. The
+      // renderer hands these straight to a vertex buffer, where a NaN is not an error: it is a
+      // triangle that silently disappears, or a whole draw call that does. The three discrete wing
+      // shapes are covered by faunaRenderSmoke above; the continuous beat is sixteen more, plus
+      // sixteen of the landing flutter, and none of them is ever painted on a canvas.
+      let poses = 0, bad = null;
+      for (const state of ['walk', 'raft', 'air']) {
+        const beats = state === 'air' ? fau.FAUNA_BEAT_STEPS : 1;
+        for (let beat = 0; beat < beats && !bad; beat++) {
+          for (const flare of state === 'air' ? [0, 1] : [0]) {
+            const faces = fau.faunaWorldFaces('bird', 'goose', { state, beat, flare, heading: 1.1, roll: 0.4, pitch: -0.3, x: 3, y: -4, z: 2 });
+            if (!faces.length) { bad = `${state} beat ${beat}${flare ? ' flaring' : ''} built no faces`; break; }
+            poses++;
+            for (const f of faces) for (const v of f.p) {
+              if (!Number.isFinite(v[0]) || !Number.isFinite(v[1]) || !Number.isFinite(v[2])) { bad = `${state} beat ${beat} has a non-finite vertex`; break; }
+            }
+            if (!bad) for (const f of faces) if (!f.rgb || f.rgb.some((c) => !Number.isFinite(c))) { bad = `${state} beat ${beat} has a colour that resolved to nothing`; break; }
+          }
+        }
+      }
+      if (bad) problems.push(`fauna mesh — ${bad}`);
+      faunaLine = `Fauna rows: ${n} authored; ${poses} world poses build; bake current.`;
+    }
+  } catch (e) {
+    problems.push(`fauna rows — ${e.message}`);
+  }
+
   // ── AUTHORED MODELS ──
   // The same three questions the code arms get, asked of the data half. They are here rather than
   // in content:lint because an authored model never reaches the database — models:bake compiles it
@@ -570,6 +646,39 @@ async function main() {
     // faces — and a drawer reading the wrong field name passes that, projects at undefined and
     // paints nothing. See authoredDetailSmoke in windshield.js.
     for (const f of ws.authoredDetailSmoke()) problems.push(`authored detail — ${f}`);
+    // 4b-ii. AND EVERY GEOMETRY FIELD IS AN AFFINE TRIPLE, BECAUSE A PLAIN NUMBER THERE IS NaN.
+    //
+    // A model FILE is authored in plain units and `compileModel` turns each field into its
+    // `[a·fh + b·h + c]` basis at the bake. A list written in CODE — an ARM_DETAIL entry, or a
+    // `detail` array on a record in NAMED_MODELS — is already past that step, and `V()` reads the
+    // triple directly: `p[0] * fh + p[1] * h + p[2]`. On a number, `p[0]` is `undefined`, so the
+    // coordinate resolves to NaN — and NaN sails through every `if (f <= 0.1) return` guard in
+    // these painters, because NaN compares false against everything. The part draws nothing, throws
+    // nothing, records nothing, and looks exactly like a list somebody forgot to wire up.
+    //
+    // It is the same failure `authoredAdornSmoke` exists for one layer up, found again the first
+    // time somebody hand-wrote a detail list (the Second Helpings trunk main) — so it is checked by
+    // value rather than left to the next person to rediscover.
+    {
+      const seen = new Set();
+      for (const { key, m } of ws.shapeModelRegistry()) {
+        for (const rich of [false, true]) {
+          let list; try { list = ws.derivedTrim(m, 0.4, 1, 3, rich); } catch { continue; }
+          for (const d of list || []) {
+            const spec = DETAIL_SCHEMA[d.kind]; if (!spec || !spec.geom) continue;
+            for (const f of Object.keys(spec.geom)) {
+              const v = d[f]; if (v == null) continue;
+              const ok = Array.isArray(v) && v.length === 3 && v.every((n) => Number.isFinite(n));
+              const tag = `${d.kind}.${f}`;
+              if (!ok && !seen.has(key + tag)) {
+                seen.add(key + tag);
+                problems.push(`detail basis — ${key}: '${tag}' is ${JSON.stringify(v)} and not an [fh, h, const] triple, so it resolves to NaN and the part paints nothing`);
+              }
+            }
+          }
+        }
+      }
+    }
     // 4c. AND WHICH WALL A PER-FACE PALETTE LANDS ON. Face counts cannot see a shopfront on a
     // flank — swap it and the count is identical. See facePalsSmoke in windshield.js.
     for (const f of ws.facePalsSmoke()) problems.push(`face palettes — ${f}`);
@@ -668,6 +777,7 @@ async function main() {
   const full = at(1), mid = at(0.5), far = at(0);
   console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
   console.log('  ' + vehicleLine);
+  console.log('  ' + faunaLine);
   console.log('  ' + authoredLine);
   if (diffLine) console.log('  ' + diffLine);
   if (authoredReach) console.log('  ' + authoredReach);
@@ -685,7 +795,7 @@ async function main() {
   console.log(`  Truck door art: painted on all ${doorArt.length} rigs and riding the fit (${doorArt.map((d) => d.ratio.toFixed(2)).join(', ')}× the silhouette's own scaling).`);
   console.log(`  …and it survives the walk-up: still painted at ${closeUp.filter((c) => c.cells).at(-1)?.standoff} out, where the model is ${closeUp.filter((c) => c.cells).at(-1)?.faces} faces.`);
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
-  console.log(`  Depot occlusion: ${bayOcc.length ? '?' : 'a shed beside the rig masks, from up over the eaves and down on the road — and the one the rig is standing IN masks nothing, so the boxes in its bays are visible from the cab'}.`);
+  console.log(`  Depot occlusion: ${bayOcc.length ? '?' : 'a shed masks from up over the eaves, down on the road, and with the rig parked inside it — and stops only for an eye within its own walls, so the cab still sees the boxes in its bays'}.`);
   console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');
   console.log('  Forecourt: all three lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — the pumps are still solid, and the island kerb is ridden over rather than hit.');
   console.log('  Carriageway: three parallel lanes measure as one 3-wide road, a lone street still measures 1, and a junction breaks the block.');

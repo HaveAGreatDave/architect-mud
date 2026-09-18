@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architect Codebase Census</title>
+<style>
+  /* Architect house palette — lifted from client/game/styles.css, same tokens the
+     other docs/reports pages use, so a census of the codebase reads like the thing
+     it is counting: deep navy-black, hairline navy rules, cyan for signal, magenta
+     spent only where the game spends it. Single theme on purpose — this is the
+     game's own screen, so every colour is painted explicitly and nothing is
+     borrowed from the host. */
+  :root{
+    --bg:#05050a; --panel:#0d0d16; --panel2:#15151f;
+    --line:#2a2a40; --line-soft:#1b1b2b;
+    --ink:#e8e8f5; --muted:#9aa8c7; --hint:#6b7a9c;
+    --cyan:#28e5ff; --blue:#5b9dff; --accent:#ff2ec4;
+    --good:#39ff8f; --bad:#ff3b5c; --amber:#f5b942; --purple:#b86bff;
+    --mono:"Courier New",Courier,ui-monospace,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{
+    font-family:var(--sans); color:var(--ink); margin:0; line-height:1.65;
+    background:
+      linear-gradient(rgba(40,229,255,.028) 1px, transparent 1px) 0 0/100% 28px,
+      linear-gradient(90deg, rgba(40,229,255,.028) 1px, transparent 1px) 0 0/28px 100%,
+      radial-gradient(1200px 600px at 50% -10%, #101a2e 0%, var(--bg) 70%);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:980px; margin:0 auto; padding:52px 28px 90px}
+
+  /* ── header plate ─────────────────────────────────────────────────────────── */
+  .plate{border:1px solid var(--line); background:linear-gradient(180deg,var(--panel) 0%,rgba(13,13,22,.5) 100%); padding:26px 28px; margin:0 0 34px; position:relative}
+  .plate::before{content:""; position:absolute; inset:5px; border:1px solid var(--line-soft); pointer-events:none}
+  .stamp{font-family:var(--mono); font-size:11px; letter-spacing:.34em; text-transform:uppercase; color:var(--cyan); margin:0 0 12px}
+  h1{font-family:var(--mono); font-size:27px; font-weight:700; letter-spacing:-.01em; margin:0 0 10px; color:#fff; line-height:1.25; text-wrap:balance}
+  .sub{color:var(--muted); margin:0 0 8px; font-size:15px; max-width:64ch}
+  .meta{color:var(--hint); font-size:12px; margin:0; font-family:var(--mono); letter-spacing:.04em}
+
+  h2{
+    font-family:var(--mono); font-size:16px; font-weight:700; color:var(--cyan);
+    letter-spacing:.16em; text-transform:uppercase; margin:52px 0 6px;
+    padding-bottom:9px; border-bottom:1px solid var(--line);
+  }
+  h2::before{content:"▸ "; color:var(--accent)}
+  h2 .n{float:right; color:var(--hint); font-size:12px; letter-spacing:.1em; font-weight:400}
+  .intro{color:var(--muted); font-size:14.5px; margin:14px 0 20px; max-width:66ch}
+  p{font-size:15px; margin:0 0 15px; max-width:66ch}
+  strong{color:#fff}
+  code{background:var(--panel2); border:1px solid var(--line-soft); padding:1.5px 6px; font-size:12.5px; font-family:var(--mono); color:var(--cyan)}
+
+  /* ── tiles ────────────────────────────────────────────────────────────────── */
+  /* Fixed column counts rather than auto-fit: six tiles and four tiles each fill
+     their rows exactly, so no tile is ever left sitting alone on a row of its own. */
+  .cards{display:grid; gap:12px; margin:0 0 4px}
+  .cards.six{grid-template-columns:repeat(3,1fr)}
+  .cards.four{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--panel); border:1px solid var(--line); padding:15px 17px; position:relative; overflow:hidden}
+  .card::after{content:""; position:absolute; left:0; top:0; width:2px; height:100%; background:var(--cyan); opacity:.55}
+  .card.hero::after{background:var(--accent); opacity:.8}
+  .card .label{font-family:var(--mono); font-size:10.5px; color:var(--hint); margin:0 0 8px; text-transform:uppercase; letter-spacing:.18em}
+  .card .val{font-family:var(--mono); font-size:22px; font-weight:700; margin:0; color:#fff; font-variant-numeric:tabular-nums; letter-spacing:-.01em}
+  .card .val small{font-size:13px; font-weight:400; color:var(--muted); letter-spacing:0}
+  .card .note{font-size:11.5px; color:var(--muted); margin:6px 0 0; font-family:var(--mono); line-height:1.5}
+  .card .val.c{color:var(--cyan)} .card .val.g{color:var(--good)} .card .val.a{color:var(--amber)} .card .val.p{color:var(--purple)}
+
+  /* ── bar rows — the text-mode instrument, drawn in cells ──────────────────── */
+  .bars{display:flex; flex-direction:column; gap:1px; background:var(--line-soft); border:1px solid var(--line); margin:0 0 6px}
+  .row{display:grid; grid-template-columns:minmax(120px,1.1fr) 86px minmax(90px,3fr) 92px; align-items:center; gap:14px; background:var(--panel); padding:9px 14px}
+  .row:nth-child(even){background:#0b0b13}
+  .row .k{font-family:var(--mono); font-size:12.5px; color:var(--ink); letter-spacing:.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .row .k b{color:#fff; font-weight:700}
+  .row .v{font-family:var(--mono); font-size:13px; color:#fff; text-align:right; font-variant-numeric:tabular-nums; font-weight:700}
+  .row .x{font-family:var(--mono); font-size:11px; color:var(--hint); text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .track{height:11px; background:#101019; border:1px solid var(--line-soft); position:relative; overflow:hidden}
+  .fill{position:absolute; inset:0 auto 0 0; background:
+      repeating-linear-gradient(90deg, var(--cyan) 0 5px, rgba(5,5,10,.55) 5px 7px);
+    opacity:.9}
+  .fill.a{background:repeating-linear-gradient(90deg, var(--amber) 0 5px, rgba(5,5,10,.55) 5px 7px)}
+  .fill.p{background:repeating-linear-gradient(90deg, var(--purple) 0 5px, rgba(5,5,10,.55) 5px 7px)}
+  .fill.g{background:repeating-linear-gradient(90deg, var(--good) 0 5px, rgba(5,5,10,.55) 5px 7px)}
+  .fill.m{background:repeating-linear-gradient(90deg, var(--accent) 0 5px, rgba(5,5,10,.55) 5px 7px)}
+  .cap{font-family:var(--mono); font-size:11px; color:var(--hint); margin:8px 0 0; letter-spacing:.04em}
+
+  /* ── tables ───────────────────────────────────────────────────────────────── */
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse; width:100%; font-size:13.5px; margin:4px 0 6px; background:var(--panel)}
+  th,td{border:1px solid var(--line); padding:8px 12px; text-align:left; vertical-align:top}
+  th{background:var(--panel2); color:var(--cyan); font-family:var(--mono); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.13em; white-space:nowrap}
+  td.num,th.num{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+  td.m{font-family:var(--mono); font-size:12.5px; color:var(--ink)}
+  td.dim{color:var(--muted); font-size:13px}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.018)}
+  tfoot td{background:var(--panel2); color:#fff; font-weight:700; font-family:var(--mono)}
+
+  /* ── commit cadence ───────────────────────────────────────────────────────── */
+  .chart{border:1px solid var(--line); background:var(--panel); padding:20px 18px 12px; margin:4px 0 6px}
+  .plot{display:flex; align-items:flex-end; gap:6px; height:190px; border-bottom:1px solid var(--line); padding-bottom:0}
+  .col{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; gap:5px; min-width:0}
+  .col .q{font-family:var(--mono); font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+  .col.peak .q{color:var(--accent); font-weight:700}
+  .col .b{width:100%; background:repeating-linear-gradient(180deg, var(--cyan) 0 4px, rgba(5,5,10,.5) 4px 6px); border-top:2px solid var(--cyan)}
+  .col.peak .b{background:repeating-linear-gradient(180deg, var(--accent) 0 4px, rgba(5,5,10,.5) 4px 6px); border-top-color:var(--accent)}
+  .col.part .b{background:repeating-linear-gradient(180deg, var(--hint) 0 4px, rgba(5,5,10,.5) 4px 6px); border-top-color:var(--hint)}
+  .xaxis{display:flex; gap:6px; margin-top:8px}
+  .xaxis span{flex:1; text-align:center; font-family:var(--mono); font-size:9.5px; color:var(--hint); letter-spacing:.02em; min-width:0}
+
+  /* ── callout ──────────────────────────────────────────────────────────────── */
+  .callout{background:rgba(245,185,66,.06); border:1px solid rgba(245,185,66,.32); border-left:3px solid var(--amber); padding:15px 19px; margin:20px 0}
+  .callout.good{background:rgba(57,255,143,.05); border-color:rgba(57,255,143,.28); border-left-color:var(--good)}
+  .callout .tag{font-family:var(--mono); font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--amber); display:block; margin-bottom:7px}
+  .callout.good .tag{color:var(--good)}
+  .callout p{margin:0; font-size:14px; color:var(--ink)}
+  .callout p + p{margin-top:10px}
+
+  /* ── named systems ────────────────────────────────────────────────────────── */
+  /* Four platform units in a 2×2, then the game across the full width beneath
+     them — the grid states the split the section is about. */
+  .sys{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin:4px 0 6px}
+  .unit{border:1px solid var(--line); background:var(--panel); padding:16px 18px; position:relative}
+  .unit .n{font-family:var(--mono); font-size:15px; font-weight:700; letter-spacing:.14em; color:#fff; margin:0 0 3px}
+  .unit .n em{font-style:normal; color:var(--accent)}
+  .unit .exp{font-family:var(--mono); font-size:10.5px; color:var(--hint); letter-spacing:.06em; margin:0 0 10px; line-height:1.55}
+  .unit .d{font-size:13.5px; color:var(--muted); margin:0 0 12px; line-height:1.6}
+  .unit .f{font-family:var(--mono); font-size:11.5px; color:var(--cyan); border-top:1px solid var(--line-soft); padding-top:9px; margin:0; font-variant-numeric:tabular-nums}
+  .unit.game{border-color:#6e1957; grid-column:1 / -1}
+  .unit.game .f{color:var(--accent)}
+
+  footer{margin-top:54px; border-top:1px solid var(--line); padding-top:16px; font-family:var(--mono); font-size:11.5px; color:var(--hint); line-height:1.8}
+
+  @media (max-width:760px){
+    .wrap{padding:36px 16px 70px}
+    .cards.six, .cards.four{grid-template-columns:repeat(2,1fr)}
+    .sys{grid-template-columns:1fr}
+    .row{grid-template-columns:minmax(90px,1fr) 74px 72px; gap:10px}
+    .row .track{display:none}
+    .plot{height:150px}
+    .col .q{font-size:9px}
+    .xaxis span{font-size:8px}
+    h2 .n{float:none; display:block; margin-top:4px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="plate">
+    <p class="stamp">Codebase Census · HEAD 127d0ff3</p>
+    <h1>Architect MUD, counted</h1>
+    <p class="sub">Every tracked file in the repo, measured once and sorted by mass. Source, world content, prose and the gate that stands between them and production.</p>
+    <p class="meta">Measured 2026-09-18 · working tree at <code>127d0ff32</code> · 2,666 commits since 2026-06-19</p>
+  </div>
+
+  <div class="cards six">
+    <div class="card hero">
+      <p class="label">Lines of source</p>
+      <p class="val">554,824</p>
+      <p class="note">1,319 files<br>js · mjs · css · html</p>
+    </div>
+    <div class="card">
+      <p class="label">World content</p>
+      <p class="val c">1,131,147</p>
+      <p class="note">41,890 JSON files<br>42.0 MB in git</p>
+    </div>
+    <div class="card">
+      <p class="label">Prose</p>
+      <p class="val p">77,281</p>
+      <p class="note">330 markdown files<br>822,891 words</p>
+    </div>
+    <div class="card">
+      <p class="label">Plugins</p>
+      <p class="val a">137</p>
+      <p class="note">624 distinct verbs<br>106 declared hooks</p>
+    </div>
+    <div class="card">
+      <p class="label">Dependencies</p>
+      <p class="val g">4 <small>+ 0 dev</small></p>
+      <p class="note">no build step<br>91 npm scripts</p>
+    </div>
+    <div class="card">
+      <p class="label">Days elapsed</p>
+      <p class="val">90</p>
+      <p class="note">29.6 commits/day<br>2 people + CI</p>
+    </div>
+  </div>
+
+  <!-- ══ SOURCE ══════════════════════════════════════════════════════════════ -->
+  <h2>Source, by tree <span class="n">554,824 lines</span></h2>
+  <p class="intro">Ordered by mass. The client outweighs the server three and a half to one, which is what a browser MUD with a software 3-D renderer in it looks like from the outside.</p>
+
+  <div class="bars">
+    <div class="row"><span class="k"><b>client/</b></span><span class="v">215,852</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="x">279 files</span></div>
+    <div class="row"><span class="k"><b>plugins/</b></span><span class="v">188,843</span><span class="track"><span class="fill" style="width:87.5%"></span></span><span class="x">494 files</span></div>
+    <div class="row"><span class="k"><b>scripts/</b></span><span class="v">63,047</span><span class="track"><span class="fill" style="width:29.2%"></span></span><span class="x">346 files</span></div>
+    <div class="row"><span class="k"><b>server/</b></span><span class="v">61,428</span><span class="track"><span class="fill" style="width:28.5%"></span></span><span class="x">163 files</span></div>
+    <div class="row"><span class="k"><b>tools/</b></span><span class="v">19,003</span><span class="track"><span class="fill" style="width:8.8%"></span></span><span class="x">36 files</span></div>
+    <div class="row"><span class="k"><b>tests/</b></span><span class="v">6,651</span><span class="track"><span class="fill" style="width:3.1%"></span></span><span class="x">1 file</span></div>
+  </div>
+  <p class="cap">Bars scale to client/, the largest tree. Markdown and JSON are counted in their own sections below.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Language</th><th class="num">Files</th><th class="num">Lines</th><th class="num">Share</th><th>Where it lives</th></tr></thead>
+    <tbody>
+      <tr><td class="m">JavaScript</td><td class="num">957</td><td class="num">450,993</td><td class="num">81.3%</td><td class="dim">server, client, plugins, tests</td></tr>
+      <tr><td class="m">ESM (.mjs)</td><td class="num">320</td><td class="num">62,641</td><td class="num">11.3%</td><td class="dim">build/lint/report scripts, tools</td></tr>
+      <tr><td class="m">CSS</td><td class="num">3</td><td class="num">21,177</td><td class="num">3.8%</td><td class="dim">game, dev panel, shared themes</td></tr>
+      <tr><td class="m">HTML</td><td class="num">39</td><td class="num">20,013</td><td class="num">3.6%</td><td class="dim">clients, tools, report templates</td></tr>
+    </tbody>
+    <tfoot><tr><td>Total</td><td class="num">1,319</td><td class="num">554,824</td><td class="num">100%</td><td></td></tr></tfoot>
+  </table>
+  </div>
+
+  <div class="callout good">
+    <span class="tag">Three files carry 21,177 lines of CSS</span>
+    <p><code>client/game/styles.css</code> alone is 19,658 lines — larger than every file in the repo except the renderer. There is no preprocessor and no build step, so what ships is what was typed.</p>
+  </div>
+
+  <!-- ══ WORLD ═══════════════════════════════════════════════════════════════ -->
+  <h2>The world, in git <span class="n">41,890 files · 64 kinds</span></h2>
+  <p class="intro">Content is one JSON file per entity under <code>content/</code>, and a push to <code>main</code> is the deploy. Two kinds account for 82% of the tree: every walkable tile, and the power grid laid over it.</p>
+
+  <div class="bars">
+    <div class="row"><span class="k">zones</span><span class="v">17,267</span><span class="track"><span class="fill a" style="width:100%"></span></span><span class="x">tiles</span></div>
+    <div class="row"><span class="k">power_zones</span><span class="v">17,239</span><span class="track"><span class="fill a" style="width:99.8%"></span></span><span class="x">grid</span></div>
+    <div class="row"><span class="k">furniture</span><span class="v">1,454</span><span class="track"><span class="fill a" style="width:8.4%"></span></span><span class="x">props</span></div>
+    <div class="row"><span class="k">connections</span><span class="v">1,157</span><span class="track"><span class="fill a" style="width:6.7%"></span></span><span class="x">exits</span></div>
+    <div class="row"><span class="k">items</span><span class="v">722</span><span class="track"><span class="fill a" style="width:4.2%"></span></span><span class="x">things</span></div>
+    <div class="row"><span class="k">global_ambient_events</span><span class="v">421</span><span class="track"><span class="fill a" style="width:2.4%"></span></span><span class="x">weather-ish</span></div>
+    <div class="row"><span class="k">zone_spawns</span><span class="v">333</span><span class="track"><span class="fill a" style="width:1.9%"></span></span><span class="x">spawners</span></div>
+    <div class="row"><span class="k">npcs</span><span class="v">266</span><span class="track"><span class="fill a" style="width:1.5%"></span></span><span class="x">people</span></div>
+    <div class="row"><span class="k">audio_samples</span><span class="v">195</span><span class="track"><span class="fill a" style="width:1.1%"></span></span><span class="x">SIREN</span></div>
+    <div class="row"><span class="k">npc_banter_threads</span><span class="v">182</span><span class="track"><span class="fill a" style="width:1.1%"></span></span><span class="x">chatter</span></div>
+    <div class="row"><span class="k">drug_reactions</span><span class="v">174</span><span class="track"><span class="fill a" style="width:1.0%"></span></span><span class="x">chem</span></div>
+    <div class="row"><span class="k">audio_instruments</span><span class="v">171</span><span class="track"><span class="fill a" style="width:1.0%"></span></span><span class="x">FM voices</span></div>
+  </div>
+  <p class="cap">Top 12 of 64 kinds. The long tail runs down through 134 quests, 119 dream templates, 67 enemies, 56 mutations, 13 books, 9 vehicle models, 5 regions — to <code>atm_networks</code>, which has exactly one.</p>
+
+  <div class="cards four" style="margin-top:22px">
+    <div class="card"><p class="label">Content lines</p><p class="val c">1,131,147</p><p class="note">2.0× the source</p></div>
+    <div class="card"><p class="label">On disk</p><p class="val c">42.0 <small>MB</small></p><p class="note">git is the only writer</p></div>
+    <div class="card"><p class="label">Building models</p><p class="val c">209</p><p class="note">arms + authored records</p></div>
+    <div class="card"><p class="label">Broadcast scripts</p><p class="val c">39 <small>.bsm</small></p><p class="note">15,957 lines in data/</p></div>
+  </div>
+
+  <!-- ══ GATE ════════════════════════════════════════════════════════════════ -->
+  <h2>The gate <span class="n">53,349 lines of it</span></h2>
+  <p class="intro">Nothing reaches prod without <code>npm run test:regress</code>, which boots the world and every plugin, sweeps each manifest against the live registries, then drives real commands end to end. Test code lives beside the plugin it tests and never loads in production.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>What</th><th class="num">Count</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="m">Plugin regress suites</td><td class="num">126</td><td class="dim">of 137 plugins — 46,698 lines across all <code>regress.js</code></td></tr>
+      <tr><td class="m">Engine suite</td><td class="num">6,651</td><td class="dim">lines in <code>tests/regress.js</code>, the one file in <code>tests/</code></td></tr>
+      <tr><td class="m">Plugin READMEs</td><td class="num">133</td><td class="dim">9,439 lines — linted against the manifest, which cannot lie</td></tr>
+      <tr><td class="m">Plugin manifests</td><td class="num">137</td><td class="dim">declaring 624 distinct verbs and 106 hooks</td></tr>
+      <tr><td class="m">npm scripts</td><td class="num">91</td><td class="dim">smokes, bakes, lints, surveys, one-shots</td></tr>
+      <tr><td class="m">Docs under <code>docs/</code></td><td class="num">144</td><td class="dim">59,418 lines, link-checked and status-checked on every push</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout">
+    <span class="tag">Test code is 9.6% of source</span>
+    <p>53,349 of 554,824 lines are the regression suite. Written prose is heavier still: <strong>one line of markdown for every 7.2 lines of code</strong>, and <code>CLAUDE.md</code> alone carries 290 ⚠ notes, each one a thing that broke and left a reason behind.</p>
+  </div>
+
+  <!-- ══ HEAVIEST ════════════════════════════════════════════════════════════ -->
+  <h2>Heaviest files <span class="n">top 10</span></h2>
+  <p class="intro">The renderer is nearly twice the next file and 6.4% of all source on its own. GLASS is a CPU renderer on a plain 2-D canvas, so the geometry, lighting, LOD, occlusion and collision for 209 building models all live in one place.</p>
+
+  <div class="bars">
+    <div class="row"><span class="k">panels/<b>windshield.js</b></span><span class="v">35,478</span><span class="track"><span class="fill m" style="width:100%"></span></span><span class="x">GLASS</span></div>
+    <div class="row"><span class="k">game/<b>styles.css</b></span><span class="v">19,658</span><span class="track"><span class="fill m" style="width:55.4%"></span></span><span class="x">client</span></div>
+    <div class="row"><span class="k">panels/<b>tablet-os.js</b></span><span class="v">13,347</span><span class="track"><span class="fill m" style="width:37.6%"></span></span><span class="x">client</span></div>
+    <div class="row"><span class="k">broadcast/<b>index.js</b></span><span class="v">11,386</span><span class="track"><span class="fill m" style="width:32.1%"></span></span><span class="x">plugin</span></div>
+    <div class="row"><span class="k">panels/<b>aircraft3d.js</b></span><span class="v">7,004</span><span class="track"><span class="fill m" style="width:19.7%"></span></span><span class="x">GLASS</span></div>
+    <div class="row"><span class="k">tests/<b>regress.js</b></span><span class="v">6,651</span><span class="track"><span class="fill m" style="width:18.7%"></span></span><span class="x">gate</span></div>
+    <div class="row"><span class="k">panels/<b>cockpit.js</b></span><span class="v">5,939</span><span class="track"><span class="fill m" style="width:16.7%"></span></span><span class="x">GLASS</span></div>
+    <div class="row"><span class="k">panels/<b>cab-view.js</b></span><span class="v">5,493</span><span class="track"><span class="fill m" style="width:15.5%"></span></span><span class="x">GLASS</span></div>
+    <div class="row"><span class="k">trucking/<b>regress.js</b></span><span class="v">4,792</span><span class="track"><span class="fill m" style="width:13.5%"></span></span><span class="x">gate</span></div>
+    <div class="row"><span class="k">api/<b>routes.js</b></span><span class="v">3,843</span><span class="track"><span class="fill m" style="width:10.8%"></span></span><span class="x">server</span></div>
+  </div>
+  <p class="cap">Five of the ten are the renderer or something that flies through it. <code>client/game/js/panels/gl/</code> — the WebGL2 pass added on top — is another 8,241 lines across 12 files.</p>
+
+  <!-- ══ CADENCE ═════════════════════════════════════════════════════════════ -->
+  <h2>Commit cadence <span class="n">2,666 commits · 14 weeks</span></h2>
+  <p class="intro">Commits per week since the first one on 19 June. The peak week put 612 commits in, 87 a day; the trailing column is the current week, cut short at Wednesday.</p>
+
+  <div class="chart">
+    <div class="plot">
+      <div class="col"><span class="q">200</span><span class="b" style="height:32.7%"></span></div>
+      <div class="col peak"><span class="q">612</span><span class="b" style="height:100%"></span></div>
+      <div class="col"><span class="q">468</span><span class="b" style="height:76.5%"></span></div>
+      <div class="col"><span class="q">237</span><span class="b" style="height:38.7%"></span></div>
+      <div class="col"><span class="q">176</span><span class="b" style="height:28.8%"></span></div>
+      <div class="col"><span class="q">182</span><span class="b" style="height:29.7%"></span></div>
+      <div class="col"><span class="q">206</span><span class="b" style="height:33.7%"></span></div>
+      <div class="col"><span class="q">109</span><span class="b" style="height:17.8%"></span></div>
+      <div class="col"><span class="q">108</span><span class="b" style="height:17.6%"></span></div>
+      <div class="col"><span class="q">104</span><span class="b" style="height:17.0%"></span></div>
+      <div class="col"><span class="q">41</span><span class="b" style="height:6.7%"></span></div>
+      <div class="col"><span class="q">86</span><span class="b" style="height:14.1%"></span></div>
+      <div class="col"><span class="q">119</span><span class="b" style="height:19.4%"></span></div>
+      <div class="col part"><span class="q">18</span><span class="b" style="height:2.9%"></span></div>
+    </div>
+    <div class="xaxis">
+      <span>Jun 15</span><span>Jun 22</span><span>Jun 29</span><span>Jul 6</span>
+      <span>Jul 13</span><span>Jul 20</span><span>Jul 27</span><span>Aug 3</span>
+      <span>Aug 10</span><span>Aug 17</span><span>Aug 24</span><span>Aug 31</span>
+      <span>Sep 7</span><span>Sep 14</span>
+    </div>
+  </div>
+  <p class="cap">Week beginning. Scale runs 0–612; every column is labelled with the value it reaches.</p>
+
+  <div class="scroll" style="margin-top:20px">
+  <table>
+    <thead><tr><th>Author</th><th class="num">Commits</th><th class="num">Share</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="m">HaveAGreatDave</td><td class="num">2,130</td><td class="num">79.9%</td><td class="dim">one merge landed under the name <code>Dave</code> — same account</td></tr>
+      <tr><td class="m">akerson</td><td class="num">517</td><td class="num">19.4%</td><td class="dim">two addresses, 511 + 6, one person</td></tr>
+      <tr><td class="m">github-actions[bot]</td><td class="num">19</td><td class="num">0.7%</td><td class="dim">daily usage-watch reports</td></tr>
+    </tbody>
+    <tfoot><tr><td>On main</td><td class="num">2,666</td><td class="num">100%</td><td></td></tr></tfoot>
+  </table>
+  </div>
+  <p class="cap">Two people and a cron job. <code>git shortlog -sn</code> reports five names because two of them are duplicate identities — and a sixth, <code>Claude &lt;noreply@anthropic.com&gt;</code>, holds 6 commits on <code>origin/claude/boot-payload-optimization-viggbs</code>, which has never been merged to main.</p>
+
+  <!-- ══ SYSTEMS ═════════════════════════════════════════════════════════════ -->
+  <h2>The named systems <span class="n">platform vs. game</span></h2>
+  <p class="intro">Four of the five names below are the platform; the fifth is the game built on it. The split is load-bearing — anything that hardcodes Coldwater into an engine or client file is a thing a second game would have to unpick.</p>
+
+  <div class="sys">
+    <div class="unit">
+      <p class="n">THOMAS</p>
+      <p class="exp">The Hypermedia Online Multiplayer Adventure System</p>
+      <p class="d">The client and the engine. Everything under <code>client/</code>, <code>server/engine/</code>, the dev panel, the plugin loader and the CODEX pipeline.</p>
+      <p class="f">47,736 lines engine · 34,565 dev panel</p>
+    </div>
+    <div class="unit">
+      <p class="n">GLASS</p>
+      <p class="exp">Geometry, Lights, Aircraft, Streets &amp; Structures</p>
+      <p class="d">The 3-D renderer. CPU on a plain 2-D canvas, with a WebGL2 pass under it since September. Two viewers: a cockpit canopy and a truck windscreen.</p>
+      <p class="f">35,478 lines core · 8,241 GL · 209 models</p>
+    </div>
+    <div class="unit">
+      <p class="n">SIREN</p>
+      <p class="exp">Sources, Index, Resonance, Envelopes &amp; Noise</p>
+      <p class="d">The synthesizer. A 32-voice pool with priority stealing, a tracker player, a sampler, generated-IR reverb and four buses.</p>
+      <p class="f">3,625 lines · 171 instruments · 195 samples</p>
+    </div>
+    <div class="unit">
+      <p class="n">ORACLE</p>
+      <p class="exp">Orthography, Resonance, Accent, Cadence, Lexicon &amp; Emphasis</p>
+      <p class="d">The formant speech synth, inside SIREN's file and sharing none of its layer builder. A 27k-word lexicon over letter-to-sound rules.</p>
+      <p class="f">shares audio-engine.js · RP + GA accents</p>
+    </div>
+    <div class="unit game">
+      <p class="n"><em>Architect</em></p>
+      <p class="exp">The game — Coldwater, the Basin, the orders, the prose</p>
+      <p class="d">Everything in Postgres and under <code>content/</code>. None of it is code, and all of it deploys by push.</p>
+      <p class="f">41,890 files · 1,131,147 lines · 42.0 MB</p>
+    </div>
+  </div>
+
+  <!-- ══ METHOD ══════════════════════════════════════════════════════════════ -->
+  <h2>Method</h2>
+  <p>Counted from <code>git ls-files</code> at <code>127d0ff32</code>, reading the working tree, on 18 September 2026. <code>node_modules/</code> is excluded because it is not tracked; <code>sandbox/</code> is excluded from the source table for the same reason it exists.</p>
+  <p>Lines are raw newline counts — no blank-line or comment subtraction, which in this repo would be a large and misleading deduction, since the comments are where the reasons live. Content lines count pretty-printed JSON as the pipeline writes it. The <strong>209 building models</strong> figure is what <code>npm run shapes:smoke</code> reports; every other number in this page came from a single pass over the file list.</p>
+
+  <footer>
+    Architect MUD · codebase census · 2026-09-18<br>
+    Generated from the tracked tree. Palette and type lifted from <code>client/game/styles.css</code>.
+  </footer>
+
+</div>
+</body>
+</html>

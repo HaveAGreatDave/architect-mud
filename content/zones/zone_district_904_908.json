@@ -1,24 +1,32 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_events": [
+    "Somebody comes out reading the label on a box and walks into the railings.",
+    "The carboys glow a little brighter as the light goes and the street lamp comes up.",
+    "A queue of three forms, is served, and is gone inside of two minutes."
+  ],
+  "ambient_theme": "urban",
+  "bg_color": "#20262a",
+  "description": "A chemist's shop facing the green, with the traditional two glass carboys in the window, one red and one green, lit from behind and full of something that is almost certainly water. The lettering on the glass is gold leaf and original and beautiful, which makes the laminated sheet taped beneath it reading NO SCRIPTS AFTER 8 read worse than it needs to.",
   "exits": {
     "north": "zone_district_904_907",
-    "south": "zone_district_904_909",
-    "west": "zone_district_903_908"
+    "south": "zone_pillcollins_counter"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Pill Collins",
+    "building_type": "clinic",
+    "district": "filaments",
+    "entrance": "north",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_904_907"
   },
   "grid_x": 904,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_904_908",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "PC",
+  "name": "Pill Collins",
   "parent_zone": null
 }

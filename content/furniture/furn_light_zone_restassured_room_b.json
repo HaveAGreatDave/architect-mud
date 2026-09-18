@@ -1,0 +1,18 @@
+{
+  "description": "A bulb in a plain white shade, controlled by a pull cord that was shortened with a knot and never lengthened again.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_restassured_room_b",
+  "light_type": "lamp",
+  "lumen_output": 400,
+  "name": "overhead bulb",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_restassured_room_b"
+}

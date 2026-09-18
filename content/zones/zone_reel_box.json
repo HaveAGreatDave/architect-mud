@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221a16",
+  "description": "A hot little room the width of two projectors and the length of one, with two ports cut through the far wall into the dark of the auditorium. The machine standing at the left-hand port is enormous, cast iron, oiled, and threaded ready. The one at the right-hand port was cannibalised for the left-hand one years ago and now holds a kettle. Between them, on a milk crate, sits a squat plastic tape player wired straight into the house feed, and nobody in this room is going to discuss it. A rewind bench runs under the ports with a ledger open on it and a pencil in the gutter.",
+  "exits": {
+    "down": "zone_reel_foyer"
+  },
+  "flags": {
+    "building_name": "Reel Estate",
+    "building_type": "cinema",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_912_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_reel_box",
+  "map_id": "map_int_reel",
+  "name": "Reel Estate — The Projection Box",
+  "parent_zone": "zone_district_912_914"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_regerts_ink",
+  "name": "bottle of black ink",
+  "tags": {
+    "stackable": true,
+    "description": "Carbon in a carrier, ground fine enough that it does not blur at the edge in ten years, which is the only test that matters and which takes ten years. The date on the cap is when she mixed it. She will not sell you one older than eight months."
+  },
+  "type": "material",
+  "value": 48,
+  "weight": 200
+}

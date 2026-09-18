@@ -1,0 +1,14 @@
+{
+  "description": "On a clear day there is no artificial light in this room at all: the whole north slope is glass, and what comes through it is even, cold and shadowless, which is the only light a face has ever been properly photographed in. The lamps on stands are for winter and she resents them.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_negeq_studio",
+  "light_type": "overhead",
+  "lumen_output": 3400,
+  "name": "the north light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_negeq_studio"
+}

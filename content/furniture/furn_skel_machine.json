@@ -1,0 +1,19 @@
+{
+  "description": "Bolted to the bench, a cast body with two vices and a follower, throwing a short bright arc of swarf into a tray. It makes a sound that carries to the end of the street and everybody within it knows what the sound means, which he considers a form of advertising.",
+  "flags": {
+    "aliases": "machine,cutter,vice,wheel",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skel_machine",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the cutting machine",
+  "object_type": "fixture",
+  "power_draw_kw": 0.4,
+  "price": 0,
+  "zone_id": "zone_skelcrew_shop"
+}

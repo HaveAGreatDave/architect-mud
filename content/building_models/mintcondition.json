@@ -1,0 +1,310 @@
+{
+  "adorn": [
+    {
+      "cx": -0.16,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "255,226,150",
+      "s": 20,
+      "z": 0.28
+    },
+    {
+      "cx": 0,
+      "cy": 0.22,
+      "kind": "glowPool",
+      "rgb": "255,210,74",
+      "s": 13,
+      "z": 1
+    },
+    {
+      "cx": -0.16,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "255,214,130",
+      "s": 16,
+      "z": 0.02
+    },
+    {
+      "cx": 0,
+      "cy": -0.1,
+      "kind": "mast",
+      "z0": 1.08,
+      "z1": 1.34
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Mint Condition"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 3,
+      "cx": -0.16,
+      "cy": 0.43,
+      "depth": 0.02,
+      "glass": "#0e1a14",
+      "glow": "#ffe9a8",
+      "half": 0.19,
+      "hh": 0.135,
+      "kind": "windowBay",
+      "pal": "ty_marble_col",
+      "transom": 0.76,
+      "z": 0.27
+    },
+    {
+      "bars": 1,
+      "cx": 0.24,
+      "cy": 0.435,
+      "depth": 0.017,
+      "glass": "#16241c",
+      "glow": "#3a4a40",
+      "half": 0.075,
+      "hh": 0.115,
+      "kind": "windowBay",
+      "pal": "ty_marble_col",
+      "z": 0.25
+    },
+    {
+      "cx": 0,
+      "cy": 0.43,
+      "half": 0.38,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.115,
+      "pal": "ty_marble_col",
+      "soffit": "#16281e",
+      "strip": "#ffd24a",
+      "z": 0.415
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": -0.22,
+        "cy": 0.4,
+        "depth": 0.013,
+        "glass": "#1a2820",
+        "glow": "#2e3c34",
+        "half": 0.08,
+        "hh": 0.062,
+        "kind": "windowBay",
+        "pal": "ty_marble_col",
+        "z": 0.5
+      },
+      "step": {
+        "z": 0.2
+      }
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": 0.06,
+        "cy": 0.4,
+        "depth": 0.013,
+        "glass": "#1a2820",
+        "glow": "#2e3c34",
+        "half": 0.08,
+        "hh": 0.062,
+        "kind": "windowBay",
+        "pal": "ty_marble_col",
+        "z": 0.5
+      },
+      "step": {
+        "z": 0.2
+      }
+    },
+    {
+      "color": "#10201a",
+      "cx": 0,
+      "cy": 0.23,
+      "font": "block",
+      "half": 0.205,
+      "hh": 0.045,
+      "ink": "#ffd24a",
+      "kind": "signBoard",
+      "label": "MINT CONDITION",
+      "z": 1
+    },
+    {
+      "color": "#10201a",
+      "cx": -0.16,
+      "cy": 0.43,
+      "font": "condensed",
+      "half": 0.2,
+      "hh": 0.024,
+      "ink": "#ffd24a",
+      "kind": "signBoard",
+      "label": "BACK ISSUES",
+      "z": 0.458
+    },
+    {
+      "color": "#10201a",
+      "cx": -0.4,
+      "cy": 0.4,
+      "font": "hanzi",
+      "half": 0.046,
+      "ink": "#ffd24a",
+      "kind": "bladePanel",
+      "label": "漫畫",
+      "out": 0.032,
+      "pal": "ty_marble_col",
+      "z0": 0.46,
+      "z1": 0.88
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.41,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_marble_col",
+      "z": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.23,
+      "hh": 0.011,
+      "kind": "parapet",
+      "pal": "ty_marble_col",
+      "z": 1.08
+    },
+    {
+      "cx": 0.04,
+      "cy": -0.4,
+      "face": "x",
+      "flights": 3,
+      "half": 0.082,
+      "kind": "fireEscape",
+      "out": 0.048,
+      "pal": "ty_gate_dk",
+      "z0": 0.28,
+      "z1": 0.86
+    },
+    {
+      "cx": -0.26,
+      "cy": -0.2,
+      "d": 0.05,
+      "hh": 0.024,
+      "kind": "acUnit",
+      "pal": "ty_gate_dk",
+      "w": 0.065,
+      "z": 0.92
+    },
+    {
+      "color": "#ffd24a",
+      "cx": 0.36,
+      "cy": 0.44,
+      "hh": 0.065,
+      "kind": "tag",
+      "n": 3,
+      "v": 3,
+      "w": 0.075,
+      "z": 0.18
+    },
+    {
+      "cx": -0.4,
+      "cy": 0.44,
+      "d": 0.032,
+      "hh": 0.028,
+      "kind": "binStack",
+      "lid": "#20302a",
+      "n": 2,
+      "pal": "ty_marble_col",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": -0.3,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    },
+    {
+      "cx": 0.1,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_marble_col",
+      "r": 0.026,
+      "rgb": "255,220,150",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.088
+    }
+  ],
+  "id": "mintcondition",
+  "neon": "#ffd24a",
+  "note": "MINT CONDITION — the comic shop that closes the south end of Ironside Street.\n\n⚠ IT IS THE ONLY BUILDING ON THE STREET YOU LOOK STRAIGHT DOWN THE ROAD AT. Ironside runs\nnorth–south and this tile sits on the end of it facing north, so it is the one frontage a driver\nsees square-on for a whole block rather than in passing. That is why it gets the stepped false\nfront and the biggest name on the street, and why the composition is strictly symmetrical: it is\nthe terminating view, and anything off-centre in a terminating view reads as a mistake.\n\n⚠ THE CROWN IS TWO SQUARE BOXES, NOT A GABLE. A false front deep enough to read is a box that is\nwider than it is deep, and `F()` rotates an off-centre box's POSITION to the entrance while leaving\nits footprint pointing north — so a non-square crown reaches a different radius at each of the four\nfacings and the shape capture, the mesh and the collision hull all disagree about where it is. Two\ncentred square steps say the same thing about the silhouette and cannot rotate out from under\nthemselves.\n\n⚠ AND THE UPPER WINDOWS ARE BOARDED, NOT LIT. The shop is the ground floor and the two above it\nhave been empty for years, which is what the tile is about; lighting them would make this a\nthriving building on a street whose whole job is to be the wrong place for a hotel.",
+  "pal": "ty_sw_vat",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_sw_vat",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.7
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_sw_vat",
+      "roof": true,
+      "z0": 0.7,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.22,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.92,
+      "z1": 1.08
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.435,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": false,
+      "z0": 0.66,
+      "z1": 0.72
+    }
+  ],
+  "trade": "comicshop"
+}

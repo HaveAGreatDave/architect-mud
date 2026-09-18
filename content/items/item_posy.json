@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_posy",
+  "name": "buttonhole posy",
+  "tags": {
+    "description": "Three stems and a leaf, wired tight and cut short, with a pin pushed through the binding. It is the cheapest thing in the shop and the one that most often gets bought by somebody who came in for nothing.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 5,
+  "weight": 40
+}

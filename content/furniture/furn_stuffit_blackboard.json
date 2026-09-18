@@ -1,0 +1,19 @@
+{
+  "description": "A blackboard by the sink with the jobs on it: a name, what it is, and the date it came in. Twenty-two lines. Three of them have a second date beside the first, in a different chalk, and those three have been on the board a very long time.",
+  "flags": {
+    "aliases": "blackboard,board,list,slate",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stuffit_blackboard",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the work list",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_stuffit_work"
+}

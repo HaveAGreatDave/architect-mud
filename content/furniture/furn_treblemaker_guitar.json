@@ -1,0 +1,20 @@
+{
+  "description": "A guitar hung on a hook at the end of the counter, left there for trying rather than for sale. The finish is worn through in a patch the shape of a forearm. Whoever hung it up put it where a person standing at the counter can reach it without asking, which was the entire intention.",
+  "flags": {
+    "instrument": "pluck",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_treblemaker_guitar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Counter Guitar",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 520,
+  "zone_id": "zone_treblemaker_shop"
+}

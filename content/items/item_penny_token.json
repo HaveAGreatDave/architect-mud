@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_penny_token",
+  "name": "arcade token",
+  "tags": {
+    "stackable": true,
+    "description": "A stamped alloy disc the colour of nothing, slightly smaller than a coin so it cannot go anywhere else, with a drop of paint on the rim that tells her which year she bought it. Five of them are a bag of coppers, roughly, and the roughly is hers."
+  },
+  "type": "misc",
+  "value": 2,
+  "weight": 8
+}

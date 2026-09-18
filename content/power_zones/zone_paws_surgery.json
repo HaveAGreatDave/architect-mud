@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_paws_wait",
+  "id": "zone_paws_surgery",
+  "max_capacity_kw": 200,
+  "name": "Paws for Thought — The Surgery",
+  "source_type": "city_grid"
+}

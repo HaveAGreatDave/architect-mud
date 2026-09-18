@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_skel_lock",
+  "name": "a reconditioned lock",
+  "tags": {
+    "stackable": true,
+    "description": "Second-hand, stripped, cleaned, re-pinned and reassembled, with two keys and a card giving the make and the year. Better than anything new you can buy in Coldwater, because nothing new is made in Coldwater, which he says without any bitterness at all."
+  },
+  "type": "misc",
+  "value": 140,
+  "weight": 900
+}

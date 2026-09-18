@@ -1,0 +1,19 @@
+{
+  "description": "Names down the left, times beside them, and a third column headed with a dash. Most entries in the third column are one word. A surprising number of them are the same word, and the word is CHROME, and the dates cluster in the two days before an operating list.",
+  "flags": {
+    "aliases": "ledger,book,bookings,diary",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_negeq_ledger",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the sittings ledger",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_negeq_shop"
+}

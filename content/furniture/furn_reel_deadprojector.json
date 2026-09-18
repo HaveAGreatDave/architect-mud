@@ -1,0 +1,19 @@
+{
+  "description": "The right-hand machine, or what is left of it. The gate, the intermittent, the motor and most of the lamphouse went into keeping the left-hand one running, and the shell that is left stands over its port with a kettle on the top plate and a mug ring burned into the enamel beside it.",
+  "flags": {
+    "aliases": "second projector,kettle,dead machine",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_deadprojector",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the second projector",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_reel_box"
+}

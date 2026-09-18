@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_past_relic",
+  "name": "a labelled oddment",
+  "tags": {
+    "stackable": true,
+    "description": "A duplicate out of the reserve, with a proper tag on it giving the number, where it was found and who brought it in. He sells duplicates only, reluctantly, and only when the tin is empty, and he writes down what he sold and to whom."
+  },
+  "type": "misc",
+  "value": 40,
+  "weight": 240
+}

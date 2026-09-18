@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2a2419",
+  "description": "Aisles at a width that assumes one customer, stacked to the ceiling on a shelving system that grew rather than got installed. The stock makes no sense as a range and perfect sense as a neighbourhood: bread, batteries, painkillers, birthday cards, a single brand of everything else. The counter is armoured, and has been since long before anybody thought to ask why.",
+  "exits": {
+    "north": "zone_district_897_907"
+  },
+  "flags": {
+    "building_name": "Corner the Market",
+    "building_type": "bodega",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_cornermarket_shop",
+  "map_id": "map_int_cornermarket",
+  "name": "Corner the Market",
+  "parent_zone": "zone_district_897_907"
+}

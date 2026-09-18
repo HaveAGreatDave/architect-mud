@@ -1,0 +1,307 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Birdie wipes the rail from one end of the bright stripe to the other.",
+    "She glances at the clock, which is wrong, and takes it as read.",
+    "She sets a glass down on the rail without being asked and it is the right one.",
+    "She looks down the room at the end booth, sees it empty, and looks away.",
+    "The red bulb over the door buzzes and settles.",
+    "She rubs a name off the slate with the side of her hand.",
+    "\"Long one?\" she says, to somebody arriving, and does not wait for the answer.",
+    "She stands very still for a moment, which is how she rests.",
+    "She counts the float, puts it back, and does not write anything down."
+  ],
+  "description": "A dry, watchful woman who has worked nights for so long that daylight now reads to her as an interruption. She pours without being asked and gets it right, and she has the trick of appearing to be entirely uninterested in a conversation while missing none of it. She never asks how the shift went. That is the whole service.",
+  "dialogue_tree": {
+    "board": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Tomorrow's calls.\" She nods at it. \"First one in with a sheet copies it up. People read it on the way to the bar and rub their own name out when they've seen it.\"\n\nShe starts on a glass.\n\n\"An empty board at midnight means everybody's seen theirs. A name still on it at closing means somebody isn't coming in tonight, and then there's about a minute where nobody says anything, and then we get on.\""
+    },
+    "booth": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Nothing's wrong with it.\" She is very slightly amused. \"It belongs to whoever got out of the studios latest. That's it. That's the whole rule and nobody has ever written it down and I have never once had to enforce it.\"\n\nShe looks down the room at it.\n\n\"Some nights it's empty because everybody finished at a reasonable hour, and that is the best thing that can happen in here, and nobody ever sits in it out of respect for the fact.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "clock": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Twenty minutes fast.\" She wipes the rail. \"Been like it since before me. You want people out at a certain hour, you don't argue with them at that hour, you give them a clock that's been lying to them pleasantly all night and let them argue with the clock.\"\n\nA shrug.\n\n\"Everybody who drinks here knows. Nobody has ever corrected it for a stranger, which I find quite touching, and I have never worked out whether that's kindness or whether they just like watching.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People talk in here. I don't go looking for it.\" A shrug. \"Doesn't mean I've got a bad memory.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "The clock.",
+          "next": "clock"
+        },
+        {
+          "label": "What's wrong with the end booth?",
+          "next": "booth"
+        },
+        {
+          "label": "The slate by the door.",
+          "next": "board"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit anywhere except the end booth.\" She doesn't look at the end booth. \"Clock's fast. It's meant to be. Don't let it worry you.\"",
+      "text_by_relation": {
+        "familiar": "The glass is on the rail before you're through the door and it is the right one.\n\n\"Don't,\" she says, to the thank you you haven't said yet. \"You've been coming in here long enough that me getting it wrong would be the notable thing.\"",
+        "first": "The woman behind the bar watches you come the whole length of the gangway and waits until you have stopped.\n\n\"Birdie. It's a bar, it opens at eleven at night, and if you're in here before midnight you're either lost or you've had a day.\" She sets a glass on the rail. \"Sit where you like. Not the end booth.\"\n\nShe tips her head at the clock without turning round.\n\n\"And that's twenty minutes fast on purpose. Everyone in here knows. Now you do.\"",
+        "known": "\"Evening.\" It is not evening. She is already pouring. \"Board's got tomorrow's calls on it if you're the sort who looks.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a black shirt with the sleeves pushed up past the elbow",
+      "a bar apron folded down and tied at the waist",
+      "dark trousers and shoes that have been resoled twice"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_wrapparty_bar",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_wrap_stavros",
+  "name": "Birdie Stavros",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_synth_champagne",
+      "price": 24
+    },
+    {
+      "item_id": "item_tonic_water",
+      "price": 6
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 23,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 23,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 23,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 23,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 23,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 23,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 23,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Wrap Party",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_wrapparty_bar"
+}

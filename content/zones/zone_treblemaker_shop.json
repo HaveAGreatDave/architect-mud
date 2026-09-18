@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#211b2b",
+  "color": "#7a5fa8",
+  "description": "Every wall is hung and there is nowhere to put your elbows. Guitars and their relatives on the left, brass and reeds behind glass on the right, and along the back a counter with a bench behind it where the repairs happen in full view, which is either confidence or a lack of anywhere else. A stairway at the back goes up to the rooms you can hire by the hour. It smells of valve oil, rosin and hot electronics.",
+  "exits": {
+    "down": "zone_util_zone_treblemaker_shop",
+    "south": "zone_district_915_911"
+  },
+  "flags": {
+    "building_name": "Treble Maker",
+    "building_type": "shop",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Instruments hung on wires against the glass rather than stood in it, so from inside you see Foundry Way through a curtain of necks and bells. The card in the corner facing out apologises for the noise and declines to stop making it.",
+      "light": 0.85,
+      "name": "the hanging window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_915_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_treblemaker_shop",
+  "map_id": "map_int_treblemaker",
+  "name": "Treble Maker — Shop",
+  "parent_zone": "zone_district_915_911"
+}

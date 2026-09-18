@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_stuff_tanned",
+  "name": "tanned hide",
+  "tags": {
+    "stackable": true,
+    "description": "A hide off the wasteland, cured properly rather than quickly: supple, even, and it does not smell of anything much. Whatever it came off had four legs and a bad year. She does not label them and she will not guess out loud."
+  },
+  "type": "material",
+  "value": 85,
+  "weight": 900
+}

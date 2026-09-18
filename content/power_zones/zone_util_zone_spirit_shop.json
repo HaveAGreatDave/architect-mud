@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_spirit_shop",
+  "id": "zone_util_zone_spirit_shop",
+  "max_capacity_kw": 200,
+  "name": "Spirit Level — Behind the Hatch — Utility Room",
+  "source_type": "city_grid"
+}

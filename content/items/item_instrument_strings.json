@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_instrument_strings",
+  "name": "set of strings",
+  "tags": {
+    "description": "Six coiled strings in a paper envelope, each in its own smaller envelope with the gauge stamped on it. Somebody has written on the outside, in pencil, MEDIUM, and then underneath, more firmly, THEY ARE NOT MEDIUM.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 22,
+  "weight": 60
+}

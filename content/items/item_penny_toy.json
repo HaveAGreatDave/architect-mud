@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_penny_toy",
+  "name": "a grey plush something",
+  "tags": {
+    "stackable": true,
+    "description": "Whatever animal this was, the claw has had it by the head about four hundred times and the head now has opinions about that. It smells faintly of the inside of the machine. People are unreasonably pleased to get one and she has never understood it."
+  },
+  "type": "misc",
+  "value": 15,
+  "weight": 90
+}

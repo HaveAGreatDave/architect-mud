@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_sole_wax",
+  "name": "tin of dubbin",
+  "tags": {
+    "stackable": true,
+    "description": "Tallow, wax and something he will not name, in a tin with the lid on so tight you need the bench. Worked in warm it keeps water out for about a month, which he says while looking at your boots in a way that is not a sales technique."
+  },
+  "type": "misc",
+  "value": 12,
+  "weight": 140
+}

@@ -1,23 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#1a2024",
+  "description": "No glazing at all, which on a street of shopfronts is the thing you notice before you notice the smell. The building is a counter with a roof on it: a marble slab the full width of the frontage, canted toward you, open to the street behind a canvas awning let down on two poles, and a crushed-ice bed on the slab with the morning on it in rows. The ice melts off the front edge all day and runs into the gutter, and there is a strip of pavement outside this shop that has not been dry since anybody can remember. The name is painted on the fascia in blue on white, and the lettering is a great deal older than the man behind the slab.",
   "exits": {
-    "north": "zone_district_903_904",
     "south": "zone_district_903_906",
-    "west": "zone_district_902_905"
+    "north": "zone_codfather_slab"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "The Codfather",
+    "building_type": "fishmonger",
+    "district": "filaments",
+    "entrance": "south",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_903_906"
   },
   "grid_x": 903,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_903_905",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "FM",
+  "name": "The Codfather",
   "parent_zone": null
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_acidtest_counter",
+  "b": "zone_util_zone_acidtest_counter",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_acidtest_counter_down_acid2",
+  "lockable": false,
+  "one_way": false
+}

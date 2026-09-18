@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_wreath_small",
+  "name": "small wire wreath",
+  "tags": {
+    "description": "A ring of bound wire the width of two hands, dressed in dark greenery with the stems bent back and wired down out of sight. There is a blank card in a slot on the frame. Most people write on it standing up, outside, with the shop's pen.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 34,
+  "weight": 700
+}

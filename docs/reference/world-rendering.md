@@ -95,6 +95,17 @@ draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof, yaw
   increasing `yaw` — that's how Halcyon Towers spirals) or a heading-aware object (the Echelon).
 - Handles near-plane clipping + backface culling internally, so you just describe boxes.
 
+⚠ **A RECTANGULAR BOX NEEDS `faceYaw(E)` AND A SQUARE ONE DOES NOT**, which is why almost no arm in
+the file passes a yaw and why the omission is so easy to make. `F()` turns a model-local POINT into
+the entrance's frame; the box's own extents stay world-axis-aligned until `yaw` turns them too. So a
+box placed with `F()` and given a real half-depth (`fd`) — a kerb down one side, a rail beam, a
+crane's boom, an awning — is correct on a north-facing tile and lies across the plot on the other
+three. `awning()` has always passed `Math.atan2(-E[0], E[1])` for exactly this reason; `faceYaw(E)`
+is that expression with a name on it. **`gl:mesh` is the gate**: it captures all four facings and
+compares their reach, and it caught `harbour_yard` reaching 0.920 east against 0.669 north.
+Anything with a DIRECTION of its own (a slewing crane, and everything that turns with it) adds
+`faceYaw(E)` to its own local bearing.
+
 ### `drawFacetDrum` — the rounded alternative to a box
 `drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap)` draws an **N-sided faceted
 drum** (cylinder/cone) — use it instead of `draw3DBoxAt` when a tower/tank/terminal shouldn't read as
@@ -988,9 +999,14 @@ Temper** (`tine`), **Two-Cell Supply** (`twocell`), **Fallow Provisions** (`fall
 Tomb** (`papertomb`), **Stitch ’n’ Bitch** (`stitch`), **Camp Giardia** (`campgiardia`), **Watts
 The Damage** (`watts`), **Hulls Angels** (`hulls`), **Slag & Wares** (`slagwares`), **Thumb On The
 Scale** (`thumbscale`), **The Slip** (`slipback`), **Sentimental Value Pawn** (`sentimental`) and
-**Grind House** (`grindhouse`). Their twins — Precinct 9, Co-Pay & Pray, Grease Expectations, Nuts
-to That, The Wet Handoff, Salvage Rites, In Hock We Trust and the Second Amendment Superstore —
-each keep the generic type model on purpose.
+**Grind House** (`grindhouse`). Their twins — Precinct 9, Grease Expectations, Nuts to That, The
+Wet Handoff and the Second Amendment Superstore — each keep the generic type model on purpose.
+Three have since left that list: Co-Pay & Pray, the Marrow Street fence (renamed **Cash &
+Carrion**) and **Salvage Rites** are hand-authored models under `content/building_models/`, so the
+twin each was sharing a mesh with no longer has one. Salvage Rites is the one worth reading as a
+worked example of the rule this section states: `type:junkyard` draws four yards across three
+districts, so redesigning the ARM would have redesigned Slag & Wares, Thumb On The Scale and The
+Houndyard as well. A name bind takes the one tile and leaves the type alone.
 
 The worst single mismatch was **Camp Giardia**, a tarpaulin over a bus shell with a cook fire in a
 cut-down drum, rendering as the streamline `diner`: a chrome dining car with a barrel roof and

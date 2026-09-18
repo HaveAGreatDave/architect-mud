@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_boardstiff_desk",
+  "id": "zone_boardstiff_desk",
+  "max_capacity_kw": 200,
+  "name": "Board Stiff — Front Desk",
+  "source_type": "city_grid"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_910_914",
+  "b": "zone_statuequo_hall",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_910_914_south_stat1",
+  "lockable": true,
+  "one_way": false
+}

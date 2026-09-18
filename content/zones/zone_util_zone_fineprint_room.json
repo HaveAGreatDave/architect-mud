@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "The boiler room, and the reason the reading room is the only warm public building in the Filaments. A squat boiler, a coal bunker with about a third of a winter in it, and the junction cabinet on the wall by the steps with a laminated card taped to it listing what may be switched off and in what order. The list is in the same hand as the fines book and it has four items on it.",
+  "exits": {
+    "up": "zone_fineprint_room"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_fineprint_room",
+  "map_id": "map_int_fineprint",
+  "name": "Fine Print — The Reading Room — Utility Room",
+  "parent_zone": "zone_district_903_908"
+}

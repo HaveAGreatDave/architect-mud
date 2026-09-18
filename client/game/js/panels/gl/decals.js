@@ -19,10 +19,33 @@
 // the caller bakes the sign into a canvas exactly as `bakeSignText` already bakes lettering, hands
 // it over with four world corners, and this uploads it once and draws it. That is what keeps one
 // renderer's idea of a sign and the other's from drifting — there is only one idea of a sign.
+//
+// ⚠ AND A FEW OF THESE QUADS ARE THE SURFACE RATHER THAN THE PAINT ON ONE — see `solid`, and
+// RENDER_TUNE.glBoardDepth. "A sign is on a wall, not a wall" is true of every decal but the
+// per-tile board: `emitFlat`'s `paint` path sends a hoarding's own slab, legs, frame and trim here
+// because a board carrying `$name` has no single appearance to capture into a per-model mesh. That
+// board is not on a wall — it stands on legs against the sky — so with this layer writing no depth
+// there was nothing in the buffer where it stands, and the CLOUD deck, which clears colour only and
+// tests against what the world left, drew straight through it. Reported exactly that way: the
+// clouds appear through the billboards.
+//
+// ⚠ IT IS A DEPTH-ONLY PREPASS, THE ONE billboards.js ALREADY USES, AND FOR THE SAME REASON. The
+// obvious version writes depth in the one draw, which changes the ORDER this layer composites in
+// (a board would then hide the lettering of a sign batched before it) and deletes every
+// antialiased edge texel between the two cuts from the picture. So the colour pass is byte-for-byte
+// the one that always shipped, and a second draw with `colorMask` off lays the board's silhouette
+// into the depth buffer ahead of it. With no batch asking, the prepass is the absence of a code path.
 import { viewProjMatrix } from './camera.js';
 
 // pos3, uv2, alpha1, emit1
 const STRIDE = 7;
+// What alpha counts as the BOARD rather than as its edge, in the depth-only prepass. A `solid` decal
+// is one flat fill, so its interior is 1 and only the rim is between — but `vAlpha` carries the
+// world's own distance fade, and a board fading out at the edge of the window must stop writing
+// depth with it or a cloud is occluded by a building nobody can see. The colour cut is the literal
+// this shader has always discarded at, so the colour pass is unchanged.
+const DEPTH_CUT = 0.5;
+const COLOUR_CUT = 0.002;
 // A cap on the texture cache. Signs are keyed by their own appearance (label, colour, night), so
 // the working set is the signs you can see; the cap is a backstop against a key that varies
 // continuously, which would otherwise leak a texture per frame.
@@ -53,6 +76,7 @@ uniform sampler2D uTex;
 uniform float uCull;
 uniform float uFlip;
 uniform float uEmitGain;
+uniform float uCut;
 out vec4 outColor;
 void main() {
   // ⚠ A SIGN HAS A FRONT. Lettering is PAINT ON A SURFACE, and paint does not read from behind the
@@ -78,7 +102,9 @@ void main() {
   // The texture is uploaded PREMULTIPLIED, so scaling by alpha is one multiply and the blend is
   // the canvas's own (ONE, ONE_MINUS_SRC_ALPHA).
   vec4 t = texture(uTex, vUV) * vAlpha;
-  if (t.a < 0.002) discard;   // a sign's canvas is mostly empty; do not pay to blend nothing
+  // A sign's canvas is mostly empty; do not pay to blend nothing. 'uCut' is COLOUR_CUT in the
+  // ordinary pass — the literal this line has always held — and DEPTH_CUT in the depth-only prepass.
+  if (t.a < uCut) discard;
   // ── ⚠ AND THIS IS THE CITY'S ONE REAL EMITTER ───────────────────────────────────────────────
   //
   // The bloom chain has been built, wired, gated and measured for months and has never found a
@@ -116,7 +142,8 @@ function compile(gl, type, src, label) {
 
 // A decal is `{ key, img, alpha, p: [TL, TR, BR, BL] }` — a cache key for the artwork, the canvas
 // it was baked into, the fade the world pass computed, and four WORLD points in the same
-// camera-relative tile frame the lights and the Curtain use.
+// camera-relative tile frame the lights and the Curtain use. `solid` says this quad IS the surface
+// rather than paint on one, and is the only thing here that writes depth.
 export function createDecalLayer(gl) {
   const prog = gl.createProgram();
   gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
@@ -134,13 +161,14 @@ export function createDecalLayer(gl) {
     cull: gl.getUniformLocation(prog, 'uCull'),
     flip: gl.getUniformLocation(prog, 'uFlip'),
     emitGain: gl.getUniformLocation(prog, 'uEmitGain'),
+    cut: gl.getUniformLocation(prog, 'uCut'),
   };
 
   const vao = gl.createVertexArray();
   const buf = gl.createBuffer();
   let data = new Float32Array(0);
   const texes = new Map();          // key → WebGLTexture
-  let batches = [];                 // { tex, first, count }
+  let batches = [];                 // { tex, first, count, cull, solid }
 
   // ⚠ EVICTION HAPPENS HERE, BEFORE ANYTHING IS ALLOCATED, AND NEVER TOUCHES A KEY THIS FRAME
   // USES — the same rule as billboards.js, ported 2026-09-17 because this layer still had the
@@ -214,15 +242,19 @@ export function createDecalLayer(gl) {
       // `smooth` is NOT in the grouping key, unlike `cull`, and the difference is real: `cull` is a
       // uniform set per draw call, while the filter is a property of the TEXTURE, which is cached on
       // `d.key` alone. Two decals sharing a key share their artwork and therefore their producer.
-      let a = byKey.get(gk); if (!a) byKey.set(gk, a = { img: d.img, key: d.key, cull: !!d.cull, smooth: !!d.smooth, items: [] });
-      a.items.push(d);
+      // ⚠ `solid` IS GL STATE SET ONCE PER DRAW CALL, so it splits the group into two lists rather
+      // than riding on the item — the same rule `cull` follows above, and the same one billboards.js
+      // follows for `depth`. It stays OUT of the grouping key and out of the texture cache: the same
+      // artwork drawn both ways is one upload.
+      let a = byKey.get(gk); if (!a) byKey.set(gk, a = { img: d.img, key: d.key, cull: !!d.cull, smooth: !!d.smooth, items: [], deep: [] });
+      (d.solid ? a.deep : a.items).push(d);
     }
     // Which TEXTURES this frame draws — `a.key`, never the grouping key. See the ⚠ on evict.
     const liveTex = new Set();
     for (const a of byKey.values()) liveTex.add(a.key);
     evict(liveTex);
     let quads = 0;
-    for (const a of byKey.values()) quads += a.items.length;
+    for (const a of byKey.values()) quads += a.items.length + a.deep.length;
     const verts = quads * 6;
     if (data.length < verts * STRIDE) data = new Float32Array(Math.max(verts * STRIDE, 1024));
     batches = [];
@@ -232,20 +264,25 @@ export function createDecalLayer(gl) {
       data[o + 3] = u; data[o + 4] = v; data[o + 5] = a; data[o + 6] = e;
       o += STRIDE;
     };
+    const quad = (d) => {
+      const [TL, TR, BR, BL] = d.p, al = d.alpha == null ? 1 : d.alpha;
+      // 0 is "this is paint" and is the default, so a producer that has never heard of emission
+      // draws exactly what it drew before at any gain — see the ⚠ in the fragment shader.
+      const em = d.emit > 0 ? d.emit : 0;
+      put(TL, 0, 0, al, em); put(TR, 1, 0, al, em); put(BR, 1, 1, al, em);
+      put(TL, 0, 0, al, em); put(BR, 1, 1, al, em); put(BL, 0, 1, al, em);
+    };
     for (const a of byKey.values()) {
-      for (const d of a.items) {
-        const [TL, TR, BR, BL] = d.p, al = d.alpha == null ? 1 : d.alpha;
-        // 0 is "this is paint" and is the default, so a producer that has never heard of emission
-        // draws exactly what it drew before at any gain — see the ⚠ in the fragment shader.
-        const em = d.emit > 0 ? d.emit : 0;
-        put(TL, 0, 0, al, em); put(TR, 1, 0, al, em); put(BR, 1, 1, al, em);
-        put(TL, 0, 0, al, em); put(BR, 1, 1, al, em); put(BL, 0, 1, al, em);
-      }
-      const n = a.items.length * 6;
       // The TEXTURE cache is keyed on the appearance alone — the same artwork culled and unculled
       // is one upload — so `a.key` and not the grouping key.
-      batches.push({ tex: textureFor(a.key, a.img, a.smooth), first, count: n, cull: a.cull });
-      first += n;
+      const tex = textureFor(a.key, a.img, a.smooth);
+      // ⚠ THE COLOUR ORDER IS THE ONE THAT ALWAYS SHIPPED. The prepass reads `solid` batches out of
+      // this same buffer, so the split costs no second copy and moves nothing: every quad is still
+      // drawn, in group order, in the pass below.
+      for (const d of a.items) quad(d);
+      if (a.items.length) { const n = a.items.length * 6; batches.push({ tex, first, count: n, cull: a.cull, solid: false }); first += n; }
+      for (const d of a.deep) quad(d);
+      if (a.deep.length) { const n = a.deep.length * 6; batches.push({ tex, first, count: n, cull: a.cull, solid: true }); first += n; }
     }
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -272,11 +309,34 @@ export function createDecalLayer(gl) {
     gl.uniform1i(loc.tex, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.DEPTH_TEST);
+    // ⚠ STATED HERE RATHER THAN INHERITED, exactly as billboards.js states it: the prepass below
+    // lays a board's own depth down first, so under the GL default of LESS the colour pass would
+    // fail its own test at every one of that board's pixels and the sign would simply not be drawn.
+    gl.depthFunc(gl.LEQUAL);
     gl.depthMask(false);        // a sign is on a wall, not a wall
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(vao);
+    // The silhouette of the boards that ARE a surface, into the depth buffer only — see the ⚠ at
+    // the top. Nothing reaches the colour buffer here, so the pass below is unchanged for every
+    // decal including these; all this leaves behind is a depth the CLOUD deck can sort against.
+    let deep = 0;
+    for (const b of batches) if (b.solid) deep++;
+    if (deep) {
+      gl.uniform1f(loc.cut, DEPTH_CUT);
+      gl.colorMask(false, false, false, false);
+      gl.depthMask(true);
+      for (const b of batches) {
+        if (!b.solid) continue;
+        gl.uniform1f(loc.cull, b.cull ? 1 : 0);
+        gl.bindTexture(gl.TEXTURE_2D, b.tex);
+        gl.drawArrays(gl.TRIANGLES, b.first, b.count);
+      }
+      gl.depthMask(false);
+      gl.colorMask(true, true, true, true);
+    }
+    gl.uniform1f(loc.cut, COLOUR_CUT);
     let n = 0;
     for (const b of batches) {
       gl.uniform1f(loc.cull, b.cull ? 1 : 0);

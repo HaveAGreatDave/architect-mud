@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Under the dead lock-up rather than under the hall, reached by a stair behind the shutter: bare brick, the junction cabinet, and the building's old stock. Four tables' worth of slate bed, stacked on edge in a rack and blanketed, because slate is the one part of a table nobody can make any more and she is not letting it go.",
+  "exits": {
+    "up": "zone_pocket_hall"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_912_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_pocket_hall",
+  "map_id": "map_int_pocket",
+  "name": "Pocket Money — The Hall — Utility Room",
+  "parent_zone": "zone_district_912_915"
+}

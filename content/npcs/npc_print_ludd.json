@@ -1,0 +1,285 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "The press takes another sheet, and the floor passes it on to your feet.",
+    "Ludd stands in exactly the same spot he was standing in before, which is the only spot.",
+    "He pulls a sheet off the line, holds it to the light, and pegs it back up.",
+    "He pushes a type case in an inch with his hip, both hands full.",
+    "\"Right margin,\" he says, loudly, to the room. \"That's the roller.\"",
+    "He wipes his hands on his front and achieves nothing whatsoever.",
+    "He looks at the sheeted press for a second longer than a glance.",
+    "The press stops. The silence is so sudden it sounds like a noise.",
+    "He counts a stack with a thumb, gets a number, and counts it again to the same one."
+  ],
+  "description": "A broad, deliberate man with black in the creases of his knuckles that does not come out and has stopped being aimed at. He speaks at press volume even when the press is off, which takes some getting used to, and he stands in exactly the same spot whenever he is near the machine because there is only one spot where the guards do their job.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "name": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I've heard it.\" He does not sound as though he minds. \"Every apprentice I have ever had has arrived with that, thinking they are the first, and left without ever once having broken a machine on purpose.\"\n\nThe press takes another sheet.\n\n\"The joke's better than people think, mind. The man the name comes from wasn't against machines. He was against being paid nothing to stand at one.\" He nods at the second press under its sheet. \"That's a different argument and it's not settled.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "The last thing on the board.",
+          "next": "writs"
+        },
+        {
+          "label": "The drawers of loose type.",
+          "next": "type"
+        },
+        {
+          "label": "Ludd, and you run a press.",
+          "next": "name"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Board outside is what we do and it's in order of how much of it we do.\" He raises his voice over the press without appearing to notice he is doing it. \"Handbills today. Handbills most days.\"",
+      "text_by_relation": {
+        "familiar": "He stops the press when he sees you, which costs him about eleven minutes and which he does anyway.\n\n\"Pulled you a proof,\" he says, taking it off the line. \"It's nothing, it's a spare. Look at the margin down the right, that's the roller going, and I want somebody other than me to say they can see it.\"",
+        "first": "The press stops, which is the loudest thing that has happened in the room.\n\n\"Ludd.\" He wipes his hands on his front, which achieves nothing. \"Board outside is the list, and it's in order, so if the thing you want is near the bottom it's near the bottom for a reason.\"\n\nHe puts a hand flat on the machine.\n\n\"Two presses. This one runs. The other one is why this one still runs. People suggest I sell it about twice a year.\"",
+        "known": "\"You.\" He doesn't stop the press this time, which is a promotion. \"Line's full. Come back at four or read it off the line, I don't mind which.\""
+      }
+    },
+    "type": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Cases,\" he corrects, cheerfully and much too loudly. \"Every letter has a compartment and the compartments are not in alphabetical order, they're in order of how often you reach for them, which means the layout is a map of the language rather than a filing system.\"\n\nHe pulls one out an inch and pushes it back.\n\n\"Everybody new looks for the capitals in the wrong place. They're up and to the left. That's where they've been for about four hundred years and I am not the man who is going to move them.\""
+    },
+    "writs": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Writs,\" he says. \"Yes. Priced accordingly.\"\n\nHe lets the press run four more sheets before he goes on.\n\n\"Somebody has to set them and somebody has to pull them and it isn't going to stop happening because I decline. So I do them, I charge a great deal, and I put it at the bottom of the board so that anybody reading down has had four reasonable things to look at first.\"\n\nHe glances at the drying line.\n\n\"And I do the black-edged cards for the florist over the park at cost. It doesn't balance. I know it doesn't balance.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a brown overall with ink worked into the weave",
+      "a collarless shirt with the cuffs turned back",
+      "boots with a steel cap showing through one toe"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_justmytype_floor",
+  "hp": 44,
+  "hp_max": 44,
+  "id": "npc_print_ludd",
+  "name": "Pavel Ludd",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_handbill",
+      "price": 3
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 19
+      }
+    ]
+  },
+  "vendor_shop_name": "Just My Type",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_justmytype_floor"
+}

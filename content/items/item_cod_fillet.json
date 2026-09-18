@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_cod_fillet",
+  "name": "basin fillet",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "restore_hunger": 26,
+    "description": "Cut off the bone in one movement in front of you, skin on, wrapped in paper with the fold tucked under. Pale, firm, and from something that was in the water this morning. It wants a pan and about four minutes and absolutely nothing else."
+  },
+  "type": "consumable",
+  "value": 38,
+  "weight": 340
+}

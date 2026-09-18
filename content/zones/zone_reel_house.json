@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#181418",
+  "description": "A hundred and eighty seats going down to a screen that fills the whole end wall, and a ceiling so far up in the dark that you take its height on trust. Six seats in row F have been reupholstered and the other hundred and seventy-four have not, so there is a small bright rectangle of newer red in the middle of all that brown. The organ sits in a pit below the screen on a lift that has not been raised in living memory, its console open, its stops out. It smells of dust warmed by lamps and, underneath, very faintly, of oranges.",
+  "exits": {
+    "west": "zone_reel_foyer"
+  },
+  "flags": {
+    "building_name": "Reel Estate",
+    "building_type": "cinema",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_912_914"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_reel_house",
+  "map_id": "map_int_reel",
+  "name": "Reel Estate — The Auditorium",
+  "parent_zone": "zone_district_912_914"
+}

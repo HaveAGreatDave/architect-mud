@@ -1,0 +1,294 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Halvorsen turns the register round to face the counter, then turns it back.",
+    "He glances at the key board without appearing to.",
+    "He gets off the stool, does something small, and gets back on it.",
+    "The pipes knock somewhere above and he tips his head at the sound like a man reading a gauge.",
+    "He straightens the card in the door glass from the inside, which fixes nothing.",
+    "\"Once,\" he says, to the bell, which has not rung.",
+    "He writes a date in the book and does not look at the name beside it.",
+    "He moves the waiting chair back against the wall where it belongs.",
+    "He counts keys on hooks, gets the number he expected, and stops counting."
+  ],
+  "description": "A tired, courteous man who has run out of energy for anything except being fair, which he still manages. He keeps the register turned toward the customer and does not read what goes in it. He has an exact memory for who is on which floor and a deliberate lack of one for anything else, and both of those are why the place is full.",
+  "dialogue_tree": {
+    "bell": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Once,\" he says, with feeling. \"It is a good bell. That is the entire problem. It was screwed down by somebody who wanted it not to be stolen and they picked one that carries, and it carries up four floors and into every room on the front.\"\n\nHe rubs his face.\n\n\"A man rang it eleven times in a row about a year ago. I still think about it. I was perfectly polite to him and I still think about it.\""
+    },
+    "board": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Key on the hook is an empty room.\" He does not turn round to look at it. \"Anybody who has been here a week reads that board on the way in without meaning to. I can't stop them and I'd not want to, it's the only honest thing in the building.\"\n\nA pause.\n\n\"Two hooks have no key and no tag. Those are rooms, and they are not available, and that is as much as I am going to say about it, and people who stay here a while stop asking.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People talk in here. I don't go looking for it.\" A shrug. \"Doesn't mean I've got a bad memory.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "The key board.",
+          "next": "board"
+        },
+        {
+          "label": "The card on the door.",
+          "next": "rules"
+        },
+        {
+          "label": "The sign by the bell.",
+          "next": "bell"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nightly, weekly, monthly.\" He turns the register round without being asked. \"Bell once. Not twice. It carries all four floors and there are people up there who work nights.\"",
+      "text_by_relation": {
+        "familiar": "The key is on the desk before you reach it and he has gone back to his stool.\n\n\"Boiler's been at it since four, so there's hot water, which there will not be tomorrow,\" he says. \"That's not a promise, it's a forecast, and I have been wrong before.\"",
+        "first": "The man at the desk gets off his stool, which takes a moment.\n\n\"Halvorsen. Nightly, weekly or monthly, and the monthly is genuinely good value, which is not a sales line, it is arithmetic and you can do it yourself.\"\n\nHe turns the book round to face you.\n\n\"Name, room, night. I don't check it against anything. I am not being clever, I simply don't, and everybody who stays here knows I don't, and that is most of what they are paying for.\"",
+        "known": "\"Same one's free.\" He is already reaching for the hook. \"I don't hold it. I want to be clear I don't hold it. It just keeps happening to be free.\""
+      }
+    },
+    "rules": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No guests after ten, no cooking, no exceptions.\" He recites it without any force at all. \"The first one is because of the stair, the second one is because of the wiring, and the third one is on there so I don't have to have the conversation forty times a year.\"\n\nHe glances at the stair.\n\n\"I have made exceptions. Twice. Both times for the same reason and I would do it again, and I have not taken the card down, because the card is what makes it an exception.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a waistcoat worn open over a collarless shirt",
+      "sleeve garters that are not an affectation",
+      "trousers with a shine at the seat from the desk stool"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_boardstiff_desk",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_board_halvorsen",
+  "name": "Ruben Halvorsen",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "mon": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_boardstiff_desk"
+}

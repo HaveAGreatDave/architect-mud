@@ -1,0 +1,14 @@
+{
+  "description": "Four small lamps in the display case and one over the desk, and nothing else, because the front room is deliberately dim: a person who has just walked in out of the boulevard needs about forty seconds before they photograph well, and this room is those forty seconds.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_negeq_shop",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "the case lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_negeq_shop"
+}

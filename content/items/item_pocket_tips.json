@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pocket_tips",
+  "name": "card of cue tips",
+  "tags": {
+    "stackable": true,
+    "description": "Six layered leather tips on a card with a tube of shellac taped to the back. Fitting one is a ten-minute job and a rite: you burn the old one off, you face the ferrule flat, and you do not hurry it."
+  },
+  "type": "misc",
+  "value": 14,
+  "weight": 20
+}

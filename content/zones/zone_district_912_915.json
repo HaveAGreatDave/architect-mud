@@ -1,25 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#1b201c",
+  "description": "The shutter at street level has been down long enough that somebody has painted a different shop's name on it, badly, as a joke. The business is upstairs, and the way up is an external steel stair bolted to the flank wall, lit by one bulb at the turn. What tells you it is there is the first floor: a continuous band of clerestory glass the whole length of the building, and behind it, hanging low, a row of shaded lamps in a line, each one over something you cannot see from down here. On a quiet night you can hear the balls through the glass before you are halfway up the stair.",
   "exits": {
-    "east": "zone_district_913_915",
-    "north": "zone_district_912_914",
-    "south": "zone_district_912_916",
-    "west": "zone_district_911_915"
+    "west": "zone_district_911_915",
+    "east": "zone_pocket_hall"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Pocket Money",
+    "building_type": "pool_hall",
+    "district": "nightlife",
+    "entrance": "west",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_911_915"
   },
   "grid_x": 912,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_912_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "PK",
+  "name": "Pocket Money",
   "parent_zone": null
 }

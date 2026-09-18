@@ -1,0 +1,19 @@
+{
+  "description": "A slotted wooden box on a post by the door with DONATIONS on it in the same Roman capitals as the pediment, which he cut with the same chisel. It is almost empty. There is no charge to come in and there never has been and he will not hear the subject raised.",
+  "flags": {
+    "aliases": "box,donations,slot,post",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_past_box",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the donations box",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pastperf_hall"
+}

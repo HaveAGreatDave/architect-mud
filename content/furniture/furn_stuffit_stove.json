@@ -1,0 +1,19 @@
+{
+  "description": "A squat iron stove with a flue going straight up through the roof and a pot on the plate that is never empty and never explained. The room is warm because of it and the whole street knows when it is lit, which is Tuesdays.",
+  "flags": {
+    "aliases": "stove,flue,pot,burner",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stuffit_stove",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the stove",
+  "object_type": "appliance",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_stuffit_work"
+}

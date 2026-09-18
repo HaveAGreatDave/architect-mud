@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { formatTemp } from '/shared/settings.js';
-import { setWeatherFx } from './weather-fx.js';
+import { setWeatherFx, setDrugFieldFx as aimDrugSlot } from './weather-fx.js';
 
 const DAY_PHASES_CLIENT = [
   { name: 'dawn',  start: 5 * 60,  end: 7 * 60,  icon: '🌅' },
@@ -92,6 +92,10 @@ let dreamFx = null;   // { effect, intensity } | null
 // `dreamFx` and ranked BELOW it: inside a dreamzone the room is the dream's to
 // describe, and a drug that put you there has already had its say. Outside one
 // they never both exist, so the ordering only ever settles the dissociatives.
+//
+// ⚠ THAT ORDERING IS NOW WITHIN THE SYMPTOM SLOT ONLY. It used to rank against the
+// WEATHER as well, in one ladder that returned a single effect — so a drug returned
+// early and the rain stopped falling. See resolveFieldFx below.
 let drugFieldFx = null;   // { effect, intensity } | null
 
 export function setDreamFx(fx) {
@@ -108,12 +112,32 @@ export function setDrugFieldFx(fx) {
   refreshWeatherFx();
 }
 
+// ── TWO SLOTS: THE WEATHER OUTSIDE, AND THE SYMPTOM BEHIND YOUR EYE ─────────
+//
+// These were one function and one ladder, which meant the field canvas could show
+// exactly one of them. A drug returned first, so taking a psychedelic in the rain
+// STOPPED THE RAIN — the sky is not on drugs. weather-fx.js holds a slot for each
+// now and composites them, so what these two resolve is independent.
+
+// The SYMPTOM slot. No indoor gate and no unreal gate, on purpose: a symptom is
+// inside you and travels with you into a windowless corridor.
+function resolveFieldFx() {
+  if (dreamFx) return { effect: dreamFx.effect, intensity: dreamFx.intensity };
+  if (drugFieldFx) return { effect: drugFieldFx.effect, intensity: drugFieldFx.intensity };
+  return { effect: 'none', intensity: 0 };
+}
+
+// The WEATHER slot.
 function resolveWeatherFx() {
-  // Wins over everything, including the indoor gate.
-  if (dreamFx) return { effect: dreamFx.effect, intensity: dreamFx.intensity, windKph: 0 };
-  if (drugFieldFx) return { effect: drugFieldFx.effect, intensity: drugFieldFx.intensity, windKph: 0 };
-  // Real weather cannot fall in an unreal room. A scripted override (dreamFx, above)
-  // still can — that's a thing the corridor is DOING, not the city leaking in.
+  // ⚠ A DREAM STILL TAKES THE SKY, AND IT IS THE ONE THING THAT DOES. Your body is in
+  // the room but the dreamscape is where you are, and its field is the dream's to
+  // describe — ash falling in a windowless corridor is the whole point, and rain
+  // falling through it alongside would be the city leaking back in. An ORDINARY drug
+  // takes no such claim, which is the change: you are high in Coldwater, in the rain.
+  if (dreamFx) return { effect: 'none', intensity: 0, windKph: 0 };
+  // Real weather cannot fall in an unreal room. A scripted override still can, and now
+  // does it through the SYMPTOM slot (resolveFieldFx) rather than by borrowing this one —
+  // that's a thing the corridor is DOING, not the city leaking in.
   if (envUnreal) return { effect: 'none', intensity: 0, windKph: 0 };
   if (fxIndoor) return { effect: 'none', intensity: 0, windKph: envWindKph || 0 };
   const pt = fxPrecipType;
@@ -131,6 +155,7 @@ function resolveWeatherFx() {
 
 function refreshWeatherFx() {
   setWeatherFx(resolveWeatherFx());
+  aimDrugSlot(resolveFieldFx());
 }
 
 function bodyFeelLabel(tempC) {

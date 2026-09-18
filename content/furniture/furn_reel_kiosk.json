@@ -1,0 +1,19 @@
+{
+  "description": "A glazed octagonal booth standing free in the middle of the carpet, mahogany below the glass and brass above it. A dish under the window for the money, a slot beside it for the ticket, and eleven inches between them because somebody once measured an arm. A card in the glass reads ONE PRICE.",
+  "flags": {
+    "aliases": "kiosk,booth,window,box office",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_kiosk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the ticket kiosk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_reel_foyer"
+}

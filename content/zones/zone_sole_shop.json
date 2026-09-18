@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#201b16",
+  "description": "One room and most of it is bench. A cast-iron last stand with five lasts on it in a row by size, a finishing wheel on a countershaft under the bench that he starts with his knee, and a wall of every colour of thread and every gauge of tack in little drawers that are labelled in a hand nobody else could read. Repairs waiting on a shelf in pairs, each with a paper tag through the laces. The smell is leather, wax and the particular hot-dust smell of a wheel that has been running. There is one chair for a customer and it faces the bench, deliberately, so you watch.",
+  "exits": {
+    "north": "zone_district_900_907",
+    "down": "zone_util_zone_sole_shop"
+  },
+  "flags": {
+    "building_name": "Sole Survivor",
+    "building_type": "cobbler",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The bench window, low and wide, set at the height of the work rather than the height of a person. From inside it frames the pavement from the knee down, which after a while tells you more about who is coming than a face would.",
+      "light": 0.75,
+      "name": "the bench window",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_900_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_sole_shop",
+  "map_id": "map_int_sole",
+  "name": "Sole Survivor — The Bench",
+  "parent_zone": "zone_district_900_907"
+}

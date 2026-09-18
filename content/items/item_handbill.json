@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_handbill",
+  "name": "printed handbill",
+  "tags": {
+    "description": "A single sheet, still faintly tacky, announcing something that is happening in the Marquee at a time that has probably passed. The ink has taken unevenly down the right margin where the press is worn.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 2,
+  "weight": 10
+}

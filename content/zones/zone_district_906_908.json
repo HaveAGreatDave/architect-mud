@@ -1,24 +1,32 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_events": [
+    "The roaster inside reaches some threshold and the smell of it rolls out across the road.",
+    "A chair is dragged out from under a table with a long scrape and somebody sits down heavily.",
+    "Steam goes up from the milk jug behind the window and fogs the glass from the inside out."
+  ],
+  "ambient_theme": "urban",
+  "bg_color": "#291f1a",
+  "description": "A cafe in the end unit of the Greenside parade, four tables out front under a striped awning and a view across the railings to the green. The board outside is chalked in a confident hand with four things, three of which have been rubbed out. Whatever they roast in there, they roast on the premises, and the whole of Greenside Row knows about it by half past six.",
   "exits": {
-    "east": "zone_district_907_908",
     "north": "zone_district_906_907",
-    "south": "zone_district_906_909"
+    "south": "zone_grounds_cafe"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Grounds for Concern",
+    "building_type": "shop",
+    "district": "filaments",
+    "entrance": "north",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_906_907"
   },
   "grid_x": 906,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_906_908",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "GC",
+  "name": "Grounds for Concern",
   "parent_zone": null
 }

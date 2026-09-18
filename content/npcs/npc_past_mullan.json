@@ -1,0 +1,327 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "faction": null,
+  "home_activities": [],
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "npc_type": "vendor",
+  "id": "npc_past_mullan",
+  "name": "Horace Mullan",
+  "sex": "male",
+  "hp": 30,
+  "hp_max": 30,
+  "home_zone": "zone_pastperf_office",
+  "work_zone_id": "zone_pastperf_hall",
+  "vendor_shop_name": "Past Perfect",
+  "vendor_restock_rate": 2,
+  "vendor_stock_size": 8,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "fri": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 17
+      }
+    ],
+    "sun": [
+      {
+        "from": 12,
+        "to": 17
+      }
+    ]
+  },
+  "vendor_inventory": [
+    {
+      "item_id": "item_past_postcard",
+      "price": 4
+    },
+    {
+      "item_id": "item_past_catalogue",
+      "price": 18
+    },
+    {
+      "item_id": "item_past_relic",
+      "price": 40
+    }
+  ],
+  "flags": {
+    "clothing_layers": [
+      "a tweed jacket with a pen in the top pocket and chalk on the cuff",
+      "a knitted waistcoat done up wrong by one button",
+      "flannel trousers and shoes polished on the toes only"
+    ],
+    "personality": "vendor"
+  },
+  "description": "A small, delighted man of about seventy who has been waiting all morning for somebody to come in, and who will not let that show for the first ninety seconds. He has assembled, catalogued, mounted and labelled every object in the building himself, to a standard that would embarrass a real museum, and he is confidently and comprehensively wrong about what most of them were for. The two facts are not in tension in him at all.",
+  "chitchat": [
+    "Mullan polishes the top of a case with his sleeve and inspects it against the light.",
+    "He straightens a label that is already straight, using two fingers and a great deal of care.",
+    "\"Free. It has always been free. The box is for if you feel like it and most people don't and that's quite all right.\"",
+    "He writes a card at the desk, holds it at arm's length, and starts it again.",
+    "\"That one came in from a boy who found it in a culvert. His name's on the card. It always is.\"",
+    "He watches somebody read the chronology from the far end of the room, trying not to.",
+    "\"Ask me anything. Anything at all. I shall be entirely straight with you about what I don't know.\"",
+    "He moves a little wooden stand a quarter inch and the object on it does not appear to move.",
+    "\"There are four hundred more downstairs. Four hundred. I have nowhere to put them and I cannot stop.\"",
+    "He blows dust off a card index divider and puts it back with the tab facing out.",
+    "\"People say it's a shed with a porch on it. It is. I built the porch. I'd do it again.\"",
+    "He reads his own wall panel for a moment, moving his lips slightly, and nods at it."
+  ],
+  "dialogue_tree": {
+    "box": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"There is no charge and there is not going to be one,\" he says, with sudden and total firmness, and it is the only time his manner changes.\n\n\"A museum you have to pay to enter is a shop with better lighting. The box is by the door and it is nearly always empty and that is fine. It is fine. I have a pension and the roof is sound.\"\n\nHe brightens again, all at once.\n\n\"Now. Come and look at the drum.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Do come back. There's more downstairs and I shall find a way to get it up here eventually.\""
+    },
+    "chronology": {
+      "options": [
+        {
+          "label": "How do you know all that?",
+          "next": "chronology_how"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Ah,\" he says, and is immediately, visibly happy. \"Forty lines. It took me two years and I do not believe there is a better account of it anywhere in the Basin.\"\n\nHe walks you to it, although you were already standing at it.\n\n\"It begins with the routing anomalies, which everybody forgets, and it ends where it has to end, which is the week the deliveries stopped. Everything between is sequenced. Sequenced. Nobody else has sequenced it.\""
+    },
+    "chronology_how": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Objects,\" he says, tapping the nearest case. \"Objects and dates and where they were found, and then you sit with it for long enough and it tells you.\"\n\nHe is entirely sincere.\n\n\"A tin with a date stamped in it, found under a floor, in a house that burned. That is a fact. Three hundred facts and you can put them in an order, and once they are in an order the shape is obvious, and the shape is what is on that wall.\"\n\nHe pauses, and for a moment something more careful goes across his face.\n\n\"I have been wrong before. I found a whole case of things that turned out to be from thirty years earlier than I had them and I took the case apart and did it again. I do not mind being wrong. I mind not being asked.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People bring me things,\" he says, \"and a thing always comes with a story about where it was found, and a story about where a thing was found is a story about somebody's life.\""
+    },
+    "index": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Every object has a card,\" he says, \"and the card says where it came from, who brought it, and the date they brought it. Cross-referenced three ways.\"\n\nHe opens a drawer at random and does not need to look for anything.\n\n\"That part is exactly right. That part I would stake anything on. What a thing WAS is a judgement and I have made my judgement and I could be wrong. Where it came from and who carried it in here is not a judgement, it is a record, and I have never once got one of those wrong in nineteen years.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Tell me about the chronology.",
+          "next": "chronology"
+        },
+        {
+          "label": "Catalogue, postcards.",
+          "next": "__shop__"
+        },
+        {
+          "label": "How is it all catalogued?",
+          "next": "index"
+        },
+        {
+          "label": "There's no admission charge?",
+          "next": "box"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just having a look.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in, come in, it's free.\" He is up and round the desk with unseemly speed and then makes an effort to slow down. \"Eleven cases, and the panel at the end, which I would rather you read last. Ask me anything.\"",
+      "text_by_relation": {
+        "familiar": "He has a box open on the desk before you are through the door and he is holding something up in both hands like a man handing over a baby.\n\n\"Wednesday,\" he says. \"A woman brought it in on Wednesday and I have not catalogued it because I wanted you to see it uncatalogued. Look at the underside. Look at it.\"",
+        "first": "A small man at the far end of the room straightens up from a case, sees you, and visibly decides not to run.\n\n\"Horace Mullan. Do come in, it's free, it has always been free.\" He gestures at eleven lit cases in a dark room. \"The chronology is on the panel at the far end and I would rather you read it last, if you don't mind, because it makes better sense after the objects.\"\n\nHe is already moving toward the second case.\n\n\"Ask me anything at all. Anything.\"",
+        "known": "\"You!\" He abandons whatever he was doing entirely. \"Case four. I have rearranged case four and I want to know whether you notice what I have done.\""
+      }
+    }
+  }
+}

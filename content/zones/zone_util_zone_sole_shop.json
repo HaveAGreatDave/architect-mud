@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A crawl space more than a cellar, floored in brick, with the junction cabinet at the bottom of the steps and the leather store beyond it: shoulders and bends rolled and standing on end in a rack, out of the light, because light is what ruins them. He buys it three or four hides at a time and he has never once bought the cheap one.",
+  "exits": {
+    "up": "zone_sole_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_sole_shop",
+  "map_id": "map_int_sole",
+  "name": "Sole Survivor — The Bench — Utility Room",
+  "parent_zone": "zone_district_900_907"
+}

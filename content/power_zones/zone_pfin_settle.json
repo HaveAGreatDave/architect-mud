@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_pfin_shop",
+  "id": "zone_pfin_settle",
+  "max_capacity_kw": 200,
+  "name": "Photo Finish — The Settling Room",
+  "source_type": "city_grid"
+}

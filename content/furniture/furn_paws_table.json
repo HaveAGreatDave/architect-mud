@@ -1,0 +1,19 @@
+{
+  "description": "Scrubbed steel with a lip and a drain hole, at the height her hands work best at, which she had cut down by a man on Kiln Lane in her first year. Everything else in the room is against a wall so that nothing here is ever more than one step from anything.",
+  "flags": {
+    "aliases": "table,steel table,slab",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_paws_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the surgery table",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_paws_surgery"
+}

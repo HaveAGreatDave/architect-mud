@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_stuff_skull",
+  "name": "whitened skull",
+  "tags": {
+    "description": "Cleaned, degreased and brought up white, with the jaw wired so it still opens. A paper tag through the nasal cavity carries a number and nothing else. People buy these for reasons she has stopped enquiring about."
+  },
+  "type": "misc",
+  "value": 140,
+  "weight": 600
+}

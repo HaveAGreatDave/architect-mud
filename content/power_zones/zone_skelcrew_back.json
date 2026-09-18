@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_skelcrew_shop",
+  "id": "zone_skelcrew_back",
+  "max_capacity_kw": 200,
+  "name": "Skeleton Crew — The Bench",
+  "source_type": "city_grid"
+}

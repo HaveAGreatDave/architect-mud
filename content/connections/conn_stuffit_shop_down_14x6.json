@@ -1,0 +1,9 @@
+{
+  "a": "zone_stuffit_shop",
+  "b": "zone_util_zone_stuffit_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_stuffit_shop_down_14x6",
+  "lockable": false,
+  "one_way": false
+}

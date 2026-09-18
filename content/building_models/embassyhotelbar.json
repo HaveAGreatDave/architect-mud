@@ -1,37 +1,59 @@
 {
   "adorn": [
     {
-      "color": "#ff2e8e",
       "cx": 0,
-      "cy": 0.045,
-      "half": 0.42,
-      "kind": "marqueeBand",
-      "label": "EMBASSY",
-      "z": 0.0744
-    },
-    {
-      "cx": -0.07,
-      "cy": 0,
-      "kind": "blinkLight",
-      "r": 1.5,
-      "rgb": "255,80,170",
-      "z": 0.88
-    },
-    {
-      "cx": 0.07,
-      "cy": 0,
-      "kind": "blinkLight",
-      "r": 1.5,
-      "rgb": "255,80,170",
-      "z": 0.88
+      "cy": -0.17,
+      "kind": "mast",
+      "z0": 1.082,
+      "z1": 1.33
     },
     {
       "cx": 0,
-      "cy": 0.47,
+      "cy": -0.17,
+      "kind": "blinkLight",
+      "r": 1.3,
+      "rgb": "255,214,160",
+      "z": 1.33
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
       "kind": "glowPool",
-      "rgb": "255,60,160",
-      "s": 19,
-      "z": 0.02
+      "rgb": "255,180,96",
+      "s": 22,
+      "z": 0.145
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "196,214,238",
+      "s": 15,
+      "z": 0.56
+    },
+    {
+      "cx": -0.292,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "255,236,196",
+      "s": 8,
+      "z": 1.086
+    },
+    {
+      "cx": 0.292,
+      "cy": 0.4,
+      "kind": "glowPool",
+      "rgb": "255,236,196",
+      "s": 8,
+      "z": 1.086
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "kind": "glowPool",
+      "rgb": "255,214,160",
+      "s": 12,
+      "z": 0.957
     }
   ],
   "basis": {
@@ -46,58 +68,349 @@
   ],
   "detail": [
     {
-      "cx": 0,
-      "cy": 0,
-      "half": 0.44,
-      "hh": 0.015,
-      "kind": "parapet",
-      "pal": "ty_embassy",
-      "z": 0.12
-    },
-    {
-      "bars": 7,
-      "cx": 0,
-      "cy": 0.44,
-      "depth": 0.023,
-      "glass": "#1a1018",
-      "glow": "#ffd0ea",
-      "half": 0.36,
-      "hh": 0.036,
+      "bars": 3,
+      "cx": -0.268,
+      "cy": 0.425,
+      "depth": 0.017,
+      "glass": "#2a1a18",
+      "glow": "#ffb968",
+      "half": 0.122,
+      "hh": 0.058,
       "kind": "windowBay",
-      "pal": "ty_embassy",
-      "z": 0.05039999999999999
+      "pal": "ty_embassy_cream",
+      "transom": 0.72,
+      "z": 0.138
+    },
+    {
+      "bars": 3,
+      "cx": 0.268,
+      "cy": 0.425,
+      "depth": 0.017,
+      "glass": "#2a1a18",
+      "glow": "#ffb968",
+      "half": 0.122,
+      "hh": 0.058,
+      "kind": "windowBay",
+      "pal": "ty_embassy_cream",
+      "transom": 0.72,
+      "z": 0.138
+    },
+    {
+      "bars": 2,
+      "cx": 0,
+      "cy": 0.425,
+      "depth": 0.019,
+      "glass": "#231a1e",
+      "glow": "#2b2026",
+      "half": 0.098,
+      "hh": 0.072,
+      "kind": "windowBay",
+      "pal": "ty_dw_brass",
+      "transom": 0.58,
+      "z": 0.118
     },
     {
       "cx": 0,
-      "cy": 0.44,
-      "half": 0.32,
-      "hh": 0.011,
+      "cy": 0.425,
+      "half": 0.185,
+      "hh": 0.013,
       "kind": "canopy",
-      "out": 0.105,
-      "pal": "ty_embassy",
-      "soffit": "#a01a5e",
-      "strip": "#ff9ad8",
-      "z": 0.096
+      "out": 0.128,
+      "pal": "ty_embassy_cream",
+      "soffit": "#5c2a34",
+      "strip": "#ffd9a0",
+      "z": 0.196
     },
     {
-      "cx": -0.34,
-      "cy": 0.46,
+      "color": "#2a1620",
+      "cx": 0,
+      "cy": 0.425,
+      "font": "deco",
+      "half": 0.175,
+      "hh": 0.021,
+      "ink": "#ffd9a0",
+      "kind": "signBoard",
+      "label": "ROOMS · BATHS · BAR",
+      "z": 0.228
+    },
+    {
+      "cx": -0.375,
+      "cy": 0.472,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_dw_brass",
+      "r": 0.027,
+      "rgb": "255,206,150",
+      "s": 11,
+      "z0": 0,
+      "z1": 0.092
+    },
+    {
+      "cx": 0.375,
+      "cy": 0.472,
+      "flip": true,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_dw_brass",
+      "r": 0.027,
+      "rgb": "255,206,150",
+      "s": 11,
+      "z0": 0,
+      "z1": 0.092
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.468,
       "kind": "bollard",
-      "pal": "ty_embassy",
+      "pal": "ty_embassy_cream",
       "z": 0.004
     },
     {
-      "cx": 0.34,
-      "cy": 0.46,
+      "cx": 0.2,
+      "cy": 0.468,
       "kind": "bollard",
-      "pal": "ty_embassy",
+      "pal": "ty_embassy_cream",
+      "z": 0.004
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.296,
+        "cy": 0.4,
+        "depth": 0.014,
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.052,
+        "hh": 0.058,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "transom": 0.3,
+        "z": 0.352
+      },
+      "step": {
+        "z": 0.196
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.148,
+        "cy": 0.4,
+        "depth": 0.014,
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.052,
+        "hh": 0.058,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "transom": 0.3,
+        "z": 0.352
+      },
+      "step": {
+        "z": 0.196
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": 0,
+        "cy": 0.4,
+        "depth": 0.014,
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.052,
+        "hh": 0.058,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "transom": 0.3,
+        "z": 0.352
+      },
+      "step": {
+        "z": 0.196
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": 0.148,
+        "cy": 0.4,
+        "depth": 0.014,
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.052,
+        "hh": 0.058,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "transom": 0.3,
+        "z": 0.352
+      },
+      "step": {
+        "z": 0.196
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": 0.296,
+        "cy": 0.4,
+        "depth": 0.014,
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.052,
+        "hh": 0.058,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "transom": 0.3,
+        "z": 0.352
+      },
+      "step": {
+        "z": 0.196
+      }
+    },
+    {
+      "color": "#8e7a52",
+      "cx": 0,
+      "cy": 0.408,
+      "font": "deco",
+      "half": 0.295,
+      "hh": 0.028,
+      "ink": "#2a2014",
+      "kind": "signBoard",
+      "label": "EMBASSY HOTEL",
+      "z": 0.957
+    },
+    {
+      "bars": 2,
+      "cx": -0.292,
+      "cy": 0.404,
+      "depth": 0.011,
+      "glass": "#d8cdb4",
+      "glow": "#ffecc4",
+      "half": 0.046,
+      "hh": 0.046,
+      "kind": "windowBay",
+      "pal": "ty_embassy_cream",
+      "z": 1.086
+    },
+    {
+      "bars": 2,
+      "cx": 0.292,
+      "cy": 0.404,
+      "depth": 0.011,
+      "glass": "#d8cdb4",
+      "glow": "#ffecc4",
+      "half": 0.046,
+      "hh": 0.046,
+      "kind": "windowBay",
+      "pal": "ty_embassy_cream",
+      "z": 1.086
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.405,
+      "hh": 0.013,
+      "kind": "parapet",
+      "pal": "ty_embassy_cream",
+      "z": 0.998
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.218,
+      "hh": 0.011,
+      "kind": "parapet",
+      "pal": "ty_embassy_cream",
+      "z": 1.082
+    },
+    {
+      "cx": 0.09,
+      "cy": -0.4,
+      "flights": 4,
+      "half": 0.088,
+      "kind": "fireEscape",
+      "out": 0.05,
+      "pal": "ty_embassy_iron",
+      "z0": 0.27,
+      "z1": 0.845
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.4,
+      "kind": "pipe",
+      "pal": "ty_embassy_iron",
+      "r": 0.013,
+      "z0": 0.058,
+      "z1": 0.84
+    },
+    {
+      "cx": 0,
+      "cy": -0.404,
+      "half": 0.3,
+      "kind": "cableRun",
+      "pal": "ty_embassy_iron",
+      "r": 0.006,
+      "sag": 0.038,
+      "z": 0.78
+    },
+    {
+      "cx": 0.04,
+      "cy": 0.4,
+      "drip": 1,
+      "face": "x",
+      "hh": 0.03,
+      "kind": "vent",
+      "pal": "ty_embassy_iron",
+      "w": 0.055,
+      "z": 0.2
+    },
+    {
+      "cx": -0.26,
+      "cy": -0.24,
+      "d": 0.06,
+      "hh": 0.026,
+      "kind": "acUnit",
+      "pal": "ty_embassy_iron",
+      "w": 0.075,
+      "z": 0.916
+    },
+    {
+      "cx": 0.26,
+      "cy": -0.26,
+      "d": 0.052,
+      "hh": 0.023,
+      "kind": "acUnit",
+      "pal": "ty_embassy_iron",
+      "w": 0.065,
+      "z": 0.916
+    },
+    {
+      "cx": -0.1,
+      "cy": -0.43,
+      "d": 0.034,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#2a2226",
+      "n": 3,
+      "pal": "ty_embassy_iron",
+      "w": 0.042,
       "z": 0.004
     }
   ],
   "id": "embassyhotelbar",
-  "neon": "#ff2e8e",
-  "note": "The second of the two NEWER buildings in the old east (see citadelfinancial.json for the first). A stepped tower with a chamfered crown — the same coincident-box trick as chromeclinic.json, used here only on the top two storeys so the building reads as an ordinary block that somebody re-capped rather than as a landmark. That restraint is the point: the east is meant to read a decade behind the glass west, and the way to say so is one or two things that plainly are not, not a skyline of them. RENDER_TUNE.legacyArms puts the embassy arm back.",
-  "pal": "ty_embassy",
+  "neon": "#ffd9a0",
+  "note": "THE EMBASSY HOTEL & BAR — a rose-and-cream ART DECO palace hotel, stranded in the freight yards.\n\nIts neighbours are a clone facility, a gun shop, a bonded depot and a container yard, and that\nis the whole design. A grand hotel is only poignant where it has no business being, so the one\nthing this building must do is be the most refined object for six blocks and be obviously\nlosing. Strict symmetry, a rose stucco shaft over a dark brick plinth, cream fins between the\nbays, eyebrow courses, a stepped parapet with the name in gilt, and two corner turrets under\nlead domes — one of which carries a clock that stopped nine years ago.\n\n⚠ IT STANDS IN FOR THE `embassy` ARM AND DOES NOT CLAIM TO MATCH IT. That arm is a good\nEdwardian commercial hotel — engineering brick, glazed faience, segmental arch heads, a corbel\ncourse, a cast-iron canopy — and it is a different building from this one on purpose, so this\nfile says `replaces` rather than `portedFrom`. The arm is not deleted: it stays reachable in\nLEGACY_MODELS, `models:diff` goes on comparing the two on every push, and\nRENDER_TUNE.legacyArms puts the whole city back on the hand-written arms with one flag.\n\n⚠ THE PROGRAM IS CARRIED OVER EVEN THOUGH THE ARCHITECTURE IS NOT. The bar burns warm along\nthe pavement and the guest floors read cool above it; the name is cut into the parapet rather\nthan lit on a blade; the clock is in a corner turret and it is stopped. Those four are what the\ntile description says about this building, and prose that contradicts the model is the thing\nthis repo keeps rediscovering.\n\n⚠ TWO TURRETS, NOT ONE, AND THE CLOCK BREAKS THE SYMMETRY RATHER THAN THE MASSING. A single\ncorner turret makes a building lopsided from three of its four approaches, and this one is a\nTHROUGH BLOCK — Ironside Street on the west front and a second road on the east back — so it is\nseen from both sides and symmetry is the cheapest way to look deliberate from all of them. The\nasymmetry that gives it a face is a detail on one turret, which costs the silhouette nothing.\n\n⚠ THE FLAGSTAFF IS SET BACK ON THE TABLET RATHER THAN CENTRED ON IT, and `signfit` is what\nput it there. A mast at the middle of the tablet stands directly over the name and drew down\nit from three headings out of four; moving the name to the parapet took that to one and\nsetting the staff back to the rear third of the tablet took it to none. Both moves are also the\nbetter building: a name is cut into a PARAPET, and a flagstaff is stepped back behind it.\n\n⚠ AND THE FINS ARE THIN ON PURPOSE. The first cut had six at hw 0.044, which is 66% of an\n0.80-wide facade, and the building rendered CREAM — the rose that this palette exists for was\na dark line between trim. At 0.026 they are 39% and the wall is the thing you see. The colour\nis the design here, so the trim has to leave room for it.\n\n⚠ EVERY OFF-CENTRE BOX IS SQUARE IN PLAN. `F()` rotates a box's POSITION to the entrance and\nleaves its footprint pointing north, so an off-centre box wider than it is deep reaches a\ndifferent radius at each of the four facings. Fins, turrets and finials are all square; the\nonly non-square boxes here are centred, where the footprint cannot rotate out from under itself.",
+  "pal": "ty_embassy_rose",
   "replaces": "embassy",
   "segs": [
     {
@@ -105,57 +418,247 @@
       "cy": 0,
       "hw": 0.44,
       "kind": "box",
+      "pal": "ty_embassy_brick",
       "roof": true,
       "z0": 0,
-      "z1": 0.12
+      "z1": 0.058
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.38,
+      "hw": 0.425,
       "kind": "box",
+      "pal": "ty_embassy_cream",
       "roof": true,
-      "z0": 0.12,
-      "z1": 0.4
+      "z0": 0.058,
+      "z1": 0.238
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.34,
+      "hw": 0.437,
       "kind": "box",
+      "pal": "ty_embassy_cream",
       "roof": true,
-      "z0": 0.4,
-      "z1": 0.62
+      "z0": 0.238,
+      "z1": 0.268
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.28,
+      "hw": 0.4,
       "kind": "box",
+      "pal": "ty_embassy_rose",
       "roof": true,
-      "z0": 0.62,
-      "z1": 0.8
+      "z0": 0.268,
+      "z1": 0.868
     },
     {
-      "cx": 0,
-      "cy": 0,
-      "hw": 0.24,
+      "cx": -0.368,
+      "cy": 0.396,
+      "fd": 0.026,
+      "hw": 0.026,
       "kind": "box",
-      "roof": true,
-      "yaw": 0.785,
-      "z0": 0.62,
-      "z1": 0.8
+      "pal": "ty_embassy_cream",
+      "roof": false,
+      "z0": 0.268,
+      "z1": 0.916
     },
     {
-      "cap": true,
+      "cx": -0.222,
+      "cy": 0.396,
+      "fd": 0.026,
+      "hw": 0.026,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": false,
+      "z0": 0.268,
+      "z1": 0.916
+    },
+    {
+      "cx": -0.076,
+      "cy": 0.396,
+      "fd": 0.026,
+      "hw": 0.026,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": false,
+      "z0": 0.268,
+      "z1": 0.916
+    },
+    {
+      "cx": 0.076,
+      "cy": 0.396,
+      "fd": 0.026,
+      "hw": 0.026,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": false,
+      "z0": 0.268,
+      "z1": 0.916
+    },
+    {
+      "cx": 0.222,
+      "cy": 0.396,
+      "fd": 0.026,
+      "hw": 0.026,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": false,
+      "z0": 0.268,
+      "z1": 0.916
+    },
+    {
+      "cx": 0.368,
+      "cy": 0.396,
+      "fd": 0.026,
+      "hw": 0.026,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": false,
+      "z0": 0.268,
+      "z1": 0.916
+    },
+    {
       "cx": 0,
       "cy": 0,
+      "hw": 0.414,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": false,
+      "z0": 0.462,
+      "z1": 0.486
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.414,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": false,
+      "z0": 0.658,
+      "z1": 0.682
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": true,
+      "z0": 0.868,
+      "z1": 0.916
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.408,
+      "kind": "box",
+      "pal": "ty_embassy_rose",
+      "roof": true,
+      "z0": 0.916,
+      "z1": 0.998
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.215,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": true,
+      "z0": 0.998,
+      "z1": 1.082
+    },
+    {
+      "cx": -0.292,
+      "cy": 0.292,
+      "fd": 0.112,
+      "hw": 0.112,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": false,
+      "z0": 0.998,
+      "z1": 1.162
+    },
+    {
+      "cx": -0.292,
+      "cy": 0.292,
+      "fd": 0.128,
+      "hw": 0.128,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": true,
+      "z0": 1.162,
+      "z1": 1.196
+    },
+    {
+      "cap": false,
+      "cx": -0.292,
+      "cy": 0.292,
       "kind": "drum",
-      "n": 12,
-      "rb": 0.13,
-      "rt": 0.11,
-      "z0": 0.8,
-      "z1": 0.88
+      "n": 14,
+      "pal": "ty_embassy_lead",
+      "rb": 0.134,
+      "rt": 0.022,
+      "z0": 1.196,
+      "z1": 1.322
+    },
+    {
+      "cx": -0.292,
+      "cy": 0.292,
+      "fd": 0.016,
+      "hw": 0.016,
+      "kind": "box",
+      "pal": "ty_dw_brass",
+      "roof": true,
+      "z0": 1.322,
+      "z1": 1.386
+    },
+    {
+      "cx": 0.292,
+      "cy": 0.292,
+      "fd": 0.112,
+      "hw": 0.112,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": false,
+      "z0": 0.998,
+      "z1": 1.162
+    },
+    {
+      "cx": 0.292,
+      "cy": 0.292,
+      "fd": 0.128,
+      "hw": 0.128,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": true,
+      "z0": 1.162,
+      "z1": 1.196
+    },
+    {
+      "cap": false,
+      "cx": 0.292,
+      "cy": 0.292,
+      "kind": "drum",
+      "n": 14,
+      "pal": "ty_embassy_lead",
+      "rb": 0.134,
+      "rt": 0.022,
+      "z0": 1.196,
+      "z1": 1.322
+    },
+    {
+      "cx": 0.292,
+      "cy": 0.292,
+      "fd": 0.016,
+      "hw": 0.016,
+      "kind": "box",
+      "pal": "ty_dw_brass",
+      "roof": true,
+      "z0": 1.322,
+      "z1": 1.386
     }
   ]
 }
+

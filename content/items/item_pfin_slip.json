@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pfin_slip",
+  "name": "blank betting slip",
+  "tags": {
+    "stackable": true,
+    "description": "A small ruled rectangle of very cheap paper with boxes for the stake, the selection and the odds, and a line at the bottom that says I AGREE THE RULE. The rule is not printed anywhere on the slip and nobody has ever asked what it is."
+  },
+  "type": "misc",
+  "value": 1,
+  "weight": 1
+}

@@ -1,0 +1,246 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Number seven eats coins. Use nine. I know nine is further, use nine.\"",
+    "writes a time on the clipboard and underlines it twice",
+    "\"If it is not out of the dryer when the dryer stops, it is on the folding table. That is the whole system.\"",
+    "presses the flat of her hand against a machine door to feel whether it has finished",
+    "\"I am not watching your bag. I will be standing here, and I will see your bag, but I am not watching it.\""
+  ],
+  "description": "A woman in her forties who runs eleven machines and six dryers with a clipboard she does not need, because the clipboard is how everybody knows whose turn it is and she has seen what happens without one. The heat has taken the curl out of her hair on one side only.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Take a machine.\" A beat. \"Not seven.\"",
+        "She looks up through the steam. \"Wash, dry, or waiting for somebody?\""
+      ],
+      "text_by_relation": {
+        "familiar": "\"I put you on for half past. You always come at half past.\" She is right and has been for months.",
+        "first": "\"Winsome.\" She taps the clipboard without looking at it. \"Machines are self-service, the list is the list, and seven eats coins.\"",
+        "known": "\"Your name is on the list. Two down.\" She has already put it there."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a pale blue overall, sleeves pushed up",
+      "a t-shirt gone soft with washing",
+      "a plain bra and briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_filament_unit_2",
+  "hp": 23,
+  "hp_max": 23,
+  "id": "npc_winsome_kabaka",
+  "name": "Winsome Kabaka",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_soap_block",
+      "price": 4
+    },
+    {
+      "item_id": "item_towel_rough",
+      "price": 11
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 7,
+        "to": 21
+      }
+    ],
+    "mon": [
+      {
+        "from": 7,
+        "to": 21
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 21
+      }
+    ],
+    "sun": [
+      {
+        "from": 7,
+        "to": 21
+      }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 21
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 21
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 21
+      }
+    ]
+  },
+  "vendor_shop_name": "Load Bearing",
+  "vendor_stock_size": 6,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_loadbearing_floor"
+}

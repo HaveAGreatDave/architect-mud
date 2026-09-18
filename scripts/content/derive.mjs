@@ -593,6 +593,16 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   // a whole false front to, which is the entire point of how the place looks.
   mercantile: 'bldg_mercantile', assay: 'bldg_assay', undertaker: 'bldg_undertaker',
   bathhouse: 'bldg_bathhouse',
+  // Ten types whose artwork was already drawn and sitting in zone-icons/ unreferenced,
+  // so eleven real buildings wore the generic office block: Citadel Financial, Grind
+  // House, Bodega Vu, Adequate!, Nuts to That, Watts The Damage, Salvage Rites, Slag &
+  // Wares, Thumb On The Scale, The Houndyard, Tine & Temper, The Wash, Oyelaran's and
+  // Layers. Registering a name is the whole fix; every one of these already has its
+  // TYPE_MODEL arm, so the map and the air agree.
+  bank: 'bldg_bank', blade_shop: 'bldg_bladeshop', bodega: 'bldg_bodega',
+  dept_store: 'bldg_deptstore', hardware: 'bldg_hardware', junkyard: 'bldg_junkyard',
+  kitchenware: 'bldg_kitchenware', laundromat: 'bldg_laundromat',
+  noodle_bar: 'bldg_noodlebar', outfitter: 'bldg_outfitter',
   // Terminus (docs/proposals/terminus.md). The Exodus grow their own food behind the wall; the
   // glasshouses are the only thing tall enough to be seen from the apron. Registered NOW rather
   // than backfilled later: in pass 1 they are `is_building` mass and never reach this table (it is
@@ -608,6 +618,15 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   // glyphs so the campus reads on the 2-D map this build; bespoke SVGs are an optional polish pass.
   asc_spire: 'bldg_office', asc_gate: 'bldg_police', asc_clinic: 'bldg_clinic',
   asc_weave: 'bldg_fab', asc_vats: 'bldg_cold', asc_shrine: 'bldg_power',
+  // The infill trades (docs/proposals/coldwater-infill.md). Each gets its own glyph in the same
+  // build as its tile and its arm, never backfilled: an icon deferred is a building that is briefly
+  // wrong on the map, and the Yards shipped nine of those before anybody noticed.
+  cinema: 'bldg_cinema', bookmaker: 'bldg_bookmaker', taxidermist: 'bldg_taxidermist',
+  lending_library: 'bldg_lending_library',
+  pool_hall: 'bldg_pool_hall', amusements: 'bldg_amusements',
+  fishmonger: 'bldg_fishmonger', cobbler: 'bldg_cobbler',
+  photographer: 'bldg_photographer', locksmith: 'bldg_locksmith', tattooist: 'bldg_tattooist',
+  vet: 'bldg_vet', off_licence: 'bldg_off_licence', museum: 'bldg_museum',
 });
 
 // Gated on the `facade` tag so interior tiles (which also carry is_building) never

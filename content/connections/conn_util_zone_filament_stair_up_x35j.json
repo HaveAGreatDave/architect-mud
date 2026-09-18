@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_filament_stair",
+  "b": "zone_filament_stair",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_filament_stair_up_x35j",
+  "lockable": false,
+  "one_way": true
+}

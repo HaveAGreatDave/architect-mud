@@ -1,24 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#1e1d1a",
+  "description": "One bay wide and squeezed between two buildings that were not expecting it, which makes it the narrowest shopfront in the Filaments: a door, and beside the door about four feet of window with a board of blanks in it hung on nails by their bows. The sign is the building. A blade hangs off the corner in the shape of a key, iron, nine feet long, and it is comfortably larger than the entire frontage it is bolted to. It turns very slightly in a wind and there is a bracket on it that has been reinforced twice.",
   "exits": {
-    "east": "zone_district_899_905",
-    "north": "zone_district_898_904",
     "south": "zone_district_898_906",
-    "west": "zone_district_897_905"
+    "north": "zone_skelcrew_shop"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Skeleton Crew",
+    "building_type": "locksmith",
+    "district": "filaments",
+    "entrance": "south",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_898_906"
   },
   "grid_x": 898,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_898_905",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "SK",
+  "name": "Skeleton Crew",
   "parent_zone": null
 }

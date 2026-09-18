@@ -6,7 +6,7 @@
       "kind": "blinkLight",
       "r": 1.4,
       "rgb": "120,220,255",
-      "z": 0.92
+      "z": 1.1
     },
     {
       "cx": -0.2,
@@ -14,7 +14,39 @@
       "kind": "glowPool",
       "rgb": "70,200,255",
       "s": 16,
-      "z": 0.02
+      "z": 0.0239
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 12,
+      "z": 0.3946
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 11,
+      "z": 0.6576
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 10,
+      "z": 0.8967
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 14,
+      "z": 0.13
     }
   ],
   "basis": {
@@ -32,10 +64,10 @@
       "cx": 0,
       "cy": 0,
       "half": 0.44,
-      "hh": 0.015,
+      "hh": 0.0179,
       "kind": "parapet",
       "pal": "ty_asc_weave",
-      "z": 0.11
+      "z": 0.1315
     },
     {
       "bars": 7,
@@ -45,40 +77,40 @@
       "glass": "#101a24",
       "glow": "#9fe0ff",
       "half": 0.36,
-      "hh": 0.033,
+      "hh": 0.0395,
       "kind": "windowBay",
       "pal": "ty_asc_weave",
-      "z": 0.0462
+      "z": 0.0552
     },
     {
       "cx": 0,
       "cy": 0.44,
       "half": 0.32,
-      "hh": 0.011,
+      "hh": 0.0132,
       "kind": "canopy",
       "out": 0.105,
       "pal": "ty_asc_weave",
       "soffit": "#1d6f9c",
       "strip": "#9fe0ff",
-      "z": 0.08800000000000001
+      "z": 0.1052
     },
     {
       "cx": -0.34,
       "cy": 0.46,
       "kind": "bollard",
       "pal": "ty_asc_weave",
-      "z": 0.004
+      "z": 0.0048
     },
     {
       "cx": 0.34,
       "cy": 0.46,
       "kind": "bollard",
       "pal": "ty_asc_weave",
-      "z": 0.004
+      "z": 0.0048
     }
   ],
   "id": "theweave",
-  "note": "The building is called The Weave and it was two stacked boxes. It is four long slabs now, each rotated against the one below and crossing it — a stack you cannot read the corners of, which is the whole of what the name is asking for. ⚠ A ROTATED SLAB CARRIES NOTHING: `anchored` takes its wall planes from UNYAWED boxes, so every part authored here is on the podium and nothing is hung above z 0.11. The slabs are still BOXES though, so they keep their wall texture and their lit windows — which is why this reads as a woven tower after dark rather than as a dark sculpture. See thespire.json for what happens when the same shape is attempted with drums. RENDER_TUNE.legacyArms puts the asc_weave arm back.",
+  "note": "The building is called The Weave and it was two stacked boxes. It is four long slabs now, each rotated against the one below and crossing it — a stack you cannot read the corners of, which is the whole of what the name is asking for. ⚠ A ROTATED SLAB CARRIES NOTHING: `anchored` takes its wall planes from UNYAWED boxes, so every part authored here is on the podium and nothing is hung above z 0.11. The slabs are still BOXES though, so they keep their wall texture and their lit windows — which is why this reads as a woven tower after dark rather than as a dark sculpture. See thespire.json for what happens when the same shape is attempted with drums. RENDER_TUNE.legacyArms puts the asc_weave arm back.\n\n⚠ RESTORED TO THE HEIGHT OF ITS ARM (2026-09-17). The form above is unchanged and was\nnever the problem; what did not carry across from the asc_weave arm was how tall it stands. It was\nat 84% — 0.92x the storey stack against the arm's 1.10x — so every 'h'-tagged field\nhere was multiplied by 1.196 and every 'fh'-tagged one left alone. The silhouette is identical;\nonly the storeys are taller. Same regression as halcyontowers and thespire, same measurement.\n\n⚠ LIT AT THE JUNCTIONS, WHICH IS WHERE THE FORM IS. Each slab crosses the one below, so the\nplaces light belongs are the ledges those crossings leave — one glow at each, plus the podium.\nIt emitted two sprites before this. The accent is Ascendant blue rather than the arm’s\nwelding-spark orange: the arm was an open fab shed and this is not that building any more.",
   "pal": "ty_asc_weave",
   "replaces": "asc_weave",
   "segs": [
@@ -90,7 +122,7 @@
       "pal": "ty_dw_slate",
       "roof": true,
       "z0": 0,
-      "z1": 0.11
+      "z1": 0.1315
     },
     {
       "cx": 0,
@@ -100,8 +132,8 @@
       "kind": "box",
       "roof": true,
       "yaw": 0,
-      "z0": 0.11,
-      "z1": 0.33
+      "z0": 0.1315,
+      "z1": 0.3946
     },
     {
       "cx": 0,
@@ -111,8 +143,8 @@
       "kind": "box",
       "roof": true,
       "yaw": 1.15,
-      "z0": 0.33,
-      "z1": 0.55
+      "z0": 0.3946,
+      "z1": 0.6576
     },
     {
       "cx": 0,
@@ -122,8 +154,8 @@
       "kind": "box",
       "roof": true,
       "yaw": 0.45,
-      "z0": 0.55,
-      "z1": 0.75
+      "z0": 0.6576,
+      "z1": 0.8967
     },
     {
       "cx": 0,
@@ -134,8 +166,9 @@
       "pal": "ty_marble_col",
       "roof": true,
       "yaw": 1.5,
-      "z0": 0.75,
-      "z1": 0.92
+      "z0": 0.8967,
+      "z1": 1.1
     }
   ]
 }
+

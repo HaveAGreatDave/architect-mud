@@ -1,0 +1,119 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.46,
+      "kind": "glowPool",
+      "rgb": "255,140,200",
+      "s": 15,
+      "z": 0.02
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Florist Gump"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.34,
+      "hh": 0.016,
+      "kind": "parapet",
+      "pal": "ty_ward",
+      "z": 0.7
+    },
+    {
+      "cx": 0,
+      "cy": 0.38,
+      "half": 0.34,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.16,
+      "pal": "ty_shop_e",
+      "soffit": "#5c2a42",
+      "strip": "#ffb0d8",
+      "z": 0.26
+    },
+    {
+      "bars": 2,
+      "cx": 0.1,
+      "cy": 0.38,
+      "depth": 0.014,
+      "glass": "#1d121a",
+      "glow": "#ffd4ea",
+      "half": 0.18,
+      "hh": 0.024,
+      "kind": "windowBay",
+      "pal": "ty_shop_e",
+      "z": 0.3
+    },
+    {
+      "color": "#2b0f1e",
+      "cx": -0.16,
+      "cy": 0.38,
+      "font": "script",
+      "half": 0.14,
+      "hh": 0.026,
+      "ink": "#ffb0d8",
+      "kind": "signBoard",
+      "label": "FLORIST GUMP",
+      "z": 0.31
+    },
+    {
+      "cx": -0.3,
+      "cy": 0.42,
+      "kind": "bollard",
+      "pal": "ty_ward",
+      "z": 0.004
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.42,
+      "kind": "bollard",
+      "pal": "ty_ward",
+      "z": 0.004
+    }
+  ],
+  "id": "floristgump",
+  "neon": "#ff7ab8",
+  "note": "Flowers on the pavement in galvanised buckets, three deep, pulled in at dusk — so the ground floor is mostly OPEN under a deep canopy rather than glazed, and what is in the window is wreath frames, because flowers in a window cook. Half the trade walks across the road to the statue's plinth.",
+  "pal": "ty_shop_e",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.06
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.38,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.06,
+      "z1": 0.54
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "pal": "ty_ward",
+      "roof": true,
+      "z0": 0.54,
+      "z1": 0.7
+    }
+  ],
+  "trade": "boutique"
+}

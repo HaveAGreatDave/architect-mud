@@ -1,0 +1,16 @@
+{
+  "description": "A zinc-topped bench with a reel of wire bolted to one end and a spike at the other with orders on it, oldest at the bottom. Offcuts everywhere. The zinc is scored in one small patch from years of the same cut in the same place.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_floristgump_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the making bench",
+  "object_type": "table",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_floristgump_shop"
+}

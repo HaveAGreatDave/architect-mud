@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#241f18",
+  "color": "#8c7a5e",
+  "description": "A front desk in a room that was a front room, with a bell on the counter and a board of hooks behind it, keys on about half the hooks. The register is open and turned to face you and the last four names are in four different pens. There is one chair, which is for waiting in, and a strip of carpet that goes exactly as far as the desk and then stops.",
+  "exits": {
+    "down": "zone_util_zone_boardstiff_desk",
+    "north": "zone_district_913_913"
+  },
+  "flags": {
+    "building_name": "Board Stiff",
+    "building_type": "hotel",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A panel of glass in the street door with the terms carded across the middle of it, so what you get of Foundry Way is a strip above the card and a strip below it.",
+      "light": 0.85,
+      "name": "the door glass",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_913_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_boardstiff_desk",
+  "map_id": "map_int_boardstiff",
+  "name": "Board Stiff — Front Desk",
+  "parent_zone": "zone_district_913_913"
+}

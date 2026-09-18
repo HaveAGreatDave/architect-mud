@@ -1,0 +1,9 @@
+{
+  "a": "zone_filament_stair",
+  "b": "zone_filament_landing",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_filament_stair_up_h4pl",
+  "lockable": false,
+  "one_way": false
+}

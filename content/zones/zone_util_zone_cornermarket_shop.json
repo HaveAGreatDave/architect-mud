@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cramped below-grade utility room under Corner the Market: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
+  "exits": {
+    "up": "zone_cornermarket_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_cornermarket_shop",
+  "map_id": "map_int_cornermarket",
+  "name": "Corner the Market — Utility Room",
+  "parent_zone": "zone_district_897_907"
+}

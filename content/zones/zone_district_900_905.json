@@ -1,24 +1,32 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_events": [
+    "Somebody comes out, checks both ways along the street, and goes back in.",
+    "The door buzzer goes off for a long five seconds and nobody answers it.",
+    "A window on the first floor opens, a cigarette is smoked entirely, and the window closes."
+  ],
+  "ambient_theme": "urban",
+  "bg_color": "#2d2822",
+  "description": "A rooming house in a converted terrace, three doorways knocked into one and a hand-painted board over the middle of them reading REST ASSURED — NIGHTLY, WEEKLY, MONTHLY, with the monthly rate painted out and redone twice. A card in the glass says NO SMOKING IN BEDS above a second card, older, saying NO SMOKING IN BEDS PLEASE.",
   "exits": {
-    "east": "zone_district_901_905",
-    "north": "zone_district_900_904",
-    "south": "zone_district_900_906",
-    "west": "zone_district_899_905"
+    "north": "zone_restassured_hall",
+    "south": "zone_district_900_906"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Rest Assured",
+    "building_type": "residential",
+    "district": "filaments",
+    "entrance": "south",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_900_906"
   },
   "grid_x": 900,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_900_905",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "RA",
+  "name": "Rest Assured",
   "parent_zone": null
 }

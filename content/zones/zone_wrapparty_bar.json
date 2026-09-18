@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#26191a",
+  "color": "#c2564a",
+  "description": "A dark low room built for people who have just finished work and do not want to be looked at. Booths down one side with the leather gone shiny, a bar down the other with a rail worn bright, and between them a gangway one person wide. The clock behind the bar is twenty minutes fast and has been for years, on purpose, and every regular knows it and nobody has ever adjusted it for a stranger.",
+  "exits": {
+    "down": "zone_util_zone_wrapparty_bar",
+    "south": "zone_district_914_911"
+  },
+  "flags": {
+    "building_name": "Wrap Party",
+    "building_type": "bar",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "There is no window. There is a red bulb over the door and a two-inch gap under it, and between them you can tell whether it is night, raining, or both, which is as much weather as this room has ever wanted.",
+      "light": 0.85,
+      "name": "the door light",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_914_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_wrapparty_bar",
+  "map_id": "map_int_wrapparty",
+  "name": "Wrap Party — Bar",
+  "parent_zone": "zone_district_914_911"
+}

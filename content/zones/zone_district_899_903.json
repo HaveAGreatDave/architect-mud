@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "The lane runs out onto the stones and stops. There is a bench here facing the water, its back slats gone, and the view is genuinely good, which nobody in the Filaments will admit to out loud.",
   "exits": {
     "east": "zone_district_900_903",
     "north": "zone_district_899_902",
@@ -10,7 +9,7 @@
     "west": "zone_district_898_903"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
     "terrain": "grass"
   },
@@ -19,6 +18,6 @@
   "grid_z": 0,
   "id": "zone_district_899_903",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Shingle",
   "parent_zone": null
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_treblemaker_shop",
+  "b": "zone_util_zone_treblemaker_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_treblemaker_shop_down_treb2",
+  "lockable": false,
+  "one_way": false
+}

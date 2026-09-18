@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_cod_roe",
+  "name": "jar of pressed roe",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "restore_hunger": 10,
+    "restore_sanity": 6,
+    "description": "A small jar, salted and pressed, the colour of a brick. Two spoonfuls is a meal and a whole jar is a mistake. It is the only thing in the shop he has ever described as expensive, and he says it as a warning rather than a boast."
+  },
+  "type": "consumable",
+  "value": 120,
+  "weight": 180
+}

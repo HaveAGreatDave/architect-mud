@@ -1,0 +1,19 @@
+{
+  "description": "Both long walls, floor to lantern, with a sliding ladder on a brass rail that runs the full length and is the single most popular object in the building among people under eleven. The top three shelves are all one subject, which is the subject nobody asks for, which is why they are up there.",
+  "flags": {
+    "aliases": "stacks,shelves,shelf,books,ladder",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fprint_stacks",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the open stacks",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_fineprint_room"
+}

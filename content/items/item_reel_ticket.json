@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_reel_ticket",
+  "name": "cinema ticket",
+  "tags": {
+    "stackable": true,
+    "description": "A stub torn off a roll, salmon pink, numbered in the six thousands. It says ADMIT ONE and, in smaller type along the bottom, RETAIN THIS PORTION. Nobody has ever asked to see the retained portion, which does not stop people retaining it."
+  },
+  "type": "misc",
+  "value": 18,
+  "weight": 2
+}

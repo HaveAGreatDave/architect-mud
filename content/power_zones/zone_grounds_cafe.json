@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_grounds_cafe",
+  "id": "zone_grounds_cafe",
+  "max_capacity_kw": 1200,
+  "name": "Grounds for Concern",
+  "source_type": "junction_box"
+}

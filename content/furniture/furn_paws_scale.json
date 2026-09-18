@@ -1,0 +1,19 @@
+{
+  "description": "A flat scale set into the floor by the desk with a rubber mat on it, worn shiny in one oval in the middle by a great many feet of several different kinds. The dial is at standing height so the owner reads it rather than the vet, which was somebody’s good idea.",
+  "flags": {
+    "aliases": "scale,scales,mat,weigh",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_paws_scale",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the floor scale",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_paws_wait"
+}

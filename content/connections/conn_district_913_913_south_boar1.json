@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_913_913",
+  "b": "zone_boardstiff_desk",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_913_913_south_boar1",
+  "lockable": true,
+  "one_way": false
+}

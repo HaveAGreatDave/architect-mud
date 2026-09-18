@@ -1,0 +1,21 @@
+{
+  "description": "A reclining chair with a fresh sheet of paper rolled down it, foot rest up, arms wide enough to rest a whole forearm on. It is more comfortable than anything in your flat. People notice that and it does not help them at all.",
+  "flags": {
+    "aliases": "chair,couch,bed,recliner",
+    "interactions": [
+      "examine",
+      "sit",
+      "lie"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_regerts_chair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_regerts_room"
+}

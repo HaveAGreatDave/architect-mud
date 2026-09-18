@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_skel_blank",
+  "name": "handful of blanks",
+  "tags": {
+    "stackable": true,
+    "description": "Uncut blanks in assorted profiles, brass and nickel silver, still with the casting flash on the bow. What you do with them afterwards is not something he asks about, and the fact that he does not ask is the whole transaction."
+  },
+  "type": "material",
+  "value": 26,
+  "weight": 160
+}

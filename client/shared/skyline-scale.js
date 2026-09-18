@@ -44,6 +44,14 @@ export const TYPE_FLOORS = {
   // cupola and a kiln. Checked before setting — no Coldwater building carries any of these.
   infra: 2, dynamo: 2, clone: 3, foundry: 3, industrial: 3,
   gun_shop: 2, casino: 3, fence: 2, chem_supply: 3, fuel_yard: 1, default: 4,
+  // The Basin Jetty. A deck and a yard are both ONE storey of nothing — every fraction in their
+  // arms is measured against this, and the forecourt ⚠ above is what happens when they are not.
+  // The beacon is authored tall on purpose: it is the only built thing north of the shoreline and
+  // it has to be the thing you steer by from the water, the road and the air.
+  pier: 1, harbour_yard: 1, lighthouse: 12,
+  // A compact harbour crane stands about seven storeys to the slew house, which is what every
+  // fraction in its arm — the boom height, the counterweight, the hook travel — is measured against.
+  quay_crane: 7,
 };
 
 // World-z height of one storey, in tile units. Vertically stretched (taller

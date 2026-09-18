@@ -1,0 +1,90 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Nightly, weekly, monthly. Monthly is best and nobody ever wants monthly.\"",
+    "turns a key on its hook so the number faces out, the way the other nine already do",
+    "\"No smoking in beds. There is a card. There are two cards.\"",
+    "writes a time in the ledger, blots it, and closes the book on the pen",
+    "\"I do not ask and I do not tell. Those are the same rule from two directions.\""
+  ],
+  "description": "A small, upright woman behind a counter cut into a parlour wall, with a ledger open at today and a pen on a string. She has run rooms here long enough to have stopped being curious about anybody, which the people who take the rooms correctly understand as the service being offered.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "She looks up. \"Room, is it?\"",
+        "\"Bell works.\" She says it from two feet away, having answered before you touched it."
+      ],
+      "text_by_relation": {
+        "familiar": "\"Kettle's on in the back.\" This is as far as it goes, and it is quite far.",
+        "first": "\"Trantham. Mrs.\" She turns the ledger round so it faces you. \"Rooms are by the night, and the rules are on the back of your own door, so you will read them eventually.\"",
+        "known": "\"You.\" She checks the board without turning. \"Three is free. Three is always free, and you know why.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a buttoned housecoat in a small floral print",
+      "a cardigan over a blouse",
+      "a sensible slip"
+    ],
+    "personality": "professional"
+  },
+  "home_activities": [],
+  "home_zone": "zone_restassured_hall",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_dilys_trantham",
+  "name": "Dilys Trantham",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

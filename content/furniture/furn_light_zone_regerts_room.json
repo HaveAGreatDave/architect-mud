@@ -1,0 +1,14 @@
+{
+  "description": "A surgical lamp on a stand, secondhand, with a shade the size of a dinner plate and a bulb that makes the room read as a clinic rather than as a parlour. It is aimed at whatever part of you is being worked on and it makes everything else in the room disappear.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_regerts_room",
+  "light_type": "overhead",
+  "lumen_output": 3000,
+  "name": "the work light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_regerts_room"
+}

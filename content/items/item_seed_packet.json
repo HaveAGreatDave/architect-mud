@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_seed_packet",
+  "name": "packet of seed",
+  "tags": {
+    "description": "A small paper packet with the name written on it by hand and the year under that, folded twice and taped. The back carries three lines of instructions, one of which is DO NOT WATER IT AGAIN, YOU HAVE ALREADY WATERED IT.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 6,
+  "weight": 25
+}

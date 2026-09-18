@@ -1,0 +1,19 @@
+{
+  "description": "Lit, beside the door, eleven portraits and a card saying SITTINGS BY ARRANGEMENT. None of the eleven is smiling. Two of them are of the same man about fifteen years apart and they are hung next to each other, which nobody has ever asked her about and which she would answer if they did.",
+  "flags": {
+    "aliases": "case,display,portraits,frames",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_negeq_case",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the display case",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_negeq_shop"
+}

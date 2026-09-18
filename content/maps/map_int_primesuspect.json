@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_primesuspect_shop",
+  "id": "map_int_primesuspect",
+  "name": "Prime Suspect",
+  "parent_zone_id": "zone_district_916_911"
+}

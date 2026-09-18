@@ -1,0 +1,20 @@
+{
+  "description": "A card for every object, cross-referenced three ways, giving where it came from and who brought it in and when. This part of the record is scrupulous, complete and true, which makes the chronology on the wall next door a more interesting object than it first appears.",
+  "flags": {
+    "aliases": "index,cards,catalogue,drawers",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_past_index",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the card index",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pastperf_office"
+}

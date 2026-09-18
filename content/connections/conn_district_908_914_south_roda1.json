@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_908_914",
+  "b": "zone_rodalmighty_shop",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_908_914_south_roda1",
+  "lockable": true,
+  "one_way": false
+}

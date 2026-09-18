@@ -1,0 +1,14 @@
+{
+  "description": "A run of little shaded lamps let into the end of every fourth row at ankle height, throwing a yellow wash along the carpet and nothing at all above knee level. They are the only lights in here that stay on through a showing.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_reel_house",
+  "light_type": "lamp",
+  "lumen_output": 420,
+  "name": "the aisle lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_reel_house"
+}

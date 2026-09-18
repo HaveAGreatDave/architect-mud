@@ -1,0 +1,18 @@
+{
+  "description": "A ceiling of bare fluorescent strips, the kind that make everything look exactly as old as it is.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_cornermarket_shop",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "shop strips",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_cornermarket_shop"
+}

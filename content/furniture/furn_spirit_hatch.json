@@ -1,0 +1,19 @@
+{
+  "description": "A rectangle cut in the steel at chest height with a lipped sill and a turntable set into it, so that money goes round one way and a bottle comes round the other and nothing ever passes hand to hand. The steel round the opening is worn bright in two places by two different habits.",
+  "flags": {
+    "aliases": "hatch,turntable,window,slot",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_spirit_hatch",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the hatch",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_spirit_shop"
+}

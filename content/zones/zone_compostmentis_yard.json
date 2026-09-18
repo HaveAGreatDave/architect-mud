@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c2618",
+  "color": "#5f9e4a",
+  "description": "Warm, bright and humid under a span of glass, with the light coming down green through what's growing on the staging. Two benches run the length of the place with trays on them, seedlings at one end and things that have been here a while at the other. The floor is gravel and drains where it feels like it. The far end is potting: a bench, a heap, a scoop, and a set of scales that have been rained on.",
+  "exits": {
+    "down": "zone_util_zone_compostmentis_yard",
+    "north": "zone_district_916_913"
+  },
+  "flags": {
+    "building_name": "Compost Mentis",
+    "building_type": "greenhouse",
+    "floor": "dirt",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole roof and the whole of one wall, which makes the weather less a thing you observe than a thing you are standing in. Rain on this is loud. Hail is unbearable and twice has been expensive.",
+      "light": 0.85,
+      "name": "the glass span",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_916_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_compostmentis_yard",
+  "map_id": "map_int_compostmentis",
+  "name": "Compost Mentis — Glasshouse",
+  "parent_zone": "zone_district_916_913"
+}

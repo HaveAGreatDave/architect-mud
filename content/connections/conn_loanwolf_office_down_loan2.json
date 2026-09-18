@@ -1,0 +1,9 @@
+{
+  "a": "zone_loanwolf_office",
+  "b": "zone_util_zone_loanwolf_office",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_loanwolf_office_down_loan2",
+  "lockable": false,
+  "one_way": false
+}

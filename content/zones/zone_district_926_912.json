@@ -1,26 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "residential",
-  "bg_color": "#332e28",
-  "color": "#b89a72",
-  "description": "Home sweet subsidised home: prefab housing the colour of wet cardboard, balconies caged against jumpers and pigeons with equal indifference. A billboard over the roofline promises a better unit uptown. Nobody here has ever seen uptown.",
+  "ambient_theme": "urban",
+  "bg_color": "#1e1c19",
+  "description": "A house, and still obviously a house: brick, a pitched roof with a chimney that is lit most evenings, and a square bay window to the left of the door with the curtains open and a waiting room behind them. What tells you it is not somebody's front room is the canopy over the door on two iron posts, the bench under it, and the brass plate beside the bell, which is polished and small and says only a name and three letters after it. There is a water bowl on the step. It is filled twice a day and it is not decorative.",
   "exits": {
-    "east": "zone_district_927_912",
-    "north": "zone_district_926_911",
-    "south": "zone_district_926_913"
+    "south": "zone_district_926_913",
+    "north": "zone_paws_wait"
   },
   "flags": {
+    "building_name": "Paws for Thought",
+    "building_type": "vet",
     "district": "residential",
+    "entrance": "south",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_consumer_trash",
-    "street_life": true,
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_926_913"
   },
   "grid_x": 926,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_926_912",
   "map_id": "map_world",
-  "name": "Residential Area",
+  "marker": "VT",
+  "name": "Paws for Thought",
   "parent_zone": null
 }

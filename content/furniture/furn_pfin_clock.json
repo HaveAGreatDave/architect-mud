@@ -1,0 +1,19 @@
+{
+  "description": "The back of the pavement clock comes through the wall above the door: a brass drum of movement on a bracket, with the winding square on it and a card underneath in pencil saying the date it was last wound. It is always this week. In sixty years it has never once been out by a minute.",
+  "flags": {
+    "aliases": "clock,movement,winder",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pfin_clock",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the street clock",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pfin_shop"
+}

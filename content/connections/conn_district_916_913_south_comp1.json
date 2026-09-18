@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_916_913",
+  "b": "zone_compostmentis_yard",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_916_913_south_comp1",
+  "lockable": true,
+  "one_way": false
+}

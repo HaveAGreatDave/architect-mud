@@ -1,0 +1,20 @@
+{
+  "description": "A lit glass case beside the kiosk holding four lines of stock, each spaced across its shelf to occupy the width of about nine. Two of the four are the same thing in different paper. A card in front of the empty fifth shelf says BACK SOON, and it has gone the colour of weak tea.",
+  "flags": {
+    "aliases": "cabinet,sweets,confectionery,counter",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_cabinet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the confectionery cabinet",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_reel_foyer"
+}

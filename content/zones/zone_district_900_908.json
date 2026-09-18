@@ -1,17 +1,14 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "description": "Grass worn to bare earth in two curved paths where everyone cuts the corner, and left knee-high everywhere else. A rotary line stands at the middle, permanently at a slight lean.",
   "exits": {
-    "north": "zone_district_900_907",
     "south": "zone_district_900_909",
     "west": "zone_district_899_908"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
     "terrain": "grass"
   },
   "grid_x": 900,
@@ -19,6 +16,6 @@
   "grid_z": 0,
   "id": "zone_district_900_908",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Kettle Green",
   "parent_zone": null
 }

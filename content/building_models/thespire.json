@@ -1,13 +1,102 @@
 {
   "adorn": [
     {
+      "at": 0.7854,
+      "cx": 0,
+      "cy": 0,
+      "kind": "helixRunner",
+      "n": 22,
+      "r0": 0.5445,
+      "r1": 0.2722,
+      "rgb": "74,168,255",
+      "turns": 1.8,
+      "z0": 0.24,
+      "z1": 2.84
+    },
+    {
+      "at": 3.927,
+      "cx": 0,
+      "cy": 0,
+      "kind": "helixRunner",
+      "n": 22,
+      "r0": 0.5445,
+      "r1": 0.2722,
+      "rgb": "74,168,255",
+      "turns": 1.8,
+      "z0": 0.24,
+      "z1": 2.84
+    },
+    {
       "color": "#4fe8ff",
       "cx": 0,
-      "cy": 0.045,
-      "half": 0.42,
+      "cy": 0.0852,
+      "half": 0.34,
       "kind": "marqueeBand",
       "label": "THE SPIRE",
-      "z": 0.062
+      "z": 0.105
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "mast",
+      "z0": 3.22,
+      "z1": 3.6
+    },
+    {
+      "cx": -0.05,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.6,
+      "rgb": "90,230,255",
+      "z": 3.22
+    },
+    {
+      "cx": 0.05,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.6,
+      "rgb": "90,230,255",
+      "z": 3.22
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "255,90,120",
+      "z": 3.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 16,
+      "z": 3.06
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 13,
+      "z": 2.0127
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 13,
+      "z": 1.0673
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 22,
+      "z": 0.02
     },
     {
       "cx": -0.2,
@@ -24,30 +113,6 @@
       "rgb": "40,120,255",
       "s": 18,
       "z": 0.02
-    },
-    {
-      "cx": -0.06,
-      "cy": 0,
-      "kind": "blinkLight",
-      "r": 1.6,
-      "rgb": "90,230,255",
-      "z": 1.02
-    },
-    {
-      "cx": 0.06,
-      "cy": 0,
-      "kind": "blinkLight",
-      "r": 1.6,
-      "rgb": "90,230,255",
-      "z": 1.02
-    },
-    {
-      "cx": 0,
-      "cy": 0,
-      "kind": "blinkLight",
-      "r": 1.4,
-      "rgb": "255,90,120",
-      "z": 1.5
     }
   ],
   "basis": {
@@ -65,63 +130,117 @@
       "cx": 0,
       "cy": 0,
       "half": 0.44,
-      "hh": 0.016,
+      "hh": 0.01,
       "kind": "parapet",
-      "pal": "ty_asc_spire",
-      "z": 0.1
-    },
-    {
-      "bars": 7,
-      "cx": 0,
-      "cy": 0.44,
-      "depth": 0.022,
-      "glass": "#0e1a26",
-      "glow": "#bff4ff",
-      "half": 0.36,
-      "hh": 0.03,
-      "kind": "windowBay",
-      "pal": "ty_asc_spire",
-      "z": 0.038
-    },
-    {
-      "cx": 0,
-      "cy": 0.44,
-      "half": 0.32,
-      "hh": 0.012,
-      "kind": "canopy",
-      "out": 0.1,
-      "pal": "ty_asc_spire",
-      "soffit": "#1d9fd0",
-      "strip": "#bff4ff",
-      "z": 0.078
-    },
-    {
-      "cx": -0.34,
-      "cy": 0.46,
-      "kind": "bollard",
-      "pal": "ty_asc_spire",
-      "z": 0.004
-    },
-    {
-      "cx": 0.34,
-      "cy": 0.46,
-      "kind": "bollard",
-      "pal": "ty_asc_spire",
-      "z": 0.004
+      "pal": "ty_cold",
+      "z": 0.05
     },
     {
       "cx": 0,
       "cy": 0,
+      "half": 0.42,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_cold",
+      "z": 0.24
+    },
+    {
+      "bars": 9,
+      "cx": 0,
+      "cy": 0.42,
+      "depth": 0.022,
+      "glass": "#0a1420",
+      "glow": "#bff4ff",
+      "half": 0.32,
       "hh": 0.05,
+      "kind": "windowBay",
+      "pal": "ty_cold",
+      "z": 0.145
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "half": 0.28,
+      "hh": 0.009,
+      "kind": "canopy",
+      "out": 0.1,
+      "pal": "ty_cold",
+      "soffit": "#1d9fd0",
+      "strip": "#bff4ff",
+      "z": 0.072
+    },
+    {
+      "color": "#4fe8ff",
+      "cx": 0,
+      "cy": 0.42,
+      "drop": 0.024,
+      "half": 0.32,
+      "kind": "neonRun",
+      "z": 0.205
+    },
+    {
+      "cx": -0.22,
+      "cy": -0.2,
+      "d": 0.07,
+      "hh": 0.016,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.09,
+      "z": 0.24
+    },
+    {
+      "cx": 0.24,
+      "cy": -0.18,
+      "hh": 0.045,
       "kind": "antennaCluster",
-      "pal": "ty_asc_spire",
-      "r": 0.05,
-      "z": 1.02
+      "n": 5,
+      "pal": "ty_cold",
+      "r": 0.06,
+      "z": 0.24
+    },
+    {
+      "cx": -0.42,
+      "cy": 0.5,
+      "kind": "streetLamp",
+      "out": 0.06,
+      "pal": "ty_cold",
+      "r": 0.012,
+      "rgb": "150,210,255",
+      "s": 11,
+      "z0": 0,
+      "z1": 0.07
+    },
+    {
+      "cx": 0.42,
+      "cy": 0.5,
+      "flip": true,
+      "kind": "streetLamp",
+      "out": 0.06,
+      "pal": "ty_cold",
+      "r": 0.012,
+      "rgb": "150,210,255",
+      "s": 11,
+      "z0": 0,
+      "z1": 0.07
+    },
+    {
+      "cx": -0.32,
+      "cy": 0.47,
+      "kind": "bollard",
+      "pal": "ty_cold",
+      "z": 0.004
+    },
+    {
+      "cx": 0.32,
+      "cy": 0.47,
+      "kind": "bollard",
+      "pal": "ty_cold",
+      "z": 0.004
     }
   ],
   "id": "thespire",
   "neon": "#4fe8ff",
-  "note": "The tallest thing in Coldwater (30 floors) and, until this file, a box — it had no named model at all and fell through to the shared asc_spire arm. The form is a TAPER: six square boxes stepping in from a 0.44 podium to a 0.14 crown, so the silhouette narrows the whole way up instead of standing as one slab, with a faceted drum and a needle above the last storey. ⚠ IT IS A BOX STACK AND NOT A ROUND SHAFT, AND THAT IS THE SECOND ATTEMPT. The first cut built the shaft from tapering octagonal drums, which looks better standing still and cannot be finished: `anchored` takes its wall planes from UNYAWED BOXES ONLY, so a drum offers nothing to bolt a window, a sign or a canopy to, and every band authored onto it was floating in clear air. Worse, an authored drum is drawn as a flat palette shade with no night term at all (drawAuthoredModel builds its `skin` from the palette RGB and the face normal and nothing else), so a round tower emits nothing after dark and has to have every light hand-authored — which is exactly what it will not let you anchor. A square unyawed box has neither problem: it keeps its wall texture and its lit windows, and `derivedTrim` gives it the whole derived kit for nothing, which is why this model authors no windows above the podium and is still lit to the top. The drum is kept for the crown and the needle, where there is nothing to hang and nothing to light. RENDER_TUNE.legacyArms puts the asc_spire arm back.",
+  "note": "The Ascendant landmark and the tallest thing in Coldwater: thirty floors of blue glass on a hard\nhelix — twenty-two plates over 1.80 radians, about 103 degrees, against Halcyon’s 77. Brushed-metal\ncollars at two mechanical floors, a chamfered crown, a lit lantern, a needle and a mast. Two\nAscendant-blue light-runners trace opposite corners, and the calm-eye seal glows on the plaza at\nits foot.\n\n⚠ IT WAS AT 47% OF ITS ARM, THE WORST OF THE SEVENTEEN AUTHORED MODELS. The asc_spire arm draws\nthe mass to 3.22x the storey stack and the mast to 3.6x; the first authored model stopped at 1.50x\nand dropped the twist and both runners with it — a taper of six plain boxes where the arm had a\nchrome helix. At this tile that is 8.4 against 18.1 in world-z. The heights below are the arm’s own\nfigures to two decimals. The shaft is wider than the arm’s (0.385 against 0.312 at the foot):\nthirty floors on a one-tile footprint is a 26:1 needle at the arm’s proportion, and this is a\nlandmark before it is a spike.\n\n⚠ legacyArms CANNOT REVERT THIS MODEL, and that is worth knowing before trusting the flag on it.\nThe registry merge only records an arm in LEGACY_MODELS when the NAMED slug already held one; this\nmodel binds by name and replaces a TYPE arm, so nothing was displaced and nothing was recorded.\nSeven of the fourteen models that declare `replaces` are in the same position.\n\n⚠ A YAWED BOX STILL LIGHTS ITSELF — the reason this can be a helix at all. A rotated segment goes\nthrough draw3DBoxAt and keeps its wall texture and its lit windows; an authored drum is a flat\npalette shade with no night term, so a round shaft is a black obelisk after dark. What a yawed box\ndoes NOT get is trim: derivedTrim and anchored.mjs both take their wall planes from unyawed boxes\nonly, so the podium carries every part of the detail list and the drum is kept for the needle,\nwhere there is nothing to hang and nothing to light. That was the first model’s finding and it\nstill holds — only the height and the twist were wrong.\n\n⚠ ty_asc_spire IS IN NO *_WALL SET, which is correct here: it falls through to the default window\ngrid, so the shaft is lit by its own windows after dark. Halcyon is GLASS_WALL and reads as floor\nplates instead, which is what keeps the two rivals apart at a distance.",
   "pal": "ty_asc_spire",
   "replaces": "asc_spire",
   "segs": [
@@ -130,76 +249,288 @@
       "cy": 0,
       "hw": 0.44,
       "kind": "box",
+      "pal": "ty_cold",
       "roof": true,
       "z0": 0,
-      "z1": 0.1
+      "z1": 0.05
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.38,
+      "hw": 0.42,
       "kind": "box",
+      "pal": "ty_asc_spire",
       "roof": true,
-      "z0": 0.1,
-      "z1": 0.34
+      "z0": 0.05,
+      "z1": 0.24
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.32,
+      "hw": 0.385,
       "kind": "box",
       "roof": true,
-      "z0": 0.34,
-      "z1": 0.56
+      "yaw": 0,
+      "z0": 0.24,
+      "z1": 0.3582
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.26,
+      "hw": 0.3763,
       "kind": "box",
       "roof": true,
-      "z0": 0.56,
-      "z1": 0.74
+      "yaw": 0.0818,
+      "z0": 0.3582,
+      "z1": 0.4764
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.2,
+      "hw": 0.3675,
       "kind": "box",
       "roof": true,
-      "z0": 0.74,
-      "z1": 0.9
+      "yaw": 0.1636,
+      "z0": 0.4764,
+      "z1": 0.5945
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.14,
+      "hw": 0.3588,
       "kind": "box",
       "roof": true,
-      "z0": 0.9,
-      "z1": 1.02
+      "yaw": 0.2455,
+      "z0": 0.5945,
+      "z1": 0.7127
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.35,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.3273,
+      "z0": 0.7127,
+      "z1": 0.8309
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3412,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.4091,
+      "z0": 0.8309,
+      "z1": 0.9491
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3325,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.4909,
+      "z0": 0.9491,
+      "z1": 1.0673
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3432,
+      "kind": "box",
+      "pal": "ty_cold",
+      "roof": true,
+      "yaw": 0.5727,
+      "z0": 1.0673,
+      "z1": 1.1855
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.315,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.6545,
+      "z0": 1.1855,
+      "z1": 1.3036
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3062,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.7364,
+      "z0": 1.3036,
+      "z1": 1.4218
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2975,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.8182,
+      "z0": 1.4218,
+      "z1": 1.54
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2888,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.9,
+      "z0": 1.54,
+      "z1": 1.6582
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.28,
+      "kind": "box",
+      "roof": true,
+      "yaw": 0.9818,
+      "z0": 1.6582,
+      "z1": 1.7764
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2713,
+      "kind": "box",
+      "roof": true,
+      "yaw": 1.0636,
+      "z0": 1.7764,
+      "z1": 1.8945
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2625,
+      "kind": "box",
+      "roof": true,
+      "yaw": 1.1455,
+      "z0": 1.8945,
+      "z1": 2.0127
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.269,
+      "kind": "box",
+      "pal": "ty_cold",
+      "roof": true,
+      "yaw": 1.2273,
+      "z0": 2.0127,
+      "z1": 2.1309
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.245,
+      "kind": "box",
+      "roof": true,
+      "yaw": 1.3091,
+      "z0": 2.1309,
+      "z1": 2.2491
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2363,
+      "kind": "box",
+      "roof": true,
+      "yaw": 1.3909,
+      "z0": 2.2491,
+      "z1": 2.3673
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2275,
+      "kind": "box",
+      "roof": true,
+      "yaw": 1.4727,
+      "z0": 2.3673,
+      "z1": 2.4855
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2187,
+      "kind": "box",
+      "roof": true,
+      "yaw": 1.5545,
+      "z0": 2.4855,
+      "z1": 2.6036
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.21,
+      "kind": "box",
+      "roof": true,
+      "yaw": 1.6364,
+      "z0": 2.6036,
+      "z1": 2.7218
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2012,
+      "kind": "box",
+      "roof": true,
+      "yaw": 1.7182,
+      "z0": 2.7218,
+      "z1": 2.84
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.1848,
+      "kind": "box",
+      "pal": "ty_cold",
+      "roof": true,
+      "yaw": 1.8,
+      "z0": 2.84,
+      "z1": 3.02
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.1578,
+      "kind": "box",
+      "pal": "ty_cold",
+      "roof": true,
+      "yaw": 2.585,
+      "z0": 2.84,
+      "z1": 3.02
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.127,
+      "kind": "box",
+      "pal": "ty_asc_clinic",
+      "roof": true,
+      "yaw": 1.89,
+      "z0": 3.02,
+      "z1": 3.14
     },
     {
       "cap": true,
       "cx": 0,
       "cy": 0,
       "kind": "drum",
-      "n": 8,
-      "rb": 0.11,
-      "rt": 0.045,
-      "z0": 1.02,
-      "z1": 1.2
-    },
-    {
-      "cap": true,
-      "cx": 0,
-      "cy": 0,
-      "kind": "drum",
-      "n": 6,
-      "rb": 0.028,
-      "rt": 0.006,
-      "z0": 1.2,
-      "z1": 1.5
+      "n": 10,
+      "pal": "ty_cold",
+      "rb": 0.09,
+      "rt": 0.05,
+      "z0": 3.14,
+      "z1": 3.22
     }
   ]
 }
+

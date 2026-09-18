@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_917_911",
+  "b": "zone_dosed_counter",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_917_911_north_dose1",
+  "lockable": true,
+  "one_way": false
+}

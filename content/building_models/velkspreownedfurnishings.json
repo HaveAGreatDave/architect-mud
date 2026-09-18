@@ -1,0 +1,288 @@
+{
+  "adorn": [
+    {
+      "cx": 0.3,
+      "cy": 0.41,
+      "kind": "glowPool",
+      "rgb": "255,180,120",
+      "s": 12,
+      "z": 0.2
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "255,160,100",
+      "s": 15,
+      "z": 0.02
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "255,150,90",
+      "s": 9,
+      "z": 0.62
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Velk's Pre-Owned Furnishings"
+    }
+  ],
+  "detail": [
+    {
+      "cx": -0.1,
+      "cy": 0.43,
+      "half": 0.24,
+      "hh": 0.14,
+      "kind": "shutter",
+      "pal": "ty_unit_shut",
+      "z": 0.18
+    },
+    {
+      "bars": 2,
+      "cx": 0.3,
+      "cy": 0.432,
+      "depth": 0.016,
+      "glass": "#1e1610",
+      "glow": "#ffbf80",
+      "half": 0.075,
+      "hh": 0.125,
+      "kind": "windowBay",
+      "pal": "ty_unit_board",
+      "transom": 0.7,
+      "z": 0.19
+    },
+    {
+      "color": "#1c1008",
+      "cx": 0,
+      "cy": 0.43,
+      "font": "slab",
+      "half": 0.33,
+      "hh": 0.026,
+      "ink": "#ffb07a",
+      "kind": "signBoard",
+      "label": "VELK'S PRE-OWNED",
+      "z": 0.36
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.432,
+      "half": 0.11,
+      "hh": 0.1,
+      "kind": "shutter",
+      "pal": "ty_unit_shut",
+      "z": 0.55
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.43,
+      "half": 0.15,
+      "hh": 0.014,
+      "kind": "canopy",
+      "out": 0.17,
+      "pal": "ty_unit_board",
+      "soffit": "#2c1c10",
+      "z": 0.67
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.42,
+      "half": 0.02,
+      "kind": "conduit",
+      "pal": "ty_unit_shut",
+      "r": 0.018,
+      "z": 0.69
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.42,
+      "kind": "pipe",
+      "pal": "ty_unit_shut",
+      "r": 0.008,
+      "z0": 0.5,
+      "z1": 0.69
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.26,
+        "cy": 0.4,
+        "depth": 0.013,
+        "glass": "#241a12",
+        "glow": "#3a2c20",
+        "half": 0.062,
+        "hh": 0.055,
+        "kind": "windowBay",
+        "pal": "ty_unit_board",
+        "z": 0.82
+      },
+      "step": {
+        "cx": 0.26
+      }
+    },
+    {
+      "color": "#1c1008",
+      "cx": 0.02,
+      "cy": 0.42,
+      "face": "x",
+      "font": "block",
+      "half": 0.3,
+      "ink": "#ffb07a",
+      "kind": "bladePanel",
+      "label": "FURNISHINGS",
+      "out": 0.014,
+      "pal": "ty_unit_board",
+      "z0": 0.48,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.435,
+      "hh": 0.013,
+      "kind": "parapet",
+      "pal": "ty_unit_board",
+      "z": 0.96
+    },
+    {
+      "cx": -0.06,
+      "cy": -0.4,
+      "face": "x",
+      "flights": 3,
+      "half": 0.085,
+      "kind": "fireEscape",
+      "out": 0.05,
+      "pal": "ty_gate_dk",
+      "z0": 0.34,
+      "z1": 0.94
+    },
+    {
+      "cx": 0.34,
+      "cy": -0.42,
+      "kind": "ductRun",
+      "pal": "ty_unit_shut",
+      "r": 0.026,
+      "run": -0.16,
+      "z0": 0.14,
+      "z1": 0.92
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.12,
+      "d": 0.05,
+      "hh": 0.026,
+      "kind": "acUnit",
+      "pal": "ty_unit_shut",
+      "w": 0.07,
+      "z": 1.05
+    },
+    {
+      "cx": 0.4,
+      "cy": 0.44,
+      "d": 0.036,
+      "hh": 0.032,
+      "kind": "binStack",
+      "lid": "#2a1e14",
+      "n": 2,
+      "pal": "ty_unit_board",
+      "w": 0.045,
+      "z": 0.004
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_unit_board",
+      "z": 0.004
+    },
+    {
+      "color": "#ff8a4a",
+      "cx": -0.32,
+      "cy": 0.44,
+      "hh": 0.075,
+      "kind": "tag",
+      "n": 4,
+      "v": 5,
+      "w": 0.09,
+      "z": 0.44
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_unit_board",
+      "r": 0.026,
+      "rgb": "255,186,130",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.086
+    }
+  ],
+  "id": "velkspreownedfurnishings",
+  "neon": "#ff8a4a",
+  "note": "VELK'S PRE-OWNED FURNISHINGS — the second-hand furniture warehouse on Ironside Street.\n\n⚠ THE HOIST IS THE WHOLE DESIGN. A furniture warehouse is a building you get a wardrobe OUT of, so\nwhat it needs is a loading door on the first floor, a beam over it and a shutter under it — and that\none arrangement says more about the trade than any amount of shopfront. The arm drew it as a junk\nshop with a window.\n\n⚠ THE BIG SIGN IS ON THE FLANK, NOT THE FRONT. A gable end is where a real city puts its largest\nadvertisement, because it is the one surface a wall texture cannot make interesting — and the front\nof this building is almost entirely door, so there is nowhere on it for a sign that size. That is\nwhat `face: 'x'` on a `bladePanel` is for.\n\n⚠ AND THE UPPER WINDOWS ARE FEW AND DIRTY. A warehouse is not an office: three small openings up a\nfour-storey wall, not a ribbon, and nothing behind them is lit.",
+  "pal": "ty_signalbox",
+  "replaces": "junkshop",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_signalbox",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.96
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.435,
+      "kind": "box",
+      "pal": "ty_unit_board",
+      "roof": false,
+      "z0": 0.34,
+      "z1": 0.38
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.435,
+      "kind": "box",
+      "pal": "ty_unit_board",
+      "roof": true,
+      "z0": 0.96,
+      "z1": 1.05
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.2,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_unit_shut",
+      "roof": true,
+      "z0": 1.05,
+      "z1": 1.18
+    }
+  ]
+}

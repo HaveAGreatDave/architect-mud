@@ -1,0 +1,20 @@
+{
+  "description": "Bottles racked by colour with the date written on every cap in the same hand. Needles in sealed strips in a lidded box beside them. A second autoclave on the floor that does not work, kept because the man who could repair it says he is coming, and has said so for two years.",
+  "flags": {
+    "aliases": "inks,ink,bottles,rack,stock",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_regerts_inks",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the ink rack",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_regerts_stair"
+}

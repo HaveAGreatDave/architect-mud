@@ -1,0 +1,14 @@
+{
+  "description": "A bulkhead light on the wall by the door, on a timer that gives you four minutes, which is about how long it takes to find a case and get out and is not an accident.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_spirit_store",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "the store light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_spirit_store"
+}

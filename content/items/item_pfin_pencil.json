@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pfin_pencil",
+  "name": "a bookmaker's pencil",
+  "tags": {
+    "stackable": true,
+    "description": "Two and a half inches of soft pencil, hexagonal, unpainted, with a hole drilled through the blunt end and a foot of string through the hole. It writes beautifully and it is designed from end to end to be impossible to steal, which is why every drawer in the city has four."
+  },
+  "type": "misc",
+  "value": 2,
+  "weight": 6
+}

@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#26191a",
+  "color": "#c2564a",
+  "description": "The back-door pub for the studio block, which is why it opens at eleven at night and does its best trade at two in the morning. No window worth the name, one door, and a red bulb over it that is on when the bar is. A brass plate by the handle reads WRAP PARTY, and somebody long ago scratched underneath it, accurately, EVERY NIGHT.",
   "exits": {
-    "east": "zone_district_915_911",
-    "south": "zone_district_914_912",
-    "west": "zone_district_913_911"
+    "north": "zone_wrapparty_bar",
+    "south": "zone_district_914_912"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Wrap Party",
+    "building_type": "bar",
+    "district": "nightlife",
+    "entrance": "south",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_914_912"
   },
   "grid_x": 914,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_914_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "WP",
+  "name": "Wrap Party",
   "parent_zone": null
 }

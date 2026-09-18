@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_paws_wormer",
+  "name": "course of wormer",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "description": "Four tablets in a foil strip with the dose written on the back by hand, by weight, for the specific animal. She will not sell it without weighing them, which takes four minutes and which she has never once skipped for anybody in a hurry."
+  },
+  "type": "consumable",
+  "value": 24,
+  "weight": 40
+}

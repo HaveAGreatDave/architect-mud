@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_rodalmighty_shop",
+  "id": "zone_rodalmighty_shop",
+  "max_capacity_kw": 200,
+  "name": "Rod Almighty — Shop",
+  "source_type": "city_grid"
+}

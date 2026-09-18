@@ -6,7 +6,7 @@
       "kind": "blinkLight",
       "r": 1.8,
       "rgb": "150,220,255",
-      "z": 1.06
+      "z": 1.5
     },
     {
       "cx": -0.22,
@@ -14,7 +14,7 @@
       "kind": "glowPool",
       "rgb": "90,180,255",
       "s": 17,
-      "z": 0.02
+      "z": 0.0283
     },
     {
       "cx": 0.22,
@@ -22,7 +22,66 @@
       "kind": "glowPool",
       "rgb": "90,180,255",
       "s": 17,
-      "z": 0.02
+      "z": 0.0283
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "mast",
+      "z0": 1.5,
+      "z1": 2.1
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "helixRunner",
+      "n": 2,
+      "r0": 0,
+      "r1": 0,
+      "rgb": "74,168,255",
+      "turns": 0,
+      "z0": 1.5,
+      "z1": 2.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 2,
+      "rgb": "74,168,255",
+      "z": 2.6
+    },
+    {
+      "cx": -0.26,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 10,
+      "z": 0.8
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 14,
+      "z": 0.14
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 11,
+      "z": 0.64
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 10,
+      "z": 1.04
     }
   ],
   "basis": {
@@ -40,10 +99,10 @@
       "cx": 0,
       "cy": 0,
       "half": 0.44,
-      "hh": 0.015,
+      "hh": 0.0212,
       "kind": "parapet",
       "pal": "ty_asc_shrine",
-      "z": 0.09
+      "z": 0.1274
     },
     {
       "bars": 5,
@@ -53,49 +112,49 @@
       "glass": "#0b1420",
       "glow": "#bfe4ff",
       "half": 0.36,
-      "hh": 0.027,
+      "hh": 0.0382,
       "kind": "windowBay",
       "pal": "ty_asc_shrine",
-      "z": 0.0378
+      "z": 0.0535
     },
     {
       "cx": 0,
       "cy": 0.44,
       "half": 0.32,
-      "hh": 0.011,
+      "hh": 0.0156,
       "kind": "canopy",
       "out": 0.105,
       "pal": "ty_asc_shrine",
       "soffit": "#2a5f8c",
       "strip": "#bfe4ff",
-      "z": 0.072
+      "z": 0.1019
     },
     {
       "cx": -0.34,
       "cy": 0.46,
       "kind": "bollard",
       "pal": "ty_asc_shrine",
-      "z": 0.004
+      "z": 0.0057
     },
     {
       "cx": 0.34,
       "cy": 0.46,
       "kind": "bollard",
       "pal": "ty_asc_shrine",
-      "z": 0.004
+      "z": 0.0057
     },
     {
       "cx": 0,
       "cy": 0,
-      "hh": 0.04,
+      "hh": 0.0566,
       "kind": "antennaCluster",
       "pal": "ty_asc_shrine",
       "r": 0.04,
-      "z": 1.06
+      "z": 1.5
     }
   ],
   "id": "architectshrine",
-  "note": "Ten floors of Ascendant devotion that rendered as a three-box stack on the shared asc_shrine arm. Built as a ZIGGURAT: seven square boxes stepping in from the podium to a tenth of its width, with a faceted drum lantern on the apex — the one silhouette in Coldwater that narrows the whole way and ends in a point rather than a lid. ⚠ NO AUTHORED `neon`, deliberately. `derivedStyle` reads `m.neon` as a TRUTH TEST for works-vs-front-vs-block, so authoring a colour here would reclassify a stone shrine as a SHOPFRONT and hang a retail kit on it; the accent it wants (#7fc8ff, off the stone family) is what `accentOf` already derives with the field left empty. RENDER_TUNE.legacyArms puts the asc_shrine arm back.",
+  "note": "Ten floors of Ascendant devotion that rendered as a three-box stack on the shared asc_shrine arm. Built as a ZIGGURAT: seven square boxes stepping in from the podium to a tenth of its width, with a faceted drum lantern on the apex — the one silhouette in Coldwater that narrows the whole way and ends in a point rather than a lid. ⚠ NO AUTHORED `neon`, deliberately. `derivedStyle` reads `m.neon` as a TRUTH TEST for works-vs-front-vs-block, so authoring a colour here would reclassify a stone shrine as a SHOPFRONT and hang a retail kit on it; the accent it wants (#7fc8ff, off the stone family) is what `accentOf` already derives with the field left empty. RENDER_TUNE.legacyArms puts the asc_shrine arm back.\n\n⚠ RESTORED TO THE HEIGHT OF ITS ARM (2026-09-17). The form above is unchanged and was\nnever the problem; what did not carry across from the asc_shrine arm was how tall it stands. It was\nat 71% — 1.06x the storey stack against the arm's 1.50x — so every 'h'-tagged field\nhere was multiplied by 1.415 and every 'fh'-tagged one left alone. The silhouette is identical;\nonly the storeys are taller. Same regression as halcyontowers and thespire, same measurement.\n\n⚠ AND THE UPLINK BEAM CAME BACK WITH THE HEIGHT. The asc_shrine arm ran a glowing Ascendant-blue\nwire from the cap at 1.5 to 2.6 with a beacon on the end of it, and a server-rack glow on the\nCurtain side — the whole reason the building reads as a shrine to a machine rather than as a\nblack ziggurat. None of it survived the port: this model emitted three sprites on a palette of\n[20,28,44], which after dark is nothing at all. The beam is a helixRunner with r0 = r1 = 0 and\nturns = 0, which is a straight vertical line through the same emitLightRunner the arm used.",
   "pal": "ty_asc_shrine",
   "replaces": "asc_shrine",
   "segs": [
@@ -106,7 +165,7 @@
       "kind": "box",
       "roof": true,
       "z0": 0,
-      "z1": 0.09
+      "z1": 0.1274
     },
     {
       "cx": 0,
@@ -114,8 +173,8 @@
       "hw": 0.39,
       "kind": "box",
       "roof": true,
-      "z0": 0.09,
-      "z1": 0.28
+      "z0": 0.1274,
+      "z1": 0.3962
     },
     {
       "cx": 0,
@@ -123,8 +182,8 @@
       "hw": 0.335,
       "kind": "box",
       "roof": true,
-      "z0": 0.28,
-      "z1": 0.45
+      "z0": 0.3962,
+      "z1": 0.6368
     },
     {
       "cx": 0,
@@ -132,8 +191,8 @@
       "hw": 0.28,
       "kind": "box",
       "roof": true,
-      "z0": 0.45,
-      "z1": 0.6
+      "z0": 0.6368,
+      "z1": 0.8491
     },
     {
       "cx": 0,
@@ -141,8 +200,8 @@
       "hw": 0.225,
       "kind": "box",
       "roof": true,
-      "z0": 0.6,
-      "z1": 0.73
+      "z0": 0.8491,
+      "z1": 1.033
     },
     {
       "cx": 0,
@@ -150,8 +209,8 @@
       "hw": 0.17,
       "kind": "box",
       "roof": true,
-      "z0": 0.73,
-      "z1": 0.84
+      "z0": 1.033,
+      "z1": 1.1887
     },
     {
       "cx": 0,
@@ -159,8 +218,8 @@
       "hw": 0.115,
       "kind": "box",
       "roof": true,
-      "z0": 0.84,
-      "z1": 0.93
+      "z0": 1.1887,
+      "z1": 1.316
     },
     {
       "cap": true,
@@ -170,8 +229,9 @@
       "n": 8,
       "rb": 0.085,
       "rt": 0.06,
-      "z0": 0.93,
-      "z1": 1.06
+      "z0": 1.316,
+      "z1": 1.5
     }
   ]
 }
+

@@ -1,0 +1,9 @@
+{
+  "a": "zone_loafing_shop",
+  "b": "zone_util_zone_loafing_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_loafing_shop_down_loaf2",
+  "lockable": false,
+  "one_way": false
+}

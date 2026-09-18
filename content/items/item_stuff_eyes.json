@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_stuff_eyes",
+  "name": "pair of glass eyes",
+  "tags": {
+    "stackable": true,
+    "description": "Two blown-glass eyes on a card, matched, with the pupil painted on the back of the glass so it sits at the right depth. Hold them up and they follow you, which is the entire trick and which nobody has ever got used to."
+  },
+  "type": "misc",
+  "value": 22,
+  "weight": 8
+}

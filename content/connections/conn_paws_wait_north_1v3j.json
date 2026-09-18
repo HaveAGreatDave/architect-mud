@@ -1,0 +1,9 @@
+{
+  "a": "zone_paws_wait",
+  "b": "zone_paws_surgery",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_paws_wait_north_1v3j",
+  "lockable": false,
+  "one_way": false
+}

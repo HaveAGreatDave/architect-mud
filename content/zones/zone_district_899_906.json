@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "Front steps come straight down onto the road, no pavement worth the name. People sit out on them in the evening because the light is free and the flats are small.",
   "exits": {
     "east": "zone_district_900_906",
     "north": "zone_district_899_905",
@@ -10,15 +9,17 @@
     "west": "zone_district_898_906"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 899,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_899_906",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Filament Street + Kettle Lane",
   "parent_zone": null
 }

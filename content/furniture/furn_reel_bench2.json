@@ -1,0 +1,19 @@
+{
+  "description": "A steel bench under the ports, a pair of rewind arms either end and a splicer clamped between them with the block worn bright. The ledger lies open on it: takings left, running costs right, and the right page is longer every week. The pencil lives in the gutter and has never been anywhere else.",
+  "flags": {
+    "aliases": "bench,rewind bench,ledger,book",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_bench2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the rewind bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_reel_box"
+}

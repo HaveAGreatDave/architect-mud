@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_treblemaker_shop",
+  "id": "zone_treblemaker_shop",
+  "max_capacity_kw": 200,
+  "name": "Treble Maker — Shop",
+  "source_type": "city_grid"
+}

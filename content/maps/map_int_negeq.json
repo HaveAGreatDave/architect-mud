@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_negeq_shop",
+  "id": "map_int_negeq",
+  "name": "Negative Equity",
+  "parent_zone_id": "zone_district_895_904"
+}

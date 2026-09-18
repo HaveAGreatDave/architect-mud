@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_paws_salve",
+  "name": "tub of wound salve",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "restore_hp": 6,
+    "description": "Made up in the back, unscented, safe on anything with fur and safe on you as well, which she mentions without being asked because she knows perfectly well who half of it is for."
+  },
+  "type": "consumable",
+  "value": 30,
+  "weight": 160
+}

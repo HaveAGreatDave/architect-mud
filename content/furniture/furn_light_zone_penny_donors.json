@@ -1,0 +1,14 @@
+{
+  "description": "A lamp on a magnetic base stuck to whichever cabinet is open, moved about four times a day and never put back. It is the only light in here and it is always pointing into something.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_penny_donors",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "the inspection lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_penny_donors"
+}

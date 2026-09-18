@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_treblemaker_shop",
+  "id": "map_int_treblemaker",
+  "name": "Treble Maker",
+  "parent_zone_id": "zone_district_915_911"
+}

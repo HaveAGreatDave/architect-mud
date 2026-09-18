@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_restassured_hall",
+  "id": "zone_restassured_room_b",
+  "max_capacity_kw": 1200,
+  "name": "Room 4",
+  "source_type": "junction_box"
+}

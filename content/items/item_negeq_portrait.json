@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_negeq_portrait",
+  "name": "a plate portrait",
+  "tags": {
+    "description": "One exposure on glass, contact printed onto paper and mounted on board, of you, looking straight out. It is the only picture of you that will exist after you and it is a peculiar thing to be handed in a paper sleeve on a Tuesday."
+  },
+  "type": "media",
+  "value": 180,
+  "weight": 300
+}

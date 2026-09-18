@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_wrapparty_bar",
+  "id": "zone_wrapparty_bar",
+  "max_capacity_kw": 200,
+  "name": "Wrap Party — Bar",
+  "source_type": "city_grid"
+}

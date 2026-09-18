@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
-    "east": "zone_district_903_908",
     "north": "zone_district_902_907",
     "south": "zone_district_902_909",
     "west": "zone_district_901_908"

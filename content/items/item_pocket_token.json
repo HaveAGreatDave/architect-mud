@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pocket_token",
+  "name": "brass light token",
+  "tags": {
+    "stackable": true,
+    "description": "A brass disc the size of a thumbnail with a hole punched off-centre so it cannot be mistaken for money, stamped POCKET MONEY on one face and nothing on the other. One token is one hour of the lamp over one table."
+  },
+  "type": "misc",
+  "value": 12,
+  "weight": 14
+}

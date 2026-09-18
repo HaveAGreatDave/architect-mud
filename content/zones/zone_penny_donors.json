@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#15131a",
+  "description": "The back room, where the cabinets that stopped go to keep the others alive. Nine of them along the wall with their backs off and their boards out, each one with a card taped to the glass listing what has already been taken and what is still good. Coils of loom, a tin of lamps sorted by base, and a tray of coin mechanisms in bits with the springs in a jar. Nothing in here will ever work again and everything in here is the reason something out front still does.",
+  "exits": {
+    "east": "zone_penny_floor"
+  },
+  "flags": {
+    "building_name": "The Penny Drops",
+    "building_type": "amusements",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_910_915"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_penny_donors",
+  "map_id": "map_int_penny",
+  "name": "The Penny Drops — The Donors",
+  "parent_zone": "zone_district_910_915"
+}

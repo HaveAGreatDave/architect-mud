@@ -1106,7 +1106,7 @@ being tilted. It is nearly gone from the transform now; the weight of a turn is 
 the **crossover**, which is limbs moving at their joints.
 
 **The building.** The dashers carry **lit LED hoardings naming real Coldwater businesses** —
-Battery Acid Coffee, Grease Expectations, In Hock We Trust, Co-Pay & Pray — because the
+Battery Acid Coffee, Grease Expectations, Cash & Carrion, Co-Pay & Pray — because the
 arena advertising the city you can actually walk around in is worth more than any invented
 sponsor. Every name is forced to its panel with `textLength`/`spacingAndGlyphs`, which is
 both what an LED board really does with a long name and the only reason

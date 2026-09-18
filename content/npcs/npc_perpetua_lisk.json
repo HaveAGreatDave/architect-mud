@@ -1,0 +1,266 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Read the label. I know you won't. Read it anyway.\"",
+    "counts tablets into a tray with a flat blade, five at a time, without appearing to count",
+    "\"That'll sting. That's the sting doing its job, not the sting being a problem.\"",
+    "writes something on a card, reads it back, and writes it out again more legibly",
+    "\"I can sell you the cheap ones. I'd rather sell you the ones that work, but I can sell you the cheap ones.\""
+  ],
+  "description": "A tall woman with reading glasses pushed up into grey hair and the specific calm of somebody who has heard worse this morning. She dispenses from drawers labelled in a Latin that stopped describing the contents decades ago, and she has never once been wrong about which drawer.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "She does not stop what she is doing. \"With you in a moment.\" She is, in a moment.",
+        "\"Right.\" The tray goes down. \"What have you done to yourself?\""
+      ],
+      "text_by_relation": {
+        "familiar": "\"Sit down before you tell me.\" She indicates the chair by the door, the one that gets used.",
+        "first": "\"Perpetua Lisk.\" She looks at you over the top of the glasses she is not wearing. \"Whatever it is, I have probably got something for it, and if I have not I will tell you that instead of selling you something else.\"",
+        "known": "\"You again. Nothing serious, I hope.\" She has already decided whether it is serious."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a white dispensary coat, laundered past white",
+      "a dark wool dress",
+      "a plain slip and stockings"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_filament_unit_4",
+  "hp": 22,
+  "hp_max": 22,
+  "id": "npc_perpetua_lisk",
+  "name": "Perpetua Lisk",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_pain_pills",
+      "price": 18
+    },
+    {
+      "item_id": "item_bandage",
+      "price": 12
+    },
+    {
+      "item_id": "item_rag_bandage",
+      "price": 6
+    },
+    {
+      "item_id": "item_antirad_tablets",
+      "price": 34
+    },
+    {
+      "item_id": "item_rad_pills",
+      "price": 28
+    },
+    {
+      "item_id": "item_medkit",
+      "price": 62
+    },
+    {
+      "item_id": "item_stim_jolt",
+      "price": 14
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ]
+  },
+  "vendor_shop_name": "Pill Collins",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_pillcollins_counter"
+}

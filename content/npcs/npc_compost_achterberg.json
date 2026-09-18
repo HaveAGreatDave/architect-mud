@@ -1,0 +1,297 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Callum presses soil down round something with two thumbs, very gently.",
+    "He turns a tray a quarter turn toward the light and looks along it.",
+    "He picks a yellow leaf off, looks at it, and does not throw it away.",
+    "\"Come on,\" he says, to a seed tray, without any embarrassment whatsoever.",
+    "He steps over the warm pipes without looking down, out of long habit.",
+    "Rain comes on over the glass and the whole place gets suddenly, enormously loud.",
+    "He runs a hand over the compost heap and leaves it there a second, feeling the warm.",
+    "He looks up through a board panel where a pane should be and says nothing about it.",
+    "He carries a tray flat and level across the gravel, walking like a man on ice."
+  ],
+  "description": "A mild, damp-handed man who talks to things that cannot hear him and is completely unembarrassed about it. He has an enormous patience for a slow process and none whatsoever for being hurried, and he will hand you something and tell you exactly how you are going to kill it, in detail, as a kindness.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "glass": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Whatever came to hand,\" he says, happily. \"Sixty-odd years of panes going and being replaced with what there was. Two bays are plain board where there simply wasn't a pane and there still isn't.\"\n\nHe looks up through it.\n\n\"The light's a different colour in every bay and it makes a real difference to what does well where. I did not design that. I have spent eleven years learning it and I could not build it again on purpose.\""
+    },
+    "pipes": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"All year,\" he says. \"Hot in a frost.\"\n\nHe goes back to the tray.\n\n\"Cats know about them. So do a certain number of people, in the winter, and the policy of this establishment has always been that I arrive at seven and notice nothing before half past.\" A pause. \"I did once find a man asleep under the staging with a seed tray over his face for the warm. We had a perfectly civil conversation and he has never been back.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Half the glass is a different colour.",
+          "next": "glass"
+        },
+        {
+          "label": "The pipes are warm.",
+          "next": "pipes"
+        },
+        {
+          "label": "The board outside says you've checked.",
+          "next": "soil"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Near end's just up, far end's been here a while.\" He does not stop what he is doing to the tray. \"Compost is by weight off the heap. Bring a bag, or don't, we have bags.\"",
+      "text_by_relation": {
+        "familiar": "He is holding something out before you are all the way in, which means he has been waiting to.\n\n\"Split this off the big one at the back,\" he says. \"It's free, it cost me nothing, it would have gone on the heap. You will kill it in about three weeks and I want you to come and tell me how, because that is the useful bit.\"",
+        "first": "The man at the staging is doing something delicate and does not look round.\n\n\"Achterberg. Near end's seed, far end's had a while of it, and everything in here will grow in the soil outside that door, which I have checked, which is why it says so on the board.\"\n\nHe presses something down with a thumb.\n\n\"Most places will sell you a thing that wants a climate we have not got. I find that unforgivable and I have said so, at length, to people who did not ask.\"",
+        "known": "\"Oh, good, you.\" He straightens up. \"How's the one you took? No, don't guess. Tell me what the leaves are doing.\""
+      }
+    },
+    "soil": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because people out this end have been sold things that were never going to take,\" he says, with the first heat he has shown. \"You give somebody their first grow and it dies in a fortnight through no fault of theirs, and that is them done. They will never try again. They'll say they haven't got the knack.\"\n\nHe presses the soil down.\n\n\"There is no knack. There is the right thing in the right dirt, and somebody willing to tell you the truth about which is which.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a body warmer with soil in every seam",
+      "a jumper darned at both elbows",
+      "trousers tucked into socks, and no shoes worth naming"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_compostmentis_yard",
+  "hp": 36,
+  "hp_max": 36,
+  "id": "npc_compost_achterberg",
+  "name": "Callum Achterberg",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_seed_packet",
+      "price": 7
+    },
+    {
+      "item_id": "item_compost_bag",
+      "price": 16
+    },
+    {
+      "item_id": "item_seedling_tray",
+      "price": 21
+    },
+    {
+      "item_id": "item_lamp_greens",
+      "price": 5
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 7,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 7,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 18
+      }
+    ],
+    "sun": [
+      {
+        "from": 7,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Compost Mentis",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_compostmentis_yard"
+}

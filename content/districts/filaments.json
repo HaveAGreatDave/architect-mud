@@ -1,0 +1,17 @@
+{
+  "blurb": "The streetlights here never went out, so people moved in under them and stayed.",
+  "color": "#d8c48a",
+  "id": "filaments",
+  "landmark": "zone_district_895_906",
+  "name": "The Filaments",
+  "prefixes": [],
+  "signature": [
+    "A streetlight hums overhead, burning steady, the way it has since before anyone here was born.",
+    "Washing hangs across a gap between two walls, stiff with cold and not quite dry.",
+    "Somebody's radio leaks down through a floor, tuned between two stations and left there.",
+    "The smell of boiled onions comes up out of a basement grate and hangs about at head height.",
+    "A front door goes, and three others further down the terrace answer it within the minute."
+  ],
+  "skyline": "Halcyon Towers stands over the rooftops with its back turned",
+  "sort": 45
+}

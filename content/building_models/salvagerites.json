@@ -1,0 +1,297 @@
+{
+  "adorn": [
+    {
+      "cx": -0.04,
+      "cy": -0.02,
+      "kind": "latticeTower",
+      "r0": 0.085,
+      "r1": 0.045,
+      "z0": 0.3,
+      "z1": 1.55,
+      "rgb": "178,150,112"
+    },
+    {
+      "cx": -0.04,
+      "cy": -0.02,
+      "kind": "mast",
+      "z0": 1.55,
+      "z1": 1.85
+    },
+    {
+      "cx": -0.04,
+      "cy": -0.02,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "255,150,60",
+      "z": 1.85
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.34,
+      "kind": "glowPool",
+      "rgb": "255,184,96",
+      "s": 14,
+      "z": 0.18
+    },
+    {
+      "cx": -0.04,
+      "cy": -0.02,
+      "kind": "glowPool",
+      "rgb": "255,150,60",
+      "s": 12,
+      "z": 0.32
+    },
+    {
+      "cx": -0.02,
+      "cy": 0.3,
+      "kind": "glowPool",
+      "rgb": "196,226,255",
+      "s": 7,
+      "z": 0.06
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Salvage Rites"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0.26,
+      "cy": 0.38,
+      "half": 0.11,
+      "hh": 0.115,
+      "kind": "shutter",
+      "pal": "ty_junk_shack",
+      "z": 0.16
+    },
+    {
+      "color": "#231a12",
+      "cx": 0.26,
+      "cy": 0.38,
+      "font": "stencil",
+      "half": 0.155,
+      "hh": 0.026,
+      "ink": "#ffb43a",
+      "kind": "signBoard",
+      "label": "SALVAGE RITES",
+      "picto": "hook",
+      "z": 0.4
+    },
+    {
+      "color": "#ff2e8e",
+      "cx": 0.42,
+      "cy": 0.38,
+      "font": "hanzi",
+      "half": 0.032,
+      "kind": "bladePanel",
+      "label": "廢料",
+      "out": 0.095,
+      "pal": "ty_slagw_corr",
+      "z0": 0.24,
+      "z1": 0.4
+    },
+    {
+      "bars": 2,
+      "cx": 0.26,
+      "cy": -0.38,
+      "depth": 0.012,
+      "glass": "#2a1f14",
+      "glow": "#ffcc80",
+      "half": 0.075,
+      "hh": 0.05,
+      "kind": "windowBay",
+      "pal": "ty_junk_shack",
+      "z": 0.3
+    },
+    {
+      "cx": 0.4,
+      "cy": 0.38,
+      "drip": 1,
+      "hh": 0.032,
+      "kind": "vent",
+      "pal": "ty_slagw_corr",
+      "w": 0.045,
+      "z": 0.36
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.22,
+      "half": 0.185,
+      "hh": 0.011,
+      "kind": "parapet",
+      "pal": "ty_slagw_corr",
+      "z": 0.5
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.34,
+      "half": 0.26,
+      "kind": "cableRun",
+      "pal": "ty_slagw_corr",
+      "r": 0.008,
+      "sag": 0.04,
+      "z": 0.27
+    },
+    {
+      "color": "#ff8a2a",
+      "cx": -0.3,
+      "cy": 0.34,
+      "hh": 0.09,
+      "kind": "tag",
+      "n": 4,
+      "v": 9,
+      "w": 0.11,
+      "z": 0.16
+    },
+    {
+      "band": "#1c1610",
+      "count": 2,
+      "cx": 0.44,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_junk_crane",
+      "step": 0.13,
+      "z": 0.004
+    },
+    {
+      "band": "#1c1610",
+      "count": 3,
+      "cx": -0.34,
+      "cy": 0.47,
+      "kind": "bollard",
+      "pal": "ty_junk_crane",
+      "step": 0.12,
+      "z": 0.004
+    },
+    {
+      "cx": -0.42,
+      "cy": 0.42,
+      "d": 0.036,
+      "hh": 0.032,
+      "kind": "binStack",
+      "lid": "#2a2018",
+      "n": 3,
+      "pal": "ty_slagw_corr",
+      "w": 0.045,
+      "z": 0.004
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.13,
+      "pal": "ty_slagw_corr",
+      "r": 0.026,
+      "rgb": "255,196,120",
+      "s": 10,
+      "z0": 0,
+      "z1": 0.085
+    }
+  ],
+  "id": "salvagerites",
+  "neon": "#ffb43a",
+  "note": "SALVAGE RITES — the scrapyard on Ironside Street, and the street's one real vertical.\n\n⚠ IT IS BOUND BY NAME AND REPLACES NOTHING, WHICH IS THE WHOLE REASON IT IS A FILE. `type:junkyard`\ndraws FOUR buildings — Slag & Wares, Thumb On The Scale and The Houndyard as well as this one — so\nredesigning the arm would redesign three yards nobody asked about, in three other districts. A name\nbind takes this tile and leaves the type alone, which is the house rule for a twin.\n\n⚠ THE CRANE IS ADORNMENT AND MUST STAY THAT WAY. A lattice derrick is the tallest thing on Ironside\nStreet and it is also open steel you can see the sky through: as mass it would enter CFIT collision,\nthe ground probe and the occluder hulls as a solid block, and a truck would hit a yard full of air.\n`latticeTower` draws it as strokes, which is both the honest shape and the free one.\n\n⚠ AND THE BALES ARE MASS, BECAUSE THEY ARE. Crushed cars stacked two storeys high is a wall — you\ncannot drive through it and it throws a real shadow — so the stacks are boxes and they are what the\nyard is actually made of. The office is the smallest object on the tile, on purpose.\n\n⚠ THE CONTAINERS ARE WHAT MAKES IT READ AS A YARD, AND THE REASON IS COLOUR RATHER THAN SHAPE. This\nwas five brown boxes — `ty_junk_bale` is [126,72,44] and `ty_slag` [74,60,50] — beside a `ty_junk_shack`\noffice at [104,84,62], on redrock, at the end of a street of brick. Every mass on the tile was the same\nhue within a few points, so the whole thing read as one brown lump with a mast on it, and no amount of\ngeometry fixes that. Two stacked boxes take the container palettes (`ty_cont_r`, `ty_cont_y`, `ty_cont_b`)\nand the yard now has the three saturated accents nothing else on Ironside Street has. The CRUSHED CARS\nstay brown, which is what they are — the point is that they are now brown NEXT TO something.\n\n⚠ A CONTAINER IS LONG AND A BOX IS SQUARE UNLESS YOU SAY OTHERWISE. `box` takes `fd` — the half-depth —\nand it defaults to `hw`, so a container asked for at `hw: 0.30` is a 0.6-square cube and reads as a\nwarehouse. Every stacked box here carries an explicit `fd`.\n\n⚠ THE TORCH IS A GLINT BY DAY AND A LIGHT AT NIGHT, WHICH IS WHAT `s` CONTROLS. `AUTHORED_ADORN.glowPool`\ntakes no night term — unlike `neonBlade`, `marqueeBand` and the rest — so a glow sized to read as a\ncutting torch after dark is a white blob in full sun. `s: 7` is under the size of the thing it sits on,\nwhich is the rule: a glint by day, a bloom at night.\n\n⚠ AND THE YARD SAYS ITS NAME ONCE. The board over the door carries the name, a crane hook (`picto: 'hook'`)\nand nothing else; 廢料 — scrap material — goes on a blade round the corner, which is a SECOND SIGN and not\na second name. `junkyard` is in UNSIGNED_TRADE, so the derived kit will not letter this building at all\nand both of these are authored: the kit is right that a yard's name is on the gate, and this one's gate\nis its office door.",
+  "pal": "ty_junk_shack",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_slag",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.22,
+      "hw": 0.16,
+      "kind": "box",
+      "pal": "ty_junk_shack",
+      "roof": false,
+      "z0": 0.04,
+      "z1": 0.46
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.22,
+      "hw": 0.18,
+      "kind": "box",
+      "pal": "ty_slagw_corr",
+      "roof": true,
+      "z0": 0.46,
+      "z1": 0.5
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.2,
+      "fd": 0.115,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_cont_r",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.3
+    },
+    {
+      "cx": -0.28,
+      "cy": -0.19,
+      "fd": 0.105,
+      "hw": 0.26,
+      "kind": "box",
+      "pal": "ty_cont_y",
+      "roof": true,
+      "z0": 0.3,
+      "z1": 0.54
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.22,
+      "fd": 0.12,
+      "hw": 0.28,
+      "kind": "box",
+      "pal": "ty_cont_b",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.3
+    },
+    {
+      "cx": 0.14,
+      "cy": -0.26,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_junk_bale",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.72
+    },
+    {
+      "cx": 0.14,
+      "cy": -0.26,
+      "hw": 0.115,
+      "kind": "box",
+      "pal": "ty_junk_bale_dk",
+      "roof": true,
+      "z0": 0.72,
+      "z1": 0.94
+    },
+    {
+      "cx": -0.04,
+      "cy": -0.02,
+      "hw": 0.085,
+      "kind": "box",
+      "pal": "ty_junk_crane",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.34
+    }
+  ],
+  "trade": "junkyard"
+}

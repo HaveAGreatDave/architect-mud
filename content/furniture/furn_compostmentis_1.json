@@ -1,0 +1,16 @@
+{
+  "description": "Two long benches of slatted wood running the length of the span, trays along both, seedlings at the near end and things that have been here a while at the far end. The slats let the water through onto the gravel, which is the entire theory of the building.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_compostmentis_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the staging",
+  "object_type": "table",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_compostmentis_yard"
+}

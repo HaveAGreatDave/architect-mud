@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_regerts_stair",
+  "id": "map_int_regerts",
+  "name": "No Regerts",
+  "parent_zone_id": "zone_district_901_905"
+}

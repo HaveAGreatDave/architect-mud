@@ -1,0 +1,19 @@
+{
+  "description": "Screwed to the wall by the door, two columns, no headings, initials down the left. The numbers on it are small and there are a lot of them. Nobody in the hall next door can read it from where they stand and several of them have tried.",
+  "flags": {
+    "aliases": "slate,columns,chalk",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pocket_slate_board",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the slate",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pocket_back"
+}

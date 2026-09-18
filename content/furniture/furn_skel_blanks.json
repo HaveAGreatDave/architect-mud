@@ -1,0 +1,19 @@
+{
+  "description": "Thousands of blanks on nails in banks up the whole wall, sorted by profile in a system that is either genius or forty years of residue. He can put a hand on any one of them. Asked to explain the order, he has said only that it starts at the door.",
+  "flags": {
+    "aliases": "blanks,board,keys,wall",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skel_blanks",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the blank board",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_skelcrew_shop"
+}

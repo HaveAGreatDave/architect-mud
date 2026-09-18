@@ -1,0 +1,297 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Greta squares the knife to the edge of the block, which it already was.",
+    "She wipes the scale face with the side of her hand and turns it a fraction toward you.",
+    "She lifts something off the rail, looks at it, and hangs it back on a different hook.",
+    "She runs a thumb along the dish worn into the middle of the block.",
+    "She sweeps the sawdust out from under the case and lays it down again fresh.",
+    "\"What are you doing with it,\" she says, to a customer, and it is not a question yet.",
+    "She rinses her hands for longer than seems necessary and dries them on a cloth nobody else touches.",
+    "She looks at the front step, decides it is due, and does not go and do it yet.",
+    "The chill plant kicks in downstairs and the floor hums."
+  ],
+  "description": "A tall, unhurried woman who moves in straight lines and does not make a second cut where one will do. Her shop is the cleanest thirty square feet on the street and she is entirely aware of it. She answers questions about price briskly and questions about cooking at length, and she has never in her life allowed anybody to leave with something they were going to ruin.",
+  "dialogue_tree": {
+    "block": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Five years,\" she says, without looking at it. \"Six if I'm careful and I am not going to be careful, because the way you get another six is by working the edges and the edges are not where the work is.\"\n\nShe runs a thumb along the dish in the middle.\n\n\"It was my mother's shop and it was her block. So there will be a day. Everybody who comes in here has worked out that there will be a day and nobody brings it up, which I appreciate more than I am going to say.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "clean": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Thirty square feet, swept twice a day, and I do it myself.\" A small pause. \"You are selling people something that will be inside them by tonight. The window can be the best window on the street and it does not matter at all if the flags outside it are filthy, because people decide on the way in, not at the counter.\"\n\nShe squares the knife again.\n\n\"The shop either side of me has stopped sweeping theirs since I started doing mine. I have decided not to mind.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "The block's worn through.",
+          "next": "block"
+        },
+        {
+          "label": "Your bit of pavement is spotless.",
+          "next": "clean"
+        },
+        {
+          "label": "Why turn the scale round?",
+          "next": "scale"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Case is today. Rail is what's left of today.\" She wipes the scale with the side of her hand. \"Tell me what you're doing with it and I'll tell you what you want, and those are usually two different things.\"",
+      "text_by_relation": {
+        "familiar": "She has something wrapped before you have finished crossing the sawdust.\n\n\"I put this by,\" she says. \"It wants slow and it wants a lid and it wants leaving alone, and you are the only person who comes in here who will actually leave it alone.\"",
+        "first": "The woman behind the block sets down the knife, squares it to the edge, and looks at you.\n\n\"Mbeki. Greta.\" She nods at the slanted case. \"That's today. The rail behind me is what's left of today and it goes home with me at four, so if you come in at half three you do very well out of it.\"\n\nShe turns the scale face toward you a fraction, which it already was.\n\n\"Scale faces you. It has always faced you. I'm not going to make a speech about it, I just want you to have noticed.\"",
+        "known": "\"You.\" She is already reaching. \"Don't tell me. Tell me what you're cooking and I'll tell you what you're buying, we've been through this.\""
+      }
+    },
+    "scale": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because the other way is a choice as well,\" she says, \"and it's a worse one.\"\n\nShe lays a hand flat on the counter.\n\n\"A dial has an honest wobble at the bottom of its travel, and if the customer can't see the wobble then the wobble is mine and everybody in the queue knows it's mine. Turn it round and the wobble belongs to both of us. It costs me a few grams a week.\"\n\nShe goes back to the block.\n\n\"That is not generosity. It is the cheapest thing I have ever bought.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a blue-and-white striped apron over chain mail at the left hand",
+      "a white coat, laundered, with the sleeves short",
+      "black trousers and white clogs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_primesuspect_shop",
+  "hp": 46,
+  "hp_max": 46,
+  "id": "npc_prime_mbeki",
+  "name": "Greta Mbeki",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_raw_meat",
+      "price": 4
+    },
+    {
+      "item_id": "item_sausage",
+      "price": 21
+    },
+    {
+      "item_id": "item_meatballs",
+      "price": 26
+    },
+    {
+      "item_id": "item_tinned_meat",
+      "price": 9
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ]
+  },
+  "vendor_shop_name": "Prime Suspect",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_primesuspect_shop"
+}

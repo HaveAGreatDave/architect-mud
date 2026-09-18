@@ -1,0 +1,20 @@
+{
+  "description": "Tip-up seats on cast standards bolted through the slab, lettered A to N with a gap for the gangway. Most of them sigh when they fold. Row F is the six that were reupholstered, and everybody who comes here regularly sits in one of the six, which is why the brown ones are still sound.",
+  "flags": {
+    "aliases": "seats,seat,row,rows,chairs,row f",
+    "interactions": [
+      "examine",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_seats",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the seats",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_reel_house"
+}

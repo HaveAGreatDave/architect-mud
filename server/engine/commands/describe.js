@@ -44,7 +44,9 @@ import { getItem } from "../items-cache.js";
 import { getPhantomsInZone, applyTransforms, applyNpcTransforms, applyPlayerTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
 import { bodyTell } from "../dreamscape.js";
 import { signalLamp, junctionOffset, isJunction, LAMP_WORD } from "../../../client/shared/traffic.js";
-import { getZonePowerStatus } from "../environment.js";
+// The geese, on exactly the same footing as the signals above: one answer, two surfaces.
+import { flockAt, flockState, gooseHabitat, gooseDaylight, skeinForm } from "../../../client/shared/goose.js";
+import { getZonePowerStatus, getGameHour } from "../environment.js";
 import { mobStatusLabels } from "../effects.js";
 import { sectionFurniture } from "../classify.js";
 import { loggedPanelsSync } from "../presentation.js";
@@ -962,6 +964,62 @@ function junctionSignalLine(zone) {
 	return `\n<span class="signal-row">The signals over the junction show ${ns} north-south, ${ew} east-west.</span>`;
 }
 
+/**
+ * The geese on this tile, as a sentence.
+ *
+ * The windshield paints a flock working the grass; this is the same flock for somebody who is
+ * reading rather than looking. Both call `flockAt`/`flockState` out of client/shared/goose.js, so
+ * the sentence and the picture cannot disagree — a player who reads that a dozen geese are on the
+ * lawn and then drives past an empty one has been lied to by whichever copy drifted. Exactly the
+ * arrangement `junctionSignalLine` above is in, and for the same reason.
+ *
+ * ⚠ GRID 0,0 IS UNSET, NEVER A TILE. Interior zones carry `grid_x`/`grid_y` of 0, and `!= null`
+ * passes for every one of them — so a lattice question asked without this check puts a flock of
+ * geese inside somebody's flat, deterministically, for ever.
+ *
+ * ⚠ AND NOTHING IS EVER SAID ABOUT WHY THEY LOOK LIKE THAT. The extra wing gets mentioned the way
+ * you would mention a limp. No line explains it, no line calls them mutants, and no line is
+ * surprised — see docs/lore-wildblood.md on the difference that makes.
+ */
+const GOOSE_GROUND_LINES = [
+	(n) => `${n === 1 ? "A goose is" : `${n} geese are`} working the grass, unhurried and entirely unafraid of you.`,
+	(n) => `${n === 1 ? "A goose has" : `${n} geese have`} the run of the grass here. One of them watches you the whole way past.`,
+	(n) => `${n === 1 ? "A goose picks" : `${n} geese pick`} over the turf. The big one drags a third wing it has never once opened.`,
+	(n) => `${n === 1 ? "A goose stands" : `${n} geese stand`} about on the grass, patched and bald in places, in no hurry at all.`,
+];
+const GOOSE_WATER_LINES = [
+	(n) => `${n === 1 ? "A goose sits" : `${n} geese sit`} out on the water, riding the slop.`,
+	(n) => `${n === 1 ? "A goose rafts" : `${n} geese raft`} a little way out, turning slowly with the current.`,
+];
+// ⚠ THE SHAPE IS THE ONE THE WINDSCREEN IS DRAWING, not a word picked for flavour. The formation
+// lives in goose.js with the rest of the cycle, so a reader standing in the field and a driver
+// looking up at the same flock are told the same thing about it. A word chosen here would be one
+// more place for the sentence and the picture to drift apart, which is what this module is for.
+const SKEIN_SHAPE = { v: "a loose V", j: "a lopsided V, one arm longer than the other", ech: "one long ragged line" };
+const GOOSE_AIR_LINES = [
+	() => `Somewhere overhead the flock is up and turning, complaining about it the whole way.`,
+	(n, shape) => `A skein of geese goes over in ${shape}, low enough to hear, and comes round again.`,
+];
+
+function gooseLine(zone) {
+	const t = zone?.flags?.terrain;
+	if (!t) return "";
+	const habitat = gooseHabitat(t);
+	if (!habitat) return "";
+	const gx = zone.grid_x, gy = zone.grid_y;
+	if (gx == null || gy == null || (gx === 0 && gy === 0)) return "";
+	if (zone.flags?.is_building || zone.flags?.building_type) return "";
+	if (!gooseDaylight(getGameHour())) return "";
+	const flock = flockAt(gx, gy);
+	if (!flock) return "";
+	const st = flockState(flock, Date.now());
+	const pool = st.airborne ? GOOSE_AIR_LINES : habitat === "raft" ? GOOSE_WATER_LINES : GOOSE_GROUND_LINES;
+	// Deterministic off the tile, so a field keeps its own sentence rather than rerolling one every
+	// time somebody walks back into it.
+	const line = pool[(gx * 7 + gy * 13) % pool.length](st.n, SKEIN_SHAPE[skeinForm(flock).form]);
+	return `\n<span class="ambient-row">${line}</span>`;
+}
+
 export async function describeZone(zone, player, out = {}) {
 	const vis = getZoneVisibility(zone.id);
 	// Per-player perception seam: a carried light source (e.g. a lit flashlight)
@@ -1754,6 +1812,7 @@ export async function describeZone(zone, player, out = {}) {
 		desc += `\n<span class="exits-row"><span class="exits-label">Exits:</span> ${exitLinks.join(", ")}</span>`;
 	}
 	desc += junctionSignalLine(zone);
+	desc += gooseLine(zone);
 	if (buildings.length) {
 		const links = await Promise.all(buildings.map(async (b) =>
 			destLink(b.direction, b.name, "building-link", shutTag(b.targetId, player)?.lockAttr) +

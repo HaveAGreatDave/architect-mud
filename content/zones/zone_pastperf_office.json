@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#201e19",
+  "description": "Where the labels are written, and there are a great many. A typewriter, a card index, a guillotine, and a rack of half-finished cases. Boxes on the floor holding objects that have not been catalogued yet, each with a slip in it saying where it came from and who brought it, which is the part of the record that is scrupulous and true. On the wall, a map of the basin with pins in it, and beside each pin a number that refers to a card in the index.",
+  "exits": {
+    "west": "zone_pastperf_hall"
+  },
+  "flags": {
+    "building_name": "Past Perfect",
+    "building_type": "museum",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_914"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_pastperf_office",
+  "map_id": "map_int_pastperf",
+  "name": "Past Perfect — The Workroom",
+  "parent_zone": "zone_district_916_914"
+}

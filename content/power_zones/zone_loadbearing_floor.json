@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_loadbearing_floor",
+  "id": "zone_loadbearing_floor",
+  "max_capacity_kw": 1200,
+  "name": "Load Bearing",
+  "source_type": "junction_box"
+}

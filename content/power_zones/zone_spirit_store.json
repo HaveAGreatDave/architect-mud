@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_spirit_shop",
+  "id": "zone_spirit_store",
+  "max_capacity_kw": 200,
+  "name": "Spirit Level — The Store",
+  "source_type": "city_grid"
+}

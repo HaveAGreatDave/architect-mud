@@ -1,0 +1,19 @@
+{
+  "description": "Both walls of the stair, solid with inked card, oldest at the bottom where the damp has been at them. Snakes, hearts, anchors, an unreasonable number of birds. Some have a small red dot in the corner. Nothing anywhere explains the dots and everybody who has been up twice has a theory.",
+  "flags": {
+    "aliases": "flash,sheets,designs,cards,wall",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_regerts_flash",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the flash sheets",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_regerts_stair"
+}

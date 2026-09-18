@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A low utility room under the shop: bare brick, a concrete floor that slopes to a drain, and the building junction box humming in its steel cabinet. The ovens back onto it through the wall, so the room runs about ten degrees hot and everything metal in it is warm to the touch.",
+  "exits": {
+    "up": "zone_loafing_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_907_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_loafing_shop",
+  "map_id": "map_int_loafing",
+  "name": "Loafing Around — Utility Room",
+  "parent_zone": "zone_district_907_914"
+}

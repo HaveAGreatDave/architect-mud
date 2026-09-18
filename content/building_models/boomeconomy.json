@@ -1,0 +1,297 @@
+{
+  "adorn": [
+    {
+      "cx": -0.12,
+      "cy": -0.01,
+      "kind": "mast",
+      "z0": 1.44,
+      "z1": 1.58
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.01,
+      "kind": "latticeTower",
+      "r0": 0.07,
+      "r1": 0.02,
+      "z0": 0.9,
+      "z1": 1.44
+    },
+    {
+      "cx": 0,
+      "cy": 0.76,
+      "kind": "blinkLight",
+      "r": 1.5,
+      "rgb": "255,86,64",
+      "z": 0.89
+    },
+    {
+      "cx": 0,
+      "cy": 0.06,
+      "kind": "glowPool",
+      "rgb": "255,180,110",
+      "s": 24,
+      "z": 0.03
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "The Boom Economy"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.28,
+      "hh": 0.018,
+      "kind": "parapet",
+      "pal": "ty_gantry",
+      "z": 0.9
+    },
+    {
+      "color": "#241c18",
+      "cx": 0,
+      "cy": 0.23,
+      "font": "stencil",
+      "half": 0.2,
+      "hh": 0.028,
+      "ink": "#e8c34a",
+      "kind": "signBoard",
+      "label": "$name",
+      "z": 0.852
+    },
+    {
+      "cx": 0.1,
+      "cy": -0.19,
+      "drip": 0.05,
+      "hh": 0.026,
+      "kind": "vent",
+      "pal": "ty_stack_dk",
+      "w": 0.05,
+      "z": 0.96
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "cx": -0.18,
+        "cy": 0.23,
+        "kind": "pipe",
+        "pal": "ty_stack_dk",
+        "r": 0.01,
+        "z0": 0.05,
+        "z1": 0.8
+      },
+      "step": {
+        "cx": 0.03
+      }
+    },
+    {
+      "band": "#e8c34a",
+      "count": 3,
+      "cx": -0.2,
+      "cy": 0.34,
+      "hh": 0.026,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "r": 0.017,
+      "step": 0.18,
+      "z": 0
+    }
+  ],
+  "id": "boomeconomy",
+  "neon": "#ffb43a",
+  "pal": "ty_wharf_steel",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": -0.19,
+      "fd": 0.035,
+      "hw": 0.31,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0.19,
+      "fd": 0.035,
+      "hw": 0.31,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": -0.25,
+      "cy": -0.19,
+      "fd": 0.038,
+      "hw": 0.038,
+      "kind": "box",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.84
+    },
+    {
+      "cx": 0.25,
+      "cy": -0.19,
+      "fd": 0.038,
+      "hw": 0.038,
+      "kind": "box",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.84
+    },
+    {
+      "cx": -0.25,
+      "cy": 0.19,
+      "fd": 0.038,
+      "hw": 0.038,
+      "kind": "box",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.84
+    },
+    {
+      "cx": 0.25,
+      "cy": 0.19,
+      "fd": 0.038,
+      "hw": 0.038,
+      "kind": "box",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.84
+    },
+    {
+      "cx": 0,
+      "cy": -0.19,
+      "fd": 0.03,
+      "hw": 0.27,
+      "kind": "box",
+      "pal": "ty_gantry",
+      "roof": true,
+      "z0": 0.34,
+      "z1": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0.19,
+      "fd": 0.03,
+      "hw": 0.27,
+      "kind": "box",
+      "pal": "ty_gantry",
+      "roof": true,
+      "z0": 0.34,
+      "z1": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.23,
+      "hw": 0.28,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.8,
+      "z1": 0.9
+    },
+    {
+      "cx": 0.1,
+      "cy": -0.08,
+      "fd": 0.11,
+      "hw": 0.15,
+      "kind": "box",
+      "pal": "ty_junk_crane",
+      "roof": true,
+      "z0": 0.9,
+      "z1": 1.02
+    },
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "fd": 0.24,
+      "hw": 0.07,
+      "kind": "box",
+      "pal": "ty_gantry",
+      "roof": true,
+      "z0": 0.82,
+      "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0.62,
+      "fd": 0.14,
+      "hw": 0.056,
+      "kind": "box",
+      "pal": "ty_gantry",
+      "roof": true,
+      "z0": 0.83,
+      "z1": 0.89
+    },
+    {
+      "cx": 0,
+      "cy": -0.34,
+      "fd": 0.17,
+      "hw": 0.066,
+      "kind": "box",
+      "pal": "ty_gantry",
+      "roof": true,
+      "z0": 0.82,
+      "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": -0.46,
+      "fd": 0.08,
+      "hw": 0.105,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.7,
+      "z1": 0.86
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.01,
+      "fd": 0.05,
+      "hw": 0.05,
+      "kind": "box",
+      "pal": "ty_gantry",
+      "roof": true,
+      "z0": 0.9,
+      "z1": 1.44
+    },
+    {
+      "cx": 0,
+      "cy": 0.14,
+      "fd": 0.046,
+      "hw": 0.046,
+      "kind": "box",
+      "pal": "ty_junk_crane",
+      "roof": true,
+      "z0": 0.74,
+      "z1": 0.82
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.23,
+      "fd": 0.046,
+      "hw": 0.042,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.69,
+      "z1": 0.8
+    }
+  ],
+  "signWorks": true,
+  "trade": "wharf"
+}

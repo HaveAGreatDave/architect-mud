@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_900_905",
+  "b": "zone_restassured_hall",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_900_905_north_0t3l",
+  "lockable": true,
+  "one_way": false
+}

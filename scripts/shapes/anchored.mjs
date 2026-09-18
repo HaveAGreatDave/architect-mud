@@ -69,14 +69,30 @@ for (const file of files) {
     const half = d.half ?? d.w ?? d.r ?? 0.02;
     const zLo = d.z0 ?? ((d.z ?? 0) - (d.hh ?? 0));
     const zHi = d.z1 ?? ((d.z ?? 0) + (d.hh ?? 0));
-    const px0 = cx - half, px1 = cx + half;
+    // ── ⚠ A FLANK PART IS MEASURED IN THE ROTATED FRAME, AND THIS GATE USED TO MEASURE IT IN THE
+    // FRONT ONE. `face: 'x'` turns the local frame (see the ⚠ on `face` in
+    // client/shared/building-model-schema.js): `cy` becomes the part's position along the model's
+    // X, and `cx` runs along NEGATIVE Y. So a fire escape correctly bolted to a flank at cy = hw
+    // was being held against the box's FRONT and BACK planes, which are at ±fd — and on any
+    // building that is not square in plan those are different numbers. It reported six real,
+    // correctly-placed parts as floating, off by exactly `hw − fd` every time.
+    //
+    // ⚠ AND IT HAD NEVER MET THE CASE. Every `face: 'x'` in `content/building_models/` was authored
+    // in one pass, months after this gate; before that the key was used only by `derivedKit`, which
+    // this half of the file does not read. A gate with a blind spot nothing has walked into yet
+    // looks exactly like a gate that works.
+    const flank = d.face === 'x';
+    const planes = flank ? boxes.map((b) => ({ ...b, front: b.x1, back: b.x0, x0: b.back, x1: b.front }))
+      : boxes;
+    const along = flank ? -cx : cx;
+    const px0 = along - half, px1 = along + half;
 
     // A wall on the right plane, overlapping this part's height, that covers its width.
-    const onPlane = boxes.filter((b) =>
+    const onPlane = planes.filter((b) =>
       (Math.abs(b.front - cy) <= PLANE_TOL || Math.abs(b.back - cy) <= PLANE_TOL) &&
       b.z1 > zLo + 1e-6 && b.z0 < zHi - 1e-6);
     if (!onPlane.length) {
-      const near = boxes.map((b) => Math.min(Math.abs(b.front - cy), Math.abs(b.back - cy)))
+      const near = planes.map((b) => Math.min(Math.abs(b.front - cy), Math.abs(b.back - cy)))
         .reduce((a, b) => Math.min(a, b), 9);
       problems.push(`${file}: ${d.kind} at cy ${cy} z ${zLo.toFixed(2)}..${zHi.toFixed(2)} is mounted on no wall `
         + `— nearest face plane is ${near.toFixed(3)} away`);
@@ -134,8 +150,15 @@ const FH = 0.4, H = 1, SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
 const V = (p) => (Array.isArray(p) ? p[0] * FH + p[1] * H + p[2] : (p ?? 0));
 
 const STANDS = new Set(['roofTank', 'tankFrame', 'stack', 'antennaCluster', 'acUnit', 'signGantry']);
+// ⚠ `tag` IS IN HERE AND WAS NOT, WHICH IS HOW A PIECE CAME TO BE HANGING OFF A CRANE. Paint is as
+// bolted to a wall as a vent is, and leaving it out of this set meant the twelve authored ones were
+// checked by nothing at all: `Load of Old Rope` carries a tag spanning the gap BETWEEN two legs of
+// a gantry, with 97% of it over open air, and `Velk's Pre-Owned` had one 0.0075 of a tile past the
+// corner at the authoring basis (and a fifth of a tile past it at the top of the footprint roll —
+// see wallSpanAt, which is the renderer's own half of that fix).
 const WALL = new Set(['windowBay', 'louvreBank', 'signBoard', 'bladePanel', 'canopy', 'shutter', 'vent',
-  'fireEscape', 'balcony', 'conduit', 'cableRun', 'ductRun', 'pipe', 'marqueeBand', 'awning', 'neonRun']);
+  'fireEscape', 'balcony', 'conduit', 'cableRun', 'ductRun', 'pipe', 'marqueeBand', 'awning', 'neonRun',
+  'tag']);
 // On the PAVEMENT, not on the building — see the ⚠ on the kerb props in derivedKit. A parapet is a
 // ring derived from the deck it is placed on, so it is anchored by construction.
 const OFF_BUILDING = new Set(['streetLamp', 'bollard', 'vendingMachine', 'facadeGlow', 'parapet']);
@@ -148,8 +171,11 @@ function regSolids(segs) {
     const cx = V(s.cx), cy = V(s.cy), z0 = V(s.z0), z1 = V(s.z1);
     if (s.kind === 'box') {
       if (s.yaw) continue;   // a rotated box needs a rotated test; the kit places on none
-      const hw = Math.min(V(s.hwRaw), 0.44), fd = Math.min(s.fdRaw ? V(s.fdRaw) : hw, 0.44);
-      out.push({ t: 'aabb', x0: cx - hw, x1: cx + hw, y0: cy - fd, y1: cy + fd, z0, z1 });
+      // ⚠ `segFit`, NOT a local `min(hwRaw, 0.44)`. The capture is raw and the renderer applies TWO
+      // clamps to it — the half-width cap and the plot-line fit — so a gate holding parts against a
+      // hand-resolved footprint is holding them against a building that is not the one drawn.
+      const f = ws.segFit(s, V);
+      out.push({ t: 'aabb', x0: f.cx - f.hw, x1: f.cx + f.hw, y0: f.cy - f.fd, y1: f.cy + f.fd, z0, z1 });
     } else if (s.kind === 'drum') {
       out.push({ t: 'cyl', cx, cy, rb: V(s.rb), rt: V(s.rt != null ? s.rt : s.rb), z0, z1 });
     } else if (s.kind === 'barrel') {
@@ -177,6 +203,23 @@ function regPlaneGap(s, plane, flank) {
   const r = (s.rb + s.rt) / 2, c = flank ? s.cx : s.cy;
   return Math.min(Math.abs(c + r - plane), Math.abs(c - r - plane));
 }
+
+// ⚠ AND THE ONE PART THAT IS MEANT TO LEAVE ITS OWN BUILDING. Everything above asks whether a
+// part is attached to THIS model, because a model is all a per-model gate can see — and that is
+// right for every part in the registry but one. Second Helpings and the Coldwater Clone Facility
+// share a party wall, and the service main that feeds the shop runs out of the facility, which
+// is on the next tile. The gate cannot see that wall and never will, so the run reads as 0.52
+// tiles hanging off the end of nothing.
+//
+// ⚠ A REASON, NEVER A BUDGET, AND NEVER A BARE NAME. Overhang is held at zero on purpose (see
+// the ⚠ on BURIED_BUDGET) and a number that may be nudged is a gate that stops meaning
+// anything. An entry here says which model, which kind, and what carries the far end — so the
+// next person to read it can check the claim instead of trusting it. The far end of this one is
+// asserted where it is authored: the facility’s block is always clamped to a 0.44 half-width, so
+// its wall is at a constant 0.56 from this tile’s centre and the run ends 0.39 inside it.
+const CROSSES_TO_NEIGHBOUR = new Map([
+  ['named:secondhelpings · conduit', 'runs onto the Coldwater Clone Facility’s east wall — the two share a party wall'],
+]);
 
 const floating = new Map(), overhang = new Map(), inMass = new Map();
 let regChecked = 0;
@@ -224,6 +267,7 @@ for (const seed of SEEDS) {
         let unc = 0;
         for (let x = a0; x <= a1 + 1e-9; x += step) if (!on.some((s) => tan(s, x))) unc += step;
         if (unc <= R_OVER) continue;
+        if (CROSSES_TO_NEIGHBOUR.has(key + ' · ' + d.kind)) continue;
         note(overhang, key, d.kind, unc.toFixed(2) + ' tiles of it past the end of its wall');
         continue;
       }

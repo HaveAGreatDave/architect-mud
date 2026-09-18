@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Under the foyer, and older than it: a brick undercroft with a barrel ceiling, half of it taken up by the building's junction cabinet and the rest by racking. The racking holds film cans, stacked flat, four deep, labelled in a hand that stopped being used some time ago. A dehumidifier runs in the corner because the alternative is vinegar, and anybody who has smelled a reel go that way runs one too.",
+  "exits": {
+    "up": "zone_reel_foyer"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_912_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_reel_foyer",
+  "map_id": "map_int_reel",
+  "name": "Reel Estate — The Foyer — Utility Room",
+  "parent_zone": "zone_district_912_914"
+}

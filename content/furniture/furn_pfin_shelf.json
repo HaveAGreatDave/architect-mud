@@ -1,0 +1,19 @@
+{
+  "description": "A ledge at elbow height down the right-hand wall, varnished once and worn back to timber in seven places where seven people stand. A rack of blank slips at one end, a row of pencils on strings along it, and three of the strings end in nothing at all.",
+  "flags": {
+    "aliases": "shelf,ledge,pencils,slips",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pfin_shelf",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the writing shelf",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pfin_shop"
+}

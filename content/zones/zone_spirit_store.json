@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#191713",
+  "description": "The real stock, behind a door with a bar across it. Cases to the roof on pallets, dated on the end with a marker, rotated properly. A cage in the corner with the things that people come a long way for, and the cage has a better lock on it than the front of the building does, which tells you how he has arranged his fears.",
+  "exits": {
+    "west": "zone_spirit_shop"
+  },
+  "flags": {
+    "building_name": "Spirit Level",
+    "building_type": "off_licence",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_914"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_spirit_store",
+  "map_id": "map_int_spirit",
+  "name": "Spirit Level — The Store",
+  "parent_zone": "zone_district_919_914"
+}

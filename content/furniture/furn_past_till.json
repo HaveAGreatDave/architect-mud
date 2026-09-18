@@ -1,0 +1,19 @@
+{
+  "description": "A tobacco tin in the desk with the museum’s entire operating float in it, which is small, and a folded paper listing what he has spent of his own money on the place, which is not. The second list is in the same careful hand as the labels.",
+  "flags": {
+    "aliases": "till,cash,money,box",
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_past_mullan",
+    "vendor_safe": true
+  },
+  "hp": 160,
+  "hp_max": 160,
+  "id": "furn_past_till",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tin",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pastperf_office"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_line_spool",
+  "name": "spool of line",
+  "tags": {
+    "description": "A plastic spool of monofilament with the breaking strain printed on the flange. It has a memory of the spool in it for the first few yards, which every single person who buys one is told about and half of them listen.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 17,
+  "weight": 180
+}

@@ -1,0 +1,21 @@
+{
+  "description": "A three-manual console in cream and gilt in the pit below the screen, on a lift that stopped rising some time before people stopped mentioning it. The stop tabs are out in a registration nobody has changed. Under the pedals, in pencil on the boards: a name, a date, and LAST ONE OUT.",
+  "flags": {
+    "aliases": "organ,console,wurlitzer,pit",
+    "instrument": "organ",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_organ",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the house organ",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 5200,
+  "zone_id": "zone_reel_house"
+}

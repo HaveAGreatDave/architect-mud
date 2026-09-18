@@ -1,24 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#191620",
+  "description": "A shuttered unit at street level with a door beside it, and the door is the business. Up the right-hand side of the building, from the pavement to the first floor, runs a tall narrow window in four panes, and behind the glass, lit all night, are the flash sheets: hundreds of designs inked on card and pinned edge to edge up the whole stair. From the far pavement it is a vertical strip of light on a dark building and it is the only thing of its shape anywhere in Coldwater. Painted over the door, in an outlined script somebody was clearly paid well for: NO REGERTS.",
   "exits": {
-    "east": "zone_district_902_905",
-    "north": "zone_district_901_904",
     "south": "zone_district_901_906",
-    "west": "zone_district_900_905"
+    "north": "zone_regerts_stair"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "No Regerts",
+    "building_type": "tattooist",
+    "district": "filaments",
+    "entrance": "south",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_901_906"
   },
   "grid_x": 901,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_901_905",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "IK",
+  "name": "No Regerts",
   "parent_zone": null
 }

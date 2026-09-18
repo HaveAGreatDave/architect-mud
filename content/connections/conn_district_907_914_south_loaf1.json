@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_907_914",
+  "b": "zone_loafing_shop",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_907_914_south_loaf1",
+  "lockable": true,
+  "one_way": false
+}

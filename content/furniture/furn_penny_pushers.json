@@ -1,0 +1,19 @@
+{
+  "description": "Two of them at the front, lit from inside like altars, the shelves creeping out and back with a sound like a slow train. The front edge of each is a cliff of tarnished pennies leaning over the drop, and it has been about to fall for eleven years, and it is not going to.",
+  "flags": {
+    "aliases": "pusher,pushers,falls,penny falls",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penny_pushers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the coin pushers",
+  "object_type": "fixture",
+  "power_draw_kw": 0.2,
+  "price": 0,
+  "zone_id": "zone_penny_floor"
+}

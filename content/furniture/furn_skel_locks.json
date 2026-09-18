@@ -1,0 +1,19 @@
+{
+  "description": "Locks in pieces on a green cloth, each on its own square of paper with its screws in a dish. Seven at the moment. None of them belongs to a customer: they are ones he has bought to take apart, which he does to every model that reaches Coldwater before he will sell one.",
+  "flags": {
+    "aliases": "bench,locks,cloth,green cloth",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skel_locks",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the strip-down bench",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_skelcrew_back"
+}

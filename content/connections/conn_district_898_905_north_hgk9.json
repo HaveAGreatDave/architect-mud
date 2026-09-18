@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_898_905",
+  "b": "zone_skelcrew_shop",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_898_905_north_hgk9",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,14 @@
+{
+  "description": "A single shaded lamp over the single table, hung lower than the eight next door, so the light stops at the cushions and the rest of the room is people-shaped shapes.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_pocket_back",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the one lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_pocket_back"
+}

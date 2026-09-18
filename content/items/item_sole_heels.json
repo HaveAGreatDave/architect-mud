@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_sole_heels",
+  "name": "set of stacked heels",
+  "tags": {
+    "stackable": true,
+    "description": "Four lifts glued and pinned, squared up on the wheel, with a rubber top piece because he is not a purist about the bit that meets the road. Worn evenly they last a year. Nobody wears them evenly."
+  },
+  "type": "material",
+  "value": 28,
+  "weight": 180
+}

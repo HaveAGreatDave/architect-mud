@@ -23,20 +23,63 @@ let suppressed = false;          // hard override — on while a panel that draw
 // either order ends with the overlay off, which is the only answer that is right both ways round.
 const suppressors = new Set();
 
-// Current *target* effect descriptor: { effect, intensity, windKph }. `effect` is
-// one of 'rain' | 'snow' | 'ash' | 'fog' | 'wind' | 'none'; intensity is 0..1.
-let cur = { effect: 'none', intensity: 0, windKph: 0 };
+// ── TWO SLOTS, BECAUSE A SYMPTOM IS NOT WEATHER AND DOES NOT REPLACE IT ──────
+//
+// This was one effect. `cur`, `active`, `presence`, `dispIntensity` and the three
+// particle pools were all module singletons, so the canvas could draw exactly one
+// thing — and environment.js resolved that one thing with a priority ladder in
+// which a drug returned early. Take a psychedelic in the rain and THE RAIN STOPPED.
+// It is still raining; the drug does not reach the sky.
+//
+// So the state is a SLOT, and there are two of them: the weather falling outside,
+// and the symptom behind your eye. Each eases on its own clock and owns its own
+// pools, so a shower can ramp down while a come-up ramps in and neither reseeds the
+// other. Drawn weather-first: the world is underneath and the symptom sits on it.
+//
+// ⚠ THE FILE ALREADY KNEW HOW TO LAYER AND THIS IS THE THIRD TIME. `eventFx` (ion
+// storm, acid rain) is composited over the base effect, and `fireworksGlow` has its
+// own channel expressly so it cannot clobber a hero event. What was missing was a
+// second slot of the SAME class, which is the only pair that shared a particle pool.
+//
+// ⚠ AND THE GLOBALS ARE GONE RATHER THAN DEFAULTED. Every read is now `S.active`,
+// `S.presence`, `S.cur` and so on, passed down through drawBase/reseed/targetCount/
+// spawnParticle. A missed one would otherwise be a silent read of whichever slot
+// happened to run last — the exact bug class this change exists to remove — so
+// there is nothing left at module scope to read, and a miss is a ReferenceError the
+// first time that branch draws. weatherfx-smoke runs every branch.
+//
+// Per slot:
+//   cur           the TARGET descriptor: { effect, intensity, windKph }.
+//   active        the effect actually being drawn; while it differs from cur.effect
+//                 we are retiring the old one (presence → 0) before switching.
+//   presence      0..1 fade factor — 1 = fully present, 0 = gone. Drives the
+//                 appear/retire fade all the way down to zero particles.
+//   dispIntensity eased copy of cur.intensity, so a rain level change (light↔heavy)
+//                 ramps smoothly rather than jumping the particle count.
+//   particles / fogBlobs / strands — this slot's own pools. `bloom` reuses the fog
+//                 blob pool and `veins` the strand pool, which is why all three are
+//                 per-slot and not just `particles`.
+function makeSlot(name) {
+  return {
+    name,
+    cur: { effect: 'none', intensity: 0, windKph: 0 },
+    active: 'none',
+    presence: 0,
+    dispIntensity: 0,
+    particles: [],
+    fogBlobs: [],
+    // `veins` grows pre-computed branching polylines rather than particles: a
+    // filament has to stay the same filament between frames or it reads as noise,
+    // and it creeps by revealing more of its own length, not by moving.
+    strands: [],
+  };
+}
 
-// Rendered state, eased toward the target so weather ramps in/out instead of
-// snapping. `active` is the effect actually being drawn; while it differs from
-// `cur.effect` we're retiring the old one (presence → 0) before switching.
-//   presence     0..1 fade factor — 1 = fully present, 0 = gone. Drives the
-//                appear/retire fade all the way down to zero particles.
-//   dispIntensity eased copy of cur.intensity, so a rain level change (light↔
-//                heavy) ramps smoothly rather than jumping the particle count.
-let active = 'none';
-let presence = 0;
-let dispIntensity = 0;
+// ⚠ ORDER IS DRAW ORDER. Weather is the world and goes down first; a symptom is
+// already behind the eye and lies on top of it.
+const weatherSlot = makeSlot('weather');
+const drugSlot = makeSlot('drug');
+const SLOTS = [weatherSlot, drugSlot];
 const PRES_RATE = 0.5;   // presence units/sec → ~2s to fully fade in or out
 const INT_RATE = 0.6;    // intensity units/sec → smooth ramp between levels
 
@@ -76,14 +119,14 @@ function approach(v, target, step) {
 
 // Ease presence/intensity and, once a retiring effect has fully faded, swap to
 // the new target effect and begin fading it in. Called each frame from draw().
-function updateTransition(dt) {
-  const retiring = active !== cur.effect;
-  presence = approach(presence, (retiring || active === 'none') ? 0 : 1, dt * PRES_RATE);
-  if (!retiring) dispIntensity = approach(dispIntensity, cur.intensity, dt * INT_RATE);
-  if (retiring && presence <= 0.001) {
-    active = cur.effect;
-    dispIntensity = 0;      // ramp the incoming effect up from nothing
-    reseed();
+function updateTransition(S, dt) {
+  const retiring = S.active !== S.cur.effect;
+  S.presence = approach(S.presence, (retiring || S.active === 'none') ? 0 : 1, dt * PRES_RATE);
+  if (!retiring) S.dispIntensity = approach(S.dispIntensity, S.cur.intensity, dt * INT_RATE);
+  if (retiring && S.presence <= 0.001) {
+    S.active = S.cur.effect;
+    S.dispIntensity = 0;      // ramp the incoming effect up from nothing
+    reseed(S);
   }
 }
 
@@ -111,12 +154,6 @@ let glowT = 0;
 let bursts = [];
 let shells = [];
 
-let particles = [];
-let fogBlobs = [];
-// `veins` grows pre-computed branching polylines rather than particles: a
-// filament has to stay the same filament between frames or it reads as noise,
-// and it creeps by revealing more of its own length, not by moving.
-let strands = [];
 let lastT = 0;
 let paneRect = { left: 0, top: 0, width: 0, height: 0 };
 
@@ -181,7 +218,7 @@ function syncRect() {
 
 // Target particle count for the active effect, scaled by pane area so a big
 // desktop pane isn't sparse and a small mobile one isn't a blizzard.
-function targetCount() {
+function targetCount(S) {
   const area = paneRect.width * paneRect.height;
   const density = area / 9000; // ~1 particle per 9k px² at full intensity
   // Uses the eased dispIntensity so a level change ramps the count, and the
@@ -190,19 +227,19 @@ function targetCount() {
   // Rain keeps a healthy floor (0.9·density) so even a light drizzle reads as
   // rain, then scales up with intensity — always visible while fully present.
   let base = 0;
-  if (active === 'rain') base = density * (0.9 + 1.6 * dispIntensity);
-  else if (active === 'snow') base = density * (0.2 + 0.5 * dispIntensity);
-  else if (active === 'ash')  base = density * (0.15 + 0.35 * dispIntensity);
-  else if (active === 'wind') base = density * (0.03 + 0.05 * dispIntensity);
+  if (S.active === 'rain') base = density * (0.9 + 1.6 * S.dispIntensity);
+  else if (S.active === 'snow') base = density * (0.2 + 0.5 * S.dispIntensity);
+  else if (S.active === 'ash')  base = density * (0.15 + 0.35 * S.dispIntensity);
+  else if (S.active === 'wind') base = density * (0.03 + 0.05 * S.dispIntensity);
   // ── drug symptoms ──
-  else if (active === 'static')  base = density * (2.0 + 6.0 * dispIntensity);  // dense grain, the whole field
-  else if (active === 'tracers') base = density * (0.05 + 0.16 * dispIntensity); // few, and each leaves a tail
-  else if (active === 'crawl')   base = density * (0.5 + 1.1 * dispIntensity);   // a lattice that will not sit still
-  else if (active === 'spiders') base = density * (0.10 + 0.25 * dispIntensity); // a handful, and a handful is plenty
-  else if (active === 'glitter') base = density * (0.3 + 1.2 * dispIntensity);   // pinpricks, popping
-  else if (active === 'smear')   base = density * (0.10 + 0.25 * dispIntensity); // long streaks; more would be a blur
-  else if (active === 'embers')  base = density * (0.25 + 0.55 * dispIntensity); // motes rising, unhurried
-  const n = Math.round(base * presence);
+  else if (S.active === 'static')  base = density * (2.0 + 6.0 * S.dispIntensity);  // dense grain, the whole field
+  else if (S.active === 'tracers') base = density * (0.05 + 0.16 * S.dispIntensity); // few, and each leaves a tail
+  else if (S.active === 'crawl')   base = density * (0.5 + 1.1 * S.dispIntensity);   // a lattice that will not sit still
+  else if (S.active === 'spiders') base = density * (0.10 + 0.25 * S.dispIntensity); // a handful, and a handful is plenty
+  else if (S.active === 'glitter') base = density * (0.3 + 1.2 * S.dispIntensity);   // pinpricks, popping
+  else if (S.active === 'smear')   base = density * (0.10 + 0.25 * S.dispIntensity); // long streaks; more would be a blur
+  else if (S.active === 'embers')  base = density * (0.25 + 0.55 * S.dispIntensity); // motes rising, unhurried
+  const n = Math.round(base * S.presence);
 
   // ⚠ A SPARSE EFFECT ROUNDS TO ZERO ON A SMALL PANE, and zero is not subtle, it
   // is absent. `tracers` is deliberately thin — a handful of points, each with a
@@ -215,7 +252,7 @@ function targetCount() {
   // Weather is left alone on purpose: `wind` has the same behaviour (0 particles
   // below roughly 700×400) and changing it is a visible change to ordinary
   // weather on every small screen, which is a separate decision from this one.
-  if (n === 0 && presence > 0.05 && PARTICLE_SYMPTOMS.includes(active)) return 1;
+  if (n === 0 && S.presence > 0.05 && PARTICLE_SYMPTOMS.includes(S.active)) return 1;
   return n;
 }
 
@@ -228,29 +265,29 @@ export const PARTICLE_SYMPTOMS = ['static', 'tracers', 'crawl', 'spiders', 'glit
 
 function rand(a, b) { return a + Math.random() * (b - a); }
 
-function spawnParticle(fromTop) {
+function spawnParticle(S, fromTop) {
   const w = paneRect.width, h = paneRect.height;
-  const wind = cur.windKph / 60; // 0..~1.5
-  if (active === 'rain') {
+  const wind = S.cur.windKph / 60; // 0..~1.5
+  if (S.active === 'rain') {
     return {
       x: rand(-0.1 * w, w), y: fromTop ? rand(-h, 0) : rand(0, h),
-      len: rand(10, 18) * (0.7 + dispIntensity), vy: rand(600, 900) * (0.6 + dispIntensity),
+      len: rand(10, 18) * (0.7 + S.dispIntensity), vy: rand(600, 900) * (0.6 + S.dispIntensity),
       vx: (120 + 300 * wind), a: rand(0.45, 0.8),
     };
   }
-  if (active === 'snow') {
+  if (S.active === 'snow') {
     const r = rand(1.2, 3.2);
     return {
       x: rand(0, w), y: fromTop ? rand(-h, 0) : rand(0, h),
-      r, vy: rand(25, 60) * (0.7 + dispIntensity), vx: 30 * wind,
+      r, vy: rand(25, 60) * (0.7 + S.dispIntensity), vx: 30 * wind,
       sway: rand(0.5, 1.5), phase: rand(0, Math.PI * 2), a: rand(0.5, 0.9),
     };
   }
-  if (active === 'wind') {
+  if (S.active === 'wind') {
     // Long, near-horizontal gust streaks blowing across the pane.
     return {
       x: rand(-0.3 * w, w * 0.2), y: rand(0, h),
-      len: rand(30, 80) * (0.6 + dispIntensity), vx: rand(500, 850) * (0.6 + dispIntensity),
+      len: rand(30, 80) * (0.6 + S.dispIntensity), vx: rand(500, 850) * (0.6 + S.dispIntensity),
       vy: rand(-20, 20), a: rand(0.06, 0.16),
     };
   }
@@ -258,7 +295,7 @@ function spawnParticle(fromTop) {
   // These do not fall. Weather comes from above and leaves at the bottom; a
   // symptom is already inside the eye, so every one of these is seeded across
   // the whole pane and recycles in place rather than off the edge.
-  if (active === 'static') {
+  if (S.active === 'static') {
     // TV grain. No motion at all: it re-rolls its own alpha every frame, which
     // is what makes it read as noise rather than as dust.
     return {
@@ -266,27 +303,27 @@ function spawnParticle(fromTop) {
       a: rand(0.10, 0.45), flick: rand(0, Math.PI * 2), life: rand(0.05, 0.4),
     };
   }
-  if (active === 'tracers') {
+  if (S.active === 'tracers') {
     // A bright point that drags its own recent past behind it.
-    const ang = rand(0, Math.PI * 2), sp = rand(18, 70) * (0.5 + dispIntensity);
+    const ang = rand(0, Math.PI * 2), sp = rand(18, 70) * (0.5 + S.dispIntensity);
     return {
       x: rand(0, w), y: rand(0, h),
       vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
-      len: rand(14, 46) * (0.5 + dispIntensity), r: rand(1.0, 2.2),
+      len: rand(14, 46) * (0.5 + S.dispIntensity), r: rand(1.0, 2.2),
       a: rand(0.25, 0.6), hue: rand(0, 360),
     };
   }
-  if (active === 'crawl') {
+  if (S.active === 'crawl') {
     // Lattice points that creep on a slow shared field. The surface is moving
     // and it is not going anywhere.
     return {
       x: rand(0, w), y: rand(0, h), r: rand(0.9, 2.0),
       phase: rand(0, Math.PI * 2), sway: rand(0.25, 0.8),
-      amp: rand(3, 11) * (0.5 + dispIntensity), a: rand(0.18, 0.45),
+      amp: rand(3, 11) * (0.5 + S.dispIntensity), a: rand(0.18, 0.45),
       ox: 0, oy: 0,
     };
   }
-  if (active === 'spiders') {
+  if (S.active === 'spiders') {
     // Something small and dark at the edge of sight. It SCUTTLES — a burst of
     // motion, then dead still — because a thing that moves continuously is an
     // animation and a thing that stops is a thing you think you saw. Seeded
@@ -302,7 +339,7 @@ function spawnParticle(fromTop) {
       moving: false, run: rand(0.2, 1.8), legs: rand(0, Math.PI * 2),
     };
   }
-  if (active === 'glitter') {
+  if (S.active === 'glitter') {
     // A pinprick that is bright, brief and gone. Each carries its own age so
     // the field twinkles out of step with itself instead of blinking together —
     // a synchronised sparkle is a strobe, and this file does not do strobes.
@@ -312,21 +349,21 @@ function spawnParticle(fromTop) {
       hue: rand(35, 70),
     };
   }
-  if (active === 'smear') {
+  if (S.active === 'smear') {
     // Light pulled sideways and left behind. Long, low-alpha, and drifting far
     // too slowly to be the thing that made it.
     return {
       x: rand(-0.2 * w, w), y: rand(0, h),
-      len: rand(60, 190) * (0.5 + dispIntensity), th: rand(2, 7),
+      len: rand(60, 190) * (0.5 + S.dispIntensity), th: rand(2, 7),
       vx: rand(-26, 26), a: rand(0.07, 0.20), hue: rand(180, 260),
     };
   }
-  if (active === 'embers') {
+  if (S.active === 'embers') {
     // Motes going UP, which nothing in the real weather does — that is the whole
     // tell that the room is not obeying the rules.
     return {
       x: rand(0, w), y: fromTop ? rand(h, h * 1.6) : rand(0, h),
-      r: rand(0.9, 2.3), vy: -rand(12, 34) * (0.6 + dispIntensity), vx: rand(-6, 6),
+      r: rand(0.9, 2.3), vy: -rand(12, 34) * (0.6 + S.dispIntensity), vx: rand(-6, 6),
       sway: rand(0.3, 1.1), phase: rand(0, Math.PI * 2),
       a: rand(0.25, 0.6), hue: rand(18, 44),
     };
@@ -336,7 +373,7 @@ function spawnParticle(fromTop) {
   const r = rand(0.8, 2.4);
   return {
     x: rand(0, w), y: fromTop ? rand(-h, 0) : rand(0, h),
-    r, vy: rand(18, 45) * (0.7 + dispIntensity), vx: 20 * wind,
+    r, vy: rand(18, 45) * (0.7 + S.dispIntensity), vx: 20 * wind,
     sway: rand(0.3, 1.2), phase: rand(0, Math.PI * 2), a: rand(0.35, 0.7),
     flick: rand(0, Math.PI * 2),
   };
@@ -371,28 +408,28 @@ function growStrand(x, y, dx, dy) {
   return pts;
 }
 
-function reseed() {
+function reseed(S) {
   refreshThemeColors();
-  particles = [];
-  fogBlobs = [];
-  strands = [];
-  if (active === 'fog') {
-    const n = Math.round(3 + 3 * cur.intensity);
+  S.particles = [];
+  S.fogBlobs = [];
+  S.strands = [];
+  if (S.active === 'fog') {
+    const n = Math.round(3 + 3 * S.cur.intensity);
     for (let i = 0; i < n; i++) {
-      fogBlobs.push({
+      S.fogBlobs.push({
         x: rand(0, paneRect.width), y: rand(0, paneRect.height),
         r: rand(paneRect.width * 0.25, paneRect.width * 0.6),
-        vx: rand(-8, 8) + cur.windKph * 0.4, a: rand(0.04, 0.10),
+        vx: rand(-8, 8) + S.cur.windKph * 0.4, a: rand(0.04, 0.10),
       });
     }
     return;
   }
   // `bloom` reuses the fog blob pool: soft radial masses, but breathing in place
   // rather than drifting across. Light sources swelling is the symptom.
-  if (active === 'bloom') {
-    const n = Math.round(4 + 5 * cur.intensity);
+  if (S.active === 'bloom') {
+    const n = Math.round(4 + 5 * S.cur.intensity);
     for (let i = 0; i < n; i++) {
-      fogBlobs.push({
+      S.fogBlobs.push({
         x: rand(0, paneRect.width), y: rand(0, paneRect.height),
         r: rand(paneRect.width * 0.06, paneRect.width * 0.20),
         vx: rand(-3, 3), a: rand(0.05, 0.13),
@@ -404,14 +441,14 @@ function reseed() {
   // `veins` grows filaments in from the corners. The BRANCHING is decided once,
   // here, and never again: a filament re-rolled per frame is grain with extra
   // steps. What moves is how much of each one has been revealed.
-  if (active === 'veins') {
-    const n = Math.round(3 + 4 * cur.intensity);
+  if (S.active === 'veins') {
+    const n = Math.round(3 + 4 * S.cur.intensity);
     for (let i = 0; i < n; i++) {
       const fromLeft = i % 2 === 0;
       const fromTop = (i >> 1) % 2 === 0;
       const ox = fromLeft ? rand(-10, paneRect.width * 0.12) : rand(paneRect.width * 0.88, paneRect.width + 10);
       const oy = fromTop ? rand(-10, paneRect.height * 0.18) : rand(paneRect.height * 0.82, paneRect.height + 10);
-      strands.push({
+      S.strands.push({
         pts: growStrand(ox, oy, fromLeft ? 1 : -1, fromTop ? 1 : -1),
         grown: 0, rate: rand(0.10, 0.30), a: rand(0.18, 0.42),
       });
@@ -420,21 +457,21 @@ function reseed() {
   }
   // `tunnel`, `swim`, `fractal`, `shimmer` and `pulse` are whole-field and hold
   // no state of their own — they are drawn from the clock. Nothing to seed.
-  if (['tunnel', 'swim', 'fractal', 'shimmer', 'pulse'].includes(active)) return;
+  if (['tunnel', 'swim', 'fractal', 'shimmer', 'pulse'].includes(S.active)) return;
 
-  const n = targetCount();
-  for (let i = 0; i < n; i++) particles.push(spawnParticle(false));
+  const n = targetCount(S);
+  for (let i = 0; i < n; i++) S.particles.push(spawnParticle(S, false));
 }
 
-function drawBase(dt, w, h) {
-  if (active === 'fog') {
-    if (!fogBlobs.length) reseed();  // pane may have been collapsed at reseed time
-    for (const b of fogBlobs) {
+function drawBase(S, dt, w, h) {
+  if (S.active === 'fog') {
+    if (!S.fogBlobs.length) reseed(S);  // pane may have been collapsed at reseed time
+    for (const b of S.fogBlobs) {
       b.x += b.vx * dt;
       if (b.x - b.r > w) b.x = -b.r;
       if (b.x + b.r < 0) b.x = w + b.r;
       const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
-      g.addColorStop(0, `rgba(200,205,210,${b.a * presence})`);
+      g.addColorStop(0, `rgba(200,205,210,${b.a * S.presence})`);
       g.addColorStop(1, 'rgba(200,205,210,0)');
       ctx.fillStyle = g;
       ctx.beginPath();
@@ -456,21 +493,21 @@ function drawBase(dt, w, h) {
   // `#trip-overlay`. What lives here is anything additive: grain, trails,
   // closure, swell.
 
-  if (active === 'tunnel') {
+  if (S.active === 'tunnel') {
     // Peripheral closure. Opiates and the k-hole both narrow the field; the
     // breathing is what stops it reading as a static vignette.
     const br = 1 + 0.06 * Math.sin(fxClock * 0.9);
-    const inner = Math.max(w, h) * (0.62 - 0.34 * dispIntensity) * br;
+    const inner = Math.max(w, h) * (0.62 - 0.34 * S.dispIntensity) * br;
     const outer = Math.max(w, h) * 0.82;
     const g = ctx.createRadialGradient(w / 2, h / 2, inner, w / 2, h / 2, outer);
     g.addColorStop(0, 'rgba(6,7,9,0)');
-    g.addColorStop(1, `rgba(6,7,9,${(0.30 + 0.5 * dispIntensity) * presence})`);
+    g.addColorStop(1, `rgba(6,7,9,${(0.30 + 0.5 * S.dispIntensity) * S.presence})`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
     return;
   }
 
-  if (active === 'swim') {
+  if (S.active === 'swim') {
     // The room will not hold still. Broad soft bands sliding at a rate that has
     // nothing to do with anything, which is the whole complaint.
     const bands = 5;
@@ -479,7 +516,7 @@ function drawBase(dt, w, h) {
       const y = ((Math.sin(ph) * 0.5 + 0.5) * (h + 200)) - 100;
       const th = h * (0.22 + 0.10 * Math.sin(ph * 0.6));
       const g = ctx.createLinearGradient(0, y - th / 2, 0, y + th / 2);
-      const a = (0.030 + 0.055 * dispIntensity) * presence;
+      const a = (0.030 + 0.055 * S.dispIntensity) * S.presence;
       g.addColorStop(0, 'rgba(150,160,175,0)');
       g.addColorStop(0.5, `rgba(150,160,175,${a})`);
       g.addColorStop(1, 'rgba(150,160,175,0)');
@@ -489,13 +526,13 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'fractal') {
+  if (S.active === 'fractal') {
     // Geometry coming out of the middle of the room. Rings of rotating polygons
     // that grow outward, fade, and are replaced from behind — so it reads as
     // something unfolding rather than as a spinning logo. The sides climb with
     // intensity, which is what makes a strong dose look BUSIER and not brighter.
     const rings = 5;
-    const sides = 3 + Math.round(4 * dispIntensity);
+    const sides = 3 + Math.round(4 * S.dispIntensity);
     const maxR = Math.max(w, h) * 0.62;
     ctx.lineWidth = 1;
     for (let i = 0; i < rings; i++) {
@@ -504,7 +541,7 @@ function drawBase(dt, w, h) {
       const t = ((fxClock * 0.16 + i / rings) % 1);
       const r = 12 + t * maxR;
       const spin = fxClock * 0.25 * (i % 2 ? -1 : 1) + i;
-      const a = Math.sin(t * Math.PI) * (0.10 + 0.30 * dispIntensity) * presence;
+      const a = Math.sin(t * Math.PI) * (0.10 + 0.30 * S.dispIntensity) * S.presence;
       if (a <= 0.002) continue;
       ctx.strokeStyle = `hsla(${(fxClock * 14 + i * 47) % 360},80%,68%,${a})`;
       ctx.beginPath();
@@ -518,7 +555,7 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'shimmer') {
+  if (S.active === 'shimmer') {
     // Air over hot tarmac, indoors. Narrow vertical bands whose brightness runs
     // on a travelling wave, so the whole field wavers without anything in it
     // moving — the reason this is not `swim`, which slides.
@@ -526,16 +563,16 @@ function drawBase(dt, w, h) {
     const bw = w / cols;
     for (let i = 0; i < cols; i++) {
       const ph = fxClock * 1.6 + i * 0.55;
-      const a = (0.018 + 0.055 * dispIntensity) * presence * (0.5 + 0.5 * Math.sin(ph));
+      const a = (0.018 + 0.055 * S.dispIntensity) * S.presence * (0.5 + 0.5 * Math.sin(ph));
       if (a <= 0.002) continue;
-      const off = Math.sin(ph * 0.7) * 3 * (0.4 + dispIntensity);
+      const off = Math.sin(ph * 0.7) * 3 * (0.4 + S.dispIntensity);
       ctx.fillStyle = `rgba(214,226,236,${a})`;
       ctx.fillRect(i * bw + off, 0, bw * 0.72, h);
     }
     return;
   }
 
-  if (active === 'pulse') {
+  if (S.active === 'pulse') {
     // Something with a heartbeat that is not the room's. A soft radial swell on
     // a two-beat rhythm — a lub-dup, not a metronome — kept well under the rate
     // anything could read as a flicker.
@@ -547,7 +584,7 @@ function drawBase(dt, w, h) {
     // what you notice is not the light arriving, it is that it will not hold still.
     const beat = fxClock * 1.15;
     const b = 0.35 + 0.65 * (Math.max(0, Math.sin(beat)) ** 3 * 0.75 + Math.max(0, Math.sin(beat - 0.42)) ** 3 * 0.25);
-    const a = b * (0.06 + 0.16 * dispIntensity) * presence;
+    const a = b * (0.06 + 0.16 * S.dispIntensity) * S.presence;
     if (a > 0.002) {
       const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.72);
       g.addColorStop(0, `rgba(255,176,120,${a})`);
@@ -559,15 +596,15 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'veins') {
+  if (S.active === 'veins') {
     // Filaments creeping in from the corners. Nothing moves — more of each one
     // simply exists than did a second ago, which is a great deal more unpleasant
     // than something crawling toward you.
-    if (!strands.length) reseed();
+    if (!S.strands.length) reseed(S);
     ctx.lineCap = 'round';
-    for (const s of strands) {
+    for (const s of S.strands) {
       s.grown = Math.min(1, s.grown + s.rate * dt);
-      ctx.strokeStyle = `rgba(${veinRGB},${s.a * presence * (0.4 + 0.6 * dispIntensity)})`;
+      ctx.strokeStyle = `rgba(${veinRGB},${s.a * S.presence * (0.4 + 0.6 * S.dispIntensity)})`;
       ctx.lineWidth = 1.6;
       ctx.beginPath();
       let pen = false;
@@ -586,18 +623,18 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'bloom') {
+  if (S.active === 'bloom') {
     // Light sources swelling and subsiding. Blobs breathe in place; the hue
     // drift is slow enough to be noticed rather than seen.
-    if (!fogBlobs.length) reseed();
-    for (const b of fogBlobs) {
+    if (!S.fogBlobs.length) reseed(S);
+    for (const b of S.fogBlobs) {
       b.phase += b.rate * dt;
       b.x += b.vx * dt;
       if (b.x < -b.r) b.x = w + b.r; else if (b.x - b.r > w) b.x = -b.r;
-      const swell = 1 + 0.35 * Math.sin(b.phase) * (0.4 + dispIntensity);
+      const swell = 1 + 0.35 * Math.sin(b.phase) * (0.4 + S.dispIntensity);
       const r = Math.max(2, b.r * swell);
       const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
-      const a = b.a * (0.6 + 0.4 * Math.sin(b.phase * 0.7)) * presence * (0.5 + dispIntensity);
+      const a = b.a * (0.6 + 0.4 * Math.sin(b.phase * 0.7)) * S.presence * (0.5 + S.dispIntensity);
       g.addColorStop(0, `hsla(${(b.hue + fxClock * 6) % 360},70%,68%,${Math.max(0, a)})`);
       g.addColorStop(1, 'hsla(0,0%,60%,0)');
       ctx.fillStyle = g;
@@ -609,18 +646,18 @@ function drawBase(dt, w, h) {
   }
 
   // Keep the pool sized to the current target (intensity can change live).
-  const want = targetCount();
-  while (particles.length < want) particles.push(spawnParticle(true));
-  if (particles.length > want) particles.length = want;
+  const want = targetCount(S);
+  while (S.particles.length < want) S.particles.push(spawnParticle(S, true));
+  if (S.particles.length > want) S.particles.length = want;
 
-  if (active === 'rain') {
+  if (S.active === 'rain') {
     ctx.strokeStyle = `rgba(${rainRGB},1)`;   // per-particle alpha × presence is the attenuation
     ctx.lineWidth = 1.4;
-    for (const p of particles) {
+    for (const p of S.particles) {
       p.x += p.vx * dt; p.y += p.vy * dt;
-      if (p.y > h || p.x > w + 20) { Object.assign(p, spawnParticle(true)); continue; }
+      if (p.y > h || p.x > w + 20) { Object.assign(p, spawnParticle(S, true)); continue; }
       const dx = p.vx / p.vy * p.len, dy = p.len;
-      ctx.globalAlpha = p.a * presence;
+      ctx.globalAlpha = p.a * S.presence;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(p.x - dx, p.y - dy);
@@ -630,13 +667,13 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'wind') {
+  if (S.active === 'wind') {
     ctx.strokeStyle = 'rgba(210,215,220,0.7)';
     ctx.lineWidth = 1;
-    for (const p of particles) {
+    for (const p of S.particles) {
       p.x += p.vx * dt; p.y += p.vy * dt;
-      if (p.x - p.len > w) { Object.assign(p, spawnParticle(false)); continue; }
-      ctx.globalAlpha = p.a * presence;
+      if (p.x - p.len > w) { Object.assign(p, spawnParticle(S, false)); continue; }
+      ctx.globalAlpha = p.a * S.presence;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(p.x - p.len, p.y - (p.vy / p.vx) * p.len);
@@ -646,30 +683,30 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'static') {
+  if (S.active === 'static') {
     // Re-rolls alpha per particle per frame. The grain does not move, it
     // reconsiders, which is the difference between snow and noise.
-    for (const p of particles) {
+    for (const p of S.particles) {
       p.flick += dt * 40;
-      const a = p.a * (0.35 + 0.65 * Math.abs(Math.sin(p.flick))) * presence;
+      const a = p.a * (0.35 + 0.65 * Math.abs(Math.sin(p.flick))) * S.presence;
       ctx.fillStyle = `rgba(228,232,238,${a})`;
       ctx.fillRect(p.x, p.y, p.r * 2, p.r * 2);
     }
     return;
   }
 
-  if (active === 'tracers') {
+  if (S.active === 'tracers') {
     // The trail is drawn from the point back along its own velocity, so it
     // always lags the direction of travel rather than pointing anywhere fixed.
     ctx.lineCap = 'round';
-    for (const p of particles) {
+    for (const p of S.particles) {
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.x < -40) p.x = w + 40; else if (p.x > w + 40) p.x = -40;
       if (p.y < -40) p.y = h + 40; else if (p.y > h + 40) p.y = -40;
       const sp = Math.hypot(p.vx, p.vy) || 1;
       const tx = p.x - (p.vx / sp) * p.len, ty = p.y - (p.vy / sp) * p.len;
       const g = ctx.createLinearGradient(p.x, p.y, tx, ty);
-      const a = p.a * presence;
+      const a = p.a * S.presence;
       g.addColorStop(0, `hsla(${(p.hue + fxClock * 20) % 360},80%,70%,${a})`);
       g.addColorStop(1, 'hsla(0,0%,70%,0)');
       ctx.strokeStyle = g;
@@ -683,14 +720,14 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'crawl') {
+  if (S.active === 'crawl') {
     // Every point creeps around its own origin on a shared slow field. Nothing
     // travels; the surface is just never where it was.
-    for (const p of particles) {
+    for (const p of S.particles) {
       p.phase += p.sway * dt;
       p.ox = Math.sin(p.phase) * p.amp;
       p.oy = Math.cos(p.phase * 0.83) * p.amp * 0.7;
-      const a = p.a * (0.6 + 0.4 * Math.sin(p.phase * 1.3)) * presence;
+      const a = p.a * (0.6 + 0.4 * Math.sin(p.phase * 1.3)) * S.presence;
       ctx.fillStyle = `rgba(196,186,208,${Math.max(0, a)})`;
       ctx.beginPath();
       ctx.arc(p.x + p.ox, p.y + p.oy, p.r, 0, Math.PI * 2);
@@ -699,11 +736,11 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'spiders') {
+  if (S.active === 'spiders') {
     // Dash, stop, dash. `run` is a countdown and `moving` says which of the two
     // it is counting down — one timer, two states, so a spider that has just
     // stopped can never also be drawn mid-stride.
-    for (const p of particles) {
+    for (const p of S.particles) {
       p.run -= dt;
       if (p.run <= 0) {
         p.moving = !p.moving;
@@ -715,8 +752,8 @@ function drawBase(dt, w, h) {
         p.y += Math.sin(p.ang) * p.sp * dt;
         p.legs += dt * 22;
       }
-      if (p.x < -20 || p.x > w + 20 || p.y < -20 || p.y > h + 20) { Object.assign(p, spawnParticle(false)); continue; }
-      const a = p.a * presence;
+      if (p.x < -20 || p.x > w + 20 || p.y < -20 || p.y > h + 20) { Object.assign(p, spawnParticle(S, false)); continue; }
+      const a = p.a * S.presence;
       ctx.fillStyle = `rgba(${spiderRGB},${a})`;
       ctx.beginPath();
       ctx.ellipse(p.x, p.y, p.r, p.r * 0.72, p.ang, 0, Math.PI * 2);
@@ -736,15 +773,15 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'glitter') {
+  if (S.active === 'glitter') {
     // Each pinprick lives its own short life and is replaced where it lies. The
     // brightness curve is a sine over that life, so nothing pops on — which is
     // the difference between a sparkle and a flicker.
-    for (const p of particles) {
+    for (const p of S.particles) {
       p.age += dt;
-      if (p.age >= p.life) { Object.assign(p, spawnParticle(false), { age: 0 }); continue; }
+      if (p.age >= p.life) { Object.assign(p, spawnParticle(S, false), { age: 0 }); continue; }
       const t = p.age / p.life;
-      const a = p.a * Math.sin(t * Math.PI) * presence;
+      const a = p.a * Math.sin(t * Math.PI) * S.presence;
       if (a <= 0.004) continue;
       ctx.fillStyle = `hsla(${p.hue},90%,82%,${a})`;
       const r = p.r * (0.6 + 0.8 * Math.sin(t * Math.PI));
@@ -755,14 +792,14 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'smear') {
+  if (S.active === 'smear') {
     // Horizontal pulls of light, fading along their own length toward where the
     // thing that made them used to be.
-    for (const p of particles) {
+    for (const p of S.particles) {
       p.x += p.vx * dt;
       if (p.x - p.len > w + 40) p.x = -40; else if (p.x + p.len < -40) p.x = w + 40;
       const g = ctx.createLinearGradient(p.x, p.y, p.x - p.len, p.y);
-      const a = p.a * presence * (0.5 + dispIntensity);
+      const a = p.a * S.presence * (0.5 + S.dispIntensity);
       g.addColorStop(0, `hsla(${p.hue},60%,78%,${a})`);
       g.addColorStop(1, `hsla(${p.hue},60%,78%,0)`);
       ctx.fillStyle = g;
@@ -771,13 +808,13 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (active === 'embers') {
-    for (const p of particles) {
+  if (S.active === 'embers') {
+    for (const p of S.particles) {
       p.phase += p.sway * dt;
       p.x += (p.vx + Math.sin(p.phase) * 9) * dt;
       p.y += p.vy * dt;
-      if (p.y < -6) { Object.assign(p, spawnParticle(false), { y: h + 6, x: rand(0, w) }); continue; }
-      const a = p.a * (0.6 + 0.4 * Math.sin(p.phase * 1.6)) * presence;
+      if (p.y < -6) { Object.assign(p, spawnParticle(S, false), { y: h + 6, x: rand(0, w) }); continue; }
+      const a = p.a * (0.6 + 0.4 * Math.sin(p.phase * 1.6)) * S.presence;
       ctx.fillStyle = `hsla(${p.hue},85%,62%,${Math.max(0, a)})`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
@@ -787,16 +824,16 @@ function drawBase(dt, w, h) {
   }
 
   // snow + ash share a drifting-flake path, differing only in colour/flicker.
-  for (const p of particles) {
+  for (const p of S.particles) {
     p.phase += p.sway * dt;
     p.x += (p.vx + Math.sin(p.phase) * (12 + 8 * (p.sway))) * dt;
     p.y += p.vy * dt;
-    if (p.y > h + 4) { Object.assign(p, spawnParticle(false), { y: -4, x: rand(0, w) }); continue; }
+    if (p.y > h + 4) { Object.assign(p, spawnParticle(S, false), { y: -4, x: rand(0, w) }); continue; }
     if (p.x > w + 4) p.x = -4; else if (p.x < -4) p.x = w + 4;
     let alpha = p.a;
-    if (active === 'ash') { p.flick += dt * 4; alpha = p.a * (0.7 + 0.3 * Math.sin(p.flick)); }
-    alpha *= presence;
-    ctx.fillStyle = active === 'snow'
+    if (S.active === 'ash') { p.flick += dt * 4; alpha = p.a * (0.7 + 0.3 * Math.sin(p.flick)); }
+    alpha *= S.presence;
+    ctx.fillStyle = S.active === 'snow'
       ? `rgba(235,240,248,${alpha})`
       : `rgba(120,116,110,${alpha})`;
     ctx.beginPath();
@@ -931,9 +968,13 @@ function drawArcs(dt) {
 function draw(dt) {
   const w = paneRect.width, h = paneRect.height;
   fxClock += dt;
-  updateTransition(dt);
   ctx.clearRect(0, 0, w, h);
-  drawBase(dt, w, h);
+  // Weather first, then the symptom over it. Every slot eases and draws on its own
+  // state, so a shower retiring and a come-up arriving are not the same transition.
+  for (const S of SLOTS) {
+    updateTransition(S, dt);
+    drawBase(S, dt, w, h);
+  }
   if (eventFx.type) drawEventOverlay(dt, w, h);
   if (fireworksGlow) drawFireworksGlow(dt, w, h);
   if (shells.length) drawShells(dt, w, h);
@@ -1070,7 +1111,8 @@ function frame(t) {
 // Keep running while anything is still on screen — including an effect mid-fade
 // (active/presence) after the target has already gone to 'none'.
 function shouldRun() {
-  const busy = cur.effect !== 'none' || active !== 'none' || presence > 0.001 || !!eventFx.type || fireworksGlow || bursts.length > 0 || shells.length > 0;
+  const slotBusy = SLOTS.some((S) => S.cur.effect !== 'none' || S.active !== 'none' || S.presence > 0.001);
+  const busy = slotBusy || !!eventFx.type || fireworksGlow || bursts.length > 0 || shells.length > 0;
   return enabled && !suppressed && busy && !document.hidden;
 }
 
@@ -1081,10 +1123,8 @@ function startLoop() {
   running = true;
   lastT = 0;
   // Fresh start: begin from nothing and let updateTransition fade the effect in.
-  active = cur.effect;
-  presence = 0;
-  dispIntensity = 0;
-  if (syncRect()) reseed();
+  for (const S of SLOTS) { S.active = S.cur.effect; S.presence = 0; S.dispIntensity = 0; }
+  if (syncRect()) for (const S of SLOTS) reseed(S);
   requestAnimationFrame(frame);
 }
 
@@ -1093,17 +1133,30 @@ function stopLoop() {
   if (canvas) { ctx?.clearRect(0, 0, paneRect.width, paneRect.height); canvas.style.display = 'none'; }
 }
 
-// Public: update the active weather effect. Called by environment.js whenever the
-// local weather or indoor/outdoor state changes.
-export function setWeatherFx({ effect, intensity, windKph }) {
-  cur = { effect: effect || 'none', intensity: Math.max(0, Math.min(1, intensity || 0)), windKph: windKph || 0 };
-  // Don't touch `active`/particles here — updateTransition eases toward the new
-  // target every frame (ramping the level, or fading out and swapping effects).
-  // While disabled we still stop; otherwise ensure the loop is turning so the
-  // fade actually animates even when the new target is 'none'.
+// Aim one slot at a new target and make sure the loop is turning.
+// Don't touch `active`/particles here — updateTransition eases toward the new target
+// every frame (ramping the level, or fading out and swapping effects). While disabled
+// we still stop; otherwise ensure the loop is turning so the fade actually animates
+// even when the new target is 'none'.
+function aimSlot(S, { effect, intensity, windKph }) {
+  S.cur = { effect: effect || 'none', intensity: Math.max(0, Math.min(1, intensity || 0)), windKph: windKph || 0 };
   if (!enabled) { stopLoop(); return; }
   startLoop();
 }
+
+// Public: update the active WEATHER effect. Called by environment.js whenever the
+// local weather or indoor/outdoor state changes.
+export function setWeatherFx(fx) { aimSlot(weatherSlot, fx || {}); }
+
+// Public: update the active DRUG/DREAM field symptom, on its own slot over the top of
+// whatever the weather is doing. Also from environment.js, which holds the dream-beats-
+// drug ordering — this end takes whichever one won and never arbitrates.
+//
+// ⚠ IT CARRIES NO WIND. A symptom is behind the eye and the wind does not reach it:
+// `spawnParticle` reads `S.cur.windKph` for drift, and a gust blowing somebody's
+// tracers sideways would be the weather leaking into the slot that exists to be
+// separate from it.
+export function setDrugFieldFx(fx) { aimSlot(drugSlot, { ...(fx || {}), windKph: 0 }); }
 
 // Public: set/clear the active named-event overlay (ion_storm | acid_rain | null).
 // Driven by the `weather_event` WS message; independent of the base precip effect,
@@ -1191,31 +1244,61 @@ export const _test = {
   // must turn it on: ninety frames stacked on one canvas turns a 0.07-alpha heat
   // haze into solid white columns and a soft radial beat into a flat orange
   // field, which is a picture the game never draws.
+  // ⚠ A SCRATCH SLOT, NOT THE LIVE ONES. This used to save and restore nine module
+  // globals around the run; there are no globals left to clobber, so it builds a slot
+  // of its own and the live weather and drug slots are untouched by a harness run.
   runEffect(name, testCtx, { width = 320, height = 200, intensity = 0.8, frames = 12, dt = 1 / 60, clearEachFrame = false } = {}) {
-    const savedCtx = ctx, savedRect = paneRect, savedActive = active;
-    const savedPres = presence, savedInt = dispIntensity, savedCur = cur;
-    const savedParticles = particles, savedBlobs = fogBlobs, savedStrands = strands;
+    const savedCtx = ctx, savedRect = paneRect;
+    const S = makeSlot('test');
     try {
       ctx = testCtx;
       paneRect = { width, height, left: 0, top: 0 };
-      active = name;
-      cur = { effect: name, intensity, windKph: 20 };
-      presence = 1;
-      dispIntensity = intensity;
-      particles = [];
-      fogBlobs = [];
-      strands = [];
-      reseed();
+      S.active = name;
+      S.cur = { effect: name, intensity, windKph: 20 };
+      S.presence = 1;
+      S.dispIntensity = intensity;
+      reseed(S);
       for (let i = 0; i < frames; i++) {
         fxClock += dt;
         if (clearEachFrame) testCtx.clearRect(0, 0, width, height);
-        drawBase(dt, width, height);
+        drawBase(S, dt, width, height);
       }
-      return { particles: particles.length, blobs: fogBlobs.length, strands: strands.length };
+      return { particles: S.particles.length, blobs: S.fogBlobs.length, strands: S.strands.length };
     } finally {
-      ctx = savedCtx; paneRect = savedRect; active = savedActive;
-      presence = savedPres; dispIntensity = savedInt; cur = savedCur;
-      particles = savedParticles; fogBlobs = savedBlobs; strands = savedStrands;
+      ctx = savedCtx; paneRect = savedRect;
     }
   },
+
+  // Both slots at once, which is the whole point of there being two. Returns the pool
+  // sizes per slot so a caller can assert that neither starved the other.
+  runLayered(weatherName, drugName, testCtx, { width = 320, height = 200, intensity = 0.8, frames = 12, dt = 1 / 60, clearEachFrame = false } = {}) {
+    const savedCtx = ctx, savedRect = paneRect;
+    const W = makeSlot('weather'), D = makeSlot('drug');
+    try {
+      ctx = testCtx;
+      paneRect = { width, height, left: 0, top: 0 };
+      for (const [S, nm, wind] of [[W, weatherName, 20], [D, drugName, 0]]) {
+        S.active = nm;
+        S.cur = { effect: nm, intensity, windKph: wind };
+        S.presence = 1;
+        S.dispIntensity = intensity;
+        reseed(S);
+      }
+      for (let i = 0; i < frames; i++) {
+        fxClock += dt;
+        if (clearEachFrame) testCtx.clearRect(0, 0, width, height);
+        drawBase(W, dt, width, height);
+        drawBase(D, dt, width, height);
+      }
+      return {
+        weather: { particles: W.particles.length, blobs: W.fogBlobs.length, strands: W.strands.length },
+        drug: { particles: D.particles.length, blobs: D.fogBlobs.length, strands: D.strands.length },
+      };
+    } finally {
+      ctx = savedCtx; paneRect = savedRect;
+    }
+  },
+
+  // The live slots, for asserting what the public setters actually did.
+  slots: () => SLOTS.map((S) => ({ name: S.name, effect: S.cur.effect, intensity: S.cur.intensity, windKph: S.cur.windKph })),
 };

@@ -32,11 +32,46 @@ const OWNED = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'f', 'z', 'x',
 // rather than a flick — this is a camera you are aiming, not a first-person shooter. The two are
 // matched (0.22° is 0.0038 rad), so a pixel sideways and a pixel up turn the eye the same amount.
 const MOUSE_YAW = 0.22, MOUSE_PITCH = 0.0038;
+// ── THE KEY THAT HANDS THE MOUSE BACK ────────────────────────────────────────
+// Deliberately NOT in OWNED: that set is keys whose HELD state flies the camera, and this one is an
+// edge.
+//
+// ⚠ U AND N ARE THE ONLY LETTERS LEFT, and that is measured rather than eyeballed. The cab binds
+// nearly the whole alphabet — K cranks the engine, M swaps the box to auto, P parks, T opens the
+// galley — and the cockpit most of the rest; two earlier picks, M and then K, were each already
+// the cab's. A collision would in fact be harmless, because `onKey`'s first line means a STOWED
+// camera consumes nothing and the seat's own keys are suspended while it is out (the camera
+// already takes W/A/S/D, Z and X/C exactly that way, and the harness asserts the stowed half).
+// But harmless is not the same as free: a driver pressing a key should not have to know which
+// mode they are in to know what it does.
+const POINTER_KEY = 'u';
 const ROLL_RATE = 48;     // degrees per second on Z/X
 const ROLL_LIM = Math.PI; // all the way over, both ways: a dutch angle has no natural stopping point
 // The camera may go under the road — briefly, and on purpose, because a low shot looking up at a
 // rig is worth having and the ground is not solid to a camera. What it may not do is fall forever.
 const Z_MIN = -0.6, Z_MAX = 40;
+// ── THE LENS ─────────────────────────────────────────────────────────────────
+// A multiplier on the focal length, spent as the renderer's own `fovMul` — 1 is the seat's field of
+// view, above it a longer lens, below it a wider one. It is the OTHER half of the wheel, and the
+// difference is the whole reason both are here rather than one: a dolly moves the eye and a zoom
+// does not, so the two can frame the same subject at the same size and disagree about everything
+// behind it. Bounded either side, because past the top end the ground plane is a slab and the frame
+// is all texture, and past the bottom a building two tiles away has receded into scenery.
+// ⚠ THE STEP IS ITS OWN INVERSE. A notch down and back up is the shot you had — the reversibility
+// the orbit is written for, and why this is not the chase camera's 1.1/0.9 (which is 0.99).
+const FOV_MAX = 3.2, FOV_STEP = 1.1;
+// ⚠ AND THE WIDE STOP IS A PAN LIMIT, NOT A FRAMING ONE. `proj` is a pinhole, so a yaw moves a
+// point by FL·tan and its pan rate goes as sec² of its angle off the optical axis — the wider the
+// lens, the more a turn SHEARS the frame instead of turning it. At the seat's own lens the corner
+// of the frame is 59° off axis and pans 3.8× the centre, which reads as an ordinary wide lens.
+// This was 0.4: a 146° field whose corner is 76° off axis and pans 16.5×, so the middle of the
+// shot barely moved while the sides tore past — reported as the whole city shifting when you look
+// left and right, and only at the wide end of the wheel. Four notches down is the last one that
+// keeps the corner under 68° (128°, 7.0×): still a genuinely wide lens, about double the seat's
+// own shear rather than four times it. ⚠ ON THE LADDER DELIBERATELY — a stop that is not a power
+// of the step makes the step stop being its own inverse at the clamp, so a wheel down to the stop
+// and back up would never return to the 1 it started from.
+const FOV_MIN = Math.pow(FOV_STEP, -4);   // ≈0.683
 // ── THE ORBIT ────────────────────────────────────────────────────────────────
 // Per pixel, and deliberately THE SAME NUMBERS THE CHASE CAMERA'S MIDDLE-DRAG USES (see cab-view's
 // extYaw/extPitch handler): this is the gesture a player has already learnt on the view they came
@@ -61,8 +96,28 @@ const BTNS = new Set(['up', 'down', 'orbit']);
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 export function createFreeCam() {
-  const st = { on: false, x: 0, y: 0, z: 0.45, yaw: 0, pitch: 0, roll: 0, keys: new Set(), btn: new Set(), notify: null };
+  const st = { on: false, x: 0, y: 0, z: 0.45, yaw: 0, pitch: 0, roll: 0, fov: 1, keys: new Set(), btn: new Set(), notify: null, hold: true, holdNotify: null };
   const held = (k) => st.keys.has(k);
+
+  // ── WHO HAS THE MOUSE ───────────────────────────────────────────────────────
+  // Two states, and the camera opens in the first. HELD: the cursor is gone, pinned inside the view,
+  // and moving the mouse aims. FREE: it is a cursor again and aims nothing, which is the only way to
+  // reach a button on the screen without the shot swinging on the way to it.
+  //
+  // ⚠ THIS IS NOT THE SAME QUESTION AS "IS THE POINTER LOCKED", and conflating them is the mistake
+  // bindFreeCamPointer already has a paragraph about. The lock is refused outright by some embedders;
+  // where it is, HELD still aims — it simply cannot hide the cursor by the browser's own means. Tie
+  // the aim to the lock and the mouse is dead in exactly those places.
+  const setHold = (v) => {
+    const want = !!v;
+    if (!st.on || want === st.hold) return st.hold;
+    st.hold = want;
+    // A button still down when the mouse is handed back never gets its pointerup, and an unseen
+    // release is a camera that climbs on its own with nothing the player can press to stop it.
+    if (!want) st.btn.clear();
+    st.holdNotify?.(want);
+    return st.hold;
+  };
 
   return {
     get active() { return st.on; },
@@ -72,11 +127,19 @@ export function createFreeCam() {
     open(seed = {}) {
       st.on = true;
       st.keys.clear(); st.btn.clear();
+      // ⚠ BEFORE THE `notify` AT THE FOOT OF THIS FUNCTION, which is what the binder reads to decide
+      // whether to take the pointer. A camera that opened free would hand the player a cursor and a
+      // line of help telling them to press M to get rid of it.
+      st.hold = true;
       st.yaw = seed.yaw != null ? seed.yaw : 0;
       st.pitch = seed.pitch != null ? seed.pitch : 0;
       st.z = seed.z != null ? seed.z : 0.45;
       st.x = seed.x || 0; st.y = seed.y || 0;
       st.roll = 0;
+      // The lens comes back to the seat's own, for the reason the roll does: the shot you were
+      // handed is the one the panel can honestly describe, and it cannot describe a zoom it has
+      // never had. Opening on last session's 3x would read as the camera arriving broken.
+      st.fov = 1;
       st.notify?.(true);
     },
     close() { st.on = false; st.keys.clear(); st.btn.clear(); st.notify?.(false); },
@@ -89,6 +152,12 @@ export function createFreeCam() {
     // stale teardown must not unhook the live surface.
     onToggle(fn) { st.notify = fn || null; return () => { if (st.notify === fn) st.notify = null; }; },
 
+    // See setHold. One listener, for the reason onToggle takes one: exactly one surface owns the
+    // mouse at a time, and a second subscriber would be a second thing fighting over it.
+    get mouseHeld() { return st.hold; },
+    setMouseHeld(v) { return setHold(v); },
+    onMouseHeld(fn) { st.holdNotify = fn || null; return () => { if (st.holdNotify === fn) st.holdNotify = null; }; },
+
     // Returns true when the camera consumed the key, which is the panel's cue not to also steer the
     // vehicle with it. ⚠ Every one of these is a driving control on at least one of the three
     // panels (w/s is the throttle in the cab, a/d the wheel), so an inactive camera must consume
@@ -96,6 +165,14 @@ export function createFreeCam() {
     onKey(key, down) {
       if (!st.on) return false;
       const k = String(key || '').toLowerCase();
+      // ⚠ AN EDGE, NOT A HELD STATE — and guarded on the set rather than on the panel's own
+      // `e.repeat`, because two of the three panels forward the key without it and a held M would
+      // otherwise hand the mouse back and take it again at the keyboard's repeat rate.
+      if (k === POINTER_KEY) {
+        if (!down) st.keys.delete(k);
+        else if (!st.keys.has(k)) { st.keys.add(k); setHold(!st.hold); }
+        return true;
+      }
       if (!OWNED.has(k)) return false;
       if (down) st.keys.add(k); else st.keys.delete(k);
       return true;
@@ -191,9 +268,29 @@ export function createFreeCam() {
     },
     get orbiting() { return st.btn.has('orbit'); },
 
-    // The wheel dollies along the view axis — the same thing W and S do, on the control a hand is
-    // already resting on. It is a nudge per notch rather than a zoom: changing the focal length
-    // would make the camera lie about where it is, and where it is is the entire point of it.
+    // ── THE WHEEL ZOOMS ───────────────────────────────────────────────────────
+    // The lens, on the control every other application in the world puts a zoom on. It changes the
+    // focal length and NOTHING about where the camera is, which is exactly the objection the dolly
+    // below was written against — and the objection is right, it is just not an argument for having
+    // only one of them. A dolly walks the eye toward the subject and the background grows with it;
+    // a zoom crops, and the background stays where it was. Those are two different photographs of
+    // the same thing, and a camera you are composing shots with wants to be able to take both.
+    //
+    // ⚠ IT IS A MULTIPLIER ON THE FOCAL LENGTH, NOT A CROP OF THE CANVAS. It leaves here as
+    // `view().fov` and is spent as the renderer's `fovMul`, which scales the LATERAL and VERTICAL
+    // focal lengths together — so the world gets bigger and keeps its proportions. That is the one
+    // thing this must not get wrong, and it is a mistake the renderer has already made once: see
+    // makeCam's ⚠, where a per-seat field of view multiplied one axis and read as an anamorphic
+    // stretch rather than as a lens.
+    zoom(dir) {
+      if (!st.on) return false;
+      st.fov = clamp(st.fov * (dir < 0 ? FOV_STEP : 1 / FOV_STEP), FOV_MIN, FOV_MAX);
+      return true;
+    },
+
+    // The dolly, on SHIFT+wheel — the same thing W and S do, on the control a hand is already
+    // resting on. It is a nudge per notch, and it MOVES THE CAMERA: where the eye is is a real fact
+    // about the shot, and nothing above changes it.
     dolly(dir) {
       if (!st.on) return false;
       const s = Math.sin(st.yaw * DEG), c = Math.cos(st.yaw * DEG);
@@ -248,14 +345,73 @@ export function createFreeCam() {
     },
 
     // The shape `paintWindshield` reads as `v.freeCam`. x/y are a world-tile offset from the
-    // vehicle, z an absolute eye height, yaw degrees, pitch radians.
-    view() { return st.on ? { x: st.x, y: st.y, z: st.z, yaw: st.yaw, pitch: st.pitch, roll: st.roll } : null; },
+    // vehicle, z an absolute eye height, yaw degrees, pitch radians, fov a focal-length multiplier.
+    view() { return st.on ? { x: st.x, y: st.y, z: st.z, yaw: st.yaw, pitch: st.pitch, roll: st.roll, fov: st.fov } : null; },
   };
 }
 
 // The one line of chrome all three panels show while it is on. Kept here so the wording is the same
 // in a cab, a cockpit and a wheelhouse — three copies of a hint is three things to update.
-export const FREECAM_HINT = 'FREE CAM · mouse looks · MMB orbit · LMB/RMB or R/F up-down · WASD move · Q/E turn · Z/X roll · wheel dolly · SHIFT fast · O exit';
+export const FREECAM_HINT = 'FREE CAM · mouse looks · MMB orbit · LMB/RMB or R/F up-down · WASD move · Q/E turn · Z/X roll · wheel zoom · SHIFT+wheel dolly · SHIFT fast · U free mouse · O exit';
+
+// ── AND THEN THE SCREEN CLEARS ITSELF ────────────────────────────────────────
+//
+// Everything the vehicle reads out goes the moment the camera comes off its mount — the fuel, the
+// damage, the warnings, the name of the boat (each panel's own stylesheet says which). That leaves
+// the two things that cannot simply go: the corner buttons, because one of them is a way back, and
+// the line of help, because it is the OTHER way back written down. Both are in the shot.
+//
+// So they go on a timer, the way a video player's controls do. Any input at all brings them
+// straight back; a few seconds of stillness takes them away again — and a few seconds of stillness
+// is exactly what composing a frame and then reaching for the screenshot key looks like. Nothing
+// is ever unreachable: a player who has forgotten the key moves the mouse and the row is there.
+//
+// ⚠ IT IS A CLASS ON THE BODY AND NOT ON THE SEAT, because what it changes is which of the PAGE's
+// controls are on screen — the same argument `fsim-freecam` and `helm-freecam` are already body
+// classes for, and the only way one rule can reach a wheelhouse console that is not inside the
+// view it belongs to. The three stylesheets spell the word out rather than interpolating it, so
+// that grepping for it finds the rules and not just this line.
+const FREECAM_IDLE = 'freecam-idle';
+const IDLE_MS = 2400;
+// Every way a player can say they are still here. Capture-phase and passive: this only ever reads
+// the clock, so nothing below it can be starved of an event and nothing here can swallow one.
+const IDLE_WAKERS = ['pointermove', 'pointerdown', 'pointerup', 'wheel', 'keydown', 'keyup'];
+
+export function bindFreeCamIdle(cam, ms = IDLE_MS) {
+  // ⚠ ONE TIMER, RE-ARMED OFF A STAMP, rather than torn down and rebuilt on every event. Under a
+  // pointer lock `pointermove` arrives at the mouse's own polling rate — a thousand a second on
+  // some — and this listener sits on the window for as long as the seat is open.
+  let t = 0, last = 0;
+  const tick = () => {
+    t = 0;
+    if (!cam.active) return;
+    const left = ms - (performance.now() - last);
+    if (left > 16) { t = setTimeout(tick, left); return; }   // woken since it was armed
+    document.body.classList.add(FREECAM_IDLE);
+  };
+  // Called by the panel on the keypress that detaches the camera and on the one that puts it back:
+  // entering arms the timer, leaving clears the class whether a timer was running or not.
+  const wake = () => {
+    last = performance.now();
+    document.body.classList.remove(FREECAM_IDLE);
+    if (cam.active && !t) t = setTimeout(tick, ms);
+  };
+  // ⚠ GUARDED ON `cam.active`, because the class is on the body and the seat is not. A camera
+  // bound behind a seat that is not the one being flown must not wake the chrome of the one that
+  // is — and it must not arm a timer on every keystroke in the game either.
+  const onInput = () => { if (cam.active) wake(); };
+  const opts = { passive: true, capture: true };
+  for (const ev of IDLE_WAKERS) window.addEventListener(ev, onInput, opts);
+  return {
+    wake,
+    unbind() {
+      for (const ev of IDLE_WAKERS) window.removeEventListener(ev, onInput, opts);
+      if (t) clearTimeout(t);
+      t = 0;
+      document.body.classList.remove(FREECAM_IDLE);
+    },
+  };
+}
 
 // ── BINDING IT TO A SURFACE ──────────────────────────────────────────────────
 // The three panels each already own pointer gestures on their glass — the cockpit's yoke drag and
@@ -299,6 +455,29 @@ export function bindFreeCamPointer(el, cam) {
   };
   const release = () => { if (locked()) try { document.exitPointerLock?.(); } catch { /* nothing to undo */ } };
 
+  // ⚠ AND WHERE THE LOCK IS REFUSED, HIDE THE CURSOR ANYWAY. Under a granted lock the browser does
+  // this itself and the line below is redundant; where the request is refused it is the only half of
+  // "the cursor is out of the shot" still available, and it is the half that was being reported —
+  // an arrow drifting across a frame somebody is composing. It is an INLINE style on purpose: it has
+  // to beat the cab's own `.ws-wrap{cursor:grab}` rule, and an inline one does. The previous value
+  // is kept rather than assumed empty, so putting it back cannot quietly delete a panel's own.
+  // ⚠ GUARDED, because it is a DECORATION and the thing it sits in front of is not. A surface
+  // with no `style` (the headless harness's own, and anything else that is not a live element) would
+  // throw here and take `applyHold` down with it — so the pointer would never be requested at all,
+  // and hiding the cursor would have broken the lock it exists to go with.
+  let cursorWas = null;
+  const hideCursor = (on) => {
+    if (!el.style) return;
+    if (on) { if (cursorWas === null) cursorWas = el.style.cursor || ''; el.style.cursor = 'none'; }
+    else if (cursorWas !== null) { el.style.cursor = cursorWas; cursorWas = null; }
+  };
+  // The whole of what HELD and FREE mean to the pointer. `last` is dropped either way: a delta
+  // measured against where the cursor was before it went away, or before it came back, is a jump.
+  const applyHold = (hold) => {
+    last = null;
+    if (hold) { hideCursor(true); grab(); } else { release(); hideCursor(false); }
+  };
+
   // ⚠ IMMEDIATE, not merely `stopPropagation`. Stopping propagation stops the event reaching other
   // NODES; it does not stop a second listener on the SAME node, and the cab has one — a bubble
   // handler on the same `.ws-wrap` whose middle-button branch is the chase orbit. Whenever the glass
@@ -314,7 +493,13 @@ export function bindFreeCamPointer(el, cam) {
     // the player will do repeatedly — and if that same click also counted as "lift", every return to
     // the controls would jolt the shot upward. Where the lock is refused outright this simply never
     // succeeds, and the unlocked branch of 'move' goes on aiming the camera regardless.
-    if (lockable && !locked()) { grab(); return; }
+    // ⚠ AND IT PUTS THE HELD/FREE STATE BACK WITH IT, whatever handed the pointer over — Esc, a tab
+    // switch, or M. A click that took the lock without saying so would leave `mouseHeld` false while
+    // the cursor was gone again: the aim dead, and M toggling a flag the screen disagrees with.
+    // Re-taking it even after a deliberate M is the right trade, because the glass has nothing on it
+    // to click — every panel keeps its chrome OUTSIDE the surface this binds to — so a click on the
+    // view can only mean "carry on looking", and it is what a hand that hit Esc by reflex reaches for.
+    if (lockable && !locked()) { cam.setMouseHeld?.(true); grab(); return; }
     if (e.button === 0) cam.setButton('up', true);
     else if (e.button === 2) cam.setButton('down', true);
     else if (e.button === 1) cam.setButton('orbit', true);
@@ -328,6 +513,11 @@ export function bindFreeCamPointer(el, cam) {
   // at all — and an unseen release is a camera climbing on its own with nothing to stop it.
   const move = (e) => {
     if (!cam.active) return;
+    // ⚠ A FREE MOUSE IS A CURSOR AND AIMS NOTHING. That is the entire point of handing it back: with
+    // the look still live, crossing the glass to reach a button swings the shot on the way, which is
+    // the awkwardness this was built to remove. A DRAG is the exception, because a held button is an
+    // unambiguous gesture — the middle-button turntable every other view in the game already has.
+    if (!cam.mouseHeld && !cam.orbiting) { last = null; return; }
     let dx, dy;
     if (locked()) { dx = e.movementX || 0; dy = e.movementY || 0; }
     else {
@@ -351,17 +541,42 @@ export function bindFreeCamPointer(el, cam) {
   const menu = (e) => { if (cam.active) mine(e); };
   // Esc, a tab switch, a full-screen change: the lock can go without a pointerup ever arriving for
   // whatever was held at the time. See releaseButtons — the keys are deliberately left alone.
-  const lockChange = () => { last = null; if (!locked()) cam.releaseButtons(); };
+  // ⚠ AND THE STATE FOLLOWS THE BROWSER. Esc takes the lock away and leaves the camera out, so a
+  // `mouseHeld` that stayed true would leave M toggling a flag that already says "held" while the
+  // cursor is plainly back on the screen — one press doing nothing, which reads as a dead key.
+  const lockChange = () => {
+    last = null;
+    if (locked()) return;
+    cam.releaseButtons();
+    cam.setMouseHeld?.(false);
+  };
+  // Where the lock was refused there is no `pointerlockchange` for Esc to arrive on, and the cursor
+  // is hidden by the line above rather than by the browser — so the one key everybody presses to get
+  // a mouse back has to be heard directly. ⚠ NOT SWALLOWED: Esc leaves fullscreen and closes panels,
+  // and a key that quietly stopped doing those would be a worse trade than the one being fixed.
+  const esc = (e) => { if (cam.active && cam.mouseHeld && !locked() && e.key === 'Escape') cam.setMouseHeld?.(false); };
   const lockError = () => { lockable = false; last = null; };
+  // The wheel is the lens; SHIFT on it is the dolly. See cam.zoom for why both exist.
+  //
+  // ⚠ A SHIFTED WHEEL ARRIVES ON THE OTHER AXIS. Chrome and Edge turn a shifted vertical wheel into
+  // horizontal scroll — `deltaY` is 0 and the notch is in `deltaX` — so a modifier read off deltaY
+  // alone is one that silently does nothing on the commonest desktop browser. Reading either axis
+  // costs nothing and is also what makes a horizontal trackpad swipe work as the same control.
   const wheel = (e) => {
     if (!cam.active) return;
-    cam.dolly(e.deltaY);
+    const d = e.deltaY || e.deltaX;
+    if (d) { if (e.shiftKey) cam.dolly(d); else cam.zoom(d); }
     mine(e);
   };
   // Taking the pointer the moment the camera comes off its mount, rather than making the player
   // click first: `O` is a keypress, which carries the user activation the lock needs, so the one
   // gesture that detaches the camera is also the one that hands it the mouse.
-  const unToggle = cam.onToggle?.((on) => { last = null; if (on) { lockable = policyAllows(); grab(); } else release(); }) || (() => {});
+  const unToggle = cam.onToggle?.((on) => {
+    if (on) { lockable = policyAllows(); applyHold(cam.mouseHeld); }
+    else { last = null; release(); hideCursor(false); }
+  }) || (() => {});
+  // M, routed here from whichever panel is forwarding keys. See createFreeCam's setHold.
+  const unHold = cam.onMouseHeld?.(applyHold) || (() => {});
 
   el.addEventListener('pointerdown', down, true);
   window.addEventListener('pointermove', move, true);
@@ -370,10 +585,13 @@ export function bindFreeCamPointer(el, cam) {
   el.addEventListener('contextmenu', menu, true);
   document.addEventListener('pointerlockchange', lockChange);
   document.addEventListener('pointerlockerror', lockError);
+  window.addEventListener('keydown', esc, true);
   el.addEventListener('wheel', wheel, { passive: false, capture: true });
   return () => {
     unToggle();
+    unHold();
     release();
+    hideCursor(false);
     el.removeEventListener('pointerdown', down, true);
     window.removeEventListener('pointermove', move, true);
     window.removeEventListener('pointerup', up, true);
@@ -381,6 +599,7 @@ export function bindFreeCamPointer(el, cam) {
     el.removeEventListener('contextmenu', menu, true);
     document.removeEventListener('pointerlockchange', lockChange);
     document.removeEventListener('pointerlockerror', lockError);
+    window.removeEventListener('keydown', esc, true);
     el.removeEventListener('wheel', wheel, { capture: true });
   };
 }

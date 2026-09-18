@@ -1,22 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#18241f",
+  "color": "#4f9d7a",
+  "description": "A chemist on the corner where Foundry Way meets the Gate Road, with a green cross over the door that flickers on the downstroke and a night hatch beside it with a bell. The window is full of things in boxes that have been in the window long enough to fade on the side facing out, and a card that reads WE DO NOT KEEP CASH OVERNIGHT, WE HAVE NEVER KEPT CASH OVERNIGHT.",
   "exits": {
-    "south": "zone_district_917_912",
-    "west": "zone_district_916_911"
+    "north": "zone_dosed_counter",
+    "south": "zone_district_917_912"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Dosed & Confused",
+    "building_type": "chem_supply",
+    "district": "marrow",
+    "entrance": "south",
+    "facade": true,
+    "floors": 3,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_917_912"
   },
   "grid_x": 917,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_917_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "DO",
+  "name": "Dosed & Confused",
   "parent_zone": null
 }

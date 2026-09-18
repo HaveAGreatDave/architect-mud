@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_spirit_bottle",
+  "name": "bottle of gate whisky",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "abv": 43,
+    "drink_noun": "whisky",
+    "drink_profile": "base_spirit",
+    "pour_units": 16,
+    "restore_thirst": 8,
+    "description": "Distilled somewhere south and finished here, in a plain bottle with a printed label and a hand-written year. Rough at the front and clean at the back, which he says is the right way round and which people argue with until the second glass."
+  },
+  "type": "consumable",
+  "value": 88,
+  "weight": 900
+}

@@ -1,0 +1,19 @@
+{
+  "description": "Brackets round the walls at head height, each with a finished piece on it and a little brass light over it. Every one of them is turned very slightly toward the door. It is not an accident and she will tell you why if you ask, and the reason is entirely practical and slightly unsettling.",
+  "flags": {
+    "aliases": "mounts,mount,brackets,animals,heads",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stuffit_mounts",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the wall mounts",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_stuffit_shop"
+}

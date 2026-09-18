@@ -1,0 +1,14 @@
+{
+  "description": "A wire-caged bulkhead light screwed to the wall beside the cabinet, painted over twice and still working.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_util_zone_sole_shop",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "the cellar bulkhead",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_util_zone_sole_shop"
+}

@@ -1,0 +1,276 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Bray turns a pen a quarter turn on the blotter and leaves it there.",
+    "The clock fills a silence he has made no attempt to fill himself.",
+    "He looks at the near chair, and then at you, and says nothing at all.",
+    "He straightens his cuff, which was straight.",
+    "He glances at the window, at the shapes going past on the Gate Road.",
+    "He opens a drawer, does not take anything out of it, and closes it.",
+    "\"Mm,\" he says, pleasantly, which could mean anything and is meant to.",
+    "He lets a pause run about two seconds past comfortable and then smiles.",
+    "He writes one word on the blotter's corner and tears the corner off."
+  ],
+  "description": "A comfortable, unhurried man in a good suit who has arranged a room in which the only thing to look at is him, and is entirely at ease being looked at. He never raises his voice and never fills a silence, and he has found that between the clock and the carpet the room does most of his work. Everything he says is true. Very little of it is the whole thing.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "A nod, and they go back to it before you have got the door open."
+    },
+    "clock": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It is,\" he agrees, pleasantly.\n\nHe lets it tick a while.\n\n\"A quiet room is not a comfortable one. People will fill a silence with something they had not meant to say, and then they have said it, and then it is in the room with us.\" A small smile. \"I have never once had to ask a question I did not want to ask. The clock has asked most of them.\""
+    },
+    "gate": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because of what people are carrying in each direction,\" he says. \"On the way out they have everything they own and no idea what it costs out there. On the way back they have whatever's left and a very exact idea.\"\n\nHe turns a pen a quarter turn.\n\n\"The second conversation is the better one, from my side, and I will not pretend otherwise. But I'd rather have the first one with them, because the first one is where I can say don't, and occasionally somebody listens.\""
+    },
+    "rates": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Are on the card, and every figure on it is true.\" He does not blink. \"It is also arranged so that it takes a person about four minutes to understand, standing in the street, and most people give it forty seconds.\"\n\nHe lets that sit.\n\n\"You are welcome to be appalled by that. I would only point out that I have told you, that nobody else on this street would have, and that the card is still in the window.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "That clock is loud.",
+          "next": "clock"
+        },
+        {
+          "label": "Why this corner?",
+          "next": "gate"
+        },
+        {
+          "label": "Your rates.",
+          "next": "rates"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit down, there's no charge for sitting down.\" He gestures at the near chair. \"Rates are on the card in the window. You've read them or you haven't, and either way I'd rather go through them with you.\"",
+      "text_by_relation": {
+        "familiar": "He turns the clock face down on the desk, which you have never seen him do.\n\n\"There,\" he says. \"Now we can talk like two people. You've been in this chair often enough to have earned about four minutes of that, and then I'm afraid I'll turn it back over.\"",
+        "first": "The man behind the desk stands, which is more than he needs to do, and indicates the chair.\n\n\"Bray. Cosmo Bray.\" He sits when you do. \"Last frontage on the way out, first on the way back. That took some arranging and I am quite pleased with it.\"\n\nThe clock fills the pause he leaves.\n\n\"The rates are on the card in the window in a type size that makes you stop walking. That is deliberate and it is also honest, which people find a confusing combination.\"",
+        "known": "\"Ah.\" He does not get up this time. \"Sit down. You know where the chair is and you know what the clock does.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a good suit, brushed, a little out of date",
+      "a shirt laundered somewhere that charges for it",
+      "polished shoes that have been resoled rather than replaced"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_loanwolf_office",
+  "hp": 36,
+  "hp_max": 36,
+  "id": "npc_loan_bray",
+  "name": "Cosmo Bray",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sun": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_loanwolf_office"
+}

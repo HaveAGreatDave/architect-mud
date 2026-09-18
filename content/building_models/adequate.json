@@ -17,11 +17,19 @@
       "z": 0.93
     },
     {
-      "cx": 0,
+      "cx": 0.2,
       "cy": 0.47,
       "kind": "glowPool",
       "rgb": "255,150,70",
-      "s": 20,
+      "s": 15,
+      "z": 0.02
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.5,
+      "kind": "glowPool",
+      "rgb": "255,110,200",
+      "s": 13,
       "z": 0.02
     }
   ],
@@ -37,69 +45,204 @@
   ],
   "detail": [
     {
+      "bars": 9,
+      "cx": 0,
+      "cy": 0.44,
+      "depth": 0.028,
+      "glass": "#2f1f30",
+      "glow": "#ff6fc4",
+      "half": 0.385,
+      "hh": 0.058,
+      "kind": "windowBay",
+      "pal": "ty_adequate_stone",
+      "transom": 1,
+      "z": 0.052
+    },
+    {
       "cx": 0,
       "cy": 0,
       "half": 0.44,
-      "hh": 0.015,
+      "hh": 0.012,
       "kind": "parapet",
-      "pal": "ty_adequate",
-      "z": 0.15
-    },
-    {
-      "bars": 7,
-      "cx": 0,
-      "cy": 0.44,
-      "depth": 0.023,
-      "glass": "#1a1410",
-      "glow": "#ffe0b8",
-      "half": 0.36,
-      "hh": 0.045,
-      "kind": "windowBay",
-      "pal": "ty_adequate",
-      "z": 0.063
+      "pal": "ty_adequate_dk",
+      "z": 0.028
     },
     {
       "cx": 0,
       "cy": 0.44,
-      "half": 0.32,
+      "half": 0.4,
       "hh": 0.011,
       "kind": "canopy",
-      "out": 0.105,
-      "pal": "ty_adequate",
+      "out": 0.115,
+      "pal": "ty_adequate_dk",
       "soffit": "#8c4a14",
       "strip": "#ffc98a",
-      "z": 0.12
-    },
-    {
-      "cx": -0.34,
-      "cy": 0.46,
-      "kind": "bollard",
-      "pal": "ty_adequate",
-      "z": 0.004
-    },
-    {
-      "cx": 0.34,
-      "cy": 0.46,
-      "kind": "bollard",
-      "pal": "ty_adequate",
-      "z": 0.004
+      "z": 0.128
     },
     {
       "color": "#171009",
       "cx": 0,
       "cy": 0.44,
       "font": "block",
-      "half": 0.27,
+      "half": 0.335,
       "hh": 0.036,
       "ink": "#ffd678",
       "kind": "signBoard",
       "label": "ADEQUATE!",
-      "z": 0.116
+      "z": 0.112
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.442,
+      "hh": 0.016,
+      "kind": "parapet",
+      "pal": "ty_adequate_stone",
+      "z": 0.19
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 8,
+        "cx": 0,
+        "cy": 0.412,
+        "depth": 0.014,
+        "glass": "#2c3742",
+        "glow": "#bcd6ef",
+        "half": 0.345,
+        "hh": 0.036,
+        "kind": "windowBay",
+        "pal": "ty_adequate",
+        "z": 0.238
+      },
+      "step": {
+        "z": 0.112
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 8,
+        "cx": 0,
+        "cy": -0.412,
+        "depth": 0.014,
+        "glass": "#2c3742",
+        "glow": "#bcd6ef",
+        "half": 0.345,
+        "hh": 0.036,
+        "kind": "windowBay",
+        "pal": "ty_adequate",
+        "z": 0.238
+      },
+      "step": {
+        "z": 0.112
+      }
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.415,
+      "hh": 0.014,
+      "kind": "parapet",
+      "pal": "ty_adequate_stone",
+      "z": 0.545
+    },
+    {
+      "bars": 6,
+      "cx": 0,
+      "cy": 0.332,
+      "depth": 0.012,
+      "glass": "#2c3742",
+      "glow": "#9ccfe8",
+      "half": 0.26,
+      "hh": 0.032,
+      "kind": "windowBay",
+      "pal": "ty_adequate",
+      "z": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.335,
+      "hh": 0.013,
+      "kind": "parapet",
+      "pal": "ty_adequate_stone",
+      "z": 0.705
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.238,
+      "half": 0.07,
+      "hh": 0.026,
+      "kind": "louvreBank",
+      "n": 5,
+      "pal": "ty_adequate_stone",
+      "z": 0.752
+    },
+    {
+      "cx": 0.1,
+      "cy": 0.238,
+      "half": 0.07,
+      "hh": 0.026,
+      "kind": "louvreBank",
+      "n": 5,
+      "pal": "ty_adequate_stone",
+      "z": 0.752
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.245,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_adequate_stone",
+      "z": 0.833
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_adequate_dk",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_adequate_dk",
+      "z": 0.004
+    },
+    {
+      "color": "#2a1608",
+      "cx": 0,
+      "cy": 0,
+      "font": "condensed",
+      "half": 0.2,
+      "hh": 0.05,
+      "ink": "#ff8a2e",
+      "kind": "signGantry",
+      "label": "IT’LL DO",
+      "neon": true,
+      "pal": "ty_adequate_dk",
+      "rise": 0.105,
+      "z": 0.84
+    },
+    {
+      "color": "#5cd6ff",
+      "cx": 0,
+      "cy": 0.446,
+      "drop": 0.024,
+      "half": 0.395,
+      "kind": "neonRun",
+      "pal": "ty_adequate_stone",
+      "z": 0.181
     }
   ],
   "id": "adequate",
   "neon": "#ff8a2e",
-  "note": "Marrow Street’s anchor and the only thing on that strip with four floors. A department store sets BACK rather than twists — three diminishing storeys over a deep shopfront podium, a centred chamfered attic and the corner rotunda on top, which is what a store of this kind actually puts there. ⚠ ITS NEON STAYS SODIUM ON PURPOSE. Everything west of here burns magenta or cyan now; this is the middle of the gradient, and the warm sign is how the street says so without a coordinate being named anywhere in the renderer. ⚠ A CANTILEVER AND A ROTATION NEVER SHARE A SEGMENT — see the warning in aurelia.json. An offset box and a yawed box are each safe; a box that is both puts the derived kit where its own solid is not, and glself catches it. So asymmetry here is offset-only and every chamfer is CENTRED. RENDER_TUNE.legacyArms puts the deptstore arm back.",
+  "note": "Marrow Street’s anchor and the only thing on that strip with four floors. A department store sets\nBACK rather than twists — three diminishing storeys over a deep shopfront podium, a centred\nchamfered attic and the corner rotunda on top, which is what a store of this kind actually puts\nthere.\n\n⚠ THE SETBACKS WERE ALWAYS THERE AND NOBODY COULD SEE THEM, which is what a single palette does\nto a wedding cake: 0.44 → 0.41 → 0.33 → 0.24 and a rotunda, every step of it the same brown, so\nfour storeys of massing read as one lump. `models:quality` scores \"more than one wall palette\"\nfor exactly this. It has three now — cast stone round the shopfront and across the attic,\nsoot-darkened brick for the base course and the rotunda, and the sodium brown kept for the shaft,\nwhich is the one that had to stay.\n\n⚠ ITS NEON STAYS SODIUM ON PURPOSE. Everything west of here burns magenta or cyan now; this is\nthe middle of the gradient, and the warm sign is how the street says so without a coordinate\nbeing named anywhere in the renderer.\n\n⚠ THE SHOPFRONT IS THE BUILDING’S SUBJECT AND IT WAS A STRIP. The zone calls it \"a wall of\nmannequins in this season’s one coat\", and a wall is what it has to be: one continuous glazed\nband the full width of the podium, nine lights of it, under a canopy that reaches the kerb. The\nold one was 0.045 of the height at seven bars and read as a row of vents.\n\n⚠ A CANTILEVER AND A ROTATION NEVER SHARE A SEGMENT — see the warning in aurelia.json. An offset\nbox and a yawed box are each safe; a box that is both puts the derived kit where its own solid is\nnot, and glself catches it. So asymmetry here is offset-only and every chamfer is CENTRED.\nRENDER_TUNE.legacyArms puts the deptstore arm back.\n\n⚠ THE ROOF BOARD IS AUTHORED SO THAT IT DOES NOT SAY THE NAME TWICE. `derivedKit` hands this\nbuilding a rooftop hoarding on 25 seeds in 40 and labels it off the building, which put ADEQUATE!\non the fascia and ADEQUATE! on the roof. A store this size should have a roof sign; what it should\nnot have is the same word on both. The slogan is the store’s own joke and tells a player\nsomething the fascia does not.\n\n⚠ THE SIGN STAYS SODIUM AND THE GLASS DOES NOT, WHICH IS THE OTHER HALF OF THE PARAGRAPH ABOVE.\nEvery window on the building took `glass: #1c1712` — a near-black brown — so by day a four-storey\nstore was a tan box with black slots in it, and after dark all four floors burned the same warm\ncream as the fascia. That is the whole city being amber inside one building. A window reflects the\nSKY, so the day colour is cool slate and the night one is a cool white-blue, colder again on the\ntop floor. The name still burns sodium, and it is the only thing that does.\n\n⚠ THE DISPLAY IS MAGENTA BECAUSE IT IS THE ONE SURFACE HERE LIT TO BE LOOKED AT. \"A wall of\nmannequins in this season’s one coat\" is not room light behind glass, it is a shop window on\na timer, and the city rule is that the field goes cool and the hot colour is spent on the thing\nthat earns it. Nine lights of it under the canopy, with the pavement pool to match and the sodium\none moved across to the door.\n\n⚠ AND THE PODIUM HAS A LIT CORNICE. The setbacks are the building’s argument and at night the\npodium and the shaft were one dark mass with a sign stuck on it; a cyan tube under the stone\nparapet draws the line the massing already has. It claims the `neon` section, so the derived kit\nstays off this facade rather than hanging a second one somewhere it was not designed for.",
   "pal": "ty_adequate",
   "replaces": "deptstore",
   "segs": [
@@ -108,46 +251,61 @@
       "cy": 0,
       "hw": 0.44,
       "kind": "box",
+      "pal": "ty_adequate_dk",
       "roof": true,
       "z0": 0,
-      "z1": 0.15
+      "z1": 0.028
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.435,
+      "kind": "box",
+      "pal": "ty_adequate_stone",
+      "roof": true,
+      "z0": 0.028,
+      "z1": 0.205
     },
     {
       "cx": 0,
       "cy": 0,
       "hw": 0.41,
       "kind": "box",
+      "pal": "ty_adequate",
       "roof": true,
-      "z0": 0.15,
-      "z1": 0.5
+      "z0": 0.205,
+      "z1": 0.56
     },
     {
       "cx": 0,
       "cy": 0,
       "hw": 0.33,
       "kind": "box",
+      "pal": "ty_adequate",
       "roof": true,
-      "z0": 0.5,
-      "z1": 0.7
+      "z0": 0.56,
+      "z1": 0.72
     },
     {
       "cx": 0,
       "cy": 0,
       "hw": 0.24,
       "kind": "box",
+      "pal": "ty_adequate_stone",
       "roof": true,
-      "z0": 0.7,
-      "z1": 0.84
+      "z0": 0.72,
+      "z1": 0.845
     },
     {
       "cx": 0,
       "cy": 0,
       "hw": 0.2,
       "kind": "box",
+      "pal": "ty_adequate_stone",
       "roof": true,
       "yaw": 0.785,
-      "z0": 0.7,
-      "z1": 0.84
+      "z0": 0.72,
+      "z1": 0.845
     },
     {
       "cap": true,
@@ -155,10 +313,12 @@
       "cy": 0,
       "kind": "drum",
       "n": 12,
+      "pal": "ty_adequate_dk",
       "rb": 0.13,
       "rt": 0.11,
-      "z0": 0.84,
+      "z0": 0.845,
       "z1": 0.93
     }
   ]
 }
+

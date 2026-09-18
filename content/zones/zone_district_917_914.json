@@ -1,24 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#231d18",
+  "description": "The first shopfront you pass coming up from the South Gate, and it has something dead in the window. The glass is canted, leaning out over the pavement at the top so it takes the sky off the surface and shows you the room instead, and behind it a hare stands on a green baize plinth with its ears up and its eyes doing the thing the eyes do. The sign is painted straight onto the render in black on cream: STUFF IT, and under it, smaller, MOUNTS · TANNING · SKULLS · NO PETS. On a bracket above the sign, mounted and weathering, is something with a wingspan.",
   "exits": {
     "east": "zone_district_918_914",
-    "north": "zone_district_917_913",
-    "south": "zone_district_917_915",
-    "west": "zone_district_916_914"
+    "west": "zone_stuffit_shop"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Stuff It",
+    "building_type": "taxidermist",
+    "district": "ashway",
+    "entrance": "east",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_918_914"
   },
   "grid_x": 917,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_917_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "TX",
+  "name": "Stuff It",
   "parent_zone": null
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_wrapparty_bar",
+  "b": "zone_util_zone_wrapparty_bar",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_wrapparty_bar_down_wrap2",
+  "lockable": false,
+  "one_way": false
+}

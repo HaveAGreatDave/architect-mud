@@ -1,0 +1,19 @@
+{
+  "description": "White tile with a fall on it toward a stone sink, grouted in something that has gone the colour of tea and is scrubbed back to white in one rectangle the size of a tray. That rectangle is where the work happens. Everything either side of it is where the work is put down.",
+  "flags": {
+    "aliases": "bench,tiles,slab,sink",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stuffit_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tiled bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_stuffit_work"
+}

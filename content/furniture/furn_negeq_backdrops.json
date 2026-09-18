@@ -1,0 +1,19 @@
+{
+  "description": "Three rolls on a rail: grey, a lighter grey, and one that was a landscape and is now mostly a suggestion of one. The landscape has not been down in nine years. She will not throw it out and she will not use it, and she is aware of how that sounds.",
+  "flags": {
+    "aliases": "backdrops,backdrop,rolls,rail",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_negeq_backdrops",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the backdrops",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_negeq_studio"
+}

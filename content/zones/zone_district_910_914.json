@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#22241d",
+  "color": "#8a8f7a",
+  "description": "Five floors of flats on the end of the terrace, and the only block on this side of the park with a park view, which the letting board mentions in larger letters than anything else. Someone painted STATUE QUO over the door in a serif they did not have the wrist for. The ground-floor windows are barred, the second-floor ones are not, and the top two floors have window boxes that are doing better than they have any right to.",
   "exits": {
-    "east": "zone_district_911_914",
     "north": "zone_district_910_913",
-    "south": "zone_district_910_915",
-    "west": "zone_district_909_914"
+    "south": "zone_statuequo_hall"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Statue Quo",
+    "building_type": "apartment",
+    "district": "commercial",
+    "entrance": "north",
+    "facade": true,
+    "floors": 5,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_910_913"
   },
   "grid_x": 910,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_910_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "SQ",
+  "name": "Statue Quo",
   "parent_zone": null
 }

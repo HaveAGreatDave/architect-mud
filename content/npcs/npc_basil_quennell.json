@@ -1,0 +1,277 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Tick's for people I know. You'll get there.\"",
+    "squares a stack of tins so the labels all face out, then does the next stack",
+    "\"If it's not on the shelf I can get it by Thursday. If it's Thursday, Monday.\"",
+    "licks a thumb and counts a float that he has already counted twice",
+    "\"That one's out of date. It's fine. It's out of date and it's fine, those are two different facts.\""
+  ],
+  "description": "A narrow man of about sixty in a cardigan with the cuffs gone, working a shop he has clearly been working since he was too young to reach the top shelf without the steps that are still there. He knows the stock by touch. He can tell you what everyone on Filament Street eats and has the tact never to.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "He is already half turned toward the shelves. \"Go on.\"",
+        "\"Morning.\" It is not necessarily morning. \"What are you after?\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There he is.\" He is already getting the steps out. \"Same, or are we being adventurous?\"",
+          "\"Put it on the slate.\" A pause. \"Go on, then, put half of it on the slate.\""
+        ],
+        "first": "\"Basil. Quennell, but nobody uses it.\" He puts both hands flat on the counter. \"You're in the buildings, then. Right. I do bread, batteries and most of the middle ground.\"",
+        "known": "\"You.\" He reaches up without looking and takes down the thing you usually buy. \"This, is it?\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a fawn cardigan with both cuffs unravelled",
+      "a shirt and tie under a shop coat",
+      "a vest and long johns"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_filament_unit_2",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_basil_quennell",
+  "name": "Basil Quennell",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_flat_bread",
+      "price": 5
+    },
+    {
+      "item_id": "item_grey_rice",
+      "price": 4
+    },
+    {
+      "item_id": "item_battery_egg",
+      "price": 6
+    },
+    {
+      "item_id": "item_ersatz_noodle",
+      "price": 5
+    },
+    {
+      "item_id": "item_pain_pills",
+      "price": 20
+    },
+    {
+      "item_id": "item_battery",
+      "price": 12
+    },
+    {
+      "item_id": "item_soap_block",
+      "price": 4
+    },
+    {
+      "item_id": "item_barley_water",
+      "price": 5
+    },
+    {
+      "item_id": "item_dripping_bread",
+      "price": 9
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": "Corner the Market",
+  "vendor_stock_size": 14,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_cornermarket_shop"
+}

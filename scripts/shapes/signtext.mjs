@@ -43,10 +43,20 @@ for (const [name, fn] of Object.entries(SIGN_FONT)) {
 // matters is that there is a path to stroke, not what it is filled with.
 for (const [name, fn] of Object.entries(SIGN_PICTO)) {
   let ops = 0, moves = 0, extent = 0;
+  // ⚠ THE RECORDER HAS TO KNOW EVERY PATH OP A PICTOGRAM MAY USE, and a missing one is not a quiet
+  // miss — it is a `TypeError` out of `fn(rec)` that takes the whole gate down with it, which is
+  // how the push chain came to be red on an unrelated afternoon. `eye` draws its lids as quadratic
+  // curves; nothing here knew the word.
+  // ⚠ A CURVE'S CONTROL POINT COUNTS TOWARD THE EXTENT. A Bézier stays inside the convex hull of
+  // its own points, so bounding it by the hull can only ever over-report — which is the safe
+  // direction for a check that exists to stop a mark drawing over the letters beside it.
+  const at = (...v) => { extent = Math.max(extent, ...v.map(Math.abs)); };
   const rec = {
-    moveTo(x, y) { ops++; moves++; extent = Math.max(extent, Math.abs(x), Math.abs(y)); },
-    lineTo(x, y) { ops++; extent = Math.max(extent, Math.abs(x), Math.abs(y)); },
+    moveTo(x, y) { ops++; moves++; at(x, y); },
+    lineTo(x, y) { ops++; at(x, y); },
     arc(x, y, r) { ops++; extent = Math.max(extent, Math.abs(x) + r, Math.abs(y) + r); },
+    quadraticCurveTo(cx, cy, x, y) { ops++; at(cx, cy, x, y); },
+    bezierCurveTo(c1x, c1y, c2x, c2y, x, y) { ops++; at(c1x, c1y, c2x, c2y, x, y); },
     closePath() { ops++; },
   };
   fn(rec);

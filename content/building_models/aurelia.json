@@ -7,7 +7,7 @@
       "half": 0.42,
       "kind": "marqueeBand",
       "label": "AURELIA",
-      "z": 0.062
+      "z": 0.093
     },
     {
       "cx": -0.2,
@@ -15,7 +15,7 @@
       "kind": "glowPool",
       "rgb": "170,110,255",
       "s": 18,
-      "z": 0.02
+      "z": 0.03
     },
     {
       "cx": 0.2,
@@ -23,7 +23,23 @@
       "kind": "glowPool",
       "rgb": "255,90,200",
       "s": 16,
-      "z": 0.02
+      "z": 0.03
+    },
+    {
+      "cx": 0,
+      "cy": 0.29,
+      "kind": "glowPool",
+      "rgb": "176,112,255",
+      "s": 9,
+      "z": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "176,112,255",
+      "s": 12,
+      "z": 1.14
     }
   ],
   "basis": {
@@ -41,10 +57,10 @@
       "cx": 0,
       "cy": 0,
       "half": 0.44,
-      "hh": 0.015,
+      "hh": 0.0225,
       "kind": "parapet",
       "pal": "ty_aurelia",
-      "z": 0.1
+      "z": 0.15
     },
     {
       "bars": 4,
@@ -54,41 +70,55 @@
       "glass": "#150f1f",
       "glow": "#e0c8ff",
       "half": 0.36,
-      "hh": 0.03,
+      "hh": 0.045,
       "kind": "windowBay",
       "pal": "ty_aurelia",
-      "z": 0.042
+      "z": 0.063
     },
     {
       "cx": 0,
       "cy": 0.44,
       "half": 0.32,
-      "hh": 0.011,
+      "hh": 0.0165,
       "kind": "canopy",
       "out": 0.105,
       "pal": "ty_aurelia",
       "soffit": "#6a2ea8",
       "strip": "#d8a8ff",
-      "z": 0.08000000000000002
+      "z": 0.12
     },
     {
       "cx": -0.34,
       "cy": 0.46,
       "kind": "bollard",
       "pal": "ty_aurelia",
-      "z": 0.004
+      "z": 0.006
     },
     {
       "cx": 0.34,
       "cy": 0.46,
       "kind": "bollard",
       "pal": "ty_aurelia",
-      "z": 0.004
+      "z": 0.006
+    },
+    {
+      "color": "#1a1020",
+      "cx": 0.15,
+      "cy": 0.33,
+      "font": "script",
+      "half": 0.055,
+      "ink": "#d9a8ff",
+      "kind": "bladePanel",
+      "label": "AURELIA",
+      "out": 0.035,
+      "pal": "ty_aurelia",
+      "z0": 0.3,
+      "z1": 1.02
     }
   ],
   "id": "aurelia",
   "neon": "#b070ff",
-  "note": "A boutique on the swanky west side, and the one form on this list that needs no rotation and no curve: the storeys are CANTILEVERED, each shifted off the one below so the stack overhangs itself on alternating sides. It is the cheapest way to break a silhouette — the mass stays square, unyawed and fully trimmed by derivedTrim, and only `cx` moves. ⚠ THE TOP BOX CARRIED A SMALL YAW AND HAD TO LOSE IT: a segment that is both OFFSET and ROTATED puts the derived kit somewhere its own solid does not cover, and the pull that keeps a decal off its surface then drags it out through the building — glself.mjs caught four such points here, and zeroing either the offset or the yaw cleared them. The offset is the whole idea of this building, so the yaw is what went. A cantilever and a rotation are each safe on their own; together on one segment they are not. RENDER_TUNE.legacyArms puts the atelier arm back.",
+  "note": "A boutique on the swanky west side, and the one form on this list that needs no rotation and no curve: the storeys are CANTILEVERED, each shifted off the one below so the stack overhangs itself on alternating sides. It is the cheapest way to break a silhouette — the mass stays square, unyawed and fully trimmed by derivedTrim, and only `cx` moves. ⚠ THE TOP BOX CARRIED A SMALL YAW AND HAD TO LOSE IT: a segment that is both OFFSET and ROTATED puts the derived kit somewhere its own solid does not cover, and the pull that keeps a decal off its surface then drags it out through the building — glself.mjs caught four such points here, and zeroing either the offset or the yaw cleared them. The offset is the whole idea of this building, so the yaw is what went. A cantilever and a rotation are each safe on their own; together on one segment they are not. RENDER_TUNE.legacyArms puts the atelier arm back.\n\n⚠ RESTORED TO THE HEIGHT OF ITS ARM (2026-09-17). The form above is unchanged and was\nnever the problem; what did not carry across from the atelier arm was how tall it stands. It was\nat 67% — 0.80x the storey stack against the arm's 1.20x — so every 'h'-tagged field\nhere was multiplied by 1.500 and every 'fh'-tagged one left alone. The silhouette is identical;\nonly the storeys are taller. Same regression as halcyontowers and thespire, same measurement.\n\n⚠ THE NAME-BLADE IS BACK TOO. The atelier arm hung a slim full-height violet blade by the door\nand lit one restrained vitrine glow; the port kept neither, and ty_aurelia is [38,32,50], so the\nbuilding emitted two sprites and read as an unlit block after dark. A couture house with an\nunlit vitrine is the one thing it cannot be. ⚠ THE BLADE IS A bladePanel AND NOT THE ARM’S\nneonBlade: that kind takes its half-width in SCREEN PIXELS, so it holds one thickness at every\ndistance, never foreshortens, and at a close camera fills the frame as a violet slab with the\nname on it. The Modelshop README says to prefer a panel for anything hung on a building, and a\npanel is cheaper as well — a blade sets shadowBlur.",
   "pal": "ty_aurelia",
   "replaces": "atelier",
   "segs": [
@@ -99,7 +129,7 @@
       "kind": "box",
       "roof": true,
       "z0": 0,
-      "z1": 0.1
+      "z1": 0.15
     },
     {
       "cx": -0.07,
@@ -107,8 +137,8 @@
       "hw": 0.33,
       "kind": "box",
       "roof": true,
-      "z0": 0.1,
-      "z1": 0.32
+      "z0": 0.15,
+      "z1": 0.48
     },
     {
       "cx": 0.09,
@@ -116,8 +146,8 @@
       "hw": 0.31,
       "kind": "box",
       "roof": true,
-      "z0": 0.32,
-      "z1": 0.52
+      "z0": 0.48,
+      "z1": 0.78
     },
     {
       "cx": -0.06,
@@ -125,8 +155,8 @@
       "hw": 0.27,
       "kind": "box",
       "roof": true,
-      "z0": 0.52,
-      "z1": 0.68
+      "z0": 0.78,
+      "z1": 1.02
     },
     {
       "cx": 0.04,
@@ -135,8 +165,9 @@
       "kind": "box",
       "pal": "ty_archive_col",
       "roof": true,
-      "z0": 0.68,
-      "z1": 0.8
+      "z0": 1.02,
+      "z1": 1.2
     }
   ]
 }
+

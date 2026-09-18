@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1b2226",
+  "description": "Behind the slab there is room for one man and about a hundred and ten years of decisions about where things go. A scale on a bracket with the brass pan polished bright and the dial glass gone yellow. A steel and a filleting knife on a magnet, both worn narrow. A tap running continuously into a stone sink because the day it stops being run is the day the shop smells. The tiles behind him are white to shoulder height and green above it, and there is one tile at eye level with a fish on it, painted, and it is not the same fish as any of the others.",
+  "exits": {
+    "north": "zone_codfather_ice",
+    "south": "zone_district_903_905",
+    "down": "zone_util_zone_codfather_slab"
+  },
+  "flags": {
+    "building_name": "The Codfather",
+    "building_type": "fishmonger",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "There is no window. There is an opening, and the awning over it, and the weather arrives on the slab about as often as it arrives on the pavement, which is why the awning comes down before anything else does.",
+      "light": 0.85,
+      "name": "the open front",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_903_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_codfather_slab",
+  "map_id": "map_int_codfather",
+  "name": "The Codfather — The Slab",
+  "parent_zone": "zone_district_903_905"
+}

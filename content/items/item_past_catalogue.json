@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_past_catalogue",
+  "name": "the museum catalogue",
+  "tags": {
+    "stackable": true,
+    "description": "Typed, duplicated and stapled by him, forty-one pages, one entry per object with a provenance and a date. The provenances are meticulous. The dates are guesses delivered as facts, and he would be genuinely upset to be told the difference."
+  },
+  "type": "media",
+  "value": 18,
+  "weight": 180
+}

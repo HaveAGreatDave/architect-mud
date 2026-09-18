@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_reel_choc",
+  "name": "choc ice",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "restore_hunger": 8,
+    "restore_thirst": 6,
+    "restore_sanity": 3,
+    "description": "A slab of something cold in a foil wrapper with a coat of something brown on it, kept in the cabinet at a temperature that is a compromise between what the cabinet can do and what the ice would prefer. Eat it in the first ten minutes or wear it."
+  },
+  "type": "consumable",
+  "value": 11,
+  "weight": 90
+}

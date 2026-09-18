@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_914_913",
+  "b": "zone_acidtest_counter",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_914_913_south_acid1",
+  "lockable": true,
+  "one_way": false
+}

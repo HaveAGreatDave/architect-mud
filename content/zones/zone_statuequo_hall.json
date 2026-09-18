@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#22241d",
+  "color": "#8a8f7a",
+  "description": "A tiled entrance hall with a wall of brass letterboxes, most of them with the name slot empty and a few with two names in the same slot. The stair goes up on the left, worn to a shine in the middle of each tread. There's a radiator that has been painted eleven times and a noticeboard with a residents' notice on it about the bins, undated, in a tone that suggests it has not worked.",
+  "exits": {
+    "down": "zone_util_zone_statuequo_hall",
+    "north": "zone_district_910_914"
+  },
+  "flags": {
+    "building_name": "Statue Quo",
+    "building_type": "apartment",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A panel of reeded glass in the street door that turns the park into a green smear with a dark upright in the middle of it. If you want to know what the weather is doing you open the door.",
+      "light": 0.85,
+      "name": "the hall door glass",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_910_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_statuequo_hall",
+  "map_id": "map_int_statuequo",
+  "name": "Statue Quo — Entrance Hall",
+  "parent_zone": "zone_district_910_914"
+}

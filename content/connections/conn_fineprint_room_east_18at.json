@@ -1,0 +1,9 @@
+{
+  "a": "zone_fineprint_room",
+  "b": "zone_fineprint_stack",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_fineprint_room_east_18at",
+  "lockable": false,
+  "one_way": false
+}

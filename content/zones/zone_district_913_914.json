@@ -3,10 +3,7 @@
   "ambient_theme": "city",
   "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
-    "east": "zone_district_914_914",
-    "north": "zone_district_913_913",
-    "south": "zone_district_913_915",
-    "west": "zone_district_912_914"
+    "south": "zone_district_913_915"
   },
   "flags": {
     "district": "wasteland",

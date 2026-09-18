@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A low utility room under the shop: bare brick, a concrete floor that slopes to a drain, and the building junction box humming in its steel cabinet. There is a floor safe down here under a square of loose board that fools nobody, and the real one is elsewhere in the building and is not on any plan.",
+  "exits": {
+    "up": "zone_acidtest_counter"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_914_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_acidtest_counter",
+  "map_id": "map_int_acidtest",
+  "name": "The Acid Test — Utility Room",
+  "parent_zone": "zone_district_914_913"
+}

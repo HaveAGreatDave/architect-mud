@@ -1,0 +1,19 @@
+{
+  "description": "Open on the issue desk, always, at today. Names on the left, dates in the middle, running totals on the right in a column that is added up daily and has never once been added up wrong. Four names are written in red. Nobody has ever asked what the red means and everybody has worked it out.",
+  "flags": {
+    "aliases": "fines book,fines,book,ledger",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fprint_fines",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the fines book",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_fineprint_room"
+}

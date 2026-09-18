@@ -1,0 +1,9 @@
+{
+  "a": "zone_stuffit_shop",
+  "b": "zone_stuffit_work",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_stuffit_shop_north_150x",
+  "lockable": false,
+  "one_way": false
+}

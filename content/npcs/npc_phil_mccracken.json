@@ -3,30 +3,535 @@
   "behaviour_graph": {
     "_start": "n_start",
     "nodes": {
-      "n_atwork": {
-        "action_type": "AT_WORK",
-        "next": "n_check",
-        "type": "action"
-      },
       "n_check": {
+        "_vine": {
+          "x": 360,
+          "y": 60
+        },
         "action_type": "CHECK_WORK",
         "goToWork": "n_work",
         "haveLife": "n_life",
         "type": "action"
       },
       "n_life": {
+        "_vine": {
+          "x": 1000,
+          "y": 60
+        },
         "action_type": "HAVE_LIFE",
-        "next": "n_check",
+        "next": "n_loop",
         "type": "action"
       },
+      "n_loop": {
+        "_vine": {
+          "x": 1320,
+          "y": 60
+        },
+        "next": "n_start",
+        "type": "loop"
+      },
       "n_start": {
+        "_vine": {
+          "x": 40,
+          "y": 60
+        },
         "next": "n_check",
         "type": "start"
       },
-      "n_work": {
-        "action_type": "GO_TO_WORK",
-        "next": "n_atwork",
+      "n_w0": {
+        "_vine": {
+          "x": 1000,
+          "y": 230
+        },
+        "action_type": "SAY",
+        "next": "n_ww0",
+        "params": {
+          "message": "That's the second time in four minutes. I'm writing them down."
+        },
         "type": "action"
+      },
+      "n_w1": {
+        "_vine": {
+          "x": 1640,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww1",
+        "params": {
+          "message": "The voice comes from behind Camera 2, flat and unhurried, from a man who hasn't looked up. There's a clipboard. There has always been a clipboard."
+        },
+        "type": "action"
+      },
+      "n_w10": {
+        "_vine": {
+          "x": 7400,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww10",
+        "params": {
+          "message": "It's a sound cue. We recorded it in your old street because Neil said it wouldn't be right without it."
+        },
+        "type": "action"
+      },
+      "n_w11": {
+        "_vine": {
+          "x": 8040,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww11",
+        "params": {
+          "message": "Nobody says anything for a moment. Somewhere above the ceiling that isn't a ceiling, the laundromat that isn't a laundromat finishes a cycle exactly on time."
+        },
+        "type": "action"
+      },
+      "n_w12": {
+        "_vine": {
+          "x": 8680,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww12",
+        "params": {
+          "message": "He did. And you have been on that stool ever since, and one of those is a kindness and the other one is a job."
+        },
+        "type": "action"
+      },
+      "n_w13": {
+        "_vine": {
+          "x": 9320,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww13",
+        "params": {
+          "message": "It's said without cruelty, which is somehow worse, and at the volume of somebody reading a time."
+        },
+        "type": "action"
+      },
+      "n_w14": {
+        "_vine": {
+          "x": 9960,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww14",
+        "params": {
+          "message": "You said it on air. That's not the same as it being true, and one of us has to be the one who knows the difference."
+        },
+        "type": "action"
+      },
+      "n_w15": {
+        "_vine": {
+          "x": 10600,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww15",
+        "params": {
+          "message": "And now a word from our sponsor."
+        },
+        "type": "action"
+      },
+      "n_w16": {
+        "_vine": {
+          "x": 11240,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww16",
+        "params": {
+          "message": "Rolling them."
+        },
+        "type": "action"
+      },
+      "n_w17": {
+        "_vine": {
+          "x": 11880,
+          "y": 60
+        },
+        "action_type": "EMOTE",
+        "next": "n_ww17",
+        "params": {
+          "message": "produces a large flip chart from behind the second unit with the calm efficiency of a man who was prepared for this."
+        },
+        "type": "action"
+      },
+      "n_w18": {
+        "_vine": {
+          "x": 12520,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww18",
+        "params": {
+          "message": "DIVORCE WINNER?!"
+        },
+        "type": "action"
+      },
+      "n_w19": {
+        "_vine": {
+          "x": 13160,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww19",
+        "params": {
+          "message": "You've credited him. He left in the second act and you've credited him as producer, and me as a WORD."
+        },
+        "type": "action"
+      },
+      "n_w2": {
+        "_vine": {
+          "x": 2280,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww2",
+        "params": {
+          "message": "The Hulkster was your idea."
+        },
+        "type": "action"
+      },
+      "n_w20": {
+        "_vine": {
+          "x": 13800,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww20",
+        "params": {
+          "message": "I did say that. I did say that and I have thought about it every day since."
+        },
+        "type": "action"
+      },
+      "n_w21": {
+        "_vine": {
+          "x": 14440,
+          "y": 60
+        },
+        "action_type": "EMOTE",
+        "next": "n_ww21",
+        "params": {
+          "message": "flips to the next page of the flip chart."
+        },
+        "type": "action"
+      },
+      "n_w22": {
+        "_vine": {
+          "x": 15080,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww22",
+        "params": {
+          "message": "Real mature. Real mature. She was right to leave you."
+        },
+        "type": "action"
+      },
+      "n_w3": {
+        "_vine": {
+          "x": 2920,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww3",
+        "params": {
+          "message": "I got a voicemail at 3 am. It sounded like you were drunk but you were quite insistent that we should use the Hulkster in a graphic for the show. I built exactly what you asked for."
+        },
+        "type": "action"
+      },
+      "n_w4": {
+        "_vine": {
+          "x": 3560,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww4",
+        "params": {
+          "message": "That's on me. I thought you'd appreciate the levity."
+        },
+        "type": "action"
+      },
+      "n_w5": {
+        "_vine": {
+          "x": 4200,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww5",
+        "params": {
+          "message": "He says this without any levity whatsoever, and makes a small mark on the clipboard."
+        },
+        "type": "action"
+      },
+      "n_w6": {
+        "_vine": {
+          "x": 4840,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww6",
+        "params": {
+          "message": "You can't pull the plug, Nguyen. You're not on the paperwork."
+        },
+        "type": "action"
+      },
+      "n_w7": {
+        "_vine": {
+          "x": 5480,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww7",
+        "params": {
+          "message": "The basement gets noticeably quieter. Somewhere upstairs a dryer finishes its cycle and buzzes."
+        },
+        "type": "action"
+      },
+      "n_w8": {
+        "_vine": {
+          "x": 6120,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww8",
+        "params": {
+          "message": "You're not crew. You're not staff. You're not insured, you're not on a contract, and that root isn't a cleared product. I have carried it on my licence for nineteen weeks."
+        },
+        "type": "action"
+      },
+      "n_w9": {
+        "_vine": {
+          "x": 6760,
+          "y": 60
+        },
+        "action_type": "SAY",
+        "next": "n_ww9",
+        "params": {
+          "message": "It's a set, Nguyen."
+        },
+        "type": "action"
+      },
+      "n_work": {
+        "_vine": {
+          "x": 680,
+          "y": 60
+        },
+        "action_type": "GO_TO_WORK",
+        "next": "n_w0",
+        "params": {
+          "zone_id": "zone_studio_1782953094650"
+        },
+        "type": "action"
+      },
+      "n_ww0": {
+        "_vine": {
+          "x": 1320,
+          "y": 230
+        },
+        "next": "n_w1",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww1": {
+        "_vine": {
+          "x": 1960,
+          "y": 60
+        },
+        "next": "n_w2",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww10": {
+        "_vine": {
+          "x": 7720,
+          "y": 60
+        },
+        "next": "n_w11",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww11": {
+        "_vine": {
+          "x": 8360,
+          "y": 60
+        },
+        "next": "n_w12",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww12": {
+        "_vine": {
+          "x": 9000,
+          "y": 60
+        },
+        "next": "n_w13",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww13": {
+        "_vine": {
+          "x": 9640,
+          "y": 60
+        },
+        "next": "n_w14",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww14": {
+        "_vine": {
+          "x": 10280,
+          "y": 60
+        },
+        "next": "n_w15",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww15": {
+        "_vine": {
+          "x": 10920,
+          "y": 60
+        },
+        "next": "n_w16",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww16": {
+        "_vine": {
+          "x": 11560,
+          "y": 60
+        },
+        "next": "n_w17",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww17": {
+        "_vine": {
+          "x": 12200,
+          "y": 60
+        },
+        "next": "n_w18",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww18": {
+        "_vine": {
+          "x": 12840,
+          "y": 60
+        },
+        "next": "n_w19",
+        "seconds": 3,
+        "type": "wait"
+      },
+      "n_ww19": {
+        "_vine": {
+          "x": 13480,
+          "y": 60
+        },
+        "next": "n_w20",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww2": {
+        "_vine": {
+          "x": 2600,
+          "y": 60
+        },
+        "next": "n_w3",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww20": {
+        "_vine": {
+          "x": 14120,
+          "y": 60
+        },
+        "next": "n_w21",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww21": {
+        "_vine": {
+          "x": 14760,
+          "y": 60
+        },
+        "next": "n_w22",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww22": {
+        "_vine": {
+          "x": 15400,
+          "y": 60
+        },
+        "next": "n_loop",
+        "seconds": 3,
+        "type": "wait"
+      },
+      "n_ww3": {
+        "_vine": {
+          "x": 3240,
+          "y": 60
+        },
+        "next": "n_w4",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww4": {
+        "_vine": {
+          "x": 3880,
+          "y": 60
+        },
+        "next": "n_w5",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww5": {
+        "_vine": {
+          "x": 4520,
+          "y": 60
+        },
+        "next": "n_w6",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww6": {
+        "_vine": {
+          "x": 5160,
+          "y": 60
+        },
+        "next": "n_w7",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww7": {
+        "_vine": {
+          "x": 5800,
+          "y": 60
+        },
+        "next": "n_w8",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww8": {
+        "_vine": {
+          "x": 6440,
+          "y": 60
+        },
+        "next": "n_w9",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "n_ww9": {
+        "_vine": {
+          "x": 7080,
+          "y": 60
+        },
+        "next": "n_w10",
+        "seconds": 5,
+        "type": "wait"
       }
     }
   },

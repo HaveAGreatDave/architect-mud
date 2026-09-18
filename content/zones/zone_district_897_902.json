@@ -1,7 +1,13 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_events": [
+    "Water slaps the pilings under the boards and draws back.",
+    "A cleat sits empty at the jetty's edge, rope-scarred and waiting.",
+    "Out on the black water, something large and unlit holds its position.",
+    "The beam from the tower crosses the boards, and every rail on the jetty picks it up at once."
+  ],
+  "ambient_theme": "coast",
+  "color": "#9fc0b8",
+  "description": "Where the hardstanding gives out and the boards begin. A concrete ramp takes the last two metres down to deck level, scored across so a wet boot has something to hold. A lifebelt in a steel cradle, one strut of it snapped. The pier runs NORTH from here and does not turn.",
   "exits": {
     "east": "zone_district_898_902",
     "north": "zone_district_897_901",
@@ -9,15 +15,22 @@
     "west": "zone_district_896_902"
   },
   "flags": {
-    "district": "wasteland",
+    "building_type": "pier",
+    "district": "docks",
+    "entrance": "south",
+    "floors": 1,
+    "liquid": false,
+    "pier": true,
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "routable": true,
+    "swimmable": false,
+    "terrain": "water"
   },
   "grid_x": 897,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_897_902",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Jetty Head",
   "parent_zone": null
 }

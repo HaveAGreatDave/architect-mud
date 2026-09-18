@@ -188,6 +188,16 @@
          channel owns which studio); every write is refused client-side in api.js
          and by CONTENT_READONLY server-side. -->
     <div class="nav-item" data-panel="broadcasts" onclick="showPanel('broadcasts')">📺 Broadcasts</div>
+    <!-- BSM Studio — the visual editor for the .bsm scripts the panel above
+         imports (its "↑ BSM" button). Deliberately NOT a LOCAL_TOOLS entry and
+         must never become one: there is no second process to spawn. It is one
+         self-contained file served from this same origin that makes no network
+         call of its own, so it works wherever the panel does and needs neither
+         the localhost gate nor the launcher the Studio and Modelshop links use.
+         No data-panel: it is a link out, and the ops read-only sweep in
+         bootstrap.js keys off that attribute. -->
+    <a class="nav-item" id="nav-bsm-studio" href="/bsm-studio.html" target="_blank" rel="noopener"
+       title="Author a .bsm broadcast script, then import it from Broadcasts" style="text-decoration:none">📝 BSM Studio ↗</a>
     <div class="nav-item" data-panel="tags" onclick="showPanel('tags')">🏷 Tags</div>
     <div class="nav-item" data-panel="aliases" onclick="showPanel('aliases')">⤴ Aliases</div>
     <div class="nav-section">Server</div>

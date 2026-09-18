@@ -1,0 +1,18 @@
+{
+  "description": "A paper shade gone the colour of weak tea, hung over a bulb that is too strong for it.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_filament_unit_3",
+  "light_type": "lamp",
+  "lumen_output": 700,
+  "name": "paper shade",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_filament_unit_3"
+}

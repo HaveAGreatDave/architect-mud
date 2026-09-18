@@ -1,0 +1,20 @@
+{
+  "description": "Settled slips in bundles tied with string, one bundle a week, stacked by year up the end wall past head height. The earliest bundles have gone the colour of tea and the string has gone the colour of the paper. The rule is that they are kept. That is the entire reason they are here.",
+  "flags": {
+    "aliases": "bundles,paper,slips,records,archive",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pfin_bundles",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tied bundles",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_pfin_shop"
+}

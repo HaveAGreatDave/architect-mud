@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_filament_stair",
+  "id": "zone_filament_landing",
+  "max_capacity_kw": 1200,
+  "name": "Filament Buildings — Second Landing",
+  "source_type": "junction_box"
+}

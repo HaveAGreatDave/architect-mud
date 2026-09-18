@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2a1c25",
+  "color": "#b96f96",
+  "description": "Cold on purpose and wet underfoot, with a drain in the middle of the floor and a hose coiled beside it. Buckets everywhere, stems in water, and a bench down one side with wire, tape, ribbon and a spike for orders. Wreath frames hang on the back wall in every size from a hand's width to something you would need two people to carry. A card by the till reads SYMPATHY ORDERS BY NOON FOR SAME DAY.",
+  "exits": {
+    "down": "zone_util_zone_floristgump_shop",
+    "north": "zone_district_909_914"
+  },
+  "flags": {
+    "building_name": "Florist Gump",
+    "building_type": "boutique",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Wreath frames in the window rather than flowers, because flowers in a window cook. Between them you can see the buckets on the pavement, the road, and the little heap of single stems at the foot of the statue that nobody organises and nobody clears away.",
+      "light": 0.85,
+      "name": "the wreath window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_909_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_floristgump_shop",
+  "map_id": "map_int_floristgump",
+  "name": "Florist Gump — Shop",
+  "parent_zone": "zone_district_909_914"
+}

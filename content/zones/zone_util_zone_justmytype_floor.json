@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A low utility room under the shop: bare brick, a concrete floor that slopes to a drain, and the building junction box humming in its steel cabinet. The presses draw hard enough that the junction box down here has its own sub-board, and somebody has written the reset sequence on the wall in grease pencil.",
+  "exits": {
+    "up": "zone_justmytype_floor"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_913_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_justmytype_floor",
+  "map_id": "map_int_justmytype",
+  "name": "Just My Type — Utility Room",
+  "parent_zone": "zone_district_913_911"
+}

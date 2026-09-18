@@ -60,8 +60,8 @@ import { pushRoadWindow } from './mmroad.js';
 import { cmdRoadTest, roadTestTick, roadTestPark, roadTestImpact, isLicensedDriver, unlicensedLine } from './roadtest.js';
 import { registerDepotBrief } from './onboard.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
-import { registerCellOverlay } from '../flight/state.js';
-import { worldRoadProvider } from './roadnet.js';
+import { registerCellOverlay, registerFarRoads } from '../flight/state.js';
+import { worldRoadProvider, farRoadLines } from './roadnet.js';
 
 // THE RIM GATES ARE DERIVED FROM TILE POSITIONS, so an editor moving a region's tiles moves the
 // mouths of its roads — and `regionGates` memoises per region for the life of the process. Left
@@ -94,6 +94,11 @@ registerZoneReloadHook(() => _clearGateCache());
 // STOPS beside them, so synthesised ground under `surfaceAt` would delete the gates, the rim and
 // the void's only entrance in one move.
 registerCellOverlay(worldRoadProvider());
+// And the same road at a range the window cannot reach. The overlay above covers 36 tiles; a
+// pilot sees hundreds, and the corridor used to simply stop out there in open waste. This hands
+// over the geometry instead of the cells — see the ⚠ on `registerFarRoads` for why widening the
+// window was the wrong answer, and why this one may not reach `surfaceAt` either.
+registerFarRoads((x, y, radius) => farRoadLines(x, y, radius));
 
 // HOW LONG A CROSSING IS, ANSWERED BY THE THING THAT BUILDS IT. voidwalking decides how many rooms
 // a limb gets, and until now it divided a real distance by the UNANCHORED per-room constant (90) —

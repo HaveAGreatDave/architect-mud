@@ -1,0 +1,14 @@
+{
+  "description": "Four fluorescent strips end to end across the ceiling, one of them a different colour temperature from the other three because it was replaced and the others were not. The board wall is lit like an operating table and the rest of the room is lit like a corridor.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_pfin_shop",
+  "light_type": "overhead",
+  "lumen_output": 2400,
+  "name": "the shop strips",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_pfin_shop"
+}

@@ -1,0 +1,19 @@
+{
+  "description": "On the shelf under the table, folded, washed, the softest object in the building. It is not for the ones that are going home. Everybody who works here knows that and nobody has ever said it out loud, and it is folded again every time.",
+  "flags": {
+    "aliases": "blanket,shelf,folded",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_paws_blanket",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the folded blanket",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_paws_surgery"
+}

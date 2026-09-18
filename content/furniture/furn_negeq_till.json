@@ -1,0 +1,19 @@
+{
+  "description": "A japanned box in the desk drawer with a compartment for notes and four for coin. The fourth coin compartment holds no money and never has: it holds a single glass plate, wrapped, which is not an exposure she has ever printed.",
+  "flags": {
+    "aliases": "till,cash,money,box",
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_negeq_salis",
+    "vendor_safe": true
+  },
+  "hp": 160,
+  "hp_max": 160,
+  "id": "furn_negeq_till",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the cash box",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_negeq_shop"
+}

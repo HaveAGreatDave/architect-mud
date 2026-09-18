@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1e1a1e",
+  "description": "Scrubbed, bright and clinical, which people never expect and which is the first thing she wants them to notice. A reclining chair with a fresh sheet of paper down it, a tray on an arm, an autoclave on the counter with a log book beside it and a date in the log for today. One wall is a mirror. The other three are bare, deliberately, because she does not want you choosing off a wall while you are sitting in the chair.",
+  "exits": {
+    "down": "zone_regerts_stair"
+  },
+  "flags": {
+    "building_name": "No Regerts",
+    "building_type": "tattooist",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_regerts_room",
+  "map_id": "map_int_regerts",
+  "name": "No Regerts — The Room",
+  "parent_zone": "zone_district_901_905"
+}

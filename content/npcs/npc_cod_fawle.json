@@ -1,0 +1,329 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Fawle turns a fish ninety degrees on the ice so it lies the way the others lie.",
+    "He runs the knife twice down the steel and puts it back on the magnet without looking.",
+    "He rebanks a rut in the ice with the flat of his hand and dries the hand on his apron.",
+    "\"Off the boat at four. Not off the boat yesterday and kept. There is a difference and it is the whole shop.\"",
+    "He weighs something, reads the dial, and knocks a credit off without being asked.",
+    "\"That one's for the pan tonight. That one keeps till Thursday. I'm not going to sell you the wrong one.\"",
+    "He lifts a lid at the back, looks, and puts it down again, satisfied about something.",
+    "\"Don't ask me for anything glowing. There's a man in the Yards who'll sell you that and he's welcome to it.\"",
+    "He fillets one in about four seconds, without appearing to hurry, and wraps it before you have got your money out.",
+    "\"My grandfather named it. He thought it was funny. He was wrong and he's dead and it's still on the fascia.\"",
+    "The compressor downstairs changes note. He glances at the floor and relaxes about three-quarters of the way.",
+    "He hoses a corner of the slab that was already clean, in an order, which is always the same order.",
+    "\"Shut at one. It's been shut at one since before the lights went out. I'm not opening till two for anybody.\"",
+    "He chalks a time on a box and stands it on the rack with the chalked face out.",
+    "\"Everybody wants it cheap and fresh. Pick one and I'll do you proud on it.\""
+  ],
+  "description": "A heavy-shouldered man in his fifties in a rubber apron over a collar and tie, which is not a combination anybody else on this street attempts and which he has never explained. His hands are red to the wrist all year and he holds a knife the way other people hold a pen. He is courteous, unhurried, and audibly weary of the name painted on his own shop, which was his grandfather's idea of a joke and which he is not permitted by anybody in his family to change.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are. Cook it tonight.\""
+    },
+    "fresh": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The time on the box is when it came out of the water,\" he says. \"Not when it came into the shop. Anybody can tell you when it came into the shop.\"\n\nHe taps a chalked box on the rack behind him.\n\n\"Four this morning. That's four hours in ice before it was on that slab, and the reason that matters is that everything that is going to go wrong with a fish starts happening the minute it stops swimming and does not stop for anybody.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I see every boat crew in the basin before six in the morning,\" he says. \"They are tired and they are pleased with themselves and they tell me things.\""
+    },
+    "name": {
+      "options": [
+        {
+          "label": "Why not change it?",
+          "next": "name_why"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He closes his eyes briefly.\n\n\"My grandfather,\" he says. \"There was a film. He saw it, he came home, he had a man in on the Monday with a brush, and it has been up there for sixty years.\"\n\nHe picks the knife back up.\n\n\"I have heard every single thing you are about to say. All of it. Including the one you think nobody has thought of.\""
+    },
+    "name_why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because my mother is alive,\" he says, flatly, and then, after a moment, more honestly:\n\n\"And because people find it two streets away by the sign and they have been finding it by that sign since before I was born. If I paint FAWLE up there tomorrow I am a new shop, and a new fish shop is a shop nobody trusts, and it takes about nine years to stop being one.\"\n\nHe squares a box on the rack.\n\n\"So it stays. And once a fortnight somebody comes in purely to say the name at me, and I let them, because they generally buy something afterwards out of embarrassment.\""
+    },
+    "scale": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's a quarter of an ounce heavy,\" he says. \"Not a mistake. My father set it that way and told me the day he handed the shop over, and told me not to correct it.\"\n\nHe flicks the pan with a fingernail and it rings.\n\n\"A quarter of an ounce is nothing. It's not nothing over forty years. What it buys is that nobody in the Filaments has ever once stood in this shop and watched the dial and wondered, and that is worth more than the fish I have given away, and I have given away a lot of fish.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's good today?",
+          "next": "__shop__"
+        },
+        {
+          "label": "How fresh is fresh?",
+          "next": "fresh"
+        },
+        {
+          "label": "About the name.",
+          "next": "name"
+        },
+        {
+          "label": "Your scale reads heavy.",
+          "next": "scale"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Morning.\" He does not stop what he is doing, which is rearranging the ice. \"Everything on the slab came out of the water this morning and everything in the boxes behind me came out of it earlier than that. Tell me when you're eating it and I'll tell you what to buy.\"",
+      "text_by_relation": {
+        "familiar": "He has it off the ice and on the board before you have said anything, and he is already cutting.\n\n\"Don't tell me,\" he says. \"Tonight, and there's three of you, and you'll do it in the pan because you always do it in the pan.\" He wraps it, folds the paper under. \"I put the small one in as well. Don't start.\"",
+        "first": "The big man behind the slab looks up, wipes one hand, and does not offer it, because of the other hand.\n\n\"Ignatius Fawle.\" A small pause in which he waits to see whether you are going to say anything about the sign. \"Everything out here came out of the water this morning. Everything behind me came out earlier and is chalked with when.\"\n\nHe picks the knife back up.\n\n\"Tell me when you're eating it and I'll tell you what to buy. Get that the wrong way round and you'll blame the fish.\"",
+        "known": "\"You again.\" He is already looking along the slab rather than at you. \"Tonight or later in the week?\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a heavy rubber apron to the shin, rinsed down twice a day",
+      "a collar and tie, which nobody has ever got a straight answer about",
+      "dark trousers and rubber boots turned down at the top"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_codfather_ice",
+  "hp": 52,
+  "hp_max": 52,
+  "id": "npc_cod_fawle",
+  "name": "Ignatius Fawle",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_cod_fillet",
+      "price": 38
+    },
+    {
+      "item_id": "item_cod_shellfish",
+      "price": 26
+    },
+    {
+      "item_id": "item_cod_smoked",
+      "price": 54
+    },
+    {
+      "item_id": "item_cod_roe",
+      "price": 120
+    }
+  ],
+  "vendor_restock_rate": 6,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 6,
+        "to": 13
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 13
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 13
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 13
+      }
+    ],
+    "fri": [
+      {
+        "from": 6,
+        "to": 14
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 14
+      }
+    ],
+    "sun": []
+  },
+  "vendor_shop_name": "The Codfather",
+  "vendor_stock_size": 14,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_codfather_slab"
+}

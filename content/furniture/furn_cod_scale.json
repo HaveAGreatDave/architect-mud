@@ -1,0 +1,19 @@
+{
+  "description": "A brass pan on a bracket over the slab with the dial glass gone the colour of weak tea. It is a quarter of an ounce heavy in the customer’s favour and has been since his father set it, deliberately, and he has never corrected it and will tell you why if you ask twice.",
+  "flags": {
+    "aliases": "scale,scales,brass,pan,dial",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cod_scale",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the scale",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_codfather_slab"
+}

@@ -1,23 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "waterfront",
+  "color": "#a98b63",
+  "description": "A ship-to-shore gantry on rails, four lattice legs with room for a rig between them and a boom that reaches out far enough over the channel to put the water in shade. A container hangs off the trolley halfway up, red once, and nobody has come for it. The name is stencilled on the girder both sides, so the ships can read it too.",
   "exits": {
     "east": "zone_district_924_905",
     "north": "zone_district_923_904",
     "south": "zone_district_923_906"
   },
   "flags": {
+    "building_name": "Crane Damage",
+    "building_type": "wharf",
     "district": "docks",
+    "entrance": "east",
+    "fishing_table_id": "fish_coldwater_bay",
+    "floors": 16,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_industrial_salvage",
+    "terrain": "concrete"
   },
   "grid_x": 923,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_923_905",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Crane Damage",
   "parent_zone": null
 }

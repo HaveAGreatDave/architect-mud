@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_pastperf_hall",
+  "id": "zone_pastperf_hall",
+  "max_capacity_kw": 200,
+  "name": "Past Perfect — The Collection",
+  "source_type": "city_grid"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_pfin_shop",
+  "b": "zone_pfin_settle",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_pfin_shop_north_1ijf",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_cut_stems",
+  "name": "bunch of cut stems",
+  "tags": {
+    "description": "A dozen stems wrapped in a cone of waxed paper with the ends cut on a slant and still wet. They will last about three days indoors and about one on a plinth in the wind, which is not a complaint anybody has ever brought back to the shop.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 9,
+  "weight": 260
+}

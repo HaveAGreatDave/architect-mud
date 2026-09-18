@@ -1,0 +1,9 @@
+{
+  "a": "zone_codfather_slab",
+  "b": "zone_util_zone_codfather_slab",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_codfather_slab_down_bliy",
+  "lockable": false,
+  "one_way": false
+}

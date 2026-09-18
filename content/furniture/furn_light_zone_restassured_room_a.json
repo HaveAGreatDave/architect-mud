@@ -1,0 +1,18 @@
+{
+  "description": "A bedside lamp clamped to the headboard, on a flex long enough to reach the door, which tells you how the room is actually used.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_restassured_room_a",
+  "light_type": "lamp",
+  "lumen_output": 400,
+  "name": "bedside lamp",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_restassured_room_a"
+}

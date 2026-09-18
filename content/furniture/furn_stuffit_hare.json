@@ -1,0 +1,19 @@
+{
+  "description": "On a green baize plinth in the canted window, up on its back legs with its ears forward and one foreleg lifted. It is not for sale, it has never been for sale, and it is the best thing in the building. The whiskers are real and they move when the door opens.",
+  "flags": {
+    "aliases": "hare,rabbit,window,plinth",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stuffit_hare",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the window hare",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_stuffit_shop"
+}

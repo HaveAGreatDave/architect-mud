@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_negeq_plate",
+  "name": "boxed glass plates",
+  "tags": {
+    "stackable": true,
+    "description": "A dozen coated glass plates in a light-tight box with a slide, made by her, in the dark, in batches, because nobody has manufactured these since before the Handoff. The coating is good for about four months and the date is on the lid."
+  },
+  "type": "material",
+  "value": 62,
+  "weight": 700
+}

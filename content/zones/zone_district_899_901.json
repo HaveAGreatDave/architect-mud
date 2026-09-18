@@ -1,7 +1,13 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_events": [
+    "The slew ring turns a few degrees and stops. Nobody is in the cab.",
+    "The hook comes down to the water, hangs there, and starts back up.",
+    "Something heavy settles inside a container and goes quiet.",
+    "Wash off the basin slaps the fenders and runs back down the face of the quay."
+  ],
+  "ambient_theme": "coast",
+  "color": "#7f8688",
+  "description": "The east end of the quay. A short stack of containers, a rail beam let into the slab, and the second crane sitting with its boom swung out over the basin. The hook comes down, waits, and goes back up again on nothing.",
   "exits": {
     "east": "zone_district_900_901",
     "north": "zone_district_899_900",
@@ -9,15 +15,18 @@
     "west": "zone_district_898_901"
   },
   "flags": {
+    "building_type": "quay_crane",
     "district": "docks",
+    "entrance": "south",
+    "floors": 7,
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "terrain": "concrete"
   },
   "grid_x": 899,
   "grid_y": 901,
   "grid_z": 0,
   "id": "zone_district_899_901",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Basin Quay",
   "parent_zone": null
 }

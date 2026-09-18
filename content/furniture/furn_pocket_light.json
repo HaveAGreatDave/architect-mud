@@ -1,0 +1,19 @@
+{
+  "description": "A brass box on the wall by the door with eight numbered slots in it, one per table. A token buys an hour of the lamp over your table and nothing else in this building. When your hour goes, the lamp goes, and the room reminds you that it is otherwise entirely dark.",
+  "flags": {
+    "aliases": "meter,light meter,slot,token box",
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_pocket_moye",
+    "vendor_safe": true
+  },
+  "hp": 160,
+  "hp_max": 160,
+  "id": "furn_pocket_light",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the light meter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pocket_hall"
+}

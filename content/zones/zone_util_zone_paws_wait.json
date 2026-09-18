@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "The old coal cellar, whitewashed, with the junction cabinet and the incinerator flue coming through one corner and going up. There is a shelf down here with a row of small boxes on it, each one labelled with a name and a date, waiting for somebody to decide whether they are coming back for it. Some of the dates are very old. She does not throw them out.",
+  "exits": {
+    "up": "zone_paws_wait"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_926_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_paws_wait",
+  "map_id": "map_int_paws",
+  "name": "Paws for Thought — The Waiting Room — Utility Room",
+  "parent_zone": "zone_district_926_912"
+}

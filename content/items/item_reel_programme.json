@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_reel_programme",
+  "name": "the house programme",
+  "tags": {
+    "stackable": true,
+    "description": "A single sheet run off on a duplicator, purple ink, smelling faintly of spirit. One side is the week's showing and the running time. The other side is a paragraph about the film, unsigned, and it is a better paragraph than the film deserves and much better than the film."
+  },
+  "type": "media",
+  "value": 4,
+  "weight": 12
+}

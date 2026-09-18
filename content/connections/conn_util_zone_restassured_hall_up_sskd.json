@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_restassured_hall",
+  "b": "zone_restassured_hall",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_restassured_hall_up_sskd",
+  "lockable": false,
+  "one_way": true
+}

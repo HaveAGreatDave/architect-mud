@@ -1,0 +1,16 @@
+{
+  "description": "A hardbacked book open on the counter, turned to face the customer, ruled into columns for name, room and night. Nobody checks the names against anything. The book is not the point and everyone involved knows what the point is.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_boardstiff_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the register",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_boardstiff_desk"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pocket_chalk",
+  "name": "cube of table chalk",
+  "tags": {
+    "stackable": true,
+    "description": "A blue cube with a dished top worn by one thumb. It is not chalk and never has been; it is ground silica and a binder, and the man who used to make it is dead, and what she has left is in a tin under the counter being rationed."
+  },
+  "type": "misc",
+  "value": 3,
+  "weight": 12
+}

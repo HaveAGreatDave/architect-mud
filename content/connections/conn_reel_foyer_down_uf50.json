@@ -1,0 +1,9 @@
+{
+  "a": "zone_reel_foyer",
+  "b": "zone_util_zone_reel_foyer",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_reel_foyer_down_uf50",
+  "lockable": false,
+  "one_way": false
+}

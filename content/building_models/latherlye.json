@@ -1,0 +1,274 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "255,214,150",
+      "s": 15,
+      "z": 0.16
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "150,232,255",
+      "s": 17,
+      "z": 0.8
+    },
+    {
+      "cx": -0.3,
+      "cy": 0.39,
+      "kind": "glowPool",
+      "rgb": "143,232,255",
+      "s": 9,
+      "z": 0.26
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Lather & Lye"
+    }
+  ],
+  "detail": [
+    {
+      "bars": 2,
+      "cx": 0,
+      "cy": 0.47,
+      "depth": 0.018,
+      "glass": "#1b2628",
+      "glow": "#ffe2a8",
+      "half": 0.098,
+      "hh": 0.072,
+      "kind": "windowBay",
+      "pal": "ty_dw_brass",
+      "transom": 0.66,
+      "z": 0.135
+    },
+    {
+      "cx": 0,
+      "cy": 0.47,
+      "half": 0.155,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.085,
+      "pal": "ty_dw_brass",
+      "soffit": "#1c4a4a",
+      "strip": "#8fe8ff",
+      "z": 0.216
+    },
+    {
+      "color": "#16302f",
+      "cx": 0,
+      "cy": 0.47,
+      "font": "deco",
+      "half": 0.135,
+      "hh": 0.024,
+      "ink": "#8fe8ff",
+      "kind": "signBoard",
+      "label": "LATHER & LYE",
+      "z": 0.262
+    },
+    {
+      "count": 5,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.33,
+        "cy": 0.42,
+        "depth": 0.013,
+        "glass": "#243436",
+        "glow": "#cfeef2",
+        "half": 0.058,
+        "hh": 0.045,
+        "kind": "windowBay",
+        "pal": "ty_marble_col",
+        "z": 0.525
+      },
+      "step": {
+        "cx": 0.165
+      }
+    },
+    {
+      "color": "#12292a",
+      "cx": -0.3,
+      "cy": 0.368,
+      "font": "hanzi",
+      "half": 0.05,
+      "ink": "#8fe8ff",
+      "kind": "bladePanel",
+      "label": "湯",
+      "out": 0.03,
+      "pal": "ty_marble_col",
+      "z0": 0.1,
+      "z1": 0.345
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.432,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_marble_col",
+      "z": 0.615
+    },
+    {
+      "cx": -0.365,
+      "cy": -0.1,
+      "hh": 0.135,
+      "kind": "stack",
+      "pal": "ty_cold",
+      "r": 0.03,
+      "z": 0.615
+    },
+    {
+      "cx": 0.365,
+      "cy": -0.1,
+      "hh": 0.135,
+      "kind": "stack",
+      "pal": "ty_cold",
+      "r": 0.03,
+      "z": 0.615
+    },
+    {
+      "cx": 0.06,
+      "cy": 0.42,
+      "drip": 1,
+      "face": "x",
+      "hh": 0.034,
+      "kind": "vent",
+      "pal": "ty_cold",
+      "w": 0.062,
+      "z": 0.3
+    },
+    {
+      "cx": -0.1,
+      "cy": -0.42,
+      "face": "x",
+      "kind": "ductRun",
+      "pal": "ty_cold",
+      "r": 0.018,
+      "run": 0.14,
+      "z0": 0.1,
+      "z1": 0.6
+    },
+    {
+      "cx": 0.22,
+      "cy": -0.42,
+      "d": 0.034,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#2a3434",
+      "n": 2,
+      "pal": "ty_cold",
+      "w": 0.042,
+      "z": 0.004
+    },
+    {
+      "cx": -0.175,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    },
+    {
+      "cx": 0.175,
+      "cy": 0.472,
+      "kind": "bollard",
+      "pal": "ty_marble_col",
+      "z": 0.004
+    }
+  ],
+  "id": "latherlye",
+  "neon": "#8fe8ff",
+  "note": "LATHER & LYE — the public baths, as the one HALL on a street of boxes. A municipal bathhouse is\na single vaulted volume, so it gets the barrel roof the warehouse set uses and nothing else on\nMarrow Street does; the frontage is pale glazed tile because that is what a building you hose down\nis faced in, and the roof is copper because the vault above a swimming hall sweats.\n\n⚠ THE WINDOWS ARE HIGH AND THERE IS NO SHOPFRONT, which is the whole tell. Every other frontage on\nthis street is glazed at eye level to sell you what is inside. A room full of naked people is\nglazed ABOVE head height and nowhere else, so the ground floor is a tiled wall with one door in it\nand the glazing is a clerestory band under the cornice. Getting that backwards would make it a\nshop.\n\n⚠ THE FLUES STAND BESIDE THE VAULT, NOT ON IT. Roof plant needs a DECK — a box with a real roof\nface — and a barrel has none; a stack placed on the vault would hang inside the curve. The main\nbox is 0.42 and the barrel is 0.30, which leaves a ledge of deck either side, and a pair of flues\non that ledge is also where a boiler house actually vents.\n\n⚠ AND THE BARREL RUNS ACROSS THE FRONT. `hl` is the half-length along the barrel's own axis and\n`hw` the half-width across it; laid the other way the street would see a long flat eave instead of\nthe gable, and the gable end is the half of a bath hall anybody recognises.",
+  "pal": "ty_sw_milk",
+  "replaces": "citybathhouse",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.055
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.42,
+      "kind": "box",
+      "pal": "ty_sw_milk",
+      "roof": true,
+      "z0": 0.055,
+      "z1": 0.615
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.435,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.615,
+      "z1": 0.665
+    },
+    {
+      "archH": 0.3,
+      "base": [
+        78,
+        138,
+        118
+      ],
+      "cx": 0,
+      "cxL": 0,
+      "cy": 0,
+      "hl": 0.42,
+      "hw": 0.3,
+      "kind": "barrel",
+      "nf": 16,
+      "pal": "ty_verdigris",
+      "z0": 0.665
+    },
+    {
+      "cx": 0,
+      "cy": 0.325,
+      "fd": 0.145,
+      "hw": 0.145,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.055,
+      "z1": 0.3
+    },
+    {
+      "cx": -0.3,
+      "cy": 0.3,
+      "fd": 0.062,
+      "hw": 0.062,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.055,
+      "z1": 0.36
+    },
+    {
+      "cx": 0.3,
+      "cy": 0.3,
+      "fd": 0.062,
+      "hw": 0.062,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.055,
+      "z1": 0.36
+    }
+  ]
+}

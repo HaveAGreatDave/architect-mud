@@ -1,0 +1,19 @@
+{
+  "description": "Mahogany and brass on a wooden tripod the size of a stepladder, with a bellows you could put your head in and a lens that cost more than the building. She works under a black cloth. It takes four minutes to set up one exposure and that is the point of it rather than a limitation.",
+  "flags": {
+    "aliases": "camera,plate camera,tripod,lens",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_negeq_camera",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the plate camera",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_negeq_studio"
+}

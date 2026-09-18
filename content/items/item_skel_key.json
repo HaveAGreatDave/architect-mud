@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_skel_key",
+  "name": "a cut key",
+  "tags": {
+    "stackable": true,
+    "description": "Cut while you wait, deburred with a wire brush, and tried in the lock before he hands it over, because a key that has not been tried is a promise rather than a key. He will not cut one for a lock you cannot show him."
+  },
+  "type": "misc",
+  "value": 18,
+  "weight": 20
+}

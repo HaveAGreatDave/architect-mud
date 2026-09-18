@@ -1,0 +1,20 @@
+{
+  "description": "Eleven bodies on a shelf, every one second-hand, every one stripped and reassembled by him before it goes out. He will not sell a lock he has not had open himself, which is why the shelf is eleven deep rather than eighty and why the eleven are worth having.",
+  "flags": {
+    "aliases": "stock,locks,shelf,safes",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skel_stock",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the lock stock",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_skelcrew_shop"
+}

@@ -1,0 +1,18 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_spirit_beer",
+  "name": "crate of basin beer",
+  "tags": {
+    "consumable": true,
+    "abv": 4,
+    "drink_noun": "beer",
+    "drink_profile": "beer_base",
+    "pour_units": 24,
+    "restore_thirst": 30,
+    "description": "Twelve bottles in a wooden crate with the deposit on the crate written on the end in marker. Brewed on the far side of the basin in a shed everybody has heard of and nobody has visited, and it is better than it needs to be."
+  },
+  "type": "consumable",
+  "value": 42,
+  "weight": 5400
+}

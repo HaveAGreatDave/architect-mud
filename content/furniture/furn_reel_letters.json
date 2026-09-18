@@ -1,0 +1,19 @@
+{
+  "description": "A shallow wooden tray on the shelf behind the kiosk, divided into compartments, holding the letters for the board outside. There are nineteen E, eleven R, four of most things and no second H at all, which is why the board has never once said a title with two of those in it.",
+  "flags": {
+    "aliases": "letters,letter box,tray",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reel_letters",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the spare letters",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_reel_foyer"
+}

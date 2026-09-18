@@ -1,0 +1,360 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Ashgrove stamps a ticket, blots it out of habit on a pad that has been dry for years, and hands it over.",
+    "He files three cards into the catalogue and squares the drawer with a thumb before he shuts it.",
+    "He looks up at the lantern, at the weather going over it, and back down, without comment.",
+    "He rules a line under today in the fines book and writes tomorrow's date under the line.",
+    "\"Four at a time. Not five. I know it is not much and it is four.\"",
+    "He carries a chair from the stove end back to the desk end, which somebody moved, which somebody always moves.",
+    "\"Yes, you may read it here. You may read anything here. Here is free and it has always been free.\"",
+    "He finds a book somebody has put back one shelf out and moves it, and does not say anything about it.",
+    "\"Ninepence,\" he says, apologetically, and does not reduce it.",
+    "He sharpens a pencil into the waste bin with a penknife, slowly, and puts it back in the groove.",
+    "\"The top three shelves are theology. That is why they are the top three shelves.\"",
+    "He writes an overdue notice, reads it back, and does not soften the last line.",
+    "\"It was a subscription library and then it was a municipal one and now it is whatever this is.\"",
+    "He puts more coal on, one shovel, and closes the door on it quietly.",
+    "\"If you cannot read it, bring it to me and I will read it to you, and I will not make a thing of it.\"",
+    "\"No, I do not know where they all went. Twelve hundred are on the shelves and four thousand are not.\"",
+    "He turns a card over, finds the same hand on the back that is on the front, and smiles very slightly.",
+    "\"The bell is not for ringing,\" he says, to somebody who has just rung it. \"It says so on the card by the bell.\"",
+    "He takes his glasses off and pinches the bridge of his nose and puts them straight back on.",
+    "\"Somebody is using the ladder as a ladder again. That is what it is for. I have no complaint.\""
+  ],
+  "description": "A slight, neat man of about sixty at the issue desk, in a grey suit that has been pressed so often it has gone shiny at the knee, with reading glasses pushed up on his forehead and a second pair in his top pocket for people who have forgotten theirs. He is gentle with everybody who comes in, and unmovable about the fines, and the fact that those two are the same man is the thing about him that people find hardest to hold in their head at once.",
+  "dialogue_tree": {
+    "borrow": {
+      "options": [
+        {
+          "label": "What does a ticket cost?",
+          "next": "borrow_cost"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Four at a time, four weeks at a time, and you need a ticket to take one out of the building.\" He says it as a series of facts, not as rules. \"Reading it here needs nothing at all. Never has. Sit down, take a desk, take the one by the stove if it is cold, I do not care and nobody is going to ask you anything.\"\n\nHe taps the catalogue cabinet with two fingers.\n\n\"If you cannot find it, ask me, because the top shelves need the ladder and the back room needs me.\""
+    },
+    "borrow_cost": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Sixpence, once, for the card.\" He is already reaching for one. \"And if you have not got sixpence, say so, and I will put you down as a casual and you will have the same four books and nobody will ever see the difference, including you.\"\n\nHe writes a name on a blank card in a hand you could frame.\n\n\"The sixpence is not the point of the sixpence. It is so there is a card with your name on it, and in this town that turns out to be worth rather more than sixpence.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mind the step on the way down. Everybody knows about the step and everybody still does it.\""
+    },
+    "fines": {
+      "options": [
+        {
+          "label": "Nobody can make you collect those.",
+          "next": "fines_why"
+        },
+        {
+          "label": "What does the red mean?",
+          "next": "fines_red"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A penny a day, per book, from the day after it was due,\" he says. \"It does not stop. It does not round down. And I have never waived one.\"\n\nHe turns the book round so you can see the column, which is a thing he clearly enjoys and is slightly ashamed of enjoying.\n\n\"People think I am being hard. I am being the same. There is a difference and it takes about a year in here to see it.\""
+    },
+    "fines_red": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They are in red because they are still open,\" he says. \"That is all. It is not a blacklist and there is no blacklist.\"\n\nHe closes the book on his finger.\n\n\"Two of the four have been open a very long time. One of those two is a man who took out a book in a bad year and did not come back, and I do not think he is coming back, and until somebody tells me otherwise the line stays open and the pennies go on.\"\n\nA pause.\n\n\"He is owed the courtesy of the book still being his.\""
+    },
+    "fines_why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Nobody can make me do anything at all,\" he agrees, pleasantly. \"There is no council. There has not been a council in my lifetime. Nobody audits me, nobody inspects me, nobody would notice for a year.\"\n\nHe squares the pencil beside the book.\n\n\"And I collect them. Every one. Because the fine is not about the money, and it is not about the book either, really. It is that the thing is still running. Somebody writes the date in, somebody adds up the column, somebody puts the coal on. Stop one of those and in five years this is a room with damp in it.\"\n\nHe looks up.\n\n\"I have watched nearly everything in this city stop. I know precisely what it looks like the year before it does. It looks like somebody deciding that the small part does not matter.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People are quiet in here,\" he says. \"But they put things in books. Notes, tickets, letters they thought better of. I have a drawer of it and I read all of it, which I am aware is not a defensible position.\""
+    },
+    "missing": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Twelve hundred on the shelves,\" he says. \"The catalogue says five thousand six hundred and forty.\"\n\nHe does not seem upset about it, which is somehow the worst part.\n\n\"Some were burned for heat, which I understand entirely and would have done. Some went out on tickets and the tickets are still open. A great many were taken by one person over about three years, and I know who, and I have never written it down, and when she comes in I say good morning.\"\n\nHe straightens a card.\n\n\"She is keeping them dry. I have seen the room. It is a better room than this one.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How does borrowing work?",
+          "next": "borrow"
+        },
+        {
+          "label": "Tickets, pencils, the rest.",
+          "next": "__shop__"
+        },
+        {
+          "label": "The fines book.",
+          "next": "fines"
+        },
+        {
+          "label": "Where did all the books go?",
+          "next": "missing"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just going to sit and read.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good morning.\" He says it whatever the hour. \"Reading here is free and always has been. Taking one away wants a ticket, and a ticket wants about a minute of your time and sixpence, and I can be flexible about the sixpence.\"",
+      "text_by_relation": {
+        "familiar": "He has it out from under the desk before you are halfway across the boards, face down so you cannot see the spine, with a slip of paper in it.\n\n\"It came in on Tuesday and I have not catalogued it yet, which means technically it is not here, which means technically I cannot lend it to you.\" He slides it over. \"Four weeks.\"",
+        "first": "The man at the desk pushes his glasses up onto his forehead and stands, which almost nobody in this city does.\n\n\"Good morning. Lowell Ashgrove.\" He gestures at the room, the whole of it, in one small movement. \"Reading here is free. It has always been free and there is no version of this building in which it is not. Take a desk. Take the one by the stove.\"\n\nHe sits back down and finds his place.\n\n\"If you want to take something out of the building we shall need a card with your name on it, and that is a different conversation and a much shorter one.\"",
+        "known": "\"Ah.\" He puts the pen down. \"You are not overdue, before you look like that. I checked this morning, because I check every morning, and you are not.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey suit jacket pressed shiny at the elbow",
+      "a waistcoat with a pencil and a second pair of glasses in the top pocket",
+      "grey trousers with a crease kept in them by hand"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_fineprint_stack",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_fprint_ashgrove",
+  "name": "Lowell Ashgrove",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_fprint_ticket",
+      "price": 6
+    },
+    {
+      "item_id": "item_fprint_pencil",
+      "price": 2
+    },
+    {
+      "item_id": "item_fprint_overdue",
+      "price": 1
+    },
+    {
+      "item_id": "item_fprint_stamp",
+      "price": 34
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 19
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 9,
+        "to": 17
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 19
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 19
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 13
+      }
+    ]
+  },
+  "vendor_shop_name": "Fine Print",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_fineprint_room"
+}

@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2b2620",
+  "description": "The best of the four, which is a claim about the other three. A proper fireplace with the grate still in it, a picture rail all the way round, and a hairline crack from the corner of the window to the ceiling that the landlord describes as historic.",
+  "exits": {
+    "west": "zone_filament_landing"
+  },
+  "flags": {
+    "floor": "boards",
+    "is_apartment": true,
+    "rent_cost": 55,
+    "window": {
+      "description": "A corner window catching light from two directions, which in the Filaments is close to a luxury.",
+      "light": 0.85,
+      "name": "the corner window",
+      "visibility": 0.85
+    }
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_filament_unit_4",
+  "map_id": "map_int_filament",
+  "marker": "4",
+  "name": "Unit 4",
+  "parent_zone": "zone_district_897_905"
+}

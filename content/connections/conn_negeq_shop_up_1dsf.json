@@ -1,0 +1,9 @@
+{
+  "a": "zone_negeq_shop",
+  "b": "zone_negeq_studio",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_negeq_shop_up_1dsf",
+  "lockable": false,
+  "one_way": false
+}

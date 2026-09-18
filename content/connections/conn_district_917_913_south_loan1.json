@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_917_913",
+  "b": "zone_loanwolf_office",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_917_913_south_loan1",
+  "lockable": true,
+  "one_way": false
+}

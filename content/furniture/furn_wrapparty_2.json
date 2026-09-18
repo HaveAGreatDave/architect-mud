@@ -1,0 +1,16 @@
+{
+  "description": "Four high-backed booths with the leather worn through to the weave at shoulder height on both sides. The end one is understood to belong to whoever from the studios got out latest, and that is not negotiable and has never needed to be said.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_wrapparty_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the booths",
+  "object_type": "chair",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_wrapparty_bar"
+}

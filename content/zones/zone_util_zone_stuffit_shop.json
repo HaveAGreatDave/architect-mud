@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A dry cellar with a brick floor and a junction cabinet on the wall by the steps. The rest of it is the skull store: shelves of them, cleaned, degreased, whitened, in rows by size, each with a paper tag through the nasal cavity. It is the tidiest room in the building and the one nobody is shown.",
+  "exits": {
+    "up": "zone_stuffit_shop"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_917_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_stuffit_shop",
+  "map_id": "map_int_stuffit",
+  "name": "Stuff It — The Shop — Utility Room",
+  "parent_zone": "zone_district_917_914"
+}

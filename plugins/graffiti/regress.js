@@ -16,13 +16,13 @@
 // indices have to survive escaping — `esc` changes the LENGTH of the string, and a
 // renderer that indexed the escaped text would slice an entity in half and put a
 // live `<` back on the wall.
-import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, CAN_CAPACITY, tagAt, removeTag } from './index.js';
+import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, CAN_CAPACITY, tagAt, removeTag, tagFromWorld } from './index.js';
 import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, escapedChars } from './paint.js';
 import { world } from '../../server/engine/world.js';
 import { gameDayIndex } from '../../server/engine/zone-filth.js';
 
 export default async function regress({ run, check }) {
-  const { wallsNear, pickWall, expired, esc, tags } = _test;
+  const { wallsNear, pickWall, expired, esc, tags, wallTags, unesc } = _test;
 
   let r = await run('tag');
   check('tag verb routed', r?.type !== undefined, JSON.stringify(r));
@@ -177,6 +177,49 @@ export default async function regress({ run, check }) {
     check(`${verb} is routed`, res?.type !== undefined, `${verb}: ${JSON.stringify(res)}`);
   }
 
+  // --- What the windshield is told -----------------------------------------
+  //
+  // `wall.tags` is the seam between a tag in the table and paint on a building in the flight
+  // window. Everything it can get wrong is invisible from inside the game: the words reach the
+  // renderer escaped and it paints "&amp;" onto a wall, or the normal comes out wrong and every
+  // tag in the city lands on the entrance face, or it answers for a wall nobody sprayed.
+  {
+    // The pavement is SOUTH of the shop (the shop is on the street's `north` exit), so the wall
+    // that was sprayed faces south — and south is +y, per faceVec in the renderer.
+    street.grid_x = 10; street.grid_y = 20;
+    shop.grid_x = 10; shop.grid_y = 19;
+    // ⚠ `tagFromWorld` RATHER THAN `applyTag`, and not only because it needs no can: this is the
+    // entry point the unrest sim stages a `graffiti` incident through, so a world-authored tag
+    // and a player-sprayed one are proved to reach the renderer by the same road. It also picks
+    // the wall itself, which is what makes the normal below a real derivation rather than an echo.
+    await tagFromWorld(street.id, 'ACAB & CO', 'nobody');
+
+    const got = wallTags(shop, shop.grid_x, shop.grid_y) || [];
+    check('wall.tags answers for the building that was sprayed', got.length === 1, JSON.stringify(got));
+    check('…with the wall facing the pavement, not the entrance',
+      got[0] && got[0].n[0] === 0 && got[0].n[1] === 1, JSON.stringify(got[0] && got[0].n));
+    // ⚠ THE RENDERER PAINTS ONTO A CANVAS, NOT INTO HTML. The table stores the text escaped
+    // because a room description is HTML; hand that straight to `fillText` and the wall reads
+    // "ACAB &amp; CO". Escaping is still the room's rule — this is the one consumer that undoes it.
+    check('the words arrive as the player typed them', got[0] && got[0].t === 'ACAB & CO', got[0] && got[0].t);
+    check('and the stored text is still escaped', (tagAt(street.id) || {}).text === 'ACAB &amp; CO', (tagAt(street.id) || {}).text);
+
+    // A building nobody sprayed answers nothing — the index is a hint, and a hint that fires on
+    // the wrong wall would paint graffiti across buildings at random.
+    check('an untagged building answers nothing', wallTags(field, 11, 20) === undefined);
+
+    // ⚠ AND A SCRUBBED WALL STOPS ANSWERING WITHOUT THE INDEX BEING PRUNED. `byBuilding` keeps
+    // its entry on purpose (see removeTag); what makes that safe is that every id it yields is
+    // re-checked through `tagAt`. If that check is ever dropped, this is the case that catches it.
+    await removeTag(street.id);
+    check('a scrubbed wall stops being painted', wallTags(shop, shop.grid_x, shop.grid_y) === undefined);
+    check('…while the index deliberately still holds it', _test.byBuilding.get(shop.id)?.size === 1);
+
+    check('unesc is the inverse of esc', unesc(esc('a & b < c > d')) === 'a & b < c > d', unesc(esc('a & b < c > d')));
+    // ⚠ `&amp;` LAST. "&lt;" typed by a player is stored as "&amp;lt;" and must decode back to the
+    // four characters they typed, not to a "<" that was never sprayed.
+    check('unesc does not double-decode', unesc(esc('&lt;')) === '&lt;', unesc(esc('&lt;')));
+  }
   await removeTag(street.id);
   check('removeTag clears the wall', tagAt(street.id) === null);
 

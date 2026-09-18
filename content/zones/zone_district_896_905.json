@@ -1,17 +1,14 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "description": "A drying green, which is to say a rectangle of trodden grass with four posts and a great deal of line. Sheets crack in the wind off the basin like something being unloaded.",
   "exits": {
-    "east": "zone_district_897_905",
     "north": "zone_district_896_904",
     "south": "zone_district_896_906"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
     "terrain": "grass"
   },
   "grid_x": 896,
@@ -19,6 +16,6 @@
   "grid_z": 0,
   "id": "zone_district_896_905",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Kettle Green",
   "parent_zone": null
 }

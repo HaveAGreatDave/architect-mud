@@ -1,0 +1,20 @@
+{
+  "description": "Shelves of cleaned skulls in rows by size, whitened, each with a paper tag threaded through it. It is the tidiest room in the building and the only one with no dust in it at all. Nobody is shown this room. She would show you if you asked properly, and almost nobody does.",
+  "flags": {
+    "aliases": "skulls,shelves,store,bone",
+    "interactions": [
+      "examine",
+      "open"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_stuffit_skulls",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the skull shelves",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_stuffit_shop"
+}

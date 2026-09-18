@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#1c2618",
+  "color": "#5f9e4a",
+  "description": "The last building on this side before the ground gives up and goes to grass, and the only one on Foundry Way with any glass to speak of: a long low span of it, about a third replaced with mismatched panes and a few panels of bare board where the glass lost. Bags of compost stacked against the end wall under a tarpaulin. A hand-painted board reads COMPOST MENTIS, and under it, EVERYTHING HERE WILL GROW IN THIS SOIL, WE HAVE CHECKED.",
   "exits": {
-    "east": "zone_district_917_913",
     "north": "zone_district_916_912",
-    "south": "zone_district_916_914",
-    "west": "zone_district_915_913"
+    "south": "zone_compostmentis_yard"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Compost Mentis",
+    "building_type": "greenhouse",
+    "district": "marrow",
+    "entrance": "north",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_916_912"
   },
   "grid_x": 916,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_916_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "MS",
+  "name": "Compost Mentis",
   "parent_zone": null
 }

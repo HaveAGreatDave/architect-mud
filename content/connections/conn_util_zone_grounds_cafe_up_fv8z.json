@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_grounds_cafe",
+  "b": "zone_grounds_cafe",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_grounds_cafe_up_fv8z",
+  "lockable": false,
+  "one_way": true
+}

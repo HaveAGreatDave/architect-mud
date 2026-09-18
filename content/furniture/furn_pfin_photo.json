@@ -1,0 +1,19 @@
+{
+  "description": "A framed print of a finish, grainy, over-enlarged, with the line drawn on in ink by somebody with a ruler and a steady hand. Two noses share the line. Underneath, in the same ink: a date, and the word DEAD, and under that, smaller, PAID BOTH.",
+  "flags": {
+    "aliases": "photograph,photo,picture,frame,finish",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pfin_photo",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the finish photograph",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_pfin_settle"
+}

@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_spirit_flask",
+  "name": "hip flask of rough",
+  "tags": {
+    "consumable": true,
+    "stackable": true,
+    "abv": 55,
+    "drink_noun": "spirit",
+    "drink_profile": "base_spirit",
+    "pour_units": 5,
+    "restore_thirst": 4,
+    "description": "What he sells through the hatch at two in the morning to people about to walk out of the South Gate. Filled from a demijohn, corked, and sold with the only piece of advice he ever gives, which is: not until you are through."
+  },
+  "type": "consumable",
+  "value": 26,
+  "weight": 280
+}

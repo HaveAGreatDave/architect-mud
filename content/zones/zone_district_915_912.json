@@ -11,6 +11,7 @@
   "flags": {
     "district": "marrow",
     "region_id": "region_coldwater",
+    "street_life": true,
     "terrain": "road"
   },
   "grid_x": 915,
@@ -18,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_district_915_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Tallow Row",
   "parent_zone": null
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_pillcollins_counter",
+  "b": "zone_pillcollins_counter",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_pillcollins_counter_up_aj6j",
+  "lockable": false,
+  "one_way": true
+}

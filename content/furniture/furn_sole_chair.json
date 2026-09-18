@@ -1,0 +1,20 @@
+{
+  "description": "One bentwood chair, facing the bench rather than the door, deliberately, so that anybody who sits in it watches the work. He has never said a word about why it faces that way and it has faced that way for thirty years.",
+  "flags": {
+    "aliases": "chair,seat,stool",
+    "interactions": [
+      "examine",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sole_chair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the customer chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_sole_shop"
+}

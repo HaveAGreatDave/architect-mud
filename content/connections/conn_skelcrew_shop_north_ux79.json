@@ -1,0 +1,9 @@
+{
+  "a": "zone_skelcrew_shop",
+  "b": "zone_skelcrew_back",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_skelcrew_shop_north_ux79",
+  "lockable": false,
+  "one_way": false
+}

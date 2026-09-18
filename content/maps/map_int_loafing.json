@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_loafing_shop",
+  "id": "map_int_loafing",
+  "name": "Loafing Around",
+  "parent_zone_id": "zone_district_907_914"
+}
