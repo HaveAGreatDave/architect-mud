@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Half a room, because the front wall stops at waist height and the rest is a tarpaulin on a frame. You drink standing in the lane with your elbows inside. When the weather comes in from the south everybody shuffles two feet left and carries on.",
+  "exits": {
+    "down": "zone_util_zone_bld_926_917_lobby",
+    "east": "zone_bld_926_917_still",
+    "north": "zone_district_926_917"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_926_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_926_917_lobby",
+  "map_id": "map_int_bld_926_917",
+  "name": "The Counter",
+  "parent_zone": "zone_district_926_917"
+}

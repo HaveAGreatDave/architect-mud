@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_897_911",
+  "b": "zone_plot_office",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_district_897_911_south",
+  "lockable": true,
+  "one_way": false
+}

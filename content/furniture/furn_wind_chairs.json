@@ -1,0 +1,17 @@
+{
+  "description": "Set in twos and threes facing the glass rather than each other, each with a folded blanket over the arm. The blankets are heavier than they look and are the reason anybody stays.",
+  "flags": {
+    "aliases": [
+      "chair",
+      "chairs",
+      "cane"
+    ],
+    "interactions": {
+      "sit": "You sit facing the meadow. The blanket goes over your knees before you have decided whether you wanted it to."
+    }
+  },
+  "id": "furn_wind_chairs",
+  "name": "the cane chairs",
+  "object_type": "furniture",
+  "zone_id": "zone_wind_day"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_glass_tea",
+  "name": "a cup of tea in the warm",
+  "tags": {
+    "description": "Made on a ring in the stokehold and drunk standing up among the ferns. The cup is warm before the tea is in it, because everything in this building is.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 3,
+  "weight": 180
+}

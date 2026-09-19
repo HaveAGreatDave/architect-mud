@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vested_cigar",
+  "name": "a club cigar",
+  "tags": {
+    "description": "Kept in a cedar box in the cellar and brought up one at a time. It is old enough that it has stopped improving, and everybody here would rather have it than a new one.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 26,
+  "weight": 12
+}

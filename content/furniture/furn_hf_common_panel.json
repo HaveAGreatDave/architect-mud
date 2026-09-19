@@ -1,0 +1,17 @@
+{
+  "description": "A square of clear floor in the middle of the link, with the forecourt a long way down through it and a hairline scuff pattern around its edge where feet have gone round rather than across.",
+  "flags": {
+    "aliases": [
+      "panel",
+      "floor",
+      "glass"
+    ],
+    "interactions": {
+      "examine": "The scuffs make a neat oval. In two seasons of people walking this bridge, the oval has not been stepped inside once."
+    }
+  },
+  "id": "furn_hf_common_panel",
+  "name": "the glass floor panel",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_common_bridge"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "A curved crawl-height service run inside the plinth, holding the irrigation and the lights. It is the only part of this building anybody had to be clever about, and the cabinet is at the point where the ring passes the door.",
+  "exits": {
+    "up": "zone_hf_leaf_under"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_894_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_leaf_under",
+  "map_id": "map_int_hf_leaf",
+  "name": "Leaf It Out — The Ring Duct",
+  "parent_zone": "zone_district_894_915"
+}

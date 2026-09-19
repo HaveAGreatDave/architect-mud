@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_910_907",
+  "b": "zone_hwm_pump",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_910_907_north",
+  "lockable": true,
+  "one_way": false
+}

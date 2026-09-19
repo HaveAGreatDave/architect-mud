@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#101c26",
+  "color": "#bfe8ff",
+  "description": "Two glass shafts off one chrome podium, unequal, with a glazed link slung between them nine storeys up. You go in underneath it, across a forecourt with nothing on it, and the shadow of the bridge lies across the paving in a hard bar that moves all day. The letting board by the door lists sixty-two apartments and has a plastic sleeve for a photograph that has never had a photograph in it.",
   "exits": {
-    "east": "zone_district_893_911",
     "north": "zone_district_892_910",
-    "south": "zone_district_892_912",
-    "west": "zone_district_891_911"
+    "south": "zone_hf_common_lobby"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Common Ground",
+    "building_type": "sky_court",
+    "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 16,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_892_910"
   },
   "grid_x": 892,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_892_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "CN",
+  "name": "Common Ground",
   "parent_zone": null
 }

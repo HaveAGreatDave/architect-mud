@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "A drain lid sits in the road here, older than the surface around it, lifted and re-bedded at the wrong height. Water stands against its upstream side and goes nowhere.",
   "exits": {
     "east": "zone_district_898_916",
     "north": "zone_district_897_915",
@@ -10,15 +9,17 @@
     "west": "zone_district_896_916"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 897,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_897_916",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Kerbstone Row",
   "parent_zone": null
 }

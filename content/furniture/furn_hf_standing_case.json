@@ -1,0 +1,17 @@
+{
+  "description": "A glazed frame beside the stair head, locked, with a clean white backing board in it and nothing on the board.",
+  "flags": {
+    "aliases": [
+      "case",
+      "timetable",
+      "frame"
+    ],
+    "interactions": {
+      "examine": "The backing board is unmarked and the glass is polished. Somebody cleans this case."
+    }
+  },
+  "id": "furn_hf_standing_case",
+  "name": "the timetable case",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_standing_platform"
+}

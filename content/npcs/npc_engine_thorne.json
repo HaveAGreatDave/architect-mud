@@ -1,0 +1,286 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Thorne looks at the bay doors, which have not moved, and drinks her tea.",
+    "She runs a thumb along a brass rail on the near appliance and checks her thumb.",
+    "She straightens a pair of boots by half an inch so the pair is square to the cab.",
+    "She glances at the hydrant board and at nothing on it in particular.",
+    "Somewhere upstairs a chair scrapes, and she says a name at the ceiling without raising her voice, and the scraping stops."
+  ],
+  "description": "A square, capable woman in her forties in shirtsleeves and braces, standing in the bay with a mug in one hand and her attention on the doors. She has the specific calm of somebody whose job is nearly all waiting and occasionally all of everything, and she does not waste any of it on being pleasant for its own sake, which somehow comes out as warmth.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the apron,\" she says. \"It is swept for a reason.\""
+    },
+    "called": {
+      "options": [
+        {
+          "label": "Eleven doesn't sound like much.",
+          "next": "called_much"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Properly? Eleven times last year.\" She is not embarrassed by the number. \"Chimney fires, a lorry, and one bad one down the Ashway that took all night and I do not talk about.\"\n\n\"The rest is people stuck, doors off, a cat once, and pumping cellars out after weather. Most of this job is a pump and a ladder and not being in a hurry about it.\""
+    },
+    "called_much": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "called"
+        }
+      ],
+      "text": "\"It is not.\" She says it flatly. \"And on the twelfth, which has not happened yet, the whole point of me is whether four people who have been playing cribbage for a fortnight can get out of that door in ninety seconds with the right kit on.\"\n\n\"So we drill. Every day, twice, and they moan, and I make them do it again when it is slow. Being bored is the job. Being bad at it because you were bored is not something I will have in this building.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The gasholder is the thing I think about.\" She says it without any theatre. \"Old man there is careful and I would not swap him for anybody. But it is a great deal of gas and my nearest hydrant to it is further than I would like, and he knows that, and we have walked it together.\"\n\n\"The exchange has no way in that I could use. One steel door and a caretaker with the only key. I have asked him for a copy twice and he has said no twice, and I do not think that is him being difficult.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How often do you get called?",
+          "next": "called"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What happened to the third appliance?",
+          "next": "third"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I'll let you get on.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in, don't stand in the door.\" She does not put the mug down. \"Anything you want to look at you can look at. Don't sit in a cab.\"",
+      "text_by_relation": {
+        "familiar": "She has already shouted something up the stair about a second mug before she turns round.\n\n\"Sit on the running board, not in the cab,\" she says. \"I have said that to you before and I will say it to you again, and one day you will do it and I will have to be unpleasant.\"",
+        "first": "The woman in the bay watches you come in the way somebody watches a door they are paid to watch, and then stops watching, which is the part that puts you at ease.\n\n\"Thorne. Station officer, for my sins and for four people.\" She nods at the appliances. \"You can look at anything in here. You cannot sit in a cab, and that is not me being awkward, it is that people knock things.\"\n\nShe indicates the board on the wall.\n\n\"Every hydrant in this quarter is on that. I put the new ones on before the road went down. If there is ever a fire in Halcyon Fields I would like it to be a boring one.\"",
+        "known": "\"Back again.\" She tips the mug at the kettle upstairs. \"There's tea if you want it and it's two.\""
+      }
+    },
+    "third": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Taken.\" No edge on it whatsoever, which is somehow worse. \"Requisitioned north, six years back, and the paper said temporary and the paper is still in the drawer.\"\n\n\"So we are two appliances for a quarter that is about to double in size, if the man with the hoarding is right. I have written about that. I have had a letter back confirming receipt of my letter.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a service shirt with the sleeves turned back and the collar open, braces over it",
+      "uniform trousers with a crease and a hard belt",
+      "boots she can step into the leggings from, kept by the cab",
+      "a vest and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_engine_watch",
+  "hp": 46,
+  "hp_max": 46,
+  "id": "npc_engine_thorne",
+  "name": "Dilys Thorne",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_engine_hose",
+      "price": 35
+    },
+    {
+      "item_id": "item_engine_axe",
+      "price": 90
+    },
+    {
+      "item_id": "item_engine_tea",
+      "price": 2
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Engine Trouble",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_engine_bay"
+}

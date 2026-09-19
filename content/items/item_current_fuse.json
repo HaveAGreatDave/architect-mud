@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_current_fuse",
+  "name": "a cartridge fuse",
+  "tags": {
+    "description": "A ceramic barrel with brass caps and a rating stamped along it, out of the spares drawer. Half the machinery in this quarter takes one of these and nobody keeps any.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 8,
+  "weight": 90
+}

@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_sound_foyer",
+  "id": "zone_util_zone_sound_foyer",
+  "name": "Sound Investment — The Plant Room",
+  "source_type": "junction_box"
+}

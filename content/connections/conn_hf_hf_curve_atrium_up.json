@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_curve_atrium",
+  "b": "zone_hf_curve_suite",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_curve_atrium_up",
+  "lockable": false,
+  "one_way": false
+}

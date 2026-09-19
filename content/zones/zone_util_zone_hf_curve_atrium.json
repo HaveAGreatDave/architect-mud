@@ -1,0 +1,18 @@
+{
+  "description": "Under the middle of the arc, where the three structural segments meet and every service in the building has to pass through the same wall. The cabinet is between two risers, and the room is the only square space in a building with no square spaces.",
+  "exits": {
+    "up": "zone_hf_curve_atrium"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_curve_atrium",
+  "map_id": "map_int_hf_curve",
+  "name": "Curve Appeal — The Podium Switch Room",
+  "parent_zone": "zone_district_897_909"
+}

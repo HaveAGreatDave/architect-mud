@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A brass float on a wire in a glass stilling well, going up and down with the Basin about a finger's width an hour, and a pen on an arm off the wire writing that onto a paper drum. The shelf behind holds the drums going back further than anybody has asked about. They are in order.",
+  "exits": {
+    "south": "zone_bld_908_907_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_908_907"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_bld_908_907_tide",
+  "map_id": "map_int_bld_908_907",
+  "name": "The Tide Room",
+  "parent_zone": "zone_district_908_907"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "Four hundred of them in dark red, raked, each with a brass number on the arm. Rows are lettered from the front. Twelve seats are worn and they are not together.",
+  "flags": {
+    "aliases": [
+      "seat",
+      "seats",
+      "chairs",
+      "row"
+    ],
+    "interactions": {
+      "sit": "You pick a seat. The hinge is stiff and takes a push, then settles you lower than you expected."
+    }
+  },
+  "id": "furn_sound_seats",
+  "name": "the seats",
+  "object_type": "furniture",
+  "zone_id": "zone_sound_house"
+}

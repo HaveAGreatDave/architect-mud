@@ -1,0 +1,17 @@
+{
+  "description": "A full-length grand in black, under a fitted dust sheet with the corners tied. The lid prop is kept in a clip inside the case rather than left standing, which is what somebody does when they intend to still be doing this next year.",
+  "flags": {
+    "aliases": [
+      "piano",
+      "grand"
+    ],
+    "instrument": "piano",
+    "interactions": {
+      "examine": "The dust sheet comes off forty times a year, and the tuner comes the morning of each one."
+    }
+  },
+  "id": "furn_sound_piano",
+  "name": "the house piano",
+  "object_type": "furniture",
+  "zone_id": "zone_sound_platform"
+}

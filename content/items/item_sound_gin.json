@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_sound_gin",
+  "name": "an interval gin",
+  "tags": {
+    "description": "Gin and something in a heavy plastic cup, poured at the interval from a table in the foyer and left on the shelf outside the doors when the bell goes. It is a large measure. Nobody is watching the bottle.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 22,
+  "weight": 90
+}

@@ -35,6 +35,34 @@ import { dispatchAction } from '../../server/engine/actions.js';
 import { skillCheck } from '../../server/engine/skills.js';
 import { query } from '../../server/models/db.js';
 import { declaredKg, actualKg, stashKg } from './trailers.js';
+import { getCrimeStars } from '../../server/engine/crimes.js';
+
+// ── THE CHARGE, AT A GATE THAT MAY BE STANDING IN A LAWLESS PLACE ────────────
+//
+// ⚠ THIS EXISTS BECAUSE `CHARGE_CRIME` IS SILENTLY A NO-OP ON THE VOID HIGHWAY. `raiseCrime` opens
+// with "no law in the wastes" — a zone carrying `flags.lawless` charges nothing, and its own comment
+// says that holds "even a forced one" — and voidwalking stamps `lawless: true` on every corridor
+// node it registers, deliberately, because dying out there clone-vats you rather than jailing you.
+//
+// This file's three charges were all written when the only scale house in the game stood on a city
+// yard. The inspection plaza (plaza.js) runs the SAME two laws out on that road, so every one of
+// them would have dispatched happily, been swallowed on the first line, and charged nothing — the
+// prose printing, the officer opening the door, and no consequence at all, for ever, with nothing
+// anywhere to say so.
+//
+// So the rule lives in one function rather than at four call sites. On a policed tile it is exactly
+// the dispatch that always shipped, byte for byte. Out on the road it spends the same tariff through
+// `WANTED_RAISE` — the documented cross-plugin seam, the one jail uses for a jailbreak — because a
+// witness roll asks whether a camera or an officer happened to see you and out there the answer is
+// neither, for ever, while the thing charging you IS the apparatus.
+//
+// ⚠ THE STAR VALUE IS STILL THE REGISTRY'S. It reads `getCrimeStars` rather than holding a second
+// copy, so the dev panel's Crime tab tunes both paths and they cannot drift apart.
+export async function chargeAt(player, lawless, key, reason) {
+  if (!lawless) return dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key } }).catch(() => {});
+  return dispatchAction({ type: 'WANTED_RAISE', actor: player,
+    params: { amount: getCrimeStars(key), reason: reason || key.replace(/_/g, ' ') } }).catch(() => {});
+}
 
 // The tolerance a weighbridge will not bother with, and the slope past it. A scale that fired on
 // 1 kg would make the whole system a tax rather than a decision.
@@ -69,6 +97,22 @@ export const scaleAt = (zone) => {
 export async function runScale(player, rig, zone) {
   const cfg = scaleAt(zone);
   if (!cfg) return null;
+  return weighAt(player, rig, cfg, zone.id);
+}
+
+// THE WEIGHBRIDGE ITSELF, WITH THE ZONE LOOKUP LIFTED OUT OF IT.
+//
+// There are two places a truck can be weighed now — a scale house on a city yard, which is a tile
+// the world placed, and an inspection plaza on the void highway, which is geometry synthesised
+// around the corridor's own centreline and has no zone row to hang a flag on (see plaza.js). It is
+// the same law at both, so it is the same FUNCTION at both: everything above this line is about
+// finding out whether there is a scale here, and everything below it is the scale.
+//
+// ⚠ `zoneId` IS NULLABLE, AND THE NULL CASE IS THE PLAZA. It is only ever used to say where an
+// impounded truck is being held, and a corridor room is transient — torn down when the crossing
+// ends — so a rig parked at one would be a row pointing at nothing, which is the same rule that
+// stops you dropping a trailer out there. Null means "held at its own yard"; see `impound`.
+export async function weighAt(player, rig, cfg, zoneId = null) {
   if (pending.has(player.id)) return null;                 // already at the window
   const t = rig.trailer;
   if (!t) return null;                                     // bobtail: nothing to weigh
@@ -99,7 +143,7 @@ export async function runScale(player, rig, zone) {
   }
 
   const inspection = {
-    zoneId: zone.id, name: cfg.name,
+    zoneId, name: cfg.name,
     declared, actual, over, overRated,
     stash: (t.stash || []).slice(),
     fine: Math.round(overRated * FINE_PER_KG),
@@ -156,6 +200,13 @@ export async function afterDrive(player, rig, zone) {
 async function runCabCheck(player, rig, zone) {
   const cfg = scaleAt(zone);
   if (!cfg) return null;
+  return cabCheckAt(player, rig, cfg);
+}
+
+// The same split the weighbridge takes, for the same reason and with the same argument against
+// doing it twice: an inspection plaza opens the passenger door too, and a second copy of this is a
+// second answer to what happens when somebody is found in the sleeper.
+export async function cabCheckAt(player, rig, cfg) {
   const who = rig?.rider;
   // Only the fugitive, and only in the seat. A mechanic in the passenger seat is a mechanic in the
   // passenger seat — giving somebody a lift is not a crime, and a check that stopped everybody
@@ -163,7 +214,7 @@ async function runCabCheck(player, rig, zone) {
   if (!who || who.inTrailer || who.id !== 'fugitive') return null;
 
   rig.rider = null;
-  await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'harbouring' } }).catch(() => {});
+  await chargeAt(player, !!cfg.plaza, 'harbouring', 'harbouring a fugitive');
   sendToPlayer(player.id, { type: 'emote', message:
     `<span class="text-red">An officer walks the length of the rig at ${cfg.name}, puts a hand on the passenger door and opens it.</span>\n\n`
     + `There's nowhere in a cab to not be. They don't ask you anything — they're already talking to somebody on a radio, and your passenger is out of the seat and face down on the plates before you have finished stopping.\n\n`
@@ -236,7 +287,7 @@ export async function customsAnswer(player, rig, what) {
         `<span class="text-dim">You fold it into the paperwork without looking at it, and they take the paperwork without looking at it either.</span>\n\n`
         + `<span class="text-amber">${ask}₵.</span> The barrier goes up and nobody has said anything worth repeating.` };
     }
-    await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'bribery_attempt' } }).catch(() => {});
+    await chargeAt(player, !i.zoneId, 'bribery_attempt', 'trying to buy off an inspection');
     await dispatchAction({ type: 'APPREHEND', actor: player, params: { officer: 'the scale-house officers' } }).catch(() => {});
     return { type: 'emote', message:
       `<span class="text-red">They look at the money, and then at you, for a good deal longer than is comfortable.</span>\n\n`
@@ -252,7 +303,7 @@ export async function customsAnswer(player, rig, what) {
     // roll would fragment the vehicle skill across two systems that already share a physics model —
     // a trucker and a pilot are both people who are good with a machine that moves.
     const ok = (await skillCheck(player, 'piloting', 7)).success;
-    await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'evading_police' } }).catch(() => {});
+    await chargeAt(player, !i.zoneId, 'evading_police', `running the scale at ${i.name}`);
     if (ok) {
       return { type: 'emote', message:
         `<span class="text-amber">You let the clutch out while the officer is still looking at the slate.</span>\n\n`
@@ -280,8 +331,15 @@ export async function customsAnswer(player, rig, what) {
 async function impound(rig, i) {
   if (!rig?.truckId) return 0;
   const fee = Math.max(400, Math.round(Math.max(i.over, i.overRated) * 3.5));
-  await query('UPDATE trucks SET depot_zone = $1, impound_fee = $2 WHERE id = $3',
-    [i.zoneId, fee, rig.truckId]).catch(() => {});
+  // ⚠ A PLAZA CANNOT HOLD YOUR TRUCK, BECAUSE A PLAZA WILL NOT BE THERE TOMORROW. The corridor's
+  // rooms are registered per crossing and torn down with it, so writing one into `depot_zone` parks
+  // a rig at an address that stops existing — the identical rule that forbids dropping a trailer in
+  // a void room. With no zone the fee is set and the truck is left homed where it already was: a
+  // low-loader takes it back to its own yard and it sits there until you pay, which is the same
+  // ending by a longer road.
+  await (i.zoneId
+    ? query('UPDATE trucks SET depot_zone = $1, impound_fee = $2 WHERE id = $3', [i.zoneId, fee, rig.truckId])
+    : query('UPDATE trucks SET impound_fee = $1 WHERE id = $2', [fee, rig.truckId])).catch(() => {});
   // Anything behind the bulkhead is gone. It was never on the paper, so there is nothing to give
   // back and nobody to complain to.
   if (rig.trailer) { rig.trailer.stash = null; await saveStash(rig.trailer.id, null); }

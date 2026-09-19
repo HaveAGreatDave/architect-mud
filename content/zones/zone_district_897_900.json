@@ -1,13 +1,8 @@
 {
-  "ambient_events": [
-    "Water slaps the pilings under the boards and draws back.",
-    "A cleat sits empty at the jetty's edge, rope-scarred and waiting.",
-    "Out on the black water, something large and unlit holds its position.",
-    "The beam from the tower crosses the boards, and every rail on the jetty picks it up at once."
-  ],
+  "ambient_events": [],
   "ambient_theme": "coast",
-  "color": "#9fc0b8",
-  "description": "Boards, salt-grey and slick, running north over open water on a double row of piles. The rail down both flanks is cold enough to take the skin off a wet hand. From here the tower at the end stops looking like a lighthouse: the waist is wrong, and nothing built for a keeper has ribs.",
+  "color": "#7fd3ff",
+  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot: the channel beyond is deep, and impassable without a boat.",
   "exits": {
     "east": "zone_district_898_900",
     "north": "zone_district_897_899",
@@ -15,15 +10,8 @@
     "west": "zone_district_896_900"
   },
   "flags": {
-    "building_type": "pier",
-    "district": "docks",
-    "entrance": "south",
-    "floors": 1,
-    "liquid": false,
-    "pier": true,
+    "district": "water",
     "region_id": "region_coldwater",
-    "routable": true,
-    "swimmable": false,
     "terrain": "water"
   },
   "grid_x": 897,
@@ -31,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_district_897_900",
   "map_id": "map_world",
-  "name": "Basin Jetty",
+  "name": "Coldwater Basin",
   "parent_zone": null
 }

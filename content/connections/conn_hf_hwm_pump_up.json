@@ -1,0 +1,9 @@
+{
+  "a": "zone_hwm_pump",
+  "b": "zone_hwm_gallery",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hwm_pump_up",
+  "lockable": false,
+  "one_way": false
+}

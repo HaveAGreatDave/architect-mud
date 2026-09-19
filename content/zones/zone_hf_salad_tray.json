@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A glazed box the size of a long room, cantilevered off the core with the city on three sides of it, and racked floor to ceiling with growing channels. The light is magenta and absolute and it makes everybody in here look ill. Between the racks it is exactly wide enough for one person and a trolley, and the air is warm and smells overwhelmingly green.",
+  "exits": {
+    "down": "zone_hf_salad_pack"
+  },
+  "flags": {
+    "building_name": "Salad Days",
+    "building_type": "vertical_farm",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_898_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_salad_tray",
+  "map_id": "map_int_hf_salad",
+  "name": "Salad Days — The Fourth Tray",
+  "parent_zone": "zone_district_898_911"
+}

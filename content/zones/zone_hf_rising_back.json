@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A small square room behind the core with no window at all, which in this building is a deliberate luxury: it is the only place on the plot where nobody can see you through glass. A table, four chairs and a jug of water that is refilled whether or not anybody drank any.",
+  "exits": {
+    "south": "zone_hf_rising_floor"
+  },
+  "flags": {
+    "building_name": "Rising Sums",
+    "building_type": "chrome_tower",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_rising_back",
+  "map_id": "map_int_hf_rising",
+  "name": "Rising Sums — The Settlement Room",
+  "parent_zone": "zone_district_895_909"
+}

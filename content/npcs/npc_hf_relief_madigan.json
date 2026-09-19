@@ -1,0 +1,292 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Madigan tops the urn up and checks the lime line under the tap.",
+    "She calls a name across the room and somebody answers from behind the counter.",
+    "She wipes a table with one hand and carries three mugs in the other.",
+    "She looks at the rota, finds her own name, and looks away satisfied.",
+    "Her knee goes as she turns. She swears at it, briefly and without heat, and carries on."
+  ],
+  "description": "A broad, weathered woman in her sixties working the urn with her sleeves rolled, forearms like a dockhand and reading glasses pushed up into grey hair. She laid pipe in this quarter for two years and her knee stopped her, so she took the counter, and the counter is now the reason thirty people eat before a shift.",
+  "dialogue_tree": {
+    "asked": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everybody has asked.\" She almost laughs. \"You get the same answer every time, and it is not a lie, it is just not an answer: the halt is in the phase and the line is in a later phase.\"\n\n\"Which is how every big job works. You put the hard bit in first while the ground is open.\" She looks at the urn. \"I have been on jobs where the later phase came. I have been on more where it did not.\""
+    },
+    "building": {
+      "options": [
+        {
+          "label": "And nobody has asked?",
+          "next": "asked"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Whatever is on the sheet.\" She jerks her chin south. \"This season it is the halt and the two glasshouses on the Buried Road. Last season it was the crescent.\"\n\n\"The halt is the one that gets talked about, because there is no line to it.\" She refills the urn. \"We built a station. There is no railway. We put the board in and the board works and it says SERVICE COMMENCING, and it has said that since we screwed it on.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mug goes back on the counter,\" she says. \"Not the table. I will find it on the table and I will know it was you.\""
+    },
+    "estate": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They have written twice.\" She holds up two fingers. \"First one was about the hook rail downstairs. Second one was about the first one.\"\n\n\"Nobody has come up. I think the position is that a canteen on the fifth is against the lease and also the only reason the site starts on time, and somebody sensible has decided not to make those two facts meet in a room.\""
+    },
+    "full": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because they let it cheap to us and they let the others dear to nobody.\" She says it flatly, as arithmetic. \"Thirteen floors, all taken, mostly two and three to a flat.\"\n\n\"They did it so the site had a labour force that did not have to cross the city at five in the morning. It was a good decision and I will say so.\" She wipes the counter. \"It is also the only building on this estate with anybody in it, and I do not think that was in the drawing.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"There is a plot on Kettle Lane that keeps getting pegged out and then un-pegged.\" She says it while working, not looking up. \"Three times now. Pegs go in, string goes round, and a fortnight later somebody pulls the lot and it is grass again.\"\n\n\"That is not indecision. Setting out costs money and you do not pay for it three times by accident.\" She sets the mug down hard enough to make the point. \"Somebody keeps deciding to build there and somebody keeps deciding they cannot.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Why is this tower full when the others are empty?",
+          "next": "full"
+        },
+        {
+          "label": "Tea, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What are you all building?",
+          "next": "building"
+        },
+        {
+          "label": "Does the estate mind the canteen?",
+          "next": "estate"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Tea's four, roll's eleven, sit where you like.\" She is already moving. \"You're not one of ours, are you.\"",
+      "text_by_relation": {
+        "familiar": "She has the mug and the roll on the counter before you are off the lift, and pushes them across with the back of her hand.\n\n\"Eat that,\" she says. \"You look like the estate feeds you.\"",
+        "first": "The lift opens onto noise, which after the rest of this quarter is genuinely startling, and a big woman at an urn looks over the top of thirty people and clocks you immediately.\n\n\"You're not one of ours.\"\n\nIt is not hostile. She puts a mug down in front of somebody and comes round the counter.\n\n\"Madigan. This is the fifth. It is meant to be plant and it is a canteen, and if anybody from the estate asks you, it is plant.\" She looks you over once. \"Tea's four. You are welcome, and I mean that, and I would still rather you did not stand in the servery.\"",
+        "known": "\"There you are.\" The mug is poured before you have crossed the room. \"Four. Sit down, you're in the way.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a faded work shirt with the sleeves rolled above the elbow",
+      "a long canvas apron, stained and washed",
+      "heavy trousers with a knee support under them",
+      "thick socks and no boots indoors"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_relief_canteen",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_hf_relief_madigan",
+  "name": "Bryher Madigan",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_relief_tea",
+      "price": 4
+    },
+    {
+      "item_id": "item_hf_relief_roll",
+      "price": 11
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Light Relief",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_relief_canteen"
+}

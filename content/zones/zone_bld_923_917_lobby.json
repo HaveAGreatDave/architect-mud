@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A long low room with trestles down the middle and benches either side, and enough of them that the far end is in shadow. The serving hatch is at the near end so the queue never has to come inside. It is warm, and it smells of onions and steam and wet wool.",
+  "exits": {
+    "down": "zone_util_zone_bld_923_917_lobby",
+    "east": "zone_bld_923_917_kitchen",
+    "north": "zone_district_923_917"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_923_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_923_917_lobby",
+  "map_id": "map_int_bld_923_917",
+  "name": "The Hall",
+  "parent_zone": "zone_district_923_917"
+}

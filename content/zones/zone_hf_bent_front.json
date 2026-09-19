@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long shallow waiting room following the inside of the curve, with chairs down one side and the glass down the other. There is a rail along the wall at hand height for the whole length of it, which is the single most used object in the building and the only thing here that was designed by somebody who thought about it.",
+  "exits": {
+    "down": "zone_util_zone_hf_bent_front",
+    "north": "zone_hf_bent_gym",
+    "south": "zone_district_896_909"
+  },
+  "flags": {
+    "building_name": "Bent Double",
+    "building_type": "chrome_slab",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_bent_front",
+  "map_id": "map_int_hf_bent",
+  "name": "Bent Double — The Waiting Arc",
+  "parent_zone": "zone_district_896_909"
+}

@@ -6,11 +6,10 @@
   "exits": {
     "east": "zone_district_899_915",
     "north": "zone_district_898_914",
-    "south": "zone_district_898_916",
-    "west": "zone_district_897_915"
+    "south": "zone_district_898_916"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "terrain": "grass"
   },

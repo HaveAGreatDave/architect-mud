@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Four hundred seats in dark red, raked, with a brass number screwed to every arm. Twelve of them are worn through to the backing. The rest are as they came, and have been as they came for years. The ceiling is a shallow dome ringed with dead bulbs and a smaller ring inside it that still works. It is warmer in here than in the foyer, because heating an empty hall costs less than explaining why you stopped.",
+  "exits": {
+    "north": "zone_sound_foyer",
+    "south": "zone_sound_platform"
+  },
+  "flags": {
+    "building_name": "Sound Investment",
+    "building_type": "concert_hall",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_sound_house",
+  "map_id": "map_int_sound",
+  "name": "Sound Investment — The Auditorium",
+  "parent_zone": "zone_district_893_911"
+}

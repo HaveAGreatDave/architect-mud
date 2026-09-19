@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_curve_pass",
+  "name": "a viewing pass",
+  "tags": {
+    "description": "Gets you onto the show floor unaccompanied, which the agent offers freely, because an empty floor shows better when there is nobody standing in it apologising for it.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 30,
+  "weight": 3
+}

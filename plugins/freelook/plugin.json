@@ -1,0 +1,13 @@
+{
+  "name": "freelook",
+  "version": "1.0.0",
+  "description": "Staff-only detached world camera: opens the GLASS renderer over any map_world tile with no vehicle under it, so the city can be looked at from anywhere instead of only from a cab, a cockpit or a wheelhouse.",
+  "commands": ["freelook"],
+  "hooks": [],
+  "actions": [],
+  "events": {
+    "emits": [],
+    "consumes": ["player.logout"]
+  },
+  "dependencies": ["flight"]
+}

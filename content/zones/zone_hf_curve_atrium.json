@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The inside of the arc, which is a long shallow room that you can never see both ends of at once. Pale floor, pale ceiling, a reception island halfway along, and a row of chairs against the inside wall that have been arranged in a straight line inside a curve and look wrong in a way most people cannot name.",
+  "exits": {
+    "down": "zone_util_zone_hf_curve_atrium",
+    "south": "zone_district_897_909",
+    "up": "zone_hf_curve_suite"
+  },
+  "flags": {
+    "building_name": "Curve Appeal",
+    "building_type": "chrome_slab",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_curve_atrium",
+  "map_id": "map_int_hf_curve",
+  "name": "Curve Appeal — The Inner Curve",
+  "parent_zone": "zone_district_897_909"
+}

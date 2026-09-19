@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "description": "Someone scraped the grass back to the old camber here and found a road under it, cracked but true. The kerbs stand proud again on both sides, chipped where the digger caught them.",
   "exits": {
     "east": "zone_district_894_916",
     "north": "zone_district_893_915",
@@ -10,15 +9,17 @@
     "west": "zone_district_892_916"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 893,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_893_916",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Kerbstone Row",
   "parent_zone": null
 }

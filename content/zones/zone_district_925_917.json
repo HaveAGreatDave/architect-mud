@@ -1,26 +1,23 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The road here is more suggestion than surface: compacted gravel, broken kerbstones, a storm drain choked with silt. Somebody dragged a mattress halfway across it and gave up.",
+  "description": "A yard between two buildings, four paces across, with a storm grating in the middle of it that the ground falls away towards. The bars are worn bright on top and there is no rust on them at all. Whatever uses this drain uses it often enough to keep it polished.",
   "exits": {
     "down": "zone_under_925_917",
-    "east": "zone_district_926_917",
-    "north": "zone_district_925_916",
-    "south": "zone_district_925_918",
-    "west": "zone_district_924_917"
+    "north": "zone_district_925_916"
   },
   "flags": {
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "dirt"
   },
   "grid_x": 925,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_925_917",
   "map_id": "map_world",
-  "name": "Residential Area",
+  "name": "The Sink",
   "parent_zone": null
 }

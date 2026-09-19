@@ -1,0 +1,16 @@
+{
+  "description": "One of the two benches. The other is under the planting somewhere and has not been seen for a season.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "seat"
+    ],
+    "interactions": {
+      "sit": "You sit in wet heat under a great deal of leaf, and the gasholder and the cooling plant might as well be in another city."
+    }
+  },
+  "id": "furn_hf_frond_bench",
+  "name": "the remaining bench",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_frond_under"
+}

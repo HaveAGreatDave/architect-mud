@@ -2,7 +2,7 @@
 // No global tick: freshness is checked lazily via the `item.checkFreshness`
 // hook, fired by the engine from examine, stow, pull, and eat/use (see
 // server/engine/commands/{world,inventory}.js). See decay.js for the math.
-import { ensureFreshnessCurrent } from './decay.js';
+import { ensureFreshnessCurrent, stockSpoilCheck } from './decay.js';
 import { cmdPreserve } from './preserve.js';
 
 // `food_poisoning` used to be registered HERE, back when spoiled food was the
@@ -15,7 +15,14 @@ import { cmdPreserve } from './preserve.js';
 // plugins load after the engine, so a copy left here would silently shadow the
 // engine one with no warning anywhere.
 
-export const hooks = { 'item.checkFreshness': ensureFreshnessCurrent };
+// `stock.spoilCheck` is the vendor delivery pass asking, from its own cache and
+// with no query, whether a shelf of stock has gone off — see stockSpoilCheck for
+// why it is a separate, pure entry point rather than a second call to the one
+// above (which needs a row, and writes).
+export const hooks = {
+  'item.checkFreshness': ensureFreshnessCurrent,
+  'stock.spoilCheck': stockSpoilCheck,
+};
 
 // `preserve <food>` — the antioxidant half. Spends a vial of BHT to slow one
 // item's decay wherever it sits; see preserve.js for why that reagent and not
@@ -23,4 +30,4 @@ export const hooks = { 'item.checkFreshness': ensureFreshnessCurrent };
 export const commands = { preserve: cmdPreserve };
 
 // Exposed for the regression harness.
-export const _test = { ensureFreshnessCurrent };
+export const _test = { ensureFreshnessCurrent, stockSpoilCheck };

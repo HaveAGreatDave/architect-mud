@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_line_offcut",
+  "name": "a length of glazing channel",
+  "tags": {
+    "description": "Chrome section, cut square at both ends, off the pile that has been standing beside this platform since the work stopped. It is good material and there is a great deal of it and nobody has ever come for it.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 20,
+  "weight": 260
+}

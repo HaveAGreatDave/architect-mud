@@ -1,0 +1,16 @@
+{
+  "description": "Scaffold board and angle iron, following the curve of the wall, with about forty pairs on it and a puddle under the middle third.",
+  "flags": {
+    "aliases": [
+      "rack",
+      "boots"
+    ],
+    "interactions": {
+      "examine": "Every pair is caked with the same pale grey dust. It is the dust the rest of the estate is made of, and it is in this building because these are the people making it."
+    }
+  },
+  "id": "furn_hf_relief_rack",
+  "name": "the boot rack",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_relief_lobby"
+}

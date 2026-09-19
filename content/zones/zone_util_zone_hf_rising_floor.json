@@ -1,0 +1,18 @@
+{
+  "description": "A slice-shaped room at the foot of the core with the board's own supply in it, separate from the building's, because a broker who loses the figures for ten minutes loses more than the estate pays for the whole riser. The cabinet is on the flat wall beside two very well-labelled breakers.",
+  "exits": {
+    "up": "zone_hf_rising_floor"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_rising_floor",
+  "map_id": "map_int_hf_rising",
+  "name": "Rising Sums — The Riser Cupboard",
+  "parent_zone": "zone_district_895_909"
+}

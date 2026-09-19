@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "One room off the lane, with a bench along the wall for whoever is waiting and a curtain across the back half. The window is the brightest thing on Ropewalk after dark, because the work needs the light and the light is the only advertising there is.",
+  "exits": {
+    "down": "zone_util_zone_bld_924_917_lobby",
+    "east": "zone_bld_924_917_table",
+    "north": "zone_district_924_917"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_924_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_924_917_lobby",
+  "map_id": "map_int_bld_924_917",
+  "name": "The Front Room",
+  "parent_zone": "zone_district_924_917"
+}

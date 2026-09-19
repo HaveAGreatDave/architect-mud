@@ -1,0 +1,17 @@
+{
+  "connection_id": "conn_bld_926_917_lobby_north_cz9d",
+  "door_type": "basic",
+  "exit_dir": "south",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_basic_zone_district_926_917_in",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": null,
+  "name": null,
+  "tags": {},
+  "target_zone": "zone_bld_926_917_lobby",
+  "zone_id": "zone_district_926_917"
+}

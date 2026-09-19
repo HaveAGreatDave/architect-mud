@@ -1,0 +1,16 @@
+{
+  "description": "Shallow chrome-framed crates, washed, stacked eleven high against the wall, every one stencilled with a delivery address.",
+  "flags": {
+    "aliases": [
+      "crates",
+      "stack"
+    ],
+    "interactions": {
+      "examine": "Almost every crate is stencilled for the Spire, or for a floor of it. Two at the bottom of the stack say Light Relief, fifth floor, and those two are the ones that are scuffed."
+    }
+  },
+  "id": "furn_hf_salad_crates",
+  "name": "the crate stack",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_salad_pack"
+}

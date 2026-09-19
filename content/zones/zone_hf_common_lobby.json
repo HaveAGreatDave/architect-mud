@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A round room under a round ceiling, all of it the same pale grey, with a desk that is a single curved slab and nothing behind it but a wall. Two lifts, one of them keyed. The acoustics are very slightly wrong and everybody who comes in here drops their voice without deciding to.",
+  "exits": {
+    "down": "zone_util_zone_hf_common_lobby",
+    "north": "zone_district_892_911",
+    "up": "zone_hf_common_bridge"
+  },
+  "flags": {
+    "building_name": "Common Ground",
+    "building_type": "sky_court",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_common_lobby",
+  "map_id": "map_int_hf_common",
+  "name": "Common Ground — The Forecourt Lobby",
+  "parent_zone": "zone_district_892_911"
+}

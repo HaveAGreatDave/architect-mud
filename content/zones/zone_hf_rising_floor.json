@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A round glazed room with a board round the inside of the curve carrying figures that move. Four desks face outward at the glass rather than inward at each other. It is bright, it is quiet, and the only sound is the board reticking, which it does every eleven seconds whether or not anything has changed.",
+  "exits": {
+    "down": "zone_util_zone_hf_rising_floor",
+    "north": "zone_hf_rising_back",
+    "south": "zone_district_895_909"
+  },
+  "flags": {
+    "building_name": "Rising Sums",
+    "building_type": "chrome_tower",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_rising_floor",
+  "map_id": "map_int_hf_rising",
+  "name": "Rising Sums — The Trading Saucer",
+  "parent_zone": "zone_district_895_909"
+}

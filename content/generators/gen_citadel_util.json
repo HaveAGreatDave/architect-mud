@@ -8,7 +8,7 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_citadel_util",
-  "name": "Citadel Financial Junction Box",
+  "name": "Compound Interest Junction Box",
   "owner_id": null,
   "zone_id": "zone_citadel_vestibule"
 }

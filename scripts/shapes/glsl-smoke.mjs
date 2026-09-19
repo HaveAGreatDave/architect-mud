@@ -41,6 +41,11 @@ for (const f of files) {
   // first backtick after the pragma is the end of the source.
   const bodies = [];
   const declaredInFile = new Set();
+  // ⚠ A NAME THE JS SUBSTITUTES OUT IS NOT AN IDENTIFIER THE COMPILER EVER SEES. Three shaders
+  // size an array from a JS constant the only way GLSL ES allows — `src.split('SSAO_TAPS')
+  // .join(String(SSAO_TAPS))` — so the token is gone before `shaderSource` is called. Read off
+  // the substitution itself rather than from a list, or the list is a second copy of it.
+  const substituted = [...src.matchAll(/\.split\(\s*['"]([A-Z_][A-Z0-9_]*)['"]\s*\)/g)].map((m0) => m0[1]);
   const re = /`#version 300 es([\s\S]*?)`/g;
   let m;
   while ((m = re.exec(src))) {
@@ -60,6 +65,31 @@ for (const f of files) {
     // which is the side it would be made on.
     for (const u of body.matchAll(/\b(u[A-Z]\w*)\b/g)) {
       if (!declared.has(u[1])) problems.push(`${f}: shader uses ${u[1]}, which it never declares`);
+    }
+    // ── ⚠ AND A SCREAMING_CAPS NAME, WHICH IS HOW A JS CONSTANT LEAKS INTO GLSL ──────────────
+    // A tuning number lives as a module const beside the shader and then gets spelled into the
+    // source as a bare identifier. That is not a wrong number, it is a COMPILE failure, and the
+    // throw takes the whole GL world pass down with it: the city falls back to 2-D mid-frame, so
+    // terrain comes out the wrong biome and a massif keeps its hairlines and loses its faces.
+    // SNOW_REACH and SNOW_GAIN shipped that way in billboards.js and neither rule above could
+    // see it — neither is a uXxx, and neither is a name the JS asks the linker for by string.
+    // ⚠ INTERPOLATIONS ARE CUT FIRST. ${HEIGHT_FOG_GLSL} is JavaScript, resolved before the
+    // string ever reaches a compiler, so the name inside it is not a GLSL identifier at all — a
+    // first cut without the cut reported every injected snippet in the directory.
+    const bare = body.replace(/\$\{[^}]*\}/g, ' ');
+    const capsOk = new Set(substituted);
+    for (const d of bare.matchAll(/#define\s+([A-Z_][A-Z0-9_]*)/g)) capsOk.add(d[1]);
+    // ⚠ EVERY DECLARATOR, NOT JUST THE FIRST. `const float GE_WARP = 80.0, GE_WARP_F = 0.0055;`
+    // declares two names and a regex that stops at the first one invents a finding about the
+    // second — the same multi-declarator trap `imports:smoke` records against its own scanner.
+    for (const d of bare.matchAll(/\b(?:const\s+)?(?:float|int|uint|bool|[iub]?vec[234]|mat[234])\s+([^;{}]*);/g)) {
+      for (const part of d[1].split(',')) {
+        const m2 = /^\s*([A-Za-z_]\w*)/.exec(part);
+        if (m2 && /^[A-Z_][A-Z0-9_]*$/.test(m2[1])) capsOk.add(m2[1]);
+      }
+    }
+    for (const u of bare.matchAll(/\b([A-Z][A-Z0-9]*_[A-Z0-9_]*)\b/g)) {
+      if (!capsOk.has(u[1])) problems.push(`${f}: shader uses ${u[1]}, which it never declares — a JS const is not a GLSL one`);
     }
   }
   if (!bodies.length) continue;

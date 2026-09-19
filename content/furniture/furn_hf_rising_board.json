@@ -1,0 +1,18 @@
+{
+  "description": "A ribbon of figures following the curve of the room for most of a circle, reticking every eleven seconds. Land, chrome, water rights and one column nobody will explain.",
+  "flags": {
+    "aliases": [
+      "board",
+      "figures",
+      "ticker"
+    ],
+    "hack_difficulty": 7,
+    "interactions": {
+      "examine": "The unexplained column is headed with two characters and a slash. It moves less than the others and, when it moves, the others follow it about a minute later."
+    }
+  },
+  "id": "furn_hf_rising_board",
+  "name": "the figure board",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_rising_floor"
+}

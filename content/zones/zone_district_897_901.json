@@ -1,13 +1,12 @@
 {
   "ambient_events": [
     "Water slaps the pilings under the boards and draws back.",
-    "A cleat sits empty at the jetty's edge, rope-scarred and waiting.",
-    "Out on the black water, something large and unlit holds its position.",
-    "The beam from the tower crosses the boards, and every rail on the jetty picks it up at once."
+    "A cleat sits empty at the jetty's end, rope-scarred and waiting.",
+    "Out on the black water, something large and unlit holds its position."
   ],
   "ambient_theme": "coast",
   "color": "#9fc0b8",
-  "description": "A weathered timber jetty runs out from the shore into Coldwater Basin. Mooring cleats stud the edge; the last few metres of decking are reinforced with steel plate, as if something heavy is expected to tie up here. When the right vessel is alongside, a gangway comes down here and not one metre further.",
+  "description": "A weathered timber jetty runs out from the grass into Coldwater Basin, its planks salt-grey and slick. Mooring cleats stud the edge; the last few metres are reinforced with steel plate, as if something heavy is expected to tie up here. The water beyond (NORTH) is deep and cold. When the right vessel is alongside, a gangway comes down here and not one metre further.",
   "exits": {
     "east": "zone_district_898_901",
     "north": "zone_district_897_900",
@@ -15,16 +14,10 @@
     "west": "zone_district_896_901"
   },
   "flags": {
-    "building_type": "pier",
     "district": "docks",
-    "entrance": "south",
-    "floors": 1,
-    "liquid": false,
     "pier": true,
     "region_id": "region_coldwater",
-    "routable": true,
-    "swimmable": false,
-    "terrain": "water"
+    "terrain": "concrete"
   },
   "grid_x": 897,
   "grid_y": 901,

@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Four leather armchairs at a fireplace that works, arranged so that no two of them face each other directly. The carpet has a track worn from the door to the third chair and nowhere else. On the mantel a clock runs eleven minutes slow and has done for years, because the man who wound it wound it that way and nobody has felt able to correct it.",
+  "exits": {
+    "north": "zone_vested_hall"
+  },
+  "flags": {
+    "building_name": "Vested Interest",
+    "building_type": "members_club",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_894_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_vested_smoking",
+  "map_id": "map_int_vested",
+  "name": "Vested Interest — The Smoking Room",
+  "parent_zone": "zone_district_894_911"
+}

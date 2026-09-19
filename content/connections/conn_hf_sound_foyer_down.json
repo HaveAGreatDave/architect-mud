@@ -1,0 +1,9 @@
+{
+  "a": "zone_sound_foyer",
+  "b": "zone_util_zone_sound_foyer",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_sound_foyer_down",
+  "lockable": false,
+  "one_way": false
+}

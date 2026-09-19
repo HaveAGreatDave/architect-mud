@@ -1,0 +1,9 @@
+{
+  "a": "zone_current_switch",
+  "b": "zone_util_zone_current_switch",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_current_switch_down",
+  "lockable": false,
+  "one_way": false
+}

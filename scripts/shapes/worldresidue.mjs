@@ -56,9 +56,20 @@ const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x)
   // ⚠ AND THE ECHELON, BECAUSE THIS CENSUS COULD NOT SEE HER EITHER. The same gap the pedestrians
   // sat in: `drawYacht` paints through the world sweep and no scene here had ever contained one, so
   // a two-tile ship painting over the whole city was invisible to the gate written to find exactly
-  // that. Her hull is in gl/solids.js now and her fittings declare `kept:yacht-fittings`, which is a
-  // claim this file is the only thing that checks.
+  // that. Her hull is in gl/solids.js and her fittings — the pad ring, the rails, the mast, the deck
+  // lamps, the sidelights and the wake — followed it there, so she declares nothing and leaves
+  // nothing. That she leaves nothing is a claim this file is the only thing that checks.
   if (x === R - 5 && y === CROSS - 3) return { kind: 'land', biome: 'water', road: 0, mark: 'yacht', heading: 40, wake: { spd: 0.2 }, flr: 0 };
+  // …AND A BERTH WITH A FREIGHTER IN IT, for the Echelon's reason exactly. She is the second ship
+  // in the game and the same census could not see her either: her hull goes to gl/solids.js and
+  // her fittings — the mast, the derrick posts, the handrail, the deck lamps and the wake — are
+  // emitted inline beside it, so like the yacht she should leave nothing behind. Unlike the yacht
+  // she has a canvas FALLBACK that declares itself (`keptOnCanvas('freighter')`), and a declared
+  // reason is only worth anything if a scene actually reaches it.
+  // ⚠ THE CYCLE IS FORCED, not left to the clock. `berthPhase` is a function of wall time, so an
+  // unforced berth is empty for a third of every cycle — and a census that silently draws no ship
+  // is the vacuous control this file's own header is about. `RENDER_TUNE.shipForce` is pinned below.
+  if (x === R - 7 && y === CROSS - 4) return { kind: 'land', biome: 'water', road: 0, mark: 'berth', bf: 'north', bq: 'west', flr: 0 };
   const near = Math.abs(x - R) <= 2 || Math.abs(y - CROSS) <= 2;
   return near
     ? { kind: 'land', biome: 'city', flr: 0, bt: 'shop', is_building: 1, floors: 4 }
@@ -90,7 +101,10 @@ const FADE_MS = 900;
 const clock = globalThis.performance;
 let T = 1e6;
 globalThis.performance = { ...clock, now: () => T };
-const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor;
+const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor, shipWas = ws.RENDER_TUNE.shipForce;
+// The berth, pinned mid-load. Left to the clock it is empty for a third of every cycle, and a
+// census whose ship happened not to be there would report a clean canvas for the wrong reason.
+ws.RENDER_TUNE.shipForce = 0.55;
 
 let sinks = null;
 function tally(glOn) {
@@ -125,7 +139,7 @@ const control = tally(false);
 const residue = tally(true);
 
 ws.installGLWorld(null);
-ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas;
+ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas; ws.RENDER_TUNE.shipForce = shipWas;
 globalThis.performance = clock;
 
 const problems = [];
@@ -144,7 +158,15 @@ if (!control || !residue) problems.push('the tally never started — __emitWhoSt
 // and a field of turf, with the same instrument. Adding them here instead of there produces a
 // control that never draws them, which fails for its own reason — and adding the name without the
 // check would be the vacuous-gate mistake this file's own header is about.
-for (const w of ['drawTrafficSignals', 'drawStreetLamps', 'drawStreetActors', 'drawRoadside', 'yacht']) {
+// ⚠ AND FOR A `kept:` PAINTER THIS PROVES THE BRANCH WAS ENTERED, NOT THAT ANYTHING WAS DRAWN.
+// `keptOnCanvas` registers its reason at the CALL SITE and the tally counts the QUEUED closure as
+// one face, so `kept:yacht` and `kept:freighter` both read 1 whether the ship painted a hull or
+// returned on its first line. Measured, not assumed: moving the berth's cycle to its empty point
+// leaves the row at 1 and every form of this test still passes. That is the right amount for this
+// file to claim — whether she is drawn at all is `scripts/shapes/moving.mjs`'s question, and it
+// is mutation-tested there. What this one settles is that the canvas branch is REACHED and leaves
+// nothing behind that has no reason on file.
+for (const w of ['drawTrafficSignals', 'drawStreetLamps', 'drawStreetActors', 'drawRoadside', 'yacht', 'freighter']) {
   if (!control || !control.some((r) => r.tag.includes(w))) {
     problems.push(`the GLASS 1 control drew no ${w} — the scene does not contain what this measures, so an empty GLASS 2 tally would mean nothing`);
   }

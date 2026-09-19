@@ -1,0 +1,299 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Crake lifts a carriage clock, turns it over, reads the base, and puts it back exactly where it was.",
+    "She writes something in the catalogue margin and underlines it twice.",
+    "She straightens a paper tag so the number faces the aisle.",
+    "She stops at the box of photographs and looks at the top one for a moment longer than she needs to.",
+    "The pencil comes out from behind her ear, gets used, and goes back."
+  ],
+  "description": "A small, quick woman in a working apron over good clothes, moving down the trestles with a pencil behind her ear and a catalogue folded back on itself in one hand. She handles everything she passes, briefly, the way somebody does when touching a thing is how they think about it.",
+  "dialogue_tree": {
+    "buyers": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Eleven regulars and whoever wanders in.\" A short laugh with nothing bitter in it. \"A dealer from the Yards comes for the metal. A woman off Marrow Street buys glass and I have never once seen her resell any of it, so I think she just likes glass.\"\n\n\"Most weeks about a third of the room goes. The rest comes out again the following Wednesday with the same tag on it.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Wednesday at two,\" she says, already three lots further down."
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The concert hall sends me their broken chairs and I send them back mended, which is not a trade either of us has ever discussed out loud.\" She turns a tag over. \"The club won't let me value anything. Asked twice.\"\n\n\"And the land office keeps putting a card through my door about relocating to a purpose-built unit. I have got a clerestory and a goods door. He has got a drawing.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Where does all this come from?",
+          "next": "where"
+        },
+        {
+          "label": "Catalogue, please.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who buys any of it?",
+          "next": "buyers"
+        },
+        {
+          "label": "What's in the strongroom?",
+          "next": "strong"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Have a look, nothing's roped.\" She does not stop walking the trestles. \"Sale is Wednesday, viewing is every day up to it, and you can handle anything that isn't in the strongroom.\"",
+      "text_by_relation": {
+        "familiar": "She waves you down the row without looking up from the tag she is writing.\n\n\"Lot 41's still here,\" she says. \"Fourth week. I have stopped pretending that surprises me and I have not stopped putting it out.\"",
+        "first": "The woman working down the trestles glances up, takes you in, and carries on to the end of the row before she comes back.\n\n\"Dorothea Crake. It's my sale.\" She says it without ceremony. \"Viewing's free and you can pick things up. People are nervous about picking things up. Don't be.\"\n\nShe taps the catalogue against her knuckles.\n\n\"Wednesday at two. Bring a paddle or shout, I don't care which, but shout clearly.\"",
+        "known": "\"You again.\" She is already reaching for the catalogue. \"Anything caught you, or are you browsing?\""
+      }
+    },
+    "strong": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Small and valuable, or small and impossible to replace.\" She nods at the steel door. \"Jewellery. Papers. Three sets of medals that nobody has claimed and I will not put on a trestle where somebody can pocket them.\"\n\n\"And a box of house keys. Every fob has an address on it. I have never worked out what to do with that box and I am not going to throw it away.\""
+    },
+    "where": {
+      "options": [
+        {
+          "label": "That must be grim.",
+          "next": "where_grim"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Clearances, mostly.\" She stops at a dinner service and turns a plate up to the light without picking the whole stack apart. \"Somebody goes up to the Spire, and what they had is suddenly nobody's. The firm handling it wants the flat empty by the end of the month and rings me.\"\n\n\"So I get a life, in about forty boxes, and I have a fortnight to work out what any of it was.\""
+    },
+    "where_grim": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "where"
+        }
+      ],
+      "text": "\"It would be if I were careless with it.\" She sets the plate down. \"Look at the tags. Every one of those took me a few minutes I did not have to spend.\"\n\n\"Nobody is coming back for this. So the last thing that is ever going to happen to somebody's carriage clock is me writing down what it is, correctly, and putting it where somebody can see it. That is not grim. That is the job, and I am good at it.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a canvas work apron with a pencil pocket, worn over everything else",
+      "a good tweed skirt and jacket that have been very good indeed",
+      "flat shoes she can stand in for six hours",
+      "a slip and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_going_strong",
+  "hp": 33,
+  "hp_max": 33,
+  "id": "npc_going_crake",
+  "name": "Dorothea Crake",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_going_catalogue",
+      "price": 5
+    },
+    {
+      "item_id": "item_going_paddle",
+      "price": 8
+    },
+    {
+      "item_id": "item_going_lotcard",
+      "price": 3
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Going Concern",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_going_saleroom"
+}

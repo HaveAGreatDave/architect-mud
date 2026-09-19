@@ -1,0 +1,17 @@
+{
+  "description": "A short chrome run by the door with a drawer, a pad and a chair that is pushed in.",
+  "flags": {
+    "aliases": [
+      "counter",
+      "desk",
+      "broker"
+    ],
+    "hack_difficulty": 5,
+    "vendor_npc_id": "npc_hf_rising_calloway",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_rising_counter",
+  "name": "the broker's counter",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_rising_floor"
+}

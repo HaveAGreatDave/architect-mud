@@ -1,0 +1,11 @@
+{
+  "description": "The same buried uplighters as the other dome, most of them now completely overgrown, so the light comes up through a foot of leaf before it reaches the glass and the whole building glows a deeper green than its twin. Nobody has cut anything back to fix this.",
+  "flags": {},
+  "id": "furn_light_zone_hf_frond_under",
+  "light_type": "fixture",
+  "lumen_output": 500,
+  "name": "the bed lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_frond_under"
+}

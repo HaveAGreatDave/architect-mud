@@ -1,0 +1,11 @@
+{
+  "description": "One green-shaded lamp per desk and nothing else at all, so that the room stays dark enough for the city to read through the glass. Every fellow who has ever worked here has argued for brighter light and lost.",
+  "flags": {},
+  "id": "furn_light_zone_hf_ivory_library",
+  "light_type": "lamp",
+  "lumen_output": 500,
+  "name": "the desk lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_ivory_library"
+}

@@ -1,0 +1,11 @@
+{
+  "description": "A cold line of light behind the figure board, throwing it forward off the curve of the wall so the numbers appear to be standing a hand's breadth clear of it. It is a trick and it works.",
+  "flags": {},
+  "id": "furn_light_zone_hf_rising_floor",
+  "light_type": "fixture",
+  "lumen_output": 1000,
+  "name": "the board wash",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_rising_floor"
+}

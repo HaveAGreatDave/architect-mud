@@ -140,8 +140,34 @@ for (const { key, m } of ws.shapeModelRegistry()) {
 // and the gate asks for it in so many words; a budget that rises is loosening a net, so it is only
 // honest with the cause named. The cause here is the model count, and the check that says so is
 // that the rate per model is flat: 2.44 stroke points a model before, 2.66 after.
+//
+// ⚠ AND 603 → 608 IS THE BEACON'S RIB BECOMING ONE LINE. `type:lighthouse` had three ribs of two
+// wires each stopping at the collar, and a crown of four unrelated spines starting above the
+// lantern; it now has three ribs of eleven wires running unbroken from the apron, round the rim of
+// the collar and over the lantern to the needle, plus a claw post at each rim that the run rides.
+// Five more points for five times the wire is the per-part rate going DOWN — 12 points over 6 wires
+// before, 17 over 39 after — and the wires that still have to be rescued are the ones bolted to the
+// vertebrae, which is exactly the reason below. The gratuitous half was fixed rather than blessed:
+// the run used to track down the AXIS of its own posts and now follows their outer face (`RIB_FACE`
+// in windshield.js), which took it from 33 back to 17 on its own.
+// ⚠ AND 608 → 624 IS THE WINDSOCK, WHICH IS A PART ARRIVING RATHER THAN A PART GROWING. The
+// airfield pass gave every threshold and every helipad a sock, and a sock is a mast and a stay:
+// two `emitWire` runs apiece, standing on the apron of the hangar whose tile they share. The worst
+// three are `named:coldwaterregionalhangar`, `named:thresholdhelipadhangar` and `type:hangar`, all
+// for the same reason — a mast planted beside a shed is inside that shed's own mass, which is the
+// reason below, word for word. It was blessed rather than fixed because the fix is already in:
+// both runs ask for `pull: DECO_PULL`, the tie-breaker this gate's own error text recommends, so
+// there is no smaller pull left to give. Sixteen points over eight socks is two a sock, which is
+// one per wire — the floor, not a rate that can be brought down.
+//
+// ⚠ AND 624 → 629 IS ONE MODEL COMING BACK, WHICH IS THE MODEL-COUNT CASE ABOVE. Citadel
+// Financial's authored record had been deleted from `content/building_models/` by an export run
+// against a stale database — the fingerprint the content-deletion guard names — and restoring it
+// took the registry from 256 models to 257. Five points for a whole landmark leaves the rate flat:
+// 2.4375 a model before, 2.4475 after. A rise with no new model behind it is still the regression
+// this budget is here to catch.
 const KNOWN = new Map([
-  ['stroke', { budget: 603, why:
+  ['stroke', { budget: 629, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
    + 'the full DECO_LIFT and they are pulled clear on purpose. The Dynamo lost its entire external '

@@ -1,0 +1,18 @@
+{
+  "description": "Below the day room: the tank the mineral water is drawn into, the pump that lifts it, and the cabinet. The tank is scrubbed weekly and there is a chart on the wall recording it, initialled every time.",
+  "exits": {
+    "up": "zone_wind_day"
+  },
+  "flags": {
+    "floor": "tile",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_898_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_wind_day",
+  "map_id": "map_int_wind",
+  "name": "Second Wind — The Pump Room",
+  "parent_zone": "zone_district_898_913"
+}

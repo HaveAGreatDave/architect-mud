@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "A residential stack optimised for maximum tenants per cubic metre and the bare legal minimum of reasons to keep living. Corridors of identical doors, behind each a life the city quietly stopped counting. A cat holds the stairwell; nobody contests the claim.",
+  "description": "Washing lines strung from the tent row to a set of posts driven into the mud, three deep. In this district a line is property, and everybody knows exactly whose is whose.",
   "exits": {
     "east": "zone_district_926_915",
-    "north": "zone_district_925_914",
     "south": "zone_district_925_916",
     "west": "zone_district_924_915"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_consumer_trash",
-    "street_life": true,
-    "terrain": "forest"
+    "terrain": "ash"
   },
   "grid_x": 925,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_925_915",
   "map_id": "map_world",
-  "name": "Kessler Street",
+  "name": "Rag Row",
   "parent_zone": null
 }

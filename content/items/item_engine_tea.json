@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_engine_tea",
+  "name": "a mug from the watch room",
+  "tags": {
+    "description": "Strong, wet and free if you are civil about it. She charges two because people who pay for a thing come back and people who are given a thing do not.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 2,
+  "weight": 320
+}

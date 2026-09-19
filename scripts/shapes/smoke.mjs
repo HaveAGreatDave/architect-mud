@@ -559,9 +559,13 @@ async function main() {
       for (const state of ['walk', 'raft', 'air']) {
         const beats = state === 'air' ? fau.FAUNA_BEAT_STEPS : 1;
         for (let beat = 0; beat < beats && !bad; beat++) {
-          for (const flare of state === 'air' ? [0, 1] : [0]) {
-            const faces = fau.faunaWorldFaces('bird', 'goose', { state, beat, flare, heading: 1.1, roll: 0.4, pitch: -0.3, x: 3, y: -4, z: 2 });
-            if (!faces.length) { bad = `${state} beat ${beat}${flare ? ' flaring' : ''} built no faces`; break; }
+          // ⚠ AND THE GEAR, which is a second flag rather than a widening of the flare's — a bird
+          // has its feet down for most of an approach and flares only at the end, so there is a
+          // pose with the feet out and the wingbeat still full, and it is the commonest of the
+          // four. See the ⚠ on the legs in buildGoose.
+          for (const [flare, gear] of state === 'air' ? [[0, 0], [0, 1], [1, 1], [1, 0]] : [[0, 0]]) {
+            const faces = fau.faunaWorldFaces('bird', 'goose', { state, beat, flare, gear, heading: 1.1, roll: 0.4, pitch: -0.3, x: 3, y: -4, z: 2 });
+            if (!faces.length) { bad = `${state} beat ${beat}${flare ? ' flaring' : ''}${gear ? ' gear down' : ''} built no faces`; break; }
             poses++;
             for (const f of faces) for (const v of f.p) {
               if (!Number.isFinite(v[0]) || !Number.isFinite(v[1]) || !Number.isFinite(v[2])) { bad = `${state} beat ${beat} has a non-finite vertex`; break; }

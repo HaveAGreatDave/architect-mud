@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_standing_platform",
+  "b": "zone_hf_standing_waiting",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_hf_standing_platform_east",
+  "lockable": false,
+  "one_way": false
+}

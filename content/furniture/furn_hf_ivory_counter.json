@@ -1,0 +1,17 @@
+{
+  "description": "A small counter by the lift with a date stamp, a tray of slips and a tin for contributions towards the lamps.",
+  "flags": {
+    "aliases": [
+      "counter",
+      "issue",
+      "librarian"
+    ],
+    "hack_difficulty": 5,
+    "vendor_npc_id": "npc_hf_ivory_bellweather",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_ivory_counter",
+  "name": "the issue desk",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_ivory_library"
+}

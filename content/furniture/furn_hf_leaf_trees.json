@@ -1,0 +1,16 @@
+{
+  "description": "Planted in a triangle in the middle bed, slender, healthy and already taller than the door.",
+  "flags": {
+    "aliases": [
+      "tree",
+      "trees"
+    ],
+    "interactions": {
+      "examine": "They are a species that reaches four times this height. Whoever specified them either knew that and did not care, or intends the dome to come off one day."
+    }
+  },
+  "id": "furn_hf_leaf_trees",
+  "name": "the three young trees",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_leaf_under"
+}

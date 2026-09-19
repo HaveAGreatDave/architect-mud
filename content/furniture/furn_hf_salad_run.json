@@ -1,0 +1,17 @@
+{
+  "description": "A long stainless bench with a water line over it, a set of scales at one end and a stack of flat crates at the other.",
+  "flags": {
+    "aliases": [
+      "run",
+      "bench",
+      "packing"
+    ],
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_hf_salad_okonjo",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_salad_run",
+  "name": "the packing run",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_salad_pack"
+}

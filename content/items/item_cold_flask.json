@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_cold_flask",
+  "name": "a flask of something hot",
+  "tags": {
+    "description": "Filled off a tap on the return main, which is the hottest water in the quarter and is technically not for drinking. It is strong tea by the time it reaches you and nobody has ever complained.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 5,
+  "weight": 400
+}

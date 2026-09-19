@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_sweep_plan",
+  "name": "a phase plan print",
+  "tags": {
+    "description": "A folded plot of the estate as approved, with the built parts hatched and the rest shown as outline. It is the only public drawing of Halcyon Fields and it stops at the boundary of phase four.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 55,
+  "weight": 30
+}

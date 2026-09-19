@@ -10,7 +10,7 @@
   "id": "furn_atm_citadel_1",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "Citadel Financial cash terminal",
+  "name": "Compound Interest cash terminal",
   "object_type": "terminal",
   "power_draw_kw": 2,
   "price": 0,

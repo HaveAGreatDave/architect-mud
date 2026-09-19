@@ -1,0 +1,17 @@
+{
+  "description": "A plain box on a plinth with three steps up to it and a worn rail across the front. The gavel rests in a groove cut for it.",
+  "flags": {
+    "aliases": [
+      "rostrum",
+      "gavel",
+      "podium"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_going_crake",
+    "vendor_safe": true
+  },
+  "id": "furn_going_rostrum",
+  "name": "the rostrum",
+  "object_type": "fixture",
+  "zone_id": "zone_going_saleroom"
+}

@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Front steps come straight down onto the road, no pavement worth the name. People sit out on them in the evening because the light is free and the flats are small.",
+  "description": "The far end of the yard, between the junkyard's gate and the diner's bins. Somebody painted parking bays here once and then parked across all of them. The Basin is two buildings away and you can smell which two.",
   "exits": {
     "east": "zone_district_905_906",
     "north": "zone_district_904_905",
@@ -13,13 +13,13 @@
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "asphalt"
   },
   "grid_x": 904,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_904_906",
   "map_id": "map_world",
-  "name": "Filament Street",
+  "name": "Filament Yard",
   "parent_zone": null
 }

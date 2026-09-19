@@ -2,7 +2,7 @@
   "description": null,
   "flags": {},
   "id": "item_citadel_bullion",
-  "name": "Citadel palladium ingot",
+  "name": "Compound palladium ingot",
   "tags": {
     "description": "A crested half-kilo palladium ingot. Serialised, which is somebody's problem.",
     "stackable": true,

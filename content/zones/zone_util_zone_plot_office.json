@@ -1,0 +1,18 @@
+{
+  "description": "A cellar under the office reached by a trap behind the desk, holding the rolled plans, a stack of unused hoarding panels in a different colour scheme, and the cabinet. The spare panels show the same boulevard with a bandstand on it.",
+  "exits": {
+    "up": "zone_plot_office"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_plot_office",
+  "map_id": "map_int_plot",
+  "name": "Plot Twist — The Store",
+  "parent_zone": "zone_district_897_911"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_plot_plan",
+  "name": "a rolled plan",
+  "tags": {
+    "description": "A copy of the wall plan, rolled in a tube, with the sold plots left uncoloured so you can colour your own in. Drawn to a scale you could actually build from, which is not true of most drawings in this city.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 15,
+  "weight": 90
+}

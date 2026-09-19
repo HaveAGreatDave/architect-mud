@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#1a1424",
+  "color": "#e07ad8",
+  "description": "The second of the two farms, identical to the first and turned a quarter turn, so the pair of them on either side of Kettle Lane spiral in opposite directions and the trays never line up. This one is not growing food. The trays are half empty, the lights are on anyway, and the door carries a research licence from the Ascendant campus with a number and no description of what is being researched.",
   "exits": {
     "east": "zone_district_902_914",
-    "north": "zone_district_901_913",
-    "south": "zone_district_901_915",
-    "west": "zone_district_900_914"
+    "west": "zone_hf_root_lab"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Root Cause",
+    "building_type": "vertical_farm",
+    "district": "halcyon_fields",
+    "entrance": "east",
+    "facade": true,
+    "floors": 10,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_902_914"
   },
   "grid_x": 901,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_901_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "RT",
+  "name": "Root Cause",
   "parent_zone": null
 }

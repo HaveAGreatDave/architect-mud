@@ -3,8 +3,7 @@
   "ambient_theme": "city",
   "description": "The green ends at a wall of dark brick with a door in it that has been bricked up so carefully you could miss it. Children use the flat of it for football and the mortar is worn pale at knee height.",
   "exits": {
-    "east": "zone_district_897_908",
-    "south": "zone_district_896_909"
+    "east": "zone_district_897_908"
   },
   "flags": {
     "district": "filaments",

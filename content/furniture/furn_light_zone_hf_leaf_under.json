@@ -1,0 +1,11 @@
+{
+  "description": "Buried in the beds and aimed up through the planting, so the leaves are lit from underneath and the dome reads green from the whole length of the Buried Road. It is the one piece of lighting in the quarter that is not cyan and it was argued for.",
+  "flags": {},
+  "id": "furn_light_zone_hf_leaf_under",
+  "light_type": "fixture",
+  "lumen_output": 600,
+  "name": "the ground lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_leaf_under"
+}

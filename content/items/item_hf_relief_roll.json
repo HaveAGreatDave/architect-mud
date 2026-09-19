@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_relief_roll",
+  "name": "a bacon roll off the counter",
+  "tags": {
+    "description": "Made at half five by whoever is on the rota, wrapped in paper, and gone by seven. The best thing to eat in Halcyon Fields and the only thing in Halcyon Fields that is not chrome-coloured.",
+    "stackable": true
+  },
+  "type": "food",
+  "value": 11,
+  "weight": 160
+}

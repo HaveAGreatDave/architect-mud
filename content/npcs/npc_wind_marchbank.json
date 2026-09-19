@@ -1,0 +1,299 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Marchbank tops up a cup nobody has asked her to top up and moves on before it can become a conversation.",
+    "She folds a blanket over a chair arm, squares it, and leaves it there for whoever sits down next.",
+    "She looks along the balcony, counts the chairs that are occupied, and goes back to the urn.",
+    "She opens the south door two inches and leaves it, because the room was getting close.",
+    "She writes a time against a name on the board by the trolley."
+  ],
+  "description": "A broad, unhurried woman in a starched apron over a grey dress, moving between the chairs with a jug in one hand. She looks at everybody who comes in the way a person looks at a thing they are about to be responsible for, and having looked, she stops looking, which is a kindness most people here have not had recently.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Sit for a bit before you go out,\" she says. \"The wind comes up the row.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The glasshouse down the row sends up flowers on a Friday and will not take anything for them.\" A small, real warmth. \"The hall keeps asking me to send people to concerts, and I have started to, because sitting still for an hour listening to something is the regime with better company.\"\n\n\"The land office wants me to buy the plot next door and put another wing on it. He may be right. I have not got the money and he knows that and he keeps asking anyway, nicely.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is this place?",
+          "next": "what"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Does the water do anything?",
+          "next": "water"
+        },
+        {
+          "label": "Who ends up here?",
+          "next": "who"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Maybe later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit down before you say anything.\" She nods at the chairs facing the glass. \"There's water and there's a blanket, and neither of them costs you anything to try.\"",
+      "text_by_relation": {
+        "familiar": "She has a blanket over the arm of the end chair before you have crossed the room, and the water poured.\n\n\"You are standing better than the last time,\" she says, and goes back to the urn without waiting to be thanked, which is deliberate.",
+        "first": "The woman with the jug looks at you, properly, for about two seconds: your colour, how you are standing, what you are favouring. Then she stops, which is the part you notice.\n\n\"Ottilie Marchbank. Sit facing the window.\"\n\nShe says it as an instruction rather than an offer, and she is already pouring.\n\n\"You do not have to tell me what was done to you. Half the people in these chairs have got something in them that was not there last year, and I have never once asked. The regime is on the wall. It is four things and none of them are clever.\"",
+        "known": "\"You know where the chairs are.\" The jug is already moving. \"South end is warmer this time of day.\""
+      }
+    },
+    "water": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Probably not.\" She laughs, briefly. \"There is an analysis on the card and it is real, and what it says is that there is a bit of iron in it and a bit of sulphur and it will not hurt you.\"\n\n\"It is cold, it is free with a room, and drinking a glass of it takes five minutes you would otherwise spend getting up. I sell it as water. The building is called what it is called and I did not name it.\""
+    },
+    "what": {
+      "options": [
+        {
+          "label": "That's all?",
+          "next": "what_all"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Rooms and a balcony.\" She indicates the glass. \"Every floor is stepped back so every floor faces south, which is the only clever thing about the building and it was done before I got here.\"\n\n\"People come out of a clinic with something new in them and nowhere quiet to go. They come here for a week and they sit in the light and somebody counts them twice a day. That is the service.\""
+    },
+    "what_all": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "what"
+        }
+      ],
+      "text": "\"That is all, and I will not pretend otherwise to anybody in a chair.\" She says it without any edge. \"I am not a surgeon and there is not one thing in this building that could put right what a bad fitting does.\"\n\n\"What I can tell you is that the ones who go somewhere warm and quiet for a week do better than the ones who go back to a room on their own. I have watched it for eleven years. I cannot tell you why and I have stopped needing to.\""
+    },
+    "who": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Chrome, mostly.\" She sets the jug down. \"First-timers who did not know it would hurt. Old hands who have had something taken out rather than put in, which is worse and nobody warns them.\"\n\n\"And a few who have nothing wrong with them at all and simply cannot be where they live. I have never turned one of those away and I never will.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a starched white apron over everything, changed twice a day",
+      "a plain grey nursing dress with the sleeves rolled to the elbow",
+      "soft-soled shoes for a floor she crosses four hundred times a day",
+      "a slip and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_wind_balcony",
+  "hp": 37,
+  "hp_max": 37,
+  "id": "npc_wind_marchbank",
+  "name": "Ottilie Marchbank",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_wind_water",
+      "price": 4
+    },
+    {
+      "item_id": "item_wind_blanket",
+      "price": 55
+    },
+    {
+      "item_id": "item_wind_week",
+      "price": 180
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Second Wind",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_wind_day"
+}

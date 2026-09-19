@@ -1,0 +1,17 @@
+{
+  "description": "Trestle tables down both walls with this week's lots laid out on them, each with a numbered paper tag on a string. A dinner service, a carriage clock, a case of surgical instruments, a box of photographs.",
+  "flags": {
+    "aliases": [
+      "lots",
+      "trestles",
+      "tables"
+    ],
+    "interactions": {
+      "examine": "Lot 41 is a box of photographs of people nobody has identified. The catalogue entry for it is four sentences long and is the best writing in the building."
+    }
+  },
+  "id": "furn_going_trestles",
+  "name": "the lots",
+  "object_type": "container",
+  "zone_id": "zone_going_saleroom"
+}

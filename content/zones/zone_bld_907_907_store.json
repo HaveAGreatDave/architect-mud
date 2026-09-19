@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Blocks stacked to the roof in a room with no window and one door, each course buried in sawdust so the next one down never sees air. Your breath goes in front of you here. A chalked board by the door lists what is spoken for, and most of the board is old chalk somebody has stopped rubbing out.",
+  "exits": {
+    "south": "zone_bld_907_907_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_907_907"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_bld_907_907_store",
+  "map_id": "map_int_bld_907_907",
+  "name": "The Store",
+  "parent_zone": "zone_district_907_907"
+}

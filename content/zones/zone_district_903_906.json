@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A gutter runs the length of the kerb, choked with leaf mould and bottle caps. Somebody has swept their own frontage and stopped dead at the property line, which is the most Filament Street thing about Filament Street.",
+  "description": "Where Filament Street stops being a street and becomes the back of three businesses. Tarmac laid in one pour and patched in nine, the fishmonger's shutter on the north side and a stack of returned crates against it that nobody has counted this year. It drains toward the middle rather than the kerb, and in summer you can tell.",
   "exits": {
     "east": "zone_district_904_906",
     "north": "zone_district_903_905",
@@ -13,13 +13,13 @@
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "asphalt"
   },
   "grid_x": 903,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_903_906",
   "map_id": "map_world",
-  "name": "Filament Street",
+  "name": "Filament Yard",
   "parent_zone": null
 }

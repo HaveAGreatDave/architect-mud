@@ -316,6 +316,22 @@ export const hooks = {
 
 `gatherHook(name, ...args)` calls the same subscribers but keeps **every** non-undefined return, flattened one level. Use it wherever the question is "what does everyone have to contribute" rather than "what is this value" — senses, and the room description. `zone.describeRoom` was moved to `gatherHook` on 2026-08-01: seven plugins register it and they can co-occur (a tagged wall on an airfield tile is both things at once), so under `fireHook` the last-loaded plugin silently ate the others' line. The hook table below marks which shape each hook uses.
 
+`gatherHookSync(name, ...args)` is that same gather **without the await**, for the callers that
+cannot have one. `deriveSurfaceCell` ([plugins/flight/state.js](../plugins/flight/state.js)) derives
+~5,300 cells per map-window snapshot and is synchronous all the way down on purpose: making it async
+so it could ask one question about one tile would turn a plain loop into 5,300 promises per window.
+Same reasoning as the sync registries in **1b** below — on a hot path the cheapest correct thing is a
+contract that *cannot* become a round trip, rather than an await everybody promises to keep cheap.
+
+⚠ **SYNC BY CONTRACT, and the contract belongs to the HOOK rather than to the function.** A handler
+reached this way may not `await` and may not `query()` — RAM is authoritative, so read the hydrated
+world Maps. An async handler's promise is **dropped** (loudly: the loader logs it, because the
+symptom is otherwise a blank sign and nothing else). `gatherHookSync` is only safe for a hook where
+*every* registered handler is synchronous, which no single handler can guarantee on its own — so a
+hook gathered this way has to say so in its own row below. Two do today: `fuel.prices` and
+`wall.tags`. ⚠ `fuel.prices` is gathered **both** ways — sync from the flight window, async from the
+forecourt board — so its contributors are held to the stricter of the two.
+
 **1b. Sync contributor registries** — the shape to reach for when the question is
 "what does everyone contribute" but the caller is on a **hot path**. A hook is an
 `await` into arbitrary plugin code; a registry of plain functions cannot become a
@@ -382,10 +398,18 @@ export function routeHandler(path, method, body, auth) {
 
 ### Hook reference
 
-Every hook the engine fires. **A name not in this table is not a hook** — subscribing to
-one costs nothing and does nothing, silently. (Zone *entry* and combat *hits* are Events,
-not hooks: `zone.entered` is emitted on the event bus at `commands/movement.js:441` — see
-[scripting.md](scripting.md).)
+Every hook the engine fires, followed by the ones **plugins** fire for each other. **A name in
+neither table is not a hook** — subscribing to one costs nothing and does nothing, silently.
+(Zone *entry* and combat *hits* are Events, not hooks: `zone.entered` is emitted on the event bus
+at `commands/movement.js:441` — see [scripting.md](scripting.md).)
+
+⚠ **Keep both tables complete, because the sentence above is what makes them worth having.** A
+2026-09-19 sweep of every `fireHook`/`gatherHook`/`gatherHookSync` call site against this page found
+**29 of 59 live hooks missing** — nineteen engine-fired (the whole cooking set, `item.checkFreshness`,
+`shop.stock`, `zone.smells`, `zone.sounds`, `sense.acuity`, `tech.targets`, …) and ten plugin-fired,
+a class the page had no section for at all. Every one of them was documented in its own system doc
+and absent here, so the page was not wrong in detail — it was wrong in the one claim a reference
+makes, and a developer trusting it would have concluded that a load-bearing seam did not exist.
 
 | Hook | Fired by | Args | Return value used? |
 |---|---|---|---|
@@ -408,6 +432,7 @@ not hooks: `zone.entered` is emitted on the event bus at `commands/movement.js:4
 | `item.consumed` | `commands/inventory.js` (consumable path) | `(player, tags)` | Yes — a line appended to the use output |
 | `player.appearanceMisNotes` | `commands/world.js:351,386` | `{ target, viewer, isSelf, broadcast, naked, … }` | Yes |
 | `furniture.describe` | `commands/world.js:476` | `(furniture, player)` | Yes |
+| `door.describe` | `commands/world.js` `describeDoor` | `(door, player)` | **GATHERED** — each contributor's line is appended to `examine door <dir>`, above the action links. A gather rather than a fire because a door can carry more than one thing worth reading (a shop's trading hours, a notice, a warning) and none of them overwrites the others. The engine keeps the door and its lock; what a shopfront says about its hours is `plugins/commerce` knowledge and is contributed from there. |
 | `forcefield.gate` | `apartments.js:144` | `{ player, zoneId }` | Yes — a non-empty return blocks the forcefield |
 | `drug.used` / `drug.overdose` | `drugs.js:520,541,570` / `:479` | `{ player, drug, potency\|lethal, broadcast }` | No |
 | `player.create` / `player.login` | `api/routes.js:496,523` | `{ id, handle, username?, role }` | No |
@@ -421,6 +446,43 @@ not hooks: `zone.entered` is emitted on the event bus at `commands/movement.js:4
 | `environment.scheduleForecastDay` | `environment.js:2341` | `{ forecastDay, weatherType, tempC, windKph, humidityPct, setWeatherState, currentForecast }` | No |
 | `environment.weatherFieldSync` | `environment.js:2310` | `{ forecast0 }` | No |
 | `worldValidator.runFull` / `worldValidator.runZone` | `worldvalidator.routes.js:25,34` on demand | `(body)` / `(zoneId, opts)` | Yes — used as the HTTP response body |
+| `item.checkFreshness` | `commands/inventory.js:793,1615,1705,1958,2034`, `commands/world.js:598`, `vendor.js:886` | `(item, player)` | Yes — `{ state }`; `'spoiled'` is read by eat, by the shelf cull and by the storefront display. Fired on examine, eat, stow and pull, which is what makes decay lazy: there is no tick, and the answer at the moment you look is the one a tick would have given ([plugins/preservation](../plugins/preservation/README.md)) |
+| `stock.spoilCheck` | `vendor.js:856` delivery pass | `{ mintedAt, preserves, … }` | Yes — a **pure**, query-free "could this have gone off?" gate. It decides only whether the real per-row question gets asked, so a fully-stocked shop costs zero reads on the daily tick. Deliberately optimistic: it can only ever under-report |
+| `shop.stock` | `vendor.js:251` | `{ stock, npc, playerId }` | No — contributors **mutate `stock` in place** (the shopping-list plugin marks whatever satisfies a listed ingredient class) |
+| `item.checkCooking` | `commands/world.js:610` | `({ …item, id: inv_id }, player)` | Yes — `{ text }`, appended to examine as "It's …" |
+| `item.describeVessel` | `commands/world.js:594` | `({ …item, id: inv_id }, player)` | Yes — a line appended to examine. What is *in* the mug, from [drinks](systems-drinks.md) |
+| `cooking.prepText` / `cooking.restText` | `commands/world.js:619,631` | `(custom_data, player)` | Yes — each a string, appended to examine as "It's …" |
+| `cooking.flavour` | `commands/inventory.js:820` | `(custom_data, player)` | Yes — a list of lines printed dim on eating |
+| `cooking.restMultiplier` | `commands/inventory.js:814` | `(custom_data, player)` | Yes — a number, default 1, multiplied into the nutrition of a dish that rests |
+| `cooking.wellFedMs` | `commands/inventory.js:867` | `(custom_data, player)` | Yes — milliseconds of the well-fed buff, replacing the item's flat 10 minutes |
+| `cooking.donenessRisk` | `commands/inventory.js:894` | `(custom_data, player)` | Yes — a 0–1 probability; on a hit the engine applies `food_poisoning` itself |
+| `container.view` | `commands/inventory.js:1463` | `{ view, container, player }` | No — contributors **mutate `view` in place**. How a cooking vessel shows its contents as a pan rather than as a bag |
+| `zone.smells` | `commands/world.js:1758` | `(zone, player)` | **GATHERED** — a string, or `{ text, strength }`. The canonical gather: a kitchen smells of burnt fat AND the floor smells of piss, and neither overwrites the other. ⚠ Contributors are **in-memory only by contract** ([systems-senses.md](systems-senses.md)) |
+| `zone.sounds` | `commands/world.js:1881` | `(there, player, { distance, here })` | **GATHERED** — same shape, but fired for *neighbouring* zones too, so a contributor is asked about a room the player is not in |
+| `sense.acuity` | `senses.js:151` | `(player, sense)` | **GATHERED** — each contribution is a number or `{ bonus }`, and they are **summed**. Gear, statuses and mutations all sharpen one nose through here |
+| `enemy.appearanceNotes` | `commands/world.js:987` | `{ target, viewer }` | Yes — a line appended to examining an enemy. The [injury](../plugins/injury/README.md) counterpart to `player.appearanceNotes` |
+| `npc.petAttempt` | `commands/social.js:340` | `{ player, npc, zoneId, broadcast }` | Yes — **short-circuits the verb**: any non-`undefined` return is the command's whole result, so a plugin can answer `pet` for its own animal ([systems-strays.md](systems-strays.md)) |
+| `sleep.dream` | `dreams.js:178` | `(player)` | **GATHERED** — a string or `{ text }` per contributor, folded into the dreamscape |
+| `tech.targets` | `nullcraft.js:252` | `(player, ctx)` | **GATHERED** — groups of jammable devices. The seam that keeps the Nullcraft substrate from importing augments or surveillance: `apply()` lives on the target ([systems-nullcraft.md](systems-nullcraft.md)) |
+
+### Hooks plugins fire
+
+Same machinery, fired from a plugin rather than from the engine. The engine knows nothing about
+these; the owning plugin is the contract. A subscriber still declares them in its own
+`plugin.json` `hooks` array exactly as it would an engine hook.
+
+| Hook | Fired by | Args | Return value used? |
+|---|---|---|---|
+| `workspace.provider` | `plugins/workspace/index.js:35` | `(player)` | **GATHERED** — each provider is `{ build(), priority }`; highest priority wins the HUD. The seam that let a second provider (`chembench`) land with no change to the workspace plugin or its panel ([preparation-workspace.md](proposals/preparation-workspace.md)) |
+| `workspace.view` | `plugins/workspace/index.js:86` | `{ view, provider, player }` | No — **mutate `view` in place** |
+| `search.provider` | `plugins/search/index.js:100` | `{ player, zoneId, zone, targetStr, margin, effective, success, … }` | **GATHERED** — what a `search` turns up here. ⚠ It **never pays out**, and a failure is indistinguishable from an empty room ([systems-strays.md](systems-strays.md)) |
+| `vehicle.contacts` | `plugins/flight/combat.js:67` | `(gridX, gridY, range)` | **GATHERED** — lists of contacts to fold into the air picture. How trucks appear on a pilot's scope without flight knowing trucking exists |
+| `aircraft.companions` | `plugins/flight/companions.js:45` | `(player, live)` | **GATHERED** — who else is aboard |
+| `hijack.target` | `plugins/surveillance/index.js:1232` | `(player, nameHint)` | **GATHERED**, but the **first** non-null claim wins — a plugin claims its own hijackable thing and returns `undefined` for everyone else's |
+| `fuel.prices` | `plugins/fuelstation/index.js:81` (async) · `plugins/flight/state.js:1250` (**sync**) | `(zone)` | **GATHERED** — `{ grade, price, unit }` rows. ⚠ **SYNC BY CONTRACT**: gathered with `gatherHookSync` on the flight path, so contributors must answer out of RAM with no `await` and no `query()` |
+| `wall.tags` | `plugins/flight/state.js:1280` | `(cell, gridX, gridY)` | **GATHERED** — `{ t, n }`, what is sprayed on this facade and the wall normal it faces. ⚠ **SYNC BY CONTRACT** — called from `deriveSurfaceCell` for thousands of cells per snapshot, gated on the tile being a building ([graffiti](../plugins/graffiti/index.js)) |
+| `ambient.categoryLine` | `plugins/deaddrop/index.js:275` | `{ zoneId, category, npcName }` | **GATHERED** |
+| `zone.witnessed` | `plugins/deaddrop/index.js:271` | `{ zoneId }` | **GATHERED** — truthy from any contributor means somebody saw it |
 
 ### Plugins cannot do (yet)
 

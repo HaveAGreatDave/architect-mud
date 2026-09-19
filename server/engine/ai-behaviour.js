@@ -988,11 +988,25 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
       if (fd && fd.hp > 0 && fd.lock_state === 'locked') {
         const ownsFrontDoor = !isEnemy(entity) &&
           [entity.home_zone, entity.work_zone_id].some(z => z && (z === oldZoneId || z === finalId || z === facadeZone.id));
+        // ...and the same MAP rule as the ordinary door gate below (see
+        // `residentOfThisBuilding`, whose comment argues it at length): the test
+        // above knows only the two rooms either side of this one doorway, which is
+        // too narrow for anybody whose own room is further in. A Halcyon Towers
+        // resident's home_zone is their flat, not the Grand Lobby the street door
+        // opens into, so the narrow test walls them out of the building they live
+        // in the moment that front door carries a lock — which, now that every
+        // scheduled shopfront does, is a great many more front doors than before.
+        // Same map = same building, which is exactly the question being asked.
+        //
+        // Guarded on the map id being truthy: synthetic regress zones carry no
+        // map_id, and `undefined === undefined` would wave every stranger in.
+        const belongsHere = !isEnemy(entity) && !!interior?.id &&
+          [entity.home_zone, entity.work_zone_id].some(z => z && getZone(z)?.map_id === interior.id);
         // Same out-not-in rule as the ordinary door gate below: an NPC already
         // inside the building can always get back out to the street, whether or
         // not the place belongs to them. Enemies still can't.
         const leavingBuilding = !isEnemy(entity) && fromInside;
-        if (!ownsFrontDoor && !leavingBuilding) return false; // blocked — a locked front door stops NPCs and chasing enemies alike
+        if (!ownsFrontDoor && !belongsHere && !leavingBuilding) return false; // blocked — a locked front door stops NPCs and chasing enemies alike
       }
       newZoneId = finalId;
       forwarded = true;

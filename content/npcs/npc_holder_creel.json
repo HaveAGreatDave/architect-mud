@@ -1,0 +1,286 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Creel looks at the needle, then out of the window at the drum, and is satisfied by the agreement.",
+    "He takes the unlit pipe out of his mouth, looks at it, and puts it back.",
+    "The chart pen scratches half an inch and he does not need to watch it to know.",
+    "He turns the kettle a quarter turn on the stove for no reason either of you could name.",
+    "He writes the level in a book, and under it the time, and the time is to the minute."
+  ],
+  "description": "An old man in a works-green jacket sitting sideways to the bench so he can see both the needle and the window at once. He has a pipe he does not light and has not lit in a very long time, for reasons anybody standing under a gasholder can work out. He looks up when the needle moves and not when the door does.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the step,\" he says. \"And nothing lit.\""
+    },
+    "danger": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Yes.\" Flat, immediate, no performance in it at all. \"It is a very large amount of gas in a steel can, and the can is a hundred years old, and the only thing between it and the air is water in a tank.\"\n\n\"Which is why I sit here and look at a needle, and why the pipe is not lit, and why I will be rude to you about a match and will not be sorry. The holder is fine. Holders are fine. People are the problem and I am the one who is here.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Fans come on down the row about four and I can hear them from here, which means the vats are busy, which means somebody is being printed.\" He says it as a weather observation. \"Substation lad is frightened of this plot and walks the long way round it.\"\n\n\"And somebody put a road through the meadow. I watched them cut it. There were kerbstones under the grass already, all the way along, and nobody who came to lay it seemed to know that.\""
+    },
+    "read": {
+      "options": [
+        {
+          "label": "Does anybody ask you?",
+          "next": "read_ask"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Height is what is in her.\" He points out of the window with the pipe stem. \"Low in the evening because everybody is cooking and lit. High by four in the morning. That is the ordinary shape and you would know it in a week.\"\n\n\"What is interesting is when she does not do that. A works starting up. A street losing its supply. A cold snap two hours before anybody outside feels it. It is all on that drum before it is anywhere else.\""
+    },
+    "read_ask": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "read"
+        }
+      ],
+      "text": "\"Nobody has asked me anything in eleven years.\" Not bitter. Faintly amused. \"The works send a man to read the meters quarterly and he does not come in.\"\n\n\"I keep the charts. They are in that box in order and they are the only continuous record of what this city has been doing hour by hour for as long as I have been sat here. If the day ever comes that somebody wants to know, it will be here, and it will be right.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How do you read it?",
+          "next": "read"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Is any of this dangerous?",
+          "next": "danger"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I'll leave you to the needle.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in out of it.\" He does not get up. \"Kettle's on and the chair's free. Don't light anything.\"",
+      "text_by_relation": {
+        "familiar": "He has the second chair pulled round before you are properly in, and the mug is poured.\n\n\"Look at the chart,\" he says, pleased with something. \"Last night. Tell me what you think happened at about half eleven and then I will tell you if you are right.\"",
+        "first": "The old man at the bench looks up at the needle first, and only then at you, and does not seem to think that needs explaining.\n\n\"Creel.\" He takes the pipe out of his mouth. \"Shut the door, it swings. And do not light anything anywhere on this plot, and I will keep saying that to you every time, and you will get used to it.\"\n\nHe nods at the window and the lattice going up past it.\n\n\"That is a holder. It goes up when the city is not using gas and down when it is. You can read this whole quarter off it from a mile away if you know how, and almost nobody does.\"",
+        "known": "\"Sit down.\" The kettle is already coming forward on the stove. \"She's at two thirds and steady.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a works-green serge jacket with the company badge unpicked off the breast",
+      "a flannel shirt buttoned to the collar, no tie",
+      "heavy trousers and boots polished on the toe only",
+      "a vest and long underthings, because the gauge house is cold"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_holder_gauge",
+  "hp": 35,
+  "hp_max": 35,
+  "id": "npc_holder_creel",
+  "name": "Barnaby Creel",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_holder_chart",
+      "price": 3
+    },
+    {
+      "item_id": "item_holder_key",
+      "price": 30
+    },
+    {
+      "item_id": "item_holder_tea",
+      "price": 2
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Holding Pattern",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_holder_gauge"
+}

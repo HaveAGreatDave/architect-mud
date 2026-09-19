@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_wires_log",
+  "name": "a page of the log",
+  "tags": {
+    "description": "A torn-out week from the battery logbook: specific gravity, temperature, and a signature, every seven days without a gap. The handwriting changes four times down the page and the format never does.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 4,
+  "weight": 4
+}

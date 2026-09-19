@@ -1,0 +1,17 @@
+{
+  "description": "A beam the length of a bus rocking over on its trunnion once every four seconds, maroon and green, with every handrail and every oil cup polished to white metal.",
+  "flags": {
+    "aliases": [
+      "engine",
+      "beam",
+      "machine"
+    ],
+    "interactions": {
+      "examine": "There is a maker's plate on the entablature with a date on it that is older than anything else in this quarter by a long way, and the plate is the most polished thing in the building."
+    }
+  },
+  "id": "furn_mains_beam",
+  "name": "the beam engine",
+  "object_type": "fixture",
+  "zone_id": "zone_mains_engine"
+}

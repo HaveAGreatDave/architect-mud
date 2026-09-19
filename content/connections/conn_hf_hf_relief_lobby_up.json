@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_relief_lobby",
+  "b": "zone_hf_relief_canteen",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_relief_lobby_up",
+  "lockable": false,
+  "one_way": false
+}

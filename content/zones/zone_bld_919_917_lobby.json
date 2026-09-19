@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "One room with a plank counter across it and the underside of the tank for a ceiling, close enough overhead that tall customers stoop without noticing. It is cool in here and always faintly damp, and the whole room ticks and shifts as the tank settles.",
+  "exits": {
+    "down": "zone_util_zone_bld_919_917_lobby",
+    "north": "zone_bld_919_917_tank",
+    "west": "zone_district_919_917"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_919_917_lobby",
+  "map_id": "map_int_bld_919_917",
+  "name": "The Counter",
+  "parent_zone": "zone_district_919_917"
+}

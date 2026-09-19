@@ -45,6 +45,18 @@ import { viewProjMatrix } from './camera.js';
 const DEPTH_CUT = 0.5;
 const COLOUR_CUT = 0.004;
 
+// How far up a sprite to look for open sky, as a FRACTION OF THE TEXTURE'S HEIGHT rather than in
+// texels — every scatter bake is 192 tall and the landmark bakes are not, and a cap should be a
+// share of the thing it sits on at any size. At a full fall that is about a tenth of a tree.
+const SNOW_REACH = 0.055;
+// What a fully exposed texel comes out at. Above 1 so the top of the band saturates and the cap
+// has a solid core with a soft lower edge, rather than being a uniform half-wash.
+const SNOW_GAIN = 1.3;
+// The floor's own snow colour, for a frame that hands none over. Only a caller that has not been
+// wired up gets this, and it is the un-dimmed daylight value on purpose: a wrong white at noon is
+// visible, where a wrong white at midnight looks like the feature working.
+const SNOW_FALLBACK = [0.93, 0.95, 0.99];
+
 // pos3, pixel offset2, uv2, alpha1
 const STRIDE = 8;
 
@@ -85,6 +97,22 @@ uniform sampler2D uTex;
 uniform vec3 uFog;
 uniform float uCut;
 uniform float uCutFade;
+// ── SNOW ON WHAT STANDS ON THE GROUND ───────────────────────────────────────
+// How deep it lies this frame (0-1, integrated in windshield.js — see SNOW_NOW), how much of that
+// THIS species keeps (a boulder crown takes as much as the ground beside it, a tumbleweed takes
+// almost none), and what colour it comes out. The colour is the FLOOR's own snow colour, handed
+// down rather than restated, so a capped bush and the field it is standing in are the same white
+// at the same hour — two constants here would be two snows that drift apart at dusk.
+uniform float uSnow;
+uniform float uSnowHold;
+uniform vec3 uSnowCol;
+// ⚠ INTERPOLATED, BECAUSE A JS CONST IS NOT A GLSL ONE. Both of these are tuning numbers the
+// prose above owns, and spelled bare into the shader source they are undeclared identifiers —
+// which does not draw a wrong billboard, it fails the COMPILE, and a throw in here takes the
+// whole GL world pass down with it: the city falls back to 2-D mid-frame, so the ground comes
+// out the wrong biome and a massif keeps its hairlines and loses its faces.
+const float SNOW_REACH = ${SNOW_REACH.toFixed(4)};
+const float SNOW_GAIN = ${SNOW_GAIN.toFixed(4)};
 out vec4 outColor;
 void main() {
   vec4 t = texture(uTex, vUV);        // premultiplied on upload
@@ -99,6 +127,46 @@ void main() {
   // Un-premultiply to mix the colour, then re-premultiply — mixing a premultiplied colour toward
   // an opaque fog washes the edges out instead of tinting them.
   vec3 c = t.rgb / max(t.a, 1e-4);
+  // ── ⚠ A BILLBOARD HAS NO NORMAL, SO THE SPRITE'S OWN ALPHA IS ASKED INSTEAD ─────────────────
+  //
+  // Every other pass that takes snow has a surface to test: the mass reads n0.z, the ground and
+  // the floor are the ground. A billboard is a flat card that always faces you and there is no
+  // third dimension in it to have lost — so the question has to be asked the other way round.
+  // Snow lies on what has SKY ABOVE IT, and for a sprite that is a thing the texture already
+  // knows: walk a short way up in UV and count how much of what you pass is empty. A texel at the
+  // top of a canopy has nothing over it and takes the lot; one under a cactus arm or buried in the
+  // middle of a boulder has its own species over it and takes none, which is the sheltering an
+  // overhang does for free. Same family as the relief the mass pass recovers from the albedo's own
+  // luminance gradient: a texture read as a height field it never had.
+  //
+  // ⚠ AND IT IS THE ALPHA, NEVER THE LUMINANCE. The bright parts of these bakes are bright for
+  // reasons that have nothing to do with facing the sky — a lit cactus rib, the white of a bone,
+  // the sun side of a mesa — so a luminance read whitens whatever is already pale and calls it
+  // weather. Coverage is geometric and cannot be wrong about that.
+  //
+  // ⚠ THE CAP DEEPENS WITH THE FALL, which is the same expression the mass pass is written around
+  // and most of what makes this read as weather rather than as paint: a dusting is a line along
+  // the top edge, and it takes a real fall before a shape carries a visible crown. Written as a
+  // fixed reach instead, the first flake and the last put the same white hat on every tree.
+  //
+  // ⚠ AND THERE IS DELIBERATELY NO PER-TREE BREAK. The obvious next thought is to hash the anchor
+  // so one tree carries more than the next, and the anchor is CAMERA-RELATIVE — the map window
+  // recentres as you drive, so that hash changes every frame for a tree that has not moved, and
+  // the cap would crawl. It is the dx/dy-in-a-cache-key trap wearing a different hat. What does
+  // vary already is the silhouette: twelve baked variants per species, each with its own top edge.
+  float sw = uSnow * uSnowHold;
+  if (sw > 0.001) {
+    float reach = SNOW_REACH * (0.30 + 0.70 * sw);
+    // Four taps straight up. CLAMP_TO_EDGE means a tap off the top of the canvas reads the top
+    // row, which on every one of these bakes is empty — and on one that was not, it would read as
+    // a sprite taking no snow rather than as a wrong answer, which is the safe direction.
+    float open = 4.0
+      - texture(uTex, vUV + vec2(0.0, -reach * 0.25)).a
+      - texture(uTex, vUV + vec2(0.0, -reach * 0.50)).a
+      - texture(uTex, vUV + vec2(0.0, -reach * 0.75)).a
+      - texture(uTex, vUV + vec2(0.0, -reach       )).a;
+    c = mix(c, uSnowCol, clamp(open * 0.25 * sw * SNOW_GAIN, 0.0, 1.0));
+  }
   c = mix(c, uFog, vFog);
   float a = t.a * vAlpha;
   outColor = vec4(c * a, a);
@@ -142,6 +210,9 @@ export function createBillboardLayer(gl) {
     fogAmt: gl.getUniformLocation(prog, 'uFogAmt'),
     cut: gl.getUniformLocation(prog, 'uCut'),
     cutFade: gl.getUniformLocation(prog, 'uCutFade'),
+    snow: gl.getUniformLocation(prog, 'uSnow'),
+    snowHold: gl.getUniformLocation(prog, 'uSnowHold'),
+    snowCol: gl.getUniformLocation(prog, 'uSnowCol'),
   };
 
   const vao = gl.createVertexArray();
@@ -213,7 +284,14 @@ export function createBillboardLayer(gl) {
     const byKey = new Map();
     for (const b of list) {
       if (!b || !b.img || !(b.w > 0) || !(b.h > 0)) continue;
-      let a = byKey.get(b.key); if (!a) byKey.set(b.key, a = { img: b.img, fresh: !!b.fresh, flipY: !!b.flipY, items: [], deep: [] });
+      // ⚠ THE SNOW HOLD IS NOT A PER-VERTEX ATTRIBUTE, AND THAT IS NOT A SHORTCUT. It is a
+      // property of the SPECIES — how much snow a boulder keeps against how much a tumbleweed
+      // does — and the batch key IS the species, because the texture is what a species looks
+      // like. So every quad under one key agrees about it by construction, it costs one uniform
+      // per batch instead of a float per vertex, and the vertex buffer every billboard in the
+      // frame shares is byte-for-byte the one that always shipped. Unlike `depth`, it therefore
+      // cannot force a batch split: two quads sharing a texture cannot disagree.
+      let a = byKey.get(b.key); if (!a) byKey.set(b.key, a = { img: b.img, fresh: !!b.fresh, flipY: !!b.flipY, snow: b.snow || 0, items: [], deep: [] });
       (b.depth ? a.deep : a.items).push(b);
     }
     evict(byKey);
@@ -260,9 +338,9 @@ export function createBillboardLayer(gl) {
       // same species twice and halve a cache whose overflow is already the layer's worst failure.
       const tex = textureFor(key, a.img, a.fresh, a.flipY);
       for (const b of a.items) quad(b);
-      if (a.items.length) { const n = a.items.length * 6; batches.push({ tex, first, count: n, depth: false }); first += n; }
+      if (a.items.length) { const n = a.items.length * 6; batches.push({ tex, first, count: n, depth: false, snow: a.snow }); first += n; }
       for (const b of a.deep) quad(b);
-      if (a.deep.length) { const n = a.deep.length * 6; batches.push({ tex, first, count: n, depth: true }); first += n; }
+      if (a.deep.length) { const n = a.deep.length * 6; batches.push({ tex, first, count: n, depth: true, snow: a.snow }); first += n; }
     }
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -274,7 +352,7 @@ export function createBillboardLayer(gl) {
     return quads;
   }
 
-  function draw(cam, W, H, cssH, fog) {
+  function draw(cam, W, H, cssH, fog, snow) {
     if (!batches.length) return 0;
     gl.useProgram(prog);
     gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, cssH || H)));
@@ -285,6 +363,15 @@ export function createBillboardLayer(gl) {
     gl.uniform1f(loc.fogNear, f.near == null ? 6 : f.near);
     gl.uniform1f(loc.fogFar, f.far == null ? 34 : f.far);
     gl.uniform1f(loc.fogAmt, f.amt || 0);
+    // ⚠ WRITTEN EVERY FRAME INCLUDING THE BARE ONES. A uniform holds its last value, so a layer
+    // that set this only when it had snow would leave every bush in the world wearing a cap for
+    // the rest of the session after one blizzard thawed. Same trap the floor and the ground pass
+    // are written around, and `gl:snow` asserts it for all three.
+    const sn = snow || {};
+    const sd = sn.depth > 0 ? sn.depth : 0;
+    gl.uniform1f(loc.snow, sd);
+    const sc = sn.col || SNOW_FALLBACK;
+    gl.uniform3f(loc.snowCol, sc[0], sc[1], sc[2]);
     gl.uniform1i(loc.tex, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.DEPTH_TEST);
@@ -319,7 +406,14 @@ export function createBillboardLayer(gl) {
     gl.uniform1f(loc.cut, COLOUR_CUT);
     gl.uniform1f(loc.cutFade, 0);
     let n = 0;
+    // ⚠ AND WITH NO SNOW IN THE FRAME THE PER-BATCH WRITE IS NOT A CODE PATH. One uniform at zero
+    // guards the shader branch for every species at once, which is what makes `glSnowBB: 0`
+    // provably the layer that shipped rather than the layer running at a small number.
+    if (!sd) gl.uniform1f(loc.snowHold, 0);
     for (const b of batches) {
+      // ⚠ PER BATCH, AND NOT ONLY FOR THE SNOWY ONES: a species that skipped the write would take
+      // the hold of whichever one happened to draw before it.
+      if (sd) gl.uniform1f(loc.snowHold, b.snow || 0);
       gl.bindTexture(gl.TEXTURE_2D, b.tex);
       gl.drawArrays(gl.TRIANGLES, b.first, b.count);
       n += b.count / 6;

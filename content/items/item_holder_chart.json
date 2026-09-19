@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_holder_chart",
+  "name": "a used day chart",
+  "tags": {
+    "description": "A paper disc with a day of the city's gas demand scratched onto it in ink, dated in the middle in pencil. He sells them for three and he will tell you what was happening on that day, and he will be right.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 3,
+  "weight": 6
+}

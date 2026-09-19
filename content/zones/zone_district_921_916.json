@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "residential",
-  "description": "Home sweet subsidised home: prefab housing the colour of wet cardboard, balconies caged against jumpers and pigeons with equal indifference. A billboard over the roofline promises a better unit uptown. Nobody here has ever seen uptown.",
+  "ambient_theme": "city",
+  "description": "Peg Lane opens south here, a gap barely wide enough for two people to pass each other, with a run of washing strung across it high up. Ropewalk carries on east. The gap is where everybody turns.",
   "exits": {
     "east": "zone_district_922_916",
     "north": "zone_district_921_915",
@@ -9,17 +9,20 @@
     "west": "zone_district_920_916"
   },
   "flags": {
-    "district": "residential",
+    "artery": [
+      "Ropewalk"
+    ],
+    "district": "slum",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_consumer_trash",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "dirt"
   },
   "grid_x": 921,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_921_916",
   "map_id": "map_world",
-  "name": "Residential Area",
+  "name": "Ropewalk",
   "parent_zone": null
 }

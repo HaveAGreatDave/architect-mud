@@ -1,0 +1,18 @@
+{
+  "description": "On the table, a game abandoned in a winning position, the pegs untouched because nobody can agree whose turn it was.",
+  "flags": {
+    "aliases": [
+      "cribbage",
+      "crib",
+      "board",
+      "cards"
+    ],
+    "interactions": {
+      "examine": "The winning peg is one hole from home. Whoever was about to lose has clearly been in no hurry to settle it and has had a long time not to."
+    }
+  },
+  "id": "furn_engine_crib",
+  "name": "the cribbage board",
+  "object_type": "furniture",
+  "zone_id": "zone_engine_watch"
+}

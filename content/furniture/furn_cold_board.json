@@ -1,0 +1,17 @@
+{
+  "description": "A whiteboard by the door with the return temperature written up four times a day in a column, and a locked cash tin screwed to the shelf under it.",
+  "flags": {
+    "aliases": [
+      "board",
+      "log",
+      "tin"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_cold_stallard",
+    "vendor_safe": true
+  },
+  "id": "furn_cold_board",
+  "name": "the log board",
+  "object_type": "fixture",
+  "zone_id": "zone_cold_floor"
+}

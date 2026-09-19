@@ -1,0 +1,18 @@
+{
+  "description": "Under the forecourt, where the two towers share everything: one set of pumps, one tank, one board. The cabinet is on the wall between the two risers, and somebody has labelled the risers NORTH and TALL.",
+  "exits": {
+    "up": "zone_hf_common_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_common_lobby",
+  "map_id": "map_int_hf_common",
+  "name": "Common Ground — The Podium Plant Room",
+  "parent_zone": "zone_district_892_911"
+}

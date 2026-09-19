@@ -1,0 +1,312 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Fewtrell squares the pen across the ledger page, a right angle, and looks at it until it is right.",
+    "He glances at the hall stand, counts something, and goes back to the desk.",
+    "Somewhere behind the smoking-room door a fire settles and somebody says nothing about it.",
+    "He wipes a mark off the desk with a cloth he keeps in his sleeve.",
+    "The lamp over the door buzzes once. He does not look up, but he writes something in the ledger."
+  ],
+  "description": "A heavy, slow-moving man in a black coat with a velvet collar, standing behind the desk rather than sitting at it. He is perhaps sixty-five and has the stillness of somebody who has spent forty years not being surprised by anybody coming through a door. He knows your name or he does not, and either way his face says nothing about which.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Sir.\" He returns to the ledger before you reach the door."
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Men talk in that room and it stays in that room, which is most of what they pay for.\" A pause. \"I will say the land office two doors down has been in twice, asking after the committee.\"\n\n\"He was very polite about it. He wanted to know who could sell the building. I told him the truth, which is that I have no idea, and he wrote that down as though it were an answer he could use.\""
+    },
+    "join": {
+      "options": [
+        {
+          "label": "So nobody can join?",
+          "next": "join_no"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You are asking the wrong man, which is not me putting you off.\" He turns his hands over once. \"A member proposes you and a member seconds you and then the committee sits.\"\n\n\"The committee has not sat in my time here. I do not know who is on it. There is nothing written down that says, and I have looked, because it is the sort of thing a porter ought to know.\""
+    },
+    "join_no": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "join"
+        }
+      ],
+      "text": "\"Nobody has, in nineteen years.\" No complaint in it at all. \"The subscriptions still come in. The bank still takes them. The coal still arrives on a Tuesday, and I have never once ordered it.\"\n\n\"Somewhere there is a standing arrangement doing all of this and it has outlived whoever set it up. I keep the place as though the committee will walk in tomorrow, because one day somebody might, and I would like the brass done.\""
+    },
+    "members": {
+      "options": [
+        {
+          "label": "And the other five?",
+          "next": "members_gone"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Eleven.\" He says the number without looking anything up. \"Four of them come in most weeks. Two of them I have not seen in over a year and their pegs are kept, and their pegs will go on being kept.\"\n\n\"The rest are somewhere between. That is the whole of it. It is not a large club and it was never meant to be.\""
+    },
+    "members_gone": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "members"
+        }
+      ],
+      "text": "He is quiet for long enough that you think he has decided not to answer.\n\n\"Two went up to the Spire,\" he says. \"Properly up, the way they do it. One of them came back down and sat in that room for an hour and did not say a word and has not been back.\"\n\n\"I could not tell you whether that was him. I am not the man to ask and I would not want to be.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Who are the members?",
+          "next": "members"
+        },
+        {
+          "label": "A day ticket, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "How do I join?",
+          "next": "join"
+        },
+        {
+          "label": "Why is there no sign?",
+          "next": "sign"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Afternoon.\" He does not move from behind the desk. \"Members and their guests. You can take a day ticket if you want to sit down.\"",
+      "text_by_relation": {
+        "familiar": "He has the ticket written before you are through the inner door, and turns it on the desk with two fingers.\n\n\"Third chair is free,\" he says. \"I have kept the fire up. Don't make anything of that.\"",
+        "first": "The man behind the desk watches you come up the steps and through the door and does not say anything until you are properly inside, which takes longer than you expect.\n\n\"Afternoon. Fewtrell.\" He inclines his head about an inch. \"This is a members' club. There is no sign because there has never needed to be one.\"\n\nHe opens the ledger to a fresh line.\n\n\"You are not a member. You can be a guest for the day for forty, and that is not me being difficult, it is simply the figure. Coats on the stand, and the fire is lit.\"",
+        "known": "\"Afternoon.\" The ledger is already open. \"Day ticket, or are you just warming up?\""
+      }
+    },
+    "sign": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"If you need to be told what it is, it is not for you.\" He says it flatly, as a piece of information rather than a snub, and then softens it about a degree. \"That was the thinking. I did not do the thinking.\"\n\n\"The practical effect is that half the boulevard has walked past this door for years believing it is somebody's house. I have not corrected them.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a black porter's coat with a velvet collar, brushed daily",
+      "a stiff collar and a plain dark tie",
+      "black trousers with a crease kept by a press he owns",
+      "vest and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_vested_smoking",
+  "hp": 36,
+  "hp_max": 36,
+  "id": "npc_vested_fewtrell",
+  "name": "Ambrose Fewtrell",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_vested_ticket",
+      "price": 40
+    },
+    {
+      "item_id": "item_vested_scotch",
+      "price": 30
+    },
+    {
+      "item_id": "item_vested_cigar",
+      "price": 26
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Vested Interest",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_vested_hall"
+}

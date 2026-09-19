@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The floor above, following the same arc: two long ranks of desks facing the glass, plan chests down the inner wall, and a smell of print. About half the desks are occupied and all of them are tidy in the particular way of people whose work is checked.",
+  "exits": {
+    "down": "zone_hf_sweep_model"
+  },
+  "flags": {
+    "building_name": "Sweeping Statement",
+    "building_type": "chrome_slab",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_904_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_sweep_drawing",
+  "map_id": "map_int_hf_sweep",
+  "name": "Sweeping Statement — The Drawing Office",
+  "parent_zone": "zone_district_904_915"
+}

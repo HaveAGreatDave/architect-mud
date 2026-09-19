@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_wind_blanket",
+  "name": "a convalescent blanket",
+  "tags": {
+    "description": "Grey wool, heavier than it looks, with SECOND WIND stitched into one corner in white. People take them and people bring them back, and the count has stayed about right for years.",
+    "stackable": false
+  },
+  "type": "misc",
+  "value": 55,
+  "weight": 900
+}

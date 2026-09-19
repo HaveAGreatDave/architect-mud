@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_wind_day",
+  "id": "map_int_wind",
+  "name": "Second Wind",
+  "parent_zone_id": "zone_district_898_913"
+}

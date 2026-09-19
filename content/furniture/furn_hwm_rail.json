@@ -1,0 +1,17 @@
+{
+  "description": "A pipe handrail round the tank skirt, cold in any weather, with the paint worn to bright metal in two places where hands go.",
+  "flags": {
+    "aliases": [
+      "rail",
+      "handrail",
+      "walkway"
+    ],
+    "interactions": {
+      "examine": "The two worn places are on the south side, facing the meadow and the wall. Nobody stands on the north side, where the view is the basin and the money."
+    }
+  },
+  "id": "furn_hwm_rail",
+  "name": "the walkway rail",
+  "object_type": "furniture",
+  "zone_id": "zone_hwm_gallery"
+}

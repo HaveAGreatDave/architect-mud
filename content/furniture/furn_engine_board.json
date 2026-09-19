@@ -1,0 +1,17 @@
+{
+  "description": "A plan of the quarter on the wall with a pin at every hydrant, and a length of string on a nail beside it for measuring a run.",
+  "flags": {
+    "aliases": [
+      "board",
+      "hydrants",
+      "plan"
+    ],
+    "interactions": {
+      "examine": "The new streets have been added in pencil, accurately, with the hydrants marked before they were laid. Somebody walked the row with the drawings."
+    }
+  },
+  "id": "furn_engine_board",
+  "name": "the hydrant board",
+  "object_type": "decoration",
+  "zone_id": "zone_engine_bay"
+}

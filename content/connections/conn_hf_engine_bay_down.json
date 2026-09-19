@@ -1,0 +1,9 @@
+{
+  "a": "zone_engine_bay",
+  "b": "zone_util_zone_engine_bay",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_engine_bay_down",
+  "lockable": false,
+  "one_way": false
+}

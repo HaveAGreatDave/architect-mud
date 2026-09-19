@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A single-storey brick room at the corner of the yard, air-conditioned and startlingly quiet after the hum outside. One wall is a mimic panel: the whole substation drawn as a diagram in enamel, with a lamp at every switch, and the lamps say what is closed and what is open. A desk faces it. There is a rubber mat on the floor in front of the panel and you are supposed to stand on it, and the man here always does.",
+  "exits": {
+    "down": "zone_util_zone_current_switch",
+    "north": "zone_district_907_917"
+  },
+  "flags": {
+    "building_name": "Current Affairs",
+    "building_type": "substation",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A narrow window of laminated glass looking out at the tanks. You can see four of the eight bays from the desk, which he will tell you is not enough.",
+      "light": 0.4,
+      "name": "the yard window",
+      "visibility": 0.7
+    },
+    "world_exit_zone": "zone_district_907_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_current_switch",
+  "map_id": "map_int_current",
+  "name": "Current Affairs — The Switch Room",
+  "parent_zone": "zone_district_907_917"
+}

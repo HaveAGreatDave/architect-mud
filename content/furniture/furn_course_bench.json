@@ -1,0 +1,16 @@
+{
+  "description": "A long oak bench with a gas tap, a sink and a lip round the edge to stop things rolling off. There is a burn mark near the left end that predates everybody.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "demonstration"
+    ],
+    "interactions": {
+      "examine": "The gas tap still works. The sink drains. Neither has been used in years and both are tested every month."
+    }
+  },
+  "id": "furn_course_bench",
+  "name": "the demonstration bench",
+  "object_type": "fixture",
+  "zone_id": "zone_course_theatre"
+}

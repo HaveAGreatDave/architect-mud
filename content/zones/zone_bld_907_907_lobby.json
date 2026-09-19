@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "The cold comes off the far wall like a draught from an open door, and the door reveal tells you why: three feet of brick, then cork, then boards, and the whole thickness of it sitting between you and the store. A saw bench runs down the middle under a beam scale. The floor is sawdust over stone and it has never once been dry.",
+  "exits": {
+    "down": "zone_util_zone_bld_907_907_lobby",
+    "east": "zone_bld_907_907_stage",
+    "north": "zone_bld_907_907_store",
+    "south": "zone_district_907_907"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_907_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_907_907_lobby",
+  "map_id": "map_int_bld_907_907",
+  "name": "The Cutting Floor",
+  "parent_zone": "zone_district_907_907"
+}

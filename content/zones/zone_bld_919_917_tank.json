@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "The trestle legs come down through the floor here, bedded in concrete that was poured around them long after they went up. Jerrycans stand in ranks by fill date. Everything is labelled in the same careful hand.",
+  "exits": {
+    "south": "zone_bld_919_917_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_917"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_bld_919_917_tank",
+  "map_id": "map_int_bld_919_917",
+  "name": "Under the Tank",
+  "parent_zone": "zone_district_919_917"
+}

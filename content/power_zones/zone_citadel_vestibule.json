@@ -4,6 +4,6 @@
   "generator_id": "gen_citadel_util",
   "id": "zone_citadel_vestibule",
   "max_capacity_kw": 3000,
-  "name": "Citadel Financial — Security Vestibule",
+  "name": "Compound Interest — Security Vestibule",
   "source_type": "junction_box"
 }

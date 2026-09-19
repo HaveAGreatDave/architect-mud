@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_root_reading",
+  "name": "a bench reading",
+  "tags": {
+    "description": "A printed slip giving the analysis of one sample: eleven figures, nine of them within a stated range and printed in black, two of them outside it and printed in black as well, because the printer does not know which is which.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 48,
+  "weight": 4
+}

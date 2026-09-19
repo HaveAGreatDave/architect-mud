@@ -1,0 +1,11 @@
+{
+  "description": "A single caged worklight somebody has hooked over an upright and run off the kiosk supply, which has been there long enough that the cable has weathered to the colour of the frame. It is not in any drawing.",
+  "flags": {},
+  "id": "furn_light_zone_hf_line_shell",
+  "light_type": "fixture",
+  "lumen_output": 400,
+  "name": "the hooked-up worklight",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_line_shell"
+}

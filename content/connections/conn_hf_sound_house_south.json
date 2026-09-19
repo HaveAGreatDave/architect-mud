@@ -1,0 +1,9 @@
+{
+  "a": "zone_sound_house",
+  "b": "zone_sound_platform",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_sound_house_south",
+  "lockable": false,
+  "one_way": false
+}

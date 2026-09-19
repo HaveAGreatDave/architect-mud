@@ -1,0 +1,17 @@
+{
+  "description": "Chrome frames with slatted tops, set opposite each other across the path so that two people sitting down have to either look at each other or look past each other.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "benches",
+      "seat"
+    ],
+    "interactions": {
+      "sit": "You sit. Somewhere above you the irrigation ticks over and a fern drips once onto the gravel, and for a moment the quarter outside stops being a quarter."
+    }
+  },
+  "id": "furn_hf_leaf_benches",
+  "name": "the two benches",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_leaf_under"
+}

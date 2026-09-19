@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A hallway wide enough for two people if neither is carrying anything, with a desk jammed across the end of it and a pigeonhole rack behind that. The stairs go up outside the building, so the noise of everyone arriving comes through the wall rather than past the desk.",
+  "exits": {
+    "down": "zone_util_zone_bld_922_917_lobby",
+    "east": "zone_bld_922_917_dorm",
+    "north": "zone_district_922_917",
+    "west": "zone_bld_922_917_attic"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_922_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_922_917_lobby",
+  "map_id": "map_int_bld_922_917",
+  "name": "The Front Desk",
+  "parent_zone": "zone_district_922_917"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_ash_clinker",
+  "name": "a lump of clinker",
+  "tags": {
+    "description": "Grey, glassy, light for its size and full of holes, off the conveyor out of the quench. People use it for hardcore and for drainage, and one man in the Yards grinds it and sells it back as grit.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 2,
+  "weight": 700
+}

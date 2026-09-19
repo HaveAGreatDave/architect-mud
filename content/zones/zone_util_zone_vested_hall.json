@@ -1,0 +1,18 @@
+{
+  "description": "A brick cellar with wine racks along one wall, most of them empty and all of them labelled. The building's cabinet is bolted between two of the bays, and somebody has hung a cloth over it so that it is not the first thing you see.",
+  "exits": {
+    "up": "zone_vested_hall"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_894_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_vested_hall",
+  "map_id": "map_int_vested",
+  "name": "Vested Interest — The Cellar",
+  "parent_zone": "zone_district_894_911"
+}

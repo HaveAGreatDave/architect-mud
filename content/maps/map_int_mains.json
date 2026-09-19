@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_mains_engine",
+  "id": "map_int_mains",
+  "name": "Mains Attraction",
+  "parent_zone_id": "zone_district_900_913"
+}

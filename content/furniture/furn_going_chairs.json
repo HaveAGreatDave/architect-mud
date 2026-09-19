@@ -1,0 +1,16 @@
+{
+  "description": "Sixty folding chairs in stacks of ten against the side wall. On a sale day about a dozen come down.",
+  "flags": {
+    "aliases": [
+      "chairs",
+      "stack"
+    ],
+    "interactions": {
+      "examine": "The top chair of each stack is clean and the ones underneath are not, which is how you can tell how far down anybody ever gets."
+    }
+  },
+  "id": "furn_going_chairs",
+  "name": "the stacked chairs",
+  "object_type": "furniture",
+  "zone_id": "zone_going_saleroom"
+}

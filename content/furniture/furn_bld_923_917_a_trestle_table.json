@@ -1,0 +1,12 @@
+{
+  "description": "A long trestle scrubbed pale, with benches pulled up tight either side.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_bld_923_917_a_trestle_table",
+  "name": "a trestle table",
+  "object_type": "furniture",
+  "zone_id": "zone_bld_923_917_lobby"
+}

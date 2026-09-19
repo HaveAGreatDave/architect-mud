@@ -1,0 +1,17 @@
+{
+  "description": "Two notices. The first asks residents to book the room. The second, below it, notes that nobody has booked the room.",
+  "flags": {
+    "aliases": [
+      "board",
+      "notices",
+      "noticeboard"
+    ],
+    "interactions": {
+      "examine": "The second notice is in a different hand and is not on estate paper. It has been there longer than the first."
+    }
+  },
+  "id": "furn_hf_topbrass_notices",
+  "name": "the noticeboard",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_topbrass_sky"
+}

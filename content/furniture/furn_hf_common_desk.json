@@ -1,0 +1,17 @@
+{
+  "description": "One curved piece of pale composite with no drawers, no shelf and no visible join. There is a worn patch where forearms go.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "slab",
+      "concierge"
+    ],
+    "hack_difficulty": 5,
+    "vendor_npc_id": "npc_hf_common_tarn",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_common_desk",
+  "name": "the concierge slab",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_common_lobby"
+}

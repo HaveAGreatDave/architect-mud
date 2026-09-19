@@ -1,0 +1,17 @@
+{
+  "description": "Channels of running water in tiers, with leaves out of both sides of every channel and a magenta array a hand's breadth above each one.",
+  "flags": {
+    "aliases": [
+      "racks",
+      "channels",
+      "rack"
+    ],
+    "interactions": {
+      "examine": "The water in the channels is moving faster than you would expect, and it is completely clear. There is no soil anywhere in this building."
+    }
+  },
+  "id": "furn_hf_salad_racks",
+  "name": "the growing racks",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_salad_tray"
+}

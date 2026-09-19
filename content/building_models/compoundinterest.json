@@ -1,0 +1,262 @@
+{
+  "adorn": [
+    {
+      "cx": -0.26,
+      "cy": 0.46,
+      "kind": "glowPool",
+      "rgb": "255,206,150",
+      "s": 12,
+      "z": 0.02
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.46,
+      "kind": "glowPool",
+      "rgb": "255,206,150",
+      "s": 12,
+      "z": 0.02
+    },
+    {
+      "cx": 0,
+      "cy": 0.62,
+      "kind": "glowPool",
+      "rgb": "255,188,120",
+      "s": 10,
+      "z": 0.36
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1,
+      "rgb": "255,90,80",
+      "z": 1.6
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Compound Interest"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.445,
+      "hh": 0.014,
+      "kind": "parapet",
+      "pal": "ty_dw_stone",
+      "z": 0.1
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.395,
+      "hh": 0.018,
+      "kind": "parapet",
+      "pal": "ty_fprint_stone",
+      "z": 1.34
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0.34,
+      "kind": "pilaster",
+      "n": 7,
+      "out": 0.022,
+      "pal": "ty_dw_stone",
+      "step": 0.105,
+      "w": 0.028,
+      "z0": 0.52,
+      "z1": 1.24
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.42,
+      "depth": 0.02,
+      "glass": "#12100c",
+      "glow": "#ffcf96",
+      "half": 0.09,
+      "hh": 0.13,
+      "kind": "windowBay",
+      "pal": "ty_gate",
+      "z": 0.2
+    },
+    {
+      "cx": 0,
+      "cy": 0.42,
+      "half": 0.16,
+      "hh": 0.012,
+      "kind": "canopy",
+      "out": 0.06,
+      "pal": "ty_dw_stone",
+      "soffit": "#2a2620",
+      "z": 0.3
+    },
+    {
+      "bare": true,
+      "cx": 0,
+      "cy": 0.92,
+      "half": 0.3,
+      "hh": 0.028,
+      "ink": "#e8d9b8",
+      "kind": "signBoard",
+      "label": "COMPOUND INTEREST",
+      "z": 0.425
+    },
+    {
+      "count": 2,
+      "cx": -0.3,
+      "cy": 0.8,
+      "hh": 0.032,
+      "kind": "bollard",
+      "pal": "ty_dw_stone",
+      "r": 0.022,
+      "step": 0.12,
+      "z": 0
+    },
+    {
+      "count": 2,
+      "cx": 0.18,
+      "cy": 0.8,
+      "hh": 0.032,
+      "kind": "bollard",
+      "pal": "ty_dw_stone",
+      "r": 0.022,
+      "step": 0.12,
+      "z": 0
+    }
+  ],
+  "id": "compoundinterest",
+  "keepsReach": true,
+  "note": "Coldwater's money, and the one building in the city that is allowed to stand on the tile in front of it. It replaced a twisted-setback tower that had three separate things wrong with it: it topped out at 0.81 world-z, SHORTER than the police station next door (1.02) and the casino behind it (1.21), so the bank was the runt of its own block; it carried a `neon` field, which `derivedStyle` reads as a TRUTH TEST and which therefore dressed a windowless strongroom as a glazed shopfront with pink window ribbons; and nothing could hang on the rotated segments, so every part it had was crowded onto a two-storey podium. ⚠ THE REACH IS THE POINT AND IT IS WHY `keepsReach` EXISTS. 921,912 is not a carriageway — it is this building's own forecourt, a dead-end concrete apron whose only two exits are the bank's door and the road, named `Compound Interest Forecourt` in the content and described in the zone prose as somewhere a car is turned round. `segFit` trims on the ENTRANCE side because that is where the street usually is, and here it is not, so the gate piers (cy 0.86) and the lintel they carry (front plane 0.92) would be trimmed back to 0.5 and the porte-cochere would become a lip on the facade. Everything that reaches is deliberate: two piers, the lintel across them, and the two low compound walls running out along the tile's own edges. Nothing reaches sideways past +-0.46, which is inside the forecourt tile. ⚠ THE NAME IS CUT INTO THE LINTEL RATHER THAN PRINTED ON A BOARD (`bare: true`), because the zone prose has said `no signage beyond the name cut into the lintel` since long before this model existed, and a board bolted over it would contradict the room you are standing in. ⚠ AND THERE IS NO `neon` KEY, WHICH IS A LOAD-BEARING ABSENCE: `derivedStyle` returns 'front' for any model that has one, whatever its palette, and 'front' is the shopfront-and-neon-tube dressing. Three stone palettes with a real luminance step between them (ty_gate 76, ty_dw_stone 112, ty_fprint_stone 150) put it in BLOCK_MAT instead, so the derived kit dresses it as masonry. The one window is authored rather than left to the kit, because `windowBay` owns the `wall` section and owning it is what keeps a grid of glazing off a building whose whole point is that it has no windows. It is lit rather than glowing — floodlights up the facade and one warm pool under the gateway, in the amber the interior prose has always called Compound orange, which is also the east side's colour.",
+  "pal": "ty_gate",
+  "replaces": "bank",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.44,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.1
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.42,
+      "hw": 0.42,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.1,
+      "z1": 0.52
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.34,
+      "hw": 0.35,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.52,
+      "z1": 1.24
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.38,
+      "hw": 0.39,
+      "kind": "box",
+      "pal": "ty_dw_stone",
+      "roof": true,
+      "z0": 1.24,
+      "z1": 1.34
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.26,
+      "hw": 0.27,
+      "kind": "box",
+      "roof": true,
+      "z0": 1.34,
+      "z1": 1.52
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 12,
+      "pal": "ty_dw_stone",
+      "rb": 0.1,
+      "rt": 0.085,
+      "z0": 1.52,
+      "z1": 1.58
+    },
+    {
+      "cx": -0.33,
+      "cy": 0.86,
+      "fd": 0.06,
+      "hw": 0.06,
+      "kind": "box",
+      "pal": "ty_fprint_stone",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.38
+    },
+    {
+      "cx": 0.33,
+      "cy": 0.86,
+      "fd": 0.06,
+      "hw": 0.06,
+      "kind": "box",
+      "pal": "ty_fprint_stone",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.38
+    },
+    {
+      "cx": 0,
+      "cy": 0.6,
+      "fd": 0.32,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_fprint_stone",
+      "roof": true,
+      "z0": 0.38,
+      "z1": 0.48
+    },
+    {
+      "cx": -0.42,
+      "cy": 0.66,
+      "fd": 0.26,
+      "hw": 0.035,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.11
+    },
+    {
+      "cx": 0.42,
+      "cy": 0.66,
+      "fd": 0.26,
+      "hw": 0.035,
+      "kind": "box",
+      "pal": "ty_gate_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.11
+    }
+  ]
+}

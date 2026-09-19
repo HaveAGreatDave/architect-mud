@@ -1,0 +1,18 @@
+{
+  "description": "A shallow wooden drawer under the box-office shelf with a brass lock and a sprung tray inside. The lock is original and is not a serious lock.",
+  "flags": {
+    "aliases": [
+      "drawer",
+      "till",
+      "cash"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_sound_sedge",
+    "vendor_safe": true
+  },
+  "id": "furn_sound_drawer",
+  "light_type": "lamp",
+  "name": "the cash drawer",
+  "object_type": "fixture",
+  "zone_id": "zone_sound_foyer"
+}

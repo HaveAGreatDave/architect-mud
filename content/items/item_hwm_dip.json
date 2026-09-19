@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hwm_dip",
+  "name": "a dip tape",
+  "tags": {
+    "description": "A steel tape on a reel with a brass plumb on the end and the feet stamped rather than printed, so it still reads after it has been wet ten thousand times. There is a spare in the chamber and she will part with it.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 26,
+  "weight": 340
+}

@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#141f2a",
+  "color": "#a8dcff",
+  "description": "The shortest of the three towers and the only one that is fully occupied, because it was let cheaply to the people who build the rest of the estate. Boots outside doors, washing on two of the collars, and a hand-painted board by the entrance listing four trades and a telephone number that is not the estate's. The glass is the same glass. Everything else about it is different.",
   "exits": {
-    "east": "zone_district_893_915",
-    "north": "zone_district_892_914",
-    "south": "zone_district_892_916",
-    "west": "zone_district_891_915"
+    "north": "zone_hf_relief_lobby",
+    "south": "zone_district_892_916"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Light Relief",
+    "building_type": "chrome_tower",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 13,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_892_916"
   },
   "grid_x": 892,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_892_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "LG",
+  "name": "Light Relief",
   "parent_zone": null
 }

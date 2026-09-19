@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Okonjo weighs a crate, writes on it, and slides it down the run without looking.",
+    "She rinses her hands under the water line and shakes them once, hard.",
+    "The lift goes up empty and comes down full. She has the crates off it before it stops.",
+    "She holds a leaf up to the light, looks at the underside, and puts it in the crate anyway.",
+    "She wipes the scales down between weighings, every time, without thinking about it."
+  ],
+  "description": "A wiry woman in her thirties in a waterproof apron, hands red from the cold run, working fast and talking at the same speed. She grew up on a farm outside the Basin that no longer exists and she is entirely unsentimental about soil, which surprises people who expect the opposite.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Out through the yard,\" she says. \"And if the herbs wilt, stand the pot in a saucer of water and do not apologise to me about it.\""
+    },
+    "eats": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Look at the crates.\" She nods at the stack without turning. \"Read the stencils.\"\n\n\"The Spire, the Spire, a floor of the Spire, the Spire. Ninety per cent of what leaves this building goes three streets that way and up.\" She shrugs. \"It was built to feed a tower. That is not a secret, it is in the name of the contract.\"\n\n\"The bit I like is the two at the bottom that say Light Relief. Fifth floor. Thirty people at six in the morning. That crate goes out every day and it is the one I load myself.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"My water bill.\" She says it like a joke and then does not laugh. \"I draw off the main on Kettle Lane, same as the glasshouse across the road. Metered, and I read it myself every week because I am careful.\"\n\n\"Since the spring my meter says I am drawing about a fifth more than the racks use, and the racks are the only thing on my side of the valve.\" She rinses her hands. \"Either my meter is wrong, or something between the main and my pumps is taking water, and I have had a man out and he says the meter is right.\""
+    },
+    "pink": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because the green is wasted on them.\" She taps a leaf. \"A leaf throws green away — that is why it looks green. Give it red and blue and it uses nearly the lot, and red and blue together is that colour.\"\n\n\"It is the most efficient light in the Basin and it makes everybody look like a corpse. I have stopped noticing.\" She glances at her own hands under it. \"Mostly.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "No soil at all?",
+          "next": "soil"
+        },
+        {
+          "label": "Leaves, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who eats all this?",
+          "next": "eats"
+        },
+        {
+          "label": "Why is it pink?",
+          "next": "pink"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Leaves are eighteen, herbs are thirty-two, and the herbs are alive so do not leave them in a bag.\" She keeps packing. \"Ask away, I can do both.\"",
+      "text_by_relation": {
+        "familiar": "She has the pot out and wrapped before you have crossed the floor, and pushes it at you with her forearm because her hands are wet.\n\n\"That one is from the fourth,\" she says. \"Best tray in the building. I am not meant to pick which tray anybody gets.\"",
+        "first": "The room is cold and bright and smells like rain on leaves, and the woman at the run does not stop working when you come in.\n\n\"You are not a delivery,\" she says, \"so you are either lost or buying. Both are fine.\"\n\nShe slides a crate along and starts another.\n\n\"Okonjo. Ten floors of racks over your head and all of it comes down that lift. Leaves eighteen, herbs thirty-two. The herbs are alive. People take them home in a bag and kill them by evening, so I say it twice.\"",
+        "known": "\"Leaves or herbs.\" She is already reaching. \"And do not put the herbs in a bag.\""
+      }
+    },
+    "soil": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"None. Not a handful in the building.\" She is not defensive about it at all. \"Water, plant food, light, and the roots sit in the channel.\"\n\n\"People want me to be sad about that. I grew up on dirt. Dirt is a nightmare — it has weather in it, and weevils, and it takes a year to tell you it failed.\" She weighs a crate. \"This tells me in a day. I like it better and I am allowed to.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a heavy waterproof apron over everything",
+      "a long-sleeved thermal top pushed to the elbow",
+      "work trousers tucked into short rubber boots",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_salad_tray",
+  "hp": 36,
+  "hp_max": 36,
+  "id": "npc_hf_salad_okonjo",
+  "name": "Adaeze Okonjo",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_salad_leaves",
+      "price": 18
+    },
+    {
+      "item_id": "item_hf_salad_herbs",
+      "price": 32
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Salad Days",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_salad_pack"
+}

@@ -1,0 +1,312 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Quainton turns a page of the notebook, finds it blank, and turns it back.",
+    "He checks the water jug on the bench, which is full, and sets it a half inch to the left.",
+    "He runs the blackboard up and down once on its counterweight, listening to it rather than looking.",
+    "He reads something in his own handwriting, frowns at it, and does not change it.",
+    "He counts the front two rows under his breath and gets the number he got last week."
+  ],
+  "description": "A dry, narrow man of about sixty in a cardigan under a jacket, sitting at the end of the front bench with a notebook open on his knee even when the theatre is empty. He is the registrar, which here means he unlocks the doors, takes down every word, binds the results and has done so for nineteen years without missing one.",
+  "dialogue_tree": {
+    "believe": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "A long pause. He looks at the blackboard rather than at you.\n\n\"I have taken down every argument made in this room for nineteen years, on both sides, by people cleverer than me.\" He taps the notebook. \"And I would not get in the vat.\"\n\n\"That is not an argument. I want to be clear that I know it is not an argument. It is a thing about me and not a thing about the question, and I would not put it in a transcript.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Thursdays at seven,\" he says, and finds his page again."
+    },
+    "funds": {
+      "options": [
+        {
+          "label": "What if they did check?",
+          "next": "funds_check"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Halcyon Assurance.\" He waits to see whether that lands. \"An endowment, like the hall down the road, and terms drawn up by somebody with a sense of duty and no sense of what it would look like in forty years.\"\n\n\"They wanted a public institute considering the philosophical basis of continuity. They got one. I do not think it has ever occurred to anybody there to check what it has been concluding.\""
+    },
+    "funds_check": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "funds"
+        }
+      ],
+      "text": "He closes the notebook on his finger.\n\n\"Then somebody would read the transcripts, and somebody would notice that an institute they pay for has spent nineteen years failing to endorse the thing they sell, and the terms would be looked at.\"\n\n\"I have thought about that more than I would like. I have never once softened a word of a transcript because of it. If that is the day it stops, then it stops having been honest, and that is the only version of stopping I could stand.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"We share a wall with a club that has not admitted anybody in nineteen years, which I find restful.\" He almost smiles. \"Somebody from the Spire came to a lecture in the spring. Sat at the back. Asked one question and it was a good one.\"\n\n\"He has not come again. I wrote the question down.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What are the lectures about?",
+          "next": "subject"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who funds this?",
+          "next": "funds"
+        },
+        {
+          "label": "Do you believe any of it?",
+          "next": "believe"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in, it's free.\" He does not get up. \"Thursdays at seven, and the subject is on the card by the door. You can sit anywhere. You will have a lot of choice.\"",
+      "text_by_relation": {
+        "familiar": "He has the offprint out of the drawer before you have said anything, and holds it out at arm's length.\n\n\"You will want to argue with page five,\" he says. \"Everybody who is paying attention argues with page five. Come on Thursday and argue with it out loud, and I will write down what you said.\"",
+        "first": "The man on the front bench looks up from a notebook, takes his time about it, and then stands after all, which seems to cost him something.\n\n\"Hollis Quainton, registrar.\" A short nod. \"Public lectures, Thursdays at seven, admission free and it says so outside because it is true.\"\n\nHe indicates the empty benches without apology.\n\n\"A hundred and forty seats and we get twelve. I record every word regardless, and it is bound at the end of term, and it goes on that wall. You may find that absurd. I have made my peace with it.\"",
+        "known": "\"You came back.\" He marks his place with a finger. \"Thursday, seven. Same bench is free, they all are.\""
+      }
+    },
+    "subject": {
+      "options": [
+        {
+          "label": "And the answer?",
+          "next": "subject_answer"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Continuity of self.\" He says it the way a man says a word he has said several thousand times. \"Whether the thing that walks out of a vat is the thing that walked into one. Whether it matters. What would settle it, if anything could.\"\n\n\"It is not a mystical question and we do not treat it as one. It is a question about identity over time and the fact that a machine is involved changes nothing about the structure of it.\""
+    },
+    "subject_answer": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "subject"
+        }
+      ],
+      "text": "\"There isn't one that can be reached from where we are standing.\" He is quite cheerful about it. \"You cannot check from the inside, because whatever came out is satisfied that it is you. And you cannot check from the outside, because everything you could measure is the same.\"\n\n\"Nineteen years of transcripts on that wall and the honest summary is on page five of every offprint we have ever printed. I do not think that is a failure. I think it is the shape of the question.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey cardigan with a pen burn on the pocket, under a jacket he does not take off",
+      "a soft-collared shirt, no tie, because nobody made him",
+      "corduroy trousers gone shiny at the knee from a notebook",
+      "vest and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_course_reading",
+  "hp": 31,
+  "hp_max": 31,
+  "id": "npc_course_quainton",
+  "name": "Hollis Quainton",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_course_transcript",
+      "price": 18
+    },
+    {
+      "item_id": "item_course_card",
+      "price": 12
+    },
+    {
+      "item_id": "item_course_offprint",
+      "price": 4
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "The Halcyon Institute",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_course_theatre"
+}

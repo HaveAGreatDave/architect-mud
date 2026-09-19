@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_engine_bay",
+  "id": "map_int_engine",
+  "name": "Engine Trouble",
+  "parent_zone_id": "zone_district_910_917"
+}

@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_ash_tip",
+  "id": "map_int_ash",
+  "name": "Ash Management",
+  "parent_zone_id": "zone_district_920_902"
+}

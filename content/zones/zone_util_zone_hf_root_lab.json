@@ -1,0 +1,18 @@
+{
+  "description": "Inside the base of the column, cold, with the pumps on one side and a locked cabinet of jars on the other going back three seasons. The building's own cabinet is beside the door, and it is the only one in the room that is not locked.",
+  "exits": {
+    "up": "zone_hf_root_lab"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_root_lab",
+  "map_id": "map_int_hf_root",
+  "name": "Root Cause — The Sample Cellar",
+  "parent_zone": "zone_district_901_914"
+}

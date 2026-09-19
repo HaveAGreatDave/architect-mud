@@ -43,6 +43,15 @@ export const FAUNA_IDS = {
 // validation, was written to content and was baked into the module — all four steps green.
 export const COLOUR_FIELDS = new Set([
   'bodyCol', 'bellyCol', 'neckCol', 'cheekCol', 'billCol', 'wingCol', 'patchCol', 'legCol',
+  // The flight feathers and the undertail coverts, added with the feathering pass.
+  //
+  // ⚠ THERE IS DELIBERATELY NO `covertCol`. Covert stepping on a folded wing reads as SHADING
+  // rather than as hue — `tube` already varies shade per facet and `sheet` takes an `sh` — so a
+  // third colour here would cost a field in every future species file and buy a difference nobody
+  // can see at the thirteen pixels a bird is drawn at. `primaryCol` is the opposite case: a
+  // goose's primaries are near-black against a grey-brown wing, and it is the same field that
+  // makes a gull's wingtip black and a hawk's flight feathers dark.
+  'primaryCol', 'undertailCol',
 ]);
 
 const HEX = /^#[0-9a-fA-F]{6}$/;

@@ -74,6 +74,24 @@
         "5203"
       ],
       "port": 5203
+    },
+    {
+      "name": "modelshop-5204",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5204"
+      ],
+      "port": 5204
+    },
+    {
+      "name": "modelshop-5205",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5205"
+      ],
+      "port": 5205
     }
   ]
 }

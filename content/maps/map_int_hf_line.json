@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_line_platform",
+  "id": "map_int_hf_line",
+  "name": "Line of Enquiry",
+  "parent_zone_id": "zone_district_908_917"
+}

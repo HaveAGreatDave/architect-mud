@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A short road along the top of the green, surfaced with whatever was going spare: asphalt, then concrete, then asphalt again. The trees on the south side were planted in a row by somebody hopeful and have not kept it.",
+  "description": "The last few yards of Greenside Row, and they end against the flank of the ice house: three feet of brick with nothing in it and a drip line worn into the kerb below. The Basin is over the railing, close enough to spit into. Whatever this end of the street was for, it was for it before the ice house went up.",
   "exits": {
-    "east": "zone_district_907_907",
     "north": "zone_district_906_906",
     "south": "zone_district_906_908",
     "west": "zone_district_905_907"

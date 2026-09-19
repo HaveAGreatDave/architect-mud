@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A single volume the full height of the building, with a gallery running round it at first-floor level on iron brackets cast as leaves. In the middle, the engine: a beam the length of a bus rocking over on its trunnion, once every four seconds, polished on every surface a hand can reach and painted maroon and green everywhere else. The floor is laid in patterned tile. It is a cathedral with a machine where the altar goes, and nobody who built it thought that was funny.",
+  "exits": {
+    "down": "zone_util_zone_mains_engine",
+    "up": "zone_mains_gallery",
+    "west": "zone_district_900_913"
+  },
+  "flags": {
+    "building_name": "Mains Attraction",
+    "building_type": "pumping_station",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Two orders of arched windows down both long walls, the upper ones filled with leaded glass in a pattern of reeds. The light comes down in bars and moves as the beam moves.",
+      "light": 0.7,
+      "name": "the round-arched lights",
+      "visibility": 0.5
+    },
+    "world_exit_zone": "zone_district_900_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_mains_engine",
+  "map_id": "map_int_mains",
+  "name": "Mains Attraction — The Engine Hall",
+  "parent_zone": "zone_district_900_913"
+}

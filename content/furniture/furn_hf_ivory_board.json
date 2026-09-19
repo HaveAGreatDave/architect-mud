@@ -1,0 +1,17 @@
+{
+  "description": "Cork, full to the edges, with four layers of paper on it in places and at least two conversations being conducted entirely in pinned notes.",
+  "flags": {
+    "aliases": [
+      "board",
+      "noticeboard",
+      "notices"
+    ],
+    "interactions": {
+      "examine": "One thread runs to eleven pinned replies and concerns whether the Institute's subject is philosophy or engineering. Nobody has conceded anything and the earliest note is dated two years ago."
+    }
+  },
+  "id": "furn_hf_ivory_board",
+  "name": "the fellows' noticeboard",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_ivory_lobby"
+}

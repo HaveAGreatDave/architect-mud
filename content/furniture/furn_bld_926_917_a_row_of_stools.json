@@ -1,0 +1,12 @@
+{
+  "description": "Four stools of four different heights, all of them wrong.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_bld_926_917_a_row_of_stools",
+  "name": "a row of stools",
+  "object_type": "furniture",
+  "zone_id": "zone_bld_926_917_lobby"
+}

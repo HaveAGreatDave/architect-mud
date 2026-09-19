@@ -1,0 +1,18 @@
+{
+  "description": "Boots and leggings in pairs beside each cab, folded down so a man can step into them, and helmets on the shelf above with the names painted on.",
+  "flags": {
+    "aliases": [
+      "kit",
+      "boots",
+      "lockers",
+      "helmets"
+    ],
+    "hack_difficulty": 2,
+    "vendor_npc_id": "npc_engine_thorne",
+    "vendor_safe": true
+  },
+  "id": "furn_engine_lockers",
+  "name": "the kit",
+  "object_type": "container",
+  "zone_id": "zone_engine_bay"
+}

@@ -1,0 +1,17 @@
+{
+  "description": "Chalk on the painted wall, thirteen names down one side and a fortnight across the top, most cells ticked.",
+  "flags": {
+    "aliases": [
+      "rota",
+      "chalk",
+      "list"
+    ],
+    "interactions": {
+      "examine": "Two names have been rubbed out and written back in, in a different hand, which is the nearest thing this building has to a formal apology."
+    }
+  },
+  "id": "furn_hf_relief_rota",
+  "name": "the rota",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_relief_canteen"
+}

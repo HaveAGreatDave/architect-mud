@@ -576,7 +576,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     return { type:'examine', message: await describePlayerAppearance(player, true, player, broadcast) };
   }
 
-  const { rows } = await query(`SELECT pi.id AS inv_id, pi.custom_data, pi.is_equipped, pi.container_id, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT pi.id AS inv_id, pi.custom_data, pi.is_equipped, pi.container_id, pi.created_at, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (rows.length) {
     const it = rows[0];
     let msg = `<span class="zone-name">${it.name}</span>\n${it.tags?.description ?? it.description}`;
@@ -1054,7 +1054,17 @@ async function cmdExamine(targetStr, player, broadcast) {
   const EXAM_DIRS = ['north','south','east','west','up','down','in','out'];
   const EXAM_OPP  = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
 
-  function describeDoor(examDoor, dirHint) {
+  // ── WHAT ELSE IS ON THIS DOOR ───────────────────────────────────────────
+  // A gather, not a fire: a door can carry more than one thing worth reading —
+  // a shop's trading hours, a notice, a warning — and there is no sense in which
+  // one of them overwrites the others. The engine keeps the door and its lock;
+  // what a shopfront says about its hours is the commerce plugin's knowledge and
+  // is contributed from there (plugins/commerce), so nothing here has to learn
+  // what a vendor is.
+  //
+  // Contributions land ABOVE the action links, because a notice is something you
+  // read before deciding what to do about the door.
+  async function describeDoor(examDoor, dirHint) {
     const lockTag  = getLockTagPublic(examDoor);
     const hpLine   = examDoor.hp <= 0 ? 'destroyed' : `${examDoor.hp}/${examDoor.hp_max} HP`;
     const stateStr = examDoor.hp > 0 ? (examDoor.is_open ? 'open' : 'closed') : '';
@@ -1062,6 +1072,8 @@ async function cmdExamine(targetStr, player, broadcast) {
       ? ` · ${lockTag.type.replace('lock:', '')} [${examDoor.lock_state ?? 'no state'}]`
       : ' · no lock';
     let msg = `${examDoor.name || 'Door'} (${examDoor.door_type})\n${hpLine}${stateStr ? `, ${stateStr}` : ''}${lockStr}`;
+    for (const line of await gatherHook('door.describe', examDoor, player)) msg += `
+${line}`;
     const acts = examDoor.hp > 0 ? ['open', 'close'] : [];
     if (lockTag && examDoor.hp > 0) acts.push('lock', 'unlock');
     if (!lockTag && examDoor.hp > 0) acts.push('install');

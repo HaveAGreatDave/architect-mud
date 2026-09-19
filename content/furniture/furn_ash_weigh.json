@@ -1,0 +1,18 @@
+{
+  "description": "A hatch at the top of the ramp with a scale head, a docket book on a chain, a carbon between every leaf and a cash tin under the counter.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "weighbridge",
+      "dockets",
+      "tin"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_ash_studd",
+    "vendor_safe": true
+  },
+  "id": "furn_ash_weigh",
+  "name": "the weighbridge desk",
+  "object_type": "fixture",
+  "zone_id": "zone_ash_tip"
+}

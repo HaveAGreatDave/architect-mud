@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_line_platform",
+  "b": "zone_util_zone_hf_line_platform",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_line_platform_down",
+  "lockable": false,
+  "one_way": false
+}

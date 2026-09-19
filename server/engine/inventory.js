@@ -69,8 +69,8 @@ export async function getEquippedWeapon(player) {
 // includeFried to find the thing it's meant to be fixing.
 //
 // Rows carry: inv_id, item_id, quantity, condition, is_equipped, layer, slot,
-// custom_data, name, description, weight, tags, flags. Returns the first row (or
-// null), or an array with `all`.
+// custom_data, created_at, name, description, weight, tags, flags. Returns the
+// first row (or null), or an array with `all`.
 export async function resolveInventoryItem(player, opts = {}) {
   const playerId = typeof player === 'object' ? player.id : player;
   const { tag, name, topLevel = true, equipped, orderBy, all = false, includeFried = false,
@@ -93,7 +93,7 @@ export async function resolveInventoryItem(player, opts = {}) {
   if (!includeFried) where.push(`COALESCE(pi.custom_data->>'fried', 'false') <> 'true'`);
   const sql =
     `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.condition,
-            pi.is_equipped, pi.layer, pi.slot, pi.custom_data,
+            pi.is_equipped, pi.layer, pi.slot, pi.custom_data, pi.created_at,
             i.name, i.description, i.weight, i.tags, i.flags
        FROM player_inventory pi JOIN items i ON i.id = pi.item_id
       WHERE ${where.join(' AND ')}${orderBy ? `\n      ORDER BY ${orderBy}` : ''}${all ? '' : '\n      LIMIT 1'}`;
@@ -124,7 +124,7 @@ export async function resolveInventoryItem(player, opts = {}) {
   if (!includeFried) nearWhere.push(`COALESCE(pi.custom_data->>'fried', 'false') <> 'true'`);
   const nearSql =
     `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.condition,
-            pi.is_equipped, pi.layer, pi.slot, pi.custom_data,
+            pi.is_equipped, pi.layer, pi.slot, pi.custom_data, pi.created_at,
             i.name, i.description, i.weight, i.tags, i.flags,
             f.name AS from_nearby
        FROM player_inventory pi

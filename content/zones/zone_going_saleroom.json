@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long top-lit room with the lots set out down both sides on trestles and the floor left clear in the middle for the trolleys. Every item carries a paper tag on a string. The rostrum is a plain box on a plinth at the far end with three steps up to it and a gavel resting on the rail, and the chairs in front of it are stacked rather than set out, which tells you what Wednesdays are usually like.",
+  "exits": {
+    "down": "zone_util_zone_going_saleroom",
+    "north": "zone_district_895_911",
+    "south": "zone_going_strong"
+  },
+  "flags": {
+    "building_name": "Going Concern",
+    "building_type": "auction_house",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A run of high glazing under the eaves, grey and even, lighting the lots from above the way a saleroom is supposed to be lit. You cannot see out of it and that is the point.",
+      "light": 0.7,
+      "name": "the clerestory",
+      "visibility": 0.15
+    },
+    "world_exit_zone": "zone_district_895_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_going_saleroom",
+  "map_id": "map_int_going",
+  "name": "Going Concern — The Saleroom",
+  "parent_zone": "zone_district_895_911"
+}

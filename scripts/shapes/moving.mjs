@@ -148,6 +148,141 @@ for (const [key, why] of MUST_MOVE) {
   rows.push({ key: 'wind', on: 3, off: 1, why: 'the flags point downwind and re-point when it shifts' });
 }
 
+// ── 4. THE BERTH — A SHIP COMES, LOADS AND GOES, AND THE CRANE FOLLOWS HER ──
+//
+// The shipping cycle is the only thing in the motion layer that two SEPARATE drawers have to agree
+// about: the gantry is a `building_type` arm and the freighter is a `mark`, they are different
+// tiles in different passes, and all they share is `berthPhase`. Every way that goes wrong is
+// silent — a crane working over open water, a ship lying at a berth nobody is loading, a berth
+// that is simply always empty — and all three draw a perfectly good picture.
+//
+// ⚠ THE CLOCK IS HELD STILL AND THE CYCLE IS SWEPT WITH `RENDER_TUNE.shipForce`. The two are the
+// same clock: move `now` to advance the shipping cycle and the sea moves under the ship, so the
+// frames differ whatever the ship did. The first cut of this check did exactly that and reported
+// five poses for a harbour that was correctly parked. With the clock pinned and only the cycle
+// swept, any difference between two frames IS the ship.
+//
+// ⚠ AND THE PARKED POSE IS INVERTED HERE, WHICH IS WHY IT GETS ITS OWN CHECK. Every other cycle in
+// this layer comes home to its own u = 0. For a berth u = 0 is OPEN WATER, so the obvious reading
+// of "park it" DELETES the ship — the worse half of the bug `RENDER_TUNE.motion` exists to prevent,
+// and the one this file refuses for every other arm three checks up.
+{
+  const el = stubCanvas('__berth', 900, 500);
+  const real2 = el.getContext('2d');
+  // ⚠ FILLED PATHS ONLY, AND THAT IS NOT A TIDY-UP. GLASS flies a flock of six birds across the
+  // mid-sky whose positions are INTEGRATED PER FRAME (`st.birds`, stepped by `dt`) rather than
+  // read off the clock, so pinning `performance.now` does not hold them still and two renders of
+  // one empty sea differ by six drifting chevrons. They are STROKED; a hull, a container and a
+  // wake are FILLED. Collecting a path only when something fills it drops the birds and keeps
+  // every part of the ship that carries a position.
+  let ops2 = [], pend = [];
+  const N = (x) => typeof x === 'number' ? x.toFixed(2) : String(x);
+  el.getContext = () => new Proxy(real2, {
+    get(o, k) { const v = o[k]; if (typeof v !== 'function') return v;
+      return (...a) => {
+        if (k === 'beginPath') pend = [];
+        else if (k === 'moveTo' || k === 'lineTo') pend.push(k + a.map(N).join(','));
+        else if (k === 'fill') { ops2.push(...pend, 'fill'); pend = []; }
+        return v.apply(o, a);
+      }; },
+    set(o, k, v) { o[k] = v; return true; },
+  });
+  // ⚠ BOTH CLOCKS, AND THE SECOND ONE IS THE POINT. Pinning `performance.now` alone leaves the
+  // goose flocks drifting, because the flock clock is deliberately WALL TIME — see the ⚠ over
+  // `flockAt`: a page-relative clock resets on every reload and would put the picture and the text
+  // game on two zeroes. So a harness that holds only one of them still is comparing two frames of
+  // a moving skein and calling the difference a ship.
+  // ⚠ SET IT, NEVER ASSUME IT. Check 1 above sweeps every arm with the flag ON and then OFF, and
+  // the loop it does that in leaves it OFF — the file only puts it back at the very bottom. A
+  // block that inherits that reads a permanently parked harbour and reports every cycle below as
+  // broken, which is exactly what the first run of this one did.
+  ws.RENDER_TUNE.motion = 1;
+  const clock2 = globalThis.performance, rnd2 = Math.random, date2 = Date.now;
+  globalThis.performance = { ...clock2, now: () => 1e6 };
+  Date.now = () => 1.7e12;
+  Math.random = () => 0.42;
+  const RR2 = 9, N2 = RR2 * 2 + 1;
+  const seaOf = (berth) => {
+    const m = Array.from({ length: N2 }, () => Array.from({ length: N2 }, () => ({ kind: 'land', biome: 'water', flr: 0 })));
+    // ⚠ AHEAD OF THE CAMERA, NOT UNDER IT. The centre tile is where the eye is and the near clip
+    // drops it — the same trap the wind check above records costing three identical frames.
+    if (berth) m[RR2 - 4][RR2] = { kind: 'land', biome: 'water', flr: 0, mark: 'berth', bf: 'north', bq: 'west' };
+    return m;
+  };
+  const sea = seaOf(true), bare = seaOf(false);
+  const shot = (map, u) => {
+    ws.RENDER_TUNE.shipForce = u;
+    const v = { cls: 'prop', phase: 'cruise', worldBlend: 1, map, heading: 0, speed: 0, hour: 13, height: 0.02, weather: 'clear', acX: 100, acY: 100 };
+    ws.paintWindshield('__berth', v); ops2 = []; ws.paintWindshield('__berth', v);
+    return ops2.join('|');
+  };
+  shot(sea, 0.5);   // warm every lazy cache and bake before anything is compared
+
+  // The control is the SAME SEA AT THE SAME INSTANT WITH NO BERTH ON IT, which is what turns "she
+  // is drawn" into a number: everything the ship contributes is what this frame does not have.
+  const water = shot(bare, 0.5);
+  const twice = shot(bare, 0.5);
+  const size = (u) => shot(sea, u).length - water.length;
+  const alongside = size(0.50), gone = size(0.02), arriving = size(0.20), leaving = size(0.84);
+  const early = size(0.30), late = size(0.70);
+  if (water !== twice) problems.push('the same empty sea drew two different frames — the clock or the dice are not pinned, so nothing below is a statement about the ship');
+  else if (alongside <= 0) problems.push('the berth draws nothing at all with a ship alongside — the `berth` mark is not reaching the world sweep, and nothing below means anything');
+  else {
+    if (gone !== 0) problems.push(`the berth still draws ${gone} characters of geometry at the empty point of the cycle — she never sails, so there is no "until the next ship arrives"`);
+    if (!(arriving > 0)) problems.push('nothing is drawn on the inbound leg — she appears at the berth rather than coming up the fairway');
+    if (!(leaving > 0)) problems.push('nothing is drawn on the outbound leg — she vanishes off the berth rather than steaming out of it');
+    if (!(late > early)) problems.push(`the deck stow does not grow: ${early} at the start of the loading window against ${late} near the end of it, so the gantry is stacking boxes into nothing`);
+    // ⚠ SHE HAS TO BE IN A DIFFERENT PLACE, not merely drawn in both — a ship whose outbound frame
+    // is her alongside frame never left the quay, and every check above passes for her.
+    // ⚠ AND THE TWO SAMPLES ARE TAKEN AT THE SAME LOAD, which is the whole of what makes this a
+    // check about MOVEMENT. Picked either side of the loading window and the stow differs, so the
+    // frames differ whether or not she moved an inch: a first cut compared 0.50 with 0.84 and a
+    // mutation that pinned the outbound leg to the berth sailed straight through it. Both of these
+    // are past SHIP_LOAD1, so she is fully loaded in both and the only thing left to differ is
+    // where she is.
+    if (shot(sea, 0.74) === shot(sea, 0.80)) problems.push('the frame alongside and the frame on the outbound leg are identical at the same load — she is not moving, only fading');
+  }
+
+  // Parked: ONE pose over the whole cycle, and that pose is a ship at a berth.
+  ws.RENDER_TUNE.motion = 0;
+  const still = new Set([0.02, 0.20, 0.50, 0.84, 0.95].map((u) => shot(sea, u)));
+  const parked = shot(sea, 0.02).length - water.length;
+  ws.RENDER_TUNE.motion = 1;
+  if (still.size !== 1) problems.push(`the berth has ${still.size} poses with RENDER_TUNE.motion 0 — that flag promises a still harbour, not a slower one`);
+  if (!(parked > alongside * 0.5)) problems.push(`parked, the berth draws ${parked} against ${alongside} alongside — "park it" has DELETED the ship, which is the half of that flag's contract this file refuses for every other arm`);
+
+  ws.RENDER_TUNE.shipForce = null;
+  globalThis.performance = clock2; Math.random = rnd2; Date.now = date2;
+  rows.push({ key: 'berth', on: 5, off: 1, why: 'a freighter comes up the fairway, loads, and steams off again' });
+}
+
+// ── 4b. AND THE CRANE STOPS WHEN SHE GOES ───────────────────────────────────
+//
+// The other end of the same clock, and the thing the whole berth was asked for in so many words:
+// the ship sails when the cranes stop. The gantry reads `berthPhase` and stands still outside the
+// alongside window, so a sweep taken entirely inside the EMPTY stretch has to come back with one
+// pose — while the sweep in check 1 above, which lands in the loading window, comes back with
+// several.
+// ⚠ THE TWO SWEEPS TOGETHER ARE THE CHECK. Either on its own passes for a crane broken the other
+// way about: one pose everywhere is a machine that never runs, and many poses everywhere is a
+// machine that never stops.
+{
+  const m = byKey.get('type:quay_crane');
+  if (!m) problems.push('type:quay_crane: not in the model registry — the berth coupling cannot be checked');
+  else {
+    const seen = new Set();
+    for (let i = 0; i < 12; i++) {
+      ws.RENDER_TUNE.shipForce = 0.92 + i * 0.012;   // the berth stands empty either side of the wrap
+      const r = ws.canvasResidue(m, { cam, night: 0, bn: 'THE EXAMPLE', dy: -2, now: i * 3400 });
+      if (r.threw) { problems.push('type:quay_crane: threw with the berth empty — ' + r.threw); break; }
+      seen.add(JSON.stringify(r));
+    }
+    ws.RENDER_TUNE.shipForce = null;
+    if (seen.size > 1) problems.push(`type:quay_crane: ${seen.size} poses over a stretch with NO SHIP at the berth — the gantry is working an empty quay, so "she sails when the cranes stop" is not true`);
+    rows.push({ key: 'quay_crane/empty', on: 1, off: 1, why: 'the gantry stands still while the berth is empty' });
+  }
+}
+
 ws.RENDER_TUNE.motion = 1;
 
 if (REPORT) {

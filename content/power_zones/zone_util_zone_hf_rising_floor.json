@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_rising_floor",
+  "id": "zone_util_zone_hf_rising_floor",
+  "name": "Rising Sums — The Riser Cupboard",
+  "source_type": "junction_box"
+}

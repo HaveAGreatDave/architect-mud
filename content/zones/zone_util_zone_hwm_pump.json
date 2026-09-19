@@ -1,0 +1,18 @@
+{
+  "description": "A chamber under the pump house floor holding the inlet, the outlet and the scour, all three painted different colours by somebody who wanted the next person to be in no doubt. The cabinet is up on brackets clear of the floor, because this room has been wet before.",
+  "exits": {
+    "up": "zone_hwm_pump"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_910_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hwm_pump",
+  "map_id": "map_int_hwm",
+  "name": "High Water Mark — The Valve Chamber",
+  "parent_zone": "zone_district_910_907"
+}

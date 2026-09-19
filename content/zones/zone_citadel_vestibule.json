@@ -16,14 +16,14 @@
     "south": "zone_citadel_hall"
   },
   "flags": {
-    "building_name": "Citadel Financial",
+    "building_name": "Compound Interest",
     "checkpoint_cfg": {
       "checks": [
         "wanted",
         "contraband"
       ],
       "fromFlag": "citadel_public",
-      "guards": "the Citadel security detail",
+      "guards": "the Compound security detail",
       "wantedMode": "hard"
     },
     "floor": "boards",
@@ -35,6 +35,6 @@
   "grid_z": 0,
   "id": "zone_citadel_vestibule",
   "map_id": "map_int_citadel",
-  "name": "Citadel Financial — Security Vestibule",
+  "name": "Compound Interest — Security Vestibule",
   "parent_zone": "zone_district_921_911"
 }

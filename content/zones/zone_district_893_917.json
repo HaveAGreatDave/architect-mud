@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#141f2a",
+  "color": "#bfe8ff",
+  "description": "A chrome canopy on four slim columns over a platform up on legs, with a stair at one end and a glazed waiting room on the deck. The indicator board on the canopy fascia is lit and reads SERVICE COMMENCING. There is no line. There is no track bed, no cutting, no embankment and nothing on the ground either side of it but the Buried Road, and the whole thing is finished to the standard of everything else in the quarter.",
   "exits": {
-    "east": "zone_district_894_917",
     "north": "zone_district_893_916",
-    "south": "zone_district_893_918",
-    "west": "zone_district_892_917"
+    "south": "zone_hf_standing_platform"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Standing Room Only",
+    "building_type": "transit_halt",
+    "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_893_916"
   },
   "grid_x": 893,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_893_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "SM",
+  "name": "Standing Room Only",
   "parent_zone": null
 }

@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_current_switch",
+  "id": "map_int_current",
+  "name": "Current Affairs",
+  "parent_zone_id": "zone_district_907_917"
+}

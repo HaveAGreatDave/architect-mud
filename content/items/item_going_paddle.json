@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_going_paddle",
+  "name": "a bidder's paddle",
+  "tags": {
+    "description": "A numbered board on a stick, hardboard, with the number painted on by hand and touched up more than once. Low numbers are kept back for people who come every week, and there are eleven low numbers.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 8,
+  "weight": 30
+}

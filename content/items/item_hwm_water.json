@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hwm_water",
+  "name": "a cup from the tap",
+  "tags": {
+    "description": "Off the sample tap on the delivery main, which is the water half this city drinks about ten minutes before they drink it. She charges one because a thing that is free gets treated like a thing that is free.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 1,
+  "weight": 280
+}

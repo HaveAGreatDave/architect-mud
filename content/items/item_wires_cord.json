@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_wires_cord",
+  "name": "a patch cord",
+  "tags": {
+    "description": "A fabric-braided cord with a brass plug at each end, off a switchboard that is not in this building any more. Useless. Beautifully made. He sells them to anybody who wants one and is glad when somebody does.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 9,
+  "weight": 60
+}

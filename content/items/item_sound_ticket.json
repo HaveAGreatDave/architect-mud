@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_sound_ticket",
+  "name": "a recital ticket",
+  "tags": {
+    "description": "Card, cream, printed rather than torn off a roll, with the date and the seat written on in ink by hand. There is a line for the performer and on this one it has been left blank, which happens more often than the season case admits.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 14,
+  "weight": 2
+}

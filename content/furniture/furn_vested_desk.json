@@ -1,0 +1,16 @@
+{
+  "description": "A mahogany desk facing the door, with a ledger open on it and a pen laid across the page at a right angle.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "porter"
+    ],
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_vested_fewtrell",
+    "vendor_safe": true
+  },
+  "id": "furn_vested_desk",
+  "name": "the porter's desk",
+  "object_type": "fixture",
+  "zone_id": "zone_vested_hall"
+}

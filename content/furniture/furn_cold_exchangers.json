@@ -1,0 +1,17 @@
+{
+  "description": "Ranks of them, gasketed, dripping into a channel in the floor. Each one has a number stencilled on it and a card in a holder recording when it was last stripped.",
+  "flags": {
+    "aliases": [
+      "exchangers",
+      "plates",
+      "ranks"
+    ],
+    "interactions": {
+      "examine": "Number six has a card that has been full for a while, with the last four entries in the same week and then nothing."
+    }
+  },
+  "id": "furn_cold_exchangers",
+  "name": "the plate exchangers",
+  "object_type": "fixture",
+  "zone_id": "zone_cold_floor"
+}

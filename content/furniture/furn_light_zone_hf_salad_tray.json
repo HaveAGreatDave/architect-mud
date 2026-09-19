@@ -1,0 +1,11 @@
+{
+  "description": "Full-width magenta arrays under every shelf, on eighteen hours a day. They are the reason this building is findable from anywhere in the quarter and they are also the reason nobody who works here can judge the colour of anything for an hour after a shift.",
+  "flags": {},
+  "id": "furn_light_zone_hf_salad_tray",
+  "light_type": "fixture",
+  "lumen_output": 1400,
+  "name": "the grow lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_salad_tray"
+}

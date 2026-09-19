@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A glazed tube between the two towers, forty paces end to end, with the city on one side and the Curtain on the other. There are four chairs in it and a table with nothing on the table. Standing in the middle you can see straight down through the glass floor panel to the forecourt, and most people take one step to the left.",
+  "exits": {
+    "down": "zone_hf_common_lobby"
+  },
+  "flags": {
+    "building_name": "Common Ground",
+    "building_type": "sky_court",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_common_bridge",
+  "map_id": "map_int_hf_common",
+  "name": "Common Ground — The Link",
+  "parent_zone": "zone_district_892_911"
+}

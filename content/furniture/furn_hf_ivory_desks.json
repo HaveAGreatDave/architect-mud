@@ -1,0 +1,17 @@
+{
+  "description": "Eight desks facing outward round the curve, each with a green-shaded lamp and a blotter, and the whole Basin out in front of every one of them.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "desks",
+      "reading"
+    ],
+    "interactions": {
+      "sit": "You sit facing the glass with a lamp at your elbow and the city below, and you understand immediately why nobody here has ever won the argument about brighter light."
+    }
+  },
+  "id": "furn_hf_ivory_desks",
+  "name": "the reading desks",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_ivory_library"
+}

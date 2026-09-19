@@ -1,0 +1,16 @@
+{
+  "description": "Under a glass dome, running eleven minutes slow, wound every Sunday by somebody who is careful to keep it that way.",
+  "flags": {
+    "aliases": [
+      "clock",
+      "mantel"
+    ],
+    "interactions": {
+      "examine": "The key sits beside it on a square of felt. The felt has a clean square in the middle of it where the key lives."
+    }
+  },
+  "id": "furn_vested_clock",
+  "name": "the mantel clock",
+  "object_type": "decoration",
+  "zone_id": "zone_vested_smoking"
+}

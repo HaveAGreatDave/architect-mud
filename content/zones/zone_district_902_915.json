@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "Almost at the row. The last stretch is the worst of it, laid in a hurry and settling unevenly already.",
   "exits": {
     "east": "zone_district_903_915",
     "north": "zone_district_902_914",
@@ -10,15 +9,17 @@
     "west": "zone_district_901_915"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 902,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_902_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Cinder Lane",
   "parent_zone": null
 }

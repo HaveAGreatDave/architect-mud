@@ -26,7 +26,7 @@
 // resolution is forced, because all three of those change what you are looking at. Nothing here
 // should ever grow a number to compare across days; that is what the benches in glbench.js are,
 // and they are deliberately a different file.
-import { paintWindshield, RENDER_TUNE, tagArtwork, tagWordList } from '/client/game/js/panels/windshield.js';
+import { paintWindshield, RENDER_TUNE, tagArtwork, tagWordList, tagHandList } from '/client/game/js/panels/windshield.js';
 import { installGL, glLastFrame } from '/client/game/js/panels/gl/install.js';
 
 let _world = null, _uninstall = null, _canvas = null;
@@ -191,10 +191,17 @@ export function streetHide() {
 // the size it is drawn. Standing in front of the one building wearing a given word and squinting
 // is not a review, and there are twenty-five words and three colour schemes.
 //
-//   __tagSheet()                              // the house word list, three schemes, by day
+//   __tagSheet()                              // the house word list, one row per HAND, by day
 //   __tagSheet({ night: 1, colour: '#5fd0ff' })
 //   __tagSheet({ words: ['COLDWATER LIES'], scale: 1 })   // a player's own can, unshrunk
+//   __tagSheet({ hand: 'roller' })            // one hand only, every word
+//   __tagSheet({ hands: false })              // back to three rows of colour SCHEMES
 //   __tagSheetHide()
+//
+// ⚠ THE ROWS ARE HANDS NOW AND WERE COLOUR SCHEMES. Both are chosen off the same `variant`, so a
+// sheet laid out by scheme visits whichever hands that arithmetic happens to land on and silently
+// shows four of one and none of another — which is exactly how a hand that bakes nothing would get
+// signed off. Naming them is why `tagHandList` is exported.
 //
 // ⚠ IT IS THE REAL BAKE AND NOT A PREVIEW OF ONE. `tagArtwork` is `bakeTagText` with the runs left
 // out, so what is on this sheet is the canvas the decal layer uploads — there is no second painter
@@ -203,12 +210,20 @@ let _sheet = null;
 export function tagSheet(opts = {}) {
   const { colour = '#ff6a4a', night = 0, marks = 3, cols = 5, scale = 0.5, pad = 10 } = opts;
   const words = opts.words || tagWordList();
-  // One row per colour scheme, because the scheme is picked off the variant and an author choosing
-  // `v` is choosing between them without being told so.
   const cells = [];
-  for (let s = 0; s < 3; s++) for (let i = 0; i < words.length; i++) {
-    const tex = tagArtwork(words[i], colour, s + i * 3, night, marks);
-    if (tex) cells.push({ tex, label: words[i] + ' · v' + (s + i * 3) });
+  if (opts.hands === false) {
+    // One row per colour scheme, because the scheme is picked off the variant and an author
+    // choosing `v` is choosing between them without being told so.
+    for (let s = 0; s < 3; s++) for (let i = 0; i < words.length; i++) {
+      const tex = tagArtwork(words[i], colour, s + i * 3, night, marks, opts.hand || 'throw');
+      if (tex) cells.push({ tex, label: words[i] + ' · v' + (s + i * 3) });
+    }
+  } else {
+    const hands = opts.hand ? [opts.hand] : tagHandList();
+    for (const h of hands) for (let i = 0; i < words.length; i++) {
+      const tex = tagArtwork(words[i], colour, i * 3, night, marks, h);
+      if (tex) cells.push({ tex, label: h + ' · ' + words[i] });
+    }
   }
   if (!cells.length) return null;
   const cw = Math.max(...cells.map((c) => c.tex.width)) * scale + pad * 2;
@@ -240,9 +255,30 @@ export function tagSheet(opts = {}) {
 }
 export function tagSheetHide() { if (_sheet) _sheet.style.display = 'none'; }
 
+// ── A CANVAS, ON DISK — `__shot('name')` ──────────────────────────────────────────────────────
+//
+// The browser half of the server's /api/shot. It defaults to the street canvas because a
+// look-decision is almost always about the street; pass a canvas or a selector for anything else.
+//
+// ⚠ AWAIT IT. `toBlob` is asynchronous, so a caller that fires and reloads the page pulls the
+// document out from under an unfinished encode — which lands as a truncated PNG rather than as an
+// error, and a truncated PNG of last night's config is indistinguishable from this one's until you
+// open it.
+export async function shot(name = 'shot', el = null) {
+  const c = typeof el === 'string' ? document.querySelector(el) : (el || _canvas || document.querySelector('canvas'));
+  if (!c) { console.warn('__shot: no canvas to shoot'); return null; }
+  const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
+  const res = await fetch('/api/shot?name=' + encodeURIComponent(name), {
+    method: 'POST', headers: { 'content-type': 'image/png' }, body: blob });
+  const out = await res.json();
+  console.log('__shot: ' + (out.file || out.error));
+  return out;
+}
+
 if (typeof window !== 'undefined') {
   window.__street = street;
   window.__streetHide = streetHide;
   window.__tagSheet = tagSheet;
   window.__tagSheetHide = tagSheetHide;
+  window.__shot = shot;
 }

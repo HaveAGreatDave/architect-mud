@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Pell pours a cup, holds it, and does not drink it yet.",
+    "He looks up at the indicator board, reads it, and looks back down.",
+    "He refolds the paper along its original creases.",
+    "He checks a pocket watch against nothing in particular and puts it away.",
+    "Somebody comes up the stair, sees the empty platform, and goes back down. He does not comment."
+  ],
+  "description": "A neat, elderly man in a coat and a hat, on the warm side of the bench with two flasks beside him and a folded paper he has already read. He was a railwayman somewhere else for a very long time. He comes here every day, he sits in the waiting room, and he is entirely clear-eyed about what he is doing and does it anyway.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the stair,\" he says. \"The nosings are right but the light at the bottom is not, and I have written about it.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They cleaned the timetable case.\" He says it as though it were the main news of the season, which for him it is. \"Last month. Somebody unlocked it, polished the glass, put a fresh backing board in and locked it again.\"\n\n\"You do not do that to a case you have written off. You do that to a case you are going to put something in.\" He drinks. \"I have been watching it since. There is a mark on the new board in the top left corner where something was pinned and taken down, and the mark is a corner of a sheet about so big.\" He indicates a timetable-sized rectangle with two fingers."
+    },
+    "line": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I think somebody meant one.\" He taps the bench. \"You do not lay tactile strip on both edges of a platform for a building nobody intends to run trains at. That costs money and nobody sees it and it is only there for people who cannot see.\"\n\n\"Whoever specified this halt was building a railway station.\" A pause. \"Whether the person who specified it is still in the room where those decisions get made, I could not tell you. That is usually the whole of it, with these.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Why do you come here?",
+          "next": "why"
+        },
+        {
+          "label": "A cup, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Do you think a line will ever come?",
+          "next": "line"
+        },
+        {
+          "label": "You were a railwayman?",
+          "next": "was"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit on the warm side.\" He moves a flask. \"The heater is under this end and there is no reason for anybody to be cold in here.\"",
+      "text_by_relation": {
+        "familiar": "He has poured two before you are through the door and put one on the bench in the place you sit.\n\n\"There was a survey party on the Buried Road this morning,\" he says, without any preamble at all. \"Four of them and a level. I have been waiting all day to tell somebody.\"",
+        "first": "The waiting room is warm and dry and there is an elderly man on the bench with two flasks beside him, and he looks up as though he has been waiting for somebody, which he has not.\n\n\"Come in properly and shut it.\" He shifts along. \"Warm side is this side. Heater is under here and there is no sense in anybody being cold.\"\n\nHe pours a cup without asking and sets it on the bench between you.\n\n\"Pell. Before you ask: no, there is no service. There is no line. The board says what the board says.\" He picks up his own cup. \"Six credits for that if you want it, and nothing if you do not.\"",
+        "known": "\"Warm side.\" The cup is already poured. \"Six, same as ever.\""
+      }
+    },
+    "was": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Forty-one years, somewhere that is not here, on a system that does not exist any more.\" He does not name it and you get the strong sense he would if you came back enough times. \"Signals, then stations, then a desk I did not like.\"\n\n\"I have stood on a platform in the dark with nothing coming for longer than you have been alive.\" He almost smiles. \"This is not sad. A platform with nothing coming is simply a platform between trains, and the gap has never once been the interesting part of the job.\""
+    },
+    "why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because it is a good waiting room and I have spent my life in them.\" He says it without a scrap of self-pity. \"It is warm, it is dry, the light comes on when you come in, and somebody who had waited for a train in the rain specified that light.\"\n\n\"People come up the stair and look at the empty platform and feel foolish, and then they see me sitting here and they feel better, and some of them sit down.\" He turns the cup. \"I am not pretending there is a train. I am occupying a room that would otherwise be empty, which is not the same thing, whatever my daughter says.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a good dark overcoat, brushed",
+      "a soft hat set square",
+      "a jacket and a knitted tie under it",
+      "trousers with a crease, and polished shoes"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_standing_waiting",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_hf_standing_pell",
+  "name": "Ozias Pell",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_standing_flask",
+      "price": 6
+    },
+    {
+      "item_id": "item_hf_standing_ticket",
+      "price": 15
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Standing Room Only",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_standing_waiting"
+}

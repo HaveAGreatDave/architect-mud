@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long room with the south wall almost entirely glass, giving onto the first balcony and the meadow past it. Cane chairs with blankets folded over the arms, set in twos and threes facing out rather than in. A trolley with a urn on it, a stack of thick white cups, and a jug of the water with a card propped against it giving the analysis in milligrams per litre, which somebody had done properly at some expense.",
+  "exits": {
+    "down": "zone_util_zone_wind_day",
+    "east": "zone_district_898_913",
+    "south": "zone_wind_balcony"
+  },
+  "flags": {
+    "building_name": "Second Wind",
+    "building_type": "hydro",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Almost the whole wall, onto the balcony and the open meadow beyond it. The light comes in all afternoon and is most of the treatment.",
+      "light": 0.85,
+      "name": "the south glass",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_898_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_wind_day",
+  "map_id": "map_int_wind",
+  "name": "Second Wind — The Day Room",
+  "parent_zone": "zone_district_898_913"
+}

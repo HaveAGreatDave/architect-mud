@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A scrubbed table under a lamp on a swing arm, with a tray of instruments laid out in order beside it. The shelf above holds jars, all labelled, none of them dusty. There is a bucket under the table and you decide not to look in it.",
+  "exits": {
+    "west": "zone_bld_924_917_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_924_917"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_924_917_table",
+  "map_id": "map_int_bld_924_917",
+  "name": "Behind the Curtain",
+  "parent_zone": "zone_district_924_917"
+}

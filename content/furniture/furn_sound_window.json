@@ -1,0 +1,17 @@
+{
+  "description": "Brass and glass, with a half-moon cut in it to speak through and a dish underneath worn bright in the one spot where hands land.",
+  "flags": {
+    "aliases": [
+      "box office",
+      "window",
+      "booth"
+    ],
+    "interactions": {
+      "examine": "The card taped inside the glass reads ONE PRICE, ALL SEATS, and the price has been amended twice in biro."
+    }
+  },
+  "id": "furn_sound_window",
+  "name": "the box-office window",
+  "object_type": "fixture",
+  "zone_id": "zone_sound_foyer"
+}

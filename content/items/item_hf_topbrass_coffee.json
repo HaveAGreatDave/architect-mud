@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_topbrass_coffee",
+  "name": "a cup of the collar coffee",
+  "tags": {
+    "description": "Made at the residents' counter fifteen floors up, in a mug that belongs to the building. It is not good and the view is, and everybody makes the same trade.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 14,
+  "weight": 190
+}

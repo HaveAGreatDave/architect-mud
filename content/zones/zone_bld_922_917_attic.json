@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Where the outside stair comes in under the roof. The ridge has given here and the ceiling follows it down in a long sag you can see from the street. Somebody has propped it with a length of scaffold tube and painted the tube.",
+  "exits": {
+    "east": "zone_bld_922_917_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_922_917"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_922_917_attic",
+  "map_id": "map_int_bld_922_917",
+  "name": "The Top Landing",
+  "parent_zone": "zone_district_922_917"
+}

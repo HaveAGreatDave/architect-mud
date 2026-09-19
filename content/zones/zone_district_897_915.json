@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#18232e",
+  "color": "#dff0ff",
+  "description": "Fourteen storeys of the same cylinder as the rest, finished in the palest chrome in the quarter, standing directly across the Buried Road from the Institute. The whole building is let to the Institute as residences for its fellows, which means it has fourteen floors, forty-one apartments and a research library on the top, and every single person in it has an opinion about the name.",
   "exits": {
-    "east": "zone_district_898_915",
-    "north": "zone_district_897_914",
-    "south": "zone_district_897_916",
-    "west": "zone_district_896_915"
+    "north": "zone_hf_ivory_lobby",
+    "south": "zone_district_897_916"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Ivory Tower",
+    "building_type": "chrome_tower",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 14,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_897_916"
   },
   "grid_x": 897,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_897_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "IV",
+  "name": "Ivory Tower",
   "parent_zone": null
 }

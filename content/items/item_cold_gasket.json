@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_cold_gasket",
+  "name": "a spare plate gasket",
+  "tags": {
+    "description": "A rubber ring the size of a dinner plate, in a paper sleeve with the exchanger type on it. She has a great many and is candid that she will never use most of them.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 14,
+  "weight": 60
+}

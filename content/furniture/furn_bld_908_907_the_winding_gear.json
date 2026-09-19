@@ -1,0 +1,8 @@
+{
+  "description": "A drum, a pawl and a crank, geared to the shaft that goes up through the roof to the ball. It is oiled.",
+  "flags": {},
+  "id": "furn_bld_908_907_the_winding_gear",
+  "name": "the winding gear",
+  "object_type": "fixture",
+  "zone_id": "zone_bld_908_907_loft"
+}

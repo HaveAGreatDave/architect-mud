@@ -1,0 +1,17 @@
+{
+  "description": "A short chrome run by the door with a visitor book, a tray of settlement pens and a bell that has been taped down.",
+  "flags": {
+    "aliases": [
+      "counter",
+      "enquiry",
+      "desk"
+    ],
+    "hack_difficulty": 6,
+    "vendor_npc_id": "npc_hf_sweep_delacroix",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_sweep_counter",
+  "name": "the enquiry counter",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_sweep_model"
+}

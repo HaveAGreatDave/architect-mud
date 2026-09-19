@@ -1,0 +1,17 @@
+{
+  "description": "Two storeys of terminations with the jumpers running between them in bunches, tied off every six inches. The tying is the work of people who cared and the routing is unreadable.",
+  "flags": {
+    "aliases": [
+      "jumpers",
+      "frame",
+      "wires"
+    ],
+    "interactions": {
+      "examine": "One bunch is newer than all the others. Not new. Newer. It runs up out of the field and away north through a hole in the wall that was cut rather than cast."
+    }
+  },
+  "id": "furn_wires_jumpers",
+  "name": "the jumper field",
+  "object_type": "fixture",
+  "zone_id": "zone_wires_frame"
+}

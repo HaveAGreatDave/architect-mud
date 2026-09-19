@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "Home sweet subsidised home: prefab housing the colour of wet cardboard, balconies caged against jumpers and pigeons with equal indifference. A billboard over the roofline promises a better unit uptown. Nobody here has ever seen uptown.",
+  "description": "Two walls of hard light meet at a right angle here, floor to sky, and the camp runs right up to both of them. It is the only corner of Coldwater the wind has never once got into, and the pitches here are handed down rather than taken.",
   "exits": {
     "east": "zone_district_927_918",
-    "north": "zone_district_926_917",
     "south": "zone_district_926_919",
     "west": "zone_district_925_918"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_consumer_trash",
-    "street_life": true,
-    "terrain": "grass"
+    "terrain": "ash"
   },
   "grid_x": 926,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_926_918",
   "map_id": "map_world",
-  "name": "Residential Area",
+  "name": "The Pitch",
   "parent_zone": null
 }

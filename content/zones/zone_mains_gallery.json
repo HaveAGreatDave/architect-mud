@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The walkway round the engine hall at beam level, close enough to the top of the stroke that you feel the air move each time. From here you can see down onto the tile floor and out through the upper lights at the meadow. There is a bentwood chair on the gallery by the north window that nobody has ever moved, and a mug on the rail beside it with a ring in it.",
+  "exits": {
+    "down": "zone_mains_engine"
+  },
+  "flags": {
+    "building_name": "Mains Attraction",
+    "building_type": "pumping_station",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_mains_gallery",
+  "map_id": "map_int_mains",
+  "name": "Mains Attraction — The Gallery",
+  "parent_zone": "zone_district_900_913"
+}

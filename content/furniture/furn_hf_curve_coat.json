@@ -1,0 +1,16 @@
+{
+  "description": "A good dark coat over the back of the fourth desk, positioned to suggest somebody has stepped out. It has a thin line of dust along the shoulders.",
+  "flags": {
+    "aliases": [
+      "coat",
+      "chair"
+    ],
+    "interactions": {
+      "examine": "The dust on the shoulders is even, which means it has not been moved. The pockets have been emptied and turned out and put back."
+    }
+  },
+  "id": "furn_hf_curve_coat",
+  "name": "the coat on the chair",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_curve_suite"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_curve_particulars",
+  "name": "a floor particulars folder",
+  "tags": {
+    "description": "Card covers, a plan of one floor, and a paragraph describing the view from a building that faces a meadow. The paragraph is not wrong and is dated in a way the plan is not.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 18,
+  "weight": 40
+}

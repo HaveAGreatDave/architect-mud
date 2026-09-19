@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_root_kit",
+  "name": "a water sampling kit",
+  "tags": {
+    "description": "Four sterile jars, a grease pencil, a card of instructions and a reply label addressed to this building. The instructions are clear, polite and do not say what is being tested for.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 65,
+  "weight": 120
+}

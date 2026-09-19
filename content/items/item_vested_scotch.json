@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vested_scotch",
+  "name": "a glass of the club scotch",
+  "tags": {
+    "description": "A heavy tumbler, a large measure, no ice offered. The bottle it came from has no label on it and lives under the desk rather than behind a bar, because there is no bar.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 30,
+  "weight": 110
+}

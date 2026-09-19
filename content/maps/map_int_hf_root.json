@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_root_lab",
+  "id": "map_int_hf_root",
+  "name": "Root Cause",
+  "parent_zone_id": "zone_district_901_914"
+}

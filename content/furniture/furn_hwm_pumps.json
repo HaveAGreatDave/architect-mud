@@ -1,0 +1,17 @@
+{
+  "description": "Two on a shared bedplate, one running and one not, with a changeover lever between them and a tally chalked on the wall of which has done how many hours.",
+  "flags": {
+    "aliases": [
+      "pumps",
+      "bedplate",
+      "lever"
+    ],
+    "interactions": {
+      "examine": "The tally is almost exactly even over years, which does not happen by itself. Somebody changes them over on a schedule and has never once let it drift."
+    }
+  },
+  "id": "furn_hwm_pumps",
+  "name": "the duty pumps",
+  "object_type": "fixture",
+  "zone_id": "zone_hwm_pump"
+}

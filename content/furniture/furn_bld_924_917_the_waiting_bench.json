@@ -1,0 +1,12 @@
+{
+  "description": "A hard bench worn to a shine in three separate places.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_bld_924_917_the_waiting_bench",
+  "name": "the waiting bench",
+  "object_type": "furniture",
+  "zone_id": "zone_bld_924_917_lobby"
+}

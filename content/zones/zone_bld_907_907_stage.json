@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A timber stage out over the water on piles, with the gantry bracket bolted through the gable above it and a block and tackle hanging off that. The rope is newer than anything else in the building. Below the boards the Basin moves about, slowly, and you can hear it doing it.",
+  "exits": {
+    "west": "zone_bld_907_907_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_907_907"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_907_907_stage",
+  "map_id": "map_int_bld_907_907",
+  "name": "The Loading Stage",
+  "parent_zone": "zone_district_907_907"
+}

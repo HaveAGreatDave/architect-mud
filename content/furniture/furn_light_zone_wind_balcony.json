@@ -1,0 +1,11 @@
+{
+  "description": "A run of shaded lamps under the soffit, kept low, because the point of the balcony is the outside and a bright lamp puts your own reflection on it.",
+  "flags": {},
+  "id": "furn_light_zone_wind_balcony",
+  "light_type": "lamp",
+  "lumen_output": 500,
+  "name": "the balcony lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_wind_balcony"
+}

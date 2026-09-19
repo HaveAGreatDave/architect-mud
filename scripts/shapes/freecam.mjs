@@ -143,6 +143,84 @@ ck(!fc.active && fc.view() === null, 'it closes');
 console.log(`  ${cbad ? '✗' : '✓'} freecam controller — ${cbad} problem(s)`);
 if (cbad) process.exit(1);
 
+// ── THE SPEED LADDER ────────────────────────────────────────────────────────
+// [ and ] multiply everything `step` MOVES, and the two things worth asserting are that they are on
+// the same footing as every other key here — a stowed camera eats neither — and that the ladder is
+// exactly its own inverse, which is the one property a geometric step can lose to floating point
+// without anybody noticing until a camera will not come back to the speed it started at.
+{
+  const sp = createFreeCam();
+  ck(sp.onKey(']', true) === false && sp.onKey('[', true) === false, 'a stowed camera does not eat the speed keys');
+  sp.open({ yaw: 90, z: 0.5 });
+  ck(sp.speed === 1, 'it opens on the middle rung');
+  // ⚠ MEASURED AS DISTANCE, NOT AS THE FIELD. The field is the knob; what the player asked for is a
+  // camera that moves further per second, and the two are only the same thing if `step` spends it.
+  const run = (cam) => { const a = { ...cam.view() }; cam.onKey('w', true); for (let i = 0; i < 10; i++) cam.step(0.1); cam.onKey('w', false); return Math.hypot(cam.view().x - a.x, cam.view().y - a.y); };
+  const d1 = run(sp);
+  sp.onKey(']', true);
+  ck(sp.speed > 1, ']' + ' moves up a rung');
+  const d2 = run(sp);
+  ck(d2 > d1 * 1.4, '…and the camera actually travels further for it');
+  sp.onKey('[', true);
+  ck(sp.speed === 1, '…and [ is exactly its inverse');
+  // ⚠ REPEATS ARE A RAMP, not a press to be swallowed. POINTER_KEY guards against them because a
+  // held M would hand the mouse back and take it again; a held ] is somebody asking to go faster.
+  sp.onKey(']', true); sp.onKey(']', true); sp.onKey(']', true);
+  ck(sp.speed > 3, 'holding ] ramps rather than latching');
+  // ⚠ ASKED AS "DOES IT STOP", NOT AS "IS IT 5.0625". The harness knowing the ceiling would be a
+  // second copy of the ladder, and the question the player has is whether it runs away — which this
+  // asks without either file having to agree with the other about a number.
+  for (let i = 0; i < 20; i++) sp.onKey(']', true);
+  const top = sp.speed;
+  sp.onKey(']', true);
+  ck(sp.speed === top && top > 1, 'the ladder has a stop at the top');
+  // ⚠ AND THE STOP IS ON A RUNG. A ceiling that is not a power of the step leaves the ladder off its
+  // own rungs for ever after, which is the ⚠ the lens ladder carries for the same reason.
+  sp.onKey('[', true);
+  ck(Math.abs(sp.speed * 1.5 - top) < 1e-12, '…and stepping down from it lands back on a rung');
+  for (let i = 0; i < 30; i++) sp.onKey('[', true);
+  const bot = sp.speed;
+  sp.onKey('[', true);
+  ck(sp.speed === bot && bot < 1, '…and there is a stop at the bottom too');
+  // ⚠ AND THE TWO STOPS ARE THE SAME DISTANCE OUT, which is what makes the middle rung a middle
+  // rather than a place the ladder happens to start: an asymmetric pair reads as the crawl being
+  // unreachable, and nothing else in the file would say so.
+  ck(Math.abs(bot * top - 1) < 1e-12, '…and the two stops are symmetric about it');
+  // Re-opening puts it back, which is what lets the ladder go without a readout — see the ⚠ on
+  // SPEED_STEP. A camera inheriting last session's 5x would read as arriving with a stuck throttle.
+  sp.close(); sp.open({ yaw: 90, z: 0.5 });
+  ck(sp.speed === 1, 'and re-opening comes back to the middle rung');
+}
+
+// ── THE RIM, AT THE CAMERA'S OWN END ────────────────────────────────────────
+// ⚠ ASKED WITHOUT A BINDER, AND THAT IS THE WHOLE POINT OF THE BLOCK. `bindFreeCamPointer` also
+// clears the push on every edge, so with a surface attached the belt hides whether this end has
+// braces: deleting the camera's own clear changes nothing any surface test can see. Found by
+// mutation — the assertion that was meant to cover it sat in the surface block and could not fail.
+{
+  const rp = createFreeCam();
+  ck(rp.setLookPush(1, 0) === false, 'a stowed camera refuses a rim push');
+  rp.open({ yaw: 0, z: 0.5 });
+  rp.setLookPush(1, 0);
+  rp.step(0.1);
+  ck(rp.view().yaw > 0, 'a rim push turns the camera through step');
+  // ⚠ SATURATED HERE TOO, not only at the binder's end. The binder hands over a fraction it has
+  // already bounded, and a second caller — a panel, a future gesture — would not know to.
+  rp.setLookPush(50, -50);
+  ck(rp.lookPush.x === 1 && rp.lookPush.y === -1, '…and a push harder than the rim is still one rim');
+  // ⚠ EVERY WAY THE GESTURE CAN END HAS TO STOP IT. Each of these is a camera turning on its own
+  // with nothing on screen doing it — the mouse's version of the stuck key above, and the reason
+  // the push is a state rather than an event in the first place.
+  rp.setLookPush(1, 0); rp.setMouseHeld(false);
+  ck(rp.lookPush.x === 0, 'handing the mouse back stops it');
+  rp.setMouseHeld(true); rp.setLookPush(1, 0); rp.releaseAll();
+  ck(rp.lookPush.x === 0, 'a blur stops it');
+  rp.setLookPush(1, 0); rp.close();
+  ck(rp.lookPush.x === 0, 'stowing the camera stops it');
+  rp.open({ yaw: 0, z: 0.5 });
+  ck(rp.lookPush.x === 0, '…and re-opening does not inherit one');
+}
+
 // ── Mouse, roll and dolly ───────────────────────────────────────────────────
 const fm = createFreeCam();
 // Same rule as the keys, and for the same reason: a closed camera must not eat a mouse gesture, or
@@ -769,6 +847,12 @@ if (cbad) process.exit(1);
     d2.exitPointerLock = () => {};
     // The other source: a document that says no before anything is even asked.
     d2.featurePolicy = { allowsFeature: (f) => f !== 'pointer-lock' };
+    // The rim is measured off an element's own rect. ⚠ The GRANTING surface above deliberately keeps
+    // none: under a lock there is no rim to be near, and a fake with no rect is also how this proves
+    // `edgePush` cannot throw on a surface that is not a live element.
+    const RECT = { left: 0, top: 0, right: 800, bottom: 600, width: 800, height: 600 };
+    e2.getBoundingClientRect = () => e2._rect;
+    e2._rect = RECT;
     globalThis.document = d2; globalThis.window = w2;
 
     const f2 = createFreeCam();
@@ -819,7 +903,112 @@ if (cbad) process.exit(1);
     const ro = f2.view().yaw;
     w2.fire('pointermove', ev({ clientX: 900, clientY: 300 }));
     sk(f2.view().yaw === ro, 'reopening forgets where the cursor was');
+
+    // ── ⚠ AND THE RIM, WHICH IS THE ONLY THING THAT MAKES THIS BRANCH USABLE ──
+    // Everything above asks whether a delta aims the camera. This asks how FAR it can aim it, and
+    // the answer before the rim existed was one screen width — 176° on this 800px surface — after
+    // which the cursor was against the edge of the desk and the camera never turned right again.
+    // A second sweep cannot help: it has to bring the cursor back first, which un-turns exactly what
+    // it turned. The rim is what makes the reachable turn unbounded, so that is what is asserted.
+    const spin = (cam, n) => {
+      let prev = cam.view().yaw, total = 0;
+      for (let i = 0; i < n; i++) {
+        cam.step(0.1);
+        let d = cam.view().yaw - prev;
+        if (d > 180) d -= 360; else if (d < -180) d += 360;
+        total += d; prev = cam.view().yaw;
+      }
+      return total;
+    };
+    const park = (x, y) => { w2.fire('pointermove', ev({ clientX: x, clientY: y })); };
+    f2.close(); f2.open({ yaw: 0, z: 0.6, x: 0, y: 2 });
+    sk(f2.mouseHeld === true, 'the rim cases start with the mouse held');
+    // The middle of the glass is not a rim, or the camera drifts whenever the cursor sits still.
+    park(400, 300);
+    sk(f2.lookPush.x === 0 && f2.lookPush.y === 0, 'the middle of the glass pushes nothing');
+    sk(spin(f2, 20) === 0, '…and a still cursor there turns the camera not at all');
+    // ⚠ THE ONE THAT MATTERS. Four seconds against the right-hand edge has to beat anything the
+    // cursor's own travel could ever have delivered — this pane is 800px, so 176° was the ceiling.
+    park(799, 300);
+    sk(f2.lookPush.x > 0.9, 'a cursor in the right-hand rim pushes right');
+    const turned = spin(f2, 40);
+    sk(turned > 400, '…and the turn runs past what a whole screen width could give (' + turned.toFixed(0) + '°)');
+    // ⚠ AND IT SATURATES OUTSIDE THE GLASS RATHER THAN FALLING OFF IT. A cursor the window has
+    // stopped following is a cursor still being pushed, which is precisely the case this is for.
+    park(5000, 300);
+    sk(Math.abs(f2.lookPush.x - 1) < 1e-12, 'a cursor past the edge of the glass pushes hardest');
+    park(1, 300);
+    sk(f2.lookPush.x < -0.9 && spin(f2, 20) < -200, 'the left-hand rim turns the other way');
+    // The vertical half, and that it stops where the arrows stop rather than running to the pole.
+    park(400, 1);
+    sk(f2.lookPush.y < -0.9, 'the top of the glass pushes the aim up');
+    spin(f2, 60);
+    const p1 = f2.view().pitch;
+    spin(f2, 60);
+    sk(p1 > 1.3 && f2.view().pitch === p1, '…and the rim stops at the pitch limit the arrows stop at');
+    // Handing the mouse back stops it. ⚠ THE FAILURE THIS GUARDS IS A CAMERA TURNING ON ITS OWN with
+    // a cursor plainly back on the screen and nothing the player presses making any difference.
+    park(799, 300);
+    f2.onKey('u', true); f2.onKey('u', false);
+    sk(f2.lookPush.x === 0 && spin(f2, 20) === 0, 'freeing the mouse stops the rim turning');
+    f2.onKey('u', true); f2.onKey('u', false);
+    // …and so does the turntable, whose whole contract is that its subject stays centred.
+    park(799, 300);
+    e2.fire('pointerdown', ev({ button: 1 }));
+    park(798, 300);
+    sk(f2.orbiting === true && f2.lookPush.x === 0, 'the orbit takes the rim off, so its subject stays centred');
+    w2.fire('pointerup', ev({ button: 1 }));
+    // ⚠ AND THE MARGIN CANNOT BE A FLAT 96px. On a small view the two rims meet in the middle and
+    // there is nowhere left to aim by hand — the camera turns wherever the cursor is put.
+    e2._rect = { left: 0, top: 0, right: 120, bottom: 90, width: 120, height: 90 };
+    park(60, 45);
+    sk(f2.lookPush.x === 0 && f2.lookPush.y === 0, 'a small view still has a middle to aim in');
+    e2._rect = RECT;
     f2.close(); un2();
+  }
+
+  // ── ⚠ AND A REFUSAL WITH NO GESTURE BEHIND IT IS NOT A POLICY ──────────────
+  // The other half of the 180°, and the reason the complaint was about freelook and nothing else.
+  // The cab and the cockpit come off their mount on the O keypress, which carries the user
+  // activation a pointer lock needs. Freelook opens on a SOCKET MESSAGE — `freelook_open` arrives
+  // and the view is built — so the request made at open time has no gesture behind it and an
+  // ordinary browser refuses it. Taking that refusal as "this document cannot lock the pointer"
+  // leaves every later click on the buttons branch instead of re-asking, and the camera on the
+  // bounded-drag branch for the whole session.
+  {
+    const d3 = target(), w3 = target(), e3 = target();
+    d3.pointerLockElement = null;
+    // No Permissions-Policy answer at all: the optimistic path, which is every ordinary browser.
+    let grant = false;
+    e3.requestPointerLock = () => {
+      if (!grant) { d3.fire('pointerlockerror', ev()); return; }
+      d3.pointerLockElement = e3; d3.fire('pointerlockchange', ev());
+    };
+    d3.exitPointerLock = () => { d3.pointerLockElement = null; d3.fire('pointerlockchange', ev()); };
+    globalThis.document = d3; globalThis.window = w3;
+
+    const f3 = createFreeCam();
+    const un3 = bindFreeCamPointer(e3, f3);
+    f3.open({ yaw: 0, z: 0.6, x: 0, y: 2 });
+    sk(d3.pointerLockElement === null, 'a browser refuses the lock asked for without a gesture');
+    // THE BUG. The click that follows DOES carry one, and it has to be allowed to ask.
+    grant = true;
+    e3.fire('pointerdown', ev({ button: 0 }));
+    sk(d3.pointerLockElement === e3, 'and the first click is still allowed to ask, and gets it');
+    w3.fire('pointerup', ev({ button: 0 }));
+    // ⚠ AND THE OTHER DIRECTION IS A BUILD THAT SHIPPED ONCE: where the lock is genuinely not
+    // coming, a click that only ever re-asks is three dead buttons. A gesture's own refusal is a
+    // real no, so the click after it must be a lift.
+    grant = false;
+    f3.close(); f3.open({ yaw: 0, z: 0.6, x: 0, y: 2 });
+    e3.fire('pointerdown', ev({ button: 0 }));       // asks with a gesture, and is refused
+    sk(d3.pointerLockElement === null, 'a gesture of its own being refused is taken as a no');
+    const z3 = f3.view().z;
+    e3.fire('pointerdown', ev({ button: 0 }));       // …so this one is the lift
+    for (let i = 0; i < 5; i++) f3.step(0.1);
+    sk(f3.view().z > z3, 'and the buttons arm from then on');
+    w3.fire('pointerup', ev({ button: 0 }));
+    f3.close(); un3();
   }
 
   globalThis.document = realDoc; globalThis.window = realWin;

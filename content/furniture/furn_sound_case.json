@@ -1,0 +1,17 @@
+{
+  "description": "A glazed case on a stand holding the season on a single typed sheet. Forty dates. Four have been crossed through and typed again underneath.",
+  "flags": {
+    "aliases": [
+      "case",
+      "season",
+      "board"
+    ],
+    "interactions": {
+      "examine": "The crossings-out are all the same performer, moved and moved and moved again, and then finally listed with a different name beside the date."
+    }
+  },
+  "id": "furn_sound_case",
+  "name": "the season case",
+  "object_type": "decoration",
+  "zone_id": "zone_sound_foyer"
+}

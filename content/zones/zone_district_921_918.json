@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "residential",
+  "description": "Peg Lane comes out here and the camp opens in front of you, a few hundred tents on flat ground with lanes between them barely wide enough to walk. Somebody is always sitting at this end, and they always look up.",
   "exits": {
     "east": "zone_district_922_918",
     "north": "zone_district_921_917",
@@ -10,16 +9,17 @@
     "west": "zone_district_920_918"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 921,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_921_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Pitch",
   "parent_zone": null
 }

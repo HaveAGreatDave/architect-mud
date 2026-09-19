@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_mains_oil",
+  "name": "a can of engine oil",
+  "tags": {
+    "description": "A long-spouted can, filled from the drum by the bench. He sells it to anybody who asks because he would rather machinery in this quarter was oiled than that he made a point about it.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 12,
+  "weight": 400
+}

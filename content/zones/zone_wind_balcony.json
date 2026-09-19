@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A deep balcony the full width of the building, open to the south, with eight steamer chairs along it and a low white rail. From here the quarter reads as what it is: a new road, a hoarding, three buildings, and a great deal of grass going down to a wall of light. It is quiet enough that you can hear the wall.",
+  "exits": {
+    "north": "zone_wind_day"
+  },
+  "flags": {
+    "building_name": "Second Wind",
+    "building_type": "hydro",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_898_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_wind_balcony",
+  "map_id": "map_int_wind",
+  "name": "Second Wind — The Balcony",
+  "parent_zone": "zone_district_898_913"
+}

@@ -175,6 +175,116 @@ export const BUILDING_TEMPLATES = {
     npc: null,
   },
   // Fallback for any building_type without a bespoke template above.
+  // ── Old Coldwater (docs/proposals/old-coldwater.md) ────────────────────────
+  // The five trades in the slums. None of them is a shop with a different sign on
+  // it: a water seller exists because the Curtain cut the mains, a doss house and a
+  // free canteen exist because the city has nowhere for somebody with nothing, and
+  // the bonesetter and the shebeen are the unlicensed halves of two trades the city
+  // already does with paperwork.
+  water_seller: {
+    facadeName: 'Water Seller',
+    lobbyName: 'The Counter', lobbyDesc: "One room with a plank counter across it and the underside of the tank for a ceiling, close enough overhead that tall customers stoop without noticing. It is cool in here and always faintly damp, and the whole room ticks and shifts as the tank settles.",
+    rooms: [{ key: 'tank', name: 'Under the Tank', desc: "The trestle legs come down through the floor here, bedded in concrete that was poured around them long after they went up. Jerrycans stand in ranks by fill date. Everything is labelled in the same careful hand.", dir: 'north' }],
+    furniture: [
+      { room: 'lobby', name: 'the plank counter', desc: 'A scrubbed plank on two barrels, worn pale in a band where forearms rest.', object_type: 'fixture' },
+      { room: 'lobby', name: 'a chained tin cup', desc: 'A dented tin cup on a length of chain, for tasting. Nobody has ever stolen it.', object_type: 'decoration' },
+      { room: 'tank', name: 'a rank of jerrycans', desc: 'Jerrycans in rows, each chalked with a fill date. The dates are in order.', object_type: 'container' },
+      { room: 'tank', name: 'the header valve', desc: 'A brass gate valve on the downpipe, polished by forty years of the same hand.', object_type: 'fixture' },
+    ],
+    npc: { room: 'lobby', name: 'Bartram Quell', personality: 'vendor', description: "A dry, exact old man in a rubber apron, who will tell you what the water costs him before he tells you what it costs you." },
+  },
+  flophouse: {
+    facadeName: 'Doss House',
+    lobbyName: 'The Front Desk', lobbyDesc: "A hallway wide enough for two people if neither is carrying anything, with a desk jammed across the end of it and a pigeonhole rack behind that. The stairs go up outside the building, so the noise of everyone arriving comes through the wall rather than past the desk.",
+    rooms: [
+      { key: 'dorm', name: 'The Long Room', desc: "Bunks down both walls, three high, with the gap between them narrow enough to touch either side. The floor slopes toward the back of the building and everybody's belongings have migrated that way. A stove at the far end stays lit.", dir: 'north' },
+      { key: 'attic', name: 'The Top Landing', desc: "Where the outside stair comes in under the roof. The ridge has given here and the ceiling follows it down in a long sag you can see from the street. Somebody has propped it with a length of scaffold tube and painted the tube.", dir: 'east' },
+    ],
+    furniture: [
+      { room: 'lobby', name: 'the desk', desc: 'A desk wedged across the hall, its edge worn round. A ledger sits on it, open.', object_type: 'fixture' },
+      { room: 'lobby', name: 'a pigeonhole rack', desc: "Numbered pigeonholes, most empty. A few hold post nobody has come back for.", object_type: 'container' },
+      { room: 'dorm', name: 'a triple bunk', desc: 'Three iron bunks stacked to the ceiling, the mattresses thin enough to fold.', object_type: 'furniture', interactions: ['sit'] },
+      { room: 'dorm', name: 'the stove', desc: 'A squat iron stove burning something that is not quite wood. It never goes out.', object_type: 'appliance' },
+      { room: 'attic', name: 'the propped tube', desc: "A scaffold tube holding the ridge up, painted a cheerful green by somebody who meant it.", object_type: 'fixture' },
+    ],
+    npc: { room: 'lobby', name: 'Wilmot Scarrow', personality: 'vendor', description: "A heavy, unhurried man who knows the name of everyone who has ever slept here and the debts of most of them." },
+  },
+  soup_kitchen: {
+    facadeName: 'Free Canteen',
+    lobbyName: 'The Hall', lobbyDesc: "A long low room with trestles down the middle and benches either side, and enough of them that the far end is in shadow. The serving hatch is at the near end so the queue never has to come inside. It is warm, and it smells of onions and steam and wet wool.",
+    rooms: [{ key: 'kitchen', name: 'The Kitchen', desc: "A range along one wall with four pots on it, none smaller than a bucket. Everything in here is scrubbed to the grain. A list on the wall says what is being served for the next eleven days, in pencil, with corrections.", dir: 'north' }],
+    furniture: [
+      { room: 'lobby', name: 'a trestle table', desc: 'A long trestle scrubbed pale, with benches pulled up tight either side.', object_type: 'furniture', interactions: ['sit'] },
+      { room: 'lobby', name: 'the serving hatch', desc: 'A hatch onto the kitchen with a worn steel sill and a stack of tin bowls.', object_type: 'fixture' },
+      { room: 'kitchen', name: 'the range', desc: 'A black iron range with four pots going, the smallest of them bucket-sized.', object_type: 'appliance' },
+      { room: 'kitchen', name: 'the menu board', desc: "Eleven days of meals in pencil, corrected and re-corrected. Nothing on it repeats.", object_type: 'decoration' },
+    ],
+    npc: { room: 'kitchen', name: 'Hestia Dunmore', personality: 'vendor', description: "A small, brisk woman with her sleeves pinned back, who has fed this street for nineteen years and will not discuss it." },
+  },
+  bonesetter: {
+    facadeName: 'Bonesetter',
+    lobbyName: 'The Front Room', lobbyDesc: "One room off the lane, with a bench along the wall for whoever is waiting and a curtain across the back half. The window is the brightest thing on Ropewalk after dark, because the work needs the light and the light is the only advertising there is.",
+    rooms: [{ key: 'table', name: 'Behind the Curtain', desc: "A scrubbed table under a lamp on a swing arm, with a tray of instruments laid out in order beside it. The shelf above holds jars, all labelled, none of them dusty. There is a bucket under the table and you decide not to look in it.", dir: 'north' }],
+    furniture: [
+      { room: 'lobby', name: 'the waiting bench', desc: 'A hard bench worn to a shine in three separate places.', object_type: 'furniture', interactions: ['sit'] },
+      { room: 'table', name: 'the table', desc: 'A scrubbed wooden table with a gutter cut round the edge of it, draining one way.', object_type: 'fixture' },
+      { room: 'table', name: 'a tray of instruments', desc: 'Steel laid out in order of size, every piece of it clean and none of it new.', object_type: 'container' },
+      { room: 'table', name: 'the jar shelf', desc: "Labelled jars in a row. The labels are handwritten and the hand is very steady.", object_type: 'container' },
+    ],
+    npc: { room: 'table', name: 'Merrit Lachance', personality: 'doctor', description: "Rolled sleeves, short nails, and the flat incurious calm of somebody who has already seen worse than you today." },
+  },
+  shebeen: {
+    facadeName: 'Shebeen',
+    lobbyName: 'The Counter', lobbyDesc: "Half a room, because the front wall stops at waist height and the rest is a tarpaulin on a frame. You drink standing in the lane with your elbows inside. When the weather comes in from the south everybody shuffles two feet left and carries on.",
+    rooms: [{ key: 'still', name: 'The Still Room', desc: "The back half, behind a door that is a door in the sense that it fills the gap. The still stands in the corner with a fire under it and a condenser coil going up the wall and out through the roof. The whole room smells sweet and sharp and slightly wrong.", dir: 'north' }],
+    furniture: [
+      { room: 'lobby', name: 'the plank counter', desc: 'A plank on trestles, sticky in a way that has stopped being a stage and become a finish.', object_type: 'fixture' },
+      { room: 'lobby', name: 'a row of stools', desc: 'Four stools of four different heights, all of them wrong.', object_type: 'furniture', interactions: ['sit'] },
+      { room: 'still', name: 'the still', desc: 'A copper pot still with a coil going up the wall, patched in three places with solder.', object_type: 'appliance' },
+      { room: 'still', name: 'a crate of jars', desc: 'Screw-top jars, washed and stacked, waiting. No two of them match.', object_type: 'container' },
+    ],
+    npc: { room: 'lobby', name: 'Thomasina Tillery', personality: 'bartender', description: "Lean, quick-eyed, and permanently amused. She pours with one hand and keeps the other where you cannot see it." },
+  },
+
+  // ── The Basin quay, at 907,907 and 908,907 ──────────────────────────────────
+  // Two buildings on what used to be the doubled stretch of Greenside Row, where the
+  // street ran parallel to Meltwater Row one tile away and the pair rendered as a
+  // single slab of tarmac with a signal mast on every tile of it. Both front south
+  // onto Meltwater Row with the Coldwater Basin at their backs.
+  ice_house: {
+    facadeName: 'Ice House',
+    lobbyName: 'The Cutting Floor', lobbyDesc: "The cold comes off the far wall like a draught from an open door, and the door reveal tells you why: three feet of brick, then cork, then boards, and the whole thickness of it sitting between you and the store. A saw bench runs down the middle under a beam scale. The floor is sawdust over stone and it has never once been dry.",
+    rooms: [
+      { key: 'store', name: 'The Store', desc: "Blocks stacked to the roof in a room with no window and one door, each course buried in sawdust so the next one down never sees air. Your breath goes in front of you here. A chalked board by the door lists what is spoken for, and most of the board is old chalk somebody has stopped rubbing out.", dir: 'north' },
+      { key: 'stage', name: 'The Loading Stage', desc: "A timber stage out over the water on piles, with the gantry bracket bolted through the gable above it and a block and tackle hanging off that. The rope is newer than anything else in the building. Below the boards the Basin moves about, slowly, and you can hear it doing it.", dir: 'east' },
+    ],
+    furniture: [
+      { room: 'lobby', name: 'the beam scale', desc: 'A long brass beam on a cast stand, with a pan at one end and a sliding weight at the other. It is read from the side.', object_type: 'fixture' },
+      { room: 'lobby', name: 'the saw bench', desc: 'A bench with a channel cut down it and a two-handed ice saw laid in the channel, teeth up.', object_type: 'fixture' },
+      { room: 'store', name: 'the block stack', desc: 'Ice to the roof, course on course, every layer under a hand of sawdust. The stack is square to the wall.', object_type: 'container' },
+      { room: 'store', name: 'the chalk board', desc: 'Names and weights in chalk, in three hands. The oldest entries have gone to ghosts and stayed up anyway.', object_type: 'decoration' },
+      { room: 'stage', name: 'the gantry', desc: 'An iron bracket out over the water with a block and tackle on it. The rope runs freely, which on this quay is unusual.', object_type: 'fixture' },
+    ],
+    npc: { room: 'lobby', name: 'Cormac Halliwell', personality: 'vendor', description: "A slow, heavy man in a wet apron who weighs everything twice and charges for the second weighing." },
+  },
+  harbour_office: {
+    facadeName: 'Harbour Office',
+    lobbyName: 'The Berth Office', lobbyDesc: "A counter, a barometer screwed to the wall beside it, and behind both a board of numbered berths with a brass peg hanging under every number. All the pegs are on the board. A stair goes up in the corner toward the lantern, and the rope that comes down the middle of it is the one that winds the ball.",
+    rooms: [
+      { key: 'tide', name: 'The Tide Room', desc: "A brass float on a wire in a glass stilling well, going up and down with the Basin about a finger's width an hour, and a pen on an arm off the wire writing that onto a paper drum. The shelf behind holds the drums going back further than anybody has asked about. They are in order.", dir: 'north' },
+      { key: 'loft', name: 'The Signal Loft', desc: "Flag lockers along one wall, each pigeonhole labelled with what it means, and the winding gear for the ball taking up the rest of the room. The shaft goes up through the roof. At five to one somebody comes up here, and at one o'clock the ball drops, and nothing on the water is watching for it.", dir: 'east' },
+    ],
+    furniture: [
+      { room: 'lobby', name: 'the berth board', desc: 'Numbered berths painted on a board, a brass peg on a hook under each. Every peg is hanging up.', object_type: 'fixture' },
+      { room: 'lobby', name: 'the barometer', desc: 'A wheel barometer in a mahogany case, with a second hand you set yourself to mark where the pressure was an hour ago.', object_type: 'fixture' },
+      { room: 'tide', name: 'the tide drum', desc: 'A paper drum turning under a pen, drawing the Basin going up and down. The line is very slightly ragged and always has been.', object_type: 'fixture' },
+      { room: 'tide', name: 'the drum shelf', desc: 'Rolls of tide paper on a shelf, dated, in order, none of them dusty.', object_type: 'container' },
+      { room: 'loft', name: 'the flag lockers', desc: 'Pigeonholes of folded signal flags, each labelled with what it says. Several of them say things nobody has needed to say in years.', object_type: 'container' },
+      { room: 'loft', name: 'the winding gear', desc: 'A drum, a pawl and a crank, geared to the shaft that goes up through the roof to the ball. It is oiled.', object_type: 'fixture' },
+    ],
+    npc: { room: 'lobby', name: 'Honor Brine', personality: 'official', description: "The harbourmaster, in a coat she has had longer than the job, who keeps a log of a harbour nothing has entered since before she took it on." },
+  },
+
   GENERIC: {
     lobbyName: 'Front Room', lobbyDesc: 'A plain interior — bare walls, a scuffed floor, the echo of a space waiting to be made into something.',
     rooms: [{ key: 'back', name: 'Back Room', desc: 'A smaller room behind the front, empty but for dust and possibility.', dir: 'north' }],

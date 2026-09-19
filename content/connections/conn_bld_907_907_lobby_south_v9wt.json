@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_907_907_lobby",
+  "b": "zone_district_907_907",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_bld_907_907_lobby_south_v9wt",
+  "lockable": true,
+  "one_way": false
+}

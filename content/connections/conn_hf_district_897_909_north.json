@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_897_909",
+  "b": "zone_hf_curve_atrium",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_897_909_north",
+  "lockable": true,
+  "one_way": false
+}

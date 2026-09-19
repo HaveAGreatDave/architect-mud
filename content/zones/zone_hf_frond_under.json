@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Hot, wet air and a great deal more green than the drawing intended. The ferns have gone up the inside of the glass on the north side and somebody has run wires for them. The gravel path is barely a path any more. Through the leaves on the south side you can see the cooling plant's deck standing on its legs, and the two things look like they belong on different planets.",
+  "exits": {
+    "down": "zone_util_zone_hf_frond_under",
+    "north": "zone_district_906_917"
+  },
+  "flags": {
+    "building_name": "Frond Memories",
+    "building_type": "pavilion",
+    "floor": "dirt",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_906_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_frond_under",
+  "map_id": "map_int_hf_frond",
+  "name": "Frond Memories — Under the Second Dome",
+  "parent_zone": "zone_district_906_917"
+}

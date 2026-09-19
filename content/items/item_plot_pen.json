@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_plot_pen",
+  "name": "a Halcyon Fields pen",
+  "tags": {
+    "description": "A good heavy pen with the development name down the barrel in gold. He gives these away to anybody who sits down, and he had them made before a single plot sold.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 6,
+  "weight": 10
+}

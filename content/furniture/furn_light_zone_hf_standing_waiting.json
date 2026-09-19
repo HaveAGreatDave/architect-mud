@@ -1,0 +1,11 @@
+{
+  "description": "A single panel in the ceiling, on a sensor, which comes up when somebody steps in and stays up for eleven minutes. It is the most welcoming object in the quarter and it was specified by somebody who has waited for a train in the rain.",
+  "flags": {},
+  "id": "furn_light_zone_hf_standing_waiting",
+  "light_type": "fixture",
+  "lumen_output": 800,
+  "name": "the waiting room lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_standing_waiting"
+}

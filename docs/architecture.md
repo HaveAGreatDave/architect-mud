@@ -249,7 +249,7 @@ next to something hostile.
 
 ## Database Schema (Core Tables)
 
-This is an illustrative core subset — the full schema (113 tables) is `SCHEMA_SQL` in
+This is an illustrative core subset — the full schema (149 tables, counted 2026-09-19) is `SCHEMA_SQL` in
 `server/models/schema.js`, and the content/runtime/player classification of every table lives in
 `server/models/content-registry.js`.
 

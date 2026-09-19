@@ -1,0 +1,17 @@
+{
+  "description": "Four of them in cracked oxblood leather, set at angles that let a man look at the fire rather than at anybody else.",
+  "flags": {
+    "aliases": [
+      "chair",
+      "chairs",
+      "armchair"
+    ],
+    "interactions": {
+      "sit": "You sit. The leather is cold at first and then very much not, and the chair is better than anything you own."
+    }
+  },
+  "id": "furn_vested_chairs",
+  "name": "the armchairs",
+  "object_type": "furniture",
+  "zone_id": "zone_vested_smoking"
+}

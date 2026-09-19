@@ -244,6 +244,55 @@ the three screens never disagree about where the door is). **Also rendered in th
 `drawCurtainWall` (the 3-D energy wall) and `drawSouthGate` — so the barrier reads from the air too,
 not just the minimap.
 
+**1b. The wall is GENERATED, and you can see the machines that do it** (2026-09-19). The gate used to
+be a castle: two ashlar pylons, a stone lintel on three squat blocks, and a panel of hard light
+hanging in the arch with nothing anywhere to say where the light came from. `drawSouthGate` is an
+emitter station now — a poured blast plinth, a plated shaft, an accelerator stack of narrowing drums,
+and an **emitter yoke** at the top that is long along the wall and shallow across it, because the
+direction a thing points is the whole of what it says it does. Three rules worth knowing before you
+touch any of it:
+
+- **The field roots are not decoration, they close a real hole.** `deriveSurfaceCell` hands the gate
+  tile the run of its Curtain neighbours precisely so their walls reach the SHARED EDGE at ±0.5
+  instead of stopping a tile short. The pylons stand at ±0.34, and nothing had ever been drawn in the
+  0.16 tiles between — so the Curtain arrived at the gate and stopped, twice, with a slot of open sky
+  either side of the station. The root spans exactly that gap at the wall's own height.
+- **Every field on the station is the wall's own colours, from `CURTAIN_STOP`.** The aperture and the
+  two roots stand within a metre of the real thing, which makes this the one place in the world where
+  a second set of gradient stops would be visible as two different blues meeting at a join. ⚠
+  `gl/curtain.js` holds a third copy in GLSL and has to — a shader cannot import it — so a change to
+  those four numbers is a change in both files.
+- **The emitter mouths are painted additively over their own box** (`litQuad`). A palette can say a
+  panel is pale cyan and cannot say it is a SOURCE: `ty_gate_lit` is a wall like any other and is
+  night-dimmed like any other, so without this the mouths go the colour of the concrete around them
+  at exactly the hour the station should be at its most legible.
+
+**1c. A free end is an emitter too** (`drawCurtainAnchor`). The Curtain has exactly two open ends —
+the north end of the west wall at the shore (891,902) and the north end of the east one — and both
+simply STOPPED: the arm reaches the tile centre and the field is cut off square in mid-air with a hot
+crown line across the top of nothing. From the ground that reads as a wall somebody ran out of; from
+the air it reads as the hole in the perimeter it is not, which is how it was reported. A free end now
+carries the station's own hardware at a third of the size, with a single yoke facing inboard down the
+arm. ⚠ **It is derived and authored nowhere** — `curtainRun` already answers which directions carry
+the wall on, so "this is an end" is `cur.length === 1`, and it follows the wall on its own if anybody
+extends one. ⚠ **And it is built out of strokes, flat world quads and sprites only, with no
+`draw3DBoxAt` in it**: a Curtain tile carries no `bt`, so `modelFor` answers nothing and it never
+reaches the GL mass — a box here would paint on the canvas after the city is composited and stand in
+front of whatever is really in front of it, which is the bug the depot shed, the signal mast and the
+Echelon's fittings each shipped with. `node scripts/shapes/curtainend.mjs` gates both halves (in
+`shapes:smoke` AND in the `pretest:regress` chain — two lists). ⚠ Its own trap is worth reading: a
+decal's recovered world corners have been slid toward the eye by `DECO_PULL`, which is a depth-only
+tie-breaker and not a position, so read as one it folds a camera-dependent 0.05 tiles into every
+answer — the same anchor measured 0.045 tiles of reach facing north and 0.145 facing south until the
+harness asked for `noPull`.
+
+**1d. The east wall runs to the waterline.** `content/zones/zone_district_927_908.json` (the shoreline
+tile of the Coldwater Basin) carries `flags.curtain`, which makes 927,909 a full N–S span instead of a
+half-tile stub and puts the end anchor in the shallows. The perimeter was already sealed there — the
+land boundary is water from 927,908 east — so this is the picture catching up with the fact, and it is
+what closes the visible notch at the eastern end. The west end (891,902) is the same shape and keeps
+its anchor on dry land; extending it into the Basin is a separate decision nobody has made.
+
 **2. Gates are a soft social gate; turrets are the hard lethal one — asymmetric by direction.**
 *Leaving* is easy: a clean citizen passes the gate freely (guards give flavor/warning only — *"Nothing
 out there but the feral and the dead. Your funeral."*); outbound movement never draws turret fire. The

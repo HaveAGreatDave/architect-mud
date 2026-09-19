@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "A hull moves against the fenders somewhere above you and the whole column of water shifts.",
+    "Rust comes off the quay wall in flakes the size of playing cards and goes down slowly.",
+    "Chain runs out overhead, a long way overhead, and stops.",
+    "Something the size of a door goes past underneath, unhurried."
+  ],
   "ambient_theme": "coast",
   "color": "#7fd3ff",
-  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot: the channel beyond is deep, and impassable without a boat.",
+  "description": "Deep water in the shadow of the gantries. The quay wall stands WEST, its fenders hanging down the face on chains thick enough to moor a house, and the booms come out over your head far enough that you are standing under one of them. There is a ship alongside often enough that the water here never really settles.",
   "exits": {
     "east": "zone_district_912_902",
     "north": "zone_district_911_901",
@@ -10,6 +15,10 @@
     "west": "zone_district_910_902"
   },
   "flags": {
+    "berth": {
+      "fair": "north",
+      "quay": "west"
+    },
     "district": "water",
     "region_id": "region_coldwater",
     "terrain": "water"
@@ -19,6 +28,6 @@
   "grid_z": 0,
   "id": "zone_district_911_902",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Basin Quay Berth",
   "parent_zone": null
 }

@@ -1,0 +1,16 @@
+{
+  "description": "A thick black mat on the floor in front of the panel, edges curling, with two pale patches in it exactly where a person's feet go.",
+  "flags": {
+    "aliases": [
+      "mat",
+      "rubber"
+    ],
+    "interactions": {
+      "examine": "The pale patches are worn right through to the backing. Whoever has stood here has stood here in the same place a very great many times."
+    }
+  },
+  "id": "furn_current_mat",
+  "name": "the rubber mat",
+  "object_type": "decoration",
+  "zone_id": "zone_current_switch"
+}

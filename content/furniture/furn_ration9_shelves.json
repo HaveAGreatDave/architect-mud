@@ -6,6 +6,7 @@
     "interactions": [
       "lean"
     ],
+    "preserves": "refrigerated",
     "vendor_stock": "npc_ration_cook"
   },
   "hp": null,

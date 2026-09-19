@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_892_915",
+  "b": "zone_hf_relief_lobby",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_892_915_north",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_wind_day",
+  "b": "zone_util_zone_wind_day",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_wind_day_down",
+  "lockable": false,
+  "one_way": false
+}

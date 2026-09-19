@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "waterfront",
-  "color": "#a98b63",
-  "description": "Part of the long pier reaching out into the channel: corrugated loading sheds, a rusted crane frozen mid-swing, rope thick as your arm coiled and rotting in the salt air. Below the boards, the water works at the pilings with the patience of something that has all the time in the world.",
+  "ambient_events": [
+    "Water slaps the columns under the deck and draws back.",
+    "A cleat sits at the deck's edge, rope-scarred and empty.",
+    "Something shifts inside one of the loading sheds and settles.",
+    "The beam off the tower crosses the slab and keeps going."
+  ],
+  "ambient_theme": "coast",
+  "color": "#9fc0b8",
+  "description": "Where the hardstanding gives out and the deck begins. A concrete ramp takes the last two metres up to slab level, scored across so a wet boot has something to hold. A lifebelt sits in a steel cradle with one strut of it snapped. The basin works at the columns underneath, and the pier runs NORTH from here.",
   "exits": {
     "east": "zone_district_910_904",
     "north": "zone_district_909_903",
@@ -10,11 +15,18 @@
     "west": "zone_district_908_904"
   },
   "flags": {
+    "building_type": "pier",
     "district": "docks",
+    "entrance": "south",
     "fishing_table_id": "fish_coldwater_bay",
+    "floors": 1,
+    "liquid": false,
+    "pier": true,
     "region_id": "region_coldwater",
+    "routable": true,
     "street_life": true,
-    "terrain": "concrete"
+    "swimmable": false,
+    "terrain": "water"
   },
   "grid_x": 909,
   "grid_y": 904,

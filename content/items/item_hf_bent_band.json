@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_bent_band",
+  "name": "a resistance band",
+  "tags": {
+    "description": "A loop of coloured rubber in the only saturated colour in Halcyon Fields. Sold with a card of six exercises on it, four of which people actually do.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 26,
+  "weight": 30
+}

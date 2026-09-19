@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A round lobby with the lifts in the core and, against the curve, a noticeboard that is completely full: seminars, a notice about a lost umbrella, four arguments conducted entirely in pinned replies, and a printed sheet correcting the grammar of the building's own signage.",
+  "exits": {
+    "down": "zone_util_zone_hf_ivory_lobby",
+    "south": "zone_district_897_915",
+    "up": "zone_hf_ivory_library"
+  },
+  "flags": {
+    "building_name": "Ivory Tower",
+    "building_type": "chrome_tower",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_ivory_lobby",
+  "map_id": "map_int_hf_ivory",
+  "name": "Ivory Tower — The Fellows' Lobby",
+  "parent_zone": "zone_district_897_915"
+}

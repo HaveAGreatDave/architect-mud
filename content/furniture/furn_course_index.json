@@ -1,0 +1,17 @@
+{
+  "description": "Forty small drawers in an oak cabinet, each with a brass pull and a written label. Every lecture given here is in it, by subject and by speaker.",
+  "flags": {
+    "aliases": [
+      "index",
+      "cards",
+      "cabinet"
+    ],
+    "hack_difficulty": 2,
+    "vendor_npc_id": "npc_course_quainton",
+    "vendor_safe": true
+  },
+  "id": "furn_course_index",
+  "name": "the card index",
+  "object_type": "container",
+  "zone_id": "zone_course_reading"
+}

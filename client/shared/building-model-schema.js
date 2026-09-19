@@ -213,7 +213,7 @@ export const DETAIL_SCHEMA = {
   // script hand while a gantry could not is a rule nobody would remember. `font` is one of
   // SIGN_FONT's keys (mono, script, block, slab, deco, condensed, stencil, techno, gothic, western, hanzi, estate)
   // — `hanzi` being a CJK face, for a short trade word rather than a name; `picto` is one of
-  // SIGN_PICTO's (martini, mug, fork, bed, bolt, pill, fuel, arrow, pan, hook, eye, money, balls) and defaults to none. Both
+  // SIGN_PICTO's (martini, mug, fork, bed, bolt, pill, fuel, arrow, pan, hook, eye, money, balls, stamp) and defaults to none. Both
   // live in windshield.js, and an unknown value FALLS BACK rather than throwing — a typo in a
   // model file must never be able to stop a building drawing.
   // ⚠ `font` NO LONGER DEFAULTS TO MONO — it defaults to the building's own hand, which `signFontOf`
@@ -287,8 +287,13 @@ export const DETAIL_SCHEMA = {
   // rather than the painters, so declaring the key is the whole of it — and a gable end is where a
   // real city puts its largest advertisement, which is the one surface a wall texture cannot make
   // interesting. 'x' is a flank; absent is front/back, and which of those is still the sign of `cy`.
+  // ⚠ `horiz` IS THE OTHER HALF OF `face`, AND IT IS ABOUT THE LETTERING RATHER THAN THE PANEL. The
+  // two panels this kind draws are not the same object: a corner blade is a tall slab read
+  // top-to-bottom, and a gable-end ad is a wide letterbox. The bake was vertical for both, so a
+  // name on a letterbox was fitted to its short axis and came out a narrow strip stranded in the
+  // middle of a billboard. Set it on a panel that is wider than it is tall; leave it off a blade.
   bladePanel: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', half: 'fh', out: 'fh' }, required: ['z0', 'z1', 'half'],
-    plain: { pal: 'string', color: 'string', ink: 'string', label: 'string', face: 'string', font: 'string', picto: 'string' }, px: 8 },
+    plain: { pal: 'string', color: 'string', ink: 'string', label: 'string', face: 'string', font: 'string', picto: 'string', horiz: 'boolean' }, px: 8 },
 
   // ── THE INDUSTRIAL FOUR ─────────────────────────────────────────────────────
   // The machinery bolted to the outside of a working building. `pipe` and `vent` are the
@@ -425,6 +430,9 @@ export function compileModel(doc, file = '<model>') {
   // override claim at all, which is the whole reason it exists beside the two above.
   if (doc.trade) rec.trade = doc.trade;
   if (doc.signWorks) rec.signWorks = true;
+  // Read by `keepsReach()` in windshield.js, which is the ONE predicate `segFit`, both `MODEL_TILE`
+  // sites and scripts/shapes/tilefit.mjs all ask — see the note beside it in validateModel.
+  if (doc.keepsReach) rec.keepsReach = true;
   return { rec, warnings, bindings: (doc.bind || []).map((b) => bindKey(b)) };
 }
 
@@ -551,6 +559,21 @@ export function validateModel(doc, file = '<model>') {
     errors.push(`${file}: 'signWorks' is a boolean — an industrial building that does put its name up`);
   }
 
+  // ── AND THE STATED EXCEPTION TO "A BUILDING STAYS ON ITS OWN TILE" ────────────────────────────
+  //
+  // `segFit` trims a mass box back to the plot line on the ENTRANCE side, because the entrance side
+  // is where the street is. `NO_TILE_FIT` in windshield.js already lists the arms where that is not
+  // true — the Reach's boardwalks, the Thornwarren, Terminus, a quay crane's boom — and it is keyed
+  // on `tradeOf`, which an authored model cannot use to say anything about itself: a model that
+  // declares `replaces: 'bank'` would exempt every bank in the city and the arm as well.
+  //
+  // So a model says it for itself. The bar is the same one the list applies: the tile it reaches
+  // over must not be a carriageway. A forecourt, a yard, a boardwalk over dirt — somewhere that
+  // belongs to this building and that nothing drives along.
+  if (doc.keepsReach != null && typeof doc.keepsReach !== 'boolean') {
+    errors.push(`${file}: 'keepsReach' is a boolean — this model's mass may cross its own plot line on the entrance side`);
+  }
+
   const basis = { ...DEFAULT_BASIS, ...(doc.basis || {}) };
   if (!(basis.fh > 0) || !(basis.h > 0)) errors.push(`${file}: basis.fh and basis.h must both be greater than zero`);
 
@@ -611,7 +634,8 @@ export function validateModel(doc, file = '<model>') {
     // the failure this codebase keeps rediscovering (see `effects` in systems-mutations.md), so it
     // is gone rather than tolerated.
     //   trade      what the building SELLS, as an arm's case label — see below
-    if (!['id', 'pal', 'neon', 'basis', 'segs', 'adorn', 'detail', 'bind', 'note', 'portedFrom', 'pixdiff', 'replaces', 'trade', 'signWorks'].includes(k)) {
+    //   keepsReach this model's mass may cross its own plot line  -> keepsReach() in windshield.js
+    if (!['id', 'pal', 'neon', 'basis', 'segs', 'adorn', 'detail', 'bind', 'note', 'portedFrom', 'pixdiff', 'replaces', 'trade', 'signWorks', 'keepsReach'].includes(k)) {
       errors.push(`${file}: unknown top-level key '${k}'`);
     }
   }

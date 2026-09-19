@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "What was drawn as a lobby and is used as a boot room: a rack the full length of the curve, forty pairs on it, and a hose bib by the door with a drain under it. The pale composite floor has given up. Somebody has screwed a hook rail into the glazing mullions, which the estate has written two letters about.",
+  "exits": {
+    "down": "zone_util_zone_hf_relief_lobby",
+    "south": "zone_district_892_915",
+    "up": "zone_hf_relief_canteen"
+  },
+  "flags": {
+    "building_name": "Light Relief",
+    "building_type": "chrome_tower",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_relief_lobby",
+  "map_id": "map_int_hf_relief",
+  "name": "Light Relief — The Boot Room",
+  "parent_zone": "zone_district_892_915"
+}

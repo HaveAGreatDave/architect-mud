@@ -1,0 +1,9 @@
+{
+  "a": "zone_vested_hall",
+  "b": "zone_vested_smoking",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_vested_hall_south",
+  "lockable": false,
+  "one_way": false
+}

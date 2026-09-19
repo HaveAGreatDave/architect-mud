@@ -1,0 +1,11 @@
+{
+  "description": "One bulkhead by the hatch, on a switch inside it, so that a person coming up in the dark can see the rungs and nothing above them is lit at all.",
+  "flags": {},
+  "id": "furn_light_zone_hwm_gallery",
+  "light_type": "lamp",
+  "lumen_output": 500,
+  "name": "the walkway lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hwm_gallery"
+}

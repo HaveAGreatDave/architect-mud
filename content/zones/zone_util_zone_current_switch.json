@@ -1,0 +1,18 @@
+{
+  "description": "Under the switch room, where the cables come in: a chamber of ducts with the cores fanned out and bonded, everything labelled twice, and the cabinet in the corner. It is warmer down here than upstairs and there is a faint smell of hot varnish that he says is normal and dislikes.",
+  "exits": {
+    "up": "zone_current_switch"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_907_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_current_switch",
+  "map_id": "map_int_current",
+  "name": "Current Affairs — The Cable Basement",
+  "parent_zone": "zone_district_907_917"
+}

@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#1a1424",
+  "color": "#e07ad8",
+  "description": "A chrome column with glazed growing trays cantilevered off it in opposed pairs, six pairs up, each one lit magenta from under the tray above. After dark it is the only thing in the quarter that is not cyan or pearl, and from Kettle Lane it reads as a ladder of pink rungs going up into nothing. The smell at the door is wet peat and cut leaves and it does not belong to any other building on this street.",
   "exits": {
     "east": "zone_district_899_911",
-    "north": "zone_district_898_910",
-    "south": "zone_district_898_912",
-    "west": "zone_district_897_911"
+    "west": "zone_hf_salad_pack"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Salad Days",
+    "building_type": "vertical_farm",
+    "district": "halcyon_fields",
+    "entrance": "east",
+    "facade": true,
+    "floors": 10,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_899_911"
   },
   "grid_x": 898,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_898_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "SY",
+  "name": "Salad Days",
   "parent_zone": null
 }

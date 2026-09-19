@@ -1,0 +1,11 @@
+{
+  "description": "A single caged bulkhead over the door, which is enough light to read a tag by and not enough to read a document by. That is deliberate.",
+  "flags": {},
+  "id": "furn_light_zone_going_strong",
+  "light_type": "overhead",
+  "lumen_output": 600,
+  "name": "the strongroom bulkhead",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_going_strong"
+}

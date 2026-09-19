@@ -229,12 +229,13 @@ a bale of crushed scrap, and `ty_door`, the shared dark band that every awning, 
 security grille and stencilled sign band in the city is drawn with, which is the most frequently
 drawn palette in the game and was the most wrongly skinned one.
 
-Eighteen families now sit above that branch, checked **in order**, first match wins:
+Nineteen families now sit above that branch, checked **in order**, first match wins:
 
 | family | surface |
 | --- | --- |
 | `METAL_WALL` | corrugated ribbed steel siding + rivet rows |
 | `GLASS_WALL` | curtain glass: floor-plate striping + sky sheen |
+| `SHED_GLASS` | industrial steel glazing: small panes, bars and transoms — a clerestory ribbon |
 | `DECO_WALL` | art-deco limestone (The Meridian) |
 | `STRUCT_WALL` | painted structural steel — a column section, no apertures |
 | `PUMP_WALL` | a fuel dispenser, painted rather than modelled |
@@ -794,6 +795,88 @@ as the distance doubles (the old stroke sat on a `max(0.9, …)` floor). ⚠ It 
 **windscreen-sized** canvas rather than the 640px view stub — steel is sized off `cam.FL`, a
 fraction of the canvas *width*, so a pixel threshold asserted at 640 is asserting something about a
 panel nobody plays on.
+
+## Ships that work the quay — the berth (as built)
+
+`flags.berth` on a water tile beside a quay. `deriveSurfaceCell` turns it into `mark: 'berth'`,
+and `drawFreighter` (windshield.js) brings a coaster up the fairway, lies her against the wall
+while the gantries load her, and sends her off again. Three hulls take it in turn, so the basin
+reads as a small fleet rather than one ship on a loop — which is the whole of what "two or three
+of them, out of view" needs to be, because the only place any of them is ever visible is the
+berth and the water either side of it.
+
+Authored on one tile: Basin Quay, 911,902, `{ "fair": "north", "quay": "west" }`.
+
+**⚠ A mark, never a `building_type`.** `camp`'s rule pointing the other way. A building tile
+leaves the walk graph and joins the CFIT collision sweep, so a berth authored as a building is a
+permanent ship-shaped hole in the basin that you can fly into and cannot swim through, occupied
+or not. The tile stays ordinary water; the ship is drawn on top of it.
+
+**⚠ Nothing about her is mass, and nothing about her may become mass.** She moves, and both the
+shape capture and the per-model mesh are taken once at a frozen clock and cached on the model's
+identity — so a hull extruded through `draw3DBoxAt` would be nailed to wherever she happened to
+be at `now = 1000`, in the depth buffer, for the life of the session, while the canvas went on
+sailing her. She is built the way the Echelon is: a list of world polygons handed to
+`gl/solids.js` on the collecting pass and painted on the canvas when there is no depth buffer to
+hand them to, with the same `collect` / `fittings` split and the same three reasons for it.
+
+**⚠ One clock, and it has no seed in it.** A crane cannot see the berth beside it — an arm is
+handed its own tile and nothing else — so the only thing the gantry and the hull can share is the
+wall clock. `berthPhase` is therefore global: seeding it per tile would give the two different
+answers to *is there a ship alongside*, and the visible result is a crane working over open water
+while a ship sits a hundred feet away doing nothing. The cost is real and small: a second port
+anywhere would run its ships in step with this one. Nothing in the Basin can see both; the day
+something can, the fix is a phase carried on the berth's own flag and read by the crane off its
+distance to it, not a second clock.
+
+**⚠ The gate is `shippingOn()`, never `motionOn()`.** That one ends in
+`ADORN_TIER >= ADORN_RICH`, and `ADORN_TIER` is a property of the BUILDING being drawn: the model
+pass sets it per tile and leaves it wherever the last building put it. A mark is not a building
+and never sets it, so a ship asking `motionOn()` is a ship whose animation depends on which tower
+happened to be drawn before it — alive in a city, frozen over open water, with nothing anywhere
+to say why. `scripts/shapes/moving.mjs` found this on its first run, because the sea it paints
+has no buildings in it at all.
+
+**⚠ Parked is a ship ALONGSIDE, not an empty berth.** Every other cycle in the motion layer comes
+home to its own u = 0, which is what makes `RENDER_TUNE.motion = 0` free. Here u = 0 is open
+water, so the obvious reading of "park it" deletes the ship — the worse half of the bug that flag
+exists to prevent.
+
+**⚠ One set of numbers, two readers.** A gantry's outreach and a hull's beam are the same
+measurement from two ends, in two files. `BERTH_GAP`, `BERTH_BEAM`, `BERTH_DECK`, `BERTH_BOX`,
+`BERTH_COAM` and `berthStackZ` are all read by both, and two copies of any of them is a crane
+lowering boxes into the water beside a ship — a picture that looks entirely deliberate. The crane
+resolves them into its own parameters at draw time (`troAt`, `hkAt`), because `fh` is seeded per
+tile and a fraction of the boom is a different world distance on every crane.
+
+**⚠ The quay face is the tile boundary**, and that is a decision rather than an approximation. The
+crane's deck is `fh * 1.22` from its tile centre and `fh` varies 0.38..0.44, so the real face
+wanders ±0.03 of a tile either side of 0.5 — less than the fender gap. The hull cannot ask the
+crane for its `fh` (different tile, different pass), so the hull places itself off the boundary
+and the crane reaches to the boundary.
+
+**⚠ The stow fills tier-major**, because `berthStackZ` says the crane lowers to the top of the
+tier being filled. A stow that filled bay-by-bay to full height would be a gantry setting boxes
+down in mid-air over an empty bay.
+
+**⚠ A wake when she is going and never when she is coming.** There is nowhere south of this berth
+to steam to — the basin shoals a tile past it — so she arrives from the fairway and leaves up it,
+and one of those legs is therefore astern. A ship eased into a berth at dead slow makes no wash
+worth drawing and a ship leaving does: draw both and she is visibly sailing backwards into the
+quay, draw neither and she never looks under way at all. Her bow points up the fairway throughout.
+
+**⚠ `OFF_TILE_MARKS`.** Three rules in the world sweep assume a cell draws inside its own tile: an
+empty water cell is skipped outright, a cell whose four corners are all behind the lens is
+dropped, and the far edge staggers tile by tile. All three are right for a building and wrong for
+a hull. It was a hand-carved `c.mark === 'yacht'` at each site; the second ship in the game is how
+you find out that is a rule. The `worldBlend` exemption is deliberately NOT on the list — the
+Echelon escapes that fade because she is the framed subject of the helm chase, and everything
+else has to give way to the flat airport scene on a landing or it draws over it.
+
+The gate is `scripts/shapes/moving.mjs` (sections 4 and 4b), which pins BOTH clocks — the flock
+runs on `Date.now()` by design — sweeps the cycle with `RENDER_TUNE.shipForce` so the sea stands
+still, and records only FILLED paths, because the ambient birds are stroked and drift on a
+per-frame integrator. Mutation-tested 5 of 5.
 
 ## Gotchas
 

@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_holder_gauge",
+  "id": "zone_util_zone_holder_gauge",
+  "name": "Holding Pattern — The Gauge House — Utility Room",
+  "source_type": "junction_box"
+}

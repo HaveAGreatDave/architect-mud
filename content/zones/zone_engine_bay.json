@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Three bays, two of them occupied, the third with a rectangle of clean floor where something used to stand. The appliances are red and scrupulous and the brass on them is the kind of bright that takes a rota. Boots and leggings stand ready in pairs beside each cab, folded down so a man can step into them. On the wall, a board of the quarter with pins in it, and every pin is a hydrant.",
+  "exits": {
+    "down": "zone_util_zone_engine_bay",
+    "east": "zone_district_910_917",
+    "up": "zone_engine_watch"
+  },
+  "flags": {
+    "building_name": "Engine Trouble",
+    "building_type": "fire_station",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Three of them, glazed across the top, showing a rectangle of Meltwater Row and the meadow past it. In daylight the bay is lit almost entirely through them.",
+      "light": 0.65,
+      "name": "the bay doors",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_910_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_engine_bay",
+  "map_id": "map_int_engine",
+  "name": "Engine Trouble — The Appliance Bay",
+  "parent_zone": "zone_district_910_917"
+}

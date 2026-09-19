@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "The board reticks. Calloway does not turn round.",
+    "She writes two figures on the pad, looks at them, and crosses out the first.",
+    "She glances at the unexplained column for slightly longer than at the others.",
+    "Somebody's lift goes past overhead. She notes the time without appearing to.",
+    "She squares the pen on the pad and leaves it there."
+  ],
+  "description": "A sharp, unhurried woman of about thirty-five in a good coat she does not take off indoors, standing at the counter with her back to the figures because she can hear them. She sells information about land at a price that is always slightly less than you braced for, which is how she gets you back.",
+  "dialogue_tree": {
+    "buying": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Nobody you would recognise, and that is the finding.\" She taps the counter once. \"The plots that have changed hands here have gone to holdings with three-letter names and a registered address that is a floor of the Spire.\"\n\n\"Which does not mean the Ascendants are buying their own estate. It means somebody who can afford a floor of the Spire is.\" A pause. \"I would like those to be different sentences and I cannot get them to be.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"If the board jumps while you are on the boulevard,\" she says, \"come back up. That is when the notes are worth what I charge for them.\""
+    },
+    "column": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She looks at it for a second before she answers, which is the most honest thing she does all day.\n\n\"I do not know. It arrives on the same feed as the rest and it is headed with two characters that are not a commodity I have ever traded.\"\n\n\"What I know is the shape of it. When that column moves, everything else on the board moves about a minute afterwards, in the direction it went. Every time.\" She shrugs with one shoulder. \"So I read it, and I do not ask, and I have made a living out of a minute.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The verge plots.\" She nods vaguely east, past Kettle Lane. \"Four of them, between the finished buildings, still grass. The board has a figure for every plot in the quarter except those four.\"\n\n\"Not a blank. Not a dash. They are simply not listed, and I have checked whether they were ever listed, and they were not.\" She turns the pad over. \"Somebody decided before the first brick that those four were not for sale, and that is the kind of decision that usually has a reason standing on it later.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is the column nobody explains?",
+          "next": "column"
+        },
+        {
+          "label": "A plot note, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who is actually buying here?",
+          "next": "buying"
+        },
+        {
+          "label": "Why sell figures rather than land?",
+          "next": "why"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Afternoon.\" She does not move from the counter. \"Buying, selling, or finding out?\"",
+      "text_by_relation": {
+        "familiar": "She has the note half written before you are through the door.\n\n\"I know which one,\" she says. \"And the answer moved this week, which I thought you would want to hear from me rather than off the board.\"",
+        "first": "The woman at the counter has watched you since the forecourt and lets you get all the way to her before she says anything.\n\n\"Rising Sums. Calloway.\" She turns the pad round so you can see it is blank. \"We do not sell land. Nobody sells land in Halcyon Fields, because the estate has not released any.\"\n\n\"What we sell is what the last one went for. Ninety for a named plot, and I will tell you to your face if the answer is going to disappoint you before you pay.\"",
+        "known": "\"Back.\" The pad is already turned round. \"Which plot?\""
+      }
+    },
+    "why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because land you cannot buy is worth exactly what somebody tells you it is, and I am the somebody.\" She says it without any pleasure in it, as a description. \"There is no market here. There is a release schedule.\"\n\n\"When the estate opens the plots I will be selling land like everybody else and I will be worse at it than half of them. Until then, this is the trade there is.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a long charcoal coat, well cut, worn indoors on purpose",
+      "a plain high-necked top",
+      "narrow dark trousers",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_rising_back",
+  "hp": 32,
+  "hp_max": 32,
+  "id": "npc_hf_rising_calloway",
+  "name": "Ines Calloway",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_rising_note",
+      "price": 90
+    },
+    {
+      "item_id": "item_hf_rising_pen",
+      "price": 22
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Rising Sums",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_rising_floor"
+}

@@ -1,22 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#16171a",
+  "color": "#9a9c9e",
+  "description": "A blank slab of pale brick five storeys high with no window anywhere in the first four of them, and a band of steel louvres across the whole of the fifth. There is one door, flush, steel, with no handle on the outside and a keyway rather than a lock you could look into. No sign, no plate, no name, though somebody has stencilled a six-figure number beside the door at waist height. It hums. Not loudly. Continuously.",
   "exits": {
-    "south": "zone_district_909_916",
-    "west": "zone_district_908_915"
+    "north": "zone_wires_apparatus",
+    "south": "zone_district_909_916"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Crossed Wires",
+    "building_type": "exchange",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 5,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_909_916"
   },
   "grid_x": 909,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_909_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "CW",
+  "name": "Crossed Wires",
   "parent_zone": null
 }

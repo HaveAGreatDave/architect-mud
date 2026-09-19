@@ -1,0 +1,266 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Hallowes ties in a frond, tests it with one finger, and leaves it.",
+    "He looks at the dial by the valve and does not touch the wheel.",
+    "He wipes his face with the back of his arm. It is very warm in here.",
+    "He pulls a boot on halfway and then takes it off again.",
+    "He looks out through the leaves at the fan deck and checks the time."
+  ],
+  "description": "A heavy-set man in his forties in cooling-plant overalls with the sleeves cut off, sitting on the remaining bench with his boots off. He works the fan deck across the road, he comes in here on his breaks, and at some point he started tying ferns to wires and has not stopped. He is faintly embarrassed about it and entirely unwilling to stop.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Door,\" he says again, without any heat in it at all. \"Please.\""
+    },
+    "deck": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Loud, cold and high up.\" He grins. \"Eight fans on a plate on legs and nothing under you but air. You get used to the noise in a week and the height never.\"\n\n\"It is a good job. The plant is built like a bank — everything on it is finished to a standard I have not seen on any site I have worked.\" He rubs his thumb along the bench frame. \"That is the bit that gets me. They built a fan deck like a bank. Somebody very badly does not want that plant to stop.\""
+    },
+    "ferns": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No.\" He says it flatly and then, after a moment, less flatly. \"Nobody is meant to be doing anything in here. It is a condition. There is no gardener.\"\n\n\"I sat in here on a break about a year ago and there was a frond down on the path and I put it back up. And then there was another one.\" He shrugs with his whole upper body. \"Now I buy twine. I am not going to pretend that is not what has happened.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The load.\" He sits forward. \"The deck sheds heat for the campus. I have run that plate for three years and I know what a normal night looks like on the gauges.\"\n\n\"Since about the spring we are shedding more, and it is not hotter and the campus has not grown.\" He turns a hand over. \"More heat is coming into my plate than the campus makes. Which means something else is on the loop that is not on my drawing, and it is putting out about as much as a whole floor of the Spire.\""
+    },
+    "hot": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because I take heat off the waste main.\" He points at the floor with his chin. \"It runs under this building on its way to the glasshouse, and when they laid it they put a stub up into the ring with a wheel on it, and they never connected anything to the stub.\"\n\n\"So I connected the stub to the room.\" A pause. \"Nobody has said anything. The main is carrying heat somebody has already paid to make and is throwing away at the far end. I am not stealing it, I am catching it before it gets wasted, and I have had that argument in my head enough times to say it that quickly.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Are you meant to be doing the ferns?",
+          "next": "ferns"
+        },
+        {
+          "label": "Why is it so hot in here?",
+          "next": "hot"
+        },
+        {
+          "label": "What is it like working the deck?",
+          "next": "deck"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Shut the door.\" He does not get up. \"Heat goes out of it in about a minute and takes a fortnight to come back.\"",
+      "text_by_relation": {
+        "familiar": "He has already shifted along the bench and pushed his boots under it before you are through the door.\n\n\"Look at the north side,\" he says. \"Two feet since you were here. Two feet.\"",
+        "first": "The heat hits you first, and then the green, and then a large man with his boots off on the only visible bench.\n\n\"Shut the door,\" he says, not unkindly. \"That is not me being territorial, it is how long it takes to get the heat back.\"\n\nHe shifts along a little.\n\n\"Hallowes. I am on the deck across the road. This is not my building and I do not work here and nobody works here. Sit down if you can find anywhere.\"",
+        "known": "\"Door,\" he says, before anything else. \"Then sit.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "plant overalls with the sleeves cut off at the shoulder",
+      "a vest gone grey from washing",
+      "heavy trousers, the overall legs rolled",
+      "socks, with the boots beside him"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_frond_under",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_hf_frond_hallowes",
+  "name": "Teague Hallowes",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_frond_under"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_plot_prospectus",
+  "name": "a plot prospectus",
+  "tags": {
+    "description": "Twelve pages, thick paper, good printing. Elevations, a schedule of plot sizes, a page about drainage that is more honest than the rest of it, and the same boulevard on the cover as on the hoarding outside.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 0,
+  "weight": 40
+}

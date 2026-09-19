@@ -1,0 +1,17 @@
+{
+  "description": "A big chrome cylinder with a tap and a permanent line of lime under it, bolted to the counter so nobody can take it home.",
+  "flags": {
+    "aliases": [
+      "urn",
+      "tea",
+      "counter"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_hf_relief_madigan",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_relief_urn",
+  "name": "the tea urn",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_relief_canteen"
+}

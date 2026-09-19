@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#201c1a",
+  "color": "#cfc2a4",
+  "description": "A wide brick front with a run of clerestory glazing high up under the eaves, because a saleroom is lit from above or it is not lit at all. At street level there is one ordinary door for people and, beside it, a goods door wide enough and high enough to take a piano upright, with a rail let into the stone at ankle height where trolleys have been running into it for years. GOING CONCERN is painted straight onto the brick in a serif two feet tall, and under it, in half the size: VALUATIONS · CLEARANCES · WEDNESDAYS.",
   "exits": {
-    "east": "zone_district_896_911",
     "north": "zone_district_895_910",
-    "south": "zone_district_895_912",
-    "west": "zone_district_894_911"
+    "south": "zone_going_saleroom"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Going Concern",
+    "building_type": "auction_house",
+    "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 4,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_895_910"
   },
   "grid_x": 895,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_895_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "GG",
+  "name": "Going Concern",
   "parent_zone": null
 }

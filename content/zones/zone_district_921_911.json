@@ -3,13 +3,13 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Citadel Financial: a windowless slab of white marble set down in the grass like a tomb that changed its mind about being underground. No signage beyond the name cut into the lintel, no windows to break, and a flight of shallow steps going up to doors that are always open and never inviting. The grass comes right up to the bottom step; nobody ever paved the approach, because the people Citadel does business with don't arrive on foot. The way in is up the steps to the north. The wasteland runs south.",
+  "description": "The face of Compound Interest: grey stone going up in one slab with a single tall slot of window in it and nothing else to break the wall. Two piers carry a lintel out over the apron, far enough that a car can stop under it in the rain, and the name is cut into the front of that lintel in letters deep enough to put your hand in. Floodlights wash the stone from the kerb upward and they don't go off in daylight. The doors under the lintel are always open and never inviting. The way in is north. The forecourt runs south.",
   "exits": {
     "north": "zone_citadel_hall",
     "south": "zone_district_921_912"
   },
   "flags": {
-    "building_name": "Citadel Financial",
+    "building_name": "Compound Interest",
     "building_type": "bank",
     "district": "residential",
     "entrance": "south",
@@ -23,7 +23,7 @@
   "grid_z": 0,
   "id": "zone_district_921_911",
   "map_id": "map_world",
-  "marker": "CF",
-  "name": "Citadel Financial",
+  "marker": "CI",
+  "name": "Compound Interest",
   "parent_zone": null
 }

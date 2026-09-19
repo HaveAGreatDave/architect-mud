@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_current_lamp",
+  "name": "a hand inspection lamp",
+  "tags": {
+    "description": "A caged bulb on a long lead with a hook, the sort that lives in a basement. The lead has been shortened once and the repair is very neat indeed.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 22,
+  "weight": 340
+}

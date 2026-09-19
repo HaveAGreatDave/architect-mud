@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "The surface changes here without ceremony: new stone gives out, old stone carries on, a shade darker and a hand's width lower.",
   "exits": {
     "east": "zone_district_904_916",
     "north": "zone_district_903_915",
@@ -10,15 +9,17 @@
     "west": "zone_district_902_916"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 903,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_903_916",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Kerbstone Row",
   "parent_zone": null
 }

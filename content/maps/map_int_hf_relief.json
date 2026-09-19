@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_relief_lobby",
+  "id": "map_int_hf_relief",
+  "name": "Light Relief",
+  "parent_zone_id": "zone_district_892_915"
+}

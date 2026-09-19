@@ -1,0 +1,16 @@
+{
+  "description": "A card-and-balsa model of the quarter on a table by the window, under a dust cover that comes off for appointments. The trees are dyed sponge. Somebody has made the streetlamps out of pins.",
+  "flags": {
+    "aliases": [
+      "model",
+      "balsa"
+    ],
+    "interactions": {
+      "examine": "The concert hall on the model is right. The works at the other end are right. Everything between them is buildings that do not exist, made with exactly as much care as the two that do."
+    }
+  },
+  "id": "furn_plot_model",
+  "name": "the presentation model",
+  "object_type": "decoration",
+  "zone_id": "zone_plot_office"
+}

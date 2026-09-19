@@ -1,0 +1,286 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Stallard lays a palm on an exchanger, waits, moves along two and does it again.",
+    "She writes a number on the board without checking a gauge, then goes and checks the gauge.",
+    "She pulls the ear defenders down, listens to something, and pushes them back up.",
+    "She kicks a drain channel clear with the side of her boot as she passes.",
+    "She looks up at the deck through the open stairwell for a moment, counting fans."
+  ],
+  "description": "A wiry woman in a boiler suit with ear defenders pushed up on her head like a hairband, carrying a clipboard she does not look at. She has the habit, from years on this floor, of standing closer to people than they expect and speaking at a level that is exactly right in here and slightly too loud everywhere else.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Defenders back on the rack,\" she says. \"People take them. I would rather they asked.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The exchange across the row hums at a frequency that gets into my floor, and I have told the caretaker, and he agrees with me, and neither of us can do anything.\" A shrug. \"The fire station keeps asking to run a drill through here and I keep saying yes and they never come.\"\n\n\"And somebody has been selling plots along this road. I would not put a house next to eight fans. I said so. He wrote it down and thanked me.\""
+    },
+    "pipe": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Into the glass house.\" No hesitation at all. \"Return side, before it goes to the fans. It is heat I am paying to throw away, so it costs me nothing and it costs her nothing, and there is a barrel of lemons in my office because of it.\"\n\n\"There is no meter and there is no contract. A man who is not me made that arrangement standing in the road and then left, and I inherited it and I have never once thought about undoing it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is all this cooling?",
+          "next": "what"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Where does the pipe across the road go?",
+          "next": "pipe"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I'll get out of the noise.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Defenders on, they're by the door.\" She taps her own, up on her head. \"Then you can go anywhere you like except up the stair without me.\"",
+      "text_by_relation": {
+        "familiar": "She has a flask poured before you are through the door and the defenders held out in the other hand.\n\n\"Six is stripped and back together and it is behaving,\" she says. \"You can tell me I was right about that, I have had nobody to tell all week.\"",
+        "first": "The woman on the floor is in front of you faster than you expected and closer than you expected, and she is holding out a pair of ear defenders before she has said anything.\n\n\"On. Now, please.\" She waits until they are. \"Verity Stallard. This is a cooling plant.\"\n\nShe says the rest at a volume that would be rude anywhere else and is exactly right here.\n\n\"Everything you can hear is heat leaving. The Ascendants make an enormous amount of it up at the vats and it comes down here and goes out of the top of this building, and if it stopped doing that for about four hours they would have a very bad week.\"",
+        "known": "\"Defenders.\" She points at the rack without slowing down. \"Then come through, I'm on number six.\""
+      }
+    },
+    "what": {
+      "options": [
+        {
+          "label": "Does the Spire know you exist?",
+          "next": "what_know"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The vats.\" She points north with the clipboard, through the wall. \"Printing a body is mostly a heat problem. Everybody thinks it is a chemistry problem. It is a heat problem with some chemistry in it.\"\n\n\"They pull the heat out up there into a circuit and the circuit comes down here, and I take it out of the water and put it into the air. Eight fans. That is the entire mystery.\""
+    },
+    "what_know": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "what"
+        }
+      ],
+      "text": "\"Somebody up there knows, because somebody pays me.\" She almost laughs. \"Nobody has ever come down. In six years I have had one man from the campus in this building and he wanted to see the board, not the plant.\"\n\n\"That suits me. It means nobody has ever told me how to run it, and I have run it better than the paperwork asks for, which is the only kind of showing off available to me.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey boiler suit, damp at the shoulders because everything in here is damp",
+      "ear defenders pushed up on her head, on and off twenty times an hour",
+      "steel-toed boots with the tread gone smooth from wet plate",
+      "a vest and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_cold_deck",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_cold_stallard",
+  "name": "Verity Stallard",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_cold_ear",
+      "price": 20
+    },
+    {
+      "item_id": "item_cold_gasket",
+      "price": 14
+    },
+    {
+      "item_id": "item_cold_flask",
+      "price": 5
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Cold Comfort",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_cold_floor"
+}

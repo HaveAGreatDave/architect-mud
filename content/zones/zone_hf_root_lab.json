@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Where the packing room is in the other farm, this is benches: scales that read to four places, a rack of sample jars, two sinks and a printer that runs all day. It is very clean and very quiet and the only sound is the printer and the pumps in the wall.",
+  "exits": {
+    "down": "zone_util_zone_hf_root_lab",
+    "east": "zone_district_901_914",
+    "up": "zone_hf_root_trial"
+  },
+  "flags": {
+    "building_name": "Root Cause",
+    "building_type": "vertical_farm",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_root_lab",
+  "map_id": "map_int_hf_root",
+  "name": "Root Cause — The Analysis Floor",
+  "parent_zone": "zone_district_901_914"
+}

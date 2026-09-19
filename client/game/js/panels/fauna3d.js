@@ -26,9 +26,12 @@
 // depth buffer, so the world transform runs per bird per frame while the BUILD stays once per pose.
 // See the ⚠ there for why a card could not stand on the ground.
 //
-// ⚠ THE FACE COUNT IS ~40, not the 16-20 the design guessed at before the parts were written down.
-// A bird has a body, a tail, a neck in two segments, a head, a bill, a chinstrap, four wing panels,
-// a dead one, two legs and its blotches, and there is no honest way to spend fewer.
+// ⚠ THE FACE COUNT IS 62 IN THE AIR AND 54 ON THE GROUND, against the 16-20 the design guessed at
+// before the parts were written down and the ~40 it settled at before the feathering pass. A bird
+// has a body, a tapered rump, a tail, undertail coverts, a neck in two segments, a head, a bill, a
+// chinstrap, a cambered arm and a hand cut into primaries, two legs and its blotches, and there is
+// no honest way to spend fewer. `FACE_MAX` in scripts/shapes/fauna.mjs is what bounds a frame; the
+// slack there is what any future part is spent out of, so check it before adding one.
 import { BIRD_ROWS } from '../../../shared/fauna-models.js';
 
 const V = (f, g, h) => [f, g, h];
@@ -73,10 +76,23 @@ export function clearFaunaParams() { for (const k of Object.keys(_override)) _ov
 const FALLBACK = {
   body: [107, 95, 78], belly: [201, 194, 180], neck: [22, 22, 26], cheek: [232, 230, 223],
   bill: [14, 14, 17], wing: [90, 81, 69], patch: [154, 154, 142], leg: [42, 38, 34],
+  primary: [46, 42, 38], undertail: [238, 236, 230],
 };
 const ROLE_FIELD = {
   body: 'bodyCol', belly: 'bellyCol', neck: 'neckCol', cheek: 'cheekCol',
   bill: 'billCol', wing: 'wingCol', patch: 'patchCol', leg: 'legCol',
+  // The flight feathers, and the white under the tail.
+  //
+  // ⚠ `primary` IS NOT A SHADE OF `wing`, and that is why it is a role rather than an `sh`. The
+  // hand of a goose is near-black where the arm is grey-brown, so the tips read as a separate
+  // thing against the wing they hang off — which is the whole point of drawing them separately.
+  // It is also the field a gull's black wingtip and a hawk's dark flight feathers will want, so
+  // it is doing three species' work the day it lands.
+  //
+  // ⚠ AND `undertail` IS NOT `belly`. The belly is #c9c2b4, a warm grey; the coverts under a
+  // goose's tail are white, and painting them the belly colour is a wedge that reads as more
+  // barrel rather than as a marking.
+  primary: 'primaryCol', undertail: 'undertailCol',
 };
 
 // ⚠ `hex2rgb` answers NULL on anything that is not exactly #rrggbb, and `rgb(null,null,null)` is a
@@ -164,7 +180,7 @@ function sheet(faces, pts, role, sh) { faces.push({ role, sh, p: pts }); }
 // because the amplitude was not the asymmetry.
 const WING_DIHEDRAL = [0.5, 0, -1];
 
-function buildGoose(p, state, wing, dihK) {
+function buildGoose(p, state, wing, dihK, gear = 0) {
   const faces = [];
   const air = state === 'air';
   const bodyLen = p.bodyLen ?? 0.34, bodyW = p.bodyW ?? 0.13, bodyH = p.bodyH ?? 0.14;
@@ -175,6 +191,39 @@ function buildGoose(p, state, wing, dihK) {
   const tailLen = p.tailLen ?? 0.22, tailW = p.tailW ?? 0.075;
   const legLen = p.legLen ?? 0.16, legW = p.legW ?? 0.018, footLen = p.footLen ?? 0.07;
   const bodyR = (bodyW + bodyH) / 2;
+  // ── THE FEATHERING FIELDS ─────────────────────────────────────────────────
+  // ⚠ EVERY ONE OF THESE IS ZERO-IS-TODAY. A row that does not set them builds the bird that
+  // shipped before the pass, face for face — which is what lets an author back any one of them
+  // out on its own in the tuner and see what it was doing, and what makes "the goose got worse"
+  // a question with an answer rather than a bisect.
+  //
+  // ⚠ AND THAT PROPERTY IS THE INSTRUMENT, NOT JUST A COURTESY. Each field off against the row
+  // live, over a set of cameras, is the only thing that answers whether a part is DOING anything
+  // — no headless gate here reaches a rasteriser, and the eye cannot tell four faces from none.
+  // It caught `covertStep` shipping as a no-op: at its first coefficient the two rows covered a
+  // tenth of a panel already only a twentieth of a unit deep, measured 0.00% in three views of
+  // five, and looked completely reasonable in the preview. Per cent of frame moved, at the
+  // authored values:
+  //
+  //             air 3/4 front   air above   below 3/4   walk side   raft side
+  //   wingSlots      2.04          8.37         8.03        —           —
+  //   wingCamber     2.16          2.71         1.68        —           —
+  //   covertStep      —             —            —         0.81        0.82
+  //   rumpTaper      0.79          0.82          —         1.63        2.37
+  //   undertail      0.02          0.06         0.25       0.02         —
+  //
+  // ⚠ READ THAT LAST ROW AS A WARNING ABOUT THE CAMERA RATHER THAN ABOUT THE PART. Every number
+  // in this file was first taken from ABOVE, where a marking on a bird's underside is behind the
+  // bird, and the undertail coverts measured 0.02% and were very nearly cut for not earning their
+  // one face. A goose is almost always seen from BELOW — you are standing under it, or flying
+  // under the skein — and from there it is ten times that. Measure a ventral part from a ventral
+  // camera, or the measurement is an argument for deleting it.
+  const slots = clampN(Math.round(p.wingSlots ?? 0), 0, 6);   // separated primary tips, per wing
+  const slotSp = clampN(p.slotSpread ?? 0, 0, 1);             // how far they fan and rise
+  const camber = clampN(p.wingCamber ?? 0, 0, 0.4);           // mid-chord lift above the chord line
+  const covStep = clampN(p.covertStep ?? 0, 0, 1);            // covert/scapular inset, folded wing
+  const utLen = clampN(p.undertailLen ?? 0, 0, 0.3);          // the white wedge under the tail
+  const rumpT = clampN(p.rumpTaper ?? 0, 0, 1);               // how hard the body draws in aft
 
   // BODY — two segments, fattest at the shoulder and drawn in toward the tail, on an EIGHT-sided
   // elliptical section.
@@ -186,8 +235,20 @@ function buildGoose(p, state, wing, dihK) {
   // the spine and on the keel instead, so the back reads as a ridge falling away either side, which
   // is what a goose's back does. Four faces more; they cost nothing but bake time.
   const sq = bodyH / bodyW;
-  tube(faces, V(-bodyLen, 0, bodyH * 0.10), V(0, 0, 0), bodyW * 0.40, bodyW, 'body', 1, 8, sq);
+  // ⚠ THE RUMP IS A CONE, NOT A SHORTER CYLINDER. `rumpTaper` draws the rear tube's end in and
+  // carries it on to a POINT at the root of the tail, because a goose's back end is a wedge and
+  // the truncated barrel that was there read as a bird with its tail sawn off — most visible from
+  // behind and above, which on a circuit is a good half of the time you see one. Four sides
+  // rather than eight: it is a small part and it is the one part the eight-sided rule at the
+  // ⚠ below does not need, since nothing here has a broad top face to go flat.
+  const rumpR = bodyW * 0.40 * (1 - 0.55 * rumpT);
+  const rumpF = -bodyLen + bodyLen * 0.10 * rumpT;
+  tube(faces, V(rumpF, 0, bodyH * 0.10), V(0, 0, 0), rumpR, bodyW, 'body', 1, 8, sq);
   tube(faces, V(0, 0, 0), V(bodyLen * 0.78, 0, bodyH * 0.16), bodyW, bodyW * 0.66, 'body', 1, 8, sq);
+  if (rumpT > 0.01) {
+    tube(faces, V(rumpF, 0, bodyH * 0.10), V(-bodyLen - tailLen * 0.10, 0, bodyH * 0.16),
+      rumpR, rumpR * 0.14, 'body', 0.96, 4, sq);
+  }
   // The pale breast and belly, said in the other colour: a sheet tucked just inside the barrel's
   // underside rather than a second tube, because a bird's pale front is a marking and not a part.
   // ⚠ INSIDE the silhouette, not below it — a sheet at the full radius pokes through the curve it
@@ -200,6 +261,27 @@ function buildGoose(p, state, wing, dihK) {
   // spike rather than as a tail. The angle is what makes it a surface.
   sheet(faces, [V(-bodyLen * 0.86, -tailW * 0.55, bodyH * 0.02), V(-bodyLen - tailLen, -tailW, bodyH * 0.62),
     V(-bodyLen - tailLen, tailW, bodyH * 0.62), V(-bodyLen * 0.86, tailW * 0.55, bodyH * 0.02)], 'wing', 0.82);
+
+  // UNDERTAIL COVERTS — the white under the base of the tail, and the one marking on this bird
+  // you can see from directly astern, which is the view a pilot overhauling a skein gets.
+  //
+  // ⚠ IT IS CANTED, for exactly the reason the tail fan above it is and the folded web below it
+  // is: a flat horizontal plate is seen nearly edge-on from every elevation a bird is drawn at,
+  // contributes no area, and is a face spent on nothing. Tipped the other way from the tail, it
+  // reads as the wedge that closes the rump — and the gap between the two is what makes the tail
+  // look like a separate thing lying on top rather than part of the same slab.
+  // ⚠ AND IT ENDS AT THE RUMP, NOT PAST IT. Written as `-bodyLen - utLen` it ran up to three
+  // quarters of its own length beyond the point the tapered rump closes at, and a pale wedge
+  // hanging in the air off the back of a bird reads as a shard of something else — it is what the
+  // white slivers astern of the walking pose were. The coverts lie UNDER a rump, so the far end is
+  // the rump's own tip and `undertailLen` says how far FORWARD of it they start.
+  if (utLen > 0.005) {
+    const utAft = -bodyLen - tailLen * 0.10, utFore = utAft + Math.max(utLen, 0.02);
+    sheet(faces, [V(utFore, -tailW * 0.62, -bodyH * 0.22),
+      V(utAft, -tailW * 0.18, bodyH * 0.02),
+      V(utAft, tailW * 0.18, bodyH * 0.02),
+      V(utFore, tailW * 0.62, -bodyH * 0.22)], 'undertail', 1);
+  }
 
   // NECK — two segments. Standing, it rises and holds the head high; flying, it reaches straight
   // out and a shade below level, which is most of what tells the two silhouettes apart at range.
@@ -252,16 +334,81 @@ function buildGoose(p, state, wing, dihK) {
       const midG = span * 0.5, tipG = span;
       const midZ = Math.sin(dih) * midG * 0.9, tipZ = Math.sin(dihTip) * tipG;
       const rootF = bodyLen * 0.35, midF = rootF - sweep * 0.4, tipF = rootF - sweep;
+      const sh0 = s > 0 ? 1 : 0.82, sh1 = s > 0 ? 0.92 : 0.74;
       // The inner panel — the arm. Broad at the shoulder, already narrowing at the elbow.
-      sheet(faces, [V(rootF, s * bodyW * 0.7, bodyH * 0.3), V(midF, s * midG, midZ + bodyH * 0.25),
-        V(midF - chord * 0.72, s * midG, midZ + bodyH * 0.2), V(rootF - chord, s * bodyW * 0.7, bodyH * 0.22)],
-      'wing', s > 0 ? 1 : 0.82);
+      const leRoot = V(rootF, s * bodyW * 0.7, bodyH * 0.3);
+      const leMid = V(midF, s * midG, midZ + bodyH * 0.25);
+      const teMid = V(midF - chord * 0.72, s * midG, midZ + bodyH * 0.2);
+      const teRoot = V(rootF - chord, s * bodyW * 0.7, bodyH * 0.22);
+      // ⚠ CAMBER IS A SPAR ALONG THE MID-CHORD, NOT A SECOND SURFACE UNDERNEATH. The ⚠ two
+      // paragraphs down records what a shape of its own under a wing costs; this is the other
+      // reading of the same sentence — the arm is SPLIT at mid-chord and the seam is lifted, so
+      // the two strips are built from the panel's own four corners and cannot be a pale cone,
+      // because there is no extra outline to be one. At camber 0 the seam is exactly on the flat
+      // panel, so the split is skipped outright and the pose is the one that shipped.
+      if (camber > 0.005) {
+        const spar = (a, b, k) => V((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 + camber * chord * k);
+        // Less lift at the elbow than at the shoulder: a wing flattens as it runs out to the hand,
+        // and an even spar bends the tip up as much as the root, which reads as a warp.
+        const spRoot = spar(leRoot, teRoot, 1), spMid = spar(leMid, teMid, 0.7);
+        sheet(faces, [leRoot, leMid, spMid, spRoot], 'wing', sh0);
+        sheet(faces, [spRoot, spMid, teMid, teRoot], 'wing', sh0 * 0.93);
+      } else {
+        sheet(faces, [leRoot, leMid, teMid, teRoot], 'wing', sh0);
+      }
       // The outer panel — the primaries. A TRIANGLE to the tip rather than a quad, because a goose
       // wing comes to a point and a blunt-ended outer panel is the other half of why this read as a
       // plank. The trailing edge runs from the elbow straight to the tip.
-      sheet(faces, [V(midF, s * midG, midZ + bodyH * 0.25), V(tipF, s * tipG, tipZ + bodyH * 0.2),
-        V(midF - chord * 0.72, s * midG, midZ + bodyH * 0.2)],
-      'wing', s > 0 ? 0.92 : 0.74);
+      const tipP = V(tipF, s * tipG, tipZ + bodyH * 0.2);
+      if (slots < 1) {
+        sheet(faces, [leMid, tipP, teMid], 'wing', sh1);
+      } else {
+        // ⚠ THE FINGERS ARE THE HAND SPLIT UP, NOT SPIKES ADDED TO A WHOLE ONE. The outer panel
+        // keeps its area and its outline — what changes is that past the wrist it is cut into
+        // `wingSlots` tapered feathers that fan and lift instead of closing into one point. Bolted
+        // on outside the existing triangle they read as a comb, which is a fan, which is a
+        // different bird; cut out of it they read as the gap between primaries, which is the thing
+        // the photographs actually show.
+        const lerpV = (a, b, t) => V(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
+        // ⚠ THE WRIST IS FAR OUT, BECAUSE A LONG THIN TRIANGLE IS A SPIKE. At 0.45 each feather was
+        // over half the outer panel long and a quarter of the wrist chord wide, and the raised and
+        // dropped poses came out as a crown of black thorns off the shoulder rather than as a hand
+        // — the same failure the ⚠ on WING_DIHEDRAL records for the beat itself, arrived at from
+        // the other direction. Past two thirds the feathers are short and broad, which is what a
+        // primary is.
+        const WRIST = 0.70;
+        const wLe = lerpV(leMid, tipP, WRIST), wTe = lerpV(teMid, tipP, WRIST);
+        sheet(faces, [leMid, wLe, wTe, teMid], 'wing', sh1);
+        // The chord at the wrist, which is what the fan is measured in and what each feather is
+        // pushed apart along. A separation in world units would be a slot the size of a finger on
+        // a sparrow and the size of a plank on a goose.
+        const cx = wTe[0] - wLe[0], cy = wTe[1] - wLe[1], cz = wTe[2] - wLe[2];
+        // ⚠ THE FEATHERS OVERLAP RATHER THAN PARTITION. Cut into `slots` abutting strips they are
+        // separate objects with gaps between them, which is a comb; a real primary lies OVER the
+        // one behind it, so each base is widened past its own share and the neighbours run into
+        // each other. It is also what stops the count changing how wide a feather is.
+        const WIDE = 2.4;
+        for (let k = 0; k < slots; k++) {
+          const mid = (k + 0.5) / slots, half = WIDE / (2 * slots);
+          const t0 = clampN(mid - half, 0, 1), t1 = clampN(mid + half, 0, 1);
+          const b0 = lerpV(wLe, wTe, t0), b1 = lerpV(wLe, wTe, t1);
+          const u = slots > 1 ? k / (slots - 1) : 0;         // 0 at the leading edge, 1 at the trailing
+          // The leading finger is the longest and the trailing ones fall away behind it — which is
+          // the shape of a hand, and is what stops a fan of equal spikes reading as a rake.
+          const reach = 1 - 0.34 * u;
+          const fan = (u - 0.5) * slotSp * 0.55;             // apart along the chord
+          // ⚠ AND THE SPLAY FADES AS THE WING SWINGS. `rise` is in world h, and at the top and
+          // bottom of the beat the wing is steep enough that h runs nearly ALONG its span — so a
+          // fixed lift stopped separating the feathers and started throwing them outboard, which
+          // compounds with the dihedral and is the other half of why these read as thorns. The
+          // cosine is 1 at level, where the fan is the thing you can actually see.
+          const rise = slotSp * span * 0.085 * (1 - u) * Math.cos(dih);
+          const ft = V(b0[0] + (tipP[0] - b0[0]) * reach + cx * fan,
+            b0[1] + (tipP[1] - b0[1]) * reach + cy * fan,
+            b0[2] + (tipP[2] - b0[2]) * reach + cz * fan + rise);
+          sheet(faces, [b0, ft, b1], 'primary', sh1 * (0.96 - 0.08 * u));
+        }
+      }
       // ⚠ NO PALE UNDERSIDE SHEET. One was tried — the reasoning being that these poses bake from
       // BELOW, so the surface facing you on a raised wing is the underside and a real bird's is the
       // pale one. Measured, it was worse than what it replaced: a quad spanning root to tip in the
@@ -272,39 +419,101 @@ function buildGoose(p, state, wing, dihK) {
       // Folded: a closed wing lies ON the flank and its tip trails past the rump. ⚠ It is a
       // MARKING-SIZED panel, not a slab — a folded wing drawn at the body's full length and depth
       // covers the barrel it is supposed to be resting on, and the bird stops reading as round.
+      const fSh = s > 0 ? 0.98 : 0.76;
       sheet(faces, [V(bodyLen * 0.34, s * bodyW * 0.92, bodyH * 0.24), V(-bodyLen * 0.42, s * bodyW * 0.9, bodyH * 0.22),
         V(-bodyLen - tailLen * 0.25, s * bodyW * 0.40, bodyH * 0.02), V(-bodyLen * 0.30, s * bodyW * 0.94, -bodyH * 0.30),
         V(bodyLen * 0.30, s * bodyW * 0.94, -bodyH * 0.10)],
-      'wing', s > 0 ? 0.98 : 0.76);
+      'wing', fSh);
+      // COVERTS AND SCAPULARS — two stepped rows lying along the top of the closed wing.
+      //
+      // ⚠ THEY SUBDIVIDE THE PANEL ABOVE, AND MUST NEVER EXTEND IT. The ⚠ on that panel records
+      // why it is marking-sized: a folded wing at the body's full depth covers the barrel it is
+      // supposed to be resting on and the bird stops reading as round. A feather row hung off its
+      // edge puts that straight back, so both bands are cut from the panel's own corners and lie
+      // strictly inside it.
+      //
+      // ⚠ AND THE READ IS THE SHADE, NOT A COLOUR. There is deliberately no `covertCol` — see the
+      // ⚠ in ROLE_FIELD. What says "feathers" here is the step of shadow under each row, which
+      // `sheet` already takes as an argument, and at the size a bird is drawn a third hue would be
+      // a field in every species file for a difference nobody can resolve.
+      if (covStep > 0.01) {
+        const tF = V(bodyLen * 0.34, s * bodyW * 0.97, bodyH * 0.24);
+        const tA = V(-bodyLen * 0.42, s * bodyW * 0.95, bodyH * 0.22);
+        const bF = V(bodyLen * 0.30, s * bodyW * 0.99, -bodyH * 0.10);
+        const bA = V(-bodyLen * 0.30, s * bodyW * 0.99, -bodyH * 0.30);
+        const down = (a, b, t) => V(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
+        // ⚠ A ROW IS A THIRD OF THE WING, NOT A PINSTRIPE. At `covStep * 0.30` each band covered a
+        // tenth of a panel that is only about a twentieth of a model unit deep to begin with, so
+        // the two of them came to three pixels at preview size and MEASURED AT ZERO in three of
+        // five views — four faces buying nothing, which is the failure a role census cannot see
+        // and only an A/B can. The scapulars and the coverts between them cover most of a closed
+        // wing on a real bird; what is left uncovered at the bottom is the primaries showing.
+        const step = covStep * 0.40;
+        for (let k = 0; k < 2; k++) {
+          const t0 = k * step, t1 = (k + 1) * step;
+          sheet(faces, [down(tF, bF, t0), down(tA, bA, t0), down(tA, bA, t1), down(tF, bF, t1)],
+            'wing', fSh * (0.88 - 0.10 * k));
+        }
+      }
     }
   }
 
-  // THE THIRD WING — it does not work and it is never mentioned. Shorter than the others, set
-  // behind and below the real shoulder, and it hangs: `thirdDroop` rotates it down toward straight
-  // regardless of what the working pair are doing, which is the whole read. It is drawn in every
-  // state, because a thing that only appeared in flight would look like a rendering fault.
-  const tSpan = p.thirdSpan ?? 0, tSide = (p.thirdSide ?? -1) < 0 ? -1 : 1;
-  if (tSpan > 0.001) {
-    const droop = clampN(p.thirdDroop ?? 0.55, 0, 1) * (Math.PI / 2);
-    const tChord = p.thirdChord ?? 0.15;
-    const outG = Math.cos(droop) * tSpan, outZ = -Math.sin(droop) * tSpan;
-    const rootF = -bodyLen * 0.1;
-    sheet(faces, [V(rootF, tSide * bodyW * 0.8, bodyH * 0.08), V(rootF - tChord * 0.3, tSide * outG, outZ + bodyH * 0.05),
-      V(rootF - tChord, tSide * outG * 0.92, outZ - tChord * 0.15), V(rootF - tChord * 0.9, tSide * bodyW * 0.75, -bodyH * 0.1)],
-    'wing', 0.62);
-    sheet(faces, [V(rootF - tChord * 0.3, tSide * outG, outZ + bodyH * 0.05),
-      V(rootF - tChord * 0.55, tSide * outG * 1.06, outZ - tSpan * 0.16),
-      V(rootF - tChord, tSide * outG * 0.92, outZ - tChord * 0.15)], 'wing', 0.55);
-  }
-
-  // LEGS — on the ground only. Tucked in flight and under the body on the water, and in both of
-  // those a drawn leg is a stray dark pixel under the bird rather than a leg.
-  if (state === 'walk') {
+  // LEGS — two, in the air as well as on the ground, and what changes is where they are put.
+  //
+  // ⚠ A FLYING BIRD USED TO HAVE NONE AT ALL, on the grounds that a tucked leg is a stray dark
+  // pixel rather than a leg. That is true of the TARSUS and false of the FOOT: what shows under a
+  // goose in cruise is the black webs folded up against the undertail, trailing back past the
+  // vent, and it is one of the few things about the silhouette that says which way the animal is
+  // going. Left off, it did not read as a bird with its feet tucked away. It read as a bird with
+  // no feet.
+  //
+  // ⚠ AND THE GEAR COMES DOWN FOR THE LANDING. `gear` swings the legs forward of the hip and
+  // splays the webs into paddles, which is the whole shape of a goose on short finals — it puts
+  // its feet out ahead of itself and lets the ground catch them. It is a SEPARATE flag from
+  // `flare`, deliberately: the flare is the last second of the descent and exists to keep the
+  // downstroke out of the turf, and a bird has its feet down a long way before that. One flag for
+  // both would have meant retuning the wingbeat in order to fix the feet.
+  //
+  // ⚠ IT IS BINARY, AND THE SNAP IS THE POINT rather than a corner cut. Putting the gear down is a
+  // thing a bird DOES, at a moment, and it does it at the far end of the circuit where it is a few
+  // pixels across. Every intermediate position would be another dimension on a pose table that
+  // already carries sixteen beats and a flare variant of each.
+  //
+  // ⚠ THE EXTENDED FOOT SITS AT THE WALKER'S OWN `footZ`, which is what keeps the swap at touchdown
+  // continuous in the one axis anybody would notice. Both states take the same origin lift (below),
+  // so z = 0 is the sole of the foot in each: a bird in the flare has its feet exactly where it is
+  // about to be standing, and the pose change moves nothing.
+  //
+  // ⚠ RAFTING STILL HAS NONE, and that is a different rule rather than the old one surviving. A
+  // bird on the water has its legs under it IN the water and the waterline cuts the body, so a leg
+  // drawn there is a dark smear below the surface.
+  if (state !== 'raft') {
+    const hipF = -bodyLen * 0.05, footZ = -bodyH - legLen;
+    const air = state === 'air';
     for (const s of [1, -1]) {
-      const hipF = -bodyLen * 0.05, footZ = -bodyH - legLen;
-      tube(faces, V(hipF, s * bodyW * 0.45, -bodyH * 0.6), V(hipF - legLen * 0.12, s * bodyW * 0.5, footZ), legW * 1.4, legW, 'leg', 0.9, 3);
-      sheet(faces, [V(hipF - legLen * 0.12 + footLen * 0.7, s * bodyW * 0.5, footZ), V(hipF - legLen * 0.12 - footLen * 0.3, s * (bodyW * 0.5 + footLen * 0.35), footZ),
-        V(hipF - legLen * 0.12 - footLen * 0.3, s * (bodyW * 0.5 - footLen * 0.35), footZ)], 'leg', 1);
+      if (!air || gear) {
+        // Standing, or reaching for the ground. The landing stance is a shade wider than the
+        // walking one and the ankle is AHEAD of the hip rather than behind it, which is the
+        // difference between a bird about to touch down and one already walking about.
+        const ankF = hipF + (air ? legLen * 0.55 : -legLen * 0.12);
+        const gy = bodyW * (air ? 0.62 : 0.5);
+        const fw = footLen * (air ? 1.15 : 0.7), fb = footLen * (air ? 0.28 : 0.3), fs = footLen * (air ? 0.52 : 0.35);
+        tube(faces, V(hipF, s * bodyW * 0.45, -bodyH * 0.6), V(ankF, s * gy, footZ), legW * 1.4, legW, 'leg', 0.9, 3);
+        sheet(faces, [V(ankF + fw, s * gy, footZ + (air ? footLen * 0.42 : 0)),
+          V(ankF - fb, s * (gy + fs), footZ), V(ankF - fb, s * (gy - fs), footZ)], 'leg', 1);
+      } else {
+        // Folded away: the tarsus lies back along the flank and the web closes into a slim blade
+        // under the rump. It runs from about the vent to the root of the tail — far enough aft to
+        // read as feet trailing behind the bird, nowhere near far enough to reach the tail fan.
+        const ank = V(-bodyLen * 0.62, s * bodyW * 0.30, -bodyH * 0.72);
+        tube(faces, V(hipF, s * bodyW * 0.42, -bodyH * 0.6), ank, legW * 1.4, legW * 0.9, 'leg', 0.9, 3);
+        // ⚠ THE BLADE IS CANTED, for the reason the tail fan is. A folded web lying flat is seen
+        // nearly edge-on from every elevation these birds are drawn at and contributes no area at
+        // all; tipped, it is a dark wedge under the rump, which is the read.
+        sheet(faces, [V(ank[0], s * (bodyW * 0.30 + legW * 0.9), ank[2] + legW * 1.5),
+          V(ank[0] - footLen * 1.05, s * (bodyW * 0.30 - footLen * 0.06), ank[2] + footLen * 0.20),
+          V(ank[0], s * (bodyW * 0.30 - legW * 0.9), ank[2] - legW * 1.5)], 'leg', 1);
+      }
     }
   }
 
@@ -423,16 +632,20 @@ export const FAUNA_TILE = 0.085;
 // per face, so both are constant for a pose — resolving them per frame would be a string-free
 // version of the same waste `rv` exists to avoid on the rig.
 const _poses = new Map();
-function faunaPose(kind, id, state, beatStep, flare = 0) {
+function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0) {
   const air = state === 'air';
   const step = air ? ((beatStep | 0) % FAUNA_BEAT_STEPS + FAUNA_BEAT_STEPS) % FAUNA_BEAT_STEPS : 0;
   const fl = air && flare ? 1 : 0;
-  const key = kind + ':' + id + ':' + state + ':b' + step + (fl ? 'f' : '');
+  // ⚠ THE GEAR IS ITS OWN LETTER IN THE KEY, not a widening of the flare's. The two flags are set
+  // at different heights and the table has to be able to hold the pose in between — feet down and
+  // still beating properly, which is what most of an approach looks like.
+  const gr = air && gear ? 1 : 0;
+  const key = kind + ':' + id + ':' + state + ':b' + step + (fl ? 'f' : '') + (gr ? 'g' : '');
   const hit = _poses.get(key);
   if (hit) return hit;
   const p = row(kind, id);
   if (!p) return null;
-  const faces = kind === 'bird' ? buildGoose(p, state, 0, air ? beatDihedral(step / FAUNA_BEAT_STEPS, fl) : null) : [];
+  const faces = kind === 'bird' ? buildGoose(p, state, 0, air ? beatDihedral(step / FAUNA_BEAT_STEPS, fl) : null, gr) : [];
   const pal = faunaPalette(p);
   const rgb = faces.map((f) => {
     const c = pal[f.role] || FALLBACK.body;
@@ -441,6 +654,20 @@ function faunaPose(kind, id, state, beatStep, flare = 0) {
   const out = { faces, rgb };
   _poses.set(key, out);
   return out;
+}
+
+/**
+ * One pose's faces in MODEL units, roles and all — the thing `faunaWorldFaces` transforms and
+ * throws the role away from.
+ *
+ * ⚠ FOR THE GATES, and it is exported rather than reimplemented for the reason `faunaPaintCount`
+ * is: a check that rebuilt the mesh to look at it would be checking its own copy. A gate asking
+ * "are the feet tucked up here and down there" needs to know which faces are feet, and `rgb` has
+ * already resolved that to a colour by the time the world pass sees it.
+ */
+export function faunaPoseFaces(kind, id, opts = {}) {
+  const { state = 'walk', beat = 0, flare = 0, gear = 0 } = opts;
+  return (faunaPose(kind, id, state, beat, flare, gear) || { faces: [] }).faces;
 }
 
 /**
@@ -456,9 +683,9 @@ function faunaPose(kind, id, state, beatStep, flare = 0) {
  * invisible on a goose and not on anything with a marking down one side.
  */
 export function faunaWorldFaces(kind, id, opts = {}) {
-  const { state = 'walk', beat = 0, flare = 0, x = 0, y = 0, z = 0, heading = 0, roll = 0, pitch = 0,
+  const { state = 'walk', beat = 0, flare = 0, gear = 0, x = 0, y = 0, z = 0, heading = 0, roll = 0, pitch = 0,
     scale = FAUNA_TILE, alpha = 1 } = opts;
-  const pose = faunaPose(kind, id, state, beat, flare);
+  const pose = faunaPose(kind, id, state, beat, flare, gear);
   if (!pose || !pose.faces.length) return [];
   const ch = Math.cos(heading), sh = Math.sin(heading);
   const cp = Math.cos(pitch), sp = Math.sin(pitch);
@@ -614,7 +841,7 @@ export function paintFauna(ctx, kind, id, opts = {}) {
   // it this is the three-shape table, which is what the Modelshop's sheet and the bake still ask
   // for. A second interpolation here would be a canvas bird flapping out of step with a GL one.
   const faces = opts.beat == null ? faunaFaces(kind, id, state, wing)
-    : (faunaPose(kind, id, state, opts.beat, opts.flare) || { faces: [] }).faces;
+    : (faunaPose(kind, id, state, opts.beat, opts.flare, opts.gear) || { faces: [] }).faces;
   if (!faces.length) return null;
   if (_painted[state] != null) _painted[state]++;
   const pal = faunaPalette(row(kind, id));
@@ -775,6 +1002,16 @@ export function faunaRenderSmoke(makeCtx) {
         if (typeof makeCtx === 'function') {
           const { ctx, calls } = makeCtx();
           for (const bearing of [0, 1.2, Math.PI, 4.4]) paintFauna(ctx, kind, id, { ...pose, bearing, size: 24 });
+          // ⚠ AND THE LANDING POSES, WHICH `FAUNA_POSES` CANNOT REACH. That table keys on (state,
+          // wing) alone, so the flare's beat and the gear-down legs are geometry no sweep here ever
+          // painted — and the canvas is the renderer a machine with no WebGL2 gets. Their VERTICES
+          // are swept in world space by scripts/shapes/smoke.mjs; what is only answerable here is
+          // whether painting them puts a null colour on a context.
+          if (kind === 'bird' && pose.state === 'air') {
+            for (const v of [{ flare: 0, gear: 1 }, { flare: 1, gear: 1 }]) {
+              for (const beat of [0, 5, 11]) paintFauna(ctx, kind, id, { state: 'air', beat, ...v, bearing: 1.2, size: 24 });
+            }
+          }
           for (const c of calls || []) {
             const s = JSON.stringify(c.args ?? c);
             if (/NaN|null|undefined/.test(s)) bad.push(kind + '/' + id + ' ' + pose.state + ': ' + c.name + '(' + s + ') reached the canvas');

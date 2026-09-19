@@ -1,25 +1,21 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
-  "exits": {
-    "east": "zone_district_921_917",
-    "north": "zone_district_920_916",
-    "south": "zone_district_920_918",
-    "west": "zone_district_919_917"
-  },
+  "ambient_theme": "outdoors",
+  "description": "Three houses that came down together and were never cleared, because clearing them would mean agreeing whose they were. The front wall is up to the first-floor windows and the sky is behind it. Rooks nest in the chimney breast, which is the tallest thing left.",
+  "exits": {},
   "flags": {
-    "district": "residential",
-    "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "building_name": "A Collapsed Terrace",
+    "building_type": "ruin",
+    "district": "slum",
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 920,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_920_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "CT",
+  "name": "A Collapsed Terrace",
   "parent_zone": null
 }

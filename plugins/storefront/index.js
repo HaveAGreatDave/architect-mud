@@ -859,7 +859,7 @@ registerLockType('shopshutter', {
   tagType: 'lock:shopshutter',
   kitTag: 'lockkit:shopshutter',
   defaults: {
-    difficulty: 5, canHack: true,
+    difficulty: 5, canHack: true, noun: 'shutter',
     messages: {
       lock: 'The shutter grinds down and the bolt drops into the floor plate.',
       unlock: 'The bolt lifts and the shutter rolls up.',

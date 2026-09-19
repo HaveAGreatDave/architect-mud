@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#122018",
+  "color": "#9fe6c0",
+  "description": "The second dome, on the service side of the Buried Road, and the only green thing between the cooling plant and the gasholder. It was built to the same drawing as its twin and it is warmer inside, because the waste main from the plant runs under it on the way to the glasshouse and somebody had the sense to take a tap off it. The planting here is twice the size of the planting in the other one.",
   "exits": {
-    "east": "zone_district_907_917",
     "north": "zone_district_906_916",
-    "south": "zone_district_906_918",
-    "west": "zone_district_905_917"
+    "south": "zone_hf_frond_under"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Frond Memories",
+    "building_type": "pavilion",
+    "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_906_916"
   },
   "grid_x": 906,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_906_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "FD",
+  "name": "Frond Memories",
   "parent_zone": null
 }

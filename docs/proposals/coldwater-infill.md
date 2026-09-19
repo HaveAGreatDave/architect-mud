@@ -109,7 +109,11 @@ you what your metal is really worth; this tells you what your opinion is really 
 
 ⚠ **It was sited at 921,912 first, and that was wrong in a way that is worth writing down.** That
 tile looks like the best infill site on the map — open grass with buildings on three sides, in the
-middle of a finished block between a bank and a butcher. It is Citadel Financial's front garden.
+middle of a finished block between a bank and a butcher. It is Compound Interest's front garden — and
+since the bank was rebuilt it is also the one tile in Coldwater that a building is allowed to stand
+**on**: the porte-cochère's piers and lintel reach 0.42 tiles past the plot line, which is what
+`keepsReach` in a model file buys. That is the opposite of building here, and it is worth keeping the
+two apart — the tile stays standable, keeps both its exits and is still the bank's only way out.
 The bank's `world_exit_zone` is that tile, so building on it took the bank's only way out to the
 street, and because a facade is a non-standable revolving door the bank could not have been given
 it back. **An open tile inside a block is more likely to be somebody's street access than to be a

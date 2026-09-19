@@ -1,0 +1,19 @@
+{
+  "description": "A chrome bench bolted to the deck in the middle of a room with no walls, which is the single most absurd object in the quarter.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "seat"
+    ],
+    "hack_difficulty": 3,
+    "interactions": {
+      "sit": "You sit on a bench in a waiting room that has no walls, under a roof that is perfect, and it is not as bad as it sounds, which is somehow worse."
+    },
+    "vendor_npc_id": "npc_hf_line_marchetti",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_line_bench",
+  "name": "the bolted bench",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_line_shell"
+}

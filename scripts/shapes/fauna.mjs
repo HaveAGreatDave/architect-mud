@@ -20,7 +20,7 @@
 // measure pedestrians it never ran. So the camera is placed ON a real anchor, found by asking.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { flocksNear, flockState, flockClearance, flockOnSegment, flockEdgeHeading, FLOCK_AREA, GOOSE_PERIOD, GOOSE_SETTLE_MS, U_GROUND, GOOSE_SPAN, SKEIN_ACROSS, skeinSlot, skeinForm } from '../../client/shared/goose.js';
-import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase } from '../../client/game/js/panels/fauna3d.js';
+import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase, faunaPoseFaces, setFaunaParams, faunaWorldFaces, beatDihedral } from '../../client/game/js/panels/fauna3d.js';
 
 const ws = await loadWindshield();
 const REPORT = process.argv.includes('--report');
@@ -31,6 +31,12 @@ stubCanvas('__fa', W, H);
 // was how many TEXTURES a flock claimed out of a 256-entry cache shared with every tree and
 // landmark. A mesh claims none - it is transformed and uploaded per frame - so the thing to bound
 // is FACES. Ten flocks of nine birds at forty-seven faces, with room for the model to gain a part.
+//
+// ⚠ THE MODEL HAS SINCE SPENT SOME OF THAT ROOM. The feathering pass took the air pose from 47
+// faces to 62, so the real worst frame is GOOSE_MAX_FLOCKS(10) x MAX_FLOCK(6) x 62 = 3,720. The
+// number below is unchanged and still has headroom; what has changed is how much. Read that
+// arithmetic before adding a part, and do not read the sentence above it as though it still says
+// forty-seven.
 const FACE_MAX = 4600;
 // How far inside a built tile the outermost bird of a skein may stray. A quarter of a tile is about
 // one wingspan and a half: a bird brushing the corner of a roof, never one over the middle of it.
@@ -133,7 +139,7 @@ function paint(view) {
         // a recentre compares the window rather than the geese.
         wx: f.bird.x + view.mapCenter.x,
         wy: f.bird.y + view.mapCenter.y,
-        z: f.bird.z, heading: f.bird.heading, beat: f.bird.beat, flare: f.bird.flare, alpha: f.a,
+        z: f.bird.z, heading: f.bird.heading, beat: f.bird.beat, flare: f.bird.flare, gear: f.bird.gear, alpha: f.a,
       })),
       faces: mesh.length,
       // ⚠ AND THE LOWEST VERTEX IN THE WHOLE FLOCK, which is the mesh's answer to a question the
@@ -216,6 +222,57 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
   const gap = SKEIN_ACROSS - drawn;
   if (!(gap > 0)) problems.push(`neighbouring slots are ${SKEIN_ACROSS.toFixed(3)} apart against a ${drawn.toFixed(3)} wingspan — their wings overlap`);
   else notes.push(`slots sit ${gap.toFixed(3)} tiles of daylight apart (${(gap / drawn).toFixed(2)} of a span)`);
+}
+
+// ── 1c. THE FEATHERING IS STILL ON THE BIRD ───────────────────────────────────
+// A role census, because every part of the feathering pass is a face in a colour and NOT a change
+// of outline: separated primaries are cut out of the hand rather than bolted onto it, the covert
+// rows lie strictly inside the folded panel, and the undertail wedge is tucked under the rump. So
+// deleting any one of them leaves a bird that is the right size, the right shape, in the right
+// place, flying the right circuit — and simply plainer. Nothing else in this suite can see that,
+// and neither can a person, because the difference is a dozen faces at thirteen pixels.
+//
+// ⚠ IT COUNTS ROLES RATHER THAN TOTALS. A face budget goes up when somebody adds a part elsewhere
+// and would go on passing with every primary gone; what says the fingers are there is that faces
+// in the `primary` role exist at all, and that there are as many of them as the row asks for.
+{
+  const row = faunaParamBase('bird', 'goose') || {};
+  const air = faunaPoseFaces('bird', 'goose', { state: 'air' });
+  const walk = faunaPoseFaces('bird', 'goose', { state: 'walk' });
+  const count = (fs, role) => fs.filter((f) => f.role === role).length;
+
+  // Two wings, one triangle per slot.
+  const wantPrim = 2 * Math.round(row.wingSlots ?? 0);
+  const gotPrim = count(air, 'primary');
+  if (wantPrim && gotPrim !== wantPrim) {
+    problems.push(`the flying goose draws ${gotPrim} primary faces against the ${wantPrim} its wingSlots asks for — the hand is not being cut into feathers`);
+  }
+  // The undertail is one canted wedge, and it is on every pose: it is the marking you see from
+  // astern, which is the view of a bird you are overhauling.
+  for (const [name, fs] of [['flying', air], ['walking', walk]]) {
+    if ((row.undertailLen ?? 0) > 0.005 && !count(fs, 'undertail')) {
+      problems.push(`the ${name} goose has no undertail covert face though undertailLen is ${row.undertailLen}`);
+    }
+  }
+  // The covert rows are a GROUND part — a closed wing is the only thing they lie on — and they
+  // carry no role of their own, because the read is the step of shadow rather than a hue. So the
+  // only honest question is an A/B against the same bird with the field turned off.
+  //
+  // ⚠ NOT A COMPARISON WITH THE AIR POSE, which is what this was first written as. The two poses
+  // disagree about far more than coverts — an open wing has a cambered arm and a cut hand — so
+  // anything at all that moved a face in the air read here as "the covert rows are missing", and
+  // a mutation that deleted the PRIMARIES reported this as its second problem. A check that names
+  // the wrong part is worse than no check, because somebody goes and looks at that part.
+  const wingWalk = count(walk, 'wing');
+  if ((row.covertStep ?? 0) > 0.01) {
+    setFaunaParams('bird', 'goose', { ...row, covertStep: 0 });
+    const bare = count(faunaPoseFaces('bird', 'goose', { state: 'walk' }), 'wing');
+    setFaunaParams('bird', 'goose', null);
+    if (wingWalk <= bare) {
+      problems.push(`turning covertStep off changes nothing on the closed wing (${wingWalk} faces either way) — the covert rows are not being drawn`);
+    }
+  }
+  notes.push(`feathering: ${gotPrim} primaries, ${count(air, 'undertail')} undertail, ${wingWalk} folded wing faces (${air.length} air / ${walk.length} walk total)`);
 }
 
 // ── 2. STATELESS ACROSS A RECENTRE ────────────────────────────────────────────
@@ -689,6 +746,194 @@ T = T_GROUND ?? 1e6;
   else if (lowestZ > 0.02) problems.push(`the lowest airborne goose the sink check saw was ${lowestZ.toFixed(3)} tiles up — it never gets near the turf, so it is measuring nothing`);
   else if (worst > SINK) problems.push(`a landing goose reaches ${worst.toFixed(3)} tiles under the ground over ${seen} frames — the depth-tested turf cuts that much off the bird`);
   else notes.push(`a landing bird reaches at most ${worst.toFixed(4)} tiles under the turf over ${seen} frames at both ends of the flight`);
+}
+
+// ── 13c. THE UNDERCARRIAGE ────────────────────────────────────────────────────
+// A flying goose trails its feet and puts them down to land, and until this it had no feet in the
+// air at all — the legs were built for the `walk` pose and nothing else. Reported as "the thing
+// hanging below the geese should pull back during flight and there should be two".
+//
+// ⚠ EVERY PART OF THIS FAILS SILENTLY, which is the only reason it is worth sixty lines. A leg
+// built in the wrong place is a leg; a `gear` flag the pose table drops is a bird that flies its
+// whole circuit with its feet folded and looks exactly like one that does not have the feature;
+// and a threshold set too high is a flock that comes in on final with its undercarriage down from
+// the top of the climb, which reads as a bird that cannot tuck. None of the three throws and none
+// is visible in a screenshot of one frame — you would have to watch one flock land.
+//
+// ⚠ AND IT IS ASKED IN TWO PLACES ON PURPOSE. The MODEL half asks what the mesh looks like with
+// the flag set either way, through the same `faunaWorldFaces` the pass calls, so a flag quietly
+// dropped between there and `buildGoose` is caught. The PASS half asks whether the renderer ever
+// SETS it, and at what height — which the model cannot know and which is where a threshold goes
+// wrong. Either half alone passes on a half-wired feature.
+{
+  const row = faunaParamBase('bird', 'goose') || {};
+  const bodyLen = row.bodyLen ?? 0.34, legLen = row.legLen ?? 0.16, legW = row.legW ?? 0.018;
+  const footLen = row.footLen ?? 0.07;
+  const hipF = -bodyLen * 0.05;
+  // The mesh is lifted so z = 0 is the sole of a standing bird's foot — see the ⚠ on the origin in
+  // buildGoose — so every height below is measured against the ground the walker stands on.
+  const legsOf = (o) => {
+    const legs = faunaPoseFaces('bird', 'goose', o).filter((f) => f.role === 'leg');
+    const pts = legs.flatMap((f) => f.p);
+    const side = (s) => legs.filter((f) => f.p.reduce((a, v) => a + v[1], 0) * s > 0).length;
+    return { n: legs.length, right: side(1), left: side(-1),
+      minX: Math.min(...pts.map((v) => v[0])), maxX: Math.max(...pts.map((v) => v[0])),
+      minZ: Math.min(...pts.map((v) => v[2])), maxY: Math.max(...pts.map((v) => Math.abs(v[1]))) };
+  };
+  const walk = legsOf({ state: 'walk' });
+  const cruise = legsOf({ state: 'air', beat: 0 });
+  const down = legsOf({ state: 'air', beat: 0, gear: 1 });
+
+  // TWO OF THEM, in both air poses, and the same count each side. One leg is the reported bug and
+  // three is the vestigial wing having been filed as one.
+  for (const [what, L] of [['cruising', cruise], ['gear-down', down], ['walking', walk]]) {
+    if (!L.n) problems.push(`a ${what} goose has no leg faces at all — the undercarriage is not built in that pose`);
+    else if (!L.left || !L.right || L.left !== L.right) problems.push(`a ${what} goose has ${L.right} leg face(s) on one side and ${L.left} on the other — it is not a pair`);
+  }
+  if (faunaPoseFaces('bird', 'goose', { state: 'raft' }).some((f) => f.role === 'leg')) {
+    problems.push('a rafting goose grew legs — they belong under the waterline, which cuts the body');
+  }
+
+  // ⚠ EVERYTHING BELOW NEEDS A LEG TO MEASURE. `Math.min` of nothing is Infinity, so a pose with
+  // no undercarriage at all fails the pair check above and then reports five more problems in
+  // which every number is ±Infinity — six reds for one bug, and the one that names the cause is
+  // not the first one anybody reads.
+  if (cruise.n && down.n && walk.n) {
+    // TUCKED: aft of the hip and well clear of the ground plane. A tolerance of a couple of leg
+    // widths, because the tarsus is a tube and its ring stands a radius proud of its own axis.
+    if (cruise.maxX > hipF + legW * 3) problems.push(`a cruising goose's feet reach ${(cruise.maxX - hipF).toFixed(3)} model units FORWARD of the hip — they are not tucked, they are hanging`);
+    if (cruise.minZ < legLen * 0.5) problems.push(`a cruising goose's lowest leg vertex is ${cruise.minZ.toFixed(3)} above the sole of its own foot — the gear is still down in the cruise`);
+    if (!(cruise.minX < -bodyLen * 0.4)) problems.push(`a cruising goose's feet stop at ${cruise.minX.toFixed(3)} — they do not trail back far enough to read as feet behind the bird`);
+
+    // DOWN: forward of the hip, and standing on exactly the plane the walker stands on. That second
+    // one is the touchdown claim — both states take the same origin lift, so a bird in the flare has
+    // its feet where it is about to be standing and the pose swap moves nothing.
+    if (down.maxX < hipF + footLen) problems.push(`a landing goose's feet reach only ${(down.maxX - hipF).toFixed(3)} model units forward of the hip — it is not putting them out ahead of itself`);
+    if (Math.abs(down.minZ - walk.minZ) > legW) problems.push(`a landing goose's feet sit ${(down.minZ - walk.minZ).toFixed(3)} off the plane a walking one stands on — the pose swap at touchdown will step`);
+    if (!(down.maxY > walk.maxY)) problems.push(`a landing goose stands ${down.maxY.toFixed(3)} wide against a walking one at ${walk.maxY.toFixed(3)} — the webs are not splayed`);
+  }
+
+  // ⚠ AND NOTHING ELSE MAY HANG UNDER THE BIRD. The undercarriage is the lowest thing on a goose,
+  // and for months it was not: a vestigial third wing drooped 0.073 model units BELOW the plane the
+  // feet stand on, so the part hanging under a flying goose was never its feet. It was reported as a
+  // leg twice — once as "the thing hanging below the geese", and once, after the legs were built, as
+  // "this brown part that hangs off". Nothing said a word either time, because a face below the body
+  // is a face like any other.
+  //
+  // ⚠ EXEMPTING THE WING ROLE IS THE OBVIOUS RULE AND IT MISSES THE BUG IT IS FOR. A downstroke
+  // reaches 0.35 under the bird's own feet, so a wing has to be allowed down there somehow — and the
+  // third wing's two faces are role `wing` as well, so `if (role === 'wing') continue` let the exact
+  // part through. Written that way and mutation-tested, the gate stayed GREEN with the third wing
+  // put back.
+  //
+  // ⚠ THE BEAT IS THE RULE INSTEAD, and it needs no exemption at all. Sweep only the poses where the
+  // wings are AT OR ABOVE level — `beatDihedral` is exported and is the same function the pose table
+  // asks — and in those, nothing whatever belongs below the feet. A real wing is up there by
+  // arithmetic; a limb that hangs regardless of the beat has nowhere to hide, which is precisely what
+  // made it read as an undercarriage in the first place.
+  //
+  // ⚠ AND RAFTING IS OUT, for a reason of its own: the waterline CUTS a floating bird, so its body
+  // is 0.084 under that plane on purpose. See the origin lift in buildGoose.
+  {
+    const SLACK = legW;   // the foot's own thickness: a tube ring stands a radius proud of its axis
+    let worst = 0, who = '';
+    const sweep = [{ state: 'walk' }];
+    for (let b = 0; b < FAUNA_BEAT_STEPS; b++) {
+      for (const [fl, gr] of [[0, 0], [0, 1], [1, 1]]) {
+        if (beatDihedral(b / FAUNA_BEAT_STEPS, fl) < 0) continue;      // wings below level: not this check's business
+        sweep.push({ state: 'air', beat: b, flare: fl, gear: gr });
+      }
+    }
+    for (const o of sweep) {
+      for (const f of faunaPoseFaces('bird', 'goose', o)) {
+        for (const v of f.p) if (-v[2] > worst) { worst = -v[2]; who = f.role + ' in ' + JSON.stringify(o); }
+      }
+    }
+    // ⚠ A SWEEP THAT COLLAPSED TO NOTHING WOULD PASS. Retune the beat and this can empty itself out.
+    if (sweep.length < 8) problems.push(`only ${sweep.length} pose(s) have the wings at or above level — the hanging-part check has nothing left to look at`);
+    else if (worst > SLACK) problems.push(`a ${who} hangs ${worst.toFixed(3)} model units below the plane the bird's own feet stand on, with its wings UP — whatever that is, it is what a player sees dangling under a flying goose, not its undercarriage`);
+    else notes.push(`nothing hangs below the feet across ${sweep.length} wings-up poses`);
+  }
+
+  // ⚠ AND THE FLAG HAS TO SURVIVE THE TRIP. Everything above reads the pose table directly; the
+  // pass goes through `faunaWorldFaces`, and a `gear` missing from THAT destructure is a feature
+  // that is wired at both ends and does nothing in the game.
+  const world = (gear) => JSON.stringify(faunaWorldFaces('bird', 'goose', { state: 'air', beat: 0, gear, heading: 0.7 }));
+  if (world(0) === world(1)) problems.push('faunaWorldFaces draws the same bird with the gear up and down — the flag is dropped before it reaches the mesh');
+  notes.push(`the gear is ${(cruise.minZ / legLen).toFixed(1)} leg-lengths up in the cruise and on the walker's own foot plane when it is down`);
+}
+
+// ── 13d. …AND HOW LONG THE FEET ARE ACTUALLY OUT ────────────────────────────────
+// The model half proves a goose HAS two undercarriage poses. This proves the pass ever picks the
+// second one — and, the part that matters to anybody watching, for how long. "Only bring them out
+// as they land" is a duration, and a threshold set at the flare height satisfies every structural
+// check here while putting the gear down for the last fifth of a second of the approach.
+//
+// ⚠ THE TIMES ARE CHOSEN BY `flockState`, NEVER THE ANSWER. Deciding WHEN to watch a landing is
+// not the same as deciding what one should look like: what comes back is `f.bird.gear` off the
+// sink. A check that re-derived the rule would be comparing the renderer against its own copy.
+//
+// ⚠ AND IT IS A SECOND OR TWO OF A MINUTE-LONG CIRCUIT, which is why the sweep walks the descent
+// rather than the lap. Twenty samples spread over a whole flight land nought or one inside the
+// window, and a check that usually sees one gear-down frame is a check that goes quietly vacuous
+// the first time the threshold moves.
+{
+  // ⚠ ONE FLOCK IN THE WHOLE WINDOW, and that is what makes the split readable at all. Every flock
+  // has its own period and phase, so four of them in the frame is four altitudes at one instant and
+  // a bird's gear compared against the wrong one. A first cut did exactly that and reported feet
+  // down at the top of the climb — a true statement about a DIFFERENT flock. A single habitat tile
+  // leaves exactly one.
+  const soleField = (wx, wy) => (wx === ANCHOR.ax && wy === ANCHOR.ay
+    ? { kind: 'land', biome: 'parkland', flr: 0 }
+    : { kind: 'land', biome: 'citycore', flr: 0 });
+  const soleView = () => viewAt(CENTRE, 0, 12, { x: 0.31, y: -0.17 }, 0, soleField);
+
+  // Touchdown, to the millisecond grid check 13 uses — the descent is measured back from it.
+  let land = null;
+  for (let i = 1; i < 12000; i++) {
+    const t0 = 1e6 + (i - 1) * 25, t1 = 1e6 + i * 25;
+    if (flockState(ANCHOR, t0).airborne && !flockState(ANCHOR, t1).airborne) { land = t0; break; }
+  }
+  const flightMs = flockState(ANCHOR, land ?? 1e6).period * (1 - U_GROUND);
+  if (land == null) problems.push('the gear sweep never found a touchdown — the cycle is broken');
+  else {
+    // The last fifth of the flight at twenty-four steps, plus four from the cruise as the control:
+    // without those, "the gear is down" and "the gear is always down" are the same measurement.
+    const span = flightMs * 0.2;
+    const probe = [];
+    for (let k = 23; k >= 0; k--) probe.push(land - (span * k) / 23);
+    for (let k = 1; k <= 4; k++) probe.push(land - flightMs * (0.30 + k * 0.1));
+    const seen = [];
+    for (const t of probe) {
+      const st = flockState(ANCHOR, t);
+      if (!st.airborne) continue;
+      T = t;
+      for (const q of airborne(paint(soleView()))) seen.push({ t, z: st.z, gear: q.gear, flare: q.flare });
+    }
+    const up = seen.filter((s) => !s.gear), dn = seen.filter((s) => s.gear);
+    if (!seen.length) problems.push('no airborne goose reached the sink over the descent — the undercarriage check is vacuous');
+    else if (!dn.length) problems.push('no goose put its feet down anywhere in the last fifth of its approach — the gear flag is never set');
+    else if (!up.length) problems.push('every goose sampled had its feet down, including four from the middle of the cruise — the gear is never tucked');
+    else {
+      // A CLEAN SPLIT ON HEIGHT. The flag is a threshold on the FLOCK's altitude, so the highest
+      // bird with its feet down must sit below the lowest bird with them up. A flag keyed on
+      // anything else — the bird's own station-keeping offset, the beat, the frame — interleaves.
+      const hiDown = Math.max(...dn.map((s) => s.z)), loUp = Math.min(...up.map((s) => s.z));
+      if (!(hiDown < loUp)) problems.push(`a goose had its feet down at ${hiDown.toFixed(2)} tiles and tucked at ${loUp.toFixed(2)} — the gear is not a clean threshold on the flock's altitude`);
+      // ⚠ AND A BIRD CANNOT FLARE WITH ITS FEET UP. Two thresholds, two flags, and the flare's is
+      // the lower by design — put GOOSE_GEAR_Z under it and a goose arrives folded and lands on its
+      // belly, with nothing anywhere to say so.
+      const badFlare = seen.filter((s) => s.flare && !s.gear).length;
+      if (badFlare) problems.push(`${badFlare} goose sample(s) were in the flare with the gear still up — GOOSE_GEAR_Z has gone below the flare height`);
+      // HOW LONG, which is the whole claim. Under a second and nobody sees it happen; much over a
+      // fifth of the flight and the bird is not tucking at all, it is flying about with its feet
+      // dangling. Both ends are generous — this is a bracket, not a tuning.
+      const outFor = (land - Math.min(...dn.map((s) => s.t))) / 1000;
+      if (outFor < 1) problems.push(`the gear is only down for the last ${outFor.toFixed(2)}s of the approach — that is a frame or two, and nobody will see it come out`);
+      else if (outFor > flightMs * 0.2 / 1000) problems.push(`the gear is down for the last ${outFor.toFixed(1)}s of a ${(flightMs / 1000).toFixed(0)}s flight — the bird never tucks its feet up properly`);
+      else notes.push(`the gear comes down ${outFor.toFixed(1)}s out on a ${(flightMs / 1000).toFixed(0)}s flight, between ${hiDown.toFixed(2)} and ${loUp.toFixed(2)} tiles up`);
+    }
+  }
 }
 
 // ── 14. A FLOCK POINTS THE WAY IT IS GOING ────────────────────────────────────

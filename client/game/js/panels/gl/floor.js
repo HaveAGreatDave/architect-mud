@@ -34,6 +34,15 @@
 // `RENDER_TUNE.gl = 0`, and `drawMode7Floor` tests THAT as well as `glFloor` before it returns
 // early — otherwise a machine with no WebGL2 gets no ground at all rather than a slower one.
 
+// ⚠ THE CLIP RANGE IS IMPORTED, AND IT USED TO BE A LITERAL COPY. The z uniforms below read
+// `const near = 0.06, far = 400.0` until the plane became something the frame fits to its camera
+// — the exact second copy the ⚠ on NEAR/FAR in camera.js warns about, and the exact thing that
+// goes wrong quietly once the number moves: the mass clips at the frame's own plane while the
+// floor writes depth for one nothing else uses, so the ground sits a hair off every building
+// standing on it and nothing in the picture says why.
+import { NEAR, zRow } from './camera.js';
+import { HEIGHT_FOG_GLSL } from './fog.js';
+
 // A screen-filling triangle rather than a quad: no diagonal seam, one fewer vertex, and the
 // interpolators do not care. The vertex shader synthesises it from gl_VertexID, so there is no
 // buffer to bind at all.
@@ -104,7 +113,12 @@ uniform vec3  uRoadCol;
 uniform float uFogAmt;
 uniform float uFogNear;
 uniform float uFogFar;
-uniform vec3  uFogCol;     // the horizon colour times the night dim, already resolved
+uniform vec3  uFogCol;
+// The air at street level — see gl/fog.js. The terrain is at z = 0 like the streets are, so this
+// is the same degenerate case the ground pass takes, and it must be the same arithmetic: the road
+// is drawn over this floor and a seam between the two would be a line of haze along every kerb.
+uniform float uFogH;
+uniform float uFogHScale;     // the horizon colour times the night dim, already resolved
 
 // Water, and the weather over it.
 uniform float uT;          // seconds
@@ -144,6 +158,101 @@ uniform vec3  uWetP[MAX_WET];   // ground point x,y in THIS shader's frame + the
 uniform vec3  uWetC[MAX_WET];   // colour, 0-1
 uniform float uWetR[MAX_WET];   // reach in tiles, the same figure pickLights gives the wall wash
 uniform float uWet;             // how wet the ground is, 0-1
+
+// ── SNOW LYING ON THE GROUND ───────────────────────────────────────────────────────────────────
+//
+// How deep it lies, 0-1, integrated from the weather in windshield.js — see 'SNOW_NOW'. Snow is an
+// accumulation rather than a film, which is why it is not another reading of 'uWet'.
+//
+// ⚠ THE FLOOR IS THE TERRAIN AND NOT THE STREETS. 'GROUND_FULL' paints every road and pavement tile
+// as an opaque quad on top of this shader, so what is covered here is the open ground — the grass,
+// the desert, the verges, the parks and everything outside the city — and the city's own snow is in
+// gl/ground.js. That is the same split the wet reflections were forced into, in the same words, and
+// the note on 'uWet' above is the record of finding it out the expensive way. This one was built
+// with it already known.
+uniform float uSnow;
+
+// ── WHEEL TRACKS CUT INTO IT ───────────────────────────────────────────────────────────────────
+//
+// Points of a path in the same window-relative tiles this shader already works in, collected on
+// the CPU from the own ship and from every CONTACT with its wheels down — see the store in
+// windshield.js. xy is the point, z is how far from buried it is (1 fresh, 0 gone), and w is 1
+// when it joins the NEXT point and 0 when it is the last of a run.
+//
+// ⚠ ONE ARRAY, POINTS RATHER THAN SEGMENTS, AND THAT IS WHAT PAYS FOR THE FADE. A segment list
+// would be a vec4 of two endpoints with nowhere left to put the burial, so the fade would need a
+// second array and twice the uniform vectors. A polyline carries n-1 segments in n vec4s AND has
+// a spare component per point, which the run-break flag then rides for nothing.
+const int MAX_TRACK = 40;
+uniform int   uNTrack;
+uniform vec4  uTrack[MAX_TRACK];
+uniform float uTrackHalf;   // half the wheel track: the two marks sit this far either side
+uniform float uTrackW;      // half-width of ONE wheel mark
+uniform vec4  uTrackBox;    // the whole path bounded, padded — see the reject below
+
+// How much of the cover this fragment has had cut out of it, 0-1.
+//
+// ⚠ ONE DISTANCE, TWO WHEELS. The perpendicular distance to the centreline is all that is needed:
+// a pair of marks either side of it is abs(d - half) tested against the width, so nothing has to
+// store, upload or walk a second polyline. ⚠ It is the perpendicular to the segment's own LINE and
+// not the distance to the segment — see the trap inside.
+//
+// ⚠ AND IT CONSERVES INK AT RANGE, the rule gl/strokes.js states for a sub-pixel wire and
+// roadCoverage repeats for a distant road: a mark thinner than the pixel it lands in is drawn
+// faint rather than by a coin toss, or a track a long way off is a crawling dotted line.
+float trackCut(vec2 gp, float fp) {
+  if (uNTrack < 2) return 0.0;
+  // The rectangle reject. Thirty-nine segments a fragment is far more than the six the wet
+  // reflections run, and almost none of the frame is near a track.
+  if (gp.x < uTrackBox.x || gp.y < uTrackBox.y || gp.x > uTrackBox.z || gp.y > uTrackBox.w) return 0.0;
+  float hw  = max(uTrackW, fp);
+  float ink = min(1.0, uTrackW / max(fp, 1e-5));
+  float best = 0.0;
+  for (int i = 0; i < MAX_TRACK - 1; i++) {
+    if (i + 1 >= uNTrack) break;
+    vec4 A = uTrack[i];
+    if (A.w < 0.5) continue;              // last point of a run: it joins nothing
+    vec4 B = uTrack[i + 1];
+    vec2 ab = B.xy - A.xy;
+    float l2 = dot(ab, ab);
+    if (l2 < 1e-9) continue;              // the live head on the frame it is born
+    float len = sqrt(l2);
+    vec2 dir = ab / len;
+    vec2 pa  = gp - A.xy;
+    // ⚠ THE PERPENDICULAR TO THE INFINITE LINE, WITH 't' UNCLAMPED — WHICH IS THE WHOLE FIX.
+    // This used to be the distance to the SEGMENT, clamped, and 'abs(d - uTrackHalf)' over that is
+    // an ANNULUS around a capsule: two parallel rails, and a semicircular arc of radius uTrackHalf
+    // wrapped round each end. Consecutive segments share a vertex, so the arc off the end of one
+    // and the arc off the start of the next close into a full CIRCLE at every point in the path —
+    // and on a dead straight drive those are a string of beads down the middle of the track,
+    // tangent to both rails, 0.32 tiles across and one every TRACK_STEP for ever. Measuring the
+    // perpendicular to the LINE and cutting the segment off square at its own ends draws the rails
+    // and nothing else.
+    float t = dot(pa, dir) / len;
+    float s = abs(pa.x * dir.y - pa.y * dir.x);
+    float cov = (1.0 - smoothstep(hw - fp, hw + fp, abs(s - uTrackHalf))) * ink;
+    // ⚠ AND THE SQUARE END IS MITRED ONLY WHERE THE RUN CARRIES ON. A butt cap on every segment
+    // leaves a wedge on the OUTSIDE of every bend, because the rail is offset uTrackHalf from a
+    // centreline that just changed direction; the gap is uTrackHalf * tan(half the turn), so half
+    // the wheel track covers a 53° kink and a rig takes a junction in about 25° a point. At a true
+    // run end — the head under the wheels, the tail falling out of the buffer, either side of a
+    // relay gap — there is nothing to mitre INTO, and the end stays square.
+    float mit = min(uTrackHalf * 0.5, len * 0.5) / len;
+    float pw  = i > 0 ? uTrack[max(i - 1, 0)].w : 0.0;
+    float m0  = pw  > 0.5 ? mit : 0.0;
+    float m1  = B.w > 0.5 ? mit : 0.0;
+    // ⚠ THE LONGITUDINAL FEATHER IS FOR A RUN END AND NOWHERE ELSE. A joint is already covered
+    // twice over by the mitre, so a screen-width ramp there only dims the seam — and 'fp' is most
+    // of a segment long at the far end of a street, which would put a grey dot at every point in
+    // the path rather than at none.
+    float aa  = min(0.40, max(fp, 1e-5) / len);
+    float e0  = m0 > 0.0 ? 1e-4 : aa;
+    float e1  = m1 > 0.0 ? 1e-4 : aa;
+    float ends = smoothstep(-m0 - e0, -m0 + e0, t) * smoothstep(-m1 - e1, -m1 + e1, 1.0 - t);
+    best = max(best, cov * ends * mix(A.z, B.z, clamp(t, 0.0, 1.0)));
+  }
+  return clamp(best, 0.0, 1.0);
+}
 
 // A term-by-term readout, because a floor that is 25% dark says nothing about WHICH factor did it.
 // 0 = the picture; 1 = the raw LUT colour; 2 = tex as grey; 3 = the haze weight; 4 = shade as grey;
@@ -238,7 +347,10 @@ float farShade(float awx, float awy, vec2 lit) {
   return clamp(1.0 + (-gx * lit.x - gy * lit.y) * 3.0, 0.66, 1.34);
 }
 // rgb + hillshade for one far tile.
-const float FAR_FADE = 26.0, DEEP_INTO = 0.786;
+// COAST_WOBBLE is windshield.js's own constant, and it has to be the same number: it is what
+// 'fillOffMap' ragged-izes the off-map coast INSIDE the window with, and this file ragged-izes the
+// continuation of that same coast outside it.
+const float FAR_FADE = 26.0, DEEP_INTO = 0.786, COAST_WOBBLE = 6.0;
 vec4 farGround(float awx, float awy, vec2 lit) {
   float rr = clamp(DEEP_INTO * 0.7 + vnoise2(awx * 0.06, awy * 0.06) * 0.6 - 0.15, 0.0, 1.0);
   return vec4(mix(uFarDirt, uFarRock, rr), farShade(awx, awy, lit));
@@ -285,6 +397,7 @@ float roadCoverage(vec2 gp, float fp) {
   return (1.0 - smoothstep(hw - fp, hw + fp, best)) * min(1.0, uRoadW / max(fp, 1e-5));
 }
 
+${HEIGHT_FOG_GLSL}
 void main() {
   // CSS pixel coordinates, which is the frame drawMode7Floor works in.
   float sx = gl_FragCoord.x / uDpr;
@@ -323,6 +436,35 @@ void main() {
   }
 
   float fx = uR + wpx, fy = uR + wpy;
+  // How far outside the window this sampling position sits — needed HERE, before the taps, because
+  // the wobble below has to move the taps themselves.
+  float fOut = uFarOn > 0.5 ? outsideBy(fx, fy) : 0.0;
+  // ── THE COAST OUT THERE IS RAGGED, NOT RULED ────────────────────────────────────────────────
+  //
+  // Past the window every tap collapses onto the boundary tile the ray happens to leave through,
+  // so the land/sea answer is a ring of 288 whole-tile decisions smeared radially — and where that
+  // ring changes its mind, the coastline is a dead-straight ray out of the camera with one
+  // triangular tooth per boundary tile along it. Softening the blend only blurs the teeth; the
+  // ruled line survives it, because a ruled line is what a radial smear of a quantised ring IS.
+  //
+  // So wobble the SAMPLING POSITION rather than the result. It is the same two-octave noise, at the
+  // same frequencies and the same COAST_WOBBLE amplitude, that 'fillOffMap' already uses to stop
+  // its own off-map coast being a clean offset of the built one — so the coast past the window
+  // meanders in exactly the way the coast inside it does, and for the same reason.
+  //
+  // ⚠ IT MOVES BOTH THE COLOUR AND THE WATERNESS, WHICH IS THE WHOLE POINT. A noise laid on waterW
+  // alone ragged-izes where the far GROUND is suppressed while the sea/desert colour step stays
+  // ruled underneath it, which looks like a wobbly mask over a straight edge — worse than either.
+  // ⚠ AND THE AMPLITUDE RAMPS FROM ZERO AT THE WINDOW EDGE, so the near/far handoff is still
+  // continuous by construction: at the edge this displaces nothing at all.
+  if (fOut > 0.0) {
+    float awx0 = wpx + uWc.x, awy0 = wpy + uWc.y;
+    float amp = COAST_WOBBLE * clamp(fOut / FAR_FADE, 0.0, 1.0);
+    fx += ((vnoise2(awx0 * 0.09, awy0 * 0.09) - 0.5)
+         + (vnoise2(awx0 * 0.23, awy0 * 0.23) - 0.5) * 0.45) * amp;
+    fy += ((vnoise2(awx0 * 0.09 + 31.7, awy0 * 0.09 - 12.3) - 0.5)
+         + (vnoise2(awx0 * 0.23 - 7.1, awy0 * 0.23 + 19.4) - 0.5) * 0.45) * amp;
+  }
   int ix = int(floor(fx)), iy = int(floor(fy));
   float fxr = fx - floor(fx), fyr = fy - floor(fy);
 
@@ -353,12 +495,55 @@ void main() {
   // dark, the sun by day.
   vec2 lit = uSunElev > 0.05 ? uSunDir : vec2(-0.62, -0.62);
   float dbgRoad = 0.0;
-  float fOut = uFarOn > 0.5 ? outsideBy(fx, fy) : 0.0;
+  // How much of this texel is far SEA — hoisted because the aerial perspective at the bottom of the
+  // shader needs it. See the note there.
+  float farSea = 0.0;
   if (fOut > 0.0) {
     float k = clamp(fOut / FAR_FADE, 0.0, 1.0);
+    // ⚠ THE SYNTHESIS IS DRY LAND, SO IT MAY ONLY REPLACE DRY LAND. 'farGround' is dirt-to-rust
+    // wildlands with a carved hillshade on it, and it was being laid over EVERY far texel — the
+    // waterness the clamp hands out was kept, so the sea's waves, glint, foam and moon path all
+    // still ran, on top of a base colour that was now desert. The bay therefore turned to rust
+    // about 26 tiles past the window and stayed rust to the horizon: from over the water, open
+    // sea that becomes open desert while you are flying across it.
+    //
+    // 'farShade' already says in its own comment that "whether it is SEA out there is the boundary
+    // tile's answer rather than this function's" — this is that sentence applied to the two terms
+    // that were not honouring it.
+    //
+    // ⚠ AND THE COAST IT UNCOVERS HAS TO BE SOFTENED TO ONE BOUNDARY TILE, OR IT IS A SAWTOOTH.
+    // Out here the land/sea answer is only known PER BOUNDARY TILE and is then smeared radially, so
+    // its angular resolution is frozen at one tile seen from 36 out while a far pixel's keeps
+    // shrinking: the edge between them ends up arbitrarily sharp relative to everything around it,
+    // and it draws as a ruled line with a regular row of triangular teeth running to the horizon —
+    // one tooth per boundary tile. Both terms below are that softening, and the widest honest one
+    // is exactly one tile, which is all the classification actually resolves:
+    //
+    //   · 'seamF' sharpens the colour blend to a narrow band at the tile seam, which is right
+    //     inside the window (a tile of terrain should read as a crisp tile) and is what makes the
+    //     teeth hard out here. Past the edge the plain bilinear weights are faded back in, so the
+    //     colour ramps across the whole tile instead of snapping inside it.
+    //   · 'wet' ramps over the FULL 0..1 of waterness for the same reason. Matching 'dryW' below
+    //     (which saturates at 0.25) would be four times sharper than the data underneath it.
+    //
+    // The coastline is still the window edge's answer extended radially — that is what the note
+    // above 'farGround' means by the land/sea decision being the window's — but it now meanders,
+    // because the wobble 'fillOffMap' ragged-izes its own coast with is carried along with it.
+    //
+    // ⚠ THE RASTER SPELLS THAT WOBBLE 'hnoise2' AND NOT 'vnoise2', WHICH IS NOT A TYPO AT EITHER
+    // END. This shader's 'vnoise2' hashes through 'vn2h', the integer mix; windshield.js has TWO
+    // lattice noises and its 'vnoise2' is the SINE one, so the matching name is the wrong function
+    // and 'hnoise2' is the right one. Write it the obvious way and the two floors draw two
+    // different coastlines — the one thing they may not do — while the raster also pays four
+    // 'Math.sin' per call for it.
+    vec3 baseSmooth = s00.rgb * w00 + s10.rgb * w10 + s01.rgb * w01 + s11.rgb * w11;
+    base = mix(base, baseSmooth, k);
+    float wet = smoothstep(0.0, 1.0, waterW);
+    float kl = k * (1.0 - wet);
+    farSea = k * wet;
     vec4 far = farGround(wpx + uWc.x, wpy + uWc.y, lit);
-    base = mix(base, far.rgb, k);
-    shadeW = mix(shadeW, far.a, k);
+    base = mix(base, far.rgb, kl);
+    shadeW = mix(shadeW, far.a, kl);
     grassW *= 1.0 - k;
     pavedW *= 1.0 - k;
     // Half the ground footprint of this pixel, in tiles. A screen row IS a depth here, so the
@@ -512,6 +697,89 @@ void main() {
     }
   }
 
+  // ── SNOW, LYING ON ALL OF IT ───────────────────────────────────────────────────────────────
+  //
+  // Last of the material terms and after every one of them, because that is what snow IS: a layer
+  // on top of whatever was there. Putting it earlier would have the arid ripple and the grass grain
+  // modulating the snow instead of being buried by it.
+  //
+  // ⚠ IT BURIES THE MATERIAL AND KEEPS THE LANDFORM, which is one line and is the whole difference
+  // between snow and a white tint. 'tex' at this point is the material multiplier with the
+  // hillshade already folded into it, so mixing it toward 1.0 — the obvious way to write "cover it
+  // up" — deletes the relief along with the texture and hands back a flat white sheet with no shape
+  // in it at all. Mixed toward 'shadeW' instead, the cracked clay, the wind ripple, the concrete
+  // mottle and the turf grain all go under, and the hills stay: on a real snowfield the shading IS
+  // the only thing you can see.
+  //
+  // ⚠ AND IT DOES NOT LIE ON OPEN WATER. It melts. It does gather right up to the waterline, which
+  // is why this is a ramp across the shore seam rather than a test — 'waterW' doubles as a shoreline
+  // coordinate (see the block above), so the same number that places the surf places the snow's edge
+  // and the two cannot disagree about where the water starts.
+  //
+  // ⚠ AND THE COVER IS A LEVEL AGAINST A DRIFT FIELD, NOT AN OPACITY. Faded in as a flat alpha,
+  // early snow is a grey wash over the whole map; what actually happens is that the first of it
+  // catches in the lee and the hollows and the exposed ground stays bare, and then the patches
+  // spread and join. That is the identical question the puddle field answers one shader along — a
+  // substance finding the low ground as its quantity rises — so it is the identical shape of
+  // answer, and deliberately so.
+  float snowW = 0.0;
+  if (uSnow > 0.001) {
+    float land = 1.0 - clamp((waterW - 0.30) / 0.22, 0.0, 1.0);
+    // Two octaves: a broad one that decides which side of a rise is bare, and a finer one that
+    // gives the edge of a patch its ragged shoreline. ⚠ The fine octave is faded with 'detail' like
+    // every other high-frequency term in this shader — left in at range it aliases into the same
+    // checkerboard the arid ripple is guarded against.
+    float drift = vnoise2(wx * 0.55 + 31.0, wy * 0.55 - 17.0)
+                + (vnoise2(wx * 2.1 - 8.0, wy * 2.1 + 5.0) - 0.5) * 0.45 * detail;
+    // ⚠ THE LEVEL RUNS PAST BOTH ENDS OF THE FIELD ON PURPOSE. 'drift' spans about 0..1, so a top
+    // of 1.05 means a dusting covers genuinely nothing on the exposed ground, and a floor of -0.06
+    // means a full fall leaves no bare patches at all. Stopping at 0 and 1 would make the first
+    // flake and the last one both visible as a step.
+    float level = mix(1.05, -0.06, uSnow);
+    // Screen-widened, exactly as the puddle shoreline is and for the same reason: a hard threshold
+    // on a world-space field crawls as the camera moves.
+    float band = max(0.06, fwidth(drift) * 1.6);
+    snowW = smoothstep(level, level + band, drift) * land;
+    // ⚠ AND THE WHEELS CUT IT BACK. Here rather than at the colour, because everything below
+    // reads snowW — the material burial, the dry sparkle, the surf and crest suppression — and
+    // a track is an ABSENCE of cover rather than a mark painted on top of one.
+    //
+    // ⚠ AND IT CUTS ALL THE WAY. At 0.88 an eighth of the cover stayed in the rut, which reads as a
+    // grey smear rather than as bare ground — and cutting it HERE is what makes the difference: at
+    // zero the terrain comes back with its own colour and its own material, rather than with a
+    // paler snow painted over the top of it.
+    if (uNTrack > 1) {
+      // Half this pixel's ground footprint, the same figure the far road dissolves against.
+      float tfp = 0.5 * max(d * d / max(uEH * uDepth, 1e-4), d * uLAT / max(uHalfW, 1.0));
+      snowW *= 1.0 - trackCut(vec2(wx, wy), tfp);
+    }
+  }
+  if (snowW > 0.001) {
+    // ⚠ SNOW IS NOT WHITE, IT IS THE SKY. It is a near-perfect diffuse reflector of the whole
+    // hemisphere above it, so what it hands back is what is up there — blue at noon, and the reason
+    // a snowy dusk goes pink. 'uHor' is the horizon colour this shader already mixes its haze
+    // toward, so the tint comes from the frame's own sky rather than from a constant somebody would
+    // have to retune every time the palette moved.
+    //
+    // ⚠ AND THE NIGHT DIM BELOW IS LEFT TO DO ITS WORK. Snow at night is the brightest thing in the
+    // frame and the temptation is to protect it from 'uNm'; it does not need protecting, because
+    // 0.93 through a 0.58 dim is still three times the ground beside it. Exempting it would make a
+    // snowfield glow in the dark.
+    vec3 snowCol = mix(vec3(0.93, 0.95, 0.99), uHor, 0.22);
+    base = mix(base, snowCol, snowW);
+    tex = mix(tex, shadeW, snowW);
+    // A fine dry sparkle, near field only — the one thing that stops a big even area of snow
+    // reading as paper. Same grain frequency the near-camera term uses, because it is the same
+    // problem: a flat surface with no world-space texture in it flattens into a hole.
+    if (nearK > 0.01) {
+      int sx0 = int(floor(wx * 19.0)), sy0 = int(floor(wy * 19.0));
+      tex *= 1.0 + (vn2h(sx0, sy0) > 0.93 ? 0.16 : 0.0) * nearK * snowW;
+    }
+    // Snow smothers the shoreline surf and the wet-sand band under it: both are specular adds that
+    // belong to a wet beach, and a beach under snow is not one.
+    foam *= 1.0 - snowW; cr *= 1.0 - snowW;
+  }
+
   // The bright specular spikes fade out with distance too, exactly as the material does.
   cr *= detail; foam *= detail; gln *= detail; moon *= detail; cap *= detail;
 
@@ -529,8 +797,18 @@ void main() {
   // Aerial perspective for the arid wildlands. Clear-weather haze is deliberately light, so a dry
   // plain would otherwise keep near-full saturation up to a high horizon and read as a looming
   // wall. Only bare dry land washes out: water has its own glint and turf has its own colour.
-  if (dryW > 0.02) {
-    float lh = dryW * clamp((d - 10.0) / 44.0, 0.0, 1.0) * 0.6;
+  //
+  // ⚠ AND THE OPEN SEA PAST THE WINDOW WASHES OUT WITH IT, WHICH THE GATE ABOVE WOULD NOT DO. That
+  // exemption is a NEAR-FIELD argument — glint and swell carry water, so washing it would flatten
+  // them — and it does not survive to 60 tiles, where there is no swell left to read. It cost
+  // nothing while the far field was desert everywhere, because there was no far sea for it to
+  // exempt; the moment the bay ran on to the horizon it became the one visible term that treats the
+  // two sides of a coastline differently, and a plain washed 60% toward the sky meeting an unwashed
+  // sea IS the hard bright line down the middle of that picture. 'farSea' is zero inside the window,
+  // so the bay off the end of a pier is exactly the water it has always been.
+  float washW = max(dryW, farSea);
+  if (washW > 0.02) {
+    float lh = washW * clamp((d - 10.0) / 44.0, 0.0, 1.0) * 0.6;
     col = col * (1.0 - lh) + uHor * uNm * lh;
   }
   // ── THE REFLECTIONS, BEFORE THE FOG ────────────────────────────────────────────────────────
@@ -580,11 +858,12 @@ void main() {
 
   // N64 distance fog, last and uniformly over every material, so the far field recedes into the
   // sky. A squared ramp: a crisp foreground thickening into the far.
-  if (uFogAmt > 0.001) {
-    float ff = clamp((d - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
-    float fw = ff * ff * uFogAmt;
-    col = col * (1.0 - fw) + uFogCol * fw;
-  }
+  // ⚠ ONE MIX FOR BOTH, because they are two things the light has to get through and what
+  // multiplies is what gets THROUGH — see gl/fog.js. Applied separately they sum past 1 in thick
+  // weather and the far field becomes a flat plate of fog colour.
+  float ffd = clamp((d - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
+  float fw = 1.0 - (1.0 - ffd * ffd * uFogAmt) * (1.0 - heightFog(uEH, 0.0, d, uFogH, uFogHScale));
+  if (fw > 0.001) col = col * (1.0 - fw) + uFogCol * fw;
 
   // ⚠ A SCREEN-FILLING TRIANGLE HAS ONE DEPTH, AND THE GROUND HAS A THOUSAND. Left alone this
   // would write a single constant z and the city would be entirely in front of the floor or
@@ -631,6 +910,10 @@ function compile(gl, type, src, label) {
 // happily accept a longer array and silently ignore the tail, which is a reflection that is there
 // on one machine and missing on another. Kept adjacent so a change to one is a visible diff on both.
 const MAX_WET = 6;
+// ⚠ THE SAME FORTY AS THE SHADER'S OWN MAX_TRACK, AND THEY HAVE TO AGREE — the rule MAX_WET
+// above states for the same reason. The GLSL one is inside a template literal and cannot be read
+// from here, so this is the second copy, kept adjacent so a change to one is a visible diff.
+const MAX_TRACK_PTS = 40;
 const WET_P = new Float32Array(MAX_WET * 3);
 const WET_C = new Float32Array(MAX_WET * 3);
 const WET_R = new Float32Array(MAX_WET);
@@ -658,11 +941,15 @@ export function createFloorLayer(gl) {
     farDirt: U('uFarDirt'), farRock: U('uFarRock'), farOn: U('uFarOn'),
     nRoad: U('uNRoad'), roadSeg: U('uRoadSeg'), roadW: U('uRoadW'), roadCol: U('uRoadCol'),
     fogAmt: U('uFogAmt'), fogNear: U('uFogNear'), fogFar: U('uFogFar'), fogCol: U('uFogCol'),
+    fogH: U('uFogH'), fogHScale: U('uFogHScale'),
     t: U('uT'), ss: U('uSS'), sunDir: U('uSunDir'), sunElev: U('uSunElev'),
     moonDir: U('uMoonDir'), moonElev: U('uMoonElev'), night: U('uNight'),
     heliDown: U('uHeliDown'), rotor: U('uRotor'), dc: U('uDC'),
     zA: U('uZA'), zB: U('uZB'), debug: U('uDebug'),
     nWet: U('uNWet'), wetP: U('uWetP'), wetC: U('uWetC'), wetR: U('uWetR'), wet: U('uWet'),
+    snow: U('uSnow'),
+    nTrack: U('uNTrack'), track: U('uTrack'), trackHalf: U('uTrackHalf'),
+    trackW: U('uTrackW'), trackBox: U('uTrackBox'),
   };
 
   const vao = gl.createVertexArray();   // nothing bound: the triangle is synthesised from gl_VertexID
@@ -692,7 +979,7 @@ export function createFloorLayer(gl) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, a1);
   }
 
-  function draw(s) {
+  function draw(s, near = NEAR) {
     if (!s || !s.lut0 || !s.n) return 0;
     gl.useProgram(prog);
     setLut(s.n, s.lut0, s.lut1, s.tag);
@@ -725,6 +1012,8 @@ export function createFloorLayer(gl) {
       gl.uniform3f(loc.roadCol, rc[0] / 255, rc[1] / 255, rc[2] / 255);
     }
     gl.uniform1f(loc.fogAmt, s.fogAmt || 0);
+    gl.uniform1f(loc.fogH, s.fogH || 0);
+    gl.uniform1f(loc.fogHScale, s.fogHScale > 0 ? s.fogHScale : 0.5);
     gl.uniform1f(loc.fogNear, s.fogNear == null ? 6 : s.fogNear);
     gl.uniform1f(loc.fogFar, s.fogFar == null ? 34 : s.fogFar);
     const fc = s.fogCol || [0, 0, 0];
@@ -738,6 +1027,24 @@ export function createFloorLayer(gl) {
     gl.uniform1f(loc.heliDown, s.heliDown || 0); gl.uniform1f(loc.rotor, s.rotor || 0);
     gl.uniform2f(loc.dc, s.dcx || 0, s.dcy || 0);
     gl.uniform1i(loc.debug, s.debug | 0);
+    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO SNOW — the rule the road segments and
+    // the wet lights below both carry, and the one a new uniform is likeliest to be added without.
+    // A uniform holds its last value, so a pass that only set this when it had snow would leave the
+    // whole world white for the rest of the session after one blizzard thawed.
+    gl.uniform1f(loc.snow, s.snow || 0);
+    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO TRACKS. A uniform holds its last value,
+    // so a pass that set these only when it had a path would leave the last one carved into the
+    // snow for the rest of the session — the rule the road segments and the wet lights carry.
+    {
+      const tk = s.tracks;
+      const tn = tk && tk.pts ? Math.min(MAX_TRACK_PTS, tk.n | 0) : 0;
+      gl.uniform1i(loc.nTrack, tn);
+      if (tn > 1) {
+        gl.uniform4fv(loc.track, tk.pts.subarray(0, tn * 4));
+        gl.uniform1f(loc.trackHalf, tk.half); gl.uniform1f(loc.trackW, tk.w);
+        gl.uniform4f(loc.trackBox, tk.box[0], tk.box[1], tk.box[2], tk.box[3]);
+      }
+    }
     // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO REFLECTION. A uniform holds its last
     // value, so a pass that only set these when it had lights would leave yesterday's streaks on
     // the road after the signs went out — the same rule the sun strength above it follows.
@@ -756,9 +1063,9 @@ export function createFloorLayer(gl) {
       gl.uniform3fv(loc.wetC, WET_C.subarray(0, nw * 3));
       gl.uniform1fv(loc.wetR, WET_R.subarray(0, nw));
     }
-    const near = 0.06, far = 400.0;
-    gl.uniform1f(loc.zA, (far + near) / (far - near));
-    gl.uniform1f(loc.zB, -2.0 * far * near / (far - near));
+    const zr = zRow(near);
+    gl.uniform1f(loc.zA, zr[0]);
+    gl.uniform1f(loc.zB, zr[1]);
     // ⚠ THE FLOOR IS DRAWN AFTER THE MASS AND IT WRITES DEPTH. Everything else in this pass — the
     // road, the scatter, the shadows — stands ON it, so a surface behind a building has to lose to
     // it. See the ordering note in world.js for why it cannot simply be drawn first.

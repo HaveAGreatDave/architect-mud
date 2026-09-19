@@ -1,0 +1,11 @@
+{
+  "description": "Brass lamps on the rail at intervals, wired long after the building went up and kept because they suit it.",
+  "flags": {},
+  "id": "furn_light_zone_mains_gallery",
+  "light_type": "lamp",
+  "lumen_output": 800,
+  "name": "the gallery lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_mains_gallery"
+}

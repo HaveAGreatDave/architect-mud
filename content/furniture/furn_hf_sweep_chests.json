@@ -1,0 +1,19 @@
+{
+  "description": "Twelve wide shallow drawers down the inner wall, each labelled with a phase number, and every one of them locked except the top.",
+  "flags": {
+    "aliases": [
+      "chests",
+      "chest",
+      "plans",
+      "drawers"
+    ],
+    "hack_difficulty": 8,
+    "interactions": {
+      "examine": "The labels run from PHASE 1 to PHASE 9. There are twelve drawers."
+    }
+  },
+  "id": "furn_hf_sweep_chests",
+  "name": "the plan chests",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_sweep_drawing"
+}

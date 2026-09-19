@@ -2,20 +2,28 @@
   "adorn": [
     {
       "color": "#a678ff",
-      "cx": -0.3,
-      "cy": 0.32,
+      "cx": -0.32,
+      "cy": 0.3,
       "kind": "neonBlade",
       "label": "MUSIC",
-      "z0": 0.34,
-      "z1": 0.92
+      "z0": 0.36,
+      "z1": 0.86
     },
     {
       "cx": 0,
-      "cy": 0.44,
+      "cy": 0.46,
       "kind": "glowPool",
       "rgb": "170,120,255",
       "s": 15,
       "z": 0.02
+    },
+    {
+      "cx": 0.16,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "120,90,220",
+      "s": 9,
+      "z": 0.52
     }
   ],
   "basis": {
@@ -30,108 +38,258 @@
   ],
   "detail": [
     {
-      "cx": 0,
-      "cy": 0,
-      "half": 0.34,
-      "hh": 0.016,
-      "kind": "parapet",
-      "pal": "ty_studio",
-      "z": 0.98
-    },
-    {
-      "bars": 4,
-      "cx": 0,
-      "cy": 0.36,
-      "depth": 0.018,
+      "bars": 5,
+      "cx": 0.02,
+      "cy": 0.38,
+      "depth": 0.032,
       "glass": "#171226",
-      "glow": "#d9c2ff",
+      "glow": "#e2d0ff",
       "half": 0.28,
-      "hh": 0.032,
+      "hh": 0.072,
       "kind": "windowBay",
       "pal": "ty_shop_a",
-      "z": 0.11
+      "transom": 0.78,
+      "z": 0.105
     },
     {
-      "bars": 2,
-      "cx": -0.14,
-      "cy": 0.36,
-      "depth": 0.01,
-      "glass": "#171226",
-      "glow": "#c7a8ff",
-      "half": 0.11,
-      "hh": 0.028,
-      "kind": "windowBay",
-      "pal": "ty_shop_a",
-      "z": 0.46
-    },
-    {
-      "bars": 2,
-      "cx": 0.14,
-      "cy": 0.36,
-      "depth": 0.01,
-      "glass": "#171226",
-      "glow": "#8f7ab8",
-      "half": 0.11,
-      "hh": 0.028,
-      "kind": "windowBay",
-      "pal": "ty_shop_a",
-      "z": 0.66
+      "cx": 0.02,
+      "cy": 0.38,
+      "half": 0.3,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.105,
+      "pal": "ty_studio",
+      "soffit": "#2a1c46",
+      "strip": "#c8adff",
+      "z": 0.212
     },
     {
       "color": "#1c1230",
-      "cx": 0,
-      "cy": 0.36,
+      "cx": 0.02,
+      "cy": 0.38,
       "font": "block",
-      "half": 0.24,
-      "hh": 0.028,
-      "ink": "#cdb2ff",
+      "half": 0.3,
+      "hh": 0.04,
+      "ink": "#d6bcff",
       "kind": "signBoard",
       "label": "TREBLE MAKER",
-      "z": 0.3
+      "z": 0.288
     },
     {
-      "cx": 0.28,
-      "cy": 0.36,
-      "drip": 0.4,
-      "hh": 0.028,
-      "kind": "vent",
+      "cx": 0,
+      "cy": 0,
+      "half": 0.405,
+      "hh": 0.014,
+      "kind": "parapet",
+      "pal": "ty_studio",
+      "z": 0.338
+    },
+    {
+      "bars": 2,
+      "cx": 0.16,
+      "cy": 0.41,
+      "depth": 0.014,
+      "glass": "#171226",
+      "glow": "#cdb2ff",
+      "half": 0.13,
+      "hh": 0.036,
+      "kind": "windowBay",
+      "pal": "ty_studio",
+      "z": 0.46
+    },
+    {
+      "cx": 0.16,
+      "cy": 0.41,
+      "half": 0.175,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_studio",
+      "z": 0.6
+    },
+    {
+      "cap": true,
+      "cx": -0.12,
+      "cy": 0.34,
+      "kind": "pilaster",
+      "n": 3,
+      "out": 0.02,
+      "pal": "ty_studio",
+      "step": 0.12,
+      "w": 0.022,
+      "z0": 0.35,
+      "z1": 0.86
+    },
+    {
+      "bars": 2,
+      "cx": -0.12,
+      "cy": 0.34,
+      "depth": 0.01,
+      "glass": "#171226",
+      "glow": "#8f7ab8",
+      "half": 0.048,
+      "hh": 0.026,
+      "kind": "windowBay",
+      "pal": "ty_shop_a",
+      "z": 0.5
+    },
+    {
+      "bars": 2,
+      "cx": -0.12,
+      "cy": 0.34,
+      "depth": 0.01,
+      "glass": "#171226",
+      "glow": "#7a68a0",
+      "half": 0.048,
+      "hh": 0.026,
+      "kind": "windowBay",
+      "pal": "ty_shop_a",
+      "z": 0.7
+    },
+    {
+      "cx": 0.27,
+      "cy": -0.34,
+      "face": "x",
+      "flights": 3,
+      "half": 0.07,
+      "kind": "fireEscape",
+      "out": 0.044,
+      "pal": "ty_studio",
+      "z0": 0.34,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.345,
+      "hh": 0.016,
+      "kind": "parapet",
+      "pal": "ty_studio",
+      "z": 0.88
+    },
+    {
+      "cx": -0.16,
+      "cy": -0.14,
+      "d": 0.1,
+      "hh": 0.048,
+      "kind": "acUnit",
+      "pal": "ty_studio",
+      "w": 0.12,
+      "z": 0.88
+    },
+    {
+      "cx": 0.04,
+      "cy": -0.14,
+      "d": 0.09,
+      "hh": 0.042,
+      "kind": "acUnit",
+      "pal": "ty_studio",
+      "w": 0.1,
+      "z": 0.88
+    },
+    {
+      "cx": 0.14,
+      "cy": 0.3,
+      "kind": "ductRun",
+      "pal": "ty_studio",
+      "r": 0.026,
+      "run": 0.2,
+      "z0": 0.88,
+      "z1": 0.97
+    },
+    {
+      "cx": 0.24,
+      "cy": -0.24,
+      "d": 0.08,
+      "hh": 0.044,
+      "kind": "roofBulkhead",
       "pal": "ty_studio",
       "w": 0.09,
-      "z": 0.78
+      "z": 0.88
+    },
+    {
+      "color": "#150d24",
+      "cx": -0.04,
+      "cy": -0.02,
+      "font": "condensed",
+      "half": 0.21,
+      "hh": 0.044,
+      "ink": "#b894ff",
+      "kind": "signGantry",
+      "label": "ROOMS BY THE HOUR",
+      "neon": true,
+      "pal": "ty_studio",
+      "rise": 0.07,
+      "z": 0.9
+    },
+    {
+      "cx": -0.36,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_studio",
+      "z": 0.004
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.46,
+      "kind": "bollard",
+      "pal": "ty_studio",
+      "z": 0.004
     }
   ],
   "id": "treblemaker",
   "neon": "#a678ff",
-  "note": "Instruments hung on wires against the glass rather than stood in it, so the window reads as a curtain of necks and bells. Three floors: shop, then the two rooms you can hire by the hour, which is why the upper windows are lit at odd times and the card in the window apologises for the noise without offering to stop.",
+  "note": "Instruments hung on wires against the glass rather than stood in it, so the window reads as a curtain of necks and bells. Three floors: shop, then the two rooms you can hire by the hour, which is why the upper windows are lit at odd times and the card in the window apologises for the noise without offering to stop.\n\nThe rehearsal room is a CANTILEVER, and it is the whole silhouette. A room that has to be quiet is a box built inside a box, so the one on the first floor is hung out over the pavement on the right - which is also what a landlord does when the shop below has already used the ground.\n\nThe SHAFT beside it takes the opposite treatment: three stone piers with slit windows between them, because a rehearsal room does not want glass. The two halves of the frontage disagree with each other on purpose and that is the building.\n\nThe plant on the roof is the tell that anybody with ears would read - two big units and a duct, for rooms with no openable window in them. The roof board sells the rooms; the fascia says the name.",
   "pal": "ty_shop_a",
   "segs": [
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.38,
+      "hw": 0.4,
       "kind": "box",
+      "pal": "ty_studio",
       "roof": true,
       "z0": 0,
-      "z1": 0.06
+      "z1": 0.055
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.36,
+      "hw": 0.38,
       "kind": "box",
+      "pal": "ty_shop_a",
       "roof": true,
-      "z0": 0.06,
-      "z1": 0.86
+      "z0": 0.055,
+      "z1": 0.34
     },
     {
       "cx": 0,
       "cy": 0,
       "hw": 0.34,
       "kind": "box",
+      "pal": "ty_shop_a",
+      "roof": true,
+      "z0": 0.34,
+      "z1": 0.88
+    },
+    {
+      "cx": 0.16,
+      "cy": 0.24,
+      "hw": 0.17,
+      "kind": "box",
       "pal": "ty_studio",
       "roof": true,
-      "z0": 0.86,
-      "z1": 0.98
+      "z0": 0.38,
+      "z1": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_studio",
+      "roof": true,
+      "z0": 0.88,
+      "z1": 0.97
     }
   ],
   "trade": "shop"

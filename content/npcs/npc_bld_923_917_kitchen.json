@@ -1,0 +1,80 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A small, brisk woman with her sleeves pinned back, who has fed this street for nineteen years and will not discuss it.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a patched flak jacket hung with a vendor's badge",
+      "a snug tank top",
+      "a lace-trimmed bra and panties"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_923_917_kitchen",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_bld_923_917_kitchen",
+  "name": "Hestia Dunmore",
+  "npc_type": "vendor",
+  "sex": "female",
+  "vendor_inventory": [
+    {
+      "item_id": "item_bone_broth",
+      "price": 0
+    },
+    {
+      "item_id": "item_flat_bread",
+      "price": 0
+    }
+  ],
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ]
+  },
+  "wander_zones": [],
+  "wanders": 0
+}

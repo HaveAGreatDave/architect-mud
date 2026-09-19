@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "An unlet floor kept show-ready: eleven desks, none of them used, a meeting room with the chairs at perfect intervals, and the light left on. There is a coat on the back of one chair which has been there long enough that it is part of the presentation.",
+  "exits": {
+    "down": "zone_hf_curve_atrium"
+  },
+  "flags": {
+    "building_name": "Curve Appeal",
+    "building_type": "chrome_slab",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_curve_suite",
+  "map_id": "map_int_hf_curve",
+  "name": "Curve Appeal — The Fourth Floor Suite",
+  "parent_zone": "zone_district_897_909"
+}

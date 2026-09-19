@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_topbrass_key",
+  "name": "a collar card",
+  "tags": {
+    "description": "A thin chrome card that calls the lift to fifteen and nowhere else. The estate issues them to guests and does not take them back, which is either generosity or an oversight nobody has corrected.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 40,
+  "weight": 3
+}

@@ -16,7 +16,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
-import { glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { padCatchStep } from './pad-catch.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
@@ -42,6 +42,7 @@ import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
 import { hex2rgb, visorSpecFor, VIPER_SCALE } from './aircraft3d.js';
 import { createFreeCam, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
+import { MOUSE_STICK, STICK_TUNE, STICK_HINT_ON, STICK_HINT_OFF, createMouseStick, bindMouseStick } from './mousestick.js';
 import { compactHidePanel } from '../../../shared/compact-view.js';
 
 // Touch-primary devices (phones/tablets) have no keyboard for rudder pedals, so their fin
@@ -189,6 +190,22 @@ const freeCam = createFreeCam();
 // held frame is clean and a lost pilot is one mouse-move from the row.
 let freeIdle = null;
 function setFreeCamChrome(on) { document.body.classList.toggle('fsim-freecam', !!on); freeIdle?.wake(); }
+
+// THE GLASS AS A CONTROL COLUMN — see mousestick.js. Module-scoped beside `freeCam` and for the
+// same reason: there is one sim, and a stick that outlived the panel would hand the next aircraft
+// a hidden cursor and a deflection nobody is holding. `K` takes it, ESC or `K` again gives it back.
+// ⚠ `read` IS WHAT STOPS ARMING FROM BEING A JUMP. The column picks up wherever the aircraft's
+// controls already are, so taking the mouse changes nothing until the mouse moves — a pilot
+// holding a turn on the pad presses K and goes on holding it. Without it, arming snaps both
+// surfaces to neutral, which is the one thing this control is not allowed to do.
+const mouseStick = createMouseStick({ key: 'k', read: () => [_fsim?.input?.aileron || 0, _fsim?.input?.elevator || 0] });
+let stickUnbind = null;
+// ⚠ THE TOAST HANGS OFF THE STATE, NEVER OFF THE KEY. Four things let go of the glass — K, ESC,
+// the window losing focus, and the browser taking a granted lock back — and three of them are not
+// keypresses. Announced from the key handler, a pilot who alt-tabbed would come back to a stick
+// that had quietly stopped working with nothing on screen saying so. Subscribed once for the life
+// of the page rather than per panel open: `fsimToast` is a no-op while there is no sim.
+mouseStick.onArm((on) => fsimToast(on ? STICK_HINT_ON : STICK_HINT_OFF));
 
 function updatePaxViewTag() {
   const tag = document.getElementById('ck-pax-viewtag'); if (!tag) return;
@@ -994,7 +1011,7 @@ function fsimClearGlows() { for (const id of GLOW_IDS) document.getElementById(i
 const TOUR_STEPS = [
   { id: 'fsim-yoke', title: 'THE YOKE', body: (m) => m
     ? 'The <b>yoke</b> is your control column — drag it with your <b>finger</b>. Left/right banks the wings into a turn. It\'s <b>inverted</b> like the real thing: drag <b>DOWN</b> to pull back and <b>climb</b>, drag up to descend.'
-    : 'The <b>yoke</b> is your control column — steer it with the <span class="k">mouse</span>. Drag <b>left/right</b> to bank the wings into a turn. It\'s <b>inverted</b> like the real thing: drag <b>DOWN</b> to pull back and <b>climb</b>, push <b>up</b> to descend.' },
+    : 'The <b>yoke</b> is your control column — steer it with the <span class="k">mouse</span>. Drag <b>left/right</b> to bank the wings into a turn. It\'s <b>inverted</b> like the real thing: drag <b>DOWN</b> to pull back and <b>climb</b>, push <b>up</b> to descend.<br><br>Or press <span class="k">K</span> and fly her <b>on the mouse</b> — move it and the column moves with it, and <b>stays where you leave it</b>. <span class="k">ESC</span> or <span class="k">K</span> hands the mouse back.' },
   { id: 'fsim-thr', title: 'THROTTLE', body: (m) => m
     ? 'The <b>throttle</b> sets engine power — <b>drag the lever</b> up for more, down for less. Run it <b>full</b> for takeoff, and ease it back to bleed off speed for landing.'
     : 'The <b>throttle</b> sets engine power. Tap <span class="k">A</span> to add power, <span class="k">Z</span> to cut it — or drag the lever. Run it <b>full</b> for takeoff, and ease it back to bleed off speed for landing.' },
@@ -1316,6 +1333,11 @@ const FSIM_TUNE = [
   ['eh', 'Horizon compress', 0, 1, 0.01],
   ['climbLift', 'Climb lift', 0, 20, 0.5],
   ['tile', 'Floor tiles', 0.1, 3, 0.05],
+  // The moon's angular radius, in degrees of sky. A slider because the only question it answers is
+  // how big a moon this sky wants, which is a thing you judge by looking at it — and because the
+  // phase is real (it comes off the world calendar, so every canopy in the Basin shows the same
+  // one), and a phase you cannot read is one nobody knows is there. Real is 0.26; 3 ships.
+  ['moonSize', 'Moon size', 1, 8, 0.25],
   ['pixel', 'Pixel size', 1, 10, 1],
   ['perfDS', 'Adaptive chunk', 0, 1, 1],   // 0 pins 'Pixel size' — under load the ground stays crisp and the frame rate takes the hit instead
   ['fog', 'Fog (N64)', 0, 1, 0.05],
@@ -1340,6 +1362,22 @@ const FSIM_TUNE = [
   // a missing one — and is the renderer exactly as it shipped. A slider because the thing being
   // judged is whether it draws attention to itself, which is not a number.
   ['motion', 'Moving parts', 0, 1, 1],
+  // Snow lying on the ground — the open terrain, the streets and every up-facing surface in the
+  // city. 0 is the renderer as it shipped. It is a slider rather than a boolean because the depth
+  // itself is integrated from the weather (see SNOW_NOW) and this scales what that arrives at, so
+  // it doubles as the way to see a blizzard without waiting for one: RENDER_TUNE.snowForce pins
+  // the depth outright, and this is the master the pin still has to pass through.
+  ['glSnow', 'Snow cover', 0, 1, 0.05],
+  // Wheel tracks cut back into that cover — yours, and every other player's. 0 is the snow exactly
+  // as it lies without them. A separate knob from the cover because it is the only STATEFUL part of
+  // the feature: it is the one thing that can be switched off to get a frame back, and the one thing
+  // whose cost scales with how many vehicles are near you rather than with the weather.
+  ['glTracks', 'Wheel tracks', 0, 1, 1],
+  // Whether the GL clip plane is solved from the camera or fixed at the 0.06 tiles GLASS 2 shipped
+  // with. A boolean wearing a slider's clothes, because there is nothing to tune: it either fits or
+  // it does not, and 0 is the A/B. Only a seat whose eye is under about a tenth of a tile — a free
+  // camera pressed down onto the road — ever gets a different number out of it.
+  ['nearFit', 'Fit near plane to seat', 0, 1, 1],
   // Where the rain is allowed to be. The curtain is a full-screen particle pass keyed off the
   // day's weather string, so it fell in clear air on top of an overcast and over the half of the
   // map with no cell above it. 1 gates it on the cloud base the deck is already drawn at and on
@@ -2988,6 +3026,12 @@ export function openFlightSim(opts = {}) {
   // Same lifetime as the panel: it listens on the window, so closeFlightSim releases it.
   freeIdle?.unbind();
   freeIdle = bindFreeCamIdle(freeCam);
+  // …and the glass as a stick, bound AFTER the camera and on the bubble phase, so a detached
+  // camera goes on taking the mouse off it. `enabled` is the other half of that: while the camera
+  // is out the aircraft is deliberately hands-off, and a stick still reading the glass would be
+  // flying it from inside a shot somebody is composing.
+  stickUnbind?.();
+  stickUnbind = bindMouseStick(viewEl, mouseStick, { enabled: () => !freeCam.active });
   if (viewEl) {
     let ox = 0, oy = 0;
     add(viewEl, 'pointerdown', (e) => {
@@ -3278,13 +3322,33 @@ export function openFlightSim(opts = {}) {
     if (k === 'o' && !e.repeat && (F.external || freeCam.active)) {
       e.preventDefault();
       const on = freeCam.toggle({ yaw: (F.hdg || 0) + (F.extOrbit || 0), z: 0.55 });
-      if (on) { F.throttleKey = 0; F.pedalKey = 0; F.firing = false; }
+      // ⚠ AND THE GLASS GOES WITH THEM. Detaching releases the throttle and pedals so the aircraft
+      // holds its trim while you compose a shot — and an armed stick would go on writing its last
+      // deflection into the column every frame, so the aeroplane would fly a standing turn out of
+      // the picture instead. `enabled` stops the mouse reaching it; only this stops the frame loop.
+      if (on) { F.throttleKey = 0; F.pedalKey = 0; F.firing = false; mouseStick.setArmed(false); }
       setFreeCamChrome(on);
       fsimToast(on ? '◎ FREE CAMERA — mouse looks, MMB orbit, LMB/RMB up-down, WASD move, U frees the mouse, O to stow' : '◎ CHASE CAMERA');
       return;
     }
+    // ── THE MARKS OFF THE GLASS ─────────────────────────────────────────────
+    // Ahead of the `KEYS` allowlist for the same reason the camera is: it is not a flight control
+    // and the aircraft has no opinion about it. It is also ahead of `freeCam.active` deliberately —
+    // a detached camera hides the marks anyway (see NAV_MARKS), but the pilot setting the switch
+    // while composing a shot is setting it for the seat they are about to go back to.
+    if (k === 'n' && !e.repeat) {
+      e.preventDefault();
+      fsimToast(navMarks() ? '◈ NAV MARKS ON' : '◈ NAV MARKS OFF');
+      return;
+    }
     if (freeCam.onKey(k, true)) { e.preventDefault(); return; }
     if (freeCam.active) return;   // detached: the airframe hears nothing
+    // ── THE GLASS AS THE STICK ──────────────────────────────────────────────
+    // Ahead of the `KEYS` allowlist, like the camera and the marks: it is a control SCHEME rather
+    // than a control, and the aircraft has no opinion about it. Behind `freeCam.active`, unlike
+    // them, because while the camera is out the mouse belongs to the camera — arming the stick
+    // there would put a hidden cursor on a shot and fly the aeroplane out of it.
+    if (mouseStick.onKey(k, true, e.repeat)) { e.preventDefault(); return; }
     if (!KEYS.has(k)) return;
     e.preventDefault();
     switch (k) {
@@ -3510,6 +3574,11 @@ export function openFlightSim(opts = {}) {
   ];
   const colRow = ([k, lbl]) =>
     `<div class="trow"><label>${lbl}</label><input type="color" data-ck="${k}" value="${RENDER_TUNE[k]}"><span class="tv"></span></div>`;
+  // The mouse stick's own knobs. A third row type rather than a third entry in FSIM_TUNE, because
+  // MOUSE_STICK is a control scheme and RENDER_TUNE is what the frame looks like — the two happen
+  // to be tuned from the same panel and are not the same kind of thing.
+  const stkRow = ([k, lbl, lo, hi, stp]) =>
+    `<div class="trow"><label>${lbl}</label><input type="range" data-sk="${k}" min="${lo}" max="${hi}" step="${stp}" value="${MOUSE_STICK[k]}"><span class="tv" id="fsim-sv-${k}">${fmtStp(MOUSE_STICK[k], stp)}</span></div>`;
   // Collapsible sections. With ~60 controls stacked in one scroll, finding a slider meant paging
   // past forty you didn't want — so each section folds, and which ones you left open is remembered
   // across flights. Aircraft feel and the colour pickers start closed; world render is the one
@@ -3526,6 +3595,7 @@ export function openFlightSim(opts = {}) {
   tunePanel.innerHTML =
     `<div class="fsim-tune-drag" id="fsim-tune-drag">⠿ TUNING — drag to move · edge to resize</div>` +
     section('phys', `✈ ${esc(F.P.name || 'AIRCRAFT')} · FEEL`, PHYS_TUNE.map(physRow), false) +
+    section('stick', '✋ MOUSE STICK', STICK_TUNE.map(stkRow), false) +
     section('world', '▦ WORLD RENDER', FSIM_TUNE.map(rndRow), true) +
     section('vlight', '◧ VERTEX LIGHT COLOURS', VLIGHT_COLORS.map(colRow), false);
   tunePanel.querySelectorAll('.thdr[data-sec]').forEach((h) => add(h, 'click', () => {
@@ -3559,6 +3629,13 @@ export function openFlightSim(opts = {}) {
     const tv = document.getElementById('fsim-tv-' + k); if (tv) tv.textContent = fmtStp(RENDER_TUNE[k], inp.step);
   }));
   tunePanel.querySelectorAll('input[data-ck]').forEach((inp) => add(inp, 'input', () => { RENDER_TUNE[inp.dataset.ck] = inp.value; }));
+  tunePanel.querySelectorAll('input[data-sk]').forEach((inp) => add(inp, 'input', () => {
+    const k = inp.dataset.sk; MOUSE_STICK[k] = parseFloat(inp.value);
+    const tv = document.getElementById('fsim-sv-' + k); if (tv) tv.textContent = fmtStp(MOUSE_STICK[k], inp.step);
+    // Turning the scheme off at the slider has to let go of the glass as well, or the cursor stays
+    // hidden and the column stays where the pointer last put it with nothing reading it.
+    if (k === 'mode' && MOUSE_STICK.mode === 0) mouseStick.setArmed(false);
+  }));
   add(tuneBtn, 'click', () => { tunePanel.style.display = tunePanel.style.display === 'none' ? 'block' : 'none'; });
 
   // Admin ⏪ rewind — set the plane back down at the departure hangar and reopen it (test tool).
@@ -4224,14 +4301,31 @@ function fsimFrame(now) {
   // would leak an unclosed stack entry every cinematic frame and quietly corrupt the table.
   perfBegin('frame');
 
-  // Yoke springs to centre when released.
-  if (!F.yokeDrag) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
+  // The mouse stick does its own work in the move handler — this is only the optional sprung
+  // return, which is off by default. See mousestick.js.
+  mouseStick.step(dt);
+  // Yoke springs to centre when released. ⚠ AND AN ARMED STICK IS A HAND ON THE YOKE — without
+  // that term the spring pulls toward zero on every frame while the mouse pushes back, so the
+  // column settles somewhere between the two, which reads as the mouse having about half the
+  // authority the pad has AND as something quietly dragging it home. That is exactly the
+  // complaint the whole control was rewritten over; the spring only gets the column back once the
+  // mouse has been handed in.
+  const stickOn = mouseStick.armed && !F.yokeDrag;
+  if (!F.yokeDrag && !stickOn) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
+  // ⚠ THE PAD STILL WINS. Both write the same two fields, so the last writer is the one that
+  // flies — and a pilot who grabs the physical yoke while the glass is armed means the yoke.
+  if (stickOn) { input.aileron = mouseStick.x; input.elevator = mouseStick.y; }
   // The dive computer commands the elevator AFTER the spring and BEFORE the model — so a hand on
   // the yoke (which holds yokeDrag, skipping the spring above) is the last word, and everything
   // downstream sees one ordinary elevator input. See toggleDiveAuto.
   freeCam.step(dt);   // the camera flies on the same clock the aircraft does
-  if (F.diveAuto && !F.yokeDrag) F.flyDiveAuto(F.s, input, dt);
-  else if (F.diveAuto && F.yokeDrag) { F.diveAuto = null; fsimToast('◇ DIVE COMPUTER OFF — you have it'); }
+  // ⚠ AN ARMED STICK IS NOT A HAND ON THE YOKE FOR THIS ONE, A DEFLECTED ONE IS. Arming is a mode
+  // and holding the pad is a grip: cancelling the dive computer the instant somebody switches
+  // control schemes would make the two features unusable together, while a stick actually pushed
+  // off centre is the pilot taking it back — which is exactly what `yokeDrag` means here.
+  const handOn = F.yokeDrag || mouseStick.deflected;
+  if (F.diveAuto && !handOn) F.flyDiveAuto(F.s, input, dt);
+  else if (F.diveAuto && handOn) { F.diveAuto = null; fsimToast('◇ DIVE COMPUTER OFF — you have it'); }
   // The button follows the state rather than the click, because the state changes on its own —
   // at the release, at the recovery, and the moment a hand touches the yoke.
   if (F.diveAuto !== F._diveBtnState) {
@@ -5880,6 +5974,10 @@ export function closeFlightSim() {
   freeCam.close();
   document.body.classList.remove('fsim-freecam');      // …and the controls come back with it
   freeIdle?.unbind(); freeIdle = null;
+  // …and the glass gives the mouse back. Same reasoning one line up, and one rung worse if it is
+  // missed: the stick listens on the window, so an unreleased binding would go on hiding the
+  // cursor and reading the pointer over whatever panel replaced the cockpit.
+  stickUnbind?.(); stickUnbind = null;
   document.body.classList.remove('fsim-active');       // …and the d-pad comes back: you're walking again
   window.dispatchEvent(new Event('pane:released'));    // phones collapse the area pane back to where they keep it
   suppressWeatherFx(false, 'cockpit');   // back to the room view — let the outdoor overlay resume

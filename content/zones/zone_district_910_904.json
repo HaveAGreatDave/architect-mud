@@ -1,8 +1,12 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "waterfront",
-  "color": "#a98b63",
-  "description": "A length of the great pier, its planking grey and split, bolted over a forest of barnacled pilings that vanish into the cold slop below. Mooring cleats the size of anvils stud the edge, most wrenched half out. The whole structure groans when the water shoves it.",
+  "ambient_events": [
+    "Wash off the basin slaps the fenders and runs back down the face of the quay.",
+    "A strop swings against the skip, rings once, and stops.",
+    "Grit blows across the slab in a long thin line and piles against the kerb."
+  ],
+  "ambient_theme": "coast",
+  "color": "#7f8688",
+  "description": "The landward end of the quay, where the slab widens out enough to turn a rig on. Chain and strop coiled against the kerb, a skip of scrap nobody has come for, and an old walkway line worn down to the aggregate. The two cranes stand over the water to the NORTH.",
   "exits": {
     "east": "zone_district_911_904",
     "north": "zone_district_910_903",
@@ -21,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_district_910_904",
   "map_id": "map_world",
-  "name": "Pier",
+  "name": "Basin Quay",
   "parent_zone": null
 }

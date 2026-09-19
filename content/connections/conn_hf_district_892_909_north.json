@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_892_909",
+  "b": "zone_hf_topbrass_lobby",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_892_909_north",
+  "lockable": true,
+  "one_way": false
+}

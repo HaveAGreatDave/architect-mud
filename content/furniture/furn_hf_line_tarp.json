@@ -1,0 +1,17 @@
+{
+  "description": "A heavy sheet lashed across the windward opening and weighted at the bottom with ballast in a doubled edge, expertly done.",
+  "flags": {
+    "aliases": [
+      "tarp",
+      "tarpaulin",
+      "sheet"
+    ],
+    "interactions": {
+      "examine": "The lashings are seized off properly and the weights are evenly spaced. Whoever put this up has rigged a great many of them and did this one carefully."
+    }
+  },
+  "id": "furn_hf_line_tarp",
+  "name": "the strung tarpaulin",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_line_shell"
+}

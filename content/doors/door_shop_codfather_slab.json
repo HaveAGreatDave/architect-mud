@@ -1,0 +1,27 @@
+{
+  "connection_id": "conn_district_903_905_north_1vn0",
+  "door_type": "basic",
+  "exit_dir": "north",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_shop_codfather_slab",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": null,
+  "tags": {
+    "lock:shoplock": {
+      "canHack": true,
+      "difficulty": 4,
+      "messages": {
+        "denied": "The shop lock reads your hand and declines to recognise it.",
+        "lock": "The bolt drops and the shopfront goes quiet.",
+        "unlock": "The bolt lifts. The shop door swings in."
+      }
+    }
+  },
+  "target_zone": "zone_codfather_slab",
+  "zone_id": "zone_district_903_905"
+}

@@ -1,0 +1,292 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Tarn straightens something on the slab that was already straight.",
+    "She looks up at the link, checks the light on it, and looks back down.",
+    "A lift arrives at the lobby with nobody in it. She does not react.",
+    "She runs a cloth along the edge of the slab, following the curve all the way round.",
+    "Somewhere above, a door closes. She counts something under her breath and stops."
+  ],
+  "description": "A small, extremely tidy woman in the estate's own grey, standing at the slab with her hands flat on it. She is somewhere in her forties and has the particular brightness of somebody who has been told to be welcoming and has decided to be good at it rather than resent it. She knows every one of the fifty-one empty numbers by heart.",
+  "dialogue_tree": {
+    "believe": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She thinks about it properly, which is not the reaction you expected.\n\n\"I believe the Ascendants do not build things they intend to leave empty,\" she says. \"That is not the same as believing the three years. But it is the part I would bet on.\""
+    },
+    "built": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The same people who built the Spire, and they have not pretended otherwise.\" She nods north through the glass, where the Spire stands over the whole quarter. \"You can see the family resemblance from the forecourt. That is deliberate. You are meant to look up at that and then look at this and think about the distance between them being short.\"\n\n\"Whether it is short is not my department.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mind the step at the forecourt edge,\" she says. \"It is the same colour as the paving. That one I have raised.\""
+    },
+    "empty": {
+      "options": [
+        {
+          "label": "And you believe them?",
+          "next": "believe"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Eleven flats occupied.\" She does not hesitate and she does not soften it. \"Out of sixty-two. Two of the eleven are here at weekends only.\"\n\n\"It is a new estate. They take time. I have been told the number by people whose job is to know it, and the number they say is three years.\" She glances at the board. \"I have been here for two of them.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The lift on the tall side runs at night with nobody calling it.\" She says this in exactly the tone she used for the occupancy figure. \"I have had the engineers. They say it is a calibration cycle and they have shown me the schedule and the schedule is real.\"\n\n\"It runs at four. The schedule says two.\" She smooths the slab. \"I expect the schedule is fine and I am wrong about the hour.\""
+    },
+    "link": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It is a shared room. That was the whole idea.\" She sounds like she is quoting and also like she agrees. \"Two towers, one room in the middle, so the people in one know the people in the other.\"\n\n\"The difficulty is that eleven households do not fill a room that size. So it is a very beautiful place to be the only person.\" A pause. \"I go up at the end of a shift. I like it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How many people actually live here?",
+          "next": "empty"
+        },
+        {
+          "label": "A fob for the bridge, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What is the link for?",
+          "next": "link"
+        },
+        {
+          "label": "Who built all this?",
+          "next": "built"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good afternoon.\" Her hands stay flat on the slab. \"Are you viewing, or are you here for somebody?\"",
+      "text_by_relation": {
+        "familiar": "She is already turning the fob on the slab when you come in.\n\n\"Nobody up there today,\" she says. \"Go on. I'll watch the desk, which is what I do anyway.\"",
+        "first": "The woman at the slab watches you cross the forecourt through the glass and is already speaking by the time the door has finished opening.\n\n\"Welcome to Common Ground. Velia Tarn.\" She says it the way you say a thing you have said a great many times and still mean. \"Sixty-two apartments, two towers, and the link is open to residents and their guests from six until eleven.\"\n\nShe turns a fob over on the slab with one finger.\n\n\"You are very welcome to go up and stand on the bridge. Most people want to. There is no charge for it, and I would honestly rather somebody was up there.\"",
+        "known": "\"Back again.\" She has the fob out before you ask. \"Bridge is open. Mind the panel, or don't, everybody minds the panel.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey estate tunic with a chrome collar pin",
+      "a pale undershirt, pressed",
+      "grey trousers with a hard crease",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_common_bridge",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_hf_common_tarn",
+  "name": "Velia Tarn",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_common_brochure",
+      "price": 12
+    },
+    {
+      "item_id": "item_hf_common_fob",
+      "price": 55
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Common Ground",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_common_lobby"
+}

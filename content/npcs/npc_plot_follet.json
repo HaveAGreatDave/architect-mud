@@ -1,0 +1,312 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Follet takes the dust cover off the model, checks it, and puts the cover back on.",
+    "He squares the tray of forms against the edge of the blotter.",
+    "He looks out at the meadow for a moment with an expression that is entirely unclouded.",
+    "He colours a hatched plot on the wall plan very carefully, right up to the line.",
+    "He breathes on the perspex over the plan and polishes the spot out with his sleeve."
+  ],
+  "description": "A neat, hopeful man in his forties in a suit that is pressed every single day, standing up the moment the door moves. He has the plan, the model, the prospectus and the pens, and he believes in all of it without any visible effort, which is either the most impressive or the most alarming thing about him.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Take a prospectus,\" he says. \"They are free and I have hundreds.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The club two doors down will not tell me who owns their building, and I think it is because they genuinely do not know.\" He shakes his head, delighted. \"The auction house thinks I am trying to move her out. I am not. I would like her to buy the plot behind her and put a proper store on it.\"\n\n\"And the hall will not discuss the forecourt. I only wanted to measure it. It is the best-proportioned piece of ground in the quarter and there is gravel on it.\""
+    },
+    "hoarding": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He looks out at the meadow with you for a second, entirely unbothered.\n\n\"No. Not yet.\" He turns back. \"Everything on that board is buildable on the ground it is drawn on. I have checked it against the plan myself, plot by plot, and the only liberty it takes is the trees, and you could plant the trees.\"\n\n\"It is not a lie. It is early. Those are different things and I am aware that from out there they look identical.\""
+    },
+    "nine": {
+      "options": [
+        {
+          "label": "Who buys a plot facing the wall?",
+          "next": "nine_wall"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Three to one man, who has said nothing about what he wants them for and paid without arguing.\" He counts on his fingers, enjoying it. \"Two to the works at the east end, which is expansion and is the best sign we have had.\"\n\n\"One to a woman who wants a garden and nothing else on it at all, which I have written into the deed. And three along the wall, cheap, because the view is the Curtain.\""
+    },
+    "nine_wall": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "nine"
+        }
+      ],
+      "text": "\"People who have looked at the price and then at the wall and decided the wall is quiet.\" He shrugs, cheerfully. \"It hums. It does not move, it does not change, and nothing comes through it. You could do a great deal worse for a neighbour.\"\n\n\"I would take one myself if I were allowed to buy here, and I am not, because I sell them.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What are you actually selling?",
+          "next": "selling"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who bought the nine?",
+          "next": "nine"
+        },
+        {
+          "label": "The hoarding doesn't match the street.",
+          "next": "hoarding"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in, come in.\" He is already up and round the desk. \"Are you looking at plots, or are you just out of the wind? Either is fine, but sit down for the second one too.\"",
+      "text_by_relation": {
+        "familiar": "He has the tube out from under the desk before the door has shut.\n\n\"I kept you a plan,\" he says, and then, with the first crack you have ever heard in it, \"nobody has asked for one in a fortnight. Take it anyway.\"",
+        "first": "The door has barely moved before the man behind the desk is on his feet and coming round it with his hand out.\n\n\"Merrick Follet. Halcyon Fields.\" He says the name of the development the way other people say the name of a person they love. \"Have you seen the plan? Come and see the plan, it costs nothing and it is genuinely good.\"\n\nHe steers you at the back wall without quite touching you.\n\n\"Forty-one plots released. Nine gone. Drainage is in, the spine road is in, and the row is cut all the way to the wall. This is not a drawing of a place that might happen. Some of it is outside that window.\"",
+        "known": "\"There you are.\" He is up before you are through. \"Two more coloured in since you were last here. I will not say which, it spoils it.\""
+      }
+    },
+    "selling": {
+      "options": [
+        {
+          "label": "Who did choose it?",
+          "next": "selling_who"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Ground.\" He taps the perspex. \"A numbered plot, with the road already made up to it, drainage already under it and a title that is clean, which in this city is not nothing.\"\n\n\"What you put on it is your business. I am not selling you a house. I have never once told anybody I was selling them a house, whatever the picture outside suggests, and I did not choose the picture.\""
+    },
+    "selling_who": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "selling"
+        }
+      ],
+      "text": "\"The firm that owns the land, and they are not on this street.\" He says it evenly. \"I asked for a photograph of the row as it actually is. I was sent that instead, with the trees on it.\"\n\n\"I put it up because it is my job to put it up. I also put the model in the window, which is the same quarter with nothing on the plots, because anybody who walks in ought to be able to see both.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a pressed grey suit, the jacket kept on indoors whatever the weather",
+      "a clean white shirt and a development-coloured tie",
+      "good shoes he polishes at the desk when it is quiet",
+      "vest and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_plot_office",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_plot_follet",
+  "name": "Merrick Follet",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_plot_prospectus",
+      "price": 0
+    },
+    {
+      "item_id": "item_plot_plan",
+      "price": 15
+    },
+    {
+      "item_id": "item_plot_pen",
+      "price": 6
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Plot Twist",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_plot_office"
+}

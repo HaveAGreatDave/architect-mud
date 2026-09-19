@@ -1,0 +1,11 @@
+{
+  "description": "The whole ceiling grid, left on, at the level an agent thinks a floor shows best at. It costs the estate more per season than the floor would let for and nobody has been able to get the decision reversed.",
+  "flags": {},
+  "id": "furn_light_zone_hf_curve_suite",
+  "light_type": "fixture",
+  "lumen_output": 1200,
+  "name": "the show-floor lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_curve_suite"
+}

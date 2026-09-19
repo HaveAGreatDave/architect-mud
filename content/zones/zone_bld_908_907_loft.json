@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Flag lockers along one wall, each pigeonhole labelled with what it means, and the winding gear for the ball taking up the rest of the room. The shaft goes up through the roof. At five to one somebody comes up here, and at one o'clock the ball drops, and nothing on the water is watching for it.",
+  "exits": {
+    "west": "zone_bld_908_907_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_908_907"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_908_907_loft",
+  "map_id": "map_int_bld_908_907",
+  "name": "The Signal Loft",
+  "parent_zone": "zone_district_908_907"
+}

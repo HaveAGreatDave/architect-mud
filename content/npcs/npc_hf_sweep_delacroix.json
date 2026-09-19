@@ -1,0 +1,292 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Delacroix moves a thumb-sized building half a millimetre and steps back.",
+    "She walks the length of the model looking at it from the low side.",
+    "She checks the taped-down bell, which is still taped down.",
+    "She writes a date on the visitor book page and rules a line under it.",
+    "She looks at one of the differently-coloured buildings for a moment longer than the others."
+  ],
+  "description": "A precise woman in her fifties in a soft grey suit, standing at the end of the model table with her hands behind her back like somebody presenting. She has drawn some of what is on that table and she is genuinely proud of it, and she answers questions about the parts she drew at length and questions about the rest in one sentence.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Take a plan,\" she says. \"It is accurate to the boundary of phase four, and I will not pretend that is the same as accurate.\""
+    },
+    "colour": {
+      "options": [
+        {
+          "label": "And the fourth colour?",
+          "next": "fourth"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Built, building, and consented.\" She points to three of them in turn without hesitating. \"Grey is up, pale is on site, and white is approved and not started.\"\n\n\"There is no key because the model was made for a room where somebody always stood beside it and said that sentence.\" She smiles slightly. \"I am that somebody. I have asked for a key twice. I am told the key spoils the object.\""
+    },
+    "drawers": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Yes.\" She does not look up at the ceiling and you can tell she wants to. \"The chests were bought for a scheme with twelve phases and the consent is for nine.\"\n\n\"That is not sinister. It is a furniture order placed before a planning decision, which happens on every job I have ever worked on.\" A beat. \"The three at the bottom are locked and empty and I have not looked in them for four years, which is either discipline or cowardice and I genuinely do not know which.\""
+    },
+    "fourth": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "The pause is short and she does not pretend it was not there.\n\n\"There is no fourth colour on this model,\" she says. \"There are three.\"\n\nShe moves her hand very slightly, and you notice that it is resting between you and a building at the east end of the table that is neither grey nor pale nor white.\n\n\"You have a good eye,\" she adds, pleasantly, \"and I have answered the question I am able to answer.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The four verge plots.\" She indicates them on the model with one finger, not touching. \"Modelled as grass, with a fence round each. There has never been a fence round any of them on the ground.\"\n\n\"Somebody put those fences on this model. Somebody has drawn a boundary round four pieces of land and then not built the boundary.\" She puts her hands behind her back again. \"In my trade that usually means the land is spoken for by somebody who has not decided whether to say so yet. It is on the model because the model is honest. It is not on the site because the site is public.\""
+    },
+    "halt": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because you build the hard thing while the ground is open.\" She says this with complete conviction and it is a good answer. \"A halt needs foundations under a street. Once the street is surfaced and let and there are people living on it, putting those in costs four times as much and shuts the quarter for a season.\"\n\n\"So it goes in first, and it stands there looking ridiculous for however long the line takes.\" She straightens. \"I drew it. I would draw it again. And yes, I am aware of what the board on it says, and no, I did not write that.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Why are some buildings a different colour?",
+          "next": "colour"
+        },
+        {
+          "label": "A phase plan, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "There are twelve drawers and nine phases.",
+          "next": "drawers"
+        },
+        {
+          "label": "Why build a station with no line?",
+          "next": "halt"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in, look at it properly.\" She gestures down the table. \"It is meant to be leaned over. That is the whole point of a model.\"",
+      "text_by_relation": {
+        "familiar": "She has already moved round to the far side so that you get the good angle, and she does it without comment, which is how you know.\n\n\"Go on,\" she says. \"Tell me what has changed since last time. Two people have got it and neither of them worked here.\"",
+        "first": "The room is longer than it looks and curves away, and the whole of it is taken up by a model of the quarter you have just walked through.\n\n\"Lean over it.\" The woman at the far end says it before she introduces herself. \"Everybody stands at the end and squints. Come to the side and get your eye down to street level and it stops being a map.\"\n\nShe waits until you have.\n\n\"Sylvie Delacroix. I drew the crescents and the pavilion. Somebody else drew the towers, and I will not be drawn on the towers.\"",
+        "known": "\"Back at the table.\" She steps aside to give you the low side. \"Look at the halt again. I have moved something.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a soft grey suit, well made, worn every day",
+      "a cream blouse",
+      "low practical shoes",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_sweep_drawing",
+  "hp": 28,
+  "hp_max": 28,
+  "id": "npc_hf_sweep_delacroix",
+  "name": "Sylvie Delacroix",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_sweep_plan",
+      "price": 55
+    },
+    {
+      "item_id": "item_hf_sweep_pen",
+      "price": 9
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Sweeping Statement",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_sweep_model"
+}

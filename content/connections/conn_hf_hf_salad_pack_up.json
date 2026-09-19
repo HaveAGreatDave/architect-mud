@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_salad_pack",
+  "b": "zone_hf_salad_tray",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_salad_pack_up",
+  "lockable": false,
+  "one_way": false
+}

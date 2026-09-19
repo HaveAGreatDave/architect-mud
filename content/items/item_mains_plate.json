@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_mains_plate",
+  "name": "a brass maker's plate",
+  "tags": {
+    "description": "A spare, never fitted, still in its wrapping paper with the date cast into it. There were six in a drawer and there are fewer now, and he only lets them go to people who ask what the date means.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 60,
+  "weight": 300
+}

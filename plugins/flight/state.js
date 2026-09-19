@@ -970,13 +970,31 @@ export function advance(live, tiles) {
 // edge must sit well beyond the draw distance or new tiles would starve/pop. Keep
 // radius ≥ VISIBLE_FAR_F + drift so the farthest tile the renderer wants always exists in
 // the payload. It's a ~2400-cell JSON pushed only every 3s while airborne — cheap.
-// A surface cell reads as road if it's a named artery, carries a road/runway map icon, or
-// is painted `road` terrain — the same signals the minimap paints grey asphalt from.
+// A surface cell reads as road if it carries a road/runway map icon or is painted `road` /
+// `dirt_road` terrain — the SURFACE signals, and only those.
+//
+// ⚠ A STREET NAME IS NOT A ROAD SURFACE, AND `artery` WAS BEING READ AS ONE. It sat in this test
+// for years, and measured across content/ its only effect anywhere in the world was Ropewalk:
+// exactly 8 of the 543 map_world road cells are road ONLY because of it, and all eight are the
+// Old Coldwater cart track. Every other street in the city carries `terrain: 'road'`/`dirt_road`
+// or a `road_*` icon, so nothing else moves. `artery` is the street's NAME — read by GPS, the
+// corp map's adjacency, the minimap readout and the news generator — while `flags.terrain` is
+// the ground-surface SSOT (docs/systems-terrain.md). Reading the name as the surface paved the
+// track: Ropewalk drew asphalt out the canopy, and because `rd` auto-tiles off this same test it
+// also made every tile of Glacier and Kessler Street above it a junction, standing twelve
+// traffic signals over the slum. The 2-D auto-tiler was already given this correction — the
+// lanes are `dirt` with `auto_tile: false` so no slum tile draws a road connector, see
+// docs/proposals/old-coldwater.md — and the flight renderer never got it. This is that fix, one
+// layer down.
+//
+// ⚠ AND IT CANNOT MOVE A ROAD MOUTH. `regionGates` (plugins/trucking/state.js) publishes a
+// region's exits from road cells that are ALSO rim tiles, so a road test getting narrower is
+// exactly how the void highway loses its way out of town. None of the eight is a rim tile —
+// Ropewalk dead-ends at the Curtain with placed ground beyond it — so the gate set is unchanged.
 export function isRoadCell(c) {
   const f = c && c.flags;
   if (!f) return false;
-  return (Array.isArray(f.artery) && f.artery.length > 0)
-    || /^(road_|runway_)/.test(f.icon || '')
+  return /^(road_|runway_)/.test(f.icon || '')
     || f.terrain === 'road' || f.terrain === 'dirt_road';
 }
 
@@ -1104,12 +1122,36 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     const fwd = ew ? isStrip(1, 0) : isStrip(0, 1);
     strip = { ax: ew ? 'ew' : 'ns', end: back && fwd ? 0 : back ? 1 : -1 };
   }
+  // AN INSPECTION PLAZA'S FURNITURE — the signal gantry over the highway, the lead-in lights down
+  // the ramp, the weighbridge plates and the scanner arch over them. A mark rather than a building
+  // type, for the reason a road sign is one: there is no mass worth extruding and a building would
+  // join the collision sweep, where an arch you cannot drive through is not an arch. Only the void
+  // corridor authors it (plugins/trucking/plaza.js); every baked world tile leaves it undefined.
+  //
+  // ⚠ ONLY THE KINDS THAT DRAW SOMETHING GET A MARK. A plaza owns its whole footprint — the gore
+  // island and the outer verge included — so most of its cells are ground with nothing on them, and
+  // marking those would put every one of them through the mark dispatch to draw nothing.
+  const plz = cell.flags?.scale_plaza || undefined;
+  const plzDrawn = plz && plz.k !== 'apron' ? 1 : 0;
   const mark = cell.flags?.vehicle_bay ? 'bay'
     : cell.flags?.yacht ? 'yacht'
     : cell.flags?.perimeter_gate ? 'gate'
     : cell.flags?.road_sign ? 'sign'
     : cell.flags?.junction_pylons ? 'pylons'
+    : plzDrawn ? 'plaza'
     : strip ? 'strip'
+    // Old Coldwater's tent camp (docs/proposals/old-coldwater.md). ⚠ A MARK AND DELIBERATELY NOT A
+    // `building_type`: a building tile leaves the walk graph and joins the CFIT collision sweep, so
+    // a tent city made of buildings is one you cannot walk into and can fly into. The tile stays
+    // ordinary walkable dirt and the canvas is drawn on top of it, which is the same split the
+    // statue, the South Gate and the road signs already use.
+    : cell.flags?.camp ? 'camp'
+    // A SHIP'S BERTH — open water a freighter works from, alongside a quay. ⚠ A MARK FOR THE TENT
+    // CAMP'S OWN REASON, one paragraph up and pointing the other way: a building tile joins the
+    // CFIT collision sweep and leaves the walk graph, so a berth authored as a building would be
+    // a permanent hole in the basin you can fly into and cannot swim through, whether or not
+    // there is a ship in it. The tile stays ordinary water; the ship is drawn on top of it.
+    : cell.flags?.berth ? 'berth'
     : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
   // A yacht that's recently sailed streams a decaying wake to every pilot in view.
   let wake, sub, heading;
@@ -1266,11 +1308,22 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // the words are worked out where the road is (which limb, how far, which way the arrow points)
   // and the renderer only paints them. Nothing in the client computes a distance.
   const sgn = cell.flags?.road_sign || undefined;
+  // `plz` is the station, carried the way `sgn` carries a board's rows: which piece of it this tile
+  // is, what the place is called, whether it is OPEN, and how far through the footprint the tile
+  // sits (which is all a chase of lights needs to run along the ramp). Nothing in the client works
+  // out where a plaza is or whether it is lit.
   // `wr` — this tarmac is unmaintained. One bit, set only by the void corridor
   // (plugins/trucking/corridor.js): sun-bleached and sand-drifted, its paint half gone, patched and
   // cracked. Every baked world tile leaves it undefined and paints exactly as it always did.
   const wr = cell.flags?.road_wear ? 1 : undefined;
-  return { kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  // A BERTH'S TWO BEARINGS, and they are the whole of what an author writes: which way the open
+  // water lies (a hull's bow points up it, and it is the way she comes and goes) and which side
+  // the quay is on (she lies against it). Everything else about her — beam, deck height, how far
+  // off the face she sits — is shared with the gantry and lives in the renderer, because a number
+  // an author can get wrong here is a ship sitting inside a quay wall.
+  const bf = mark === 'berth' ? (cell.flags?.berth?.fair || 'north') : undefined;
+  const bq = mark === 'berth' ? (cell.flags?.berth?.quay || 'west') : undefined;
+  return { kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, plz, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

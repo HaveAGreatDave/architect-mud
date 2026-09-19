@@ -1,0 +1,17 @@
+{
+  "description": "A steel desk with a blotter, a tray of forms, a jug of water for visitors and a tin cash box in the left drawer.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "box",
+      "drawer"
+    ],
+    "hack_difficulty": 2,
+    "vendor_npc_id": "npc_plot_follet",
+    "vendor_safe": true
+  },
+  "id": "furn_plot_desk",
+  "name": "the desk",
+  "object_type": "fixture",
+  "zone_id": "zone_plot_office"
+}

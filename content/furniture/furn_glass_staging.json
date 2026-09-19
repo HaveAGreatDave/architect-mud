@@ -1,0 +1,18 @@
+{
+  "description": "Slatted benches down both sides of the path, holding trays of seedlings, cuttings in jars and pots turned regularly so nothing leans.",
+  "flags": {
+    "aliases": [
+      "staging",
+      "bench",
+      "trays",
+      "pots"
+    ],
+    "hack_difficulty": 2,
+    "vendor_npc_id": "npc_glass_lound",
+    "vendor_safe": true
+  },
+  "id": "furn_glass_staging",
+  "name": "the staging",
+  "object_type": "container",
+  "zone_id": "zone_glass_house"
+}

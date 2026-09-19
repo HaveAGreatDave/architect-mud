@@ -1,0 +1,11 @@
+{
+  "description": "A continuous trough along both sides at ankle height, throwing light up the glass rather than down onto the floor. At night the whole tube reads as a bar of light from the ground and as almost nothing from inside it.",
+  "flags": {},
+  "id": "furn_light_zone_hf_common_bridge",
+  "light_type": "fixture",
+  "lumen_output": 900,
+  "name": "the link uplighters",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_common_bridge"
+}

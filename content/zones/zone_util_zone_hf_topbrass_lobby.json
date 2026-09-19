@@ -1,0 +1,18 @@
+{
+  "description": "The bottom of the riser, where everything that goes up the middle of the tower starts. Water, power and the lift gear, stacked in a room the shape of a slice. The cabinet is bolted to the flat side.",
+  "exits": {
+    "up": "zone_hf_topbrass_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_topbrass_lobby",
+  "map_id": "map_int_hf_topbrass",
+  "name": "Top Brass — The Core Base",
+  "parent_zone": "zone_district_892_909"
+}

@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Okoye wipes the counter, which is already clean, in a long slow circle.",
+    "He looks out at the Curtain for a while and then at the kettle.",
+    "The lift arrives, waits, and goes away again. He does not turn round.",
+    "He rearranges the two mugs so that the handles point the same way.",
+    "He reads the second notice on the board again, as if it might have changed."
+  ],
+  "description": "A tall man in his fifties with a careful stoop from a lifetime of doorways built for other people, leaning on the residents' counter with a cloth over one shoulder. He is not employed by the estate. He lives on eleven, he comes up here every day, and at some point in the last year he started making coffee for whoever else turned up, which was nobody and then occasionally somebody.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Take the west lift down,\" he says. \"The other one stops at nine for no reason anybody has explained to me.\""
+    },
+    "curtain": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Watch the top edge of it.\" He does not point; he waits. \"When the light goes, the wall keeps it about a minute longer than the ground does, because of the height. So for a minute there is a bright line out west and everything under it is already dark.\"\n\n\"You cannot see that from the street. You cannot see it from the fourth floor either. You need about fifteen storeys and a west window, and there are exactly two buildings in the Basin with both, and the other one does not let me in.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The collars.\" He taps the glass. \"Every fifth floor, outside, there is a band. They told us it was plant. There is plant on five and on twenty, and this floor is not plant, it is this.\"\n\n\"So one of the three is not what it says on the drawing, and it is not this one, because I am standing in it.\" He picks the cloth back up. \"It is probably nothing. Most things are. I would still like to know what is on five.\""
+    },
+    "notice": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The estate put up a notice asking us to book the room.\" He nods at the board. \"So I put up a notice saying nobody has booked the room. It is not a complaint. It is a fact, and I wanted it next to the other fact.\"\n\n\"They have not taken it down. Two seasons now. I think somebody down there agrees with me and cannot say so on estate paper.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Why do you run the counter?",
+          "next": "why"
+        },
+        {
+          "label": "Coffee, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What is the second notice about?",
+          "next": "notice"
+        },
+        {
+          "label": "What does the Curtain do at this hour?",
+          "next": "curtain"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You found it, then.\" He reaches for the kettle without being asked. \"Sit anywhere. It is all anywhere.\"",
+      "text_by_relation": {
+        "familiar": "He has the mug out and the kettle on before the lift doors have finished opening.\n\n\"Sit down,\" he says. \"I want to show you something the Curtain does at this hour and you have about four minutes.\"",
+        "first": "The lift opens onto a room going all the way round the building, and a tall man at a counter looks up as if he has been expecting somebody for about a year.\n\n\"Well.\" He puts the cloth down. \"Somebody came up.\"\n\nHe straightens, and then decides not to make anything of it.\n\n\"Dapo Okoye. Eleven. This is the residents' room and you are allowed to be in it, whatever anybody downstairs implies.\" He turns a mug the right way up. \"Coffee is fourteen and it is not worth fourteen. The window is free.\"",
+        "known": "\"There you are.\" The kettle is already going. \"Fourteen, same as before, and still not worth it.\""
+      }
+    },
+    "why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because the room was going to waste and I was going to waste, and one of those I could do something about.\"\n\nHe says it lightly and then does not laugh, which makes it land differently.\n\n\"There are eleven households in this tower and eighteen floors. I have met four of them, and I met three of those up here. So the counter works. It is the only thing in this building that works the way the brochure said it would.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a soft grey cardigan with the elbows gone shiny",
+      "a collarless shirt, clean",
+      "dark trousers, comfortable rather than smart",
+      "slippers he keeps up here"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_topbrass_sky",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_hf_topbrass_okoye",
+  "name": "Dapo Okoye",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_topbrass_coffee",
+      "price": 14
+    },
+    {
+      "item_id": "item_hf_topbrass_key",
+      "price": 40
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Top Brass",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_topbrass_sky"
+}

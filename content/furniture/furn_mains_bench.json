@@ -1,0 +1,17 @@
+{
+  "description": "A bench along the south wall with the spanners laid out by size on a painted board, each one on its own painted silhouette, so a missing spanner is a shape.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "tools",
+      "spanners"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_mains_roke",
+    "vendor_safe": true
+  },
+  "id": "furn_mains_bench",
+  "name": "the tool bench",
+  "object_type": "container",
+  "zone_id": "zone_mains_engine"
+}

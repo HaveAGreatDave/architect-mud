@@ -1,0 +1,18 @@
+{
+  "description": "A lit panel on the canopy fascia, working perfectly, showing two lines of text that have not changed since it was energised.",
+  "flags": {
+    "aliases": [
+      "board",
+      "indicator",
+      "sign"
+    ],
+    "hack_difficulty": 6,
+    "interactions": {
+      "examine": "SERVICE COMMENCING. PLEASE STAND BEHIND THE YELLOW LINE. The second line is the one that gets to people."
+    }
+  },
+  "id": "furn_hf_standing_board",
+  "name": "the indicator board",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_standing_platform"
+}

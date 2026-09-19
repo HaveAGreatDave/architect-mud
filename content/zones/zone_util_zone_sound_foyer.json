@@ -1,0 +1,18 @@
+{
+  "description": "Under the foyer: the blowers that keep an empty hall at nineteen degrees, and the cabinet that feeds them. A chart recorder on the wall has been drawing the same flat line onto a roll of paper since before anybody here started, and somebody still changes the roll.",
+  "exits": {
+    "up": "zone_sound_foyer"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_sound_foyer",
+  "map_id": "map_int_sound",
+  "name": "Sound Investment — The Plant Room",
+  "parent_zone": "zone_district_893_911"
+}

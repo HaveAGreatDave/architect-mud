@@ -1,0 +1,17 @@
+{
+  "description": "Eleven brass pegs in a row, each with a small engraved number and no name. Four coats hang on it. The other seven pegs are polished as often as the four.",
+  "flags": {
+    "aliases": [
+      "stand",
+      "pegs",
+      "coats"
+    ],
+    "interactions": {
+      "examine": "Peg six has a coat on it that has not moved in a very long time, and has been brushed recently."
+    }
+  },
+  "id": "furn_vested_pegs",
+  "name": "the hall stand",
+  "object_type": "furniture",
+  "zone_id": "zone_vested_hall"
+}

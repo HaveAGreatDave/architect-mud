@@ -1,0 +1,17 @@
+{
+  "description": "Thirty paces of properly laid, properly graded track ballast running east off the end of the platform, squared at the sides, and then nothing.",
+  "flags": {
+    "aliases": [
+      "ballast",
+      "bed",
+      "stone"
+    ],
+    "interactions": {
+      "examine": "It is graded to a fall and the shoulders are dressed. Somebody laid this expecting sleepers on it within the month."
+    }
+  },
+  "id": "furn_hf_line_ballast",
+  "name": "the ballast bed",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_line_platform"
+}

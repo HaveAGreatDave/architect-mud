@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_wind_water",
+  "name": "a glass of the water",
+  "tags": {
+    "description": "Drawn from the tank downstairs, cold, faintly mineral, faintly metallic. The analysis card says what is in it to three decimal places. What it does for a healing body is probably nothing, and drinking it is a reason to sit still for five minutes, which is not nothing.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 4,
+  "weight": 220
+}

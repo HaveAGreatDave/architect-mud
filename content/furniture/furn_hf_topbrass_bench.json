@@ -1,0 +1,16 @@
+{
+  "description": "One piece of pale composite following the wall for most of a half-circle, with a dip worn into it exactly opposite the lifts.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "seat"
+    ],
+    "interactions": {
+      "sit": "You sit in the dip, because everybody does, and you can see both lift doors without turning your head. That is why the dip is there."
+    }
+  },
+  "id": "furn_hf_topbrass_bench",
+  "name": "the curved bench",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_topbrass_lobby"
+}

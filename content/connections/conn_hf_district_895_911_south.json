@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_895_911",
+  "b": "zone_going_saleroom",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_district_895_911_south",
+  "lockable": true,
+  "one_way": false
+}

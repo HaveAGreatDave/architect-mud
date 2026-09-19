@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "One brick room at the foot of the legs, most of it taken up by two pumps on a shared bedplate and the pipework going up through the roof. A gauge board on the wall gives the level in the tank in feet and inches, and beside it hangs a chalked slate with the morning's reading and the same reading from a year ago today, which somebody bothers to look up.",
+  "exits": {
+    "down": "zone_util_zone_hwm_pump",
+    "south": "zone_district_910_907",
+    "up": "zone_hwm_gallery"
+  },
+  "flags": {
+    "building_name": "High Water Mark",
+    "building_type": "water_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A small square of glass up near the eaves, letting in a bar of light that crosses the bedplate in the afternoon and has bleached a stripe into it.",
+      "light": 0.4,
+      "name": "the high window",
+      "visibility": 0.5
+    },
+    "world_exit_zone": "zone_district_910_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hwm_pump",
+  "map_id": "map_int_hwm",
+  "name": "High Water Mark — The Pump House",
+  "parent_zone": "zone_district_910_907"
+}

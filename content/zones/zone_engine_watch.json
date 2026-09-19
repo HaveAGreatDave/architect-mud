@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Up the stair over the bay: a long room with a table down the middle, mismatched chairs, a stove and a window that looks down Meltwater Row for a long way. The call board is on the end wall with the bell relay under it. There is a cribbage board on the table with a game abandoned in a winning position, and nobody has moved the pegs because nobody can agree whose turn it was.",
+  "exits": {
+    "down": "zone_engine_bay"
+  },
+  "flags": {
+    "building_name": "Engine Trouble",
+    "building_type": "fire_station",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_910_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_engine_watch",
+  "map_id": "map_int_engine",
+  "name": "Engine Trouble — The Watch Room",
+  "parent_zone": "zone_district_910_917"
+}

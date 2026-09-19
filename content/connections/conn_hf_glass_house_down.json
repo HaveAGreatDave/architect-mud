@@ -1,0 +1,9 @@
+{
+  "a": "zone_glass_house",
+  "b": "zone_util_zone_glass_house",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_glass_house_down",
+  "lockable": false,
+  "one_way": false
+}

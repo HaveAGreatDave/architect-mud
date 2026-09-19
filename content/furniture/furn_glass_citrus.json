@@ -1,0 +1,18 @@
+{
+  "description": "Six half-barrels down the middle of the path with lemon and something that might be a bitter orange, all of them fruiting, none of them as tall as they should be.",
+  "flags": {
+    "aliases": [
+      "citrus",
+      "tubs",
+      "lemon",
+      "trees"
+    ],
+    "interactions": {
+      "examine": "Each tub has a date burnt into the rim. The oldest is nineteen years ago and it is still the best of them."
+    }
+  },
+  "id": "furn_glass_citrus",
+  "name": "the citrus tubs",
+  "object_type": "furniture",
+  "zone_id": "zone_glass_house"
+}

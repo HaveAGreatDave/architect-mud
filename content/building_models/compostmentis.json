@@ -1,12 +1,28 @@
 {
   "adorn": [
     {
-      "cx": 0,
-      "cy": 0.48,
+      "cx": 0.28,
+      "cy": 0.44,
+      "kind": "glowPool",
+      "rgb": "170,230,140",
+      "s": 12,
+      "z": 0.032
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.38,
       "kind": "glowPool",
       "rgb": "150,220,130",
-      "s": 13,
-      "z": 0.02
+      "s": 15,
+      "z": 0.194
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.04,
+      "kind": "blinkLight",
+      "r": 1.3,
+      "rgb": "255,150,60",
+      "z": 1.231
     }
   ],
   "basis": {
@@ -21,91 +37,269 @@
   ],
   "detail": [
     {
-      "bars": 7,
-      "cx": 0,
-      "cy": 0.42,
-      "depth": 0.01,
+      "bars": 8,
+      "cx": -0.1,
+      "cy": 0.35,
+      "depth": 0.018,
       "glass": "#16210f",
-      "glow": "#cfeeb0",
-      "half": 0.34,
-      "hh": 0.014,
+      "glow": "#d6f0b4",
+      "half": 0.24,
+      "hh": 0.063,
       "kind": "windowBay",
       "pal": "ty_fallow",
-      "z": 0.07
+      "transom": 0.85,
+      "z": 0.154
     },
     {
       "color": "#1a2a12",
-      "cx": 0,
-      "cy": 0.42,
+      "cx": -0.1,
+      "cy": 0.35,
       "font": "script",
-      "half": 0.2,
-      "hh": 0.022,
-      "ink": "#bde79a",
+      "half": 0.23,
+      "hh": 0.043,
+      "ink": "#c8ef9f",
       "kind": "signBoard",
       "label": "COMPOST MENTIS",
-      "z": 0.15
+      "z": 0.301
     },
     {
-      "cx": -0.34,
-      "cy": 0.36,
-      "d": 0.07,
+      "bars": 6,
+      "cx": -0.1,
+      "cy": 0.35,
+      "depth": 0.01,
+      "glass": "#16210f",
+      "glow": "#b2dd8e",
+      "half": 0.24,
+      "hh": 0.023,
+      "kind": "windowBay",
+      "pal": "ty_fallow_canvas",
+      "z": 0.379
+    },
+    {
+      "cap": true,
+      "cx": -0.1,
+      "cy": 0.35,
+      "kind": "pilaster",
+      "n": 4,
+      "out": 0.016,
+      "pal": "ty_fallow_canvas",
+      "step": 0.15,
+      "w": 0.018,
+      "z0": 0.057,
+      "z1": 0.421
+    },
+    {
+      "color": "#142310",
+      "cx": 0.28,
+      "cy": 0.42,
+      "font": "stencil",
+      "half": 0.1,
       "hh": 0.03,
+      "ink": "#bde79a",
+      "kind": "signBoard",
+      "label": "OPEN",
+      "z": 0.251
+    },
+    {
+      "cx": 0.06,
+      "cy": 0.35,
+      "half": 0.32,
+      "hh": 0.013,
+      "kind": "canopy",
+      "out": 0.085,
+      "pal": "ty_oc_tin",
+      "soffit": "#20301a",
+      "strip": "#a8d886",
+      "z": 0.397
+    },
+    {
+      "color": "#142310",
+      "cx": -0.3,
+      "cy": 0.1,
+      "font": "stencil",
+      "half": 0.12,
+      "hh": 0.045,
+      "ink": "#a8d886",
+      "kind": "signBoard",
+      "label": "SEED & SOIL",
+      "z": 0.745
+    },
+    {
+      "cx": -0.3,
+      "cy": 0,
+      "half": 0.155,
+      "hh": 0.018,
+      "kind": "parapet",
+      "pal": "ty_oc_shake",
+      "z": 0.907
+    },
+    {
+      "cx": -0.36,
+      "cy": -0.12,
+      "hh": 0.25,
+      "kind": "stack",
+      "pal": "ty_oc_brick",
+      "r": 0.022,
+      "z": 0.907
+    },
+    {
+      "cx": -0.1,
+      "cy": 0.35,
+      "half": 0.07,
+      "hh": 0.03,
+      "kind": "louvreBank",
+      "n": 4,
+      "pal": "ty_fallow_canvas",
+      "z": 0.386
+    },
+    {
+      "cx": 0.16,
+      "cy": 0.35,
+      "half": 0.07,
+      "hh": 0.03,
+      "kind": "louvreBank",
+      "n": 4,
+      "pal": "ty_fallow_canvas",
+      "z": 0.386
+    },
+    {
+      "cx": 0.28,
+      "cy": 0.14,
+      "hh": 0.063,
+      "kind": "roofTank",
+      "pal": "ty_oc_tank",
+      "r": 0.05,
+      "z": 0.381
+    },
+    {
+      "cx": -0.4,
+      "cy": 0.3,
+      "d": 0.07,
+      "hh": 0.038,
       "kind": "binStack",
+      "lid": "#2f3a24",
       "n": 3,
       "pal": "ty_fallow_canvas",
       "w": 0.08,
       "z": 0.005
     },
     {
-      "cx": 0.3,
-      "cy": 0.42,
-      "drip": 0.5,
-      "hh": 0.02,
-      "kind": "vent",
-      "pal": "ty_fallow_canvas",
-      "w": 0.08,
-      "z": 0.12
+      "cx": 0.42,
+      "cy": 0.2,
+      "d": 0.06,
+      "hh": 0.035,
+      "kind": "binStack",
+      "lid": "#2f3a24",
+      "n": 2,
+      "pal": "ty_oc_tin",
+      "w": 0.07,
+      "z": 0.005
+    },
+    {
+      "color": "#8fd46a",
+      "cx": 0.15,
+      "cy": -0.43,
+      "kind": "tag",
+      "n": 2,
+      "v": 0.4,
+      "w": 0.09,
+      "word": "GROW",
+      "z": 0.162
+    },
+    {
+      "cx": -0.44,
+      "cy": 0.44,
+      "kind": "streetLamp",
+      "out": 0.12,
+      "pal": "ty_oc_brick",
+      "r": 0.024,
+      "rgb": "230,235,190",
+      "s": 9,
+      "z0": 0,
+      "z1": 0.138
     }
   ],
   "id": "compostmentis",
   "neon": "#8fd46a",
-  "note": "The last building on this side before the ground gives up and goes to grass, and the only one on Foundry Way with any glass to speak of: a long LOW span of it, about a third replaced with mismatched panes and a couple of panels of bare board where the glass lost. One storey and nearly all roof, which is why the mass is a shallow box under a barrel rather than a storey stack.",
+  "note": "The last building on this side before the ground gives up and goes to grass, and the only one on Foundry Way with any glass to speak of: a long LOW span of it, about a third replaced with mismatched panes and a couple of panels of bare board where the glass lost.\n\nIt was a shed under a barrel and nothing else, which from the road is a shape with no front. A glasshouse of this kind is a barrel span behind a HEAD HOUSE - the brick end with the boiler in it, the only part with a solid wall and the only part tall enough to carry a chimney - and a porch where the counter is. So the barrel sits back, the head house stands out of the roof at the left with its own cornice and stack, and the porch steps forward at the right where you actually go in.\n\nThe glass reads as glass because it is two bands and not one: the long low span you look through at eye level, and a clerestory strip under the eaves for the light, with four timber piers between them. The name is painted on the fascia between the two.\n\nThe head house takes the trade word and not the name, so the frontage does not say it twice.",
   "pal": "ty_fallow",
   "segs": [
     {
       "cx": 0,
-      "cy": 0,
-      "hw": 0.44,
+      "cy": -0.04,
+      "hw": 0.42,
       "kind": "box",
+      "pal": "ty_fallow_canvas",
       "roof": true,
       "z0": 0,
-      "z1": 0.05
+      "z1": 0.057
     },
     {
       "cx": 0,
-      "cy": 0,
-      "hw": 0.42,
+      "cy": -0.04,
+      "hw": 0.39,
       "kind": "box",
+      "pal": "ty_fallow",
       "roof": true,
-      "z0": 0.05,
-      "z1": 0.22
+      "z0": 0.057,
+      "z1": 0.421
     },
     {
-      "archH": 0.13,
+      "archH": 0.162,
       "base": [
-        164,
-        186,
-        150
+        168,
+        190,
+        152
       ],
       "cx": 0,
       "cxL": 0,
-      "cy": 0,
-      "hl": 0.42,
-      "hw": 0.4,
+      "cy": -0.04,
+      "hl": 0.4,
+      "hw": 0.37,
       "kind": "barrel",
-      "nf": 10,
+      "nf": 12,
       "pal": "ty_fallow_canvas",
-      "z0": 0.22
+      "z0": 0.421
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.04,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_oc_brick",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.907
+    },
+    {
+      "cx": -0.3,
+      "cy": -0.04,
+      "hw": 0.155,
+      "kind": "box",
+      "pal": "ty_oc_shake",
+      "roof": true,
+      "z0": 0.907,
+      "z1": 0.972
+    },
+    {
+      "cx": 0.28,
+      "cy": 0.24,
+      "hw": 0.14,
+      "kind": "box",
+      "pal": "ty_oc_brick",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.324
+    },
+    {
+      "cx": 0.28,
+      "cy": 0.24,
+      "hw": 0.155,
+      "kind": "box",
+      "pal": "ty_oc_tin",
+      "roof": true,
+      "z0": 0.324,
+      "z1": 0.381
     }
   ],
   "trade": "greenhouse"

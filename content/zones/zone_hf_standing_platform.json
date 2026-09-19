@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A chrome deck a storey up with a canopy over it and a very good view in both directions along a route nothing runs on. The tactile strip is laid along both edges, correctly, in the right colour. At the far end there is a bench and a bin and a timetable case with nothing in the case.",
+  "exits": {
+    "down": "zone_util_zone_hf_standing_platform",
+    "east": "zone_hf_standing_waiting",
+    "north": "zone_district_893_917"
+  },
+  "flags": {
+    "building_name": "Standing Room Only",
+    "building_type": "transit_halt",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_standing_platform",
+  "map_id": "map_int_hf_standing",
+  "name": "Standing Room Only — The Platform",
+  "parent_zone": "zone_district_893_917"
+}

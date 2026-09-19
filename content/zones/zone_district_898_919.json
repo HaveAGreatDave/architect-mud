@@ -10,7 +10,7 @@
   },
   "flags": {
     "curtain": true,
-    "district": "wasteland",
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "terrain": "grass"
   },

@@ -22,10 +22,13 @@
 // expanded IN THE VERTEX SHADER from the two endpoints and a pixel width, exactly as the sprite
 // layer expands a light from a point and a pixel radius. Six vertices a segment, no texture, no
 // bake, one draw call for every wire in the city.
-import { viewProjMatrix, NEAR, FAR } from './camera.js';
+import { viewProjMatrix, zRow, NEAR } from './camera.js';
 
 // NDC depth is A + B/f, from the ONE place NEAR and FAR are named. See sprites.js for the twin.
-const PROJ_A = (FAR + NEAR) / (FAR - NEAR), PROJ_B = -2 * FAR * NEAR / (FAR - NEAR);
+// ⚠ PER FRAME, BECAUSE THE PLANE IS. These two were module constants off NEAR/FAR, which
+// was right while the near plane was one — and is a silent half-tile depth error the moment
+// a seat fits its own: the matrix would put a light at one depth and this shader would
+// compare it at another, on the low seats only.
 const WIRE_PULL = 0.05;
 
 // a3, b3, param2 (side, end), style3 (width px, alpha, feather), colour3
@@ -193,7 +196,8 @@ export function createStrokeLayer(gl) {
     gl.useProgram(prog);
     gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
-    gl.uniform2f(loc.ab, PROJ_A, PROJ_B);
+    const zr = zRow((cam && cam.near) || NEAR);
+    gl.uniform2f(loc.ab, zr[0], zr[1]);
     gl.uniform1f(loc.pull, WIRE_PULL);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);        // a wire is thinner than the depth buffer can express; it must not hide anything

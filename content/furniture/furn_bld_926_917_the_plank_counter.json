@@ -1,0 +1,8 @@
+{
+  "description": "A plank on trestles, sticky in a way that has stopped being a stage and become a finish.",
+  "flags": {},
+  "id": "furn_bld_926_917_the_plank_counter",
+  "name": "the plank counter",
+  "object_type": "fixture",
+  "zone_id": "zone_bld_926_917_lobby"
+}

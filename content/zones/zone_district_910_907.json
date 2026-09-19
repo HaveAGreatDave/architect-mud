@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#161b1d",
+  "color": "#9fb4bc",
+  "description": "Four riveted steel legs on concrete pads, cross-braced the whole way up, carrying a tank with a domed top and a walkway round its skirt. On the tank, in letters that were white and are now the colour of the tank, COLDWATER. The overflow pipe comes down one leg and ends a foot off the ground over a grating, and there is a wet patch under it that never entirely dries. At the foot of the legs, a brick pump house with one door and a small high window.",
   "exits": {
-    "east": "zone_district_911_907",
-    "north": "zone_district_910_906",
-    "south": "zone_district_910_908",
-    "west": "zone_district_909_907"
+    "north": "zone_hwm_pump",
+    "south": "zone_district_910_908"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "High Water Mark",
+    "building_type": "water_tower",
+    "district": "ashway",
+    "entrance": "south",
+    "facade": true,
+    "floors": 6,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_910_908"
   },
   "grid_x": 910,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_910_907",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "HW",
+  "name": "High Water Mark",
   "parent_zone": null
 }

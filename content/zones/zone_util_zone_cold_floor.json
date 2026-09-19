@@ -1,0 +1,18 @@
+{
+  "description": "Under the exchanger floor with the circulating pumps and the cabinet, and a whiteboard on the wall carrying the return temperature written up four times a day in a column that goes back weeks.",
+  "exits": {
+    "up": "zone_cold_floor"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_cold_floor",
+  "map_id": "map_int_cold",
+  "name": "Cold Comfort — The Pump Room",
+  "parent_zone": "zone_district_903_917"
+}

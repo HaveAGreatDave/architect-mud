@@ -1,0 +1,16 @@
+{
+  "blurb": "The meadow the Glasshouse is building over, sold by the plot and named after what used to grow here.",
+  "color": "#9fb36b",
+  "id": "halcyon_fields",
+  "landmark": "zone_district_899_916",
+  "name": "Halcyon Fields",
+  "prefixes": [],
+  "signature": [
+    "Cut grass and hot tar, which is a smell this quarter did not have last year.",
+    "Somewhere behind the hoardings a generator runs, and nothing it powers is finished.",
+    "The wind comes off the open ground and arrives all at once, carrying seed heads and grit together.",
+    "The Curtain hums at the edge of hearing, the way a fridge does in another room."
+  ],
+  "skyline": "half-built frontage along the north side, open grass to the south, and the Curtain closing both far edges",
+  "sort": 15
+}

@@ -15,12 +15,12 @@
       "The cold off the steel is getting into your hands. You keep going."
     ],
     "quiet": [
-      "This whole run is scrip Citadel already voided. Worthless.",
+      "This whole run is scrip the Compound already voided. Worthless.",
       "Empty trays. Somebody has been here more recently than the ledger says.",
       "You get a shelf open and find nothing but dessicant packs and dust.",
       "Just deposit records. Fascinating, and completely unspendable."
     ]
   },
-  "name": "Citadel Vault",
+  "name": "Compound Interest Vault",
   "replenish_interval_seconds": 86400
 }

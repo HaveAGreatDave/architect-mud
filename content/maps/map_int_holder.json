@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_holder_gauge",
+  "id": "map_int_holder",
+  "name": "Holding Pattern",
+  "parent_zone_id": "zone_district_905_917"
+}

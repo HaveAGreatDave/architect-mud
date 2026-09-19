@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "description": "Chain-link sags between its posts along the west side, fencing off a plot with nothing on it. East of the road the grass comes right up to the kerb.",
   "exits": {
     "east": "zone_district_900_914",
     "north": "zone_district_899_913",
@@ -10,15 +9,17 @@
     "west": "zone_district_898_914"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 899,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_899_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Kettle Lane",
   "parent_zone": null
 }

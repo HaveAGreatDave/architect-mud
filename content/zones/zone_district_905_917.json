@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#141719",
+  "color": "#8e9aa0",
+  "description": "A lattice frame of riveted standards and cross-bracing, and inside it a steel drum that rides up and down on rollers according to how much gas the city is holding. Today it is about two thirds up and there is a tide line of rust round it marking every level it has ever rested at. At the foot of the frame, dwarfed by it, a small brick gauge house with a slate roof and a door painted the same green as everything the works has ever owned.",
   "exits": {
-    "east": "zone_district_906_917",
     "north": "zone_district_905_916",
-    "south": "zone_district_905_918",
-    "west": "zone_district_904_917"
+    "south": "zone_holder_gauge"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Holding Pattern",
+    "building_type": "gasholder",
+    "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 6,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_905_916"
   },
   "grid_x": 905,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_905_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "HP",
+  "name": "Holding Pattern",
   "parent_zone": null
 }

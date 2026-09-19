@@ -72,14 +72,27 @@ function tagQuads(m, ent, normal, tune = {}, tag = TAG) {
 // painted is any one of four, so `hw` is the distance to the wall only when the two happen to line
 // up on a square centred box. Measured afterwards against this: the paint landed inside the mass in
 // 868 of 3,296 (model, entrance, wall) cases, and the old gate passed every one of them.
-function massReach(m, seed, zLo, zHi, ent = [0, 1], dir = [0, 1]) {
+// ⚠ AND IT TAKES THE PIECE'S OWN LATERAL SPAN, because "is the paint in front of the building" is a
+// question about the building BEHIND THE PAINT. Asked of the whole elevation it is answered by a
+// projecting wing forty centimetres away that the piece is nowhere near, and a piece correctly
+// painted on a recessed wall reads as buried: 64 of 836 were reported that way, every one of them
+// on the wall it had been put on. `xLo`/`xHi` are world x, the axis the wall runs along here.
+function massReach(m, seed, zLo, zHi, ent = [0, 1], dir = [0, 1], xLo = -Infinity, xHi = Infinity) {
   const segs = ws.shapeForModel(m, seed) || [];
   const V = (p) => (p ? p[0] * FH + p[1] * H + p[2] : 0);
   const px = ent[1], py = -ent[0];
   let best = -Infinity;
   for (const sg of segs) {
     if (sg.kind !== 'box' || (sg.yaw || 0)) continue;
-    if (zHi < V(sg.z0) || zLo > V(sg.z1)) continue;
+    // ⚠ TOUCHING IS NOT OVERLAPPING. A piece painted on the wall ABOVE a plinth has its bottom edge
+    // exactly on the plinth's top, and a `<` here counts the plinth as mass at the paint's height —
+    // which reports the piece as buried behind the very thing it was raised to clear.
+    if (zHi <= V(sg.z0) + 1e-6 || zLo >= V(sg.z1) - 1e-6) continue;
+    {
+      const { cx, cy, hw, fd } = ws.segFit(sg, V);
+      const ox = DX + cx * px + cy * ent[0], ex = Math.abs(hw * px) + Math.abs(fd * ent[0]);
+      if (ox + ex < xLo - 1e-6 || ox - ex > xHi + 1e-6) continue;
+    }
     // ⚠ `segFit`, NOT a local `min(hwRaw, 0.44)`. The capture is raw and the renderer applies TWO
     // clamps to it — the half-width cap and the plot-line fit — so measuring the wall by hand
     // measures a building that is not the one the paint lands on. That is this gate's own finding
@@ -123,18 +136,23 @@ for (const ent of FACINGS) {
 // ⚠ ASSERTED AGAINST THE CAPTURE, not against `fh`. A model whose ground floor is wider than its
 // tile footprint is exactly the case a footprint-sized quad gets wrong.
 {
-  // The paint's own height span, which is what the wall has to be measured over — see massExtent.
-  const MID_Z = 0.072, HALF_H = 0.062, LO = MID_Z - HALF_H, HI = MID_Z + HALF_H;
   let buried = 0, tested = 0, flush = 0;
   // ⚠ EVERY ENTRANCE AGAINST EVERY WALL, not just the front. The bug this is written for is that
   // the mass is described in the entrance's frame and the paint goes on an arbitrary side, so the
   // front-against-front case is precisely the one that is right by accident.
   for (const { key, m } of registry) {
     for (const ent of FACINGS) {
-      const reach = massReach(m, SEED, LO, HI, ent, [0, 1]);
-      if (!(reach > 0.03)) continue;        // nothing solid at paint height: the fallback covers it
       const { decals } = tagQuads(m, ent, [0, 1]);
       if (!decals.length) continue;
+      // ⚠ OVER THE BAND THE PAINT ACTUALLY OCCUPIES, WHICH IS NO LONGER A CONSTANT. This used to
+      // measure the mass over one fixed arm's-reach band because that is where paint always went,
+      // and a piece now fits itself to the wall it finds — above a plinth that stands proud of the
+      // wall, most often. Measured over the old band this gate reported 102 of 838 pieces "inside
+      // their own mass" when every one of them was correctly ON the wall it had been put on, and
+      // the mass it was inside was a plinth below it.
+      const zs = decals[0].p.map((v) => v[2]), xs = decals[0].p.map((v) => v[0]);
+      const reach = massReach(m, SEED, Math.min(...zs), Math.max(...zs), ent, [0, 1], Math.min(...xs), Math.max(...xs));
+      if (!(reach > 0.03)) continue;        // nothing solid at paint height: the fallback covers it
       tested++;
       const out = Math.min(...decals[0].p.map((v) => v[1] - DY));   // +y is the wall normal here
       if (out < reach) { buried++; if (buried <= 3) fails.push(`${key} (ent ${ent}): paint at ${out.toFixed(3)} inside mass reaching ${reach.toFixed(3)}`); }
@@ -149,6 +167,73 @@ for (const ent of FACINGS) {
   check(tested > 200, `enough (model, entrance) pairs carried a tag to be worth asserting  (${tested})`);
   check(buried === 0, `${buried} of ${tested} paint INSIDE their own mass`);
   check(flush === 0, `${flush} of ${tested} paint exactly FLUSH with their wall (a depth tie loses)`);
+}
+
+// ── 3b. …AND THERE IS A BUILDING BEHIND ALL OF IT ──────────────────────────────────────────────
+//
+// The question 3 does not ask, and the reported bug. That one holds the paint against the mass's
+// reach AT ONE POINT and along one axis — which catches paint buried in its own wall and is blind
+// to paint that has no wall under it at all. A piece used to be placed at a FRACTION of the mass's
+// own width, and a fraction is a position on every building and a wall on most of them: measured
+// over the registry at all four entrances, 19.3% of pieces had part of themselves standing in clear
+// air and 12.5% were wholly in mid-air. `type:fuel_yard` is the reported one — a forecourt whose
+// arm says in its own comment that there are "deliberately no walls here at all" — along with both
+// hangars, the thorn gate, the Meridian's colonnade and every other open ground floor in the city.
+//
+// ⚠ SAMPLED ACROSS THE WHOLE RECTANGLE, NOT AT ITS CENTRE. Half a piece off the end of a wall is
+// the commonest form of this and the middle of it is over brick.
+// ⚠ AND AT EACH HEIGHT SEPARATELY, rather than demanding one box span the piece. A wall built out
+// of a stacked pair is still a wall, and a gate that asked for one box would report the Embassy's
+// plinth-and-storey frontage as mid-air.
+{
+  const GAP = 0.06;          // how far behind the paint its wall may stand
+  // The building's frontmost mass along +y at a world x and a height — nothing behind that is what
+  // "in mid-air" means, and anything further back than GAP reads as one.
+  const frontAt = (m, ent, wx, z) => {
+    const segs = ws.shapeForModel(m, SEED) || [];
+    const V = (p) => (p ? p[0] * FH + p[1] * H + p[2] : 0);
+    const px = ent[1], py = -ent[0];
+    let best = -Infinity;
+    for (const sg of segs) {
+      if (sg.kind !== 'box' || (sg.yaw || 0)) continue;
+      const { cx, cy, hw, fd } = ws.segFit(sg, V);
+      if (!(hw > 0.03)) continue;
+      if (z < V(sg.z0) - 1e-9 || z > V(sg.z1) + 1e-9) continue;
+      const ox = cx * px + cy * ent[0], oy = cx * py + cy * ent[1];
+      const ex = Math.abs(hw * px) + Math.abs(fd * ent[0]), ey = Math.abs(hw * py) + Math.abs(fd * ent[1]);
+      if (wx < DX + ox - ex - 1e-6 || wx > DX + ox + ex + 1e-6) continue;
+      best = Math.max(best, DY + oy + ey);
+    }
+    return best;
+  };
+  let tested = 0, part = 0, whole = 0, refused = 0;
+  const named = [];
+  for (const { key, m } of registry) {
+    for (const ent of FACINGS) {
+      const { decals } = tagQuads(m, ent, [0, 1]);
+      if (!decals.length) { refused++; continue; }
+      tested++;
+      const p = decals[0].p;
+      const xs = p.map((v) => v[0]), zs = p.map((v) => v[2]);
+      const y = Math.max(...p.map((v) => v[1]));
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+      let off = 0, n = 0;
+      for (let i = 0; i < 7; i++) for (let j = 0; j < 4; j++) {
+        n++;
+        if (!(frontAt(m, ent, x0 + (x1 - x0) * ((i + 0.5) / 7), z0 + (z1 - z0) * ((j + 0.5) / 4)) >= y - GAP)) off++;
+      }
+      if (off) { part++; if (off === n) whole++; if (named.length < 6) named.push(`${key} (ent ${ent}): ${off}/${n} of the piece over thin air`); }
+    }
+  }
+  for (const f of named) fails.push(f);
+  check(tested > 400, `enough walls carried a piece to be worth asserting  (${tested})`);
+  check(part === 0, `${part} of ${tested} pieces have part of themselves off the wall`);
+  check(whole === 0, `${whole} of ${tested} pieces are wholly in mid-air`);
+  // ⚠ AND THE REFUSAL HAS TO BE REACHABLE, or every assertion above is satisfied by a renderer that
+  // paints everything and a solve that happens to agree. An open ground floor gets NO paint, which
+  // is the other half of the fix and the half that cannot be seen by looking at what was drawn.
+  check(refused > 20, `some walls are refused outright rather than floated  (${refused})`);
+  console.log(`  player tags: ${tested} walls painted, ${refused} refused, ${whole} in mid-air.`);
 }
 
 // ── 4. PER-TILE PAINT IS NEVER CAPTURED ────────────────────────────────────────────────────────

@@ -147,6 +147,25 @@ export function installGL(hostFor) {
       // a missing line here produces: the tune key exists, the shader is correct, nothing happens.
       glWet: opts.glWet,
       glPond: opts.glPond,
+      // ⚠ AND THE SNOW, WHICH REACHES THREE SHADERS AND WOULD GO QUIET IN ALL THREE. Eleventh
+      // entry on the list this file keeps: the depth is integrated in windshield.js, the floor,
+      // the ground and the mass each declare a uniform for it and each branch on it — and with
+      // this line missing all three take 0, every branch is skipped on a uniform, and the world
+      // stays green through a blizzard with the slider at 1 and `snowForce` pinned to 1.
+      glSnow: opts.glSnow,
+      // ⚠ AND THIS ONE HAS TO BE HERE TOO — see the ⚠ on `glWet` above and `npm run gl:opts`. The
+      // rain reaching the buildings is worth nothing if it is dropped one hop short of the shader.
+      glWetWall: opts.glWetWall,
+      // ⚠ AND THIS ONE — see gl:opts. The density is resolved in windshield.js (it rides WX_HAZE,
+      // the one statement of how much a given sky hazes), and dropped here it reaches none of the
+      // three shaders that declare a uniform for it.
+      glFogH: opts.glFogH,
+      glScatter: opts.glScatter,
+      // ⚠ AND THE TRACKS IN IT, WHICH REACH BOTH GROUND SHADERS. Twelfth entry on this file own
+      // list: the store records, the buffer uploads, both shaders declare the array and both
+      // branch on the count — and dropped here every frame hands over `undefined`, `uNTrack`
+      // stays 0, and a feature with a slider and a gate leaves no mark on the snow.
+      tracks: opts.tracks,
       glPudRoad: opts.glPudRoad,
       glPuddle: opts.glPuddle,
       glGroundBias: opts.glGroundBias,
@@ -181,6 +200,11 @@ export function installGL(hostFor) {
       // compiled ceiling — which is not "nothing happens", it is the OPPOSITE of nothing: every
       // frame runs the full thirty-two slots and the knob that exists to hold that down does not.
       glLightSlots: opts.glLightSlots,
+      // ⚠ AND THIS ONE. It fails in the quietest way on the whole list: the near plane falls back
+      // to the fixed 0.06 for every seat, which is the picture that already ships, so the tune key
+      // exists, the slider moves, `gl:nearfit` passes against `nearFor` in isolation, and a camera
+      // flat on the road still shows grass under it.
+      nearFit: opts.nearFit,
       // ⚠ AND THESE FOUR. Seventh through tenth, and `hdr` is the one whose absence is loudest:
       // dropped here, `beginTarget` never binds a float buffer, every layer renders into the eight-
       // bit canvas exactly as before, and the bloom and the tone curve are computed against a
@@ -216,6 +240,12 @@ export function installGL(hostFor) {
       // capture running every frame for nobody — the numbered failure this file keeps a list of.
       skyStrip: opts.skyStrip,
       floor: opts.floor, now: opts.now,
+      // ⚠ AND THE SNOW ON THE SCATTER, WHICH IS THIS FILE'S NUMBERED FAILURE WAITING TO HAPPEN
+      // AGAIN. Dropped here, `uSnow` on the billboard layer stays 0 for ever: the tune key exists,
+      // the slider moves, the shader declares the uniform, the species all carry their hold — and
+      // every tree in a blizzard stays green, which reads as the deposition term not working
+      // rather than as a line missing from an allowlist. `gl:opts` is the gate.
+      snowBB: opts.snowBB, snowCol: opts.snowCol ? u(opts.snowCol) : null,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,
       // ⚠ AND THE SKY BESIDE IT, WHICH IS THIS FILE'S OWN NUMBERED FAILURE AGAIN. Dropped here the
       // water goes on reflecting one flat colour: the uniform is declared, the shader reads it, the

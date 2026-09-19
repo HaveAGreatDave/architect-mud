@@ -1,0 +1,299 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Studd writes a net weight into the book, tears the carbon, and spikes the top copy.",
+    "He looks up as the grab goes over, follows it the length of the rail, and looks back down.",
+    "He turns the docket book round on the chain so it faces the hatch, ready for the next one.",
+    "He wipes the scale head glass with his cuff. It is grey again within the minute.",
+    "Somewhere below, a load goes through the charging door, and the floor takes a moment to settle."
+  ],
+  "description": "A grey, unhurried man in a works coat with the collar up, sitting at the weighbridge hatch with a docket book in front of him and the grab going over behind him every ninety seconds. There is ash in the creases of his hands that has been there long enough to be part of the hand. He is not grim about any of this. He is careful about it, which is different and takes longer to notice.",
+  "dialogue_tree": {
+    "blank": {
+      "options": [
+        {
+          "label": "Does it bother you?",
+          "next": "blank_bother"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He looks at the book for a moment and does not pretend not to know what you mean.\n\n\"The description column is filled in by the man bringing it. On that account it comes in blank and I am not required to fill it.\" A pause. \"I could ask. Nobody has ever told me not to ask.\"\n\n\"What I do instead is weigh it, and write the weight, and keep the carbon. There are nine years of carbons in that cupboard and every one of those loads is in them by weight and by time. If it ever matters to anybody, it is written down. That is the most I have worked out how to do.\""
+    },
+    "blank_bother": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "blank"
+        }
+      ],
+      "text": "\"I burn what the city sends me and I do it properly.\" He squares the book. \"The grate is set right, the stack is clean, the ash is quenched and nothing goes out of here that should not.\"\n\n\"What comes up the ramp is not my decision and never has been. I have thought about that more than I would recommend. The conclusion I reached is that somebody ought to be doing this carefully, and it may as well be somebody who has noticed.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Down the steps,\" he says. \"Not the ramp.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Tenement behind me complains about the stack and they are right, and the stack is not the problem, the wind is.\" He shrugs. \"Two-Cell next door runs a line off my yard light and thinks I have not noticed. He can have it.\"\n\n\"And there is a fire station gone in over the other side of the meadow. I would like them to come and look at my bunker. I have asked. They have not been, and I understand why, and I would still like them to come.\""
+    },
+    "loads": {
+      "options": [
+        {
+          "label": "A separate time of day?",
+          "next": "loads_time"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Household off the round, which is most of it by weight and none of it by trouble.\" He counts on the edge of the book. \"Trade waste. Market sweepings. Condemned stock off the bonded warehouse, and that comes with a man to watch it go in.\"\n\n\"And clinical. From the clinics, and from the facility across the way. That is a separate account and a separate time of day and it does not queue with the rest.\""
+    },
+    "loads_time": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "loads"
+        }
+      ],
+      "text": "\"Half five in the morning.\" He says it plainly. \"Before the round starts. One vehicle, sealed, and it goes straight over the plate and up the ramp without stopping, and I take the weight off the head and I do not open anything.\"\n\n\"That is not me being furtive. It is how you are supposed to run a clinical account and I would run it the same way if the load were bandages. It happens not to be bandages.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What comes up the ramp?",
+          "next": "loads"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Some dockets have no description.",
+          "next": "blank"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I'll get out of the way.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Trade or municipal?\" He has the book turned round before you answer. \"If you have not got a load, come up the steps rather than the ramp. Lorries do not look.\"",
+      "text_by_relation": {
+        "familiar": "He has the kettle going on the ring behind the hatch before you have reached the top of the steps.\n\n\"Number four glass is worth a look today,\" he says. \"She is burning clean as anything. You will not see that every week and I have got nobody else to say it to.\"",
+        "first": "The man at the hatch finishes writing before he looks up, which takes a while, and when he does he looks at your hands first to see whether you are carrying anything.\n\n\"Studd.\" He turns the book round out of habit and then turns it back. \"No load, then. That is fine, people come up.\"\n\nBehind him the grab drops, closes and lifts, and he does not turn round.\n\n\"This is the destructor. Trade and municipal. Everything this city stops wanting comes up that ramp and goes in that hole, and what comes out the other end is clinker and a thin white smoke, and that is the whole of it.\"",
+        "known": "\"No load again.\" He almost smiles. \"Come up, then. Mind the plate, it is greasy.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a heavy works coat, ash-grey whatever colour it started, collar turned up indoors",
+      "a flannel shirt and a scarf he does not take off",
+      "stiff trousers and boots with the laces replaced by wire at the top",
+      "a vest and long underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_ash_furnace",
+  "hp": 44,
+  "hp_max": 44,
+  "id": "npc_ash_studd",
+  "name": "Ezra Studd",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_ash_docket",
+      "price": 1
+    },
+    {
+      "item_id": "item_ash_clinker",
+      "price": 2
+    },
+    {
+      "item_id": "item_ash_shovel",
+      "price": 18
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Ash Management",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_ash_tip"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "A wooden table just inside the door with a kettle, a logbook, a ring of keys and a tin. It is the only piece of furniture in the room that a person could use.",
+  "flags": {
+    "aliases": [
+      "table",
+      "desk",
+      "keys",
+      "tin"
+    ],
+    "hack_difficulty": 5,
+    "vendor_npc_id": "npc_wires_bewick",
+    "vendor_safe": true
+  },
+  "id": "furn_wires_desk",
+  "name": "the caretaker's table",
+  "object_type": "fixture",
+  "zone_id": "zone_wires_apparatus"
+}

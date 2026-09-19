@@ -31,6 +31,7 @@
 // failures at once. A stream is the honest shape for it; make it cacheable by moving the culls
 // first, not by pretending they are not there.
 import { viewProjMatrix } from './camera.js';
+import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 
 // pos3, colour3
 const STRIDE = 10;  // pos3, colour3, alpha1, road1, lat1, kerb1
@@ -39,6 +40,10 @@ const STRIDE = 10;  // pos3, colour3, alpha1, road1, lat1, kerb1
 // accept a longer array and silently ignore the tail, which is a reflection that is there on one
 // machine and missing on another. Kept adjacent so a change to one is a visible diff on both.
 const MAX_WET = 6;
+// ⚠ THE SAME FORTY AS THE SHADER'S OWN MAX_TRACK, AND THEY HAVE TO AGREE — the rule MAX_WET above
+// states for the same reason. The GLSL one is inside a template literal and cannot be read from
+// here, so this is the second copy, kept adjacent so a change to one is a visible diff on both.
+const MAX_TRACK_PTS = 40;
 const WET_P = new Float32Array(MAX_WET * 3);
 const WET_C = new Float32Array(MAX_WET * 3);
 const WET_R = new Float32Array(MAX_WET);
@@ -165,6 +170,95 @@ uniform vec3  uWetP[MAX_WET];   // light ground point xy + its height
 uniform vec3  uWetC[MAX_WET];   // colour, 0-1
 uniform float uWetR[MAX_WET];   // reach in tiles
 uniform float uWet;             // how wet the ground is, 0-1
+// ── SNOW LYING ON THE STREET ───────────────────────────────────────────────────────────────────
+//
+// How deep it lies, 0-1 — see 'SNOW_NOW' in windshield.js. THIS pass and not the floor shader, for
+// the reason stated at the top of the wet-tarmac block above and measured there: GROUND_FULL draws
+// every road and pavement tile as an opaque quad ON TOP of the floor, so a city's snow painted into
+// the floor is covered by exactly the surface it belongs on.
+uniform float uSnow;
+
+// ── WHEEL TRACKS CUT INTO IT ───────────────────────────────────────────────────────────────────
+//
+// Points of a path in the same window-relative tiles this shader already works in, collected on
+// the CPU from the own ship and from every CONTACT with its wheels down — see the store in
+// windshield.js. xy is the point, z is how far from buried it is (1 fresh, 0 gone), and w is 1
+// when it joins the NEXT point and 0 when it is the last of a run.
+//
+// ⚠ ONE ARRAY, POINTS RATHER THAN SEGMENTS, AND THAT IS WHAT PAYS FOR THE FADE. A segment list
+// would be a vec4 of two endpoints with nowhere left to put the burial, so the fade would need a
+// second array and twice the uniform vectors. A polyline carries n-1 segments in n vec4s AND has
+// a spare component per point, which the run-break flag then rides for nothing.
+const int MAX_TRACK = 40;
+uniform int   uNTrack;
+uniform vec4  uTrack[MAX_TRACK];
+uniform float uTrackHalf;   // half the wheel track: the two marks sit this far either side
+uniform float uTrackW;      // half-width of ONE wheel mark
+uniform vec4  uTrackBox;    // the whole path bounded, padded — see the reject below
+
+// How much of the cover this fragment has had cut out of it, 0-1.
+//
+// ⚠ ONE DISTANCE, TWO WHEELS. The perpendicular distance to the centreline is all that is needed:
+// a pair of marks either side of it is abs(d - half) tested against the width, so nothing has to
+// store, upload or walk a second polyline. ⚠ It is the perpendicular to the segment's own LINE and
+// not the distance to the segment — see the trap inside.
+//
+// ⚠ AND IT CONSERVES INK AT RANGE, the rule gl/strokes.js states for a sub-pixel wire and
+// roadCoverage repeats for a distant road: a mark thinner than the pixel it lands in is drawn
+// faint rather than by a coin toss, or a track a long way off is a crawling dotted line.
+float trackCut(vec2 gp, float fp) {
+  if (uNTrack < 2) return 0.0;
+  // The rectangle reject. Thirty-nine segments a fragment is far more than the six the wet
+  // reflections run, and almost none of the frame is near a track.
+  if (gp.x < uTrackBox.x || gp.y < uTrackBox.y || gp.x > uTrackBox.z || gp.y > uTrackBox.w) return 0.0;
+  float hw  = max(uTrackW, fp);
+  float ink = min(1.0, uTrackW / max(fp, 1e-5));
+  float best = 0.0;
+  for (int i = 0; i < MAX_TRACK - 1; i++) {
+    if (i + 1 >= uNTrack) break;
+    vec4 A = uTrack[i];
+    if (A.w < 0.5) continue;              // last point of a run: it joins nothing
+    vec4 B = uTrack[i + 1];
+    vec2 ab = B.xy - A.xy;
+    float l2 = dot(ab, ab);
+    if (l2 < 1e-9) continue;              // the live head on the frame it is born
+    float len = sqrt(l2);
+    vec2 dir = ab / len;
+    vec2 pa  = gp - A.xy;
+    // ⚠ THE PERPENDICULAR TO THE INFINITE LINE, WITH 't' UNCLAMPED — WHICH IS THE WHOLE FIX.
+    // This used to be the distance to the SEGMENT, clamped, and 'abs(d - uTrackHalf)' over that is
+    // an ANNULUS around a capsule: two parallel rails, and a semicircular arc of radius uTrackHalf
+    // wrapped round each end. Consecutive segments share a vertex, so the arc off the end of one
+    // and the arc off the start of the next close into a full CIRCLE at every point in the path —
+    // and on a dead straight drive those are a string of beads down the middle of the track,
+    // tangent to both rails, 0.32 tiles across and one every TRACK_STEP for ever. Measuring the
+    // perpendicular to the LINE and cutting the segment off square at its own ends draws the rails
+    // and nothing else.
+    float t = dot(pa, dir) / len;
+    float s = abs(pa.x * dir.y - pa.y * dir.x);
+    float cov = (1.0 - smoothstep(hw - fp, hw + fp, abs(s - uTrackHalf))) * ink;
+    // ⚠ AND THE SQUARE END IS MITRED ONLY WHERE THE RUN CARRIES ON. A butt cap on every segment
+    // leaves a wedge on the OUTSIDE of every bend, because the rail is offset uTrackHalf from a
+    // centreline that just changed direction; the gap is uTrackHalf * tan(half the turn), so half
+    // the wheel track covers a 53° kink and a rig takes a junction in about 25° a point. At a true
+    // run end — the head under the wheels, the tail falling out of the buffer, either side of a
+    // relay gap — there is nothing to mitre INTO, and the end stays square.
+    float mit = min(uTrackHalf * 0.5, len * 0.5) / len;
+    float pw  = i > 0 ? uTrack[max(i - 1, 0)].w : 0.0;
+    float m0  = pw  > 0.5 ? mit : 0.0;
+    float m1  = B.w > 0.5 ? mit : 0.0;
+    // ⚠ THE LONGITUDINAL FEATHER IS FOR A RUN END AND NOWHERE ELSE. A joint is already covered
+    // twice over by the mitre, so a screen-width ramp there only dims the seam — and 'fp' is most
+    // of a segment long at the far end of a street, which would put a grey dot at every point in
+    // the path rather than at none.
+    float aa  = min(0.40, max(fp, 1e-5) / len);
+    float e0  = m0 > 0.0 ? 1e-4 : aa;
+    float e1  = m1 > 0.0 ? 1e-4 : aa;
+    float ends = smoothstep(-m0 - e0, -m0 + e0, t) * smoothstep(-m1 - e1, -m1 + e1, 1.0 - t);
+    best = max(best, cov * ends * mix(A.z, B.z, clamp(t, 0.0, 1.0)));
+  }
+  return clamp(best, 0.0, 1.0);
+}
 uniform float uPudScale;        // the puddle field's frequency — bigger is smaller and more of them
 // ── ⚠ HOW MUCH WATER IS STANDING, WHICH IS NOT HOW WET THE ROAD IS ───────────────────────────
 //
@@ -182,6 +276,13 @@ uniform float uPond;
 uniform float uPudRoad;
 uniform vec2  uEye;             // the camera's ground point, in vWorld's frame
 uniform float uEyeH;            // and how high it is — see the Fresnel gate on the reflections
+// The air at street level — see gl/fog.js. Every fragment this shader draws is ON the ground, so
+// this is the degenerate case of the same integral: the eye height and the distance decide it.
+uniform float uFogH;
+uniform float uFogHScale;
+// See gl/fog.js. 0 in clear weather by arithmetic, so the loop at the end of main is not a code
+// path on a bright afternoon.
+uniform float uScatter;
 uniform vec2  uWc;             // window centre in WORLD tiles, so a puddle stays on its bit of road
 // ⚠ IS THIS FRAGMENT A SURFACE, OR LIGHT LYING ON ONE? The three ranges below share this shader
 // and they are not the same kind of thing: the base is the road, the additive range is a
@@ -254,9 +355,16 @@ float waterSparkle(vec2 w) {
   return gp * gp * gp;
 }
 
+${HEIGHT_FOG_GLSL}
+${LIGHT_SHAFT_GLSL}
 void main() {
   if (vAlpha <= 0.002) discard;
-  vec3 c = mix(vColor, uFog, vFog);
+  // ⚠ FOLDED IN BEFORE THE MIX, never painted over the result. Everything below reads c as the road
+  // surface — the wetness, the standing water, the reflections, the snow — so a fog laid on
+  // afterwards would have the neon reflecting in a road that has already receded into the haze.
+  // ⚠ AND COMBINED AS TRANSMITTANCE: two fogs are two things the light has to get through.
+  float gfog = 1.0 - (1.0 - vFog) * (1.0 - heightFog(uEyeH, 0.0, length(vWorld.xy - uEye), uFogH, uFogHScale));
+  vec3 c = mix(vColor, uFog, gfog);
   // ⚠ AFTER THE FOG, because the fog is already folded into c above: a road that has receded into
   // the horizon has nothing left to reflect in, and adding light to it would put a streak on top of
   // the haze. The term's own distance falloff does the rest.
@@ -295,6 +403,96 @@ void main() {
   // The level floor decides the picture and it was swept: 0.05 gives 31% cover in ~90 separate
   // patches, median 0.63 tiles across with the odd 3-tile one in a low spot, and 0.3% in a light
   // shower. That is a street with puddles in it rather than a flooded street.
+  // ── SNOW, AND WHAT A CITY DOES TO IT ─────────────────────────────────────────────────────────
+  //
+  // ⚠ THE CARRIAGEWAY IS CLEARED AND THE FOOTWAY IS NOT, and that one fact is most of what makes a
+  // snowed-on street read as a street rather than as a white rectangle. Traffic and ploughs keep the
+  // travelled way black; the snow goes to the kerb in a bank and stays on the pavement for days.
+  //
+  // ⚠ AND IT IS THE DRAINAGE MODEL'S OWN CROSS-SECTION, READ THE OTHER WAY UP. The puddle field
+  // below derives three terms from one variable — the distance across the carriageway — and asks
+  // where water COLLECTS: the gutter, the wheel ruts, the sag between gullies. Snow answers the
+  // opposite question over the identical geometry, because the thing that makes a rut hold water is
+  // the thing that scours it clear of snow: it is where the wheels go. So the wheel tracks are the
+  // BARE part and the kerb line is the DEEP part, and neither needed a new variable, a new
+  // attribute or a new authored field — 'vLat' and 'vKerb' have carried both answers all along.
+  //
+  // ⚠ 'vKerb' 0 MEANS NO CROSS-SECTION, AND THAT IS NOT THE SAME QUESTION SNOW IS ASKING. For the
+  // water it is one answer — a junction, an apron, a forecourt and a depot hardstand all have no
+  // camber, so all four fall back to the isotropic field. For snow they split, and the axis is
+  // 'vRoad' rather than 'vKerb': a junction is CARRIAGEWAY, and it is the most heavily trafficked
+  // carriageway on the street, whereas a yard is not trafficked at all. Read off the kerb alone,
+  // every crossroads in the city held a full cover while the streets feeding it were ploughed
+  // black — which is what it looked like on Marrow Street: a white band lying across the road at
+  // exactly the two tiles the snapshot calls nsw and nes, six and seven tiles ahead.
+  //
+  // So a junction takes the general clearing with none of the structure (there is no single gutter
+  // line where four channels meet, and no one wheel path), and only a surface that is not
+  // carriageway at all takes the even cover.
+  float snowW = 0.0;
+  if (uSnow > 0.001) {
+    // Off the carriageway — pavement, verge, apron — snow simply lies, broken only by the drift
+    // field so an edge is ragged rather than ruled.
+    float keep = 1.0;
+    // A junction: trafficked from every direction, so it is cleared, but there is no cross-section
+    // to hang ruts or a gutter bank on.
+    if (vRoad > 0.5 && vKerb <= 0.001) keep = 0.45;
+    if (vRoad > 0.5 && vKerb > 0.001) {
+      float a = abs(vLat) / vKerb;                        // 0 at the crown, 1 at the kerb
+      float onRoad = 1.0 - smoothstep(0.98, 1.22, a);
+      // The same lane derivation the ruts use, so the tracks land in the same place in a one-tile
+      // street and a four-lane artery alike. ⚠ Shared by reading it the same way rather than by
+      // being written out twice: tracks that did not line up with the puddles would read as two
+      // different roads under one surface.
+      float lanes = max(1.0, floor(vKerb / LANE_W + 0.5));
+      float phase = fract(a * lanes);
+      float rut = exp(-pow((phase - 0.30) * 6.0, 2.0)) + exp(-pow((phase - 0.70) * 6.0, 2.0));
+      // ⚠ THE RUTS DO THE SCOURING AND A FLAT TERM MUST NOT HELP THEM. This was
+      // 'clamp(rut * 0.85 + 0.30)', and the constant is what wrecked it: 'rut' is a pair of
+      // Gaussians that only falls to ~0.04 at a lane EDGE and sits at ~0.47 half way between the
+      // two tracks, so adding 0.30 under it left the whole travelled way between 0.00 and 0.30 of a
+      // cover. Measured on the street at a depth of 0.55 that is a road with no snow on it at all,
+      // which is not a ploughed road, it is a road in July.
+      //
+      // What a street in snow actually looks like is two dark wheel tracks with white between them
+      // and white at the lane edges, and that is what the Gaussians already say on their own.
+      keep = 1.0 - onRoad * clamp(rut * 0.95, 0.0, 1.0);
+      // …and BANKED at the kerb, which is where all of it was pushed. This is the gutter term with
+      // its sign reversed, and it is what puts two white ribbons down the edge of a cleared street.
+      keep += smoothstep(0.80, 1.05, a) * 0.85;
+    }
+    // The drift field: the same two-octave shape the floor uses, phased on ABSOLUTE world tiles so a
+    // bank stays on its own bit of kerb as the window recentres — the rule the puddle field states
+    // one block down and the coast warp in floor.js states for the same reason.
+    vec2 sw = vWorld.xy + uWc;
+    float drift = sin(sw.x * 1.9 + sin(sw.y * 1.5) * 1.3) * sin(sw.y * 2.1 + sin(sw.x * 1.7) * 1.1) * 0.30
+               + sin(sw.x * 5.7 - 1.4) * sin(sw.y * 6.3 + 0.7) * 0.12;
+    // Level against depth, exactly as the puddles are: a dusting catches in the lee and a real fall
+    // covers everything. Scaled by 'keep' BEFORE the threshold rather than after, so a cleared wheel
+    // track is genuinely last to hold snow instead of holding a faded copy of it.
+    float lvl = mix(1.15, -0.12, clamp(uSnow, 0.0, 1.0));
+    // ⚠ CAPPED AS WELL AS FLOORED, WHICH THE PUDDLE FIELD BELOW DOES NOT NEED AND THIS DOES. The
+    // floor is the puddle shader's own trick — a threshold on a world-space field crawls as the
+    // camera moves, so the band is widened to about a pixel wherever it is. The CAP is because this
+    // field covers the whole street rather than a few hollows in it: at the far end of a road one
+    // pixel spans several tiles, 'fwidth' goes past the width of the field itself, and the
+    // smoothstep stops being an edge and becomes a ramp across the entire road — which reads as fog
+    // lying on the tarmac rather than as snow.
+    float band = clamp(fwidth(drift) * 1.6, 0.05, 0.30);
+    snowW = smoothstep(lvl, lvl + band, 0.5 + drift) * clamp(keep, 0.0, 1.0);
+    // ⚠ AND THE WHEELS CUT IT BACK — before the clamp and before anything reads it, because snowW
+    // also suppresses the standing water below, and a cleared track SHOULD be allowed to hold
+    // slush again.
+    //
+    // ⚠ AND THE CUT IS TOTAL. It used to stop at 0.88, and an eighth of the cover left lying in the
+    // rut is not a wheel track — it is a smear of the same grey the rest of the street is wearing.
+    // What a tyre does is take the snow OFF, so the fragment falls all the way back through the mix
+    // at the bottom of main() and hands back the road that is actually there: its own palette, its
+    // wetness, the water standing in it and the light landing on it.
+    if (uNTrack > 1) snowW *= 1.0 - trackCut(vWorld.xy, max(fwidth(vWorld.x), fwidth(vWorld.y)) * 0.5);
+    snowW = clamp(snowW, 0.0, 1.0);
+  }
+
   float pud = 0.0;
   // ⚠ PUDDLES ARE A CARRIAGEWAY THING, AND THEY USED TO BE EVERYWHERE THE GROUND PASS DREW.
   // The note that used to sit here said there was no paved test and none was needed, because only
@@ -418,6 +616,13 @@ void main() {
     float band = max(0.045, fwidth(hollow) * 1.6);
     pud = smoothstep(level, level + band, hollow);
   }
+  // ⚠ AND SNOW TAKES THE WATER WITH IT, WHICH IS NOT A TIDY-UP. Everything below this line
+  // describes a surface you can see INTO — the darkening, the smear, the mirrored city, the glint.
+  // A covered road is none of those: it is an opaque diffuse white, and a puddle reflecting neon
+  // through four inches of snow is the single loudest way this could go wrong. One multiply here
+  // reaches all five terms, because all five are derived from 'pud' or from 'uWet'.
+  pud *= 1.0 - snowW;
+
   // ⚠ TWO NUMBERS OUT OF ONE FIELD, because a road in the rain is not dry between its puddles. The
   // whole surface is damp and darker; what the hollows add is STANDING water, which is a different
   // thing optically — damp tarmac scatters, a puddle mirrors. So the darkening is mostly there
@@ -801,6 +1006,47 @@ void main() {
       c += gcol * max(vec3(0.0), 1.0 - c);
     }
   }
+  // ── AND THE SNOW GOES ON TOP OF ALL OF IT ────────────────────────────────────────────────────
+  //
+  // Last, because it is the surface the light is landing on rather than something happening to the
+  // road: everything above describes tarmac, and where this is 1 there is no tarmac to describe.
+  //
+  // ⚠ IT TAKES THE SKY, NOT A WHITE. Snow is very nearly a perfect diffuse reflector of the whole
+  // hemisphere, so what it hands back is what is above it — which this shader already has in
+  // 'uSkyTop', the zenith colour the standing water was given for exactly the same reason. A
+  // constant white would read as paint at every hour of the day and would be wrong twice over at
+  // dusk, when both the sky and the snow under it go pink.
+  //
+  // ⚠ AND THE FOG IS ALREADY IN 'c' — it is applied on the first line of main — so mixing toward a
+  // raw snow colour here would put a crisp white street at the end of a hazed one. The tint is
+  // hazed by the same weight before it lands.
+  if (snowW > 0.001) {
+    vec3 snowCol = mix(mix(vec3(0.90, 0.93, 0.98), uSkyTop, 0.20), uFog, vFog);
+    c = mix(c, snowCol, snowW);
+  }
+  // ── AND THE LIGHT IN THE AIR OVER THE ROAD ─────────────────────────────────
+  //
+  // The same integral the buildings take — see gl/fog.js — over the road's own six lights. ⚠ The
+  // road and the wall beside it must scatter the same amount or a lamp's cone stops at the kerb,
+  // which is why this is the shared function rather than a second one tuned here.
+  //
+  // ⚠ ADDED LAST, AFTER THE WATER AND THE SNOW. Everything above describes what the SURFACE is
+  // doing; this is light that never reached the surface at all, and a shaft folded in earlier
+  // would get reflected by the wet road as though it were a thing standing in the street.
+  if (uScatter > 0.001 && uNWet > 0) {
+    vec3 scat = vec3(0.0);
+    for (int i = 0; i < MAX_WET; i++) {
+      if (i >= uNWet) break;
+  // ⚠ uScatter IS PASSED AS THE DENSITY, AND THE WEATHER IS NOT COUNTED TWICE. The obvious
+    // wiring hands the integral the fog's own uFogH and then scales the result by the weather gate
+    // as well — which is physically defensible and measures as a QUADRATIC response, because both
+    // terms track the same haze. A rainy night came back at 0.14% of the frame against a foggy
+    // one's 11.05%, so the weather this whole layer exists for got almost none of it. The gate
+    // carries the weather once; the height profile inside still shapes it.
+      scat += uWetC[i] * lightShaft(vec3(uEye, uEyeH), vWorld, uWetP[i], uWetR[i], uScatter, uFogHScale);
+    }
+    c += scat;
+  }
   outColor = vec4(c * vAlpha, vAlpha);   // premultiplied, like every other layer on this canvas
 }`;
 
@@ -847,9 +1093,18 @@ export function createGroundLayer(gl) {
     wet: gl.getUniformLocation(prog, 'uWet'),
     pudScale: gl.getUniformLocation(prog, 'uPudScale'),
     pond: gl.getUniformLocation(prog, 'uPond'),
+    snow: gl.getUniformLocation(prog, 'uSnow'),
+    nTrack: gl.getUniformLocation(prog, 'uNTrack'),
+    track: gl.getUniformLocation(prog, 'uTrack'),
+    trackHalf: gl.getUniformLocation(prog, 'uTrackHalf'),
+    trackW: gl.getUniformLocation(prog, 'uTrackW'),
+    trackBox: gl.getUniformLocation(prog, 'uTrackBox'),
     pudRoad: gl.getUniformLocation(prog, 'uPudRoad'),
     eye: gl.getUniformLocation(prog, 'uEye'),
     eyeH: gl.getUniformLocation(prog, 'uEyeH'),
+    fogH: gl.getUniformLocation(prog, 'uFogH'),
+    fogHScale: gl.getUniformLocation(prog, 'uFogHScale'),
+    scatter: gl.getUniformLocation(prog, 'uScatter'),
     wc: gl.getUniformLocation(prog, 'uWc'),
     surface: gl.getUniformLocation(prog, 'uSurface'),
     hazeNear: gl.getUniformLocation(prog, 'uHazeNear'),
@@ -985,6 +1240,9 @@ export function createGroundLayer(gl) {
     gl.uniform1i(loc.nWet, nw);
     gl.uniform2f(loc.eye, opts.eyeX || 0, opts.eyeY || 0);
     gl.uniform1f(loc.eyeH, opts.eyeH == null ? 0.2 : opts.eyeH);
+    gl.uniform1f(loc.fogH, opts.fogH || 0);
+    gl.uniform1f(loc.fogHScale, opts.fogHScale > 0 ? opts.fogHScale : 0.5);
+    gl.uniform1f(loc.scatter, opts.scatter || 0);
     // The window centre, so the puddle field is phased on ABSOLUTE world tiles. vWorld is
     // map-window, which slides a whole tile every time the window recentres; without this the
     // hollows would crawl along the road as you drive, which is the one thing a puddle must not do.
@@ -1022,6 +1280,24 @@ export function createGroundLayer(gl) {
     // BIT-IDENTICAL. Every bench, the Modelshop and any direct user of this layer hands over a
     // wetness and no pond; the level then reads exactly the number it always did.
     gl.uniform1f(loc.pond, opts.pond == null ? (opts.wet || 0) : opts.pond);
+    // ⚠ NOT FALLING BACK TO ANYTHING, UNLIKE THE POND ABOVE IT. A caller that has not been taught
+    // about snow means a bench, the Modelshop or a direct user of this layer, and the honest answer
+    // for all three is BARE GROUND — so this defaults to 0 and every existing harness is unchanged
+    // by construction rather than by anybody remembering to switch it off.
+    gl.uniform1f(loc.snow, opts.snow || 0);
+    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO TRACKS. A uniform holds its last value,
+    // so a pass that set these only when it had a path would leave the last one carved into the
+    // snow for the rest of the session — the rule the road segments and the wet lights carry.
+    {
+      const tk = opts.tracks;
+      const tn = tk && tk.pts ? Math.min(MAX_TRACK_PTS, tk.n | 0) : 0;
+      gl.uniform1i(loc.nTrack, tn);
+      if (tn > 1) {
+        gl.uniform4fv(loc.track, tk.pts.subarray(0, tn * 4));
+        gl.uniform1f(loc.trackHalf, tk.half); gl.uniform1f(loc.trackW, tk.w);
+        gl.uniform4f(loc.trackBox, tk.box[0], tk.box[1], tk.box[2], tk.box[3]);
+      }
+    }
     gl.uniform1f(loc.pudRoad, opts.pudRoad == null ? 1 : opts.pudRoad);
     gl.uniform2f(loc.reflVP, opts.vpW || 1, opts.vpH || 1);
     gl.uniform1f(loc.time, opts.time || 0);

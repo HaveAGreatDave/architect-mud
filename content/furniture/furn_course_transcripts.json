@@ -1,0 +1,17 @@
+{
+  "description": "A wall of them, half-bound in green cloth, spines lettered by hand. The run is unbroken, which over this many years is the kind of thing somebody has to have decided to do.",
+  "flags": {
+    "aliases": [
+      "transcripts",
+      "books",
+      "shelves"
+    ],
+    "interactions": {
+      "examine": "The volumes from the last nineteen years are all in the same hand. The ones before that are in four or five hands and are noticeably worse."
+    }
+  },
+  "id": "furn_course_transcripts",
+  "name": "the bound transcripts",
+  "object_type": "container",
+  "zone_id": "zone_course_reading"
+}

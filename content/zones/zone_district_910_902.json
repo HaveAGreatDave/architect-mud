@@ -1,8 +1,12 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "waterfront",
-  "color": "#a98b63",
-  "description": "Part of the long pier reaching out into the channel: corrugated loading sheds, a rusted crane frozen mid-swing, rope thick as your arm coiled and rotting in the salt air. Below the boards, the water works at the pilings with the patience of something that has all the time in the world.",
+  "ambient_events": [
+    "Something heavy settles inside a container and goes quiet.",
+    "The hook comes down toward the water, hangs there, and starts back up.",
+    "Out past the fenders the channel runs black and does not give anything back."
+  ],
+  "ambient_theme": "coast",
+  "color": "#7f8688",
+  "description": "The outer end of the quay. A short stack of containers going green at the seams, a rail beam let into the slab, and the second crane sitting with its boom swung out over the basin. The hook comes down, waits, and goes back up again on nothing.",
   "exits": {
     "east": "zone_district_911_902",
     "north": "zone_district_910_901",
@@ -10,8 +14,11 @@
     "west": "zone_district_909_902"
   },
   "flags": {
+    "building_type": "quay_crane",
     "district": "docks",
+    "entrance": "west",
     "fishing_table_id": "fish_coldwater_bay",
+    "floors": 7,
     "region_id": "region_coldwater",
     "street_life": true,
     "terrain": "concrete"
@@ -21,6 +28,6 @@
   "grid_z": 0,
   "id": "zone_district_910_902",
   "map_id": "map_world",
-  "name": "Pier",
+  "name": "Basin Quay",
   "parent_zone": null
 }

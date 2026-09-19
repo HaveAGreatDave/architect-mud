@@ -1,0 +1,17 @@
+{
+  "description": "Eight of them along the rail, slatted, with footrests that pull out. They are turned to face the meadow and the wall beyond it.",
+  "flags": {
+    "aliases": [
+      "steamer",
+      "chairs",
+      "deck"
+    ],
+    "interactions": {
+      "sit": "The slats take your weight with a series of small complaints and then hold. The wall hums, a long way off, and you get used to it faster than you expect."
+    }
+  },
+  "id": "furn_wind_steamers",
+  "name": "the steamer chairs",
+  "object_type": "furniture",
+  "zone_id": "zone_wind_balcony"
+}

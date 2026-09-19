@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_common_fob",
+  "name": "a visitor fob",
+  "tags": {
+    "description": "A chrome disc the size of a coin, warm from the drawer. It opens the unkeyed lift and the link, and it stops working at midnight whatever time you were given it.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 55,
+  "weight": 4
+}

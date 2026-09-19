@@ -1,0 +1,172 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "mast",
+      "z0": 1,
+      "z1": 1.28
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 2,
+      "rgb": "255,90,70",
+      "z": 1.28
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Any Port"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.34,
+      "hh": 0.02,
+      "kind": "parapet",
+      "pal": "ty_dw_slate",
+      "z": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.22,
+      "hh": 0.014,
+      "kind": "parapet",
+      "pal": "ty_marble_bronze",
+      "z": 0.72
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0.33,
+      "kind": "pilaster",
+      "n": 4,
+      "out": 0.012,
+      "pal": "ty_dw_slate",
+      "w": 0.022,
+      "z0": 0.06,
+      "z1": 0.6
+    },
+    {
+      "bars": 2,
+      "cx": 0,
+      "cy": 0.34,
+      "depth": 0.012,
+      "glass": "#141b22",
+      "glow": "#ffe0b0",
+      "half": 0.2,
+      "hh": 0.035,
+      "kind": "windowBay",
+      "pal": "ty_dw_stone",
+      "z": 0.44
+    },
+    {
+      "bars": 2,
+      "cx": -0.19,
+      "cy": 0.34,
+      "depth": 0.012,
+      "glass": "#141b22",
+      "glow": "#ffe0b0",
+      "half": 0.08,
+      "hh": 0.032,
+      "kind": "windowBay",
+      "pal": "ty_dw_stone",
+      "z": 0.24
+    },
+    {
+      "bars": 2,
+      "cx": 0.19,
+      "cy": 0.34,
+      "depth": 0.012,
+      "glass": "#141b22",
+      "glow": "#ffe0b0",
+      "half": 0.08,
+      "hh": 0.032,
+      "kind": "windowBay",
+      "pal": "ty_dw_stone",
+      "z": 0.24
+    },
+    {
+      "color": "#1c2730",
+      "cx": 0,
+      "cy": 0.352,
+      "half": 0.13,
+      "hh": 0.024,
+      "ink": "#e8c67a",
+      "kind": "signBoard",
+      "label": "ANY PORT",
+      "z": 0.09
+    },
+    {
+      "cx": -0.26,
+      "cy": 0.4,
+      "kind": "bollard",
+      "pal": "ty_dw_slate",
+      "z": 0.004
+    },
+    {
+      "cx": 0.26,
+      "cy": 0.4,
+      "kind": "bollard",
+      "pal": "ty_dw_slate",
+      "z": 0.004
+    }
+  ],
+  "id": "anyport",
+  "neon": "#e8c67a",
+  "note": "The harbour office, and the only lantern in Coldwater that is not on a lighthouse: a square coursed-stone block with an eight-sided glazed lantern set back on the roof and a mast standing out of it. The ball on the mast drops at one o'clock. Nothing on the water is watching for it, and it goes on being wound.",
+  "pal": "ty_dw_stone",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_dw_slate",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.24,
+      "kind": "box",
+      "pal": "ty_dw_slate",
+      "roof": true,
+      "z0": 0.62,
+      "z1": 0.72
+    },
+    {
+      "cap": true,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 8,
+      "pal": "ty_marble_bronze",
+      "rb": 0.135,
+      "rt": 0.125,
+      "z0": 0.72,
+      "z1": 0.95
+    }
+  ]
+}

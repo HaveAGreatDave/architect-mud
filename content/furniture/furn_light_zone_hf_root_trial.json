@@ -1,0 +1,11 @@
+{
+  "description": "The same magenta arrays as the other farm, run at four different intensities over four groups of channels, which is why this building flickers very slightly from the road and the one across the street does not.",
+  "flags": {},
+  "id": "furn_light_zone_hf_root_trial",
+  "light_type": "fixture",
+  "lumen_output": 1400,
+  "name": "the trial arrays",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_root_trial"
+}

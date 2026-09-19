@@ -1,0 +1,27 @@
+{
+  "connection_id": "conn_district_912_915_east_6v2g",
+  "door_type": "basic",
+  "exit_dir": "east",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_shop_pocket_hall",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": null,
+  "tags": {
+    "lock:shoplock": {
+      "canHack": true,
+      "difficulty": 4,
+      "messages": {
+        "denied": "The shop lock reads your hand and declines to recognise it.",
+        "lock": "The bolt drops and the shopfront goes quiet.",
+        "unlock": "The bolt lifts. The shop door swings in."
+      }
+    }
+  },
+  "target_zone": "zone_pocket_hall",
+  "zone_id": "zone_district_912_915"
+}

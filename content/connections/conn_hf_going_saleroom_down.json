@@ -1,0 +1,9 @@
+{
+  "a": "zone_going_saleroom",
+  "b": "zone_util_zone_going_saleroom",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_going_saleroom_down",
+  "lockable": false,
+  "one_way": false
+}

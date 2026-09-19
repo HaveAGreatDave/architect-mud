@@ -1,0 +1,11 @@
+{
+  "description": "A shaded bulb over the middle of the table, low enough to put a good light on cards and leave the corners of the room in the dark.",
+  "flags": {},
+  "id": "furn_light_zone_engine_watch",
+  "light_type": "lamp",
+  "lumen_output": 900,
+  "name": "the watch room lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_engine_watch"
+}

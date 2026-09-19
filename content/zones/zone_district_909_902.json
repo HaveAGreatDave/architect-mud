@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "waterfront",
-  "color": "#a98b63",
-  "description": "Weathered decking stretches out over the water, wide enough to land a truck, scarred with the drag-marks of cargo that hasn't come through in years. A bollard leans drunkenly at the lip; gulls the size of dogs watch you from the rail and don't move.",
+  "ambient_events": [
+    "The landward end of a boom swings its shadow across the slab and holds there.",
+    "Something heavy sets down on the quay across the water, and the deck feels it.",
+    "Water slaps the columns under the deck and draws back.",
+    "A tannoy on the quay says four words. None of them carry."
+  ],
+  "ambient_theme": "coast",
+  "color": "#9fc0b8",
+  "description": "A length of the pier running past the foot of the quay. The gantries stand EAST across a strip of open water, near enough that the landward end of a boom passes overhead and lays a bar of shadow down the slab. Cleats the size of anvils stud the edge along here, and every one of them has been used. The tower is NORTH.",
   "exits": {
     "east": "zone_district_910_902",
     "north": "zone_district_909_901",
@@ -10,11 +15,18 @@
     "west": "zone_district_908_902"
   },
   "flags": {
+    "building_type": "pier",
     "district": "docks",
+    "entrance": "south",
     "fishing_table_id": "fish_coldwater_bay",
+    "floors": 1,
+    "liquid": false,
+    "pier": true,
     "region_id": "region_coldwater",
+    "routable": true,
     "street_life": true,
-    "terrain": "concrete"
+    "swimmable": false,
+    "terrain": "water"
   },
   "grid_x": 909,
   "grid_y": 902,

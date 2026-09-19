@@ -1,0 +1,8 @@
+{
+  "description": "A brass gate valve on the downpipe, polished by forty years of the same hand.",
+  "flags": {},
+  "id": "furn_bld_919_917_the_header_valve",
+  "name": "the header valve",
+  "object_type": "fixture",
+  "zone_id": "zone_bld_919_917_tank"
+}

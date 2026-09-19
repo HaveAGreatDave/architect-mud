@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A growing tray with eleven channels running and twenty-nine empty, every live channel tagged with a number, and a second set of tags in a different colour on four of them. Between the racks somebody has taped a strip of paper to the floor with a date on it every hand's breadth, which appears to be measuring something that has been getting slowly closer to the window.",
+  "exits": {
+    "down": "zone_hf_root_lab"
+  },
+  "flags": {
+    "building_name": "Root Cause",
+    "building_type": "vertical_farm",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_root_trial",
+  "map_id": "map_int_hf_root",
+  "name": "Root Cause — The Trial Tray",
+  "parent_zone": "zone_district_901_914"
+}

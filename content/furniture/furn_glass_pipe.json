@@ -1,0 +1,17 @@
+{
+  "description": "A lagged pipe as thick as a thigh, coming through the north wall on brick piers and running the length of the house under the staging. It is warm along its whole run and the ferns nearest it are the biggest in the building.",
+  "flags": {
+    "aliases": [
+      "pipe",
+      "main",
+      "heat"
+    ],
+    "interactions": {
+      "examine": "There is no meter on it anywhere. Whatever arrangement put this pipe here was made between two people rather than between two firms."
+    }
+  },
+  "id": "furn_glass_pipe",
+  "name": "the heat main",
+  "object_type": "fixture",
+  "zone_id": "zone_glass_house"
+}

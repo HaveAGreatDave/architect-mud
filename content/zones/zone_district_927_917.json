@@ -1,25 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
+  "ambient_theme": "residential",
+  "description": "The Curtain, close enough to put a hand on if anybody ever did. It makes no sound worth calling a sound and throws no heat at all. Tents are pitched hard against it the whole length of the corner, because the ground is dry here and nothing can come at you from the east.",
   "exits": {
     "north": "zone_district_927_916",
-    "south": "zone_district_927_918",
-    "west": "zone_district_926_917"
+    "south": "zone_district_927_918"
   },
   "flags": {
     "curtain": true,
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 927,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_927_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The East Wall",
   "parent_zone": null
 }

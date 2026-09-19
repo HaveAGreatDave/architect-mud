@@ -1,0 +1,16 @@
+{
+  "description": "A brass handbell on a bracket beside the auditorium doors, kept polished, with a strip of felt glued inside the rim to take the edge off it.",
+  "flags": {
+    "aliases": [
+      "bell",
+      "handbell"
+    ],
+    "interactions": {
+      "examine": "Rung at five minutes and again at one. The felt was added by somebody who had to stand next to it."
+    }
+  },
+  "id": "furn_sound_bell",
+  "name": "the call bell",
+  "object_type": "fixture",
+  "zone_id": "zone_sound_foyer"
+}

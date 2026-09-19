@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Terrazzo underfoot and a ceiling higher than the room is wide, which is how you can tell the money was there at the beginning. The box-office window is brass and glass with a brass dish under it worn bright in one spot. Along the left wall the donors are cut into stone in three columns, and the last name in the third column went up a long time ago. A bell on a bracket by the auditorium doors gets rung by hand at five minutes, and again at one.",
+  "exits": {
+    "down": "zone_util_zone_sound_foyer",
+    "north": "zone_district_893_911",
+    "south": "zone_sound_house"
+  },
+  "flags": {
+    "building_name": "Sound Investment",
+    "building_type": "concert_hall",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Five tall lights onto Halcyon Boulevard, and through them a road of packed gravel with a storm drain choked with silt. The glass is very clean.",
+      "light": 0.55,
+      "name": "the entrance bays",
+      "visibility": 0.7
+    },
+    "world_exit_zone": "zone_district_893_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_sound_foyer",
+  "map_id": "map_int_sound",
+  "name": "Sound Investment — The Foyer",
+  "parent_zone": "zone_district_893_911"
+}

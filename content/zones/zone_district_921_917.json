@@ -1,25 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "residential",
-  "description": "A residential stack optimised for maximum tenants per cubic metre and the bare legal minimum of reasons to keep living. Corridors of identical doors, behind each a life the city quietly stopped counting. A cat holds the stairwell; nobody contests the claim.",
+  "ambient_theme": "city",
+  "description": "A gap between two buildings that counts as a street because people use it as one. Washing overhead at three heights, a gutter down the middle doing its best, and daylight at the far end where the camp opens out.",
   "exits": {
-    "east": "zone_district_922_917",
     "north": "zone_district_921_916",
-    "south": "zone_district_921_918",
-    "west": "zone_district_920_917"
+    "south": "zone_district_921_918"
   },
   "flags": {
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_consumer_trash",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "forest"
+    "terrain": "dirt"
   },
   "grid_x": 921,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_921_917",
   "map_id": "map_world",
-  "name": "Residential Area",
+  "name": "Peg Lane",
   "parent_zone": null
 }

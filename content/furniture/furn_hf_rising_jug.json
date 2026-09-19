@@ -1,0 +1,16 @@
+{
+  "description": "Glass, full, with a cloth folded under it. It is refilled every morning and it is almost never poured from.",
+  "flags": {
+    "aliases": [
+      "jug",
+      "water"
+    ],
+    "interactions": {
+      "examine": "There is a ring on the cloth from a glass, and only one, and it is not fresh."
+    }
+  },
+  "id": "furn_hf_rising_jug",
+  "name": "the water jug",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_rising_back"
+}

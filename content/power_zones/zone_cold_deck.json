@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_cold_floor",
+  "id": "zone_cold_deck",
+  "name": "Cold Comfort — The Fan Deck",
+  "source_type": "junction_box"
+}

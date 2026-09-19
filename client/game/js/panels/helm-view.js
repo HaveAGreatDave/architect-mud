@@ -11,7 +11,7 @@
 // Public: openHelmChase(containerEl, opts) → controller { sail, setHour, setWeather,
 //   setPosition, isSailing, destroy }. opts: { gx, gy, hour, weather, onArrive(gx,gy) }.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx, navMarks } from './windshield.js';
 import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 
 // Live world clock/weather via the shared (non-flight) env system — loaded OPTIONALLY so a
@@ -412,6 +412,11 @@ export function openHelmChase(container, opts = {}) {
       e.preventDefault();
       return;
     }
+    // The nav marks (windshield.js NAV_MARKS) — the chevrons pinned to the edge of the frame for a
+    // contact out of shot. Same key as the cab and the cockpit, because the switch it throws is the
+    // same module flag and a wheelhouse that disagreed about the letter would be a third map to
+    // learn. Ahead of the camera's claim for the reason written out in cab-view.js.
+    if (k === 'n' && down && !e.repeat) { navMarks(); e.preventDefault(); return; }
     if (freeCam.onKey(k, down)) e.preventDefault();
   }
   window.addEventListener('keydown', onHelmKey);

@@ -1,0 +1,17 @@
+{
+  "description": "A low counter at the near end of the arc with an appointment screen, a card tray and a jar of the coloured bands for sale.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "counter",
+      "practice"
+    ],
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_hf_bent_ferreira",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_bent_desk",
+  "name": "the practice desk",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_bent_front"
+}

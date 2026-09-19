@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_line_docket",
+  "name": "a suspended works docket",
+  "tags": {
+    "description": "A carbon copy off a pad, filled in properly, giving the date the glazing was due and a one-word reason in the box for why it was not done. The word is HOLD. There is no signature under it.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 38,
+  "weight": 6
+}

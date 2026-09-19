@@ -1,0 +1,286 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Roke lays the back of his hand against a bearing housing, leaves it a second, and moves on.",
+    "He wipes a rail that is already clean and looks along it at the light.",
+    "The beam comes over. He counts something under his breath and does not write it down.",
+    "He fills an oil cup, seats the cap, and turns it a quarter past finger-tight.",
+    "He puts a hand flat on the engine bed and holds it there while the stroke goes through."
+  ],
+  "description": "A big, deliberate man in overalls with a rag permanently in one hand, walking the engine the way a farrier walks a horse. He is not quite deaf and talks over the beam out of habit even when it would not be necessary. His hands are black to the wrist and the backs of them are scrubbed pink.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Go carefully on the tile,\" he says. \"It is wet and it is old and it is prettier than you are.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The cooling plant down the row runs their heat into the glass house and does not meter it.\" Approving. \"That is the right way round. I gave the woman there a length of pipe for it and I would do it again.\"\n\n\"The substation man will not come in here because of the damp and I cannot get him to understand there is no damp, there is water, which is a different thing entirely.\""
+    },
+    "old": {
+      "options": [
+        {
+          "label": "What happens when you stop?",
+          "next": "old_stop"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Older than the Handoff, older than the plant up the road, older than the wall.\" He says it without any awe, as a list of facts he has checked. \"There is a date on the maker's plate. I am not going to tell you what it is, you can go and read it.\"\n\n\"She has had three sets of valves and one crank in my time and everything else on her is what came out of the works. That is not sentiment. That is what happens when a thing is built with the whole of the margin left in it.\""
+    },
+    "old_stop": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "old"
+        }
+      ],
+      "text": "The beam goes over twice before he answers.\n\n\"Half the city has no water at the tap and I could not tell you how long it takes anybody to notice, because the towers hold a day.\" He looks up at it. \"There is no second engine. There has not been a second engine since somebody took the other one for the metal.\"\n\n\"So I do not stop. That is the whole of my job and everything else I do here is dressing.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How old is it?",
+          "next": "old"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Why does a pump house look like this?",
+          "next": "temple"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I'll leave you to it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Mind the floor, it's wet by the bed.\" He raises his voice over the beam without seeming to. \"You can come right up to the rail. People think they can't.\"",
+      "text_by_relation": {
+        "familiar": "He has the oil can in his hand and holds it out before you have said anything.\n\n\"Number four cup,\" he says. \"You know the one. I'll watch, and I'll only say something if you're wrong.\"",
+        "first": "The big man by the engine sees you and puts the rag in his pocket, which turns out to be how he gives somebody his attention.\n\n\"Roke,\" he says, over the beam. \"Come up to the rail, you're not in the way.\"\n\nHe waits while the stroke goes through, as though the introduction is not finished until it has.\n\n\"That is a beam engine and it has been running since before anybody sensible would put a date on it. It pumps the mains for half this side of the city. People walk past this building every day of their lives thinking it is a church.\"",
+        "known": "\"You're back.\" He nods at the rail. \"She's running sweet today, there's no knock in her at all.\""
+      }
+    },
+    "temple": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because they were proud of it.\" He says it as though it is obvious and then hears himself and softens. \"A town gets clean water for the first time and the men who did it want the building to say so. So you get arches, and terracotta, and a god over the door.\"\n\n\"Everyone who comes in here laughs at that and then stops laughing about four minutes later, and I have never once had to explain why.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "navy overalls with the sleeves cut off at the shoulder, oiled through",
+      "a collarless shirt gone grey, rolled past the elbow",
+      "heavy boots with steel in them and no laces left in the top two holes",
+      "a vest and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_mains_gallery",
+  "hp": 42,
+  "hp_max": 42,
+  "id": "npc_mains_roke",
+  "name": "Absalom Roke",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_mains_oil",
+      "price": 12
+    },
+    {
+      "item_id": "item_mains_water",
+      "price": 2
+    },
+    {
+      "item_id": "item_mains_plate",
+      "price": 60
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Mains Attraction",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_mains_engine"
+}

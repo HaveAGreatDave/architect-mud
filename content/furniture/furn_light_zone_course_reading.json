@@ -1,0 +1,11 @@
+{
+  "description": "Twelve green glass shades on brass stems, one to a desk, all of them switched on before opening whether or not anybody is expected.",
+  "flags": {},
+  "id": "furn_light_zone_course_reading",
+  "light_type": "lamp",
+  "lumen_output": 900,
+  "name": "the desk lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_course_reading"
+}

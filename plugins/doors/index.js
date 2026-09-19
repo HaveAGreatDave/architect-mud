@@ -23,7 +23,7 @@ registerLockType('hololock', {
   tagType: 'lock:hololock',
   kitTag:  'lockkit:hololock',
   defaults: {
-    difficulty: 5, canHack: true,
+    difficulty: 5, canHack: true, noun: 'hololock',
     messages: {
       lock:   'The hololock hums as it engages.',
       unlock: 'The hololock disengages with a soft click.',

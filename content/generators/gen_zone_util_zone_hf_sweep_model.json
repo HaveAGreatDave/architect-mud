@@ -1,0 +1,12 @@
+{
+  "capacity_kw": 5000,
+  "city_generator_id": "gen_region_region_terminus",
+  "connection_range": 0,
+  "fuel_burn_rate": 0,
+  "fuel_remaining": 0,
+  "fuel_type": null,
+  "generator_type": "junction_box",
+  "id": "gen_zone_util_zone_hf_sweep_model",
+  "name": "Sweeping Statement — The Model Room Junction Box",
+  "zone_id": "zone_util_zone_hf_sweep_model"
+}

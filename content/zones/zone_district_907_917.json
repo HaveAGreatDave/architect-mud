@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#191b17",
+  "color": "#a6ae96",
+  "description": "A palisade fence with spikes turned outward, and behind it a yard of grey transformer tanks standing in bunds, each with a radiator bank down its flank and a stencilled number. Over them a lattice gantry carries the busbars in, dead straight, from a run of poles going away north. Signs on the fence at every second bay say DANGER OF DEATH with a symbol under them, and the signs are new, which is the only thing on the plot that is. It hums, on one note, always.",
   "exits": {
-    "east": "zone_district_908_917",
     "north": "zone_district_907_916",
-    "south": "zone_district_907_918",
-    "west": "zone_district_906_917"
+    "south": "zone_current_switch"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Current Affairs",
+    "building_type": "substation",
+    "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_907_916"
   },
   "grid_x": 907,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_907_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "CA",
+  "name": "Current Affairs",
   "parent_zone": null
 }

@@ -4,7 +4,6 @@
   "description": "A drying green, which is to say a rectangle of trodden grass with four posts and a great deal of line. Sheets crack in the wind off the basin like something being unloaded.",
   "exits": {
     "east": "zone_district_898_908",
-    "south": "zone_district_897_909",
     "west": "zone_district_896_908"
   },
   "flags": {

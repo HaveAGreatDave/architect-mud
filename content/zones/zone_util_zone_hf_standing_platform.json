@@ -1,0 +1,18 @@
+{
+  "description": "A room under the platform between the legs, drawn as a ticket office and never fitted out as one. It has a counter frame, no counter, and the building's cabinet on the back wall, which makes it the best-lit empty room on the estate.",
+  "exits": {
+    "up": "zone_hf_standing_platform"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_standing_platform",
+  "map_id": "map_int_hf_standing",
+  "name": "Standing Room Only — The Undercroft Kiosk",
+  "parent_zone": "zone_district_893_917"
+}

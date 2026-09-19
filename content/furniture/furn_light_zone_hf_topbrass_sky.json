@@ -1,0 +1,11 @@
+{
+  "description": "A continuous line where the ceiling meets the glass, which means the room has no visible lamp in it at all and the light appears to come off the ceiling itself. At night the collar reads from the ground as a lit band and nobody down there knows it is a room.",
+  "flags": {},
+  "id": "furn_light_zone_hf_topbrass_sky",
+  "light_type": "fixture",
+  "lumen_output": 800,
+  "name": "the cove lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_topbrass_sky"
+}

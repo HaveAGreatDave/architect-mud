@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Bunks down both walls, three high, with the gap between them narrow enough to touch either side. The floor slopes toward the back of the building and everybody's belongings have migrated that way. A stove at the far end stays lit.",
+  "exits": {
+    "west": "zone_bld_922_917_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_922_917"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_922_917_dorm",
+  "map_id": "map_int_bld_922_917",
+  "name": "The Long Room",
+  "parent_zone": "zone_district_922_917"
+}

@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The road here is more suggestion than surface: compacted gravel, broken kerbstones, a storm drain choked with silt. Somebody dragged a mattress halfway across it and gave up.",
+  "description": "Rag Row comes down unmade from Kessler Street and meets Ropewalk at a corner nobody planned. There's a standpipe on the junction with its handle wired off. The wire has been there long enough to rust into the thread.",
   "exits": {
     "east": "zone_district_925_916",
     "north": "zone_district_924_915",
@@ -9,17 +9,20 @@
     "west": "zone_district_923_916"
   },
   "flags": {
-    "district": "residential",
+    "artery": [
+      "Ropewalk"
+    ],
+    "district": "slum",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "dirt"
   },
   "grid_x": 924,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_924_916",
   "map_id": "map_world",
-  "name": "Kessler Street",
+  "name": "Ropewalk",
   "parent_zone": null
 }

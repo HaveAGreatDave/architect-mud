@@ -1,0 +1,9 @@
+{
+  "a": "zone_plot_office",
+  "b": "zone_util_zone_plot_office",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_plot_office_down",
+  "lockable": false,
+  "one_way": false
+}

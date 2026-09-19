@@ -1,0 +1,17 @@
+{
+  "description": "Sixty-two lines, each with a number and a status. Fifty-one say AVAILABLE and the rest say RESERVED, and none of them has ever said anything else.",
+  "flags": {
+    "aliases": [
+      "board",
+      "letting",
+      "list"
+    ],
+    "interactions": {
+      "examine": "The RESERVED ones are the same eleven numbers they were last season. Nobody has moved into any of them."
+    }
+  },
+  "id": "furn_hf_common_board",
+  "name": "the letting board",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_common_lobby"
+}

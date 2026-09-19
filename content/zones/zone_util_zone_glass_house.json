@@ -1,0 +1,18 @@
+{
+  "description": "Where the pipe comes in: a brick chamber with the heat exchanger in it, ticking, and the cabinet on the wall beside it. A thermometer on a nail has a pencil line drawn beside the mark she wants it at, and it is sitting on the line.",
+  "exits": {
+    "up": "zone_glass_house"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_glass_house",
+  "map_id": "map_int_glass",
+  "name": "Glass Half Full — The Stokehold",
+  "parent_zone": "zone_district_896_915"
+}

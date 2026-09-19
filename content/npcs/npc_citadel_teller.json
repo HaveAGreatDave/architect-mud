@@ -64,7 +64,7 @@
     }
   },
   "chitchat": [],
-  "description": "A chest-high machine on a fixed brass plinth behind the counter, enamelled Citadel orange over a brushed-steel armature, with a blank ceramic faceplate that lights from within when it speaks. It has two arms it never uses for anything except gesturing at the terminals, and it rotates rather than turns. Whoever specified it asked for a voice that would calm people down and got one: warm, unhurried, faintly amused, and entirely incapable of stopping mid-sentence. A small plate on the plinth reads TELLER UNIT 04. There's no UNIT 01, 02 or 03 anywhere in the building, and it won't be drawn on the subject.",
+  "description": "A chest-high machine on a fixed brass plinth behind the counter, enamelled Compound orange over a brushed-steel armature, with a blank ceramic faceplate that lights from within when it speaks. It has two arms it never uses for anything except gesturing at the terminals, and it rotates rather than turns. Whoever specified it asked for a voice that would calm people down and got one: warm, unhurried, faintly amused, and entirely incapable of stopping mid-sentence. A small plate on the plinth reads TELLER UNIT 04. There's no UNIT 01, 02 or 03 anywhere in the building, and it won't be drawn on the subject.",
   "dialogue_tree": {
     "account": {
       "options": [
@@ -77,11 +77,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"You already have one.\" The faceplate glows a soft amber. \"Everyone does. The Franchise opens an account against your pattern the moment you're decanted, and Citadel administers a great many of them under contract. You have simply never had anything in yours.\" A pause, tuned by somebody who understood exactly how long a pause should be. \"The terminals in the alcoves will accept a deposit at any hour. I would encourage you to be that kind of customer. They're much easier to insure.\""
+      "text": "\"You already have one.\" The faceplate glows a soft amber. \"Everyone does. The Franchise opens an account against your pattern the moment you're decanted, and the Compound administers a great many of them under contract. You have simply never had anything in yours.\" A pause, tuned by somebody who understood exactly how long a pause should be. \"The terminals in the alcoves will accept a deposit at any hour. I would encourage you to be that kind of customer. They're much easier to insure.\""
     },
     "bye": {
       "options": [],
-      "text": "\"Citadel Financial thanks you for your custom.\" The faceplate dims to standby. \"Please don't linger in the hall.\""
+      "text": "\"Compound Interest thanks you for your custom.\" The faceplate dims to standby. \"Please don't linger in the hall.\""
     },
     "complaint": {
       "options": [
@@ -120,7 +120,7 @@
           "next": "vault"
         }
       ],
-      "text": "\"Citadel levies no fee on withdrawal.\" The pause is theatrical and it knows it. \"None. Not a fraction of a percent. Our competitors find this baffling and our customers find it reassuring, and both reactions are, if I may, the intended product.\""
+      "text": "\"The Compound levies no fee on withdrawal.\" The pause is theatrical and it knows it. \"None. Not a fraction of a percent. Our competitors find this baffling and our customers find it reassuring, and both reactions are, if I may, the intended product.\""
     },
     "fees2": {
       "options": [
@@ -159,7 +159,7 @@
           "next": "vault"
         }
       ],
-      "text": "\"Citadel retains a private detail. They aren't police and they aren't obliged to behave like police.\" The voice doesn't change at all. \"The gentleman on the floor has stood in that spot for eleven years and has needed to move on four occasions. I mention the figure because customers find it reassuring, and because it's also, if you think about it for a moment, a threat.\""
+      "text": "\"The Compound retains a private detail. They aren't police and they aren't obliged to behave like police.\" The voice doesn't change at all. \"The gentleman on the floor has stood in that spot for eleven years and has needed to move on four occasions. I mention the figure because customers find it reassuring, and because it's also, if you think about it for a moment, a threat.\""
     },
     "large": {
       "options": [
@@ -257,7 +257,7 @@
           "next": "account"
         }
       ],
-      "text": "\"Citadel Financial holds deposits, issues bearer instruments and rents boxes to people who would rather not be asked what goes in them.\" The plinth hums. \"We're the last building in Coldwater that'll still give you a paper receipt, and the only one that'll still honour it.\""
+      "text": "\"Compound Interest holds deposits, issues bearer instruments and rents boxes to people who would rather not be asked what goes in them.\" The plinth hums. \"We're the last building in Coldwater that'll still give you a paper receipt, and the only one that'll still honour it.\""
     },
     "what2": {
       "options": [
@@ -277,7 +277,7 @@
   "flags": {
     "bank_teller": true,
     "clothing_layers": [
-      "a Citadel-orange enamel chassis shell with a hairline seam down the spine",
+      "a Compound-orange enamel chassis shell with a hairline seam down the spine",
       "a brushed-steel armature, visible at the joints",
       "a sealed dielectric underlayer nobody has ever had cause to look at"
     ],
@@ -290,7 +290,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_citadel_teller",
-  "name": "Citadel Cashbot",
+  "name": "Compound Cashbot",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

@@ -1,0 +1,17 @@
+{
+  "description": "Leather, closed, with a ribbon marking a page a third of the way in. Nobody has asked to see it in a long time and nobody has needed to.",
+  "flags": {
+    "aliases": [
+      "book",
+      "members",
+      "ledger"
+    ],
+    "interactions": {
+      "examine": "The ribbon marks the last page that was written on. The entries below it are in the same hand as the ones above, and they stop mid-column."
+    }
+  },
+  "id": "furn_vested_book",
+  "name": "the book of members",
+  "object_type": "decoration",
+  "zone_id": "zone_vested_hall"
+}

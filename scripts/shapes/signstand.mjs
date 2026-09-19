@@ -44,7 +44,28 @@ const SCALES = [{ fh: 0.4, h: 1 }, { fh: 0.44, h: 0.5 }];
 // (`DECO_PULL`) carries it. Anything further back is behind something.
 const TOL = 0.004;
 
+// ── …AND THE OTHER DIRECTION, WHICH THIS GATE COULD NOT SEE AT ALL ────────────────────────────
+//
+// Everything above measures a band that ended up BEHIND its wall. The mirror failure is a band in
+// front of it, and it is the louder of the two on screen: a sign hanging over the grass with a
+// gap of daylight between it and the building it names. `sink` cannot find one — it goes negative
+// and passes — so this swept 74 bands and reported every one of them "on its wall" while KSAB's
+// stood 0.62 of a tile out from a plot line at 0.44.
+//
+// It needs `fwd`, the caller's own displacement along the entrance normal, because the float is
+// the SUM: `marqueeStand` answers in the capture's frame (from the tile centre) and `marqueeBand`
+// adds it to whatever origin it was handed. Three of the thirty-six hand it a sub-box's centre.
+//
+// ⚠ AND IT IS MEASURED AGAINST THE STAND-OFF, NOT AGAINST THE WALL. `marqueeStand` deliberately
+// returns `max(own, front + SIGN_PROUD)` — a band wider than the plane it is on keeps its own
+// half-width, which is what lets the two arms that compensated by hand stay where they are — so
+// "past the wall" flags those and means nothing. What is never legitimate is landing past the
+// number the placement rule resolved: that can only be a displacement added on top of it.
+const FLOAT_TOL = 0.004;
+
 const buried = new Map();     // model → the worst band on it
+const afloat = new Map();     // …and the worst band standing off past its own resolved stand-off
+const behind = new Map();     // …and the ones this gate cannot measure at all — see below
 let models = 0, bands = 0, threw = 0, moved = 0;
 
 for (const { key, m } of ws.shapeModelRegistry()) {
@@ -63,7 +84,25 @@ for (const { key, m } of ws.shapeModelRegistry()) {
       bands++;
       if (b.front == null) continue;          // an arm that will not capture gets its own number
       if (b.stand > b.own + 1e-9) moved++;
-      const sink = b.front - b.stand;         // how far behind the wall's front plane it ended up
+      // Where the band actually lands in the capture's own frame: the caller's displacement plus
+      // the stand-off it was given. The two are added in `marqueeBand`, so they are added here.
+      const at = (b.fwd || 0) + b.stand;
+      // ⚠ AND A BAND STOOD BACK FROM THE TILE CENTRE CANNOT BE MEASURED HERE AT ALL. `wallFaceAt`
+      // answers for the frontmost mass anywhere on the elevation, which is the right wall for a
+      // band at the tile centre and the wrong one for a fitting on a sub-box behind it — the
+      // harbour yard's hut is a cabin in the SEAWARD CORNER, so the plane it is held against is
+      // the yard's own front edge a third of a tile in front of it. Its band is in fact 0.015
+      // proud of the hut's wall and this gate would call it a third of a tile buried. Answering
+      // for those needs the plane solved over the band's LATERAL span as well as its height, which
+      // is a change to all thirty-six callers and wants its own measurement; naming them is
+      // honest, and pinning a number that describes the wrong wall would not be.
+      if ((b.fwd || 0) < -0.01) { behind.set(key, { at, fh, h, ...b }); continue; }
+      const out = b.plane == null ? 0 : at - b.plane;   // how far past the plane the rule resolved
+      if (out > FLOAT_TOL) {
+        const prev = afloat.get(key);
+        if (!prev || out > prev.out) afloat.set(key, { out, at, fh, h, ...b });
+      }
+      const sink = b.front - at;              // how far behind the wall's front plane it ended up
       if (sink <= TOL) continue;
       const prev = buried.get(key);
       if (!prev || sink > prev.sink) buried.set(key, { sink, fh, h, ...b });
@@ -78,7 +117,23 @@ if (REPORT) {
     console.log('  ' + k.padEnd(34) + e.sink.toFixed(3).padStart(6)
       + e.own.toFixed(3).padStart(7) + e.front.toFixed(3).padStart(7) + e.stand.toFixed(3).padStart(8));
   }
-  console.log(`\n  ${models} models · ${bands} band(s) placed · ${moved} pushed out to the wall · ${buried.size} still behind it\n`);
+  const fl = [...afloat.entries()].sort((a, b) => b[1].out - a[1].out);
+  console.log('\n  model                             ahead    fwd  plane   landed');
+  for (const [k, e] of fl) {
+    console.log('  ' + k.padEnd(34) + e.out.toFixed(3).padStart(6)
+      + (e.fwd || 0).toFixed(3).padStart(7) + (e.plane == null ? 0 : e.plane).toFixed(3).padStart(7)
+      + e.at.toFixed(3).padStart(9));
+  }
+  if (behind.size) {
+    console.log('\n  stood BACK from the tile centre — not measurable here, see the ⚠ above');
+    for (const [k, e] of behind) {
+      console.log('  ' + k.padEnd(34) + (e.fwd || 0).toFixed(3).padStart(13)
+        + e.stand.toFixed(3).padStart(7) + e.at.toFixed(3).padStart(9));
+    }
+  }
+  console.log(`\n  ${models} models · ${bands} band(s) placed · ${moved} pushed out to the wall`
+    + ` · ${buried.size} still behind it · ${afloat.size} past the resolved plane`
+    + ` · ${behind.size} not measurable\n`);
 }
 
 if (threw) { console.error(`  ${threw} model pass(es) threw during the census`); process.exit(1); }
@@ -93,5 +148,18 @@ if (buried.size) {
   console.error('  with something other than a mass primitive, or a band pitched at a height no box spans.\n');
   process.exit(1);
 }
+if (afloat.size) {
+  console.error(`\n  ${afloat.size} model(s) hang a name band PAST the plane the placement rule resolved:\n`);
+  for (const [k, e] of [...afloat.entries()].sort((a, b) => b[1].out - a[1].out).slice(0, 20)) {
+    console.error(`    ${k} — ${e.out.toFixed(3)} past a plane at ${(e.plane == null ? 0 : e.plane).toFixed(3)}`
+      + ` (the caller's own origin is ${(e.fwd || 0).toFixed(3)} out; the band landed at ${e.at.toFixed(3)})`);
+  }
+  console.error('\n  A band is added to the origin its caller passed, and `marqueeStand` answers from the');
+  console.error('  TILE CENTRE — so a caller handing it a sub-box\'s own centre gets the stand-off added');
+  console.error('  to a displacement that is already there, and the sign ends up off the front of the');
+  console.error('  plot with daylight between it and the building. See the ⚠ on marqueeStand.\n');
+  process.exit(1);
+}
 console.log(`  signstand: ${bands} band(s) over ${models} models, every one of them on its wall`
-  + (moved ? ` (${moved} pushed out to it)` : ''));
+  + (moved ? ` (${moved} pushed out to it)` : '')
+  + (behind.size ? ` · ${behind.size} stood back and not measurable` : ''));

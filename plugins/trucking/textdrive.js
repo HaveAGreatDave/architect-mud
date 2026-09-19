@@ -26,7 +26,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { findPath } from '../../server/engine/pathfinding.js';
-import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine, passSign, passHitcher,
+import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine, passSign, passPlaza, passHitcher,
   tryDoorBoard, doorBoardLine } from './state.js';
 import { TILES_PER_ROOM, nodeAt } from './corridor.js';
 import { afterDrive } from './scale.js';
@@ -245,6 +245,11 @@ async function stepRun(player, rig, run) {
     // of them — and a rung that cannot read the only source of distances out here is a rung with a
     // hole in it.
     passSign(player, rig);
+    // The inspection plazas, on this rung too and through the identical swept function — one law,
+    // both rungs. A text driver gets the radio call, meets the gantry and is charged for holding
+    // their lane past a lit one on exactly the odometer marks a cab driver is. What they do NOT
+    // have is a wheel, which is what the `weigh` verb exists for (see cmdWeigh in index.js).
+    passPlaza(player, rig);
     // ⚠ AND OUTSIDE THE NODE-CROSSING BRANCH BELOW, for the reason the door-boarding block already
     // spells out: the calls are crossings of a closing distance, and a rig that has not crossed a
     // boundary this tick is still closing. Inside that branch the near calls would be unreachable

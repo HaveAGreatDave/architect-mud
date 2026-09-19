@@ -150,6 +150,7 @@ export const OFFROAD_R = CORRIDOR_R * 4;
 // plan. Every test that passed no plan built no signs and never touched it.
 export { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
 import { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
+import { plazaOn, plazaCell, plazaRoadFlags } from './plaza.js';
 // ⚠ ONE DEFINITION OF WHERE THE TRAIL RUNS. voidwalking lays its rooms at this offset and the road
 // names the band it crosses, so the two would disagree the first time either was tuned if this were
 // copied. The edge is one-way and already exists (trucking imports voidwalking, never the reverse).
@@ -1195,6 +1196,9 @@ export function corridorAt(route, x, y) {
   // exactly the band that exists so that drifting off READS before it costs. 1.2 is what the
   // shoulder has always measured (2.4 − 1.2), so nothing about the verge changes here.
   const PAVED = pavedAt(route, s), SHOULDER = PAVED + SHOULDER_W;
+  // THE INSPECTION PLAZA, if this stretch has one. Resolved once for the tile and read by both of
+  // the branches below; see plugins/trucking/plaza.js for the shape of one.
+  const pz = plazaOn(route, s);
   if (at < PAVED) {
     return { id, name: 'The Highway', danger,
       // ⚠ `terrain` STAYS 'road' AND `road_dirt` CARRIES THE LOOK. The obvious way to make this a
@@ -1208,7 +1212,11 @@ export function corridorAt(route, x, y) {
       // has maintained this — which on dirt reads as scouring and drift rather than as dead paint.
       flags: { terrain: 'road', icon: roadIcon(hit), road_deg: deg, road_t: +t.toFixed(3),
         road_w: +PAVED.toFixed(3), road_lanes: lanesAt(route, s), road_dirt: 1,
-        road_wear: 1, corridor_s: s, corridor_node: node } };
+        road_wear: 1, corridor_s: s, corridor_node: node,
+        // The gantry over the highway at each end of a plaza's footprint. It rides the carriageway
+        // cell because it spans it: a mark on a road tile, exactly as a dust strip's drums are (see
+        // `strip` in deriveSurfaceCell), and the tile goes on being road underneath it.
+        ...(pz ? plazaRoadFlags(pz, x, y, deg) : null) } };
   }
   // The shoulder — graded dirt. `dirt_road` is what earns it the renderer's packed-dirt look
   // (ft:'dust'), so drifting onto it is visible before any penalty text fires.
@@ -1216,6 +1224,20 @@ export function corridorAt(route, x, y) {
     return { id, name: 'The Shoulder', danger,
       flags: { terrain: 'dirt_road', icon: roadIcon(hit), road_deg: deg, road_t: +(t - Math.sign(t) * ((PAVED + SHOULDER) / 2)).toFixed(3), road_w: +((SHOULDER - PAVED) / 2).toFixed(3),
         corridor_s: s, corridor_node: node } };
+  }
+  // ── THE PLAZA OWNS ITS OWN GROUND ──────────────────────────────────────────
+  // Past the shoulder and inside a station's footprint, this tile belongs to the interchange: the
+  // apron, the plates, the arch, the office, or the gore island between the two roads. It answers
+  // here — after the highway has had its say and before anything else places — so the carriageway
+  // is untouched and no roadside shed, wreck, trail or sign post can land inside a plaza.
+  if (pz) {
+    const pcell = plazaCell(route, pz, s, t, x, y, {
+      id, danger, terrain, node, deg, icon: roadIcon(hit),
+      // The office faces the apron: the segment's own normal pointing back toward the centreline,
+      // snapped to a compass point exactly as the roadside structures do it below.
+      entrance: compassOf(-Math.sign(t) * hit.leg.uy, Math.sign(t) * hit.leg.ux),
+    });
+    if (pcell) return pcell;
   }
   // The verge. Node terrain, and very occasionally something somebody built and left.
   const rng = mulberry32(hashSeed(`${segSeed(route, s)}|${route.window}|${x},${y}`));

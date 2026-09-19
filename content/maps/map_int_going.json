@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_going_saleroom",
+  "id": "map_int_going",
+  "name": "Going Concern",
+  "parent_zone_id": "zone_district_895_911"
+}

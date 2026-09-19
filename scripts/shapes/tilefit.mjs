@@ -47,7 +47,11 @@ function sweep() {
     let segs;
     try { segs = ws.shapeForModel(m, SEED); } catch { continue; }
     if (!segs) continue;
-    const exempt = ws.NO_TILE_FIT.has((m && (m.trade || m.replaces || m.portedFrom || m.type)) || '');
+    // ⚠ THE SAME PREDICATE THE RENDERER READS, NOT A SECOND SPELLING OF IT. This was an inline copy
+    // of `NO_TILE_FIT.has(tradeOf(m))`, which is true of the arm list and silently false of a model
+    // that declares `keepsReach` for itself — so the first building to use that field would have
+    // been failed here for obeying an exemption `segFit` had already granted it.
+    const exempt = ws.keepsReach(m);
     for (const [fh, h] of SCALES) {
       const V = (p) => (Array.isArray(p) ? p[0] * fh + p[1] * h + p[2] : (p || 0));
       for (const s of segs) {

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_ash_shovel",
+  "name": "a long-handled shovel",
+  "tags": {
+    "description": "A square mouth on a six-foot ash handle, the blade worn back an inch from what it started as. He has a rack of them and sells the ones that have gone too short for the pit.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 18,
+  "weight": 1600
+}

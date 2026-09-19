@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#7d6236",
-  "description": "A graded dirt track between the allotment strips, wide enough for one rig and rutted where two have insisted. It runs EAST to Kettle Lane and NORTH to the jetty yard.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
     "east": "zone_district_898_904",
     "north": "zone_district_897_903",
     "west": "zone_district_896_904"
   },
   "flags": {
-    "district": "filaments",
+    "district": "wasteland",
     "region_id": "region_coldwater",
-    "terrain": "dirt_road"
+    "terrain": "grass"
   },
   "grid_x": 897,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_897_904",
   "map_id": "map_world",
-  "name": "Jetty Road",
+  "name": "Grasslands",
   "parent_zone": null
 }

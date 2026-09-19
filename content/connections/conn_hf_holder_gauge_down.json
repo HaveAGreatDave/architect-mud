@@ -1,0 +1,9 @@
+{
+  "a": "zone_holder_gauge",
+  "b": "zone_util_zone_holder_gauge",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_holder_gauge_down",
+  "lockable": false,
+  "one_way": false
+}

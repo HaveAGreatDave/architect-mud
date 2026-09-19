@@ -1,0 +1,299 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Bewick lifts his head at a selector stepping four rows away and then goes back to the log.",
+    "He writes the specific gravity into the book, and the date, and blots it.",
+    "He turns the ring of keys over on the table until the big one is on top.",
+    "Somewhere deep in the racks three selectors step in quick succession, and he does not look up at all, which is worse.",
+    "He wipes the table, which is clean, with a cloth, which is clean."
+  ],
+  "description": "A quiet, tidy man of indeterminate middle age in a grey coat, sitting at a wooden table just inside the door with a kettle and a logbook. He is the caretaker and he is, as far as he knows, the only person with a key. He talks in a low voice out of habit, because the room is listening in the only way a room like this can.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Pull it to behind you,\" he says. \"It locks itself. Everything here does.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The cooling plant says my frames put a hum through her floor. They do. It is the transformer in the battery room and it has been out of balance for years and I cannot get a part.\" He almost smiles. \"The substation man will not come inside. He stood in the doorway once and went away again.\"\n\n\"That is the whole of my society. The two of them, and the old boy at the holder, who at least has a stove.\""
+    },
+    "jumpers": {
+      "options": [
+        {
+          "label": "Do you think the Architect is in here?",
+          "next": "jumpers_arch"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"That is the bunch I followed.\" A small nod. \"Newer than the field round it by a long way and older than me. Tied off by somebody who was taught the same way everybody here was taught, so it was not an outsider, whatever else it was.\"\n\n\"It goes through a hole that was cut rather than cast, which means it went in after the building. And there is no record of it in any book in this exchange, and there is a book for everything, and I have read them all.\""
+    },
+    "jumpers_arch": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "jumpers"
+        }
+      ],
+      "text": "He is quiet for a while. A selector steps somewhere off to the left.\n\n\"People say that about anything that hums.\" He picks the pen back up. \"I have been in this room every working day for nine years and I have never seen anything I could point at and call strange. Racks step. That is what racks do. There is a lot of traffic. Traffic is not a personality.\"\n\nHe writes something in the log.\n\n\"And I keep the batteries topped up on a Friday, and I have never once been late doing it, and I could not tell you who I think would mind.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Who is it switching calls for?",
+          "next": "who"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's the newer bunch of jumpers?",
+          "next": "jumpers"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I should go.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in, and keep to the aisle.\" He says it quietly. \"You can look at anything. Please do not touch a rack, and I am not being precious, I will explain if you want.\"",
+      "text_by_relation": {
+        "familiar": "He has the second stool out before you are through the door and the kettle already on.\n\n\"Rack forty-one was busy last night,\" he says, low. \"Busier than Tuesday. I wrote it down. I do not know why I write it down.\"",
+        "first": "The door was open, which you did not expect, and there is a man at a table just inside it who looks up as though he has been expecting somebody for a long time and is not surprised it is you.\n\n\"Silas Bewick. Caretaker.\" He puts the pen down. \"I have the only key. That is not a boast, it is a complaint, and I have made it in writing.\"\n\nHe gestures at the racks going away into the dark.\n\n\"This is a telephone exchange. It is a working telephone exchange. That is not the past tense and I want to be clear about it before you ask me anything else.\"",
+        "known": "\"You came back.\" He moves the kettle onto the ring. \"Sit down. Mind the aisle.\""
+      }
+    },
+    "who": {
+      "options": [
+        {
+          "label": "Have you tried following one?",
+          "next": "who_follow"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I do not know.\" He says it without any drama, which makes it worse. \"There are perhaps forty working subscriber lines on this exchange and I have traced every one of them and they are a coal merchant, two pumping stations and a lot of empty offices.\"\n\n\"The traffic on this floor is not forty lines' worth. It has not been forty lines' worth since before I started. Most of what steps in here is trunk, going through, and I cannot tell you where from or where to because the routing is in that wall and the wall is forty years of other people's jumpers.\""
+    },
+    "who_follow": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "who"
+        }
+      ],
+      "text": "\"Once. Properly, with a tone set, over a fortnight.\" He turns the keys over on the table. \"I got it as far as the frame and then into a bunch that goes north out of the building, and north out of the building is the campus, and the campus is not a thing I can knock on.\"\n\n\"So I stopped. I want to be honest that I stopped because I was frightened rather than because I ran out of method. The method was fine.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey cotton work coat buttoned to the throat, pockets weighed down with keys",
+      "a soft shirt and no tie, because there is no one to wear one for",
+      "plain trousers and soft shoes that make no noise on linoleum",
+      "a vest and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_wires_frame",
+  "hp": 33,
+  "hp_max": 33,
+  "id": "npc_wires_bewick",
+  "name": "Silas Bewick",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_wires_cord",
+      "price": 9
+    },
+    {
+      "item_id": "item_wires_relay",
+      "price": 16
+    },
+    {
+      "item_id": "item_wires_log",
+      "price": 4
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Crossed Wires",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_wires_apparatus"
+}

@@ -735,18 +735,30 @@ export async function restockVendor(npc) {
 // case went from ~60 reads to 2 (its flags, and this).
 async function loadContainer(id) {
   const [{ rows: f }, { rows: contents }] = await Promise.all([
-    query('SELECT flags FROM furniture WHERE id=$1', [id]),
+    query('SELECT flags, zone_id FROM furniture WHERE id=$1', [id]),
     query(
-      `SELECT pi.item_id, COUNT(*)::int AS n, COALESCE(SUM(i.weight*pi.quantity),0)::float AS w
+      `SELECT pi.item_id, COUNT(*)::int AS n, COALESCE(SUM(i.weight*pi.quantity),0)::float AS w,
+              MIN(pi.created_at) AS oldest,
+              bool_or(jsonb_exists(i.tags,'perishable')) AS perishable,
+              MIN(i.tags->>'spoil_rate') AS spoil_rate
          FROM player_inventory pi JOIN items i ON i.id=pi.item_id
         WHERE pi.container_id=$1 GROUP BY pi.item_id`,
       [id]
     ),
   ]);
   const counts = new Map();
+  const ages = new Map();
   let used = 0;
-  for (const r of contents) { counts.set(r.item_id, r.n); used += r.w || 0; }
-  return { flags: f[0]?.flags || null, counts, used };
+  for (const r of contents) { counts.set(r.item_id, r.n); used += r.w || 0; noteAge(ages, r); }
+  return { flags: f[0]?.flags || null, zoneId: f[0]?.zone_id || null, counts, ages, used };
+}
+
+// Age/perishability of one stack, kept beside the count so the delivery pass can
+// ask "has any of this gone off?" without a second read. MIN(created_at) is the
+// OLDEST row: if that one is still in date, none of them can be off.
+function noteAge(ages, r) {
+  if (!r.perishable) return;
+  ages.set(r.item_id, { oldest: r.oldest, perishable: true, spoilRate: r.spoil_rate || 'normal' });
 }
 
 /** Rows of `item_id` currently in this container, from the cached state. */
@@ -801,44 +813,107 @@ async function loadDeliveryState(containerIds) {
   const cache = new Map();
   if (!containerIds.length) return cache;
 
-  const { rows: caseFlags } = await query('SELECT id, flags FROM furniture WHERE id = ANY($1::text[])', [containerIds]);
+  const { rows: caseFlags } = await query('SELECT id, flags, zone_id FROM furniture WHERE id = ANY($1::text[])', [containerIds]);
   const backIds = [...new Set(caseFlags.map(r => r.flags?.backstock).filter(Boolean))]
     .filter(id => !containerIds.includes(id));
 
   const [{ rows: backFlags }, { rows: contents }] = await Promise.all([
-    backIds.length ? query('SELECT id, flags FROM furniture WHERE id = ANY($1::text[])', [backIds]) : Promise.resolve({ rows: [] }),
+    backIds.length ? query('SELECT id, flags, zone_id FROM furniture WHERE id = ANY($1::text[])', [backIds]) : Promise.resolve({ rows: [] }),
     query(
-      `SELECT pi.container_id, pi.item_id, COUNT(*)::int AS n, COALESCE(SUM(i.weight*pi.quantity),0)::float AS w
+      `SELECT pi.container_id, pi.item_id, COUNT(*)::int AS n, COALESCE(SUM(i.weight*pi.quantity),0)::float AS w,
+              MIN(pi.created_at) AS oldest,
+              bool_or(jsonb_exists(i.tags,'perishable')) AS perishable,
+              MIN(i.tags->>'spoil_rate') AS spoil_rate
          FROM player_inventory pi JOIN items i ON i.id=pi.item_id
         WHERE pi.container_id = ANY($1::text[]) GROUP BY pi.container_id, pi.item_id`,
       [[...containerIds, ...backIds]]
     ),
   ]);
 
-  for (const r of [...caseFlags, ...backFlags]) cache.set(r.id, { flags: r.flags || null, counts: new Map(), used: 0 });
+  for (const r of [...caseFlags, ...backFlags]) cache.set(r.id, { flags: r.flags || null, zoneId: r.zone_id || null, counts: new Map(), ages: new Map(), used: 0 });
   for (const r of contents) {
     const s = cache.get(r.container_id);
     if (!s) continue;
     s.counts.set(r.item_id, r.n);
     s.used += r.w || 0;
+    noteAge(s.ages, r);
   }
   return cache;
+}
+
+// Could this stack have gone off? Answered from the cache with NO query, so a
+// shop whose shelves are all in date still costs nothing on the daily tick.
+//
+// The preservation plugin owns the arithmetic — this file must not grow a second
+// copy of the decay curve — and its answer here is deliberately OPTIMISTIC: it
+// assumes the case has had power the whole time, so it can only ever UNDER-report.
+// Nothing is deleted on it. It decides only whether to go and ask the real,
+// per-row question below, which runs the same item.checkFreshness every other
+// call site uses.
+async function stackMaybeSpoiled(state, itemId) {
+  const a = state.ages?.get(itemId);
+  if (!a?.perishable || !a.oldest) return false;
+  const r = await fireHook('stock.spoilCheck', {
+    mintedAt: a.oldest,
+    preserves: state.flags?.preserves || null,
+    zoneId: state.zoneId || null,
+    spoilRate: a.spoilRate,
+  });
+  return !!r?.spoiled;
+}
+
+// A delivery bins what has gone off before it counts what is left.
+//
+// Without this the target is a COUNT, and a shelf full of rotten stock satisfies
+// it: the shop never reads as short, no delivery is ever triggered, and it sells
+// spoiled food for ever. That only became reachable when freshness started its
+// clock at the mint rather than at the first look (player_inventory.created_at),
+// which is what made unbought stock age at all.
+//
+// The container's OWN zone is the observer's: stock ages where it stands, not
+// where whoever happens to be looking is standing.
+async function cullSpoiled(containerId, state, itemId) {
+  if (!await stackMaybeSpoiled(state, itemId)) return 0;
+  const { rows } = await query(
+    `SELECT pi.id, pi.custom_data, pi.container_id, pi.created_at, i.tags
+       FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.container_id=$1 AND pi.item_id=$2`,
+    [containerId, itemId]
+  );
+  const observer = { id: '_restock', current_zone: state.zoneId };
+  const gone = [];
+  for (const row of rows) {
+    const fresh = await fireHook('item.checkFreshness', row, observer);
+    if (fresh?.state === 'spoiled') gone.push(row.id);
+  }
+  // Whatever the outcome, this stack has now been asked the expensive question —
+  // drop its cached age so one pass can't ask twice.
+  state.ages?.delete(itemId);
+  if (!gone.length) return 0;
+  await query('DELETE FROM player_inventory WHERE id = ANY($1::text[])', [gone]);
+  const item = getItem(itemId);
+  if (item) applyDelta(state, item, -gone.length);
+  return gone.length;
 }
 
 /**
  * Is this vendor short of anything? Answered purely from a pre-seeded cache, so a
  * fully-stocked shop costs zero queries on the daily tick.
  */
-function needsDelivery(npc, cache) {
+async function needsDelivery(npc, cache) {
   for (const e of (npc.vendor_inventory || [])) {
     if (!e.sourceContainer || !(e.restockToQty > 0)) continue;
     const floor = cache.get(e.sourceContainer);
     if (!floor?.flags) continue;                       // case has been deleted
     if ((floor.counts.get(e.item_id) || 0) < e.restockToQty) return true;
+    // Stock that has gone off is not stock. Without this a full shelf of rot
+    // reads as "nothing needed" and the shop never recovers.
+    if (await stackMaybeSpoiled(floor, e.item_id)) return true;
     const back = floor.flags.backstock ? cache.get(floor.flags.backstock) : null;
     if (!back?.flags) continue;
     const depth = Math.max(0, Number(back.flags.backstock_depth ?? 2));
     if ((back.counts.get(e.item_id) || 0) < Math.floor(e.restockToQty * depth)) return true;
+    if (await stackMaybeSpoiled(back, e.item_id)) return true;
   }
   return false;
 }
@@ -864,11 +939,17 @@ export async function restockSourcedContainers(npc, seeded = null) {
     const capacityG = floor.flags.container ?? 60000;
     const backstock = floor.flags.backstock;
 
+    // Bin what has gone off first, so the shortfall below counts sellable stock.
+    await cullSpoiled(entry.sourceContainer, floor, entry.item_id);
+
     let need = entry.restockToQty - countIn(floor, entry.item_id);
 
     // Walk the back room forward onto the floor first.
     if (backstock && need > 0) {
       const back = await stateFor(backstock);
+      // Cull the stockroom before walking it forward, or the delivery carries
+      // rot onto the shelf and reports the shelf restocked.
+      await cullSpoiled(backstock, back, entry.item_id);
       const { rows: moved } = await query(
         'SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 ORDER BY id LIMIT $3',
         [backstock, entry.item_id, need]
@@ -889,6 +970,7 @@ export async function restockSourcedContainers(npc, seeded = null) {
     if (backstock) {
       const back = await stateFor(backstock);
       if (!back.flags) continue;
+      await cullSpoiled(backstock, back, entry.item_id);
       const depth = Math.max(0, Number(back.flags.backstock_depth ?? 2));
       const target = Math.floor(entry.restockToQty * depth);
       await mintInto(backstock, back, item, target - countIn(back, entry.item_id), back.flags.container ?? 60000);
@@ -934,7 +1016,11 @@ export async function restockAllVendors() {
   // concurrently and both would read the same pre-delta counts and each mint a
   // full delivery into it. The skip is what makes this affordable: on an ordinary
   // day the list is empty or nearly so.
-  const short = state ? vendors.filter(npc => needsDelivery(npc, state)) : vendors;
+  let short = vendors;
+  if (state) {
+    const verdicts = await Promise.all(vendors.map(npc => needsDelivery(npc, state)));
+    short = vendors.filter((_, i) => verdicts[i]);
+  }
   for (const npc of short) {
     await restockSourcedContainers(npc, state || undefined).catch(err =>
       console.error(`[vendor] Sourced-container restock failed for ${npc.id}:`, err.message)

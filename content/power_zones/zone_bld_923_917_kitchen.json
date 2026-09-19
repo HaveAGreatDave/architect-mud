@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_bld_923_917_lobby",
+  "id": "zone_bld_923_917_kitchen",
+  "name": "The Kitchen",
+  "source_type": "junction_box"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_holder_tea",
+  "name": "a mug off the stove",
+  "tags": {
+    "description": "Stewed to within an inch of its life on a stove that has not gone out in living memory. There is no milk and he does not apologise for that.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 2,
+  "weight": 300
+}

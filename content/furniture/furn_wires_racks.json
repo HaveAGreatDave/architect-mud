@@ -1,0 +1,17 @@
+{
+  "description": "Ranks of them running away into the dark, each rack numbered, every selector on every rack stepping now and then on business of its own.",
+  "flags": {
+    "aliases": [
+      "racks",
+      "frames",
+      "selectors"
+    ],
+    "interactions": {
+      "examine": "The wipers are bright where they travel and tarnished where they do not, and on most of the racks the bright arc is wide. Whatever is running in here is using nearly all of it."
+    }
+  },
+  "id": "furn_wires_racks",
+  "name": "the selector frames",
+  "object_type": "fixture",
+  "zone_id": "zone_wires_apparatus"
+}

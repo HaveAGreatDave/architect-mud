@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A sprung floor, parallel bars, a wall of mirrors and a ceiling track with a harness on it. Everything is chrome and pale grey except a single rack of coloured bands by the door, and that rack is the brightest object within four streets.",
+  "exits": {
+    "south": "zone_hf_bent_front"
+  },
+  "flags": {
+    "building_name": "Bent Double",
+    "building_type": "chrome_slab",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_bent_gym",
+  "map_id": "map_int_hf_bent",
+  "name": "Bent Double — The Rehabilitation Room",
+  "parent_zone": "zone_district_896_909"
+}

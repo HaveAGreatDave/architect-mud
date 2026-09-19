@@ -1,0 +1,18 @@
+{
+  "description": "A crawl-height room in the ring where the waste main from the cooling plant passes under the dome, with a small take-off, a valve and a great deal of lagging. It is the hottest room in Halcyon Fields by a long way. The cabinet is as far from the pipe as the room allows.",
+  "exits": {
+    "up": "zone_hf_frond_under"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_906_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_frond_under",
+  "map_id": "map_int_hf_frond",
+  "name": "Frond Memories — The Heat Tap",
+  "parent_zone": "zone_district_906_917"
+}

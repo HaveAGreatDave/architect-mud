@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_rising_pen",
+  "name": "a settlement pen",
+  "tags": {
+    "description": "Chrome, heavy for its size, with the estate mark on the cap. They are given away to people who sign things and they are the most common object in the quarter.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 22,
+  "weight": 6
+}

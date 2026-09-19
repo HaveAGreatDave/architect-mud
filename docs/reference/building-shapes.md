@@ -403,6 +403,18 @@ Four things are load-bearing:
   `ty_reach_*` / `ty_sw_*` / `ty_trm_*` palette prefixes looks obvious and is wrong: `laundromat`,
   `citybathhouse`, `comicshop`, `bar` and `pawn` are all **Coldwater** buildings wearing a frontier
   palette, and a prefix test exempts all five.
+- **⚠ …and an AUTHORED MODEL says it for itself, because `tradeOf` cannot.** `NO_TILE_FIT` is keyed on
+  `tradeOf(m)`, which reads `trade || replaces || portedFrom || type` — so a model file declaring
+  `replaces: 'bank'` would exempt *every* bank in the city and the hand-written arm with them. A model
+  sets `keepsReach: true` on itself instead. The bar is the one the list already applies: **the tile it
+  reaches over must not be a carriageway.** One model uses it — Compound Interest, whose porte-cochère
+  stands on its own forecourt (921,912), a dead-end concrete apron whose only two exits are the bank's
+  door and the road. Its piers and lintel reach **0.92** against a `TILE_REACH` of 0.5.
+- **⚠ There is ONE predicate and four readers.** `keepsReach(m)` in windshield.js is asked by `segFit`,
+  by both `MODEL_TILE` sites and by `scripts/shapes/tilefit.mjs`. All four used to spell
+  `NO_TILE_FIT.has(tradeOf(m))` out for themselves, and the gate's copy was the dangerous one: it would
+  have failed the first model to use `keepsReach` for obeying an exemption the renderer had already
+  granted it. Same shape as the three "prose says X runs, two things are called X" bugs in CLAUDE.md.
 
 `node scripts/shapes/tilefit.mjs` is the gate (in both `shapes:smoke` and the push chain);
 `npm run models:tilefit` reports every model the rule moves, worst first. It sweeps **three scales**,
@@ -410,6 +422,72 @@ because `cy + fd` is affine in `fh`/`h` and a model that fits at one footprint c
 a single-scale gate would pass most of the registry and mean nothing. Its own mutation control is the
 sweep re-run with the flag off, which has to find **278** crossings; if that number collapses the fit
 has stopped being applied somewhere and the green above is green about nothing.
+
+#### …and what the trim turned a shopfront into
+
+Trimming the overhangs had a consequence nobody looked for, and it took a year and a report from a
+truck cab to surface: **a shopfront the trim pulls back to the plot line is a mass standing proud of
+its own facade.**
+
+The idiom is everywhere in the registry. An arm draws its shop window, its roller shutter or its
+boarded frontage as a box shoved out to about `fh * 0.90` with **no `fd`** — so it is *square*, half
+a tile deep — because before `tileFitBox` existed that box landed a tile and a half into the street
+and the painter's queue sorted it in front of everything. Trimmed back to `TILE_REACH`, the same box
+keeps its `hw`, loses depth at the front only, and comes to rest a tenth of a tile in front of the
+wall behind it. Two things follow, and both are only visible on a depth buffer:
+
+- **It buries what is painted on the wall behind it.** The derived kit puts a works' name at two
+  thirds of the elevation, which is above everything on a shed and *inside the shopfront* on a shop
+  unit. On Unit 3, Kessler Street the broken-glass box tops out at z 0.313 against a name band of
+  0.265–0.343, so **67% of the lettering was inside the building at every angle and every eye
+  height**. Nothing said so: `signfit` looks for a WIRE across a sign, `clearsFace` and `paintFree`
+  both compare a part's *plane* against the wall's within a few hundredths — and what buries a name
+  is mass nowhere near that plane — and on the canvas the sign carried `DETAIL_LIFT` and sorted in
+  front of the building it was standing inside. `node scripts/shapes/signhide.mjs`
+  (`npm run sign:hide`) is the measurement: **23 models**, worst first. It is a report rather than a
+  gate for `models:quality`'s reason, and it casts rays rather than comparing planes, so its numbers
+  are deliberately larger than any placement rule can promise to fix.
+- **It has no lid.** These boxes are drawn `roof: false`, which is right for a wall under a parapet
+  and wrong for a thing that stands out in front of one: from anywhere above it you look down into an
+  open-topped box. `node scripts/shapes/lidless.mjs` opened at **55 models** and is **0** now; it is
+  a gate at zero, in `shapes:smoke` and in the push chain, with an allow-list of reasons rather than
+  a budget.
+
+#### The two halves of the answer
+
+**The arms got a real `fd` and a `roof`.** Two thirds of the 55 were one of three things drawn as a
+half-tile cube: a **rail** (the frontier boardwalks' hitching rail, the hound yard's ring rail, a
+saloon balcony, a queue rail — all of them a bar between two posts, and all of them a slab lying
+across the walk), a **door or window** (a leaf in a reveal, not a block), and a **board** (a tally
+board, a TO LET sign, a price list). Two shared helpers carried most of it — `westPorch`'s rail is
+every building in the Reach, and **`awning()` is twenty shopfronts**, whose canopy is the one
+adornment in this vocabulary that *every* seat looks down on.
+
+⚠ **The depth has to keep the box off `deck`.** That list takes any box with a roof whose footprint
+is within 0.02 of square, so a lid on a square box can stand a coping ring on a shop window. Five
+models *lost* a band this way and all five are fixes: the ring was round a door or a window that
+happened to be square, not round the building. Nothing gained one.
+
+⚠ **And the frame cost is the proxy disagreeing with the renderer by a factor of thirty.** A lid is
+one quad: `glmesh` went 58,199 → 58,260 faces (**+0.10%**), which is what GLASS 2 uploads once. The
+canvas count went **+3.2%**, and only the GLASS 1 fallback pays it. See the re-baseline note in
+`scripts/shapes/framecost.mjs`.
+
+**The kit stopped painting names where the building stands in front of them.** `clearOfMass` in
+`derivedKit` lifts a name band clear of the mass in front of it while it still fits under the wall.
+`node scripts/shapes/signhide.mjs` (`npm run sign:hide`) went **25 models → 9**. Three rules, each
+of which was arrived at by building the other thing first and measuring it:
+
+- **A board is never dropped.** It is the only name a building that signs itself gets, so half
+  hidden beats nameless. An early cut that declined lost twelve buildings' front lettering, two of
+  them with no flank to fall back on.
+- **A painted name IS dropped, but only when a flank is carrying it.** The Seed Vault's whole
+  frontage is a blast door and the Paper Tomb's is a portico across four projecting window slots;
+  on both, the flank elevations are bare wall the name reads off perfectly.
+- **It never seats the band forward onto the thing in the way.** That paints the name across a
+  roller shutter, and it overhangs — `anchored` caught the wash house with 0.11 of a tile of its own
+  name past the end of the box it had been moved onto, and caught the same mistake a second time
+  when a door board was moved to a `main` that turned out to be a corner screen.
 
 ### The `yaw` trap
 

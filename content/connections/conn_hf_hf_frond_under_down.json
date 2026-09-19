@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_frond_under",
+  "b": "zone_util_zone_hf_frond_under",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_frond_under_down",
+  "lockable": false,
+  "one_way": false
+}

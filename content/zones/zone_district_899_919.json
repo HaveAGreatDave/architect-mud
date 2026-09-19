@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
+  "ambient_theme": "city",
+  "description": "The lane stops. Not at a junction, not at a gate, simply at the point where the ground ahead stops being somewhere you can go. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
   "exits": {
     "east": "zone_district_900_919",
     "north": "zone_district_899_918",
@@ -10,15 +9,17 @@
   },
   "flags": {
     "curtain": true,
-    "district": "wasteland",
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 899,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_district_899_919",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Kettle Lane",
   "parent_zone": null
 }

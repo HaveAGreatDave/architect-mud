@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#141f2a",
+  "color": "#bfe8ff",
+  "description": "The second halt, at the east end of the Buried Road where the quarter runs out into the substation yard, and identical to the first except that this one is not finished: the canopy is up and the waiting room is a frame with no glass in it, and the indicator board has never been energised. It is the only unfinished building in Halcyon Fields and it has been unfinished for longer than most of the quarter has been standing.",
   "exits": {
-    "east": "zone_district_909_917",
     "north": "zone_district_908_916",
-    "south": "zone_district_908_918",
-    "west": "zone_district_907_917"
+    "south": "zone_hf_line_platform"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Line of Enquiry",
+    "building_type": "transit_halt",
+    "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_908_916"
   },
   "grid_x": 908,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_908_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "LQ",
+  "name": "Line of Enquiry",
   "parent_zone": null
 }

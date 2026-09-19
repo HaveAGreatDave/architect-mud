@@ -47,7 +47,12 @@ function renderForecastToday() {
   const precipStr = env.precipIntensity && env.precipIntensity !== 'none'
     ? env.precipIntensity.charAt(0).toUpperCase() + env.precipIntensity.slice(1)
     : '';
-  const weatherLabel = (env.weatherType || '').replace(/_/g, ' ');
+  // ⚠ CAPITALISED HERE RATHER THAN IN CSS. `text-transform: capitalize` on the value
+  // column hits every word in it, so the wind row read "32 Km/H · Windy" — the unit is
+  // the only thing in this panel that is neither a sentence nor a slug. One value needs
+  // the first letter lifted, and it is this one, so it is lifted where it is known.
+  const raw = (env.weatherType || '').replace(/_/g, ' ');
+  const weatherLabel = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '';
   el.innerHTML = `
     <div class="ft-row"><span class="ft-label">Time</span><span class="ft-val">${env.timeIcon} ${env.time}</span></div>
     ${weatherLabel ? `<div class="ft-row"><span class="ft-label">Weather</span><span class="ft-val">${env.weatherIcon} ${weatherLabel}</span></div>` : ''}
@@ -69,13 +74,20 @@ function renderForecastDays(forecast) {
     // icon, its own row class, and a named warning instead of the vague band.
     // This is the week of notice the acid/EMP teeth are balanced against.
     const hero = f.heroEvent ? { icon: f.heroEventIcon || '⚠', label: f.heroEventLabel || f.heroEvent.replace(/_/g, ' ') } : null;
+    // The condition name is the one variable-length thing in the row, so it is the
+    // one thing allowed to give way when the row runs out of width — and it gets its
+    // own span for that, because the warning beside it must never be the half that
+    // gets ellipsised. `title` because a truncated name should still be readable.
+    // `/_/g`: `replace('_', ' ')` only ever swaps the FIRST underscore, so a
+    // three-word type would have kept its second one.
+    const cond = hero ? hero.label : (f.weatherType || '').replace(/_/g, ' ');
     return `
     <div class="forecast-day-row ${i === 0 ? 'fd-today' : ''} ${severe ? 'fd-severe' : ''} ${hero ? 'fd-hero' : ''}">
       <span class="fd-label">${i === 0 ? 'Today' : (f.date || '').slice(5) || `+${i}`}</span>
       <span class="fd-icon">${hero ? hero.icon : (f.icon || '')}</span>
-      <span class="fd-weather">${hero ? hero.label : (f.weatherType || '').replace('_', ' ')}${hero
-        ? ` <span class="fd-hero-warn" title="${hero.label} forecast for this day — this one kills people who go out unprepared">⚠⚠</span>`
-        : (severe ? ' <span class="fd-warn" title="Severe conditions likely — gear up before heading out">⚠</span>' : '')}</span>
+      <span class="fd-weather"><span class="fd-cond" title="${cond}">${cond}</span>${hero
+        ? `<span class="fd-hero-warn" title="${hero.label} forecast for this day — this one kills people who go out unprepared">⚠⚠</span>`
+        : (severe ? '<span class="fd-warn" title="Severe conditions likely — gear up before heading out">⚠</span>' : '')}</span>
       ${f.humidityPct != null ? `<span class="fd-humid" title="Humidity">\u{1F4A7} ${f.humidityPct}%</span>` : ''}
       ${f.windKph != null ? `<span class="fd-wind" title="${windLabel(f.windKph)}">\u{1F4A8} ${f.windKph}</span>` : ''}
       <span class="fd-temp">${formatTemp(f.tempC)}</span>

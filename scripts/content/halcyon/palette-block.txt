@@ -1,0 +1,61 @@
+  // ── HALCYON FIELDS (docs/proposals/coldwater-infill.md's sibling quarter) ──────
+  // ⚠ THE WHOLE QUARTER IS ONE MATERIAL ARGUMENT, AND IT IS NOT A TASTE ONE. Halcyon Fields
+  // is the Ascendant campus expanding south, developed by the people who built The Spire and
+  // Halcyon Towers, so it is faced in what they face things in: curtain glass over brushed
+  // chrome, no grime, no coursing, no brick anywhere. The first cut of this quarter was
+  // limestone, stock brick and works green, and it read as a Victorian civic district that had
+  // wandered into the wrong city — correct for a waterworks and wrong for THIS waterworks,
+  // which exists to keep a thirty-storey machine cold.
+  //
+  // ⚠ THE FAMILY IS THE FEATURE, NOT THE TRIPLE. A chrome colour in STONE_WALL still courses
+  // like ashlar and still punches a tenement window grid, so retuning the RGB alone buys pale
+  // masonry. Three families carry the quarter: GLASS_WALL for anything with storeys behind it
+  // (floor-plate striping and a sky sheen instead of a grid), PLAIN_WALL for the chrome
+  // panelling between and around them (flat, unwindowed — the family's own comment calls it
+  // structure, and a seamless clad panel is exactly that), and METAL_WALL only where the thing
+  // genuinely is rolled or pressed steel: a fan cowl, a gasholder drum, a louvre bank, a tank.
+  //
+  // The palette is deliberately narrow — four values of chrome and two of glass, reused across
+  // fifteen buildings — because an estate built in one campaign by one developer looks like one
+  // thing, and every district in Coldwater that reads as a district reads that way for the same
+  // reason. The variety is in the SILHOUETTES, which is where variety survives fog.
+  ty_hf_chrome: [186, 198, 208], ty_hf_chrome_dk: [108, 122, 136],
+  ty_hf_ice: [218, 230, 238], ty_hf_deck: [64, 78, 92], ty_hf_glass: [40, 62, 84],
+  // Sound Investment — a glass drum on a chrome plinth. The auditorium is the glass, because a
+  // hall that cannot be overheard does not have to be blind any more: it is a vacuum-jacketed
+  // shell and the glass is the jacket.
+  ty_sound: [186, 198, 208], ty_sound_hall: [44, 66, 90], ty_sound_fly: [150, 164, 178],
+  // Vested Interest — the darkest chrome in the quarter, and a door that is not black but
+  // smoked glass with nothing behind it lit. The club's whole argument is still absence.
+  ty_vested: [112, 126, 142], ty_vested_dk: [20, 28, 40],
+  // Going Concern — pearl chrome over a deep-tinted clerestory. Top-lit still decides the shape;
+  // what changed is that the top light is now the entire upper third of the building.
+  ty_going: [172, 186, 196], ty_going_glass: [50, 76, 100],
+  // Course Correction — the palest thing in Coldwater. A giant order rendered as chrome fins
+  // rather than stone pilasters, which is the same rhythm in a material that admits it is new.
+  ty_course: [210, 222, 230], ty_course_dk: [132, 150, 164],
+  // Plot Twist — a glazed cabin and a hoarding lit from behind rather than printed on. The board
+  // is the brightest surface in the quarter after dark and it always was; now it emits.
+  ty_plot: [92, 130, 152], ty_plot_board: [216, 230, 238],
+  // Second Wind — the terraces, and a rail that is a lit edge rather than painted steel. A
+  // convalescent home for people recovering from chrome, faced in chrome, and nobody remarks.
+  ty_wind: [202, 216, 224], ty_wind_rail: [238, 246, 250],
+  // Glass Half Full — the vault's plinth. Chrome, low, and the only dark band on the building.
+  ty_glass_plinth: [78, 94, 110],
+  // ── HALCYON FIELDS, THE PLANT ──────────────────────────────────────────────
+  // ⚠ THE PLANT IS BUILT TO THE SAME STANDARD AS THE MONEY, WHICH IS THE QUARTER'S ONE JOKE.
+  // Every other industrial district in this city is rust and works green; this substation is
+  // finished like a bank because the Spire cannot afford for it to fail and a thing built to
+  // never fail gets built expensively. The accents go cyan rather than amber for the same
+  // reason — amber is Coldwater's industrial east, and this is not that.
+  ty_mains: [150, 166, 180], ty_mains_terra: [178, 194, 204], ty_mains_engine: [46, 150, 186],
+  ty_cold_slab: [126, 142, 158], ty_cold_cowl: [190, 202, 210],
+  ty_holder: [96, 114, 132], ty_holder_drum: [166, 180, 190],
+  ty_current: [142, 156, 170], ty_current_fence: [88, 104, 120],
+  ty_wires: [46, 68, 90], ty_wires_louvre: [158, 172, 184],
+  // Engine Trouble keeps its red, and it is now the ONLY warm surface in fifteen buildings.
+  // That is what makes it findable: in a quarter of cyan and pearl, the one red thing on the
+  // skyline is the thing you look for when something is burning.
+  ty_engine: [196, 62, 68], ty_engine_brick: [152, 166, 178],
+  ty_ash: [120, 136, 152], ty_ash_stack: [200, 212, 220],
+  ty_hwm: [180, 194, 204], ty_hwm_pad: [150, 164, 176],

@@ -1,0 +1,17 @@
+{
+  "description": "The whole of Halcyon Fields at a scale you could lean over, streets and all, with the Curtain along two sides of it as a strip of frosted acrylic.",
+  "flags": {
+    "aliases": [
+      "model",
+      "table",
+      "estate"
+    ],
+    "interactions": {
+      "examine": "The verge plots between the finished buildings are modelled as grass, neatly, with a fence round each one. On the ground there is no fence round any of them."
+    }
+  },
+  "id": "furn_hf_sweep_table",
+  "name": "the estate model",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_sweep_model"
+}

@@ -1,0 +1,12 @@
+{
+  "description": "Three iron bunks stacked to the ceiling, the mattresses thin enough to fold.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_bld_922_917_a_triple_bunk",
+  "name": "a triple bunk",
+  "object_type": "furniture",
+  "zone_id": "zone_bld_922_917_dorm"
+}

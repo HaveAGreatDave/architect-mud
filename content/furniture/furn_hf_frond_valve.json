@@ -1,0 +1,18 @@
+{
+  "description": "A small chrome handwheel on a lagged stub coming up through the bed at the edge of the path, with a temperature dial beside it.",
+  "flags": {
+    "aliases": [
+      "valve",
+      "wheel",
+      "tap"
+    ],
+    "hack_difficulty": 3,
+    "interactions": {
+      "examine": "The dial reads a good deal higher than the drawing beside it says it should, and somebody has pencilled the higher number onto the drawing and circled it."
+    }
+  },
+  "id": "furn_hf_frond_valve",
+  "name": "the heat tap wheel",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_frond_under"
+}

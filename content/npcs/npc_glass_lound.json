@@ -1,0 +1,299 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Lound turns a pot a quarter turn and moves to the next one, and the next, all down the bench.",
+    "She pinches something out between finger and thumb and drops it in her apron pocket rather than on the floor.",
+    "She puts a hand flat on the heat main, holds it there a second, and nods at nothing.",
+    "Water drips off the ribs somewhere behind you and lands on a leaf the size of a tray.",
+    "She writes a date on a stick label, pushes it into a pot, and reads it back."
+  ],
+  "description": "A weathered woman in her fifties in shirtsleeves whatever the season, because the season stops at the door. Her forearms are scratched, her hands are ingrained past washing, and she is usually holding something she has just decided about. She talks to you over her shoulder while she finishes what she is doing, and then gives you her whole attention at once.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Shut it behind you,\" she says. \"Both hands, it sticks.\""
+    },
+    "far": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Things that have no business being alive this far north.\" She says it with satisfaction rather than wonder. \"The big-leaved ones nearest the pipe. A fig that fruits. Two that I cannot name and neither can anybody who has come in and looked.\"\n\n\"They are not rare. They are just warm. That is the whole trick and it is worth remembering when somebody tells you a thing cannot be done in this city.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I send flowers up to the convalescent place on a Friday and I will not take anything for them, and she has stopped arguing.\" She snaps a dead frond off and pockets it. \"The hall gets a tub for the foyer at Christmas.\"\n\n\"And the land office wants to put a terrace of houses on the meadow either side of me. I told him the ground is warm in a line and he should follow it and see what else is down there. He wrote it down. I think he thought I meant it as an objection.\""
+    },
+    "heat": {
+      "options": [
+        {
+          "label": "No contract?",
+          "next": "heat_deal"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She puts a hand on the lagged main running under the staging, and leaves it there.\n\n\"That comes from the works at the other end of the row. They make cold for the vats, and making cold makes heat, and that heat has to go somewhere or it goes into the sky.\"\n\n\"It comes in here instead. There is no meter on it. There is no contract on it either, before you ask, and I have thought about that a good deal.\""
+    },
+    "heat_deal": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "heat"
+        }
+      ],
+      "text": "\"A man at the plant and me, standing in the road, about six years ago.\" She is plainly still pleased about it. \"He had heat he was throwing away and a pipe run he had to make anyway. I had a glass house and no coal.\"\n\n\"It is the best arrangement anybody in this quarter has made and it is not written down anywhere. If he goes, I do not know what happens. So I send him lemons, and that is not a joke, I actually do.\""
+    },
+    "pays": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The plot came with the development and the glass came out of the ground, more or less.\" She taps a cast rib with a knuckle and it rings. \"This vault is older than the road outside it. It was under twenty years of bramble and I found it because the ground was warm in one line across the meadow.\"\n\n\"So somebody built this here long before anybody called it Halcyon Fields, and had the same idea about the heat, and nobody remembers them.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How is this warm?",
+          "next": "heat"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who pays for all this?",
+          "next": "pays"
+        },
+        {
+          "label": "What grows down the far end?",
+          "next": "far"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just passing through.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Shut it behind you.\" She does not look round immediately. \"Mind the tubs. You can go all the way down, it is just hotter at the far end.\"",
+      "text_by_relation": {
+        "familiar": "She has the kettle on before she has said anything, and calls down the path over the ferns.\n\n\"Come and look at the lemon,\" she says. \"Nineteen years and it has finally done something interesting. I am not going to tell you what, you can walk down.\"",
+        "first": "The door swings shut behind you and the air changes completely, and the woman at the staging finishes potting the thing in her hands before she turns round.\n\n\"Cressida Lound. Shut it properly, that is the whole building.\" She wipes her hands on the apron. \"This is a winter garden. There is no admission, there is no tour, and you may walk to the far end and back as many times as you like.\"\n\nShe nods down the path at the leaves the size of doors.\n\n\"People come in here in the middle of winter and stand about for an hour and buy nothing. That is what it is for, and it is heated for nothing, so I am not losing by it.\"",
+        "known": "\"You know the way.\" She is already turning back to the bench. \"Far end is worth it today, the big one has opened.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a man's shirt with the sleeves rolled past the elbow, wet at the cuffs",
+      "a canvas apron with a pocket of stick labels and a pencil",
+      "heavy trousers and boots that have never once been clean",
+      "a vest and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_glass_house",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_glass_lound",
+  "name": "Cressida Lound",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_glass_cutting",
+      "price": 9
+    },
+    {
+      "item_id": "item_glass_seed",
+      "price": 5
+    },
+    {
+      "item_id": "item_glass_tea",
+      "price": 3
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Glass Half Full",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_glass_house"
+}

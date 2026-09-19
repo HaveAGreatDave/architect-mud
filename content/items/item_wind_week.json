@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_wind_week",
+  "name": "a week of rooms",
+  "tags": {
+    "description": "A card entitling the bearer to a bed, the day room, the balcony and the water for seven days. It is cheap because the treatment is cheap: the building faces south and somebody keeps an eye on you.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 180,
+  "weight": 2
+}

@@ -18,6 +18,7 @@
 // discipline it describes still holds — this file knows how to put triangles on a screen and
 // nothing whatever about buildings — but the scope has not been "mass only" for a long time.
 import { viewProjMatrix } from './camera.js';
+import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { createSpriteLayer } from './sprites.js';
 import { createCurtainLayer } from './curtain.js';
 import { createDecalLayer } from './decals.js';
@@ -33,7 +34,7 @@ import { createHDRLayer } from './hdr.js';
 import { createMirrorLayer } from './mirror.js';
 // The clip range the matrix is built with. The SSAO pass inverts the depth buffer back to tiles and
 // has to use the same two constants the vertices went through.
-import { NEAR, FAR } from './camera.js';
+import { NEAR, zRow } from './camera.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
 // haze jitter 1, baked occlusion 1, material family 1, edge distances 4.
@@ -165,6 +166,13 @@ uniform vec3 uSky;
 uniform float uStr;
 uniform float uFogAmt;
 uniform float uHazeNear;
+// The air at street level. See gl/fog.js — one function, three shaders, because the road and the
+// wall standing on it must agree about how far you can see.
+uniform float uFogH;
+uniform float uFogHScale;
+// How hard the air scatters a light back at you — see gl/fog.js. 0 is an exact off switch and it
+// is 0 in clear weather by arithmetic, which is what makes the loop below free most of the time.
+uniform float uScatter;
 uniform float uHazeFar;
 // The ground-to-air crossfade. The 2-D pass multiplies every world object by it and drops the
 // object entirely below 0.02, which is how the Mode-7 city gives way to the flat airport scene
@@ -188,6 +196,11 @@ uniform float uWorldBlend;
 uniform int uNLight;
 uniform vec3 uLightP[GLASS_MAX_LIGHTS];
 uniform vec3 uLightC[GLASS_MAX_LIGHTS];
+// The same lights with the wall wash own night weighting NOT folded in — see pickLights, where
+// rgb carries it and rgbRaw does not. The wet specular has to read this one: with the wash reverted
+// to gain 0 every entry of uLightC is literally [0,0,0], so a term multiplying it is multiplying by
+// zero however correct it is. This is the wall reading the light the way the wet ROAD already does.
+uniform vec3 uLightRaw[GLASS_MAX_LIGHTS];
 uniform float uLightR[GLASS_MAX_LIGHTS];
 uniform float uLightWrap;
 // The falloff exponent over the reach. 2.0 is the broad wash this pass shipped with; above it the
@@ -225,6 +238,32 @@ uniform vec3 uSunDir;
 // ⚠ 'uEye' IS IN THE VERTEX FRAME, WHICH IS MAP-WINDOW TILES AND NOT WORLD TILES. world.js takes it
 // off the SHIFTED camera for exactly that reason; see the ⚠ there.
 uniform vec3 uEye;
+// ── HOW DEEP THE SNOW LIES ─────────────────────────────────────────────────
+//
+// The third surface it reaches, after the terrain and the streets, and the one that puts it in
+// the skyline rather than only underfoot. 0 makes every branch below unreachable on a uniform.
+uniform float uSnow;
+// How wet the city is: the same integrated 'WET_NOW' both ground layers read, times the feature's
+// own strength, so 0 is provably the shader that shipped. See the wet block in main().
+uniform float uWet;
+// ⚠ TWO CONSTANTS RATHER THAN TWO UNIFORMS, because there is only ever one thing to turn: the
+// STRENGTH rides on uWet itself (world.js multiplies it in, exactly as 'snow' does), and a second
+// knob here would multiply into the first to make a number that means neither — the argument
+// already recorded beside the bloom threshold.
+// ⚠ AND THE DARKENING IS THE BIG ONE. A first cut at 0.15 darkening beside a large reflectivity
+// gain read as a city dipped in varnish: what says WET from a cab is that the brick went a stop
+// down, and the sheen is what says it afterwards, at a grazing angle, on the surfaces facing the
+// light.
+const float WET_DARKEN = 0.38;   // how far a saturated surface falls toward black
+const float WET_REFL = 0.45;     // the reflectivity it gains on top of its own row
+// How hard the city's own lights come back off a wet wall. See the note in the light loop: this is
+// the night half of the feature, and the only one there is, because after dark the albedo is a
+// small part of the pixel and the sky has nothing in it to reflect.
+const float WET_NEON = 6.0;
+// How tight that reflection is. 48 is polished glass and reads as a pinpoint on one building in
+// the frame; most of this city is painted brick, render and plate, where standing water gives a
+// broader sheen than a mirror does.
+const float WET_LOBE = 28.0;
 uniform float uMatStr;
 uniform float uBumpStr;
 // How wide the shading bevel is, in tiles. 0 makes the whole term unreachable — the branch is on
@@ -296,6 +335,8 @@ float sunShadow(vec3 wp, vec3 n) {
   return (1.0 - s * 0.25) * uShadowStr * inside;
 }
 
+${HEIGHT_FOG_GLSL}
+${LIGHT_SHAFT_GLSL}
 void main() {
   // ⚠ TWO NORMALS, AND THE DIFFERENCE IS LOAD-BEARING. 'n0' is the geometric one the face was built
   // with; 'n' is that with the relief below folded into it. Everything that shades takes 'n'. The
@@ -305,6 +346,47 @@ void main() {
   vec3 n = n0;
   // 1 for a wall, 0 for the flat adornment layer — hoisted, because the relief needs it too.
   float solid = 1.0 - clamp(vFlat, 0.0, 1.0);
+  // ── AND WHAT IS LYING ON IT ─────────────────────────────────────────────────
+  //
+  // ⚠ n0, NEVER n. Snow is placed by GRAVITY against the real surface, and n is that surface with
+  // the albedo-recovered relief and the shading bevel folded into it — so taken off n, a brick
+  // wall collects snow in its mortar joints and every chamfered corner in the city grows a white
+  // line down it. This is the same distinction, for the same reason, that the shadow bias one
+  // block up is written around.
+  //
+  // ⚠ AND THE PITCH IT WILL HOLD RISES WITH THE DEPTH, which is one expression and is most of
+  // what makes this read as weather rather than as white paint: a dusting sits only on what is
+  // dead flat, and it takes a real fall before a pitched roof, a canted parapet or a sloped canopy
+  // holds any. Written as a fixed threshold instead, every roof in Coldwater turns white together
+  // at the same moment, which is the one thing snow visibly does not do.
+  // ── HOW WET THIS SURFACE IS ─────────────────────────────────────────────────
+  //
+  // ⚠ n0, NEVER n — the same rule snow is written around one block down, and for the same physical
+  // reason: rain arrives by gravity against the REAL surface, and n carries the albedo-recovered
+  // relief, so taken off it a brick wall would run wet in its mortar joints alone.
+  //
+  // ⚠ AND A SOFFIT STAYS DRY, which is the whole of what makes this read as rain rather than as a
+  // filter over the city. Rain falls DOWN: a flat roof, a sill, a coping and a parapet hold water,
+  // a wall takes a share of it, and the underside of a canopy, an awning, a balcony or an arch is
+  // sheltered and stays the colour it was. That is one expression, and it is the cheapest
+  // believable thing in the whole term — a dry soffit over a wet pavement is what a photograph of
+  // a rained-on street actually looks like.
+  //
+  // ⚠ AND IT IS solid, so the flat adornment layer is left alone. Those quads are painted by the
+  // 2-D renderer as one fill with no texture and no light ramp; wetting them would be improving on
+  // GLASS rather than reproducing it, which is the rule the whole material block opens with.
+  float wetW = uWet > 0.001 ? uWet * clamp(0.55 + 0.60 * n0.z, 0.0, 1.0) * solid : 0.0;
+  // The eye, needed by the material block AND by the wet specular down in the light loop.
+  vec3 Vw = normalize(uEye - vWorld);
+  float snowW = 0.0;
+  if (uSnow > 0.001) {
+    float lo = mix(0.97, 0.18, uSnow), hi = mix(1.02, 0.46, uSnow);
+    snowW = smoothstep(lo, hi, n0.z);
+    // A coarse world-phased break so a long parapet is not one even ribbon. Deliberately weak:
+    // wind scours a roof unevenly, it does not dapple it.
+    float g = sin(vWorld.x * 3.1 + 1.7) * sin(vWorld.y * 2.7 - 0.9);
+    snowW = clamp(snowW * (0.88 + 0.12 * g) , 0.0, 1.0);
+  }
   // ── RELIEF, RECOVERED FROM THE ALBEDO'S OWN GRADIENT ────────────────────────
   //
   // The painters bake their own light: matPlate draws a dark line under every lap and a bright one
@@ -346,7 +428,11 @@ void main() {
   T = tl > 0.001 ? T / tl : vec3(1.0, 0.0, 0.0);
   vec3 B = cross(n0, T);
   if (uMatStr > 0.0 && uBumpStr > 0.0) {
-    float k = uMat[int(vMat + 0.5)].w * uBumpStr * clamp(uTextured, 0.0, 1.0) * solid;
+    // ⚠ AND THE SNOW BURIES IT. The relief is recovered from the ALBEDO, and under snow the albedo
+    // is snow — so leaving this standing embosses the brickwork of the wall underneath onto the
+    // drift lying on the ledge. Same argument as the floor mixing its material toward the hillshade
+    // rather than toward flat white: what goes is the texture, not the shape.
+    float k = uMat[int(vMat + 0.5)].w * uBumpStr * clamp(uTextured, 0.0, 1.0) * solid * (1.0 - snowW);
     float l0 = lum(textureLod(uAtlas, vUV, 0.0).rgb);
     float lu = lum(textureLod(uAtlas, vUV + vec2(uAtlasTexel.x, 0.0), 0.0).rgb);
     float lv = lum(textureLod(uAtlas, vUV + vec2(0.0, uAtlasTexel.y), 0.0).rgb);
@@ -422,6 +508,29 @@ void main() {
   // ramp — so a shader that helpfully textured and shaded them would not be reproducing GLASS, it
   // would be improving on it, which is the one thing a port must not do.
   vec3 surf = mix(vColor, texture(uAtlas, vUV).rgb, clamp(uTextured, 0.0, 1.0) * solid);
+  // ⚠ HERE, AND NOT AFTER THE SHADING, WHICH IS THE WHOLE REASON THIS IS THREE LINES INSTEAD OF
+  // THIRTY. Everything below composes a lit surface out of surf — the two overlays, the sun
+  // shadow, the chamfer, both occlusion terms, the screen-space pass and then the point lights.
+  // Substituting the albedo before any of that runs means snow is darker in shadow, darker down an
+  // alley, darker under a canopy and lit by the neon bolted above it, with not one of those terms
+  // knowing it exists. Mixed in at the end it would be a flat white decal over all of them.
+  surf = mix(surf, vec3(0.90, 0.93, 0.98), snowW);
+  // ── AND WHAT IS RUNNING DOWN IT ─────────────────────────────────────────────
+  //
+  // The city has had wet ground since the tarmac pass and nothing above the kerb has ever got wet:
+  // it rains on Coldwater and the buildings stay the colour they are in July. WET_NOW is already
+  // integrated, already classified and already handed to both ground layers — this is the same
+  // scalar reaching the third one, which is exactly how uSnow got here.
+  //
+  // ⚠ DARKER IS THE EFFECT. Water fills a surface's own microstructure and traps the light that
+  // scatters back out of it, so a wet brick wall is most of a stop down on a dry one. That is the
+  // term you can see from a cab; the gloss below is the second-order one, and a first cut that led
+  // with the gloss read as a city dipped in varnish.
+  //
+  // ⚠ AND IT IS SUBSTITUTED IN THE ALBEDO FOR THE REASON THE LINE ABOVE IS. Everything below
+  // composes a lit surface out of surf, so a wet wall is darker in shadow, darker down an alley
+  // and still lit by the sign bolted to it, with no term here knowing any of that exists.
+  surf *= mix(1.0, 1.0 - WET_DARKEN, wetW);
   // wallLit's own two overlays, per fragment instead of as a canvas gradient: a warm top tinted
   // between sky and key by the light dot, and a darker base, both at alphas that depend on that
   // same dot. A flat tint is what this looked like before, and a flat tint reads as a wall painted
@@ -518,8 +627,13 @@ void main() {
     int mi = int(vMat + 0.5);
     vec4 M = uMat[mi];
     float sheen = uSheen[mi];
-    float mk = uMatStr * solid;
-    vec3 V = normalize(uEye - vWorld);
+    // ⚠ SNOW IS MATTE, AND THE MATERIAL TABLE UNDERNEATH IT IS NOT. A copper roof, a glazed
+    // atrium and a steel canopy are the surfaces most likely to be horizontal enough to hold snow,
+    // and they are exactly the rows with the strongest environment and specular response — so
+    // without this the drift on a verdigris roof reflects the sky like the metal it is covering.
+    float mk = uMatStr * solid * (1.0 - snowW);
+    // Hoisted out of this block, because the wet specular in the light loop needs it too.
+    vec3 V = Vw;
 
     // ── THE ENVIRONMENT ───────────────────────────────────────────────────────
     //
@@ -538,7 +652,13 @@ void main() {
     // is most of what separates sheet copper from plaster painted the same brown: verdigris hands
     // back a green sky, render hands back a white one.
     vec3 spc = mix(vec3(1.0), surf * 1.6 + 0.12, M.y);
-    float envAmt = clamp(M.z * (0.045 + 0.955 * fres) * mk, 0.0, 1.0);
+    // ⚠ WET RAISES THE REFLECTIVITY AND DELIBERATELY NOT THE SUN'S LOBE. Water lying on a surface
+    // makes it a better mirror, and the term that carries that here is the Fresnel-weighted
+    // environment — which hugs the grazing angles and the silhouette, so it varies across a wall as
+    // the wall recedes. The lobe does not: the note under the highlight below says why, and every
+    // face in this city is planar, so a sharper lobe would simply paint a whole wall lighter.
+    float refl = mix(M.z, min(1.0, M.z + WET_REFL), wetW);
+    float envAmt = clamp(refl * (0.045 + 0.955 * fres) * mk, 0.0, 1.0);
     // ⚠ AND THE DIFFUSE GOES DOWN AS THE METAL GOES UP, before the mix and not after. A conductor
     // has almost no diffuse — what you see IS the reflection — and leaving the diffuse standing is
     // what makes every attempt at chrome come out as light grey paint with a highlight on it.
@@ -596,6 +716,32 @@ void main() {
     // over the reach this pass used to be given was a quarter of the light seven storeys up a
     // facade. At uLightFocus 2.0 this line is exactly the term that shipped.
     base += uLightC[i] * (pow(att, uLightFocus) * diff);
+    // ── AND THE SAME LIGHT AGAIN, IN THE WATER ON THE WALL ────────────────────
+    //
+    // The albedo darkening above is most of what says WET by day and almost nothing at night, and
+    // the measurement is blunt about it: 7.68% of a daylight frame moves and 0.09% of a night one.
+    // The reason is not the wall wash being off (tested — turning it back on moves this number by
+    // nothing). It is that after dark the wall's own albedo is a small part of the final pixel:
+    // most of what you see is the neon ADDED on top, and darkening what is underneath an addition
+    // does not change it. What a wet wall does at night is REFLECT that neon, and reflection is the
+    // one thing water adds to a surface.
+    //
+    // ⚠ MULTIPLIED BY wetW, NEVER BRANCHED ON IT. wetW is per fragment, and a per-fragment branch
+    // here is exactly the undefined behaviour the note at the top of the material block is written
+    // around. Dry, this whole term is zero by arithmetic.
+    //
+    // ⚠ AND THE "A LOBE ON A FLAT BOX IS NOT A HIGHLIGHT" OBJECTION DOES NOT APPLY TO THESE LIGHTS,
+    // which is the whole reason it is worth having. That objection is about the SUN: one direction
+    // for the entire city, so a lobe evaluated across a planar face has one value and simply paints
+    // the wall lighter. A sign is a metre from the bricks it is bolted to, so the direction to it
+    // swings hard across the face and the lobe lands as a hot spot beside the sign — which is what
+    // a wet wall under neon actually looks like.
+    //
+    // ⚠ IT IS NOT THE WALL WASH COMING BACK. That was reverted five times for flattening a facade,
+    // and it flattened because it was DIFFUSE — a broad field over the whole wall. This is a tight
+    // lobe gated on standing water, so it cannot reach a dry frame at all.
+    vec3 Hl = normalize(d / max(0.001, dist) + Vw);
+    base += uLightRaw[i] * (pow(max(0.0, dot(n, Hl)), WET_LOBE) * WET_NEON * wetW * pow(att, uLightFocus));
   }
   // ⚠ AND THERE IS NO EMISSION TERM HERE, WHICH WAS MEASURED RATHER THAN ASSUMED. One sat on this
   // line and moved 0.0% of wall pixels at every seat: everything above IS light arriving at a wall,
@@ -604,6 +750,17 @@ void main() {
   // GLASS's own fog curve, squared, scaled by the same amount its slider sets — see fogWeight.
   float ff = clamp((vDepth - uFogNear) / max(0.001, uFogFar - uFogNear), 0.0, 1.0);
   float fog = ff * ff * uFogAmt;
+  // ── AND THE AIR NEAR THE GROUND ─────────────────────────────────────────────
+  //
+  // The band above is a function of DISTANCE alone, so a tower recedes as one piece. This is the
+  // axis it cannot express: the fragments low down have more air in front of them than the ones at
+  // the parapet, so a block in mist stands out of it rather than fading evenly.
+  //
+  // ⚠ COMBINED AS TRANSMITTANCE, NEVER ADDED. Two fogs are two things the light has to get through,
+  // so what multiplies is what gets THROUGH — added, a thick band plus a thick layer sums past 1
+  // and the far field turns into a flat plate of fog colour.
+  float hf = heightFog(uEye.z, vWorld.z, vDepth, uFogH, uFogHScale);
+  fog = 1.0 - (1.0 - fog) * (1.0 - hf);
   // ⚠ AND THE FAR EDGE DISSOLVES RATHER THAN ENDING. The 2-D pass fades a building out over the
   // last few tiles of its draw distance, so distant blocks ghost up out of the horizon instead of
   // popping in — and this buffer is composited onto that same frame, so a mass that stayed opaque
@@ -613,7 +770,34 @@ void main() {
   // of buildings giving up its opacity in unison — a wall of haze moving toward you rather than
   // distance. The number is the tile's own, handed over rather than recomputed.
   float a = (1.0 - smoothstep(uHazeNear - vJit, uHazeFar - vJit, vDepth)) * clamp(vAlpha, 0.0, 1.0) * uWorldBlend;
-  outColor = vec4(mix(base, uFog, fog) * a, a);
+  // ── AND THE LIGHT IN THAT AIR ───────────────────────────────────────────────
+  //
+  // ⚠ A UNIFORM BRANCH, so in clear weather this loop is not a code path. uScatter is the tune
+  // times how much the sky is hazing above a floor, and clear and cloudy are both under it — the
+  // atans below are real work and a city has no business paying for them on a bright afternoon.
+  //
+  // ⚠ AND IT READS uLightRaw, NOT uLightC. The wall wash folds its own (currently zero) gain into
+  // the colour, so a term multiplying uLightC multiplies by black — the bug that made the wet
+  // specular measure nothing, two phases running. What scatters in the air is the light the lamp
+  // actually puts out.
+  vec3 scat = vec3(0.0);
+  if (uScatter > 0.001) {
+    for (int i = 0; i < GLASS_MAX_LIGHTS; i++) {
+      if (i >= uNLight) break;
+    // ⚠ uScatter IS PASSED AS THE DENSITY, AND THE WEATHER IS NOT COUNTED TWICE. The obvious
+    // wiring hands the integral the fog's own uFogH and then scales the result by the weather gate
+    // as well — which is physically defensible and measures as a QUADRATIC response, because both
+    // terms track the same haze. A rainy night came back at 0.14% of the frame against a foggy
+    // one's 11.05%, so the weather this whole layer exists for got almost none of it. The gate
+    // carries the weather once; the height profile inside still shapes it.
+      scat += uLightRaw[i] * lightShaft(uEye, vWorld, uLightP[i], uLightR[i], uScatter, uFogHScale);
+    }
+  }
+  // ⚠ ADDED AFTER THE FOG AND BEFORE THE PREMULTIPLY. It is light arriving from the side rather
+  // than part of the surface, so it is not something the fog should be mixing away — but it does
+  // belong to this fragment's own coverage, or a shaft would draw at full strength across the
+  // dissolving far edge of the city.
+  outColor = vec4((mix(base, uFog, fog) + scat) * a, a);
 }`;
 
 // The shader source carries a symbolic bound so the loop limit and the array sizes cannot drift
@@ -694,6 +878,7 @@ export function createGLView(canvas, opts = {}) {
     nLight: gl.getUniformLocation(prog, 'uNLight'),
     lightP: gl.getUniformLocation(prog, 'uLightP'),
     lightC: gl.getUniformLocation(prog, 'uLightC'),
+    lightRaw: gl.getUniformLocation(prog, 'uLightRaw'),
     lightR: gl.getUniformLocation(prog, 'uLightR'),
     lightWrap: gl.getUniformLocation(prog, 'uLightWrap'),
     lightFocus: gl.getUniformLocation(prog, 'uLightFocus'),
@@ -708,6 +893,11 @@ export function createGLView(canvas, opts = {}) {
     sunDir: gl.getUniformLocation(prog, 'uSunDir'),
     eye: gl.getUniformLocation(prog, 'uEye'),
     matStr: gl.getUniformLocation(prog, 'uMatStr'),
+    snow: gl.getUniformLocation(prog, 'uSnow'),
+    wet: gl.getUniformLocation(prog, 'uWet'),
+    fogH: gl.getUniformLocation(prog, 'uFogH'),
+    fogHScale: gl.getUniformLocation(prog, 'uFogHScale'),
+    scatter: gl.getUniformLocation(prog, 'uScatter'),
     bumpStr: gl.getUniformLocation(prog, 'uBumpStr'),
     bevel: gl.getUniformLocation(prog, 'uBevel'),
     bevelTilt: gl.getUniformLocation(prog, 'uBevelTilt'),
@@ -726,6 +916,7 @@ export function createGLView(canvas, opts = {}) {
   // Scratch, filled per frame and never reallocated: the arrays are the same size every frame and
   // a fresh Float32Array per light per frame is garbage on the hot path.
   const lightP = new Float32Array(MAX_LIGHTS * 3), lightC = new Float32Array(MAX_LIGHTS * 3);
+const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const lightR = new Float32Array(MAX_LIGHTS);
   // The material table, flattened once and re-flattened only when the caller hands over a different
   // one. It is a constant of the build in practice — 19 rows that come from windshield.js — so
@@ -971,7 +1162,10 @@ export function createGLView(canvas, opts = {}) {
     if (!ssao) return null;
     const camH = opts.cssH || cam.H || H;
     const vp = viewProjMatrix({ ...cam, H: camH }, camH);
-    const A = (FAR + NEAR) / (FAR - NEAR), B = -2 * FAR * NEAR / (FAR - NEAR);
+    // The SAME z row the matrix two lines up was built from. It unprojects a depth sample back
+    // to a view-space distance, so a near plane it does not share is an occlusion radius that
+    // quietly means something else on the seats that fit their own.
+    const [A, B] = zRow((cam && cam.near) || NEAR);
     try {
       return ssao.render(vao, count, new Float32Array(vp), { ...cam, H: camH }, W, H,
         { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02 });
@@ -1115,6 +1309,10 @@ export function createGLView(canvas, opts = {}) {
       const L = lights[i];
       lightP[i * 3] = L.p[0]; lightP[i * 3 + 1] = L.p[1]; lightP[i * 3 + 2] = L.p[2];
       lightC[i * 3] = L.rgb[0]; lightC[i * 3 + 1] = L.rgb[1]; lightC[i * 3 + 2] = L.rgb[2];
+      // Falls back to the weighted colour for a caller that has never heard of the split (a bench,
+      // a preview), so the array is never handed stale numbers from a previous frame.
+      const raw = L.rgbRaw || L.rgb;
+      lightRaw[i * 3] = raw[0]; lightRaw[i * 3 + 1] = raw[1]; lightRaw[i * 3 + 2] = raw[2];
       // ⚠ `rw`, THE WALL'S REACH, NOT `r`. They are the same number until pickLights splits them,
       // and `r` is the WET ROAD'S — a streak on tarmac is as long as it was swept at. A caller that
       // sets neither (a bench, a preview) gets exactly what it always did.
@@ -1122,7 +1320,7 @@ export function createGLView(canvas, opts = {}) {
     }
     gl.uniform1i(loc.nLight, nL);
     if (nL) {
-      gl.uniform3fv(loc.lightP, lightP); gl.uniform3fv(loc.lightC, lightC); gl.uniform1fv(loc.lightR, lightR);
+      gl.uniform3fv(loc.lightP, lightP); gl.uniform3fv(loc.lightC, lightC); gl.uniform3fv(loc.lightRaw, lightRaw); gl.uniform1fv(loc.lightR, lightR);
       gl.uniform1f(loc.lightWrap, opts.lightWrap == null ? 0 : opts.lightWrap);
       // ⚠ DEFAULTS TO 2, THE TERM THIS PASS SHIPPED WITH, so a caller that has never heard of the
       // focus knob renders what it always rendered rather than pow(att, 0.0) — which is 1.0 at
@@ -1137,6 +1335,19 @@ export function createGLView(canvas, opts = {}) {
     // view object is shared by the game, the Modelshop preview and the bench.
     const matStr = opts.mat && opts.mat.length ? (opts.matStr == null ? 1 : opts.matStr) : 0;
     gl.uniform1f(loc.matStr, matStr);
+    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO SNOW. A uniform holds its last value, so
+    // a pass that set this only when it had snow would leave the whole skyline white for the rest
+    // of the session after one blizzard thawed — the rule the road segments in floor.js carry.
+    gl.uniform1f(loc.snow, opts.snow || 0);
+    // ⚠ WRITTEN EVERY FRAME, NEVER ONLY WHEN IT IS RAINING. A uniform holds its last value, so a
+    // pass that set this only when it had weather would leave the whole city wet for the rest of
+    // the session after one shower — the trap `gl:snow` exists to catch, one layer along.
+    gl.uniform1f(loc.wet, opts.wet || 0);
+    // Written every frame for the reason the line above is: a uniform holds its last value, so a
+    // pass that set this only in fog would leave the city in mist for the rest of the session.
+    gl.uniform1f(loc.fogH, opts.fogH || 0);
+    gl.uniform1f(loc.fogHScale, opts.fogHScale > 0 ? opts.fogHScale : 0.5);
+    gl.uniform1f(loc.scatter, opts.scatter || 0);
     // ⚠ WRITTEN EVERY FRAME AND NEVER CONDITIONALLY, for the reason two comments up: a uniform holds
     // its last value and this view is shared by the game, the Modelshop preview and the bench, so a
     // pass that wrote these only when it had something to say would hand the next caller whatever
@@ -1280,11 +1491,11 @@ export function createGLView(canvas, opts = {}) {
   // visible in the picture until it starts evicting live entries, at which point it looks like
   // corrupted artwork rather than like a cache.
   const billboardTextures = () => (bbs ? bbs.textures : 0);
-  function drawBillboards(cam, list, cssH, fog) {
+  function drawBillboards(cam, list, cssH, fog, snow) {
     if (!list || !list.length) return 0;
     const L = bbLayer();
     L.upload(list);
-    return L.draw(cam, canvas.width, canvas.height, cssH, fog);
+    return L.draw(cam, canvas.width, canvas.height, cssH, fog, snow);
   }
 
   // ── THE PUDDLE REFLECTION, AS A PREPASS ────────────────────────────────────
@@ -1481,7 +1692,7 @@ export function createGLView(canvas, opts = {}) {
   // The ground itself. Lazy, and only ever built when RENDER_TUNE.glFloor asks for it.
   let flr = null;
   const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
-  function drawFloor(state) { return state ? floorLayer().draw(state) : 0; }
+  function drawFloor(state, near) { return state ? floorLayer().draw(state, near) : 0; }
 
   return { gl, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, drawMirror, mirrorPeak, uploadSolids, drawSolids, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },

@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A single round room full of green, which after four streets of chrome is a physical relief. Ferns at the edges, three young trees that are not going to fit in ten years, and a gravel path following the ring with a bench on either side of it. The glass fogs at the top on a cold morning and clears in a ring from the middle outward.",
+  "exits": {
+    "down": "zone_util_zone_hf_leaf_under",
+    "south": "zone_district_894_915"
+  },
+  "flags": {
+    "building_name": "Leaf It Out",
+    "building_type": "pavilion",
+    "floor": "dirt",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_894_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_leaf_under",
+  "map_id": "map_int_hf_leaf",
+  "name": "Leaf It Out — Under the Dome",
+  "parent_zone": "zone_district_894_915"
+}

@@ -91,6 +91,55 @@ export function computeCheckpoint(freshness, envNow, spoilRate, nowMs) {
   };
 }
 
+// When this row came into being, in ms — the moment a perishable starts ageing.
+//
+// Without it the seed below stamped `checkpointAt: nowMs`, which started the
+// clock at the first EXAMINE rather than at the mint: a steak nobody had ever
+// looked at was immortal, and still read `fresh` after a month on an apartment
+// floor. `player_inventory.created_at` is the engine's own record of when the
+// row was inserted, defaulted in the DDL (server/models/schema.js), so all ~40
+// mint sites — vendor deliveries, ground spawns, loot, butchering, the cooking
+// plate — seed it for free and a new one cannot forget to. That is the whole
+// reason it's a column and not a hook fired at each mint site.
+//
+// The SELECT runs only for a perishable with no checkpoint yet, which is once in
+// an item's life, and is skipped entirely when the caller's own projection
+// carried the column (resolveInventoryItem and cmdExamine both do). A row that
+// predates the column reads NULL and falls back to now, so nothing already in
+// somebody's pack starts rotting at deploy.
+//
+// Clock skew between the DB's now() and this process's Date.now() needs no guard:
+// computeCheckpoint floors the elapsed span at 0, and this value is never itself
+// stored — the checkpoint written back is always stamped nowMs.
+async function mintedAtOf(invRow) {
+  const own = invRow.created_at;
+  if (own !== undefined) return own ? new Date(own).getTime() : null;
+  const { rows } = await query('SELECT created_at FROM player_inventory WHERE id=$1', [invRow.id]);
+  const at = rows[0]?.created_at;
+  return at ? new Date(at).getTime() : null;
+}
+
+// A PURE "could this have gone off?" answer for a stack sitting in a container,
+// with no row to read, nothing written and no DB touched. The delivery pass
+// (server/engine/vendor.js) asks it once per stack straight from its own cache,
+// so a fully-stocked shop still costs zero queries on the daily tick.
+//
+// It lives here because the decay curve lives here. The alternative was vendor.js
+// growing its own copy of the arithmetic, and two implementations of spoilage is
+// exactly the drift this system is built to avoid.
+//
+// Deliberately OPTIMISTIC: it assumes the case has had power for the whole span,
+// so it can only ever UNDER-report. Nothing is deleted on this answer — it only
+// decides whether the caller goes and asks the real per-row question, which runs
+// ensureFreshnessCurrent like every other call site.
+export function stockSpoilCheck({ mintedAt, preserves, zoneId, spoilRate } = {}) {
+  if (!mintedAt) return { spoiled: false };
+  const tier = preserves || bucketForTemp(getZoneTemperature(zoneId));
+  const elapsed = Math.max(0, Date.now() - new Date(mintedAt).getTime());
+  const drop = hoursOf(elapsed) * BASE_DECAY_PER_HOUR * decayMultiplier(tier, spoilRate || 'normal');
+  return { spoiled: stateFor(Math.max(0, 100 - drop)) === 'spoiled' };
+}
+
 // The only function engine call-outs use. No-ops immediately for non-perishable
 // items. Diff-gates the write — the guarantee against writing on every glance
 // at an untouched item.
@@ -100,10 +149,13 @@ export async function ensureFreshnessCurrent(invRow, player) {
   const cd = invRow.custom_data || {};
   const hadCheckpoint = !!cd.freshness;
   const envNow = await resolveEnvironment(invRow, player);
-  // First touch: seed envBucket from the environment resolved just above, not
-  // a hardcoded guess — otherwise a same-instant second call would see the
-  // real tier "change" from the guess and rewrite for no real reason.
-  const freshness = cd.freshness || { value: 100, checkpointAt: nowMs, envBucket: envNow.tier, powerLostAt: null };
+  // First touch: the clock starts at the MINT, not here — see mintedAtOf. Only
+  // asked for when there's no checkpoint to read, so a stocked pantry costs
+  // nothing. envBucket is still seeded from the environment resolved just above
+  // rather than a hardcoded guess — otherwise a same-instant second call would
+  // see the real tier "change" from the guess and rewrite for no real reason.
+  const mintedAt = hadCheckpoint ? null : await mintedAtOf(invRow);
+  const freshness = cd.freshness || { value: 100, checkpointAt: mintedAt ?? nowMs, envBucket: envNow.tier, powerLostAt: null };
   // Opportunistic power-loss detection: the first time anything notices this
   // container isn't delivering, stamp the moment as "now" (a small grace to the
   // player if nobody looked sooner — no polling tick exists to catch it earlier).

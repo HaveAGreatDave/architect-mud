@@ -5,8 +5,7 @@
   "description": "A circle of stained concrete scored with a faded H, ringed by landing lights that mostly still work. Tie-down rings are set into the pad at intervals, and the downwash has scoured the ground bare for ten metres in every direction. A windsock stands off to one side, more grey than orange now.",
   "exits": {
     "east": "zone_district_894_909",
-    "south": "zone_district_893_910",
-    "west": "zone_district_892_909"
+    "south": "zone_district_893_910"
   },
   "flags": {
     "airfield_id": "af_helipad",

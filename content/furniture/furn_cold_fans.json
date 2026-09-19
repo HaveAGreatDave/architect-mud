@@ -1,0 +1,17 @@
+{
+  "description": "Eight fans in cowls along the deck, guarded, none of them in step with any other. The noise up here is a wall you lean on.",
+  "flags": {
+    "aliases": [
+      "fans",
+      "bank",
+      "cowls"
+    ],
+    "interactions": {
+      "examine": "Fan three runs slower than the rest and has done for months. It is not broken. It is set that way, and there is a piece of tape on its starter with a date on it."
+    }
+  },
+  "id": "furn_cold_fans",
+  "name": "the fan bank",
+  "object_type": "fixture",
+  "zone_id": "zone_cold_deck"
+}

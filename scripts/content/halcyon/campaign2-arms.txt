@@ -1,0 +1,213 @@
+    // ══ HALCYON FIELDS, THE SECOND CAMPAIGN ════════════════════════════════════════════════
+    // Six types over fourteen plots, which is the ratio on purpose. An estate is a thing one
+    // developer put up in one campaign, and what makes it read as one from a cockpit is that it
+    // REPEATS — the same tower on four plots at four heights is an estate, and fourteen unique
+    // buildings on fourteen plots is a high street. Every one of these arms is written against
+    // `h`, which is `floors × FLOOR_Z`, so the only thing separating two plots carrying the same
+    // type is `flags.floors` and the seed, and both of those live in content rather than here.
+    //
+    // ⚠ WHICH IS ALSO THE TRAP: get `flags.floors` right BEFORE tuning a single fraction in one
+    // of these, because every z below is a share of a height the world file decides. A tower
+    // authored against 18 floors and then placed on a tile that says 6 is not a short tower, it
+    // is a set of proportions nobody chose.
+    case 'chrome_tower': {   // THE ESTATE'S RESIDENTIAL TOWER — a glass cylinder on a chrome
+      // podium, tapering, with a lit collar at every fifth floor and a mast on top. It is the
+      // Halcyon Towers argument made four more times at four more heights, which is what an
+      // estate is: the Ascendants did not design a building here, they designed a product.
+      const podium = h * 0.06, shaft = h * 0.93, crown = h * 0.97, mast = h * 1.10;
+      // 1) THE PODIUM — a wide chrome disc, oversailing the shaft, with the lobby in it.
+      drawFacetDrum(ctx, cam, dx, dy, 0, podium, fh * 0.92, fh * 0.88, 16, alpha, hfChrome([118, 134, 148], [232, 242, 248], 1.8), hfChrome([126, 142, 156], [204, 218, 228], 1.4), 'ty_hf_chrome');
+      // 2) THE SHAFT. A single glass drum the whole way up with a slight taper, because a
+      //    perfectly parallel cylinder this tall reads as a flue rather than as a building.
+      drawFacetDrum(ctx, cam, dx, dy, podium, shaft, fh * 0.66, fh * 0.56, 18, alpha, hfGlass(night), null, pal);
+      // 3) THE COLLARS — a chrome band every fifth floor, which is the plant level and also the
+      //    only thing that gives a smooth cylinder a scale you can count storeys against.
+      for (let z = 0.24; z < 0.90; z += 0.22) {
+        const r = 0.66 + (0.56 - 0.66) * (z / 0.93);
+        drawFacetDrum(ctx, cam, dx, dy, h * z, h * (z + 0.014), fh * (r + 0.035), fh * (r + 0.035), 18, alpha, hfChrome([100, 116, 132], [240, 248, 252], 1.9), null, 'ty_hf_chrome');
+      }
+      // 4) THE CROWN and the mast. ⚠ The mast is a DRUM and not the `mast` adornment, because an
+      //    adornment is invisible to SHAPE_SINK — this one is 0.13 of the building's height and
+      //    a pilot should collide with it.
+      drawFacetDrum(ctx, cam, dx, dy, shaft, crown, fh * 0.62, fh * 0.48, 18, alpha, hfChrome([104, 120, 136], [242, 248, 252], 1.8), hfChrome([112, 128, 144], [206, 220, 230], 1.3), 'ty_hf_chrome');
+      drawFacetDrum(ctx, cam, dx, dy, crown, mast, fh * 0.07, fh * 0.035, 8, alpha, hfChrome([84, 100, 116], [222, 234, 242], 2.4), null, 'ty_hf_chrome_dk');
+      // 5) THE ENTRANCE — a chrome canopy off the front of the podium.
+      { const [cx1, cy1] = F(0, fh * 0.80);
+        drawFacetDrum(ctx, cam, cx1, cy1, h * 0.055, h * 0.072, fh * 0.34, fh * 0.34, 12, alpha, hfChrome([122, 138, 152], [242, 248, 252], 1.7), hfChrome([132, 148, 162], [214, 228, 236], 1.3), 'ty_hf_ice'); }
+      if (night) {
+        blinkLight(ctx, cam, dx, dy, mast, '255,90,120', now, seed + 3, alpha, 1.5);
+        helixRunner(ctx, cam, dx, dy, podium + h * 0.02, shaft - h * 0.02, fh * 0.67, fh * 0.57, 1.25, 0.7854, 24, '74,168,255', night, alpha);
+        glowPool(ctx, cam, dx, dy, crown - h * 0.02, '150,226,255', 13, alpha * 0.26);
+        const [gx, gy] = F(0, fh * 0.82); glowPool(ctx, cam, gx, gy, h * 0.04, '206,238,255', 11, alpha * 0.28);
+      }
+      break;
+    }
+    case 'chrome_slab': {   // THE ESTATE'S OFFICE BUILDING — a CRESCENT, which is the one plan
+      // shape this city has nowhere at all. A slab with rounded ends is a stadium; a slab that
+      // BENDS is a curve you read differently from every angle, and it is the cheapest way in
+      // this renderer to make a building that does not look the same from the road as from the
+      // air. Three boxes on three yaws with drums at every joint, which is how you bend a wall
+      // when the only primitive you have is straight.
+      const top = h * 0.88, cope = h * 0.94;
+      const bend = 0.17;   // radians per segment — a gentle arc, not a dog-leg
+      for (const [i, [u, v, yw]] of [[-0.62, -0.13, bend], [0, 0.05, 0], [0.62, -0.13, -bend]].entries()) {
+        const [bx, by2] = F(u * fh, v * fh);
+        draw3DBoxAt(ctx, cam, bx, by2, fh * 0.40, 0, top, pal, seed + i, night, alpha, false, faceYaw(E) + yw, fh * 0.34);
+        // The coping over each segment, in chrome, which is what ties three boxes into one wall.
+        draw3DBoxAt(ctx, cam, bx, by2, fh * 0.43, top, cope, 'ty_hf_chrome', seed + 10 + i, night, alpha, true, faceYaw(E) + yw, fh * 0.37);
+      }
+      // THE JOINTS. Full-height drums where the segments meet and at both ends — they hide the
+      // mitre, and they are what makes the plan read as an arc rather than as three sheds.
+      for (const [u, v] of [[-0.98, -0.30], [-0.31, -0.04], [0.31, -0.04], [0.98, -0.30]]) {
+        const [qx, qy] = F(u * fh, v * fh);
+        drawFacetDrum(ctx, cam, qx, qy, 0, cope, fh * 0.20, fh * 0.19, 12, alpha, hfChrome([86, 102, 118], [234, 244, 250], 2.2), hfChrome([98, 114, 130], [204, 218, 228], 1.4), 'ty_hf_chrome');
+      }
+      // THE PODIUM the whole crescent stands on, following it loosely as one wide disc.
+      drawFacetDrum(ctx, cam, dx, dy, 0, h * 0.05, fh * 1.00, fh * 0.98, 18, alpha, hfChrome([112, 128, 144], [226, 238, 246], 1.8), hfChrome([122, 138, 152], [200, 214, 224], 1.4), 'ty_hf_deck');
+      // THE ROOF ARMATURE — a low chrome frame on the deck, which is what the Ascendants put on
+      // everything they own and is most of what says "campus" from the air.
+      { const [ax, ay] = F(0, 0); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.30, cope, cope + h * 0.07, 'ty_hf_chrome_dk', seed + 20, night, alpha, true, faceYaw(E), fh * 0.14); }
+      if (night) {
+        helixRunner(ctx, cam, dx, dy, top, top + h * 0.012, fh * 0.92, fh * 0.92, 1, 0, 28, '140,214,255', night, alpha);
+        blinkLight(ctx, cam, dx, dy, cope + h * 0.07, '255,90,120', now, seed + 21, alpha, 1.2);
+        glowPool(ctx, cam, dx, dy, h * 0.04, '130,206,255', 17, alpha * 0.22);
+      }
+      break;
+    }
+    case 'pavilion': {   // THE ESTATE'S PARK BUILDING — a low glass dome on a chrome ring, and it
+      // is the only thing in Halcyon Fields that is WIDER than it is tall. That matters more than
+      // it sounds: the quarter is a stack of vertical objects, so a two-storey disc sitting in the
+      // middle of them is what stops the skyline being a bar chart. Inside is planting and a
+      // couple of benches and no commerce at all, which is the developer's contribution to the
+      // public realm and is exactly the minimum a planning condition would have asked for.
+      const ring = h * 0.20, dome = h * 0.86;
+      // 1) THE RING — a chrome plinth, wide, with the whole thing standing on it.
+      drawFacetDrum(ctx, cam, dx, dy, 0, ring, fh * 1.02, fh * 0.98, 20, alpha, hfChrome([116, 132, 148], [230, 240, 248], 1.8), null, 'ty_hf_chrome');
+      // 2) THE DOME. ⚠ `drawFacetDrum` draws a CONE and not a sphere — `rb` to `rt` is linear —
+      //    so a dome is three lifts with a decreasing radius and an increasing rate of decrease.
+      //    Two lifts read as a marquee tent and four cost faces for a curve nobody can see.
+      drawFacetDrum(ctx, cam, dx, dy, ring, h * 0.46, fh * 0.96, fh * 0.86, 20, alpha, hfGlass(night, [38, 72, 66]), null, pal);
+      drawFacetDrum(ctx, cam, dx, dy, h * 0.46, h * 0.70, fh * 0.86, fh * 0.62, 20, alpha, hfGlass(night, [38, 72, 66]), null, pal);
+      drawFacetDrum(ctx, cam, dx, dy, h * 0.70, dome, fh * 0.62, fh * 0.16, 20, alpha, hfGlass(night, [38, 72, 66]), null, pal);
+      // 3) THE OCULUS — a chrome cap over the top of the dome, and the vent for it.
+      drawFacetDrum(ctx, cam, dx, dy, dome, dome + h * 0.09, fh * 0.20, fh * 0.15, 12, alpha, hfChrome([100, 116, 132], [240, 248, 252], 1.8), hfChrome([110, 126, 142], [204, 218, 228], 1.3), 'ty_hf_ice');
+      // 4) THE DOOR, cut into the ring on the entrance side, and the two benches outside it.
+      { const [dx1, dy1] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, dx1, dy1, fh * 0.16, 0, ring * 0.86, 'ty_hf_deck', seed + 2, night, alpha, false, faceYaw(E), fh * 0.05); }
+      for (const t of [-0.62, 0.62]) { const [bx, by2] = F(t * fh, fh * 1.14);
+        draw3DBoxAt(ctx, cam, bx, by2, fh * 0.20, h * 0.03, h * 0.055, 'ty_hf_chrome', seed + 30 + t * 10, night, alpha, true, faceYaw(E), fh * 0.06); }
+      if (night) {
+        // Lit from the floor, which is how you light planting and is why this reads green at
+        // night in a quarter where everything else reads cyan.
+        glowPool(ctx, cam, dx, dy, ring + h * 0.04, '140,236,186', 18, alpha * 0.30);
+        glowPool(ctx, cam, dx, dy, dome, '164,242,200', 9, alpha * 0.24);
+        helixRunner(ctx, cam, dx, dy, ring, ring + h * 0.012, fh * 0.99, fh * 0.99, 1, 0, 30, '120,230,176', night, alpha);
+      }
+      break;
+    }
+    case 'sky_court': {   // THE LANDMARK — TWO TOWERS AND A BRIDGE BETWEEN THEM, which is the only
+      // building in Coldwater with a hole through it above ground level. The Ascension Gate is
+      // the other one with a hole in it and that one is at street level; this is the same idea
+      // three hundred feet up, and ⚠ IT IS REAL TO EVERYTHING DOWNSTREAM — the mass primitives
+      // are what `modelSolid` cuts CFIT collision from, so an aircraft genuinely flies UNDER the
+      // link and the ground shadow falls in two pieces with a bar across them. That is the whole
+      // reason it is worth building: a silhouette you can fly through is a landmark, and one you
+      // merely look at is a picture.
+      const podium = h * 0.07, top = h * 0.92, linkZ0 = h * 0.58, linkZ1 = h * 0.70;
+      // 1) THE PODIUM both towers stand on, spanning the plot.
+      drawFacetDrum(ctx, cam, dx, dy, 0, podium, fh * 1.00, fh * 0.96, 18, alpha, hfChrome([116, 132, 148], [230, 240, 248], 1.8), hfChrome([124, 140, 156], [202, 216, 226], 1.4), 'ty_hf_deck');
+      // 2) THE TWO SHAFTS, unequal — the near one shorter, because two identical towers read as
+      //    a mistake and a pair with a step between them reads as a composition.
+      for (const [i, [u, tz]] of [[-0.50, 1.00], [0.50, 0.84]].entries()) {
+        const [tx, ty2] = F(u * fh, 0);
+        drawFacetDrum(ctx, cam, tx, ty2, podium, top * tz, fh * 0.40, fh * 0.35, 14, alpha, hfGlass(night), null, pal);
+        drawFacetDrum(ctx, cam, tx, ty2, top * tz, top * tz + h * 0.04, fh * 0.43, fh * 0.34, 14, alpha, hfChrome([102, 118, 134], [242, 248, 252], 1.8), hfChrome([112, 128, 144], [206, 220, 230], 1.3), 'ty_hf_chrome');
+        if (night) { blinkLight(ctx, cam, tx, ty2, top * tz + h * 0.04, '255,90,120', now, seed + 4 + i, alpha, 1.4);
+          helixRunner(ctx, cam, tx, ty2, podium, top * tz - h * 0.03, fh * 0.41, fh * 0.36, 1.1, 0.7854 + i * 3.14, 20, '74,168,255', night, alpha); }
+      }
+      // 3) THE LINK. A glazed box slung between them, and the two chrome bands that carry it.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.52, linkZ0, linkZ1, pal, seed + 8, night, alpha, false, faceYaw(E), fh * 0.24);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.54, linkZ1, linkZ1 + h * 0.025, 'ty_hf_chrome', seed + 9, night, alpha, true, faceYaw(E), fh * 0.26);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.54, linkZ0 - h * 0.025, linkZ0, 'ty_hf_chrome', seed + 10, night, alpha, true, faceYaw(E), fh * 0.26);
+      // 4) THE ENTRANCE, between the towers at ground level — you walk in UNDER the gap.
+      { const [cx1, cy1] = F(0, fh * 0.74);
+        drawFacetDrum(ctx, cam, cx1, cy1, h * 0.062, h * 0.082, fh * 0.44, fh * 0.44, 14, alpha, hfChrome([122, 138, 152], [242, 248, 252], 1.7), hfChrome([132, 148, 162], [214, 228, 236], 1.3), 'ty_hf_ice'); }
+      if (night) {
+        helixRunner(ctx, cam, dx, dy, linkZ1 + h * 0.026, linkZ1 + h * 0.034, fh * 0.55, fh * 0.55, 1, 0, 20, '150,226,255', night, alpha);
+        glowPool(ctx, cam, dx, dy, (linkZ0 + linkZ1) * 0.5, '176,232,255', 12, alpha * 0.28);
+        const [gx, gy] = F(0, fh * 0.76); glowPool(ctx, cam, gx, gy, h * 0.04, '206,238,255', 13, alpha * 0.28);
+      }
+      break;
+    }
+    case 'vertical_farm': {   // THE ESTATE FEEDS ITSELF, ALLEGEDLY — a chrome core with glazed
+      // growing trays cantilevered off it in pairs, every one of them lit magenta from under the
+      // tray above. ⚠ IT IS THE ONLY MAGENTA THING IN THE QUARTER and that is the same argument
+      // the fire station's red is making: in a district of cyan and pearl, one object on a
+      // different hue is findable from anywhere, and grow lights are the one place a pink glow is
+      // the literal truth rather than a decision about mood.
+      const core = h * 0.96, trays = 6;
+      // 1) THE CORE — a chrome cylinder the whole height, with the lift and the water in it.
+      drawFacetDrum(ctx, cam, dx, dy, 0, core, fh * 0.30, fh * 0.26, 14, alpha, hfChrome([86, 102, 118], [236, 246, 250], 2.3), hfChrome([98, 114, 130], [204, 218, 228], 1.4), 'ty_hf_chrome');
+      // 2) THE TRAYS, in opposed pairs up the core, each one a shallow glazed box on a chrome
+      //    shelf. They alternate axis so the stack spirals, which is what stops six identical
+      //    slabs reading as a shelving unit and is also how a real one shades itself least.
+      for (let i = 0; i < trays; i++) {
+        const z = 0.10 + i * 0.14, ax = i % 2 === 0;
+        for (const t of [-1, 1]) {
+          const [u, v] = ax ? [t * 0.64, 0] : [0, t * 0.64], [tx, ty2] = F(u * fh, v * fh);
+          draw3DBoxAt(ctx, cam, tx, ty2, fh * (ax ? 0.34 : 0.56), h * z, h * (z + 0.075), pal, seed + i * 4 + t, night, alpha, false, faceYaw(E), fh * (ax ? 0.56 : 0.34));
+          draw3DBoxAt(ctx, cam, tx, ty2, fh * (ax ? 0.36 : 0.58), h * (z + 0.075), h * (z + 0.09), 'ty_hfv_tray', seed + 40 + i * 4 + t, night, alpha, true, faceYaw(E), fh * (ax ? 0.58 : 0.36));
+          if (night) glowPool(ctx, cam, tx, ty2, h * (z + 0.03), '224,130,236', 8, alpha * 0.30);
+        }
+      }
+      // 3) THE HEAD — the tank and the plant room, capping the core.
+      drawFacetDrum(ctx, cam, dx, dy, core, core + h * 0.10, fh * 0.34, fh * 0.30, 14, alpha, hfChrome([100, 116, 132], [240, 248, 252], 1.8), hfChrome([110, 126, 142], [206, 220, 230], 1.3), 'ty_hf_ice');
+      // 4) THE DOOR, at the foot of the core on the entrance side.
+      { const [dx1, dy1] = F(0, fh * 0.34); draw3DBoxAt(ctx, cam, dx1, dy1, fh * 0.13, 0, h * 0.09, 'ty_hf_deck', seed + 2, night, alpha, false, faceYaw(E), fh * 0.04); }
+      if (night) {
+        blinkLight(ctx, cam, dx, dy, core + h * 0.10, '255,90,120', now, seed + 7, alpha, 1.3);
+        glowPool(ctx, cam, dx, dy, h * 0.02, '200,120,214', 15, alpha * 0.22);
+      }
+      break;
+    }
+    case 'transit_halt': {   // THE HALT — a chrome canopy over a platform up on legs, and the one
+      // piece of infrastructure in the quarter that admits the estate is not finished. There is
+      // no line through it. The platform is built, the canopy is up, the indicator board is
+      // powered and reads the same thing every day, and the developer's own hoarding two streets
+      // away shows trains on it. ⚠ It is a BUILDING rather than a mark, which is deliberate: it
+      // has a room you can stand in out of the rain, and a mark has no interior to enter.
+      const deck = h * 0.36, deckTop = h * 0.44, canopy = h * 0.86;
+      // 1) SIX LEGS under the platform, and daylight between them.
+      for (const [u, v] of [[-0.78, -0.34], [0, -0.34], [0.78, -0.34], [-0.78, 0.34], [0, 0.34], [0.78, 0.34]]) {
+        const [lx, ly] = F(u * fh, v * fh);
+        drawFacetDrum(ctx, cam, lx, ly, 0, deck, fh * 0.09, fh * 0.08, 9, alpha, hfChrome([74, 88, 104], [222, 234, 242], 2.4), null, pal);
+      }
+      // 2) THE PLATFORM — a chrome slab, oversailing.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, deck, deckTop, pal, seed, night, alpha, true, faceYaw(E), fh * 0.48);
+      // 3) THE CANOPY, on four slim columns, standing clear of the platform on every side. The
+      //    columns are drums so the whole thing reads as one piece of kit rather than as a shed.
+      for (const [u, v] of [[-0.70, -0.30], [0.70, -0.30], [-0.70, 0.30], [0.70, 0.30]]) {
+        const [cx1, cy1] = F(u * fh, v * fh);
+        drawFacetDrum(ctx, cam, cx1, cy1, deckTop, canopy, fh * 0.055, fh * 0.045, 8, alpha, hfChrome([82, 98, 114], [232, 242, 248], 2.4), null, 'ty_hf_chrome');
+      }
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, canopy, canopy + h * 0.05, 'ty_hf_ice', seed + 1, night, alpha, true, faceYaw(E), fh * 0.46);
+      // 4) THE WAITING ROOM — a glazed box on the platform, which is the part you can enter.
+      { const [wx, wy] = F(-fh * 0.30, 0); draw3DBoxAt(ctx, cam, wx, wy, fh * 0.30, deckTop, canopy - h * 0.06, 'ty_hft_glass', seed + 2, night, alpha, false, faceYaw(E), fh * 0.26); }
+      // 5) THE STAIR up to the platform from the entrance side, and the indicator board on the
+      //    canopy fascia, which is the only lettering on the building.
+      { const [sx1, sy1] = F(fh * 0.52, fh * 0.62);
+        draw3DBoxAt(ctx, cam, sx1, sy1, fh * 0.18, 0, deckTop, 'ty_hf_chrome_dk', seed + 3, night, alpha, true, faceYaw(E), fh * 0.22); }
+      if (frontVis) {
+        const P = (lx1, ly1, z) => { const [wx, wy] = F(lx1, ly1); return cam.proj(wx, wy, z); };
+        const z0 = canopy + h * 0.008, z1 = canopy + h * 0.045, bhw = fh * 0.62, by = fh * 0.47;
+        const TL = P(-bhw, by, z1), TR = P(bhw, by, z1), BR = P(bhw, by, z0), BL = P(-bhw, by, z0);
+        if ([TL, TR, BR, BL].every((q) => q.f > 0.12)) {
+          const tex = bakeSignText(sign || 'HALCYON FIELDS', '#bfe8ff', 0, false, true, true, { sub: 'SERVICE COMMENCING' });
+          if (tex) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha);
+        }
+      }
+      if (night) {
+        glowPool(ctx, cam, dx, dy, canopy - h * 0.04, '176,226,255', 14, alpha * 0.28);
+        glowPool(ctx, cam, dx, dy, deck - h * 0.02, '120,196,255', 13, alpha * 0.18);
+      }
+      break;
+    }

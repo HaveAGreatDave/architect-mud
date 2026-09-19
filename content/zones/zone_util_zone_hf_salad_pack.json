@@ -1,0 +1,18 @@
+{
+  "description": "Inside the base of the column, where the water for ten floors of racks starts. Three pumps, a mixing tank and a lot of very well-labelled pipework. The cabinet is on the one flat wall, above the high-water mark somebody has drawn in marker and dated.",
+  "exits": {
+    "up": "zone_hf_salad_pack"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_898_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_salad_pack",
+  "map_id": "map_int_hf_salad",
+  "name": "Salad Days — The Core Pumps",
+  "parent_zone": "zone_district_898_911"
+}

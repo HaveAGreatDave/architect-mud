@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#122018",
+  "color": "#9fe6c0",
+  "description": "A glass dome on a chrome ring, two storeys at the crown and wider than it is tall, which in this quarter makes it look like something that landed rather than something that was built. Inside is planting, a gravel path round the inside of the ring and two benches. It is free, it is always open, and it is the only building in Halcyon Fields where nobody will sell you anything.",
   "exits": {
-    "east": "zone_district_895_915",
-    "north": "zone_district_894_914",
-    "south": "zone_district_894_916",
-    "west": "zone_district_893_915"
+    "north": "zone_hf_leaf_under",
+    "south": "zone_district_894_916"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Leaf It Out",
+    "building_type": "pavilion",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_894_916"
   },
   "grid_x": 894,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_894_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "LV",
+  "name": "Leaf It Out",
   "parent_zone": null
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_ash_furnace",
+  "b": "zone_util_zone_ash_furnace",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_ash_furnace_down",
+  "lockable": false,
+  "one_way": false
+}

@@ -64,6 +64,7 @@ import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, 
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/cab-view.js';
+import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky } from './panels/freelook-view.js';
 import { receiveCbMsg, applyCbContext, clearCbContext } from './panels/cb-radio.js';
 import { airHorn } from './panels/engine-audio.js';
 import { openTruckDepot, closeTruckDepot, isTruckDepotActive } from './panels/truck-depot.js';
@@ -339,7 +340,7 @@ function setSleepBar(sleeping, dreaming) {
 // would otherwise wipe the whole application mid-purchase.
 function paneFreeForRoom() {
   return !isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()
-    && !isCabActive() && !isTruckDepotActive()
+    && !isCabActive() && !isTruckDepotActive() && !isFreelookActive()
     && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
     && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()
     && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive()
@@ -1444,6 +1445,35 @@ const handlers = {
   // later `helm` re-opens cleanly; the server's helm_close hands the pane back with a `look`.
   helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, transitTotal: msg.transitTotal, transitTiles: msg.transitTiles, cruise: msg.cruise, onSail: (dir, bell) => sendCmdSilent('sail ' + dir + (bell != null ? ' ' + bell : '')), onSailTo: (gx, gy, bell) => sendCmdSilent('sailto ' + gx + ' ' + gy + (bell != null ? ' ' + bell : '')), onStop: () => sendCmdSilent('stop'), onExit: () => sendCmdSilent('helm close') }); },
   helm_close: () => { closeHelm(); sendCmdSilent('look'); },
+
+  // The staff camera with no vehicle under it (plugins/freelook). Same three-message shape the helm
+  // uses — open with a world window, stream the sky, close and hand the pane back with a `look` —
+  // because it IS the helm's chase view with the boat taken out.
+  // ⚠ `freelook_open` ALSO RE-CENTRES. `freelook 918 903` from an open view sends the identical
+  // message with a new window, and openFreelook swaps the ground under the camera rather than
+  // rebuilding the view — which is what keeps the shot you had while the world moves to meet it.
+  freelook_open: (msg) => {
+    // ⚠ A SEAT KEEPS THE PANE, AND THE REFUSAL IS THE USEFUL ANSWER. All three vehicle views write
+    // straight into #area-content and keep a rAF loop, a camera and a pile of listeners against it;
+    // mounting over one would leave a cab painting into a canvas that is no longer in the document
+    // and a truck being driven by nobody. Tearing one down instead is worse — it would strand a rig
+    // mid-haul over a camera.
+    //
+    // The server cannot ask this question (it would have to know about trucking, flight and the
+    // yacht to answer it) and the client already has all three predicates for `paneFreeForRoom`. So
+    // the refusal is here, and it points at the camera that IS reachable: every one of those seats
+    // has this same camera on O. `freelook close` drops the viewer row the server just added, so a
+    // refused open leaves nothing behind being pushed sky.
+    if (isFlightSimActive() || isCabActive() || isHelmActive()) {
+      appendHtml('You are in a seat, and a seat keeps the view. Press <b>O</b> for the free camera from here, or get out first.', 'msg-system');
+      sendCmdSilent('freelook close');
+      return;
+    }
+    closeTruckDepot();
+    openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, sky: msg.sky, onExit: () => sendCmdSilent('freelook close') });
+  },
+  freelook_close: () => { closeFreelook(); sendCmdSilent('look'); },
+  freelook_sky: (msg) => { if (isFreelookActive()) freelookSetSky(msg.sky); },
   helm_sky: (msg) => { if (isHelmActive()) helmSetSky(msg.sky); },   // live sim weather field, streamed like the flight sim's
   helm_contacts: (msg) => { if (isHelmActive()) helmSetContacts(msg.contacts); },   // planes over the Basin, drawn in the chase view
   // Passage complete → re-centre the chase view on the new tile's real world window, then unlock.

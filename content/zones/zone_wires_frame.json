@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A two-storey wall of terminations with the jumper wires running between the verticals in bunches thick as an arm, tied off every six inches for decades by people who took pride in it. The routing is beautiful and completely illegible. Somewhere in this wall is the answer to where the traffic is going, and finding it would be the work of years.",
+  "exits": {
+    "west": "zone_wires_apparatus"
+  },
+  "flags": {
+    "building_name": "Crossed Wires",
+    "building_type": "exchange",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_909_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_wires_frame",
+  "map_id": "map_int_wires",
+  "name": "Crossed Wires — The Main Frame",
+  "parent_zone": "zone_district_909_915"
+}

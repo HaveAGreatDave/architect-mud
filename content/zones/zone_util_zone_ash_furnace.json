@@ -1,0 +1,18 @@
+{
+  "description": "Under the grates, where what is left comes out: a concrete pit with a quench trough and a conveyor going up to the yard, and the clinker moving along it slowly, grey and glassy and still ticking as it cools. The cabinet is on the wall by the stair, as far from the trough as the room allows.",
+  "exits": {
+    "up": "zone_ash_furnace"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_920_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_ash_furnace",
+  "map_id": "map_int_ash",
+  "name": "Ash Management — The Ash Pit",
+  "parent_zone": "zone_district_920_902"
+}

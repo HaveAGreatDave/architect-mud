@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_going_lotcard",
+  "name": "a lot ticket",
+  "tags": {
+    "description": "A paper tag on a string with a number on one side and, on the other, a provenance written in a small careful hand. Most of them end with a date and the word CLEARANCE, which means the owner did not sell it and did not need it any more.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 3,
+  "weight": 2
+}

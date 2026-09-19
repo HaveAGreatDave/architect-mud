@@ -1,0 +1,17 @@
+{
+  "description": "A painted board with the tank level in feet and inches, the delivery pressure, and a slate hanging beside it carrying this morning's reading and the same date last year.",
+  "flags": {
+    "aliases": [
+      "gauges",
+      "board",
+      "slate"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_hwm_kemp",
+    "vendor_safe": true
+  },
+  "id": "furn_hwm_gauges",
+  "name": "the gauge board",
+  "object_type": "fixture",
+  "zone_id": "zone_hwm_pump"
+}

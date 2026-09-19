@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "description": "The lane dips through a hollow the grading never took out. In wet weather the low point holds a pool the full width of the road.",
   "exits": {
     "east": "zone_district_903_914",
     "north": "zone_district_902_913",
@@ -10,15 +9,17 @@
     "west": "zone_district_901_914"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 902,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_902_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Cinder Lane",
   "parent_zone": null
 }

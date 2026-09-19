@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
+  "ambient_theme": "residential",
+  "description": "The inside angle of the Curtain, where the south wall and the east wall meet and the hum of the two of them beats against each other slightly out of time. The light is good enough to read by. There is a bench.",
   "exits": {
     "north": "zone_district_927_917",
     "south": "zone_district_927_919",
@@ -10,16 +9,16 @@
   },
   "flags": {
     "curtain": true,
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 927,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_927_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Corner",
   "parent_zone": null
 }

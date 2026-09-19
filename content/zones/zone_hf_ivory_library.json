@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The crown floor, glazed the whole way round, with low shelving so that the view is never blocked and eight desks facing outward. It is completely silent and it is the highest habitable room on this side of Coldwater, and the Curtain is out of the west windows at eye level.",
+  "exits": {
+    "down": "zone_hf_ivory_lobby"
+  },
+  "flags": {
+    "building_name": "Ivory Tower",
+    "building_type": "chrome_tower",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_ivory_library",
+  "map_id": "map_int_hf_ivory",
+  "name": "Ivory Tower — The Top Library",
+  "parent_zone": "zone_district_897_915"
+}

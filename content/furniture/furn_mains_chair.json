@@ -1,0 +1,16 @@
+{
+  "description": "On the gallery by the north window, facing the beam rather than the view, with a mug on the rail beside it and a ring under the mug.",
+  "flags": {
+    "aliases": [
+      "chair",
+      "seat"
+    ],
+    "interactions": {
+      "sit": "You sit where somebody has sat a great many times. The beam comes over, and goes back, and comes over."
+    }
+  },
+  "id": "furn_mains_chair",
+  "name": "the bentwood chair",
+  "object_type": "furniture",
+  "zone_id": "zone_mains_gallery"
+}

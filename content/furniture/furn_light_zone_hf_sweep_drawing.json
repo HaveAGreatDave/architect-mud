@@ -1,0 +1,11 @@
+{
+  "description": "One articulated head per desk, aimed at the board rather than at the room, so from the Buried Road the whole first floor reads as a row of separate small lights and not as a lit office. It is the most flattering thing the estate has ever done to one of its own buildings by accident.",
+  "flags": {},
+  "id": "furn_light_zone_hf_sweep_drawing",
+  "light_type": "lamp",
+  "lumen_output": 900,
+  "name": "the desk task lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_sweep_drawing"
+}

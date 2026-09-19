@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Below the bunker, along the front of the grates: six inspection doors in a row, each with a hinged cover and a smoked glass the size of a hand. The floor plate is warm through your boots. It is not the heat you expect, which would be a blast; it is a steady, patient warmth coming up from underneath, and the noise is a low roar that has no edges on it at all.",
+  "exits": {
+    "down": "zone_util_zone_ash_furnace",
+    "up": "zone_ash_tip"
+  },
+  "flags": {
+    "building_name": "Ash Management",
+    "building_type": "incinerator",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_920_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ash_furnace",
+  "map_id": "map_int_ash",
+  "name": "Ash Management — The Furnace Floor",
+  "parent_zone": "zone_district_920_902"
+}

@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "One room at the foot of the frame, brick, with a stove and a kettle and a long bench of instruments under the window: a pressure gauge the size of a dinner plate, a chart recorder scratching away on a drum, and a position indicator whose needle stands wherever the holder does. Through the window the lattice goes up and out of the top of the frame, and you have to duck to see the crown of it.",
+  "exits": {
+    "down": "zone_util_zone_holder_gauge",
+    "north": "zone_district_905_917"
+  },
+  "flags": {
+    "building_name": "Holding Pattern",
+    "building_type": "gasholder",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A small square window facing the frame, so that a man at the bench can look up and check with his eyes what the needle has just told him. The glass is old and green and slightly wrong.",
+      "light": 0.4,
+      "name": "the gauge house window",
+      "visibility": 0.6
+    },
+    "world_exit_zone": "zone_district_905_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_holder_gauge",
+  "map_id": "map_int_holder",
+  "name": "Holding Pattern — The Gauge House",
+  "parent_zone": "zone_district_905_917"
+}

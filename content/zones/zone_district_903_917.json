@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#171a1c",
+  "color": "#9fb0b6",
+  "description": "A low grey slab with no windows in its lower two thirds, and standing on top of it a lattice deck carrying eight fans in a row, all of them turning, none of them in step. On a cold morning the plume off them stands straight up for a hundred feet before it gives up. A lagged main as thick as a thigh leaves the north-west corner at head height, crosses the road on brick piers and goes away down the row, and nobody has ever put a meter on it.",
   "exits": {
-    "east": "zone_district_904_917",
     "north": "zone_district_903_916",
-    "south": "zone_district_903_918",
-    "west": "zone_district_902_917"
+    "south": "zone_cold_floor"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Cold Comfort",
+    "building_type": "cooling_plant",
+    "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 3,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_903_916"
   },
   "grid_x": 903,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_903_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "CF",
+  "name": "Cold Comfort",
   "parent_zone": null
 }

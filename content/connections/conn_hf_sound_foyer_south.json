@@ -1,0 +1,9 @@
+{
+  "a": "zone_sound_foyer",
+  "b": "zone_sound_house",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_sound_foyer_south",
+  "lockable": false,
+  "one_way": false
+}

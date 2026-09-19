@@ -1,0 +1,8 @@
+{
+  "description": "A hatch onto the kitchen with a worn steel sill and a stack of tin bowls.",
+  "flags": {},
+  "id": "furn_bld_923_917_the_serving_hatch",
+  "name": "the serving hatch",
+  "object_type": "fixture",
+  "zone_id": "zone_bld_923_917_lobby"
+}

@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The beam swings past, and for half a second the whole basin is the colour of a cut wire.",
+    "Something under the foot of the tower shifts its weight. The water goes flat, then starts again.",
+    "The ribs hum. Not loudly — the way a wire hums, a long way off.",
+    "A gull banks hard away from the collar and does not come back."
+  ],
   "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot: the channel beyond is deep, and impassable without a boat.",
+  "color": "#2ae0ff",
+  "description": "The pier ends under something nobody in Coldwater built. It stands on a black hexagonal foot that the basin does not lap against so much as part around, and above that the shaft pulls IN to a waist thinner than a man before it flares back out to carry a collar far wider than anything it holds up. Three ribs follow it down like the bones of a finger. The light at the top is a faceted drum of dark glass, and every ten seconds it comes round to you.",
   "exits": {
     "east": "zone_district_910_900",
     "north": "zone_district_909_899",
@@ -10,15 +15,22 @@
     "west": "zone_district_908_900"
   },
   "flags": {
-    "district": "water",
+    "building_name": "The Beacon",
+    "building_type": "lighthouse",
+    "district": "docks",
+    "entrance": "south",
+    "fishing_table_id": "fish_coldwater_bay",
+    "floors": 12,
+    "no_spawn": true,
+    "pier": true,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "concrete"
   },
   "grid_x": 909,
   "grid_y": 900,
   "grid_z": 0,
   "id": "zone_district_909_900",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "The Beacon",
   "parent_zone": null
 }

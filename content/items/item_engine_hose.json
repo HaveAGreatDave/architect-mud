@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_engine_hose",
+  "name": "a length of hose",
+  "tags": {
+    "description": "Canvas over rubber, rolled and strapped, with instantaneous couplings at both ends and a test date stencilled on the strap. Condemned for the run and perfectly good for anything else, which is why she sells them.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 35,
+  "weight": 2200
+}

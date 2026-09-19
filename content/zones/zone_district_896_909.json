@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "Scrub grass and a bus shelter with no glass and no bus, the timetable frame empty except for the four screws. People wait in it anyway when it rains.",
+  "ambient_theme": "urban",
+  "bg_color": "#15222d",
+  "color": "#9fe0ff",
+  "description": "The crescent's twin, one storey shorter and curved the other way, so that where it meets its neighbour the two arcs make a shallow bowl of paving between them that the estate calls a square and nobody else calls anything. The whole ground floor is a physiotherapy practice, which is a joke the practice made first and put on the door.",
   "exits": {
-    "east": "zone_district_897_909",
-    "north": "zone_district_896_908",
-    "south": "zone_district_896_910",
-    "west": "zone_district_895_909"
+    "north": "zone_hf_bent_front",
+    "south": "zone_district_896_910"
   },
   "flags": {
-    "district": "filaments",
+    "building_name": "Bent Double",
+    "building_type": "chrome_slab",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 8,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_896_910"
   },
   "grid_x": 896,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_896_909",
   "map_id": "map_world",
-  "name": "Halcyon Verge",
+  "marker": "BN",
+  "name": "Bent Double",
   "parent_zone": null
 }

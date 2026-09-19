@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#12202c",
+  "color": "#9fd8ff",
+  "description": "Eighteen storeys of glass cylinder on a chrome saucer, with a bright collar at every fifth floor and a mast on the crown that carries a red light. It is the tallest thing on this side of the boulevard and it is very slightly narrower at the top than at the bottom, which you only notice by standing at the foot of it and looking straight up, which everybody does once.",
   "exits": {
-    "east": "zone_district_893_909",
-    "north": "zone_district_892_908",
-    "south": "zone_district_892_910",
-    "west": "zone_district_891_909"
+    "north": "zone_hf_topbrass_lobby",
+    "south": "zone_district_892_910"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Top Brass",
+    "building_type": "chrome_tower",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 18,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_892_910"
   },
   "grid_x": 892,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_892_909",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "TP",
+  "name": "Top Brass",
   "parent_zone": null
 }

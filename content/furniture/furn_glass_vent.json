@@ -1,0 +1,17 @@
+{
+  "description": "A continuous vent along the ridge worked by a rack and a long crank handle at the cool end, standing open a hand's width.",
+  "flags": {
+    "aliases": [
+      "vent",
+      "ridge",
+      "crank"
+    ],
+    "interactions": {
+      "examine": "The crank is polished where a hand goes and there is chalk on the wall beside it recording the setting, changed twice a day, every day."
+    }
+  },
+  "id": "furn_glass_vent",
+  "name": "the ridge vent",
+  "object_type": "fixture",
+  "zone_id": "zone_glass_house"
+}

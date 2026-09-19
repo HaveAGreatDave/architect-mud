@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#7d6236",
-  "description": "The dirt track between the allotments and the lane. Somebody has laid broken brick into the worst of the ruts, which has made them shallower and louder.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
     "east": "zone_district_899_904",
     "north": "zone_district_898_903",
     "west": "zone_district_897_904"
   },
   "flags": {
-    "district": "filaments",
+    "district": "wasteland",
     "region_id": "region_coldwater",
-    "terrain": "dirt_road"
+    "terrain": "grass"
   },
   "grid_x": 898,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_898_904",
   "map_id": "map_world",
-  "name": "Jetty Road",
+  "name": "Grasslands",
   "parent_zone": null
 }

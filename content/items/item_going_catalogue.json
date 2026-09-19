@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_going_catalogue",
+  "name": "a sale catalogue",
+  "tags": {
+    "description": "This week's lots, numbered, each with two or three lines under it. The descriptions are unsigned, exact, and quietly fond of the things they describe, which is not what you expect from a list of other people's belongings.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 5,
+  "weight": 16
+}

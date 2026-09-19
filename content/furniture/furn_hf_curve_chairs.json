@@ -1,0 +1,17 @@
+{
+  "description": "Eight identical chairs set in a dead straight line against a wall that is not straight, so the gap behind them goes from nothing to a hand's width and back.",
+  "flags": {
+    "aliases": [
+      "chairs",
+      "row",
+      "seats"
+    ],
+    "interactions": {
+      "sit": "You sit in one of the middle ones, which is the only place the line and the wall agree, and it is oddly the most comfortable thing about the building."
+    }
+  },
+  "id": "furn_hf_curve_chairs",
+  "name": "the row of chairs",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_curve_atrium"
+}

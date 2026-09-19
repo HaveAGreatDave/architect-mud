@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Marchetti writes a date on a docket and tears off the carbon.",
+    "She looks down the ballast bed to where it stops, and back.",
+    "She checks the tarpaulin lashings, which do not need checking.",
+    "She counts the pile of glazing channel with her eyes and does not write the number down.",
+    "She pours from the flask and holds the cup with both hands."
+  ],
+  "description": "A rangy woman in her fifties in a site coat, sitting on the bolted bench with a pad of dockets and a flask, watching the east end of the ballast bed. She was the foreman on this halt. The job was suspended, her gang was moved to the crescent, and she has come back here on her own time every week since to write a docket saying the glazing is still outstanding.",
+  "dialogue_tree": {
+    "ballast": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Thirty-one paces.\" She says the number without checking. \"Graded, dressed, falls right. That is a fortnight of work and it is the most expensive thirty-one paces in the quarter.\"\n\n\"And it stops in the middle of nothing.\" She looks at it. \"Which tells you that the hold came down after the bed went in and before the sleepers came. So somewhere there is a fortnight in which somebody changed their mind about a railway, and I can tell you which fortnight it was to the day, because I have the dockets.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"If you are going east from here,\" she says, \"go round the bed, not down it. I would rather the shoulder stayed a record than became a path.\""
+    },
+    "dockets": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because a suspended job with no dockets on it is a finished job that nobody finished.\" She says it like a rule, because it is one. \"The moment the paper stops, the works stop existing. Then in four years somebody finds a platform in a field and has to decide from scratch whether it was ever meant to be anything.\"\n\n\"So every week I write one. Glazing outstanding. Same wording. It costs me an afternoon and a pad.\" She taps the stack. \"When somebody finally asks what happened here, there is going to be an answer, and it is going to be in order and in date.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Somebody is using the east end at night.\" She keeps her voice level and it takes effort. \"The shoulders of the bed are dressed. You dress a shoulder once and then it stays dressed unless something runs on it.\"\n\n\"Twice this season I have come out and found the shoulder walked down on the north side, both times over about ten paces, both times in the same place.\" She turns the cup. \"That is not a fox and it is not kids. That is something with weight on it, moving along the bed, at the end where the bed stops. And I write it on the docket, and nobody has ever come and asked me about it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Why do you keep writing dockets?",
+          "next": "dockets"
+        },
+        {
+          "label": "A docket, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Why did it stop?",
+          "next": "stop"
+        },
+        {
+          "label": "The ballast goes thirty paces and stops.",
+          "next": "ballast"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit down, it is out of the wind on that side.\" She does not stop writing. \"Do not mind the docket. I am only keeping a record.\"",
+      "text_by_relation": {
+        "familiar": "She moves the pad along the bench to make room and turns the flask cup upright with her thumb.\n\n\"Sit,\" she says. \"Something came off the east end last night and I want to tell somebody who will remember I said it.\"",
+        "first": "There is a roof and no walls and a woman in a site coat on a bench in the middle of it, writing on a pad, with a tarpaulin lashed across the windward opening behind her.\n\n\"Behind the sheet, if you are stopping.\" She does not look up until she has finished the line. \"Marchetti. I was foreman on this.\"\n\nShe tears off a carbon and adds it to a stack that is thicker than you would like.\n\n\"It is not abandoned, before you ask. It is suspended. There is a difference on paper and I have eighty-one of these that say so.\"",
+        "known": "\"Behind the sheet.\" She is already writing. \"Eighty-two this week.\""
+      }
+    },
+    "stop": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"HOLD.\" She holds up a carbon so you can read the one word in the box. \"No signature, no reason, no date for lifting it. It came down on a Tuesday and by the Thursday my gang was on the crescent.\"\n\n\"I asked. I asked properly, up the chain, in writing, twice.\" She puts the carbon back. \"I got told the halt is in the phase and the line is in a later phase, which is the same sentence they give everybody and is not an answer to a hold notice. A hold is not a phase. A hold is somebody stopping a thing that had started.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a heavy site coat with a foreman's tab on the shoulder",
+      "a fleece under it, older than the coat",
+      "work trousers with a rule pocket",
+      "steel-capped boots, resoled"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_line_shell",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_hf_line_marchetti",
+  "name": "Nella Marchetti",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_line_offcut",
+      "price": 20
+    },
+    {
+      "item_id": "item_hf_line_docket",
+      "price": 38
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Line of Enquiry",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_line_shell"
+}

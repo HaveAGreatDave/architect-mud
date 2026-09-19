@@ -1,0 +1,17 @@
+{
+  "description": "A small iron stove with a kettle permanently on it and two chairs facing it, though only one of them is ever sat in.",
+  "flags": {
+    "aliases": [
+      "stove",
+      "kettle",
+      "fire"
+    ],
+    "interactions": {
+      "sit": "You take the chair that is not his. It is colder than the other one and he does not remark on it."
+    }
+  },
+  "id": "furn_holder_stove",
+  "name": "the stove",
+  "object_type": "furniture",
+  "zone_id": "zone_holder_gauge"
+}

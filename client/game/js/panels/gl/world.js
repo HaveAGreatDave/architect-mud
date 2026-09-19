@@ -24,7 +24,8 @@
 // should be 1.
 import { createGLView, MAX_LIGHTS } from './context.js';
 import { buildAtlas, faceUVs } from './atlas.js';
-import { lightMatrix, eyePos } from './camera.js';
+import { lightMatrix, eyePos, nearFor } from './camera.js';
+import { FOG_H_SCALE } from './fog.js';
 import { SHADOW_BIAS_TILES } from './shadow.js';
 
 const scenes = new Map();
@@ -424,6 +425,11 @@ function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
   const out = [];
   for (const s of sprites) {
     if (!(s.a > 0.02)) continue;
+    // ⚠ LIGHT IN FLIGHT IS NOT A LIGHT SOURCE — see the ⚠ over `pushLight`. A node down a beam is
+    // drawn as a sprite like any other and has no business in this list: there is no lamp at that
+    // point for a wall to catch or a puddle to reflect, it would take slots off the lamps that are
+    // really there, and it moves far enough every frame to be a new `key` every frame.
+    if (s.air) continue;
     const bx = s.x + tx, by = s.y + ty;
     const f = bx * sinh - by * cosh;
     if (!(f > 0.2)) continue;             // behind the eye, or on it
@@ -1220,6 +1226,14 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // Handed over by the caller when it knows (the sim always does); derived only for a caller that
   // does not, where the rounding of a device-pixel canvas costs a fraction of a pixel.
   const cssH = opts.cssH || (dpr > 0 ? H / dpr : H);
+  // ── ⚠ THE NEAR PLANE, RESOLVED ONCE AND STAMPED ON THE CAMERA ──────────────
+  // Every pass below is handed `cam`, so putting the frame's plane there reaches all of them —
+  // the mass, the ground, the floor, the sprites, the strokes, the decals, the curtain, the
+  // billboards, the solids, the cloud deck and the SSAO prepass — without eleven call sites each
+  // taking an argument one of them can forget. They share ONE depth buffer, and two of them
+  // built from two different near planes do not disagree visibly; they disagree by a hair, which
+  // reads as z-fighting somebody then goes looking for in the eps ladder. See `nearFor`.
+  if (cam) cam.near = nearFor(cam, cssH, opts.nearFit == null ? 1 : opts.nearFit);
   if (!W || !H) return null;
   const g = sceneGL(id, W, H, opts.msaa == null ? 1 : opts.msaa);
   // No WebGL2 on this machine, or the driver took the context away. Either way the pass draws
@@ -1325,7 +1339,31 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // twelve per-fragment distance tests on every wall pixel is not free either. `rgb` is already
   // zero up there when the gain is, so this is belt and braces, and it keeps the daylight frame
   // exactly the shape it was.
-  const wallLights = (LIGHT_TUNE.gain * Math.min(1, Math.max(0, opts.night || 0)) > 0.01) ? lightList : null;
+  // ⚠ TWO REASONS TO HAND THE MASS SHADER THE LIGHTS, AND THE WASH IS ONLY ONE OF THEM. `gain` is 0
+  // today — the diffuse wall wash was reverted for flattening facades — and with it the list was
+  // withheld entirely, which is right for the wash and silently took the WET SPECULAR with it: that
+  // term lives inside the same per-fragment loop, so it was correct, gated, measured and evaluated
+  // exactly never. A night street read 0.09% moved either way, which is what a feature switched off
+  // one level above itself looks like.
+  //
+  // ⚠ AND THE DRY CITY STILL PAYS NOTHING, which is the whole reason the original gate exists. The
+  // second clause needs standing water, so on every frame it is not raining this is the expression
+  // that always shipped and the loop is skipped on a uniform.
+  const washOn = LIGHT_TUNE.gain * Math.min(1, Math.max(0, opts.night || 0)) > 0.01;
+  const wetOn = (opts.glWet > 0 && opts.glWetWall > 0);
+  // ⚠ A THIRD REASON TO HAND THE MASS THE LIGHTS. In-scattering reads the same list and is live
+  // in weather the other two are not, so without this a lamp throws a cone over the road and none
+  // over the wall behind it — a shaft that stops at the kerb.
+  // ⚠ SCALED BY THE NIGHT, AND THAT IS PHYSICS RATHER THAN A SAFETY VALVE. A street lamp in
+  // daytime fog throws no beam you can see: the sun is scattering orders more light through the
+  // same air, and the cone is lost in it. Measured on a foggy noon street at gain 1, the term blew
+  // 5,436 pixels to white and moved a quarter of the frame — the same shape of wrongness as the
+  // wall wash laying a pink cast on a sunlit facade, and the same fix, recorded in the same words.
+  // 'night' is 1 at midnight, 0.5 at dusk and 0 by day, so this is exactly zero at noon by
+  // arithmetic rather than by a guard.
+  const scatterNow = (opts.glScatter || 0) * Math.min(1, Math.max(0, opts.night || 0));
+  const scatterOn = scatterNow > 0;
+  const wallLights = (washOn || wetOn || scatterOn) ? lightList : null;
   const drawOpts = { ...(opts.draw || {}), lights: wallLights, lightWrap: LIGHT_TUNE.wrap,
     lightFocus: LIGHT_TUNE.focus, cssH,
     ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),
@@ -1338,6 +1376,16 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // which does not read as a bug: it reads as the sun being somewhere else.
     eye: eyePos(camAt),
     matStr: opts.glMat == null ? 1 : opts.glMat,
+    // And the snow on top of it. The mass pass puts it on every up-facing surface in the city —
+    // roofs, copings, parapets, sills, canopies — off the geometric normal; see the note in
+    // context.js for why it is the geometric one and not the shaded one.
+    snow: opts.glSnow > 0 ? opts.glSnow : 0,
+    // And the rain on it. The same `WET_NOW` both ground layers already read, times this feature's
+    // own strength — so `glWetWall` 0 hands the shader a literal 0 and the city is the one that
+    // shipped, and the wet ROAD is untouched either way because it reads `opts.glWet` directly.
+    wet: (opts.glWet > 0 && opts.glWetWall > 0) ? opts.glWet * opts.glWetWall : 0,
+    // The air near the ground. One density, three shaders — see gl/fog.js.
+    fogH: opts.glFogH || 0, fogHScale: FOG_H_SCALE, scatter: scatterNow,
     bumpStr: opts.glBump == null ? 1 : opts.glBump,
     // The shading bevel. Defaults OFF here rather than to 1, because this function is reached by the
     // Modelshop bench and the preview as well as by the game, and a bench that silently got a
@@ -1443,8 +1491,27 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // reason this was hard to see in the first place.
   const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand }) : 0;
   const fl = opts.floor;
-  if (fl) { fl.wet = 0; fl.wetLights = null; }
-  const floor = g.view.drawFloor(opts.floor);
+  // ⚠ THE WET TERMS STAY OFF AND THE SNOW GOES ON, WHICH IS NOT AN INCONSISTENCY. The floor own
+  // reflection uniforms are switched off here because GROUND_FULL covers every surface they are
+  // gated to (pavedW) — a reflection on a road the road pass then repaints over. Snow is the
+  // opposite case: it is gated to the ground GROUND_FULL does NOT draw, which is the open terrain
+  // outside the city, so the floor is the only pass that can put it there.
+  if (fl) { fl.wet = 0; fl.wetLights = null; fl.snow = opts.glSnow > 0 ? opts.glSnow : 0; }
+  // Where wheels have been. ⚠ ONE BUFFER, BOTH GROUND SHADERS — the floor draws the open terrain
+  // and the ground pass draws the streets, but a track runs across the two without noticing the
+  // join, so they are handed the identical points in the identical frame. Built once per frame in
+  // windshield.js; neither layer owns it. ⚠ And the MASS pass is deliberately given none: nothing
+  // drives on a roof.
+  if (fl) fl.tracks = opts.tracks || null;
+  // ⚠ HANDED THE FRAME'S OWN PLANE. The floor is the one layer that does not take `cam` — it is
+  // driven entirely by FLOOR_STATE — so it is the one place a fitted near plane can go missing,
+  // and it is also the layer whose depth every road quad, shadow and scatter billboard is tested
+  // against. A third derivation from FLOOR_STATE's own copies of EH/horizonY/depth would land on
+  // the same number today and is exactly the shape of bug gl:floorcam exists for.
+  // ⚠ THE SCALE HEIGHT IS FOLDED IN HERE rather than in windshield.js, which may not import gl/ —
+  // see FLOOR_STATE. Spread onto a copy, never written onto the caller's object: FLOOR_STATE is
+  // read by __glass2() after the frame and by the 2-D floor beside it.
+  const floor = g.view.drawFloor(opts.floor ? { ...opts.floor, fogHScale: FOG_H_SCALE } : opts.floor, cam.near);
   // ⚠ AFTER THE FLOOR AND IN THE WINDOW FRAME. The road quads are recorded at their map-window
   // tile exactly as the mesh is, so they take the SHIFTED camera; handing them the plain one
   // would slide the kerbs a fraction of a tile off the buildings standing on them. They also
@@ -1470,10 +1537,18 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // two terms: the first needs only water, the second needs something to reflect. The shader
     // skips the reflection loop on its own when `uNWet` is 0.
     wet: opts.glWet > 0 ? opts.glWet : 0,
+    fogH: opts.glFogH || 0, fogHScale: FOG_H_SCALE, scatter: scatterNow,
     // How much water is STANDING, which is what decides the puddle level — as opposed to how wet
     // the surface is, which decides the darkening and the mirror. See POND_RISE_S in windshield.js.
     pond: opts.glPond == null ? (opts.glWet > 0 ? opts.glWet : 0) : opts.glPond,
+    // How deep the snow lies on the street. ⚠ The same shape as `wet` above and NOT gated on
+    // anything else: the wetness learned that lesson the expensive way (`lightList &&
+    // lightList.length` made the road dry every afternoon however hard it was raining), and snow
+    // needs a light even less than water does — it is an albedo, and it is at its most obvious in
+    // flat daylight.
+    snow: opts.glSnow > 0 ? opts.glSnow : 0,
     pudRoad: opts.glPudRoad,
+    tracks: opts.tracks || null,
     // ⚠ THE ROAD PICKS ITS OWN SIX, AND HANDING IT `lightList` RAW MEANT WASHES NEVER REACHED IT.
     // `pickLights` satisfies `WASH_SLOTS` by replacing the WEAKEST sources, so a wash sits at
     // position 10 or 11 of the twelve — and `MAX_WET` in ground.js takes the FIRST SIX. A facade
@@ -1548,7 +1623,21 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const strokes = g.view.drawStrokes ? g.view.drawStrokes(cam, opts.strokes, cssH) : 0;
   // The scatter carries the renderer own fog curve, because the 2-D drawers tint by fogTint at
   // the anchor depth and a billboard that did not would be a different bush at every distance.
-  const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand);
+  // ── AND THE SNOW ON IT ──────────────────────────────────────────────────────────────────────
+  //
+  // ⚠ THE FOURTH CONSUMER, AND UNTIL THIS IT WAS THE HOLE IN THE FEATURE. The floor covers the
+  // open terrain, the ground pass covers the streets and the mass pass covers every up-facing
+  // surface in the city — so a blizzard turned the whole world white and left the trees, boulders,
+  // hoodoos and cacti STANDING ON IT in their summer colours. Nothing was broken; there was simply
+  // no fourth hand-off, and a scatter that never hears about the weather looks exactly like one
+  // whose shader is not working.
+  //
+  // ⚠ IT IS ITS OWN DEPTH, NOT `glSnow`. `snowBB` is the ground depth with the billboard flag
+  // already folded in (see `snowBillboards` in windshield.js), so `RENDER_TUNE.glSnowBB = 0`
+  // arrives here as an exact zero and the layer skips the branch on a uniform — one A/B for the
+  // scatter alone, without turning the snow off underneath it.
+  const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand,
+    { depth: opts.snowBB > 0 ? opts.snowBB : 0, col: opts.snowCol });
   // ── AND THE FLOAT BUFFER COMES BACK DOWN TO EIGHT BITS ──────────────────────────────────────
   //
   // ⚠ LAST, AFTER EVERY LAYER, AND THAT IS THE WHOLE ORDERING RULE. `draw()` bound the target and
@@ -1586,6 +1675,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // product of three things that can each be zero for a different reason — the tune, the wetness,
   // and whether the framebuffer was accepted — and a reflection that silently never ran looks
   // exactly like one that ran and was too faint to see.
-  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, solids, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, solids, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 

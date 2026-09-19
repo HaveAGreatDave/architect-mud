@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_bent_rub",
+  "name": "a tub of joint rub",
+  "tags": {
+    "description": "Mixed in the undercroft to the practice's own recipe, which is menthol, wintergreen and something the therapist will not name. It works, and it makes the whole waiting room smell like a changing shed.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 34,
+  "weight": 90
+}

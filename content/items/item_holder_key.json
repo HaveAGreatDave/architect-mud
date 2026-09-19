@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_holder_key",
+  "name": "a valve key",
+  "tags": {
+    "description": "A long iron tee for turning a buried valve, works-green under the rust. This one is a spare off the rack in the pit and fits about half the stop taps in the quarter.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 30,
+  "weight": 700
+}

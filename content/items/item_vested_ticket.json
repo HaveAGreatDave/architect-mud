@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vested_ticket",
+  "name": "a day ticket",
+  "tags": {
+    "description": "A stiff card with the date written on it in ink and no name, no crest and no address. It admits the bearer for one day and says so in a typeface that assumes you already knew.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 40,
+  "weight": 2
+}

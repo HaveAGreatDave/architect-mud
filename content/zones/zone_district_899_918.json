@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "The last made stretch. Gravel thins toward the end of it, and the wind off the open ground comes straight up the lane with nothing to break it.",
   "exits": {
     "east": "zone_district_900_918",
     "north": "zone_district_899_917",
@@ -10,15 +9,17 @@
     "west": "zone_district_898_918"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 899,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_899_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Kettle Lane",
   "parent_zone": null
 }

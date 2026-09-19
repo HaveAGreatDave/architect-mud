@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Arbuckle pours something from the flask and does not drink it straight away.",
+    "She leans forward and takes a dead frond off the nearest bed with her fingers.",
+    "She watches the fog clear off the top of the dome in a widening ring.",
+    "She looks at the three trees for a while and shakes her head, smiling.",
+    "She tucks the secateurs further down in her pocket when somebody comes in."
+  ],
+  "description": "An old woman in a waxed coat on the left-hand bench with a flask beside her and secateurs in her pocket, there most of the day. She is not employed here. She lived on this land when it was a meadow, in a place that is now under the substation, and she comes to the only part of it that still has anything growing on it.",
+  "dialogue_tree": {
+    "before": {
+      "options": [
+        {
+          "label": "Do you resent it?",
+          "next": "resent"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"All of it was a meadow and most of it was nothing.\" She says it without any weight on it. \"There was a road under the middle of it that stopped mattering before I was born, and seedheads over the kerb, and in August you could not see the Curtain for the grass.\"\n\n\"My house was where the substation is. Not near it. Where it is.\" She turns the flask round. \"They paid properly and they paid early and I have no complaint I could put into words, and I come here anyway.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Pull the door to behind you,\" she says. \"It does not latch and the heat goes straight out of the gap, and the heat is not mine to waste.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The glass sweats in a ring.\" She points up with one finger. \"Cold morning, the whole crown fogs, and it clears from the middle outward in a circle. Every time.\"\n\n\"That is warm air coming up through the middle of this building, and there is nothing in the middle of this building but a bed of ferns.\" She screws the flask shut. \"There is something under the floor here that is warmer than the floor. I have mentioned it to two people in overalls and they both said the irrigation, and the irrigation runs cold.\""
+    },
+    "planting": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The irrigation looks after the planting.\" She sounds unimpressed. \"It is very good. It runs at four in the morning and it has never missed.\"\n\n\"Nobody takes the dead stuff off, though, because the irrigation cannot and the condition does not run to a person.\" She produces the secateurs an inch out of her pocket and puts them back. \"So I do. I have never asked and nobody has ever said anything, and I would rather it stayed that way.\""
+    },
+    "resent": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She thinks for a good while, which is the answer.\n\n\"No,\" she says at last. \"It is a better quarter than a meadow, for people. I have watched the tea urn on the fifth floor of that tower feed thirty people at six in the morning and a meadow never did that.\"\n\n\"What I mind is that they built a dome and called it open space, and they were right to, and it is the only place left where anything is growing out of the ground it grew out of before.\" She pats the bench. \"So this is where I sit. It is not a protest. It is just where I sit.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "You knew this land before?",
+          "next": "before"
+        },
+        {
+          "label": "Who looks after the planting?",
+          "next": "planting"
+        },
+        {
+          "label": "Those trees are going to outgrow this.",
+          "next": "trees"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit down if you like.\" She moves the flask an inch. \"There are two benches and nobody has ever needed the second one.\"",
+      "text_by_relation": {
+        "familiar": "She has already moved the flask and turned slightly on the bench by the time you are through the door.\n\n\"Come and look at the middle one,\" she says. \"It has put on a hand's breadth since you were last here and I have nobody else to tell.\"",
+        "first": "The old woman on the left-hand bench does not look up until you are properly inside, and then looks at you the way you look at weather.\n\n\"You are the fourth today,\" she says. \"That is a good day.\"\n\nShe moves the flask along the bench to make room she did not need to make.\n\n\"Merrit Arbuckle. I am not staff. There is no staff. It is a condition of the planning permission and the condition does not run to a person.\" A pause. \"Sit. It is warmer in here than out there and that is also in the condition.\"",
+        "known": "\"You again.\" She moves the flask without being asked. \"The ferns have gone over on the north side. I have done what I can.\""
+      }
+    },
+    "trees": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They will be through that glass in eleven years.\" She says it with enormous satisfaction. \"I looked them up. Somebody specified a forest tree for a dome twenty feet high.\"\n\n\"Now. Either that is the most expensive mistake in the quarter, or somebody in an office decided that in eleven years the dome comes off and this is a garden.\" She picks up the flask. \"I know which one I have decided it is, and I am eighty-one, and I intend to be extremely annoying about it for as long as I can.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a waxed coat gone soft with age",
+      "two jumpers, the under one older",
+      "thick trousers and wool socks",
+      "boots with the laces knotted where they broke"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_leaf_under",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_hf_leaf_arbuckle",
+  "name": "Merrit Arbuckle",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_leaf_under"
+}

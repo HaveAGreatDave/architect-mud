@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A high brick hall with the road ramp coming in at first-floor level and the bunker opening in the floor below it, so that a lorry backs up to a rail and tips into a hole. The hole is deep and you do not want to look into it and you do. Above, on a rail under the roof, the grab travels the length of the bunker on its own business and drops its load through the charging door with a sound the building takes a while to finish having.",
+  "exits": {
+    "down": "zone_ash_furnace",
+    "west": "zone_district_920_902"
+  },
+  "flags": {
+    "building_name": "Ash Management",
+    "building_type": "incinerator",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_920_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ash_tip",
+  "map_id": "map_int_ash",
+  "name": "Ash Management — The Tipping Hall",
+  "parent_zone": "zone_district_920_902"
+}

@@ -1,22 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#16150f",
+  "color": "#a89878",
+  "description": "A brick tipping hall with a road ramp up one side and a weighbridge plate set into the apron at the bottom of it, and standing off the back of the hall a chimney that is the tallest thing in this half of the city by a long way. The smoke off it is thin and almost white and goes straight up on a still day. On the gate, in works lettering on a green plate: ASH MANAGEMENT · TRADE AND MUNICIPAL · WEIGHBRIDGE IN USE.",
   "exits": {
-    "north": "zone_district_920_901",
+    "east": "zone_ash_tip",
     "west": "zone_district_919_902"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Ash Management",
+    "building_type": "incinerator",
+    "district": "industrial",
+    "entrance": "west",
+    "facade": true,
+    "floors": 5,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_919_902"
   },
   "grid_x": 920,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_920_902",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "AM",
+  "name": "Ash Management",
   "parent_zone": null
 }

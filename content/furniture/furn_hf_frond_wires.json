@@ -1,0 +1,17 @@
+{
+  "description": "Fine wires run up the inside of the north glazing in a fan, with fern fronds tied in along them at intervals with garden twine.",
+  "flags": {
+    "aliases": [
+      "wires",
+      "twine",
+      "training"
+    ],
+    "interactions": {
+      "examine": "The ties are neat, recent and all in the same hand. Whoever is doing this is doing it carefully and is not being paid for it."
+    }
+  },
+  "id": "furn_hf_frond_wires",
+  "name": "the training wires",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_frond_under"
+}

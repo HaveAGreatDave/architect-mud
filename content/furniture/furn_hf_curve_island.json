@@ -1,0 +1,17 @@
+{
+  "description": "A curved counter standing free in the middle of the arc, with a screen, a visitor book and a bowl of chrome settlement pens.",
+  "flags": {
+    "aliases": [
+      "island",
+      "reception",
+      "counter"
+    ],
+    "hack_difficulty": 5,
+    "vendor_npc_id": "npc_hf_curve_stellan",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_curve_island",
+  "name": "the reception island",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_curve_atrium"
+}

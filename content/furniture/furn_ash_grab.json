@@ -1,0 +1,17 @@
+{
+  "description": "A clamshell on a rail under the roof, travelling the length of the bunker, dropping and closing and lifting on a cycle that has nothing to do with whether anybody is watching.",
+  "flags": {
+    "aliases": [
+      "grab",
+      "crane",
+      "clamshell"
+    ],
+    "interactions": {
+      "examine": "It picks from a different part of the bunker each time rather than working a face, which he will tell you is so the load burns evenly, and which is also why nothing stays near the top for long."
+    }
+  },
+  "id": "furn_ash_grab",
+  "name": "the grab",
+  "object_type": "fixture",
+  "zone_id": "zone_ash_tip"
+}

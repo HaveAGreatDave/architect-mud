@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A raked half-circle of bench seating for a hundred and forty, facing a demonstration bench and a blackboard on a roller that still runs true. The benches are oak with a brass rail along the back of each for the row behind to rest on. The front two rows are worn. Nothing behind them is. A jug of water and one glass stand on the bench, and both are refilled before every lecture whether or not the last one was touched.",
+  "exits": {
+    "down": "zone_util_zone_course_theatre",
+    "north": "zone_district_896_911",
+    "south": "zone_course_reading"
+  },
+  "flags": {
+    "building_name": "Course Correction",
+    "building_type": "institute",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_course_theatre",
+  "map_id": "map_int_course",
+  "name": "Course Correction — The Lecture Theatre",
+  "parent_zone": "zone_district_896_911"
+}

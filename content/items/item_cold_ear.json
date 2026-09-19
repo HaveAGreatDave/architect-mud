@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_cold_ear",
+  "name": "a pair of ear defenders",
+  "tags": {
+    "description": "Heavy plastic cups on a sprung band, the padding gone hard. She keeps a rack of them by the door and makes visitors wear them, and is not remotely flexible about it.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 20,
+  "weight": 260
+}

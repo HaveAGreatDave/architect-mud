@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_rising_floor",
+  "b": "zone_util_zone_hf_rising_floor",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_rising_floor_down",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_wind_day",
+  "b": "zone_wind_balcony",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_wind_day_south",
+  "lockable": false,
+  "one_way": false
+}

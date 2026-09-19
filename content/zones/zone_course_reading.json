@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Twelve desks with green shaded lamps, a wall of bound transcripts going back further than the institute has any business going back, and a card index in a cabinet of forty small drawers. Every lecture ever given here is in that index, cross-referenced by subject and by speaker, in one hand throughout.",
+  "exits": {
+    "north": "zone_course_theatre"
+  },
+  "flags": {
+    "building_name": "Course Correction",
+    "building_type": "institute",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_course_reading",
+  "map_id": "map_int_course",
+  "name": "Course Correction — The Reading Room",
+  "parent_zone": "zone_district_896_911"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "Under the bay: the spare lengths coiled on racks, the standpipes, a bench for testing, and the cabinet. Everything is labelled and everything is where the label says, which after a while stops looking like tidiness and starts looking like a practised fear.",
+  "exits": {
+    "up": "zone_engine_bay"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_910_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_engine_bay",
+  "map_id": "map_int_engine",
+  "name": "Engine Trouble — The Pump Store",
+  "parent_zone": "zone_district_910_917"
+}

@@ -1,0 +1,11 @@
+{
+  "description": "Movable heads on the same track the harness runs on, so the light follows the patient down the bars instead of casting their own shadow in front of them. A small thing, and the therapist will tell you it took three letters to get.",
+  "flags": {},
+  "id": "furn_light_zone_hf_bent_gym",
+  "light_type": "fixture",
+  "lumen_output": 1000,
+  "name": "the ceiling track lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_bent_gym"
+}

@@ -1,0 +1,8 @@
+{
+  "description": "Numbered berths painted on a board, a brass peg on a hook under each. Every peg is hanging up.",
+  "flags": {},
+  "id": "furn_bld_908_907_the_berth_board",
+  "name": "the berth board",
+  "object_type": "fixture",
+  "zone_id": "zone_bld_908_907_lobby"
+}

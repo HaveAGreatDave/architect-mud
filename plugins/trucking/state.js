@@ -24,6 +24,7 @@ import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState, farRoads
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
   nodeAt, sOfNode, roomLenOf, addWreck, wreckAhead, signsBetween, ARROW_WORDS, pavedAt,
   attachSigns, joinRoutes, reverseRoute, pairKey, composeRoad, milesOf } from './corridor.js';
+import { attachPlazas, passPlaza } from './plaza.js';
 import { hitcherAt, hitcherAhead, hitcherSOf } from './hitchers.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
@@ -530,6 +531,9 @@ export function buildRoad(fromKey, destKey, toRegion, window, nodes, dests = nul
   road.destKey = destKey;
   road.origin = dests ? (VOIDS[fromKey]?.sign || VOIDS[fromKey]?.origin || null) : null;
   attachSigns(road, dests);
+  // The inspection plazas, worked out from the same finished geometry the boards are and gated the
+  // same way — a sibling limb is built with no destinations, so it gets neither. See plaza.js.
+  attachPlazas(road, dests);
   road.branches = [];
   if (withSiblings) {
     for (const d of dests || []) {
@@ -1086,6 +1090,8 @@ export function markWreck(rig, player) {
 // or one they have not reached. `signSeen` is a per-rig Set, which is RAM like everything else
 // about a drive — driving back past a board you already read does not read it out again, and a
 // relog puts you at a node boundary anyway.
+export { passPlaza };
+
 export function passSign(player, rig) {
   if (!rig || rig.leg !== 'corridor' || !rig.route) return false;
   const from = Number.isFinite(rig._signAt) ? rig._signAt : rig.s;

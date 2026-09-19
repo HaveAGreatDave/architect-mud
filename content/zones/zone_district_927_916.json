@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
+  "ambient_theme": "residential",
+  "description": "The street stops. The Curtain comes down through it floor to sky, and the other half of Ropewalk stands on the far side, forty feet off: roofs, a chimney, a gable with the render off it. Nothing over there has moved in eleven years. Nothing over there has fallen down either.",
   "exits": {
     "north": "zone_district_927_915",
     "south": "zone_district_927_917",
@@ -10,16 +9,16 @@
   },
   "flags": {
     "curtain": true,
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 927,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_927_916",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Ropewalk, The Cut",
   "parent_zone": null
 }

@@ -1,22 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "A verge of thin grass between the terrace and the boulevard, kept short by feet rather than by anybody's intent. The kerb is high here and the drop catches at least one ankle a week.",
+  "ambient_theme": "urban",
+  "bg_color": "#13212e",
+  "color": "#9fd8ff",
+  "description": "The same tower as its neighbour and three storeys shorter, which from the boulevard makes the pair of them look like one idea somebody had twice. The ground floor is let to a broker rather than to a porter, so the saucer has a counter in it and a board of figures that updates while you stand there, and the residents go round the outside to a side door.",
   "exits": {
-    "east": "zone_district_896_909",
-    "south": "zone_district_895_910",
-    "west": "zone_district_894_909"
+    "north": "zone_hf_rising_floor",
+    "south": "zone_district_895_910"
   },
   "flags": {
-    "district": "filaments",
+    "building_name": "Rising Sums",
+    "building_type": "chrome_tower",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 15,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_895_910"
   },
   "grid_x": 895,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_895_909",
   "map_id": "map_world",
-  "name": "Halcyon Verge",
+  "marker": "RG",
+  "name": "Rising Sums",
   "parent_zone": null
 }

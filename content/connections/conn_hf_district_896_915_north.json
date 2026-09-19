@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_896_915",
+  "b": "zone_glass_house",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_896_915_north",
+  "lockable": true,
+  "one_way": false
+}

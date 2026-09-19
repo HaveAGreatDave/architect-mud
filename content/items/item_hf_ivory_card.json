@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_ivory_card",
+  "name": "a reader's card",
+  "tags": {
+    "description": "Admits the bearer to the top library, which is free to fellows and twenty-five to everybody else, and the twenty-five goes in the tin and the tin buys the lamps.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 25,
+  "weight": 2
+}

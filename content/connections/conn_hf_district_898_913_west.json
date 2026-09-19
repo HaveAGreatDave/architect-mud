@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_898_913",
+  "b": "zone_wind_day",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_district_898_913_west",
+  "lockable": true,
+  "one_way": false
+}

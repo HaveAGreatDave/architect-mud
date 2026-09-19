@@ -1,0 +1,8 @@
+{
+  "description": "Jerrycans in rows, each chalked with a fill date. The dates are in order.",
+  "flags": {},
+  "id": "furn_bld_919_917_a_rank_of_jerrycans",
+  "name": "a rank of jerrycans",
+  "object_type": "container",
+  "zone_id": "zone_bld_919_917_tank"
+}

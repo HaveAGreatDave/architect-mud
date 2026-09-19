@@ -122,6 +122,69 @@ export default async function regress({ run, check, getPlayer }) {
     check('the DB reflects only the first write, not a second', row.custom_data?.freshness?.checkpointAt === firstCheckpointAt, row.custom_data);
 
     await query('DELETE FROM player_inventory WHERE id=$1', [invId]);
+
+    // ── The clock starts at the MINT, not at the first look ────────────────
+    //
+    // The whole point of the created_at column. Before it, the seed stamped
+    // checkpointAt = now on first evaluation, so a perishable nobody had ever
+    // examined was immortal: a steak could sit on an apartment floor for a
+    // month and still read "fresh" the moment somebody finally looked at it.
+    //
+    // Deliberately projected WITHOUT pi.created_at (rowFor doesn't select it),
+    // so this also exercises mintedAtOf's fallback SELECT — the path every call
+    // site that hasn't been taught the column takes.
+    const agedId = randomUUID();
+    const AGED_HOURS = 120;
+    await query(
+      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id, created_at)
+       VALUES ($1,$2,$3,1,1.0,$4, now() - ($5 || ' hours')::interval)`,
+      [agedId, player.id, ITEM, FURN, String(AGED_HOURS)]
+    );
+    const agedRow = (await query(
+      `SELECT pi.id, pi.custom_data, pi.container_id, i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1`,
+      [agedId]
+    )).rows[0];
+    check('an unexamined perishable carries no checkpoint however old it is', !agedRow.custom_data?.freshness, agedRow.custom_data);
+
+    const aged = await ensureFreshnessCurrent(agedRow, player);
+    // The box is refrigerated and draws no power, so the tier is deterministic
+    // here — no dependence on live zone temperature.
+    const expectedAged = 100 - AGED_HOURS * BASE_DECAY_PER_HOUR * TIER_FACTOR.refrigerated;
+    check('first look charges the whole span since the row was minted', Math.abs(aged.value - expectedAged) < 0.5, { got: aged.value, expected: expectedAged });
+    check('an item minted five days ago does not read fresh', aged.state !== 'fresh', aged);
+
+    // Back-compat: a row that predates the column reads NULL and starts its
+    // clock now, so nothing already in somebody's pack rots at deploy.
+    const legacyId = randomUUID();
+    await query(
+      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id, created_at)
+       VALUES ($1,$2,$3,1,1.0,$4,NULL)`,
+      [legacyId, player.id, ITEM, FURN]
+    );
+    const legacyRow = (await query(
+      `SELECT pi.id, pi.custom_data, pi.container_id, i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1`,
+      [legacyId]
+    )).rows[0];
+    const legacy = await ensureFreshnessCurrent(legacyRow, player);
+    check('a row predating created_at falls back to now rather than rotting at deploy', legacy.value === 100 && legacy.state === 'fresh', legacy);
+
+    // A caller whose own projection carried the column must get the same answer
+    // as one that made mintedAtOf go and read it — otherwise the fallback and
+    // the fast path are two different clocks.
+    const carriedId = randomUUID();
+    await query(
+      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id, created_at)
+       VALUES ($1,$2,$3,1,1.0,$4, now() - ($5 || ' hours')::interval)`,
+      [carriedId, player.id, ITEM, FURN, String(AGED_HOURS)]
+    );
+    const carriedRow = (await query(
+      `SELECT pi.id, pi.custom_data, pi.container_id, pi.created_at, i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1`,
+      [carriedId]
+    )).rows[0];
+    const carried = await ensureFreshnessCurrent(carriedRow, player);
+    check('a projection carrying created_at agrees with the fallback read', Math.abs(carried.value - aged.value) < 0.5, { carried: carried.value, fallback: aged.value });
+
+    await query('DELETE FROM player_inventory WHERE id = ANY($1::text[])', [[agedId, legacyId, carriedId]]);
   } finally {
     await query('DELETE FROM player_inventory WHERE item_id=$1', [ITEM]).catch(() => {});
     await query('DELETE FROM items WHERE id=$1', [ITEM]).catch(() => {});

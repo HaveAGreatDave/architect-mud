@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_course_card",
+  "name": "a subscription card",
+  "tags": {
+    "description": "Admits the bearer to the term's lectures, which are free, so what it actually buys is a chair kept for you in the second row and your name written in a book. A surprising number of people want that.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 12,
+  "weight": 2
+}

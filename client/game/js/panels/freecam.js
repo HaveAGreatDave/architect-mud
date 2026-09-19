@@ -32,6 +32,30 @@ const OWNED = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'f', 'z', 'x',
 // rather than a flick — this is a camera you are aiming, not a first-person shooter. The two are
 // matched (0.22° is 0.0038 rad), so a pixel sideways and a pixel up turn the eye the same amount.
 const MOUSE_YAW = 0.22, MOUSE_PITCH = 0.0038;
+// ── AND THE RIM OF THE GLASS KEEPS TURNING ───────────────────────────────────
+// Without a pointer lock the aim reads the cursor's TRAVEL, and travel telescopes: every delta the
+// glass will ever report sums to `x_now − x_start`, which is bounded by the width of the window. At
+// MOUSE_YAW that is 141° on a 640px pane and 180° on an 820px one — and a second sweep does not add
+// to it, because bringing the cursor back un-turns exactly what it turned. So the camera reaches the
+// right-hand edge of the screen and stops turning right, for the rest of the session. Pitch is
+// clipped the same way on any pane under 720px tall, which is most of them.
+//
+// ⚠ THE COMMENT ON bindFreeCamPointer USED TO SAY "a full turn takes a couple of sweeps". It cannot:
+// putting the cursor back is the whole of what the lock does, and without it there is no second
+// sweep to be had. Reported as the camera only going half way round, and 180° is what the arithmetic
+// says the widest ordinary pane will give.
+//
+// So the rim of the glass keeps the gesture going: a cursor parked in the last strip of it goes on
+// aiming at a rate, the way an RTS scrolls its map when you push a map edge. It COMPOSES with the
+// delta rather than replacing it — fine aim in the middle of the glass, an unbounded turn at the
+// edge of it — and it is the UNLOCKED branch alone, because under a lock the pointer is nowhere and
+// there is no rim to be near.
+//
+// ⚠ IT IS SPENT AS PIXELS PER SECOND, NOT AS DEGREES, and goes through the same `aim` the mouse
+// does. A degrees-per-second constant here would be a second opinion about what a pixel is worth,
+// which is the one thing MOUSE_YAW and MOUSE_PITCH are written to agree about; this way the two axes
+// stay matched at the rim for free.
+const EDGE_MARGIN = 96, EDGE_PX = 620;
 // ── THE KEY THAT HANDS THE MOUSE BACK ────────────────────────────────────────
 // Deliberately NOT in OWNED: that set is keys whose HELD state flies the camera, and this one is an
 // edge.
@@ -45,6 +69,28 @@ const MOUSE_YAW = 0.22, MOUSE_PITCH = 0.0038;
 // But harmless is not the same as free: a driver pressing a key should not have to know which
 // mode they are in to know what it does.
 const POINTER_KEY = 'u';
+// ── HOW FAST IT FLIES ────────────────────────────────────────────────────────
+// A multiplier on everything in `step` that MOVES the camera, on [ and ]. BASE and FAST are two
+// speeds and the gap between them is the whole of what the camera has: crossing the Basin at 5.5
+// tiles a second is a long wait, and placing an eye a hand's breadth off a sign at 1.1 overshoots
+// the shot every time. The modifiers stay exactly what they are and multiply THROUGH this, so a rung
+// moves the walk, the sprint and the crawl together rather than being a fourth speed to remember.
+//
+// ⚠ GEOMETRIC, AND ITS OWN INVERSE AT EVERY RUNG — the rule the lens ladder is written to, for the
+// same reason: a step down and back up is the speed you had, and a stop that is not a power of the
+// step would quietly break that at the ends.
+//
+// ⚠ AND NO READOUT, WHICH IS A DECISION RATHER THAN AN OMISSION. The wheel's own nine-rung ladder
+// has none either: you judge a lens by the picture and a speed by how fast the camera moves, and a
+// number on the glass would be a number in a shot somebody is composing. What makes that honest is
+// that `open` puts it back to 1 — the same reason the fov beside it does — so a rung is always
+// counted from a known place rather than from wherever the last session left it.
+const SPEED_STEP = 1.5, SPEED_LIM = 4;
+const SPEED_MIN = Math.pow(SPEED_STEP, -SPEED_LIM), SPEED_MAX = Math.pow(SPEED_STEP, SPEED_LIM);
+// ⚠ NOT IN `OWNED`: that set is keys whose HELD state flies the camera, and these are edges. They
+// deliberately do NOT guard on repeat the way POINTER_KEY does — holding one is a ramp, which is the
+// obvious thing to do with a ladder and costs nothing to allow.
+const SPEED_DOWN = '[', SPEED_UP = ']';
 const ROLL_RATE = 48;     // degrees per second on Z/X
 const ROLL_LIM = Math.PI; // all the way over, both ways: a dutch angle has no natural stopping point
 // The camera may go under the road — briefly, and on purpose, because a low shot looking up at a
@@ -96,8 +142,22 @@ const BTNS = new Set(['up', 'down', 'orbit']);
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 export function createFreeCam() {
-  const st = { on: false, x: 0, y: 0, z: 0.45, yaw: 0, pitch: 0, roll: 0, fov: 1, keys: new Set(), btn: new Set(), notify: null, hold: true, holdNotify: null };
+  const st = { on: false, x: 0, y: 0, z: 0.45, yaw: 0, pitch: 0, roll: 0, fov: 1, speed: 1, px: 0, py: 0, keys: new Set(), btn: new Set(), notify: null, hold: true, holdNotify: null };
   const held = (k) => st.keys.has(k);
+
+  // ── ONE PLACE WHERE A PIXEL BECOMES AN ANGLE ────────────────────────────────
+  // Both the mouse and the rim push spend their travel here, which is what keeps them one control
+  // rather than two: the rim is the same gesture continuing, so it must turn the camera at exactly
+  // the rate the hand was turning it, and a second copy of this arithmetic is a second answer to
+  // that. See EDGE_PX for why the push arrives as pixels rather than as degrees.
+  const aim = (dx, dy) => {
+    st.yaw = ((st.yaw + dx * MOUSE_YAW) % 360 + 360) % 360;
+    st.pitch = clamp(st.pitch - dy * MOUSE_PITCH, -PITCH_LIM, PITCH_LIM);
+  };
+  // The rim push stops the moment the gesture it belongs to does. Anything that takes the mouse away
+  // — the pointer handed back, the lock arriving, the camera stowed, a blur — comes through here, and
+  // a push left set by one of them is a camera turning on its own with nothing on screen doing it.
+  const stopPush = () => { st.px = 0; st.py = 0; };
 
   // ── WHO HAS THE MOUSE ───────────────────────────────────────────────────────
   // Two states, and the camera opens in the first. HELD: the cursor is gone, pinned inside the view,
@@ -114,7 +174,9 @@ export function createFreeCam() {
     st.hold = want;
     // A button still down when the mouse is handed back never gets its pointerup, and an unseen
     // release is a camera that climbs on its own with nothing the player can press to stop it.
-    if (!want) st.btn.clear();
+    // …and so is a rim push, for the same reason: a camera left turning after the mouse was handed
+    // back is one no cursor on the screen is touching.
+    if (!want) { st.btn.clear(); stopPush(); }
     st.holdNotify?.(want);
     return st.hold;
   };
@@ -140,9 +202,14 @@ export function createFreeCam() {
       // handed is the one the panel can honestly describe, and it cannot describe a zoom it has
       // never had. Opening on last session's 3x would read as the camera arriving broken.
       st.fov = 1;
+      // And the speed ladder, for the same reason and with the same argument: the shot the panel
+      // hands over is one it can honestly describe, and opening at last session's 5x would read as
+      // the camera arriving with the throttle stuck open. See SPEED_STEP.
+      st.speed = 1;
+      stopPush();
       st.notify?.(true);
     },
-    close() { st.on = false; st.keys.clear(); st.btn.clear(); st.notify?.(false); },
+    close() { st.on = false; st.keys.clear(); st.btn.clear(); stopPush(); st.notify?.(false); },
     toggle(seed) { if (st.on) this.close(); else this.open(seed); return st.on; },
 
     // The surface asking to be told when the camera comes out and goes back on its mount, so it can
@@ -173,13 +240,25 @@ export function createFreeCam() {
         else if (!st.keys.has(k)) { st.keys.add(k); setHold(!st.hold); }
         return true;
       }
+      // The speed ladder. See SPEED_STEP: an edge on the way down and nothing on the way up, and
+      // deliberately no repeat guard, so holding one ramps at the keyboard's own rate.
+      if (k === SPEED_DOWN || k === SPEED_UP) {
+        // ⚠ DIVIDED, NOT MULTIPLIED BY THE RECIPROCAL. At THIS step the two happen to agree — 3ⁿ/2ⁿ
+        // is exact in binary for every rung the ladder has, so both spellings come back to 1 — and
+        // that is a property of 1.5 rather than of the code. Measured at the lens ladder's own step
+        // next door: four notches up and four down through `1 / FOV_STEP` lands on 1.0000000000000004
+        // and through a divide lands on 1, so the sentence `zoom` writes about itself is already off
+        // by a hair. Spelling it as a divide is what keeps this one true if anybody retunes the step.
+        if (down) st.speed = clamp(k === SPEED_UP ? st.speed * SPEED_STEP : st.speed / SPEED_STEP, SPEED_MIN, SPEED_MAX);
+        return true;
+      }
       if (!OWNED.has(k)) return false;
       if (down) st.keys.add(k); else st.keys.delete(k);
       return true;
     },
     // A blur or a panel teardown must not leave a key stuck down, or the camera drifts off on its
     // own with nobody touching it and no way to stop it but pressing and releasing the same key.
-    releaseAll() { st.keys.clear(); st.btn.clear(); },
+    releaseAll() { st.keys.clear(); st.btn.clear(); stopPush(); },
     // Narrower, for the one case that is not a teardown: the pointer lock going away with a button
     // still down. That leaves the camera rising or falling with nothing the player can press to stop
     // it — the stuck-key failure above, arriving through the mouse — and it must not also drop the
@@ -198,10 +277,26 @@ export function createFreeCam() {
     // to say about the gesture.
     look(dx, dy) {
       if (!st.on) return false;
-      st.yaw = ((st.yaw + dx * MOUSE_YAW) % 360 + 360) % 360;
-      st.pitch = clamp(st.pitch - dy * MOUSE_PITCH, -PITCH_LIM, PITCH_LIM);
+      aim(dx, dy);
       return true;
     },
+
+    // ── THE RIM OF THE GLASS ──────────────────────────────────────────────────
+    // How hard the cursor is being pushed into the edge of the view, per axis, as a signed fraction
+    // of EDGE_MARGIN — 0 anywhere but the last strip of it, ±1 at the very edge and past it. The
+    // binder works it out because it is the half that has an element to measure; this end spends it
+    // in `step`, so the rim turn goes through the same frame clock everything else does and a
+    // hitched frame cannot swing the shot.
+    //
+    // ⚠ IT IS A STATE, NOT AN EVENT. A cursor sitting still in the rim is still pushing, which is
+    // the entire point — it is what makes the turn unbounded where a delta cannot be.
+    setLookPush(px, py) {
+      if (!st.on) return false;
+      st.px = clamp(px || 0, -1, 1);
+      st.py = clamp(py || 0, -1, 1);
+      return true;
+    },
+    get lookPush() { return { x: st.px, y: st.py }; },
 
     // THE TURNTABLE, on the middle button, exactly where the chase camera keeps it.
     //
@@ -319,9 +414,15 @@ export function createFreeCam() {
       // rotate either way (see bankRad).
       if (held('z')) st.roll = Math.max(-ROLL_LIM, st.roll - ROLL_RATE * DEG * d);
       if (held('x')) st.roll = Math.min(ROLL_LIM, st.roll + ROLL_RATE * DEG * d);
+      // THE RIM, spent as the pixels the hand would have gone on travelling if the desk had not run
+      // out. See EDGE_PX — it goes through `aim`, so it wraps the yaw and stops at PITCH_LIM on the
+      // way in exactly as the mouse does, and the arrows above cannot disagree with it.
+      if (st.px || st.py) aim(st.px * EDGE_PX * d, st.py * EDGE_PX * d);
       st.yaw = ((st.yaw % 360) + 360) % 360;
 
-      const sp = (held('shift') ? FAST : held('control') ? SLOW : BASE) * d;
+      // ⚠ THE LADDER MULTIPLIES THROUGH THE MODIFIERS rather than sitting beside them, so [ and ]
+      // move the walk, the sprint and the crawl together. See SPEED_STEP.
+      const sp = (held('shift') ? FAST : held('control') ? SLOW : BASE) * st.speed * d;
       // The view axes, in the frame `makeCam` reads: forward is (sin, −cos) and right is (cos, sin)
       // — the same two expressions the projection is built from, so "forward" here and "into the
       // screen" there cannot drift apart. Forward carries the pitch, because a camera you can only
@@ -347,12 +448,16 @@ export function createFreeCam() {
     // The shape `paintWindshield` reads as `v.freeCam`. x/y are a world-tile offset from the
     // vehicle, z an absolute eye height, yaw degrees, pitch radians, fov a focal-length multiplier.
     view() { return st.on ? { x: st.x, y: st.y, z: st.z, yaw: st.yaw, pitch: st.pitch, roll: st.roll, fov: st.fov } : null; },
+    // Not part of `view` — the renderer has no use for it and would be the wrong reader anyway. It
+    // is here because the harness has to be able to ask, and a second copy of the ladder there would
+    // be a second opinion about where the stops are.
+    get speed() { return st.speed; },
   };
 }
 
 // The one line of chrome all three panels show while it is on. Kept here so the wording is the same
 // in a cab, a cockpit and a wheelhouse — three copies of a hint is three things to update.
-export const FREECAM_HINT = 'FREE CAM · mouse looks · MMB orbit · LMB/RMB or R/F up-down · WASD move · Q/E turn · Z/X roll · wheel zoom · SHIFT+wheel dolly · SHIFT fast · U free mouse · O exit';
+export const FREECAM_HINT = 'FREE CAM · mouse looks, screen edge keeps turning · MMB orbit · LMB/RMB or R/F up-down · WASD move · [ ] speed · Q/E turn · Z/X roll · wheel zoom · SHIFT+wheel dolly · SHIFT fast · U free mouse · O exit';
 
 // ── AND THEN THE SCREEN CLEARS ITSELF ────────────────────────────────────────
 //
@@ -421,10 +526,16 @@ export function bindFreeCamIdle(cam, ms = IDLE_MS) {
 // and when it is stowed every one of those gestures behaves exactly as it did before.
 //
 // ⚠ THE MOUSE ALWAYS LOOKS; THE POINTER LOCK ONLY REMOVES THE EDGE OF THE SCREEN. Both branches
-// feed `cam.look` the same way — a delta — so there is one scheme and one control, and the lock is
-// an enhancement rather than a precondition: with it the deltas come from `movementX/Y` and a spin
-// never runs out of desk, without it they come from the cursor's own travel across the glass and a
-// full turn takes a couple of sweeps. That is what leaves all three buttons free for the camera.
+// feed the same `aim` — a delta — so there is one scheme and one control, and the lock is an
+// enhancement rather than a precondition: with it the deltas come from `movementX/Y` and a spin
+// never runs out of desk, without it they come from the cursor's own travel across the glass and the
+// rim of the glass carries the turn on from there. That is what leaves all three buttons free.
+//
+// ⚠ AND "a full turn takes a couple of sweeps" IS WHAT THIS USED TO SAY, WHICH IS IMPOSSIBLE. A
+// delta scheme telescopes — see EDGE_MARGIN — so there is no second sweep, and the reachable turn
+// was one screen width of it and then nothing. That is the bug the rim exists for, and it is worth
+// leaving the wrong sentence written down: the arithmetic that disproves it is one subtraction, and
+// nobody did it for months because the sentence sounded like it had been thought about.
 //
 // ⚠ AND THE LOCK REALLY IS REFUSED SOMEWHERE THAT MATTERS. Measured, not guessed: in the Claude
 // desktop app's browser pane `document.featurePolicy.allowsFeature('pointer-lock')` is FALSE at the
@@ -449,8 +560,11 @@ export function bindFreeCamPointer(el, cam) {
   // flag would turn that momentary no into a session-long one.
   const policyAllows = () => { try { return document.featurePolicy?.allowsFeature?.('pointer-lock') !== false; } catch { return true; } };
   let lockable = policyAllows();
-  const grab = () => {
+  // …and whether the request currently in flight had a user gesture behind it. See lockError.
+  let asked = false;
+  const grab = (gesture) => {
     if (!lockable || locked()) return;
+    asked = !!gesture;
     try { el.requestPointerLock?.()?.catch?.(() => {}); } catch { /* older browsers throw instead */ }
   };
   const release = () => { if (locked()) try { document.exitPointerLock?.(); } catch { /* nothing to undo */ } };
@@ -475,7 +589,8 @@ export function bindFreeCamPointer(el, cam) {
   // measured against where the cursor was before it went away, or before it came back, is a jump.
   const applyHold = (hold) => {
     last = null;
-    if (hold) { hideCursor(true); grab(); } else { release(); hideCursor(false); }
+    cam.setLookPush?.(0, 0);
+    if (hold) { hideCursor(true); grab(false); } else { release(); hideCursor(false); }
   };
 
   // ⚠ IMMEDIATE, not merely `stopPropagation`. Stopping propagation stops the event reaching other
@@ -499,7 +614,7 @@ export function bindFreeCamPointer(el, cam) {
     // Re-taking it even after a deliberate M is the right trade, because the glass has nothing on it
     // to click — every panel keeps its chrome OUTSIDE the surface this binds to — so a click on the
     // view can only mean "carry on looking", and it is what a hand that hit Esc by reflex reaches for.
-    if (lockable && !locked()) { cam.setMouseHeld?.(true); grab(); return; }
+    if (lockable && !locked()) { cam.setMouseHeld?.(true); grab(true); return; }
     if (e.button === 0) cam.setButton('up', true);
     else if (e.button === 2) cam.setButton('down', true);
     else if (e.button === 1) cam.setButton('orbit', true);
@@ -508,6 +623,24 @@ export function bindFreeCamPointer(el, cam) {
   // and it is the whole of what stops the camera snapping round when the pointer comes back from
   // somewhere else: the first move after a reset records a position and aims nothing.
   let last = null;
+  // ── HOW HARD THE CURSOR IS PUSHING AT THE EDGE ──────────────────────────────
+  // The binder's half of the rim turn: the cam owns the frame clock and spends this, and this end
+  // owns the element and so is the only one that can measure it. See EDGE_MARGIN.
+  //
+  // ⚠ IT SATURATES OUTSIDE THE GLASS RATHER THAN FALLING OFF IT. A cursor the window has stopped
+  // following is a cursor still being pushed — a clamp of ±1 is the whole of what makes the turn go
+  // on once the desk has genuinely run out, which is the case the feature exists for.
+  //
+  // ⚠ AND THE MARGIN CANNOT BE A CONSTANT ON A SMALL VIEW. At 96px on a 200px-wide pane the two rims
+  // meet in the middle and there is nowhere left to aim by hand, so it takes a third of the shorter
+  // side as its ceiling and the two halves stay a rim rather than becoming the whole glass.
+  const edgePush = (x, y) => {
+    const r = el.getBoundingClientRect?.();
+    if (!r || !(r.width > 0) || !(r.height > 0)) return;
+    const m = Math.min(EDGE_MARGIN, r.width / 3, r.height / 3);
+    const f = (v, lo, hi) => (v < lo + m ? (v - (lo + m)) / m : v > hi - m ? (v - (hi - m)) / m : 0);
+    cam.setLookPush?.(f(x, r.left, r.right), f(y, r.top, r.bottom));
+  };
   // ⚠ BOTH OF THESE ARE ON THE WINDOW rather than the element: under a lock the events do arrive at
   // the locked element, but a button released after the lock has gone would otherwise never be seen
   // at all — and an unseen release is a camera climbing on its own with nothing to stop it.
@@ -517,12 +650,18 @@ export function bindFreeCamPointer(el, cam) {
     // the look still live, crossing the glass to reach a button swings the shot on the way, which is
     // the awkwardness this was built to remove. A DRAG is the exception, because a held button is an
     // unambiguous gesture — the middle-button turntable every other view in the game already has.
-    if (!cam.mouseHeld && !cam.orbiting) { last = null; return; }
+    if (!cam.mouseHeld && !cam.orbiting) { last = null; cam.setLookPush?.(0, 0); return; }
     let dx, dy;
+    // ⚠ NO RIM UNDER A LOCK, AND NONE WHILE ORBITING. Under a lock the pointer is nowhere, so
+    // `clientX` is a frozen number that would read as a permanent push in whichever corner it
+    // happened to stop; and the turntable is a drag whose subject stays centred, so a rim turn added
+    // on top of it would swing the very thing it exists to hold still.
+    if (locked() || cam.orbiting) { cam.setLookPush?.(0, 0); }
     if (locked()) { dx = e.movementX || 0; dy = e.movementY || 0; }
     else {
       const x = e.clientX, y = e.clientY;
       if (x == null || y == null) return;
+      if (!cam.orbiting) edgePush(x, y);
       if (!last) { last = { x, y }; return; }
       dx = x - last.x; dy = y - last.y; last = { x, y };
     }
@@ -546,7 +685,10 @@ export function bindFreeCamPointer(el, cam) {
   // cursor is plainly back on the screen — one press doing nothing, which reads as a dead key.
   const lockChange = () => {
     last = null;
-    if (locked()) return;
+    // Either direction: taking the lock makes the cursor's position meaningless, and losing it means
+    // we no longer know where the cursor is. A push carried across that is one nobody is making.
+    cam.setLookPush?.(0, 0);
+    if (locked()) { asked = false; return; }
     cam.releaseButtons();
     cam.setMouseHeld?.(false);
   };
@@ -555,7 +697,18 @@ export function bindFreeCamPointer(el, cam) {
   // a mouse back has to be heard directly. ⚠ NOT SWALLOWED: Esc leaves fullscreen and closes panels,
   // and a key that quietly stopped doing those would be a worse trade than the one being fixed.
   const esc = (e) => { if (cam.active && cam.mouseHeld && !locked() && e.key === 'Escape') cam.setMouseHeld?.(false); };
-  const lockError = () => { lockable = false; last = null; };
+  // ⚠ A REFUSAL IS NOT ALWAYS A POLICY, AND TREATING IT AS ONE IS HALF OF THE 180° ABOVE. The lock
+  // is also refused for want of a user gesture, and FREELOOK OPENS ON A SERVER MESSAGE — the camera
+  // comes out because a `freelook_open` arrived over the socket, not because a key was pressed — so
+  // the request `applyHold` makes at open time can be refused in a browser that would grant the very
+  // same request off the next click. Condemning `lockable` there leaves every later click taking the
+  // buttons branch instead of re-asking, and the camera on the bounded-drag branch for the whole
+  // session. The cab and the cockpit never saw it, because O is a keypress and carries its own
+  // activation; this is why the complaint was about freelook and nothing else.
+  //
+  // So only a GESTURE's own refusal is taken as a no. A refusal of the speculative open-time request
+  // costs nothing and is forgotten — the click that follows is the one whose answer means something.
+  const lockError = () => { last = null; if (asked) lockable = false; asked = false; };
   // The wheel is the lens; SHIFT on it is the dolly. See cam.zoom for why both exist.
   //
   // ⚠ A SHIFTED WHEEL ARRIVES ON THE OTHER AXIS. Chrome and Edge turn a shifted vertical wheel into
@@ -573,7 +726,7 @@ export function bindFreeCamPointer(el, cam) {
   // gesture that detaches the camera is also the one that hands it the mouse.
   const unToggle = cam.onToggle?.((on) => {
     if (on) { lockable = policyAllows(); applyHold(cam.mouseHeld); }
-    else { last = null; release(); hideCursor(false); }
+    else { last = null; cam.setLookPush?.(0, 0); release(); hideCursor(false); }
   }) || (() => {});
   // M, routed here from whichever panel is forwarding keys. See createFreeCam's setHold.
   const unHold = cam.onMouseHeld?.(applyHold) || (() => {});
@@ -592,6 +745,7 @@ export function bindFreeCamPointer(el, cam) {
     unHold();
     release();
     hideCursor(false);
+    cam.setLookPush?.(0, 0);
     el.removeEventListener('pointerdown', down, true);
     window.removeEventListener('pointermove', move, true);
     window.removeEventListener('pointerup', up, true);

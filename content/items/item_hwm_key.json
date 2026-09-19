@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hwm_key",
+  "name": "a hatch padlock key",
+  "tags": {
+    "description": "A stubby brass key on a fob of hard leather, cut for the padlock on the leg hatch. There are three in the world, she has two, and she is direct about what the third one buys you and what it does not.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 40,
+  "weight": 20
+}

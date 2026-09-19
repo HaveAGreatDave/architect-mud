@@ -9,9 +9,19 @@
   "id": "door_basic_zone_broth_counter_out",
   "is_locked": 0,
   "is_open": 0,
-  "lock_state": null,
+  "lock_state": "locked",
   "name": null,
-  "tags": {},
+  "tags": {
+    "lock:shoplock": {
+      "canHack": true,
+      "difficulty": 4,
+      "messages": {
+        "denied": "The shop lock reads your hand and declines to recognise it.",
+        "lock": "The bolt drops and the shopfront goes quiet.",
+        "unlock": "The bolt lifts. The shop door swings in."
+      }
+    }
+  },
   "target_zone": "zone_district_917_908",
   "zone_id": "zone_broth_counter"
 }

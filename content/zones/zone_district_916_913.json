@@ -14,7 +14,7 @@
     "district": "marrow",
     "entrance": "north",
     "facade": true,
-    "floors": 1,
+    "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_916_912"

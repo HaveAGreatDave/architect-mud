@@ -1,0 +1,9 @@
+{
+  "a": "zone_course_theatre",
+  "b": "zone_course_reading",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_course_theatre_south",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,18 @@
+{
+  "description": "Under the theatre, low enough to stoop in: the boiler that keeps a hundred and forty seats at a temperature twelve of them appreciate, and the cabinet that runs the lamps. Somebody has chalked a maintenance schedule on the wall and has been ticking it off for a very long time.",
+  "exits": {
+    "up": "zone_course_theatre"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_course_theatre",
+  "map_id": "map_int_course",
+  "name": "Course Correction — The Boiler Room",
+  "parent_zone": "zone_district_896_911"
+}

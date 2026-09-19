@@ -1,0 +1,11 @@
+{
+  "description": "Four bare strips the residents put up themselves, hung off the cove that was meant to do the lighting, because the cove is beautiful and you cannot read a docket by it.",
+  "flags": {},
+  "id": "furn_light_zone_hf_relief_canteen",
+  "light_type": "fixture",
+  "lumen_output": 1100,
+  "name": "the strip lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_relief_canteen"
+}

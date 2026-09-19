@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A counter, a barometer screwed to the wall beside it, and behind both a board of numbered berths with a brass peg hanging under every number. All the pegs are on the board. A stair goes up in the corner toward the lantern, and the rope that comes down the middle of it is the one that winds the ball.",
+  "exits": {
+    "down": "zone_util_zone_bld_908_907_lobby",
+    "east": "zone_bld_908_907_loft",
+    "north": "zone_bld_908_907_tide",
+    "south": "zone_district_908_907"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_908_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_908_907_lobby",
+  "map_id": "map_int_bld_908_907",
+  "name": "The Berth Office",
+  "parent_zone": "zone_district_908_907"
+}

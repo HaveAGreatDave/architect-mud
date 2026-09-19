@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_905_917",
+  "b": "zone_holder_gauge",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_district_905_917_south",
+  "lockable": true,
+  "one_way": false
+}

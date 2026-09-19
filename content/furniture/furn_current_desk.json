@@ -1,0 +1,17 @@
+{
+  "description": "A steel desk facing the panel with a log, a telephone that works, a cash drawer and a mug ring nobody has cleaned off.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "log",
+      "drawer"
+    ],
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_current_tench",
+    "vendor_safe": true
+  },
+  "id": "furn_current_desk",
+  "name": "the duty desk",
+  "object_type": "fixture",
+  "zone_id": "zone_current_switch"
+}

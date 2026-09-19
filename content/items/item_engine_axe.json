@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_engine_axe",
+  "name": "a fireman's axe",
+  "tags": {
+    "description": "A pick head on a hickory haft with a leather belt loop, edge kept properly. It is a tool for getting through a door and it is very obviously also the other thing, and she will look at you while you buy it.",
+    "stackable": false
+  },
+  "type": "weapon",
+  "value": 90,
+  "weight": 1400
+}

@@ -57,6 +57,19 @@
 //   does establish is the frame that ships is still under 4 ms on the worst street in the city.
 //   ⚠ AND THE FALLBACK WAS ALREADY 54 ms ON THIS SCENE. A 6.5% rise on a renderer that is at 18 fps
 //   before the change is not the number that should decide whether a city looks like a city.
+//
+// 314,366 → 324,540 (+3.2%) — LIDS. 55 models had a box standing out in front of their own facade
+//   with `roof: false` on it, so from any seat above it you looked down into an open trough; see
+//   `scripts/shapes/lidless.mjs` for what the defect is and why `tileFitBox` created it. Most of
+//   this rise is ONE helper: `awning()` is shared by twenty shopfronts, and the scene's terrace is
+//   shops and offices, so almost every building in it gained a canopy top.
+//   ⚠ THE PROXY AND THE SHIPPING RENDERER DISAGREE BY A FACTOR OF THIRTY HERE, and the mesh is the
+//   one that counts. A lid is one quad: over the whole registry `glmesh` went 58,199 → 58,260
+//   faces, **+0.10%**, and that is what GLASS 2 uploads once and draws with a depth buffer. The
+//   +3.2% is canvas calls, which only the GLASS 1 fallback pays — and by this file's own recorded
+//   conversion (+4.2% calls measured at ~+0.6 ms on an 11 ms fallback frame) that is on the order
+//   of +0.45 ms there. Not separately timed: a 0.45 ms estimate sits well inside the 3.1-8.5 ms
+//   spread the first entry above records for this machine, so a fresh clock could not resolve it.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';

@@ -148,7 +148,7 @@
           "next": "rules"
         }
       ],
-      "text": "\"Everyone asks.\" The lenses don't move. \"Yes. Licensed, insured, and logged with the precinct next door, which took Citadel four years and a great deal of money.\" A pause with nothing in it. \"Nobody has made me open the coat since the second year. I'd rather it stayed a rumour. Rumours don't have to be reloaded.\""
+      "text": "\"Everyone asks.\" The lenses don't move. \"Yes. Licensed, insured, and logged with the precinct next door, which took the Compound four years and a great deal of money.\" A pause with nothing in it. \"Nobody has made me open the coat since the second year. I'd rather it stayed a rumour. Rumours don't have to be reloaded.\""
     },
     "police": {
       "options": [
@@ -221,7 +221,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It isn't.\" The lenses tip fractionally toward the marble at his feet. \"That's the whole marketing budget, standing here in a coat. The columns and the bronze and me. That's the security. What's downstairs is just what happens if all three of us fail at once, and I would strongly encourage you not to find out how thorough Citadel got about that.\""
+      "text": "\"It isn't.\" The lenses tip fractionally toward the marble at his feet. \"That's the whole marketing budget, standing here in a coat. The columns and the bronze and me. That's the security. What's downstairs is just what happens if all three of us fail at once, and I would strongly encourage you not to find out how thorough the Compound got about that.\""
     }
   },
   "faction": null,
@@ -230,7 +230,7 @@
     "bouncer_eject_zone": "zone_district_921_911",
     "clothing_layers": [
       "a long charcoal coat cut generously through the chest",
-      "a pressed white shirt and a Citadel-orange tie clip",
+      "a pressed white shirt and a Compound-orange tie clip",
       "a concealment rig, worn smooth at the strap",
       "grey boxer briefs"
     ],

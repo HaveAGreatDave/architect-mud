@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_relief_tea",
+  "name": "a mug of urn tea",
+  "tags": {
+    "description": "Strong enough to stand a spoon in and four credits because that is what it costs to run the urn, split thirteen ways, rounded up. Nobody has ever made a profit on it and the rota exists to make sure nobody makes a loss either.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 4,
+  "weight": 210
+}

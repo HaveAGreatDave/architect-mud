@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_ash_docket",
+  "name": "a weighbridge docket",
+  "tags": {
+    "description": "A carbon of a load: gross, tare, net, the trade name and a time. The description column is filled in on most of them and blank on a few, and the blank ones are all from the same account.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 1,
+  "weight": 2
+}

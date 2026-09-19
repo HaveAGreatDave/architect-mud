@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#141d18",
+  "color": "#b8d9c0",
+  "description": "A glazed barrel vault on a low brick plinth, running the depth of the plot, with cast-iron ribs at close centres and a ridge vent open a hand's width along its whole length whatever the weather. From outside the glass is green with what is behind it rather than with algae. Where the vault meets the plinth at the north end, a lagged pipe as thick as a thigh comes up out of the ground, crosses the path on two brick piers and goes in through the wall, and it is warm to the touch.",
   "exits": {
-    "east": "zone_district_897_915",
-    "north": "zone_district_896_914",
-    "south": "zone_district_896_916",
-    "west": "zone_district_895_915"
+    "north": "zone_glass_house",
+    "south": "zone_district_896_916"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Glass Half Full",
+    "building_type": "winter_garden",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_896_916"
   },
   "grid_x": 896,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_896_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "GF",
+  "name": "Glass Half Full",
   "parent_zone": null
 }

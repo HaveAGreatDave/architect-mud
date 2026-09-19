@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
+  "description": "Kessler Street's kerbs stop dead and Rag Row starts: unmade ground, ruts, and the backs of the Nine Elms blocks looking down into it. This is where the residents put the things they don't want collected.",
   "exits": {
-    "east": "zone_district_925_914",
     "north": "zone_district_924_913",
     "south": "zone_district_924_915",
     "west": "zone_district_923_914"
   },
   "flags": {
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "dirt"
   },
   "grid_x": 924,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_924_914",
   "map_id": "map_world",
-  "name": "Kessler Street",
+  "name": "Rag Row",
   "parent_zone": null
 }

@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "A residential stack optimised for maximum tenants per cubic metre and the bare legal minimum of reasons to keep living. Corridors of identical doors, behind each a life the city quietly stopped counting. A cat holds the stairwell; nobody contests the claim.",
+  "description": "Canvas either side, close enough to put a hand on both. A brazier burns in a cut-down drum with four people round it and room for a fifth. The smoke goes straight up. There is no wind in here at all.",
   "exits": {
     "east": "zone_district_923_918",
-    "north": "zone_district_922_917",
     "south": "zone_district_922_919",
     "west": "zone_district_921_918"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_consumer_trash",
-    "street_life": true,
-    "terrain": "forest"
+    "terrain": "ash"
   },
   "grid_x": 922,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_922_918",
   "map_id": "map_world",
-  "name": "Residential Area",
+  "name": "The Pitch",
   "parent_zone": null
 }

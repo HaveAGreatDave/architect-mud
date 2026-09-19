@@ -1,0 +1,8 @@
+{
+  "description": "A copper pot still with a coil going up the wall, patched in three places with solder.",
+  "flags": {},
+  "id": "furn_bld_926_917_the_still",
+  "name": "the still",
+  "object_type": "appliance",
+  "zone_id": "zone_bld_926_917_still"
+}

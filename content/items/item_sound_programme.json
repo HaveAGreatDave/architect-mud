@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_sound_programme",
+  "name": "a season programme",
+  "tags": {
+    "description": "A stapled booklet for the whole season rather than the night, so most of it is about concerts that have already happened. The notes are unsigned, closely argued, and plainly written by somebody who has read more about this than anyone who will read them.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 6,
+  "weight": 14
+}

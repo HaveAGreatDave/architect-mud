@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A range along one wall with four pots on it, none smaller than a bucket. Everything in here is scrubbed to the grain. A list on the wall says what is being served for the next eleven days, in pencil, with corrections.",
+  "exits": {
+    "west": "zone_bld_923_917_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_923_917"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_923_917_kitchen",
+  "map_id": "map_int_bld_923_917",
+  "name": "The Kitchen",
+  "parent_zone": "zone_district_923_917"
+}

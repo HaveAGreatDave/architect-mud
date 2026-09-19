@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Stellan squares the bowl of pens with the edge of the island.",
+    "He checks the screen, sees nothing, and checks it again a moment later.",
+    "He glances down the curve towards the far end he cannot see.",
+    "He signs the visitor book himself, at the top of a fresh page, to start it off.",
+    "He practises a sentence under his breath and discards it."
+  ],
+  "description": "A neat, quick young man in a very good suit at the reception island, who has clearly been told that enthusiasm sells and has arrived at a version of it he can sustain for ten hours. He is better at this than the building deserves and he knows that too.",
+  "dialogue_tree": {
+    "bend": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Two real reasons and one that is a story.\" He counts them off and is plainly enjoying it. \"The arc puts every desk within nine paces of glass, which a rectangle this deep cannot. And a curve braces itself, so the floor plate needs fewer columns.\"\n\n\"The story is that the architect wanted a building you cannot photograph in one shot, so that you have to come and stand in front of it.\" He shrugs. \"I have no idea if that is true. It does work, though. You walked the length of it outside before you came in. Everybody does.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"If you come back, come at dusk,\" he says. \"The curve does something with the light off the Spire for about ten minutes and it is the best thing about the building.\""
+    },
+    "coat": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Mine.\" He says it immediately, which you did not expect. \"It has been on that chair for a season and a half.\"\n\n\"An empty floor shows badly. A floor with one coat on it shows like somebody has gone to get a sandwich.\" He adjusts a pen that does not need it. \"It is a cheap trick and it works on about a third of people, and the third it works on are not the third who take the floor. I keep meaning to take it home.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The three companies that pay and do not move in.\" He keeps his voice at exactly the volume it was. \"They have different names and they take the same three floors, and when I send the quarterly to all six tenants, three of them come back inside the minute.\"\n\n\"The same minute. All three.\" He smiles the professional smile. \"Which means one desk somewhere opens all three, and I am a letting agent, so I file it and I do not ask, and you can do what you like with it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Which six are let?",
+          "next": "which"
+        },
+        {
+          "label": "A viewing pass, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Why does a building bend?",
+          "next": "bend"
+        },
+        {
+          "label": "Whose coat is on the chair?",
+          "next": "coat"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Welcome to Curve Appeal.\" He is out from behind the island before you have stopped walking. \"Are you viewing? You can view. There is no appointment needed, there is barely an appointment system.\"",
+      "text_by_relation": {
+        "familiar": "He does not do the pitch. He slides the pass across the island and leans on it.\n\n\"Go up,\" he says. \"It is a good floor. I would be pleased if one person who was not me thought so.\"",
+        "first": "A young man in a very good suit comes round the island at a speed that suggests he has been waiting for somebody since the morning and has decided not to hide it.\n\n\"Welcome to Curve Appeal. Rowe Stellan, letting.\" He puts out a hand and then withdraws it at exactly the right moment. \"Nine floors, six let, and the fourth is open if you want to walk it.\"\n\nHe does not wait for you to ask the obvious thing.\n\n\"Yes, it bends. Every floor plate is an arc. It is genuinely a nicer room to work in than a rectangle and I have four minutes of reasons why, and I will spare you three of them.\"",
+        "known": "\"Back for the fourth?\" He already has the pass out. \"Thirty, and take as long as you want. Nobody is going to hurry you.\""
+      }
+    },
+    "which": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "The enthusiasm does not drop but it changes gear, which is the most interesting thing about him.\n\n\"I used to answer that.\" He straightens the pens. \"Six floors are contracted. Three of the six have somebody in them. The other three are held by companies that pay the rent and have not moved in, and my instruction is to say six let, which is true.\"\n\n\"You asked, so now you know the shape of it. I would rather you heard it from me than counted the lights from the boulevard, which is what everybody does.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a slim charcoal suit, pressed, slightly too good for the salary",
+      "a pale shirt with a soft collar",
+      "dark shoes kept very clean",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_curve_suite",
+  "hp": 28,
+  "hp_max": 28,
+  "id": "npc_hf_curve_stellan",
+  "name": "Rowe Stellan",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_curve_particulars",
+      "price": 18
+    },
+    {
+      "item_id": "item_hf_curve_pass",
+      "price": 30
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Curve Appeal",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_curve_atrium"
+}

@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The foot of the core: a cold, bright room with a stainless run down one wall, crates stacked to the ceiling on the other, and the lift shaft in the middle with its doors open. Everything in here is damp and nothing in here is dirty. The floor slopes very slightly to a drain and you can feel it through your boots.",
+  "exits": {
+    "down": "zone_util_zone_hf_salad_pack",
+    "east": "zone_district_898_911",
+    "up": "zone_hf_salad_tray"
+  },
+  "flags": {
+    "building_name": "Salad Days",
+    "building_type": "vertical_farm",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_898_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_salad_pack",
+  "map_id": "map_int_hf_salad",
+  "name": "Salad Days — The Packing Floor",
+  "parent_zone": "zone_district_898_911"
+}

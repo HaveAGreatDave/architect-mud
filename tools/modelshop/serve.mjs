@@ -29,6 +29,7 @@ import { createServer } from 'node:http';
 import { readFile, writeFile, unlink, mkdir } from 'node:fs/promises';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 import { dirname, join, normalize, sep } from 'node:path';
 // The validator and the compile the BUILD uses, not a second opinion — see the write path below.
 import { validateModel } from '../../client/shared/building-model-schema.js';
@@ -58,6 +59,23 @@ const json = (res, code, obj) => send(res, code, JSON.stringify(obj));
 
 // Capped, because a local tool is still a server and an unbounded read is an unbounded read.
 const MAX_BODY = 2 * 1024 * 1024;
+// A frame is a different size of thing from a model file — see the /api/shot route.
+const MAX_SHOT = 32 * 1024 * 1024;
+const SHOT_DIR = join(tmpdir(), 'architect-shots');
+
+function readBody(req, cap) {
+  return new Promise((resolve, reject) => {
+    let n = 0; const chunks = [];
+    req.on('data', (c) => {
+      n += c.length;
+      if (n > cap) { reject(new Error('request body too large')); req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 function readJson(req) {
   return new Promise((resolve, reject) => {
     let n = 0; const chunks = [];
@@ -313,6 +331,35 @@ const server = createServer(async (req, res) => {
       }
       await writeFile(FAUNA_BAKE_OUT, renderFaunaModule({ rows }), 'utf8');
       return json(res, 200, { ok: true, file, warnings });
+    }
+
+    // ── A FRAME, ON DISK ──────────────────────────────────────────────────────────────────────
+    //
+    // Every bench in glbench.js answers in NUMBERS, because a number is what a gate can read. Not
+    // every question this tool exists for is that shape: "is a quarter of the filmic curve better
+    // than none of it" is settled by looking, and the looking has to be done by somebody who is not
+    // sitting in this browser. So a canvas can post itself here and land as a PNG.
+    //
+    // ⚠ IT WRITES OUTSIDE THE REPO, ON PURPOSE. Shots are the working residue of a tuning session —
+    // dozens per sweep, every one superseded by the next — and a tool whose output lands in the
+    // working tree is a tool whose output eventually gets committed by somebody staging with -A.
+    // os.tmpdir() cannot be committed by accident, and needs no .gitignore line to say so.
+    //
+    // ⚠ THE BODY IS THE IMAGE BYTES, NOT BASE64 IN JSON. A 1000x620 night street is about 700 KB
+    // raw and 950 KB encoded, which is the wrong side of MAX_BODY for a route whose entire job is
+    // to move a picture.
+    if (req.method === 'POST' && path === '/api/shot') {
+      const name = String(url.searchParams.get('name') || 'shot');
+      if (!/^[A-Za-z0-9._-]{1,64}$/.test(name)) {
+        return json(res, 400, { error: 'name must be 1-64 chars of [A-Za-z0-9._-]' });
+      }
+      let buf;
+      try { buf = await readBody(req, MAX_SHOT); }
+      catch (e) { return json(res, 413, { error: String(e?.message || e) }); }
+      await mkdir(SHOT_DIR, { recursive: true });
+      const file = join(SHOT_DIR, name.endsWith('.png') ? name : name + '.png');
+      await writeFile(file, buf);
+      return json(res, 200, { ok: true, file, bytes: buf.length });
     }
 
     if (req.method === 'GET' && path.startsWith('/client/')) {

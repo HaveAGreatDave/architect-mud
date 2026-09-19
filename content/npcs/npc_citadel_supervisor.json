@@ -174,7 +174,7 @@
           "next": "vault"
         }
       ],
-      "text": "\"I was, for about a year.\" She adjusts the glasses. \"Then I understood what the job actually is. Anyone can guard a box. What Citadel sells is a woman who has stood in this room for twenty-six years and can honestly say, under oath, that she has no idea.\" The pen resumes. \"That's not incuriosity, dear. That's a discipline.\""
+      "text": "\"I was, for about a year.\" She adjusts the glasses. \"Then I understood what the job actually is. Anyone can guard a box. What the Compound sells is a woman who has stood in this room for twenty-six years and can honestly say, under oath, that she has no idea.\" The pen resumes. \"That's not incuriosity, dear. That's a discipline.\""
     },
     "forced": {
       "options": [
@@ -258,7 +258,7 @@
   "flags": {
     "clothing_layers": [
       "a charcoal suit jacket let out at the shoulders and taken in twice at the waist",
-      "a high-collared blouse with a Citadel crest pin at the throat",
+      "a high-collared blouse with a Compound crest pin at the throat",
       "a retractable key line clipped to the waistband",
       "a sensible beige bra and high-waisted briefs"
     ],

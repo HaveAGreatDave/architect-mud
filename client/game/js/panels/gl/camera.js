@@ -121,8 +121,59 @@ export function eyePos(cam) {
 // reasoning about whether two coplanar surfaces can be told apart needs the same two numbers the
 // matrix was built with — and a second copy of them is a second thing to forget to change.
 export const NEAR = 0.06, FAR = 400;
+// How close the fitted plane below is ever allowed to come, and the cushion it keeps off the
+// bottom row. The floor stops the precision argument running away in a pose that looks straight
+// down; the cushion is there because a plane sitting EXACTLY on the last row clips it.
+export const NEAR_MIN = 0.012, NEAR_FIT = 0.8;
 
-export function projMatrix(cam, H, near = NEAR, far = FAR) {
+// ── ⚠ THE NEAR PLANE IS IN WORLD TILES AND THE EYE HEIGHT IS NOT A CONSTANT ──────────────────
+//
+// The ground a GLASS frame shows runs from the horizon down to the bottom row, and the bottom row
+// is the steepest this seat ever looks: a row `sy` below the horizon is the ground at
+// `EH·depth/(sy − horizonY)`, so the nearest ground on screen is
+//
+//     fMin = EH · depth / (H − horizonY)
+//
+// An aeroplane sits at `EH` 0.24 and that comes to about four tiles, so a fixed 0.06 plane is
+// nowhere near it. A camera pressed down onto the road sits at 0.05 — the floor `makeCam` clamps
+// to — and it comes to 0.049, which is INSIDE 0.06: the last tenth of the frame is ground no
+// geometry can reach. Every road quad, kerb and lane marking there is clipped away and what is
+// left is the floor, which paints the TERRAIN. That is the grass under the road, and it is the
+// whole of "flat on the ground and the road stops short of me".
+//
+// ⚠ IT CAN ONLY EVER COME IN. `NEAR` is the ceiling, so a seat whose ground already reached the
+// bottom of its frame gets the number it has always had, and the depth budget that came with it:
+// the precision this costs is spent only where the alternative is not drawing the road at all.
+//
+// ⚠ AND IT IS SOLVED UNDER PITCH RATHER THAN ASSUMED LEVEL. `sy = horizonY − depth·u′/f′` once a
+// camera tilts, so the level form above is not the same expression — and a tilted camera is
+// exactly the one that looks steeply enough down for this to matter. Setting the bottom row's
+// `u′/f′` to `−k` and the ground to `u = −EH` solves for the unpitched forward distance
+// `f0 = EH(cos θ − k sin θ)/(sin θ + k cos θ)`, and the clip distance is `f0·cos θ + EH·sin θ`.
+// A non-positive `f0` means the bottom row has gone past straight down, where the nearest ground
+// on screen is the point under the eye, at `EH·sin θ`. Both reduce to `EH/k` at θ = 0.
+export function nearFor(cam, H, fit = 1) {
+  if (!fit || !cam || !(cam.EH > 0) || !(cam.depth > 0) || !(H > 0)) return NEAR;
+  const k = Math.max(1e-3, (H - (cam.horizonY || 0)) / cam.depth);
+  const th = cam.pitch || 0, sp = Math.sin(th), cp = Math.cos(th);
+  const den = sp + k * cp;
+  const f0 = den > 1e-4 ? cam.EH * (cp - k * sp) / den : 0;
+  const fMin = f0 > 0 ? f0 * cp + cam.EH * sp : cam.EH * Math.max(0, sp);
+  if (!(fMin > 0)) return NEAR_MIN;
+  return Math.min(NEAR, Math.max(NEAR_MIN, fMin * NEAR_FIT));
+}
+
+// The z row's two coefficients, for the layers that write `clip.z` themselves. Derived here so a
+// shader's idea of the mapping cannot drift from the matrix's.
+export function zRow(near = NEAR, far = FAR) {
+  return [(far + near) / (far - near), -2 * far * near / (far - near)];
+}
+
+// ⚠ THE DEFAULT IS THE CAMERA'S OWN PLANE, NOT THE CONSTANT. `cam.near` is stamped once per frame
+// in world.js and every pass here is handed the same `cam`, so one derivation reaches all of them
+// — which matters because two passes drawing into one depth buffer from two different near planes
+// do not disagree visibly, they disagree by a hair that reads as z-fighting.
+export function projMatrix(cam, H, near = (cam && cam.near) || NEAR, far = FAR) {
   const fxn = 2 * cam.FL / cam.W;
   const fyn = 2 * cam.depth / H;
   const cy0 = 1 - 2 * cam.horizonY / H;

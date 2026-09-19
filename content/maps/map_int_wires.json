@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_wires_apparatus",
+  "id": "map_int_wires",
+  "name": "Crossed Wires",
+  "parent_zone_id": "zone_district_909_915"
+}

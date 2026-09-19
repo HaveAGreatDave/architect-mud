@@ -1,0 +1,18 @@
+{
+  "description": "The room under the platform, same as its twin, and in the same state: a counter frame and no counter. The cabinet went in because the cabinet goes in before anything else does, and it is the only finished thing on the plot.",
+  "exits": {
+    "up": "zone_hf_line_platform"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_908_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_line_platform",
+  "map_id": "map_int_hf_line",
+  "name": "Line of Enquiry — The Unfitted Kiosk",
+  "parent_zone": "zone_district_908_917"
+}

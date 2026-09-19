@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_salad_pack",
+  "id": "zone_hf_salad_tray",
+  "name": "Salad Days — The Fourth Tray",
+  "source_type": "junction_box"
+}

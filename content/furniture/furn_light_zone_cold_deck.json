@@ -1,0 +1,11 @@
+{
+  "description": "Two floods on the handrail pointed down at the catwalk rather than out, because a light pointed out at the meadow would be seen from the Spire.",
+  "flags": {},
+  "id": "furn_light_zone_cold_deck",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "the deck floods",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_cold_deck"
+}

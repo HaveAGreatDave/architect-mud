@@ -1,0 +1,18 @@
+{
+  "description": "Below: two long rows of lead cells on glazed insulators, floated across the supply, holding the exchange up if the grid ever lets go. The acid smell is faint and permanent. The cabinet is on the end wall, and there is a logbook on a string beside it with an entry every week going back further than anybody currently alive here.",
+  "exits": {
+    "up": "zone_wires_apparatus"
+  },
+  "flags": {
+    "floor": "tile",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_909_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_wires_apparatus",
+  "map_id": "map_int_wires",
+  "name": "Crossed Wires — The Battery Room",
+  "parent_zone": "zone_district_909_915"
+}

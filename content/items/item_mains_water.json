@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_mains_water",
+  "name": "a bottle of mains water",
+  "tags": {
+    "description": "Drawn off the rising main in the culvert, which is the cleanest water in Coldwater by some distance and costs two because he has to buy the bottles.",
+    "stackable": true
+  },
+  "type": "drink",
+  "value": 2,
+  "weight": 500
+}

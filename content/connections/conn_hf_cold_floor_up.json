@@ -1,0 +1,9 @@
+{
+  "a": "zone_cold_floor",
+  "b": "zone_cold_deck",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_cold_floor_up",
+  "lockable": false,
+  "one_way": false
+}

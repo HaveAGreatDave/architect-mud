@@ -1,24 +1,27 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "description": "Where the Gate Road gives up being a road. The tarmac stops against a kerb nothing has been laid against in years, and Ropewalk runs east from it as packed dirt, rutted, going wherever the carts went first. The houses start twenty feet in and not one of them lines up with the next.",
   "exits": {
     "east": "zone_district_920_916",
     "north": "zone_district_919_915",
-    "south": "zone_district_919_917",
     "west": "zone_district_918_916"
   },
   "flags": {
-    "district": "residential",
+    "artery": [
+      "Ropewalk"
+    ],
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "dirt"
   },
   "grid_x": 919,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_919_916",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Ropewalk",
   "parent_zone": null
 }

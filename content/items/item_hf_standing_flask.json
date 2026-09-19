@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_standing_flask",
+  "name": "a flask of something hot",
+  "tags": {
+    "description": "Poured out of a flask on a bench by a man who brings two flasks and only ever needs one. Six credits, which is what the flask costs him, divided by how many cups are in it.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 6,
+  "weight": 240
+}

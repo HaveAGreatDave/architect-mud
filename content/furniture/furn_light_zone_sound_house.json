@@ -1,0 +1,11 @@
+{
+  "description": "A ring of bulbs inside a larger ring of dead ones, throwing a soft even light down onto four hundred empty seats.",
+  "flags": {},
+  "id": "furn_light_zone_sound_house",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "the dome ring",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_sound_house"
+}

@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A glazed box on the deck, warm, with a bench round three sides and a heater that works. On a wet night it is the driest free room in Halcyon Fields and there are usually two or three people in it who are not waiting for anything.",
+  "exits": {
+    "west": "zone_hf_standing_platform"
+  },
+  "flags": {
+    "building_name": "Standing Room Only",
+    "building_type": "transit_halt",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_standing_waiting",
+  "map_id": "map_int_hf_standing",
+  "name": "Standing Room Only — The Waiting Room",
+  "parent_zone": "zone_district_893_917"
+}

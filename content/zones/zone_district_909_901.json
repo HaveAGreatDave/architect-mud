@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The beam comes round off the tower ahead and lays itself flat along the slab.",
+    "Water slaps the columns under the deck and draws back.",
+    "A gull lands on the rail, thinks better of it, and goes.",
+    "Out past the end of the run something big turns over in the water and is gone."
+  ],
   "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot: the channel beyond is deep, and impassable without a boat.",
+  "color": "#9fc0b8",
+  "description": "The last full section before the tower. The slab is newer out here — poured to reach the light and not walked on much since — and the rail has kept its paint. A ladder goes over the west edge into water that has stopped being green. The Beacon stands NORTH, close enough now that the collar hangs out over the end of the run.",
   "exits": {
     "east": "zone_district_910_901",
     "north": "zone_district_909_900",
@@ -10,8 +15,17 @@
     "west": "zone_district_908_901"
   },
   "flags": {
-    "district": "water",
+    "building_type": "pier",
+    "district": "docks",
+    "entrance": "south",
+    "fishing_table_id": "fish_coldwater_bay",
+    "floors": 1,
+    "liquid": false,
+    "pier": true,
     "region_id": "region_coldwater",
+    "routable": true,
+    "street_life": true,
+    "swimmable": false,
     "terrain": "water"
   },
   "grid_x": 909,
@@ -19,6 +33,6 @@
   "grid_z": 0,
   "id": "zone_district_909_901",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Pier",
   "parent_zone": null
 }

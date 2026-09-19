@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_going_saleroom",
+  "id": "zone_util_zone_going_saleroom",
+  "name": "Going Concern — The Saleroom — Utility Room",
+  "source_type": "junction_box"
+}

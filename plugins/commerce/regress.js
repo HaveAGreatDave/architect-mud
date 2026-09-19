@@ -12,6 +12,12 @@ import { getItem } from '../../server/engine/items-cache.js';
 import { furnitureObjectType } from '../../server/engine/furniture-shop.js';
 import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
+import { lockCanHack, lockNoun } from '../../server/engine/commands/doors.js';
+import { getAllLockTypes } from '../../server/engine/locks.js';
+import {
+  tradingHours, tradingHoursLine, hoursNotice, describeDoorHook,
+  shopEntranceDoor, shopEntranceLock, shopDoorDefeated, shopClosedFor, shopVendorsFor, _test as _shopdoorTest,
+} from './shopdoor.js';
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -343,5 +349,134 @@ export default async function regress({ run, check, getPlayer }) {
     // A facade is never a landing, and the predicate is what every ejector shares.
     const facade = [...world.zones.values()].find(z => isEnterableFacade(z));
     if (facade) check('a facade is never a valid eject landing', isStreetLanding(facade.id) === false, facade.id);
+  }
+
+  // ── THE SHOP DOOR ──────────────────────────────────────────────────────────
+  // The refusal above used to be the whole of closing time. These cover the lock
+  // standing behind it — see plugins/commerce/shopdoor.js.
+
+  // A lock says for itself whether it can be breached. This USED to be the string
+  // `lock:hololock` written into the hack path, which left `canHack` on every other
+  // lock type a field with no reader — `lock:shopshutter` has declared it since
+  // storefront was written and could never actually be hacked.
+  check('a registered canHack lock is hackable', lockCanHack({ type: 'lock:shoplock' }));
+  check('the shutter finally reads its own canHack', lockCanHack({ type: 'lock:shopshutter' }));
+  check('a lock that declares canHack:false is not', !lockCanHack({ type: 'lock:longwatch' }));
+  check('a lock with no opinion is not hackable', !lockCanHack({ type: 'lock:privacylock' }));
+  // The TAG beats the type's defaults, which is what lets one authored door differ.
+  check('an authored canHack:false overrides the type default',
+    !lockCanHack({ type: 'lock:hololock', canHack: false }));
+  check('an unknown lock type is not hackable', !lockCanHack({ type: 'lock:nonesuch' }));
+  check('a door with no lock at all is not hackable', !lockCanHack(null));
+  check('a lock is called by its own noun', lockNoun({ type: 'lock:hololock' }) === 'hololock', lockNoun({ type: 'lock:hololock' }));
+  check('an unnamed lock is just a lock', lockNoun({ type: 'lock:privacylock' }) === 'lock', lockNoun({ type: 'lock:privacylock' }));
+
+  check('the shoplock type is registered',
+    getAllLockTypes().some(t => t.name === 'shoplock' && t.tagType === 'lock:shoplock'),
+    getAllLockTypes().map(t => t.name).join(','));
+
+  // ── The trading-hours card ─────────────────────────────────────────────────
+  // Derived from the vendor's own commute timetable, so a shop's posted hours can
+  // never drift from the hours it keeps.
+  {
+    const weekday = { mon: [{ from: 9, to: 17 }], tue: [{ from: 9, to: 17 }], wed: [{ from: 9, to: 17 }],
+                      thu: [{ from: 9, to: 17 }], fri: [{ from: 9, to: 17 }] };
+    const rows = tradingHours(weekday);
+    check('consecutive days with the same hours collapse into one range',
+      rows.length === 2 && rows[0].label === 'MON to FRI' && rows[1].label === 'SAT to SUN',
+      rows.map(r => `${r.label}=${r.hours}`).join(' | '));
+    check('a day with no block reads CLOSED', rows[1].hours === 'CLOSED', rows[1].hours);
+    check('hours are a 24h clock', rows[0].hours === '09:00 to 17:00', rows[0].hours);
+
+    const allHours = Object.fromEntries(['mon','tue','wed','thu','fri','sat','sun'].map(d => [d, [{ from: 0, to: 24 }]]));
+    check('a shop open every hour says so in words',
+      tradingHoursLine({ vendor_schedule: allHours }) === 'open all hours',
+      String(tradingHoursLine({ vendor_schedule: allHours })));
+    check('a vendor with no timetable has no card at all',
+      tradingHoursLine({}) === null && hoursNotice({}) === null);
+    check('the card names itself as a card', /trading hours/.test(hoursNotice({ vendor_schedule: weekday }) || ''));
+  }
+
+  // ── Has somebody been through it? ──────────────────────────────────────────
+  // No new state: a shop door is locked while the shop is shut, so an entrance
+  // standing unlocked during closed hours is one that was beaten. The corollary is
+  // the one that matters — a door with NO lock must never read as beaten, or the
+  // 32 shops whose entrance carries no lock get a front door that stands open all
+  // night.
+  check('a zone with no street exit has no shop door', shopEntranceDoor({ id: 'z', flags: {} }) === null);
+
+  // The live content invariant. A floor rather than a total, so adding a shop
+  // never fails this and deleting the doors always does.
+  {
+    let locked = 0, selfLink = null;
+    for (const door of world.doors.values()) {
+      if (!door.tags?.['lock:shoplock']) continue;
+      locked++;
+      if (door.zone_id === door.target_zone) selfLink = door.id;
+    }
+    check('the city has shop doors fitted', locked >= 50, `${locked} shoplock doors`);
+    check('no shop door stands on the step from a tile to itself', !selfLink, selfLink || 'none');
+  }
+
+  // ── The rule the whole thing turns on ──────────────────────────────────────
+  // The sync acts on a CHANGE of trading state, never on the state itself. Assert
+  // it against a real shop door: beat the lock, run the sync with nothing else
+  // moved, and the door must still be open. Re-asserting "closed means locked"
+  // every 30 seconds would re-lock a door the player hacked half a minute after
+  // they beat it, which is the feature deleting itself.
+  {
+    const shop = [...world.zones.values()].find(z => shopVendorsFor(z.id).length && shopEntranceLock(z));
+    if (!shop) {
+      check('a shop with a fitted entrance lock exists to test against', false, 'none found');
+    } else {
+      const door = shopEntranceLock(shop);
+      const saved = { lock_state: door.lock_state, is_open: door.is_open, inside: door._autoLockedInside };
+
+      _shopdoorTest.workDoor(shop, true);
+      check('closing time locks the shop door', door.lock_state === 'locked', String(door.lock_state));
+      check('and names the shop floor as the inside, so nobody is sealed in',
+        door._autoLockedInside === shop.id, String(door._autoLockedInside));
+      check('a locked shop door is not yet defeated', shopDoorDefeated(shop) === false);
+
+      // The hack lands.
+      door.lock_state = 'unlocked';
+      check('an unlocked entrance reads as defeated', shopDoorDefeated(shop) === true);
+
+      // ...and a sync with the shop's trading state UNCHANGED must leave it alone.
+      //
+      // ⚠ The remembered state has to be whatever the sync is about to compute, or
+      // this check is vacuous half the day: pinning it to `true` while the live
+      // clock says the shop is open makes the sync see a transition, unlock the
+      // door, and satisfy the assertion for the opposite reason.
+      const shutNow = shopClosedFor(shop) !== null;
+      _shopdoorTest.lastShut.set(shop.id, shutNow);
+      _shopdoorTest.syncShopDoors();
+      check('a sync with no change of trading state does not touch the door',
+        door.lock_state === 'unlocked', `${door.lock_state} (shutNow=${shutNow})`);
+
+      // A door off its hinges cannot be locked by anybody.
+      const hp = door.hp;
+      door.hp = 0;
+      _shopdoorTest.workDoor(shop, true);
+      check('a destroyed shop door is never re-locked', door.lock_state === 'unlocked', String(door.lock_state));
+      check('a destroyed entrance still reads as defeated', shopDoorDefeated(shop) === true);
+      door.hp = hp;
+
+      Object.assign(door, { lock_state: saved.lock_state, is_open: saved.is_open, _autoLockedInside: saved.inside });
+      _shopdoorTest.lastShut.delete(shop.id);
+    }
+  }
+
+  // The card reaches `examine door` through the engine's gather hook, and reads the
+  // same from the pavement or from inside after closing.
+  {
+    const shop = [...world.zones.values()].find(z => shopVendorsFor(z.id).length && shopEntranceLock(z));
+    if (shop) {
+      const door = shopEntranceLock(shop);
+      const line = describeDoorHook(door);
+      check('examining a shop door reads its trading hours', /trading hours/.test(line || ''), String(line).slice(0, 60));
+    }
+    check('examining an ordinary door adds nothing',
+      describeDoorHook({ zone_id: 'zone_regress_nowhere', target_zone: null }) === null);
   }
 }

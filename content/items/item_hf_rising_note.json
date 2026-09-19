@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_rising_note",
+  "name": "a plot note",
+  "tags": {
+    "description": "A slip entitling the bearer to be told, once, what a named plot in Halcyon Fields last changed hands for. It does not entitle you to buy it and it says so at the bottom in the same size as everything else.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 90,
+  "weight": 5
+}

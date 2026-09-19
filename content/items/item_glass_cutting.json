@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_glass_cutting",
+  "name": "a rooted cutting",
+  "tags": {
+    "description": "Taken, struck and potted on, with a stick label giving what it is and the date it took. She will tell you where to stand it and how often to water it and she will not sell you one that cannot live where you are going to put it.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 9,
+  "weight": 120
+}

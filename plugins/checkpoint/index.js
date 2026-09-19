@@ -41,7 +41,7 @@
  *       insideFlag:"gov_enclave", checks:["wanted","contraband"], wantedMode:"hard" }.
  */
 import { skillCheck } from '../../server/engine/skills.js';
-import { dispatchAction } from '../../server/engine/actions.js';
+import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
@@ -132,6 +132,34 @@ registerMoveGate(async ({ player, from, to }) => {
     if (r?.block) return r; // first blocking check wins; a pass returns undefined and falls through
   }
 }, 'checkpoint');
+
+// ── THE SAME SCAN, SOMEWHERE THAT IS NOT A DOORWAY ───────────────────────────
+//
+// This plugin's whole surface is a `registerMoveGate`, which fires when a player WALKS onto a tile.
+// A driver never walks — trucking's own move gate blocks it — so the inspection plaza out on the
+// void highway could reach none of these checks, and the scanner arch standing over its deck would
+// have had to grow a contraband law of its own.
+//
+// It asks for this one by name instead: exactly the seam this plugin already uses in the other
+// direction to run a drug scan through `smuggle` without importing it. Neither plugin learns that
+// the other exists, and there is ONE answer in the game to "a scanner found it on you" rather than
+// one answer per place that scans.
+//
+// ⚠ THE HEAT KEY IS THE CALLER'S. It is `tile:player` at a gate and `plaza:player` out here, and
+// what it is for is stopping somebody going back and forth through one scanner until the dice come
+// good — so a caller with no tile has to supply something equally stable, or that cooldown quietly
+// stops existing.
+registerAction({
+  type: 'CONTRABAND_SCAN',
+  handler: async ({ actor, params }) => {
+    const guards = params?.guards || 'the checkpoint guards';
+    const key = `${params?.where || 'scan'}:${actor.id}`;
+    const r = await CHECKS.contraband(actor, params?.cfg || {}, guards, key);
+    // A clean pass has already said so itself; only the bust has a line nobody else will print.
+    if (r?.block) sendToPlayer(actor.id, { type: 'output', message: `<span class="text-red">${r.message}</span>` });
+    return { type: 'ok', caught: !!r?.block };
+  },
+});
 
 export const _test = { CHECKS, triggers };
 

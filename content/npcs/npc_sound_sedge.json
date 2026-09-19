@@ -1,0 +1,325 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Sedge squares the ticket cards against the shelf until the edges line up, then squares them again.",
+    "She glances at the clock over the doors, and then at the bell, and then back at the clock.",
+    "She writes the night's number in a ruled book. It is a small number. She writes it the same size as any other.",
+    "Somewhere behind the auditorium doors a piano runs a figure, stops, and runs it again slower.",
+    "She straightens the season case on its stand by about a degree."
+  ],
+  "description": "A tall, upright woman past fifty in a black dress with a house badge pinned at the shoulder, standing at the box-office window rather than sitting behind it. She has the bearing of somebody managing a full house and there are eleven people in the building. Her reading glasses hang on a cord and she does not use them for faces.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Enjoy it.\" She turns back to the window and squares the cards."
+    },
+    "endow": {
+      "options": [
+        {
+          "label": "Was there?",
+          "next": "endow_clause"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"An endowment.\" She lets that sit for a second to see whether it is going to be enough, and it is not. \"Halcyon Assurance. A long time ago somebody there put a sum aside and wrote terms on it, and the terms say a season of forty.\"\n\n\"They do not say an audience. I have read them. I read them properly, once, the first year, in case there was a clause that would let somebody shut it.\""
+    },
+    "endow_clause": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "endow"
+        }
+      ],
+      "text": "\"No.\" A very small satisfaction gets into her voice and is put away again. \"Whoever drew it up was careful. They tied it to the performance and not to the return, which is not how that firm writes anything now, so I think it was a person rather than a committee.\"\n\n\"So it runs. It will run after me. That is the whole of what an endowment is for, and it is the only thing in this quarter I would call sensible.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I hear the building more than the street.\" She tips her head toward the boulevard. \"They are putting a road through the meadow. You can feel the plant at night through the floor, which the piano does not care for.\"\n\n\"And somebody from the land office came in to measure the forecourt. Not to buy it. To measure it. I gave him a programme and he took it, which I thought was decent of him.\""
+    },
+    "house": {
+      "options": [
+        {
+          "label": "Doesn't that get to you?",
+          "next": "house_why"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Eleven tonight, with you.\" No edge on it at all. \"It has been eleven or near it for years. I stopped finding that remarkable some time ago and I would rather you did too.\"\n\n\"It is not a failure. A failure would be forty nights that did not happen. These happen.\""
+    },
+    "house_why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "house"
+        }
+      ],
+      "text": "She thinks about it, which is not the same as hesitating.\n\n\"The bell still goes at five minutes,\" she says. \"Latecomers still wait at the doors until the movement ends, and they mind, and they are right to mind. The lights still come down at the same rate. If I let any of that slip because there were eleven of you, then in a year there would be four of you, and the reason would be me.\"\n\n\"So no. It does not get to me. It is the job.\""
+    },
+    "players": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "season"
+        }
+      ],
+      "text": "\"They have other work. Everybody has other work.\" She says it flatly, without complaint. \"One of them fixes looms in the Filaments and has the hands for it, which you would think would ruin her and has not.\"\n\n\"They are paid, before you ask. Properly, and first, and out of the same money that heats the room. I made that argument once and won it, and I have never had to make it twice.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's the season?",
+          "next": "season"
+        },
+        {
+          "label": "Tickets, please.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who pays for all this?",
+          "next": "endow"
+        },
+        {
+          "label": "Where is everybody?",
+          "next": "house"
+        },
+        {
+          "label": "Heard anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing for now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good evening.\" She turns from the window to face you squarely, which almost nobody does. \"Doors at half past, bell at five minutes and again at one. One price, all seats, and you may sit wherever you like.\"",
+      "text_by_relation": {
+        "familiar": "She has the card written before you reach the window, and turns it round on the shelf with two fingers so it faces you.\n\n\"Row C,\" she says. \"The piano is being difficult in the bass and C is where you will not notice.\" A pause. \"Or will enjoy noticing. I have never worked out which you are.\"",
+        "first": "The woman at the box office finishes squaring a stack of cards, sets them down, and gives you her whole attention at once.\n\n\"Good evening. Perpetua Sedge, house manager.\" A short nod, as though the name settles something. \"You will want to know what it is. It is a recital, it is an hour and ten with no interval tonight, and it is very good.\"\n\nShe says the last part without any salesmanship at all, as a fact she expects to be checked.\n\n\"One price, all seats. Sit near the front. It was built for the front.\"",
+        "known": "\"You came back.\" She does not make anything of it, but the ticket card is already out of the stack. \"Same arrangement. Sit where you like.\""
+      }
+    },
+    "season": {
+      "options": [
+        {
+          "label": "The same four?",
+          "next": "players"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Forty dates a year.\" She indicates the case without looking at it. \"That is not a programme I built, it is a number I was given, and I have come round to it. Forty is enough that nobody can call it a gesture and few enough that I can get every one of them right.\"\n\n\"We have had the same four players for a while now. They are better than they were. That is the part nobody comes to see.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a plain black house dress, pressed, with a brass house badge at the shoulder",
+      "flat black shoes kept for indoors and changed at the door",
+      "a cardigan carried over one arm for the auditorium, which is warm, and the foyer, which is not",
+      "a slip and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_sound_platform",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_sound_sedge",
+  "name": "Perpetua Sedge",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_sound_ticket",
+      "price": 14
+    },
+    {
+      "item_id": "item_sound_programme",
+      "price": 6
+    },
+    {
+      "item_id": "item_sound_gin",
+      "price": 22
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Sound Investment",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_sound_foyer"
+}

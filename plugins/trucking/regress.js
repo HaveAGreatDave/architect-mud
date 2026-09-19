@@ -11,7 +11,7 @@ import { mapWindow, surfaceAt, isRoadCell, bounds as worldBounds } from '../flig
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt, sOfNode, roomLenOf, landformsFor, avoidTurn, trailFor, trailPos, campsOf, trailOffsetOn, isCampOn,
-  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, PAVED_R, joinRoutes, reverseRoute, pairKey } from './corridor.js';
+  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, PAVED_R, attachSigns, joinRoutes, reverseRoute, pairKey } from './corridor.js';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';   // pure data, no DOM — that is exactly why it is not defined in windshield.js
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
   atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, networkRoute, interchangeFor, buildRoad, _clearGateCache, _previewRoute,
@@ -20,6 +20,9 @@ import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces, faceBaseRgb, truckMeta, vehicleLamps } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, REGIONS, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
 import { isTextDriving } from './textdrive.js';
+import { plazasFor, attachPlazas, plazaOn, plazaCell, plazaRoadFlags, plazaVerdict, apronAt,
+  PLAZA_LEN, RUN_IN, APRON_T, APRON_W, _test as plazaTest } from './plaza.js';
+import { getCrimeStars, CRIME_DEFAULTS } from '../../server/engine/crimes.js';
 import { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, stockTrim,
   customColourway, sanitizeCustomTrim, isTrimHex, CUSTOM_COL } from '../../client/shared/cab-trim.js';
 import { trimCost, sanitizePaint, paintCost, presetPaint, PAINT_DEFAULT, PAINT_PRESETS, FLASHES, FINISHES } from './rig.js';
@@ -1994,6 +1997,192 @@ export default async function regress({ run, check, getPlayer }) {
       if (prevS) world.zones.set(S, prevS); else world.zones.delete(S);
       world.zones.delete(LAWLESS);
     }
+  }
+
+  // ── 4e-bis. The inspection plaza ───────────────────────────────────────────
+  // The scale house given somewhere to stand: an interchange synthesised out of the corridor's own
+  // geometry, with the SAME two laws at the bottom of it. Everything here is about the geometry and
+  // the decision — the weighbridge itself is tested above, once, because it is one function.
+  {
+    const VK = 'coldwater_south', DK = 'the_reach';
+    const mk = (win) => {
+      const r = corridorFor(VK, DK, win, 8);
+      r.voidKey = VK; r.destKey = DK; r.window = win;
+      attachSigns(r, [{ key: DK, name: 'The Reach' }]);
+      attachPlazas(r, [{ key: DK, name: 'The Reach' }]);
+      return r;
+    };
+    const r = mk(4242);
+    const P = r.plazas?.[0];
+    check('a long road carries an inspection plaza', !!P, JSON.stringify(r.plazas));
+
+    // A road too short to fit one between its own ramps gets none, rather than one hanging off the
+    // end of a carriageway that is still narrowing.
+    //
+    // ⚠ A ONE-NODE ROAD IS NOT SHORT ENOUGH, which is what the first cut of this asserted and is
+    // worth keeping as a note: `TILES_PER_ROOM` is 90 and the clearance a plaza needs is 84, so the
+    // smallest road `corridorFor` will build DOES fit one — by six tiles. The real shortest road in
+    // the network (Coldwater to the Reach, about 95 tiles) fits one too, and that is correct rather
+    // than incidental: that road is the smuggling run, so a station on it is the entire point.
+    // What has to be refused is a road genuinely shorter than the clearance, and `plazasFor` reads
+    // only `L` before it answers, so the honest way to ask is to hand it one.
+    check('a road with no room for one has none',
+      plazasFor({ L: 60, voidKey: VK, destKey: DK, window: 4242 }).length === 0);
+    // ⚠ And the positive half needs a REAL route: once plazasFor decides to place one it snaps every
+    // structure to a tile through corridorPos, which reads route.legs — a stub answers the refusal
+    // and throws on the placement, so only the refusal can be asked of one.
+    const shortest = corridorFor(VK, DK, 4242, 1);
+    shortest.voidKey = VK; shortest.destKey = DK; shortest.window = 4242;
+    check('…and the shortest road the builder makes is already long enough to carry one',
+      plazasFor(shortest).length === 1, Math.round(shortest.L) + ' tiles');
+
+    // Seeded on the road and the week, like everything else out here: two drivers on the same road
+    // this week meet the same station in the same state, which is what lets the radio call, the
+    // gantry and the board all be telling the truth.
+    check('the same road in the same week is the same station',
+      JSON.stringify(mk(4242).plazas) === JSON.stringify(r.plazas));
+    check('…and the week rolls it', JSON.stringify(mk(4243).plazas) !== JSON.stringify(r.plazas));
+
+    if (P) {
+      // ⚠ 1. THE APRON IS THE ROAD, PEELED. At the very start of the taper it IS the mainline —
+      // same centre, same half-width — which is the whole of why the paved set cannot come apart.
+      const a0 = apronAt(r, P, 0, P.s0);
+      check('the ramp starts on the mainline, not beside it',
+        Math.abs(a0.c) < 1e-9 && Math.abs(a0.w - pavedAt(r, P.s0)) < 1e-9, JSON.stringify(a0));
+      const mid = apronAt(r, P, RUN_IN + 2, P.s0 + RUN_IN + 2);
+      check('…and by the plates it has walked all the way out',
+        Math.abs(mid.c - APRON_T) < 1e-6 && Math.abs(mid.w - APRON_W) < 1e-6, JSON.stringify(mid));
+
+      // ⚠ 2. THE PAVED SET IS STILL ONE PIECE. The invariant the corridor band width exists for; an
+      // apron authored as a separate band at a lateral offset would be a second island of tarmac.
+      const paved = new Set();
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      for (let ss = 0; ss <= r.L; ss += 0.5) {
+        const q = corridorPos(r, ss, 0);
+        x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+      }
+      const kinds = new Map();
+      for (let x = Math.floor(x0) - 12; x <= Math.ceil(x1) + 12; x++) {
+        for (let y = Math.floor(y0) - 12; y <= Math.ceil(y1) + 12; y++) {
+          const c = corridorAt(r, x, y);
+          if (!c) continue;
+          if (isCarriageway(c)) paved.add(x + ',' + y);
+          const k = c.flags?.scale_plaza?.k;
+          if (k) kinds.set(k, (kinds.get(k) || 0) + 1);
+          if (c.flags?.building_type === 'garage' && c.name?.includes('office')) kinds.set('booth', (kinds.get('booth') || 0) + 1);
+        }
+      }
+      const seed = paved.values().next().value;
+      const seen = new Set([seed]); const stack = [seed];
+      while (stack.length) {
+        const [cx, cy] = stack.pop().split(',').map(Number);
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+          if (!dx && !dy) continue;
+          const k2 = (cx + dx) + ',' + (cy + dy);
+          if (paved.has(k2) && !seen.has(k2)) { seen.add(k2); stack.push(k2); }
+        }
+      }
+      check('the road plus its apron is still one 8-connected piece of tarmac',
+        seen.size === paved.size, seen.size + '/' + paved.size);
+
+      // ⚠ 3. EVERY STRUCTURE STANDS ON EXACTLY ONE TILE. The boards learned this the hard way; it
+      // is worse for a gantry, because a gantry SPANS the road — matched on a band, the carriageway
+      // is nearly two tiles wide and four of them came out inside each other at one milepost.
+      check('the signal gantry stands at each end and nowhere else', kinds.get('signal') === 2, kinds.get('signal'));
+      check('there is exactly one scanner arch', kinds.get('arch') === 1, kinds.get('arch'));
+      check('there is exactly one weighbridge deck', kinds.get('deck') === 1, kinds.get('deck'));
+      check('there is exactly one office', kinds.get('booth') === 1, kinds.get('booth'));
+      // The studs are the one thing that is still a band, and rightly — ramp lighting IS a row of
+      // lamps down each edge.
+      check('the ramp studs are a row, not a structure', (kinds.get('lead') || 0) > 4, kinds.get('lead'));
+
+      // ⚠ 4. THE PLAZA OWNS ITS OWN GROUND. Nothing else may place inside an interchange.
+      const intruders = new Set();
+      for (let ss = P.s0; ss <= P.s1; ss += 0.34) {
+        for (let t = -9; t <= 9; t += 0.34) {
+          const q = corridorPos(r, ss, t);
+          const c = corridorAt(r, Math.round(q.x), Math.round(q.y));
+          const f = c?.flags;
+          if (!f) continue;
+          if (f.road_sign) intruders.add('a board');
+          if (f.wreck) intruders.add('a wreck');
+          if (f.building_type && !c.name?.includes('office')) intruders.add('bt:' + f.building_type);
+        }
+      }
+      check('no board, wreck or roadside shed places inside the footprint',
+        intruders.size === 0, [...intruders].join(','));
+
+      // ⚠ 5. THE APRON PAINTS ITS OWN MARKINGS. `road_t` measured against the HIGHWAY would put
+      // every tile of the ramp's lane paint on a road two tiles away — the multi-tile band bug.
+      let apronTiles = 0, badT = 0;
+      for (let ss = P.s0 + RUN_IN; ss <= P.s0 + RUN_IN + 4; ss += 0.34) {
+        for (let t = APRON_T - APRON_W; t <= APRON_T + APRON_W; t += 0.34) {
+          const q = corridorPos(r, ss, t);
+          const c = corridorAt(r, Math.round(q.x), Math.round(q.y));
+          if (!c?.flags?.scale_plaza || c.flags.terrain !== 'road') continue;
+          apronTiles++;
+          if (Math.abs(c.flags.road_t) > c.flags.road_w + 0.5) badT++;
+        }
+      }
+      check('the apron ships its own centreline offset, not the highway\'s',
+        apronTiles > 0 && badT === 0, apronTiles + ' tiles, ' + badT + ' wrong');
+
+      // ⚠ 6. THE GANTRY RIDES THE CARRIAGEWAY. It is a mark on a road tile, exactly as a dust
+      // strip's drums are: the tile goes on being road underneath it, or the highway has a hole in
+      // it where the signal is.
+      const sig = corridorAt(r, P.t.sig0[0], P.t.sig0[1]);
+      check('the gantry tile is still highway', sig?.flags?.terrain === 'road', sig?.flags?.terrain);
+      check('…and it carries the signal and the road heading together',
+        sig?.flags?.scale_plaza?.k === 'signal' && Number.isFinite(sig?.flags?.road_deg));
+      check('a tile that is not a gantry tile carries no signal',
+        !plazaRoadFlags(P, P.t.sig0[0] + 3, P.t.sig0[1] + 3, 0));
+
+      // ⚠ 7. THE RENDER SEAM. The station has to survive deriveSurfaceCell or it is a server-side
+      // fact nobody can see, which is the one thing a lit gantry may not be.
+      const win = mapWindow({ grid_x: P.t.arch[0], grid_y: P.t.arch[1] }, 2, corridorProvider(r));
+      check('the arch survives the trip through mapWindow as a mark',
+        win[2][2].mark === 'plaza' && win[2][2].plz?.k === 'arch', JSON.stringify(win[2][2].mark));
+      check('…carrying the road heading, which half these tiles have no road_deg for',
+        Number.isFinite(win[2][2].plz?.deg));
+      const owin = mapWindow({ grid_x: P.t.booth[0], grid_y: P.t.booth[1] }, 2, corridorProvider(r));
+      check('the office is a BUILDING and carries no mark — a mark would delete its walls',
+        owin[2][2].bt === 'garage' && !owin[2][2].mark, JSON.stringify([owin[2][2].bt, owin[2][2].mark]));
+
+      // ⚠ 8. THE DECISION. Split out of the law precisely so it can be asked without charging
+      // anybody: four facts settle it and none of them is a side effect.
+      const lit = { ...P, open: true }, dark = { ...P, open: false };
+      const IN = { from: 0, weighed: false };
+      check('holding your lane past a lit station is running it',
+        plazaVerdict(lit, IN, P.s1 + 1) === 'ran');
+      check('stopping on the plates is not', plazaVerdict(lit, { from: 0, weighed: true }, P.s1 + 1) === 'clear');
+      check('a dark station is not asking for anything', plazaVerdict(dark, IN, P.s1 + 1) === 'clear');
+      check('turning round and leaving the way you came is not running it',
+        plazaVerdict(lit, IN, P.s0 - 1) === 'clear');
+      check('…and the same is true coming the other way down the road',
+        plazaVerdict(lit, { from: 1, weighed: false }, P.s0 - 1) === 'ran'
+        && plazaVerdict(lit, { from: 1, weighed: false }, P.s1 + 1) === 'clear');
+
+      // The odometer's own arming window, which is what makes the two rungs one law: a station is
+      // ON at every reading inside its footprint and off at both ends.
+      check('the footprint arms across its whole length',
+        plazaOn(r, P.s0 + 1) === P && plazaOn(r, P.s1 - 1) === P
+        && !plazaOn(r, P.s0 - 1) && !plazaOn(r, P.s1 + 1));
+    }
+
+    // The charge itself, and the reason it does not go the ordinary way.
+    //
+    // ⚠ EVERY ROOM ON THIS ROAD IS LAWLESS, WHICH SWALLOWS A CHARGE SILENTLY. `raiseCrime` returns on
+    // its first line for a zone carrying `flags.lawless` — "even a forced one" — and voidwalking
+    // stamps that on every corridor node it registers. So `CHARGE_CRIME` here would dispatch
+    // happily, charge nothing, and leave the one mechanic this whole building exists for quietly
+    // non-existent. The plaza spends the tariff through `WANTED_RAISE` instead (see runIt).
+    check('running one costs four stars', getCrimeStars(plazaTest.RUN_CRIME) === 4, getCrimeStars(plazaTest.RUN_CRIME));
+    check('…and the tariff is still the crime registry\'s, not a second copy in the plaza',
+      plazaTest.RUN_CRIME in CRIME_DEFAULTS);
+
+    // The verb the text rung needs, because that rung has no wheel.
+    const verbs = JSON.parse(await import('fs/promises').then(fs => fs.readFile(new URL('./plugin.json', import.meta.url), 'utf8'))).commands;
+    check('the plaza: \'weigh\' is declared in the manifest', verbs.includes('weigh'));
   }
 
   // ── 4f. People on the shoulder ─────────────────────────────────────────────

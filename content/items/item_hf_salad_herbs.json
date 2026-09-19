@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_salad_herbs",
+  "name": "a pot of living herbs",
+  "tags": {
+    "description": "Sold in the channel plug it grew in, roots and all, so it keeps going on a windowsill for a season if you remember it. Most people do not.",
+    "stackable": true
+  },
+  "type": "food",
+  "value": 32,
+  "weight": 140
+}

@@ -1,0 +1,18 @@
+{
+  "description": "Below the bowl of paving, between the two crescents, and shared with next door — which is why there are two cabinets on the wall and only one of them is this building's. Somebody has painted a line on the floor and written OURS on the correct side of it.",
+  "exits": {
+    "up": "zone_hf_bent_front"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_bent_front",
+  "map_id": "map_int_hf_bent",
+  "name": "Bent Double — The Undercroft",
+  "parent_zone": "zone_district_896_909"
+}

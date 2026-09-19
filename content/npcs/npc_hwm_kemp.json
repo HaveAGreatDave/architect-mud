@@ -1,0 +1,286 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Kemp chalks a figure onto the slate, rubs it out with her thumb, and writes it again.",
+    "She listens to the running pump for a second with her head on one side and is satisfied.",
+    "She looks up at the roof where the pipework goes through, which tells her nothing, and does it anyway.",
+    "She checks the changeover tally on the wall against a date in her head.",
+    "Water goes through the overflow outside, briefly, and she is out of the door before it stops."
+  ],
+  "description": "A lean, windburnt woman in a waterproof coat she wears indoors because she is about to go out in it, with a slate under one arm and a tape in her pocket. She climbs the tower every morning before it is properly light and she has done for eleven years, and she talks about the view the way somebody talks about a person they live with.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Bedplate,\" she says, without looking up. \"Both feet.\""
+    },
+    "dry": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It does not, because I am here.\" No boast in it. \"The tank fills overnight off the mains when nobody is drawing, and it empties from about six. If a pump drops out at the wrong hour I have got maybe four hours before the top of the Marquee loses pressure and about eight before anybody on a hill has nothing.\"\n\n\"So I changeover on a schedule, and I strip one every quarter whether it needs it or not, and the tally on that wall is even to about an hour. That is not fussiness. That is the entire job.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The pumping station down the row lifts the mains that fill me, so the old boy on the beam engine and I are the same pipe with a tower in the middle of it.\" She says it fondly. \"He will not come up and I will not go down the culvert, and we get on very well.\"\n\n\"There is a new quarter going in west of the meadow with a fire station in it. First thing the officer there did was walk the hydrants with a string. Second thing she did was come and ask me what pressure I could give her at four in the morning, which nobody has asked me in eleven years.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Can I go up?",
+          "next": "up"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What happens if it runs dry?",
+          "next": "dry"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I'll leave you to it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Mind the bedplate, it is slick.\" She does not stop what she is doing. \"If you want the tap it is on the delivery main and it is a cup for one.\"",
+      "text_by_relation": {
+        "familiar": "She has the key off the hook and is turning it over in her fingers before she has said anything at all.\n\n\"Wind is nothing today,\" she says. \"You will not get a morning like this again for a fortnight. Boots?\"",
+        "first": "The woman by the gauge board glances at your boots before your face, which turns out to be the most relevant thing about you in here.\n\n\"Kemp. Watch the bedplate, there is oil and water on it and they take turns.\"\n\nShe taps the board with the edge of the slate.\n\n\"Tank up top holds about a day for half this city. Two pumps, one running. When you turn a tap on Marrow Street the water has been through that roof about ten minutes before it reaches you, and nobody has ever thought about that once.\"",
+        "known": "\"You know where the tap is.\" The slate goes under her arm. \"Level is good today. Better than good.\""
+      }
+    },
+    "up": {
+      "options": [
+        {
+          "label": "What's it like up there?",
+          "next": "up_view"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A hundred rungs inside a leg, in the dark, with a hatch at the top you have to shoulder.\" She looks at you levelly. \"It is not the climb that stops people. It is the last six feet coming out of the hatch onto the walkway with nothing round you yet.\"\n\n\"There are three keys. I have two. I am not going to tell you the third is unobtainable, because it is not, but I will tell you I have only ever let two people up and one of them worked here.\""
+    },
+    "up_view": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "up"
+        }
+      ],
+      "text": "She stops chalking.\n\n\"You can see the whole of it. The basin and the piers, the Spire lit from the inside, the Marquee going on and off, that new road they have cut through the meadow, and the gasholder sitting at whatever it is sitting at so you know what kind of night the city is having.\"\n\n\"And the wall. All the way along the bottom, in a line, humming. From up there it does not look like it is keeping anything out. It looks like an edge somebody drew and everyone agreed to.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a stiff waterproof coat worn indoors, because she is always about to be up a ladder",
+      "a wool jersey under it with the cuffs pulled over her hands",
+      "work trousers and boots with good tread, replaced on a schedule",
+      "a vest and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hwm_gallery",
+  "hp": 39,
+  "hp_max": 39,
+  "id": "npc_hwm_kemp",
+  "name": "Orla Kemp",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hwm_water",
+      "price": 1
+    },
+    {
+      "item_id": "item_hwm_dip",
+      "price": 26
+    },
+    {
+      "item_id": "item_hwm_key",
+      "price": 40
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "High Water Mark",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hwm_pump"
+}

@@ -1,0 +1,17 @@
+{
+  "description": "A kitchen run with a kettle, two mugs and a jar of something, and a chrome facing that shows every fingerprint and has almost none on it.",
+  "flags": {
+    "aliases": [
+      "counter",
+      "kitchen",
+      "kettle"
+    ],
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_hf_topbrass_okoye",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_topbrass_counter",
+  "name": "the residents' counter",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_topbrass_sky"
+}

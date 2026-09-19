@@ -1,0 +1,11 @@
+{
+  "description": "Two floor lamps with parchment shades, set to throw light on the chair arms and not much on anybody's face. That is not an accident.",
+  "flags": {},
+  "id": "furn_light_zone_vested_smoking",
+  "light_type": "lamp",
+  "lumen_output": 700,
+  "name": "the standard lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_vested_smoking"
+}

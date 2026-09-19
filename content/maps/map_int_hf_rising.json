@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_rising_floor",
+  "id": "map_int_hf_rising",
+  "name": "Rising Sums",
+  "parent_zone_id": "zone_district_895_909"
+}

@@ -1,0 +1,17 @@
+{
+  "description": "A pen on an arm scratching a line onto a paper drum that turns once a day. The used charts are in a box under the bench, in order, going back years.",
+  "flags": {
+    "aliases": [
+      "chart",
+      "recorder",
+      "drum"
+    ],
+    "interactions": {
+      "examine": "Every chart is the same shape: up through the evening, flat overnight, and a long slide from six in the morning. You could set a clock by the corner at eight."
+    }
+  },
+  "id": "furn_holder_chart",
+  "name": "the chart recorder",
+  "object_type": "decoration",
+  "zone_id": "zone_holder_gauge"
+}

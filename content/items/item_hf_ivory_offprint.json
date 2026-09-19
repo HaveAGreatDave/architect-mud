@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_ivory_offprint",
+  "name": "a bound offprint",
+  "tags": {
+    "description": "Forty pages, stapled and cased, being one fellow's paper on the continuity of self reproduced at the Institute's expense. It is well argued and almost entirely unreadable and the fellow has signed the flyleaf without being asked.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 44,
+  "weight": 70
+}

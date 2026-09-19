@@ -1,0 +1,17 @@
+{
+  "description": "A strip of paper taped down the walkway between the racks, marked off with dates going back most of a year and a pencil line at each one.",
+  "flags": {
+    "aliases": [
+      "tape",
+      "strip",
+      "paper"
+    ],
+    "interactions": {
+      "examine": "The lines get closer together as the dates get more recent, which means whatever is being measured is not just moving, it is speeding up."
+    }
+  },
+  "id": "furn_hf_root_tape",
+  "name": "the taped strip",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_root_trial"
+}

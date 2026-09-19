@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_glass_house",
+  "id": "zone_glass_house",
+  "name": "Glass Half Full — The Long House",
+  "source_type": "junction_box"
+}

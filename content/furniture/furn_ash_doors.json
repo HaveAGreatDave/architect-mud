@@ -1,0 +1,17 @@
+{
+  "description": "Six in a row along the front of the grates, each with a hinged cover over a smoked glass the size of a hand. The covers are worn bright round the handles.",
+  "flags": {
+    "aliases": [
+      "doors",
+      "inspection",
+      "glass"
+    ],
+    "interactions": {
+      "examine": "Number four's cover is worn brighter than the rest. It is the one over the middle of the grate and it is the one you check if you want to know that the burn is right."
+    }
+  },
+  "id": "furn_ash_doors",
+  "name": "the inspection doors",
+  "object_type": "fixture",
+  "zone_id": "zone_ash_furnace"
+}

@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A hall of plate exchangers standing in ranks like bookcases, each one dripping into a channel in the floor that runs to a drain. It is loud in a flat, even way that stops being a sound after a minute and becomes a pressure. Everything metal is beaded with water. The air smells of nothing at all, aggressively, the way air does when a great deal of trouble has been taken over it.",
+  "exits": {
+    "down": "zone_util_zone_cold_floor",
+    "north": "zone_district_903_917",
+    "up": "zone_cold_deck"
+  },
+  "flags": {
+    "building_name": "Cold Comfort",
+    "building_type": "cooling_plant",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_cold_floor",
+  "map_id": "map_int_cold",
+  "name": "Cold Comfort — The Exchanger Floor",
+  "parent_zone": "zone_district_903_917"
+}

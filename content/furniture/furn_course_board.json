@@ -1,0 +1,16 @@
+{
+  "description": "A rolling board two panels deep on a counterweighted frame that still runs true. The chalk tray is full and the sleeve is clean.",
+  "flags": {
+    "aliases": [
+      "board",
+      "blackboard"
+    ],
+    "interactions": {
+      "examine": "The top panel still carries the last lecture: a diagram of two boxes with an arrow between them, and under the second box a question mark somebody drew hard enough to break the chalk."
+    }
+  },
+  "id": "furn_course_board",
+  "name": "the blackboard",
+  "object_type": "decoration",
+  "zone_id": "zone_course_theatre"
+}

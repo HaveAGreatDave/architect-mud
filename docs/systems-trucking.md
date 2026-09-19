@@ -1,6 +1,6 @@
 # THE LONG HAUL — driving the void
 
-**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house, trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped, and so are the four things the build itself turned up: breakdowns with a roadside `fix`, the fork as a junction you can take (`route`), wipers, and a CB that reports real wrecks. The junction is now a fork you can SEE — the corridor synthesises the limbs you did *not* take, so the highway branches toward each region instead of ending in open waste — and the road signs its own bends in MILES. The road is laid in REAL WORLD COORDINATES, so a driver, a pilot and a walker all describe the same place with the same numbers, the world outside the windscreen is the actual world, and you can turn round and drive home. Distances are consequently the real gaps between regions and are pending a tuning pass. See [proposals](proposals/the-long-haul.md).**
+**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house is now also a PLACE — an inspection plaza out on the void highway, with a deceleration lane, an apron, a weighbridge deck you stop on, a scanner arch and a lit gantry over your own lane; holding your lane past a lit one is a four-star crime. Trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped, and so are the four things the build itself turned up: breakdowns with a roadside `fix`, the fork as a junction you can take (`route`), wipers, and a CB that reports real wrecks. The junction is now a fork you can SEE — the corridor synthesises the limbs you did *not* take, so the highway branches toward each region instead of ending in open waste — and the road signs its own bends in MILES. The road is laid in REAL WORLD COORDINATES, so a driver, a pilot and a walker all describe the same place with the same numbers, the world outside the windscreen is the actual world, and you can turn round and drive home. Distances are consequently the real gaps between regions and are pending a tuning pass. See [proposals](proposals/the-long-haul.md).**
 
 Freight hauling by road. You take a load at a depot in Coldwater, drive it through the city to the
 edge of the map, cross the waste on a highway that does not exist until you drive it, and back onto
@@ -26,6 +26,7 @@ and a city that resolves out of the haze at the end of it.
 | Cab interior + mirrors | `drawCabInterior` in [windshield.js](../client/game/js/panels/windshield.js) |
 | Ground collision | `groundObstructionAt` + `segContains` in [windshield.js](../client/game/js/panels/windshield.js) |
 | The scale house, customs, impound | [plugins/trucking/scale.js](../plugins/trucking/scale.js) |
+| The inspection plaza — the station as geometry, and the law for driving past one | [plugins/trucking/plaza.js](../plugins/trucking/plaza.js) |
 | Trailers as world objects | [plugins/trucking/trailers.js](../plugins/trucking/trailers.js) · `trailers` table in SCHEMA_SQL |
 | People on the shoulder | [plugins/trucking/hitchers.js](../plugins/trucking/hitchers.js) |
 | The sleeper cab as a place you can sleep | [plugins/trucking/bunk.js](../plugins/trucking/bunk.js) |
@@ -2697,6 +2698,162 @@ and weight is the thing the scale can see.
 word; two plugins claiming it is a coin-flip decided by load order. Trucking answers through a
 `TRUCK_CUSTOMS` action — the same seam the checkpoint plugin uses to run a drug scan through
 smuggle without importing it. Neither direction of dependency is created.
+
+
+---
+
+## The inspection plaza — the scale house as a place
+
+**STATUS: BUILT.** `plugins/trucking/plaza.js`.
+
+The weighbridge above is a law. For a long time it had nowhere to happen: it hung off
+`flags.weigh_station`, which is a ZONE flag, so it could only exist on a tile the world had placed
+— and it fired exactly once in the game, at a city yard, as a paragraph that arrived while you were
+driving past a warehouse. The void highway, which is where the smuggling run actually is, had no
+inspection on it at all.
+
+A plaza is that same law with a building around it, synthesised out of the corridor's own geometry
+the way the boards and the roadside sheds are: **a deceleration lane peeling off the tarmac, an
+apron running alongside, a weighbridge deck built into it, a scanner arch over the deck, an office
+across the apron, and a signal gantry over your own lane telling you which of the two roads is
+yours.** One per road, seeded on (route, window), costing no rows and no tick.
+
+### The apron is the road, peeled
+
+It starts ON the mainline — same centre, same half-width — and walks out sideways over the
+deceleration lane, holds through the pad, and walks back in. That is what a deceleration lane is,
+and it is also what makes the apron **8-connected to the mainline by construction**. The paved set
+has to stay one piece (see the band-width ⚠ in `corridor.js`; regress flood-fills it), and an apron
+authored as a separate band at a lateral offset would be a second island of tarmac that happened to
+look joined at the ends.
+
+⚠ **Smoothstep, not a linear taper.** A straight ramp puts a corner at each end of the transition,
+and a corner in a band being rasterised to tiles is a step — the apron gains a tile of width in one
+tile of length and the edge comes out notched.
+
+⚠ **The apron ships its own `road_t` and `road_w`.** Measured against the HIGHWAY they would put
+every tile of the ramp's lane paint on a road two tiles away. Same rule, same reason, as the
+multi-tile carriageway band.
+
+⚠ **Every structure is snapped to ONE TILE at build time, and only the studs are a band.** The
+boards learned this already — a post matched on a tolerance band comes out as three or four
+identical posts in a row — and it is worse for a gantry, because a gantry SPANS the road: the
+carriageway is nearly two tiles across, so a band test put four of them inside each other at one
+milepost and the arch and the office came out in threes. Ramp studs stay a band, because ramp
+lighting genuinely IS a row of lamps down each edge.
+
+⚠ **The plaza owns its whole footprint.** It answers in `corridorAt` after the highway and before
+everything else, so no board, wreck, foot trail or roadside shed can place inside an interchange —
+and the gore island stays an island.
+
+### The light is the order
+
+A station is **OPEN** or **dark** for the week, seeded, and it says so three times before you get
+there: a radio call about nine miles out, the gantry over your lane, and the log. That is what pays
+for the crime — the scale house's own note says an inspection you can't see coming is a dice roll,
+and a dice roll is not a system. Blowing through a dark plaza is nothing at all.
+
+⚠ **Seeded, never rolled per driver.** Everybody on that road that week meets the same station in
+the same state, which is what lets the call, the gantry and the board all be telling the truth.
+
+### Running it is charged on the way OUT
+
+The obvious rule — "past the nose of the ramp on the mainline" — is a proximity test wearing a
+decision's clothes, and this road is sampled at two wildly different rates: the cab reconciles four
+times a second, a text tick covers a slab of road. So the plaza **arms** when the odometer enters
+its footprint and **settles** when the odometer leaves it, which is one question at both rates. It
+also gets turning round for free — leaving by the end you came in is not running anything, and the
+odometer has not been monotonic since reverse shipped.
+
+`running_an_inspection` is **4 stars** — and ⚠ **it cannot be charged through `CHARGE_CRIME`, which
+is the void's own rule holding rather than a shortcut.** `raiseCrime` opens with "no law in the
+wastes": a zone carrying `flags.lawless` charges nothing, and its own comment says that is true
+"even a forced one". Every room on this road is one — voidwalking stamps `lawless: true` on every
+corridor node it registers, deliberately, because dying out here clone-vats you rather than jailing
+you. So the obvious wiring would have dispatched happily, been swallowed on the first line, and
+charged **nothing, for ever, with no error anywhere**: the verb working, the gantry lighting, the
+prose printing, and the one mechanic the whole building exists for quietly not existing.
+
+⚠ **And it is the same trap four times over, so the rule lives in one function.** `scale.js`
+charged `harbouring`, `bribery_attempt` and `evading_police` through `CHARGE_CRIME` — correct when the
+only scale house in the game stood on a city yard, and a silent no-op the moment the same two laws
+stood on the void road. The checkpoint plugin charges `contraband_possession` inside its own scan,
+which is the same thing one layer out. `chargeAt(player, lawless, key, reason)` is the single funnel:
+on a policed tile it is byte-for-byte the dispatch that always shipped, and out on the road it
+spends the tariff through **`WANTED_RAISE`** instead — the documented cross-plugin seam, the one
+jail uses to charge a jailbreak. Skipping the witness roll is correct here rather than convenient:
+that machinery asks whether a camera or an officer happened to see you, and out here the answer is
+neither, for ever. The plaza is not a crime somebody reported — it is the apparatus, pointed at the
+road, whose entire function is to read a plate and say so on a wire.
+
+⚠ **The number is still the crime registry's.** `running_an_inspection` stays in `CRIME_DEFAULTS`
+and is still what the dev panel's Crime tab tunes; `runIt` reads the tariff rather than holding a
+second copy, so the star value is authored in one place whichever path spends it.
+
+⚠ **The decision is split from the punishment.** `plazaVerdict(plaza, entry, s)` is pure, and
+regress asks it directly — a law whose only expression is "and then a crime was charged" can be
+checked exactly one way, by raising a real player's wanted level, and a suite that does that is
+eventually the reason a different suite goes red.
+
+### Two laws at one gate, again
+
+Stopping on the plates runs **the same two functions the scale house runs** — `weighAt` and
+`cabCheckAt`, which are the originals with the zone lookup lifted out of them, because a law that
+is two functions is two laws. On top of those the arch adds the third:
+
+- **the weighbridge** — weight against paper, and it still does not know what the difference IS.
+- **the cab check** — somebody opens the passenger door.
+- **the arch** — the contraband scan, which is the CHECKPOINT plugin's law, asked for by name
+  through a new `CONTRABAND_SCAN` action rather than imported. Exactly the seam that plugin already
+  uses in the other direction to run a drug scan through `smuggle`.
+
+⚠ **This is why "weight, not contraband" survives.** The plaza does contraband checks; the SCALE
+still doesn't. Teaching the weighbridge to recognise goods would collapse the sentence the whole
+design rests on, so the scan is a separate law standing over a different piece of tarmac.
+
+⚠ **An impound taken here holds the rig at its OWN yard, never at the plaza.** A corridor room is
+transient — torn down when the crossing ends — so a truck parked in one is a row pointing at
+nothing, which is the same rule that forbids dropping a trailer out there. With no durable zone the
+fee is set and the truck is left homed where it was.
+
+### Both rungs, and the verb
+
+The cab rung needs no verb: you ride over the plates and **stop** on them, which is what the station
+asks for, and a driver who has stopped on a weighbridge has unambiguously pulled in. The text rung
+has no wheel — a run advances the odometer down the centreline and there is nothing to steer with —
+so without `weigh` the lawful answer would be unreachable on one of the two rungs and a four-star
+charge would be a trap for everybody who drives by text. `weigh` ends a text run, because you are
+stopping; `drive` starts it again.
+
+### What it looks like
+
+`drawPlazaPart` in `windshield.js`, on the `plaza` mark. Four pieces, and **everything that moves
+is light**: the gantry's chasing chevrons, the ramp studs converging on the plates, the scan
+travelling down a curtain of light under the arch, the pulse on the deck.
+
+⚠ **A moving part may never be mass.** `draw3DBoxAt` and `emitFlat` record into the shape capture
+and the per-model mesh, both taken once at a frozen clock, so an animated box is nailed to whatever
+`sin(0)` came to and the thing you COLLIDE with is a third answer again — silently. The steel here
+is static and every animated part is a glow, a lamp or an additive quad.
+
+⚠ **The studs chase INWARD from both ends.** This road is drivable both ways, and lead-in lights
+running at the driver rather than away from them read as a warning rather than as a way in.
+
+⚠ **No strobe, at any brightness** — the arch's sweep is a smooth ramp on a 2.2-second cycle and the
+standing field never goes to zero under it. Same rule the drug FX are held to, for a light this
+large in the middle of the windscreen.
+
+⚠ **`nearF` is generous (4).** A baked billboard has ONE depth, and you drive UNDER two of the four
+pieces — so past the threshold it bakes like any landmark and inside it falls back to the canvas.
+The same argument the depot shed's 5 is made of.
+
+⚠ **The office carries no mark.** `massTile` is `!!c.bt && !MASS_EXCEPT.has(c.mark) && …`, so a tile
+with both a building type and a mark is drawn as the mark and never extrudes — right for a depot
+bay, and here it would quietly delete the office's walls.
+
+The four pieces are in `viewRenderSmoke`'s world in both states, because they are the only marks in
+the game that animate and a painter nothing ever runs is the exact shape of the roaster bug
+`shapes:smoke` exists for.
 
 ---
 

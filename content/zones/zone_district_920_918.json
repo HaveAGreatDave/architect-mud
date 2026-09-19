@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "residential",
+  "description": "The west end of the camp, backed up against the junkyard fence. The tents here are the oldest: canvas gone the colour of the ground, patched with whatever came to hand, guyed to pegs somebody drove years ago and never once moved.",
   "exits": {
     "east": "zone_district_921_918",
-    "north": "zone_district_920_917",
     "south": "zone_district_920_919"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 920,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_920_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Pitch",
   "parent_zone": null
 }

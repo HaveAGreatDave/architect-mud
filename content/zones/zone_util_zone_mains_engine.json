@@ -1,0 +1,18 @@
+{
+  "description": "Below the hall, where the mains come in: a brick culvert you can stand up in, running with cold air and the sound of a great deal of water going past very quietly. The cabinet is up on a plinth out of the wet, and the plinth has a tide mark on it from a year somebody still talks about.",
+  "exits": {
+    "up": "zone_mains_engine"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_mains_engine",
+  "map_id": "map_int_mains",
+  "name": "Mains Attraction — The Culvert",
+  "parent_zone": "zone_district_900_913"
+}

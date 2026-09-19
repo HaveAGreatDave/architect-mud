@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_glass_seed",
+  "name": "a paper of seed",
+  "tags": {
+    "description": "A folded paper packet with the name written on the fold and the year under it. Saved here rather than bought in, which means it has already survived one season in this city.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 5,
+  "weight": 8
+}

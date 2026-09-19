@@ -1,0 +1,18 @@
+{
+  "description": "The foot of the core, and the only room in the tower still used for what it was drawn for. Somebody has chalked a rota on the wall beside the cabinet, and the rota is about the urn.",
+  "exits": {
+    "up": "zone_hf_relief_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_relief_lobby",
+  "map_id": "map_int_hf_relief",
+  "name": "Light Relief — The Riser Base",
+  "parent_zone": "zone_district_892_915"
+}

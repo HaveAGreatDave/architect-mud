@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "waterfront",
-  "color": "#a98b63",
-  "description": "A length of the great pier, its planking grey and split, bolted over a forest of barnacled pilings that vanish into the cold slop below. Mooring cleats the size of anvils stud the edge, most wrenched half out. The whole structure groans when the water shoves it.",
+  "ambient_events": [
+    "Water slaps the columns under the deck and draws back.",
+    "The whole run groans once when the water shoves it, then settles.",
+    "A gull drops something on the slab to break it, and looks at you.",
+    "Rope thick as your arm lies coiled at the rail, rotting quietly."
+  ],
+  "ambient_theme": "coast",
+  "color": "#9fc0b8",
+  "description": "A length of the pier, its slab grey and split, standing clear of the water on a colonnade of square concrete columns. Mooring cleats the size of anvils stud the edge, most of them wrenched half out. Gulls the size of dogs watch you from the rail and don't move.",
   "exits": {
     "east": "zone_district_910_903",
     "north": "zone_district_909_902",
@@ -10,11 +15,18 @@
     "west": "zone_district_908_903"
   },
   "flags": {
+    "building_type": "pier",
     "district": "docks",
+    "entrance": "south",
     "fishing_table_id": "fish_coldwater_bay",
+    "floors": 1,
+    "liquid": false,
+    "pier": true,
     "region_id": "region_coldwater",
+    "routable": true,
     "street_life": true,
-    "terrain": "concrete"
+    "swimmable": false,
+    "terrain": "water"
   },
   "grid_x": 909,
   "grid_y": 903,

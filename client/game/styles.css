@@ -1876,12 +1876,26 @@ body.rainbow-sky.rainbow-triple .weather-event {
 #forecast-panel.active {
 	display: flex;
 }
+/* ⚠ EVERY WIDTH IN THIS PANEL IS RELATIVE, AND THAT IS THE WHOLE BUG IT HAD.
+   Text Size runs 14px → 32px (Settings calls the top end "Maximum", and it means
+   200%) and Typeface offers "Readable", which WIDENS letter and word spacing — so
+   a label measured in pixels is right at Medium/Monospace and wrong at every other
+   combination. At Large the labels grew past their 56px column and painted over
+   the value beside them ("Humidity💧 82%"), and the forecast rows outgrew their own
+   border and pushed the temperature outside it. The box scales in `rem` so it grows
+   with the text; the columns are sized by the browser from what is actually in them. */
+/* ⚠ A FIXED GUTTER, NOT A PROPORTIONAL ONE. `width: 90%` spends a twentieth of the
+   window on each margin, which is 10px on a phone and 96px on a desktop — backwards,
+   since the narrow window is the one that needs the room. A 1rem gutter is the same
+   breathing space at every width, and on a 440px window it is the 12px that decides
+   whether "Thunderstorm" fits beside its own humidity or gets an ellipsis. Above
+   `max-width` neither matters, because the cap has already taken over. */
 #forecast-box {
 	background: var(--bg2);
 	border: 1px solid var(--accent);
-	padding: 24px;
-	max-width: 420px;
-	width: 90%;
+	padding: 1.5rem;
+	max-width: 26rem;
+	width: calc(100% - 2rem);
 	border-radius: 2px;
 }
 #forecast-header {
@@ -1891,27 +1905,32 @@ body.rainbow-sky.rainbow-triple .weather-event {
 	text-transform: uppercase;
 	letter-spacing: 1px;
 }
+/* A label/value table, so the label column is `max-content` — the width of the
+   widest label as the browser actually renders it, whatever the typeface and
+   letter spacing. `.ft-row` carries the font size and nothing else: `display:
+   contents` drops its box so its two spans become grid cells directly, and an
+   inherited property still reaches them through it. */
 #forecast-today {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	column-gap: 0.75rem;
+	row-gap: 4px;
 	margin-bottom: 14px;
 	padding-bottom: 12px;
 	border-bottom: 1px solid var(--border);
 }
 #forecast-today .ft-row {
-	display: flex;
-	gap: 10px;
+	display: contents;
 	font-size: 0.8125rem;
 }
 #forecast-today .ft-label {
 	color: var(--text-dim);
-	width: 56px;
-	flex-shrink: 0;
+	white-space: nowrap;
 }
 #forecast-today .ft-val {
 	color: var(--text);
-	text-transform: capitalize;
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 #forecast-today .ft-temp {
 	color: var(--cyan);
@@ -1932,33 +1951,90 @@ body.rainbow-sky.rainbow-triple .weather-event {
 	flex-direction: column;
 	gap: 6px;
 }
+/* ⚠ THE ROW WRAPS BEFORE IT BURSTS, AND THE CONDITION IS WHAT GIVES WAY FIRST.
+   A row is six things on one line inside a border, five of them short and fixed —
+   a date, an icon, a humidity, a wind, a temperature. The sixth is a word of unknown
+   length, and it was `flex: 1`, which is `1 1 0%` and still refuses to go below its
+   own min-content: "Thunderstorm" is twelve characters that cannot be broken, so at
+   the pane widths this panel actually gets the row grew past its border and the
+   temperature ended up outside it.
+   Two things fix it, and it needs both. The condition shrinks and ellipsises, so a
+   long word gives way instead of shoving. And past that the row WRAPS: at Large text
+   and above the five fixed columns alone are wider than the box, so there is no
+   amount of shrinking that fits them on one line, and a second line is the only
+   honest answer. Measured at 14/16/19/22/26/32px across all three typefaces: nothing
+   leaves its border at any of them. */
+/* ⚠ 0.5rem RATHER THAN THE OLD 10px, AND THE LAST 5px OF IT ARE LOAD-BEARING. Five
+   gaps sit between six columns, so a pixel off each is five pixels back for the
+   condition — and the hero rows ("Acid Rain ⚠⚠" beside 100% and a 140 km/h wind) were
+   finishing 0.1px short and ellipsising a name with nothing wrong with it. */
 .forecast-day-row {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
-	gap: 10px;
+	gap: 0.5rem;
 	padding: 7px 10px;
 	background: var(--bg3);
 	border: 1px solid var(--border);
 	border-radius: 2px;
 	font-size: 0.8125rem;
+	min-width: 0;
 }
 .forecast-day-row.fd-today {
 	border-color: var(--accent);
 }
+/* `width` aligns the dates into a column; `min-width: max-content` is what stops
+   that column ever being narrower than the text in it. Same pair on the icon. */
 .forecast-day-row .fd-label {
 	color: var(--text-dim);
-	width: 56px;
-	flex-shrink: 0;
+	width: 5ch;
+	min-width: max-content;
+	flex: 0 0 auto;
+	white-space: nowrap;
 }
 .forecast-day-row .fd-icon {
 	font-size: 1rem;
 	width: 1.375em;
+	min-width: max-content;
+	flex: 0 0 auto;
 	text-align: center;
 }
+/* ⚠ THE BASIS IS THE FLOOR, WHICH IS NEITHER 0 NOR `auto`, AND IT IS WHAT DECIDES
+   WHEN THE ROW WRAPS. Wrapping is settled from the items' BASE sizes, before any
+   shrinking, so this one number is the whole of the row's behaviour:
+     0      — counts for nothing, every column packs onto line one, and the row
+              overflows with the condition squeezed to LITERALLY zero width.
+              Measured at 22px text: 0px wide, the row's own subject deleted to
+              make room for the humidity.
+     auto   — carries the condition's full width into the decision, so the row wraps
+              rather than ever abbreviating it. "Ion Storm ⚠⚠" then wrapped its
+              temperature onto a second line at DEFAULT text size.
+     6ch    — wrap only when even a six-character name will not fit beside the fixed
+              columns. Shrink first, wrap second, which is the order that keeps one
+              line for as long as one line is honest.
+   `min-width` matches it, so the ellipsis never eats below that floor. */
 .forecast-day-row .fd-weather {
 	color: var(--text-dim);
-	flex: 1;
+	flex: 1 1 6ch;
+	min-width: 6ch;
+	display: flex;
+	align-items: center;
+	gap: 0.3em;
 	text-transform: capitalize;
+}
+/* The condition name alone — the warning beside it is never truncated, which is
+   why it is a sibling of this rather than inside it. */
+.forecast-day-row .fd-cond {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.forecast-day-row .fd-humid,
+.forecast-day-row .fd-wind,
+.forecast-day-row .fd-temp {
+	flex: 0 0 auto;
+	white-space: nowrap;
 }
 .forecast-day-row.fd-severe .fd-weather {
 	color: var(--warning, #e8a13a);
@@ -1986,10 +2062,13 @@ body.rainbow-sky.rainbow-triple .weather-event {
 	font-weight: bold;
 	letter-spacing: 0.02em;
 }
+/* Same pair as the date column: the `em` width aligns them, `min-width: max-content`
+   is what keeps 100% humidity or a three-figure gale inside its own box. */
 .forecast-day-row .fd-humid {
 	color: var(--text-dim);
 	font-size: 0.75rem;
 	width: 4.667em;
+	min-width: max-content;
 	text-align: right;
 	flex-shrink: 0;
 }
@@ -1997,6 +2076,7 @@ body.rainbow-sky.rainbow-triple .weather-event {
 	color: var(--text-dim);
 	font-size: 0.75rem;
 	width: 4.333em;
+	min-width: max-content;
 	text-align: right;
 	flex-shrink: 0;
 }

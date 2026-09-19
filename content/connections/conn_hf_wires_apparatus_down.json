@@ -1,0 +1,9 @@
+{
+  "a": "zone_wires_apparatus",
+  "b": "zone_util_zone_wires_apparatus",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_wires_apparatus_down",
+  "lockable": false,
+  "one_way": false
+}

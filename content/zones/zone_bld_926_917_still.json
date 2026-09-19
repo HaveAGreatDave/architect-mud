@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "The back half, behind a door that is a door in the sense that it fills the gap. The still stands in the corner with a fire under it and a condenser coil going up the wall and out through the roof. The whole room smells sweet and sharp and slightly wrong.",
+  "exits": {
+    "west": "zone_bld_926_917_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_926_917"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_926_917_still",
+  "map_id": "map_int_bld_926_917",
+  "name": "The Still Room",
+  "parent_zone": "zone_district_926_917"
+}

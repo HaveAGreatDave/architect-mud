@@ -10,7 +10,7 @@
   "id": "secdev_citadel_facade",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "Citadel security camera",
+  "name": "Compound Interest security camera",
   "object_type": "security_device",
   "power_draw_kw": null,
   "price": 0,

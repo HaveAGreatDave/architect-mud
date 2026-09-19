@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_course_offprint",
+  "name": "a lecture offprint",
+  "tags": {
+    "description": "Eight pages stapled at the corner, run off after the fact. The argument is careful and the conclusion is that the question cannot be settled from the inside, which is not what the endowment was hoping for.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 4,
+  "weight": 12
+}

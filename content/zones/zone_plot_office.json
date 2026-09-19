@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "One room, warm, lit hard, with a desk, two chairs on the visitor side and a plan of the quarter pinned across the whole back wall under a sheet of perspex. The plan is beautiful. Every plot on it is numbered and hatched and about a fifth of them are coloured in, which on this plan means sold. Through the glass behind you the actual quarter is a field with a road in it.",
+  "exits": {
+    "down": "zone_util_zone_plot_office",
+    "north": "zone_district_897_911"
+  },
+  "flags": {
+    "building_name": "Plot Twist",
+    "building_type": "land_office",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The full width of the office, giving onto Halcyon Boulevard and, past it, the meadow. The glass is cleaned twice a week by somebody who takes it seriously.",
+      "light": 0.6,
+      "name": "the shopfront glass",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_897_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_plot_office",
+  "map_id": "map_int_plot",
+  "name": "Plot Twist — The Office",
+  "parent_zone": "zone_district_897_911"
+}

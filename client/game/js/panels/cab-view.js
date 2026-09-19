@@ -17,7 +17,7 @@
 // authoritative world window.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
-  groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas , ROAD_RIG_MUL,
+  groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, navMarks, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas , ROAD_RIG_MUL,
   perfBegin, perfEnd, perfTick } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
 import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
@@ -160,6 +160,7 @@ const CONTROLS = [
   ['Y / LATCH', "The cab door latches. They start OPEN, which is what makes the button worth finding: stop on the corridor beside somebody with their hand out and they will let themselves into the passenger seat. Locked, nobody gets in and you pick people up on purpose with pickup. It's remembered per truck."],
   ['T / GALLEY', "What's in the cab to eat or drink, with your food and water bars over it. Every row runs the ordinary eat or drink command, so it does exactly what typing would — this is a flap, not a second way to eat."],
   ['D', 'Damage. Four bars — engine, wheels, body, and the trailer if you have one. The strip in the corner is always there; this opens it out.'],
+  ['N', "Nav marks. The red chevrons that point at traffic you can't see and the mark on your waypoint — off, and the glass is just the road. Remembered. The free camera hides them regardless, because they point the way the TRUCK is facing and it isn't on the truck."],
   ['⛶ / ⊟', 'Fullscreen, or hide the text panel for more road.'],
 ];
 
@@ -332,6 +333,18 @@ function paintFreeCamChrome() {
   el.className = 'cab-freecam-hint';
   el.textContent = FREECAM_HINT;
   host.appendChild(el);
+}
+
+// The N switch says what it did, in the LOG — the surface the cab already uses for the one other
+// thing it has to tell a driver in words (see the starter's clutch line). A chip on the glass would
+// be a second place to look for a message, and the log is the one rung Display Mode guarantees.
+//
+// ⚠ LOADED ON DEMAND for the reason written out at that call site: a static import of render.js
+// from this file closes a cycle through the boot chain.
+function markSwitchTold(on) {
+  import('../render.js').then((r) => r.appendHtml(
+    on ? 'Nav marks back on the glass.' : 'Nav marks off the glass — the traffic chevrons and the waypoint mark. <b>N</b> puts them back.',
+    'msg-system')).catch(() => { /* the marks themselves are the feedback; the line is the second surface */ });
 }
 
 export function isCabActive() { return !!st; }
@@ -1862,6 +1875,12 @@ export function openCab(ctx = {}) {
       }
       return;
     }
+    // ── THE MARKS OFF THE GLASS ─────────────────────────────────────────────
+    // Ahead of the camera's key claim, and ahead of the `freeCam.active` bail, on purpose: a
+    // detached camera hides these anyway (see NAV_MARKS in windshield.js), and a driver setting the
+    // switch while lining a shot up is setting it for the seat they are about to come back to.
+    // N is the last free letter on this keyboard — see the ⚠ on POINTER_KEY in freecam.js.
+    if (k === 'n' && down && !e.repeat) { e.preventDefault(); markSwitchTold(navMarks()); return; }
     // While it is detached the camera owns its keys and the truck hears none of them.
     // ⚠ AND IT EATS THE EVENT. Without this the arrows keep their default and SCROLL THE PAGE
     // underneath a camera that is turning perfectly well — the view jumps, the turn is lost in it,

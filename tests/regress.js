@@ -6186,23 +6186,65 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     await query('DELETE FROM player_inventory WHERE container_id=$1', [FURN]);
     npc.vendor_inventory[0].restockToQty = 3;
     let state = await _internal.loadDeliveryState([FURN]);
-    check('a vendor with an empty case is NOT skipped', _internal.needsDelivery(npc, state) === true);
+    check('a vendor with an empty case is NOT skipped', await _internal.needsDelivery(npc, state) === true);
 
     await restockSourcedContainers(npc);
     state = await _internal.loadDeliveryState([FURN]);
-    check('…and once delivered, it IS skipped', _internal.needsDelivery(npc, state) === false);
+    check('…and once delivered, it IS skipped', await _internal.needsDelivery(npc, state) === false);
 
     // One unit sold is the case the skip exists to catch: still nearly full, but
     // short, so tomorrow's tick must not pass it over.
     await query('DELETE FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND id=(SELECT id FROM player_inventory WHERE container_id=$1 LIMIT 1)', [FURN, ITEM]);
     state = await _internal.loadDeliveryState([FURN]);
-    check('a case one unit short is not skipped', _internal.needsDelivery(npc, state) === true);
+    check('a case one unit short is not skipped', await _internal.needsDelivery(npc, state) === true);
 
     // The seeded cache must deliver the same result as an unseeded call — it is
     // the sweep's only path, and a stale seed would under-deliver silently.
     await restockSourcedContainers(npc, state);
     count = (await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [FURN, ITEM])).rows[0].n;
     check('a delivery against a seeded cache still reaches the target', count === 3, count);
+
+    // ── A delivery bins what has gone off ──────────────────────────────────
+    //
+    // The case is FULL, so the count-based target is already satisfied — and
+    // every unit in it is rotten. Before the cull that state was permanent: the
+    // shelf never read as short, no delivery ever fired, and the shop sold
+    // spoiled food for ever. It only became reachable when freshness started its
+    // clock at the mint (player_inventory.created_at) rather than at the first
+    // look, which is what made unbought stock age at all.
+    //
+    // custom_data is cleared alongside so there's no checkpoint to read and the
+    // mint-time seed is what decides — the same path a never-examined shelf takes.
+    await query(
+      `UPDATE player_inventory SET created_at = now() - interval '2000 hours', custom_data = '{}'::jsonb
+        WHERE container_id=$1 AND item_id=$2`,
+      [FURN, ITEM]
+    );
+    count = (await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [FURN, ITEM])).rows[0].n;
+    check('the case is at target before the rot is noticed', count === 3, count);
+
+    state = await _internal.loadDeliveryState([FURN]);
+    check('a case FULL of spoiled stock is NOT skipped', await _internal.needsDelivery(npc, state) === true);
+
+    await restockSourcedContainers(npc, state);
+    const afterCull = (await query(
+      `SELECT COUNT(*)::int AS n, MIN(created_at) AS oldest FROM player_inventory WHERE container_id=$1 AND item_id=$2`,
+      [FURN, ITEM]
+    )).rows[0];
+    check('the delivery refills the case to target after binning the rot', afterCull.n === 3, afterCull.n);
+    check('nothing eighty days past its date survived the delivery',
+      afterCull.oldest && (Date.now() - new Date(afterCull.oldest).getTime()) < 3600000, afterCull.oldest);
+
+    // …and the gate must not fire on stock that is merely OLD. A frozen case is
+    // a 0.03 multiplier, so two days in one is nowhere near spoiled — if this
+    // trips, the cull is binning good stock and the shop reorders every tick.
+    await query(
+      `UPDATE player_inventory SET created_at = now() - interval '48 hours', custom_data = '{}'::jsonb
+        WHERE container_id=$1 AND item_id=$2`,
+      [FURN, ITEM]
+    );
+    state = await _internal.loadDeliveryState([FURN]);
+    check('a full case of merely-old frozen stock IS still skipped', await _internal.needsDelivery(npc, state) === false);
   } finally {
     await query('DELETE FROM player_inventory WHERE item_id=$1 OR player_id=$2', [ITEM, PID]).catch(() => {});
     await query('DELETE FROM items WHERE id=$1', [ITEM]).catch(() => {});

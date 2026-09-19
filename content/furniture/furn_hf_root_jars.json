@@ -1,0 +1,17 @@
+{
+  "description": "Sixty small jars in a chrome rack, each with a number, a date and a line of water in the bottom of it.",
+  "flags": {
+    "aliases": [
+      "jars",
+      "rack",
+      "samples"
+    ],
+    "interactions": {
+      "examine": "The numbers are not sequential. They are grid references, and all of them are in the Basin, and the newest four are very close together."
+    }
+  },
+  "id": "furn_hf_root_jars",
+  "name": "the sample rack",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_root_lab"
+}

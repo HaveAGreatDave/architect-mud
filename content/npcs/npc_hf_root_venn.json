@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Venn holds a jar up to the light, turns it, and writes nothing down.",
+    "The printer produces another slip. He does not look at it.",
+    "He washes his hands at the near sink and dries them one finger at a time.",
+    "He moves a jar from one end of the rack to the other and stands looking at the gap.",
+    "He glances up at the ceiling, towards the trial tray, and goes back to the bench."
+  ],
+  "description": "A thin, grey, unhurried man of about sixty in a lab coat over ordinary clothes, standing at the bench with a jar in his hand and the patience of somebody who has been waiting a year for a number to mean something. He answers questions completely and volunteers nothing, and it takes a while to notice that those are two different habits.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Fill the jars to the shoulder and not to the brim,\" he says. \"Air in the top ruins them and everybody does it.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The woman across the road is drawing a fifth more water than her racks use.\" He says it without being asked about her. \"She has told me. She told me because she thought it was her meter.\"\n\n\"My meter says the same thing. So does the glasshouse on the Buried Road, which I checked without asking anybody, and I am not proud of how.\" He sets the jar down. \"Three buildings on one main, all reading high, all with a good meter. That is not three faults. That is a fourth draw-off between us and the main, and there is nothing on the drawings between us and the main.\""
+    },
+    "grow": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because a plant is a better instrument than a scale.\" He almost warms up. \"I can measure a part in a million in the water on that bench. The rack upstairs will tell me what a part in a million does over eleven weeks to something that was alive at the start of them.\"\n\n\"Eleven channels running and twenty-nine empty, all fed from different sources. The empty ones are not a shortage of seed.\" He lets that sit. \"They are the ones where nothing came up.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What are you testing for?",
+          "next": "testing"
+        },
+        {
+          "label": "A sampling kit, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Why grow anything at all here?",
+          "next": "grow"
+        },
+        {
+          "label": "What is the taped strip upstairs?",
+          "next": "strip"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good afternoon.\" He sets the jar down carefully. \"This is a licensed facility. You may be in this room and not the one above it.\"",
+      "text_by_relation": {
+        "familiar": "He has the kit out and the reply label already written before you have said anything, which is the closest this man comes to warmth.\n\n\"Your last four were interesting,\" he says. \"That is not a compliment and it is not nothing.\"",
+        "first": "A grey man in a lab coat looks up from a bench of scales as you come in, and waits for the door to close before he speaks.\n\n\"Good afternoon. Corliss Venn.\"\n\nHe puts the jar in the rack, in a specific gap.\n\n\"You have come into a licensed facility, which you are permitted to do — the licence is on the door and it covers this floor. The tray above us it does not cover, and I will stop you at the lift, politely, and you will not enjoy arguing with me about it because I will simply keep saying the same sentence.\"",
+        "known": "\"Afternoon.\" He is already reaching for a kit. \"Same four jars. Fill them from different places this time.\""
+      }
+    },
+    "strip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He looks at the ceiling for a second before he answers, and what crosses his face is not evasion.\n\n\"There is a line of discolouration in the concrete of that floor, running from the core out towards the south glazing. I have marked its leading edge every fortnight for a year.\"\n\n\"When I started, it moved a finger's width in a fortnight. It is now moving that in four days.\" He picks the jar back up. \"I have reported it. The report went to the campus and the campus sent a structural engineer, who looked at it and said it was efflorescence, which it is not, because efflorescence does not accelerate.\""
+    },
+    "testing": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Water.\" He says it as a complete answer and then, after a moment, decides to give you more. \"Basin water. Mains, standing, run-off and bore, from sixty points, over three seasons.\"\n\n\"For what, I am not going to tell you, and the reason is not secrecy. It is that if I tell you what I am looking for, you will find it, in the way that people do.\" He indicates the rack. \"I would rather have your four jars than your opinion. I will pay for the jars.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a lab coat, clean, with the top button missing",
+      "a cardigan under it in a colour nobody chose recently",
+      "grey trousers",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_root_trial",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_hf_root_venn",
+  "name": "Corliss Venn",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_root_kit",
+      "price": 65
+    },
+    {
+      "item_id": "item_hf_root_reading",
+      "price": 48
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Root Cause",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_root_lab"
+}

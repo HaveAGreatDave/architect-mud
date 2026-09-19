@@ -1,0 +1,18 @@
+{
+  "description": "A long bench under the window: a pressure gauge the size of a dinner plate, a chart recorder scratching on a slow drum, and the position indicator. A tin box at the end holds the takings.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "gauges",
+      "instruments",
+      "tin"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_holder_creel",
+    "vendor_safe": true
+  },
+  "id": "furn_holder_bench",
+  "name": "the instrument bench",
+  "object_type": "fixture",
+  "zone_id": "zone_holder_gauge"
+}

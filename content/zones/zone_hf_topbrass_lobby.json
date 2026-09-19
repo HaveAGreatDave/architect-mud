@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A round lobby under the podium disc, glazed the whole way round, so from inside it you are standing in the middle of a low pale ring with the boulevard going past on every side. Two lifts in the core. A single long bench follows the curve of the wall and nobody ever sits at the ends of it.",
+  "exits": {
+    "down": "zone_util_zone_hf_topbrass_lobby",
+    "south": "zone_district_892_909",
+    "up": "zone_hf_topbrass_sky"
+  },
+  "flags": {
+    "building_name": "Top Brass",
+    "building_type": "chrome_tower",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_topbrass_lobby",
+  "map_id": "map_int_hf_topbrass",
+  "name": "Top Brass — The Saucer",
+  "parent_zone": "zone_district_892_909"
+}

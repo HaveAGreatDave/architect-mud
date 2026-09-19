@@ -1,0 +1,157 @@
+{
+  "adorn": [],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Cold Shoulder"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.375,
+      "hh": 0.018,
+      "kind": "parapet",
+      "pal": "ty_dw_stone",
+      "z": 0.8
+    },
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "drip": 1,
+      "half": 0.2,
+      "hh": 0.07,
+      "kind": "louvreBank",
+      "n": 7,
+      "pal": "ty_cold",
+      "z": 0.6
+    },
+    {
+      "bay": true,
+      "cx": 0,
+      "cy": 0.36,
+      "half": 0.105,
+      "hh": 0.135,
+      "kind": "shutter",
+      "pal": "ty_cold",
+      "z": 0.15
+    },
+    {
+      "bare": true,
+      "color": "#3a2d24",
+      "cx": 0,
+      "cy": 0.372,
+      "half": 0.2,
+      "hh": 0.034,
+      "ink": "#d8e6ee",
+      "kind": "signBoard",
+      "label": "COLD SHOULDER",
+      "z": 0.36
+    },
+    {
+      "cx": -0.29,
+      "cy": 0.36,
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.012,
+      "z0": 0.06,
+      "z1": 0.78
+    },
+    {
+      "cx": 0.29,
+      "cy": 0.36,
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.012,
+      "z0": 0.06,
+      "z1": 0.78
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.36,
+      "drip": 1,
+      "hh": 0.025,
+      "kind": "vent",
+      "pal": "ty_cold",
+      "w": 0.05,
+      "z": 0.14
+    },
+    {
+      "cx": -0.17,
+      "cy": 0.41,
+      "kind": "bollard",
+      "pal": "ty_dw_stone",
+      "z": 0.004
+    },
+    {
+      "cx": 0.17,
+      "cy": 0.41,
+      "kind": "bollard",
+      "pal": "ty_dw_stone",
+      "z": 0.004
+    },
+    {
+      "cx": 0.25,
+      "cy": 0.4,
+      "kind": "streetLamp",
+      "out": 0.03,
+      "pal": "ty_cold",
+      "r": 0.011,
+      "rgb": "255,214,150",
+      "s": 9,
+      "z0": 0.06,
+      "z1": 0.24
+    },
+    {
+      "cx": -0.22,
+      "cy": -0.34,
+      "hh": 0.035,
+      "kind": "binStack",
+      "n": 3,
+      "pal": "ty_cold",
+      "w": 0.05,
+      "z": 0.13
+    }
+  ],
+  "id": "coldshoulder",
+  "neon": "#8fe3ff",
+  "note": "An ice house with no shopfront in it. The walls are the building: brick, then cork, then boards, so the door sits at the back of a reveal deep enough to stand in and the only openings above it are the louvre bank the store breathes through. The back half stands out over the Basin on a timber loading stage, which is where the ice leaves and the only part of the plot that is not masonry.",
+  "pal": "ty_sw_kiln",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_dw_stone",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.055
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.375,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.055,
+      "z1": 0.8
+    },
+    {
+      "cx": 0,
+      "cy": -0.4,
+      "fd": 0.055,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_pier_deck",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.13
+    }
+  ]
+}

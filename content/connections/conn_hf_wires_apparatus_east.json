@@ -1,0 +1,9 @@
+{
+  "a": "zone_wires_apparatus",
+  "b": "zone_wires_frame",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_wires_apparatus_east",
+  "lockable": false,
+  "one_way": false
+}

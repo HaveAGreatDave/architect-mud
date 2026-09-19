@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_standing_ticket",
+  "name": "a commemorative ticket",
+  "tags": {
+    "description": "Card, printed, with the halt's name and a blank where a destination goes. A box of five hundred was delivered on the day the board was energised and nobody has ever needed one.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 15,
+  "weight": 2
+}

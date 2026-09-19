@@ -1,25 +1,21 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot: the channel beyond is deep, and impassable without a boat.",
-  "exits": {
-    "east": "zone_district_926_914",
-    "north": "zone_district_925_913",
-    "south": "zone_district_925_915",
-    "west": "zone_district_924_914"
-  },
+  "ambient_theme": "outdoors",
+  "description": "It burned a long time ago and burned properly: the brick shell stands, the roof is gone, and the joist pockets run in two neat rows down the inside of the walls like something anatomical. Somebody has bricked the doorway up, neatly, with the wrong brick.",
+  "exits": {},
   "flags": {
-    "district": "residential",
-    "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true,
-    "terrain": "forest"
+    "building_name": "The Burnt House",
+    "building_type": "ruin",
+    "district": "slum",
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 925,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_925_914",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "marker": "BH",
+  "name": "The Burnt House",
   "parent_zone": null
 }

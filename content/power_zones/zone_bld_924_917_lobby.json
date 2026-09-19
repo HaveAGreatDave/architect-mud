@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_bld_924_917_lobby",
+  "id": "zone_bld_924_917_lobby",
+  "name": "The Front Room",
+  "source_type": "junction_box"
+}

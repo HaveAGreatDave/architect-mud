@@ -177,10 +177,13 @@ rewrites the room for a tripping viewer), crews and guilds (`plugins/corps`), an
 - **Apartment storage and decor** — still sleep + lock only. No placement verb exists.
 - **Zone node graph view** — a graph of how zones connect, for authoring.
 - **Architect Interface skill events**
-- **Six districts with no ground** — `civic`, `government`, `hazard`, `longwatch`,
-  `redline`, `slaglands`, `slum` each have a name, a colour and authored prose, and not
-  one tile in the world. The Sprawl, the Redline and the Slaglands are the ones the
-  fiction leans on hardest.
+- **Five districts with no ground** — `civic`, `government`, `hazard`, `redline` and
+  `slaglands` each have a name, a colour and authored prose, and not one tile in the
+  world. The Redline and the Slaglands are the ones the fiction leans on hardest.
+  (Recounted 2026-09-19. This said "six" above a list of seven, and two of the seven have
+  since been given ground: `longwatch` holds 23 tiles and `slum` holds the 27 of Old
+  Coldwater. A new district, `halcyon_fields`, was authored and settled at 160 tiles,
+  bringing the districts that hold ground to 17 of the 22 authored.)
 - **The Glasshouse wants filling out** — 31 tiles and 16 buildings is thin for the
   Ascendants' entire seat.
 - **Five built features nothing opts into** — `enemy_barrier`, `claimable`,

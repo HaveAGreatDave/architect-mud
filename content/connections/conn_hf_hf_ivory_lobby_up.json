@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_ivory_lobby",
+  "b": "zone_hf_ivory_library",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_ivory_lobby_up",
+  "lockable": false,
+  "one_way": false
+}

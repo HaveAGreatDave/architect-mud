@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A hundred rungs up the inside of a leg and out through a hatch onto the walkway round the tank skirt. From here you can see the whole of it: the basin, the piers, the Spire, the Marquee, the new road going through the meadow to the wall, the gasholder sitting at whatever level it is sitting at, and away south the Curtain closing the lot off in a line of light. The wind up here is constant and the handrail is cold in any weather.",
+  "exits": {
+    "down": "zone_hwm_pump"
+  },
+  "flags": {
+    "building_name": "High Water Mark",
+    "building_type": "water_tower",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_910_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hwm_gallery",
+  "map_id": "map_int_hwm",
+  "name": "High Water Mark — The Tank Gallery",
+  "parent_zone": "zone_district_910_907"
+}

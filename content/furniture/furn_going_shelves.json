@@ -1,0 +1,17 @@
+{
+  "description": "Steel shelving floor to ceiling, holding the small lots: jewellery in trays, papers in tubes, three cased medals, and a box of house keys with the addresses still on the fobs.",
+  "flags": {
+    "aliases": [
+      "shelves",
+      "shelving",
+      "keys"
+    ],
+    "interactions": {
+      "examine": "The key box is the one thing in here nobody has catalogued. There are a great many keys in it and every fob is a street you could walk to."
+    }
+  },
+  "id": "furn_going_shelves",
+  "name": "the strongroom shelving",
+  "object_type": "container",
+  "zone_id": "zone_going_strong"
+}

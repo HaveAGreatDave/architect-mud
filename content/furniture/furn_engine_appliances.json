@@ -1,0 +1,18 @@
+{
+  "description": "Two of them, red, backed in ready to go, with the brass work bright and the ladders racked. The third bay is empty and its floor is cleaner than the other two.",
+  "flags": {
+    "aliases": [
+      "appliance",
+      "engine",
+      "engines",
+      "tender"
+    ],
+    "interactions": {
+      "examine": "The empty bay has an outline painted on the floor and the outline is for something longer than either of the two that are here."
+    }
+  },
+  "id": "furn_engine_appliances",
+  "name": "the appliances",
+  "object_type": "fixture",
+  "zone_id": "zone_engine_bay"
+}

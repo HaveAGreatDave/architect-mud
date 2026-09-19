@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_sweep_pen",
+  "name": "a drawing-office pencil",
+  "tags": {
+    "description": "Hard lead, hexagonal, with the estate mark and a grade stamped on it. The drawing office gets through a box a week and sells the overrun at the counter because somebody worked out they could.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 9,
+  "weight": 4
+}

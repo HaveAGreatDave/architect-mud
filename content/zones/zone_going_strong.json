@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A windowless room behind the rostrum with a steel door standing open on a bar, and shelving from floor to ceiling holding the lots that do not go out on the trestles. Jewellery, papers, three cased medals, a box of house keys with the addresses still on the fobs. It is colder in here than in the saleroom and it smells faintly of tarnish.",
+  "exits": {
+    "north": "zone_going_saleroom"
+  },
+  "flags": {
+    "building_name": "Going Concern",
+    "building_type": "auction_house",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_going_strong",
+  "map_id": "map_int_going",
+  "name": "Going Concern — The Strongroom",
+  "parent_zone": "zone_district_895_911"
+}

@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Under the vault: a flagged central path with staging down both sides, and above you a barrel of glass with the ribs black against it. It is hot, and wet, and the air is heavy in a way nothing else in this city is. Ferns at the cool end, then citrus in tubs, then at the far end, where the pipe comes in and the heat is worst, things with leaves the size of a door that should not be alive at this latitude and plainly are.",
+  "exits": {
+    "down": "zone_util_zone_glass_house",
+    "south": "zone_district_896_915"
+  },
+  "flags": {
+    "building_name": "Glass Half Full",
+    "building_type": "winter_garden",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole roof. Grey light comes down through the glass and the ribs lay black stripes across everything under it, and when it rains you cannot hear yourself think in here.",
+      "light": 0.8,
+      "name": "the vault",
+      "visibility": 0.5
+    },
+    "world_exit_zone": "zone_district_896_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_glass_house",
+  "map_id": "map_int_glass",
+  "name": "Glass Half Full — The Long House",
+  "parent_zone": "zone_district_896_915"
+}

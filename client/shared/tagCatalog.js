@@ -793,6 +793,12 @@
     light_beacon: { label: 'Light Beacon', shape: 'flag', scope: 'zone', group: 'Zone: Perimeter',
       help: 'This tile glows bright enough to flood itself and every same-level tile one grid-step away (the 8 surrounding cells) to full brightness, overriding night, power, and weather. Set on the source tile only; the environment sim expands the spill. Owner: environment (getZoneVisibility).' },
 
+    camp: { label: 'Tent Camp', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
+      help: 'People live on this tile in canvas rather than in a building. Raises tents, guy lines and a brazier out the canopy through the `camp` mark (deriveSurfaceCell), and the tile stays ORDINARY WALKABLE GROUND — that is the whole reason it is a flag and not a building_type, which would take the tile out of the walk graph and put a tent into the CFIT collision sweep. Owner: flight (state.js) + GLASS (windshield.js).' },
+
+    berth: { label: 'Ship Berth', shape: 'object', scope: 'zone', group: 'Zone: Structure',
+      help: 'Open water a cargo ship works from, alongside a quay. A freighter comes up the fairway, lies against the quay wall while the gantries load her, and steams off again; three hulls take it in turn, so the basin reads as having a small fleet rather than one ship on a loop. The tile stays ORDINARY WATER — that is the whole reason it is a flag and not a building_type, which would take it out of the walk graph and put a permanent ship-shaped hole into the CFIT collision sweep whether or not anything was alongside. Put it on the water tile IMMEDIATELY OUTBOARD of the quay: the hull places itself off that tile\'s own edge on the quay side, and the crane reaches to the same boundary, which is how the two agree without either being able to see the other. Shape: { "fair": "north", "quay": "west" } — `fair` is the open water she comes from and leaves up (her bow points that way the whole time), `quay` is the side she lies against. Everything else about her (beam, deck height, how far off the face she sits, when she is alongside) is shared with the gantry and lives in the renderer, because a number an author can get wrong here is a ship sitting inside a quay wall. Owner: flight (state.js) + GLASS (windshield.js, drawFreighter).' },
+
     // WHAT THE FIELD IS lives in the `airfields` table (one row per field); what is
     // true of a TILE stays here. Twelve airfield_* config flags were lifted out on
     // 2026-08-02 — name, charter/rental/dealer, fuel, vtol_only, residents_only,

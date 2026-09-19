@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_common_lobby",
+  "id": "map_int_hf_common",
+  "name": "Common Ground",
+  "parent_zone_id": "zone_district_892_911"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_salad_pack",
+  "b": "zone_util_zone_hf_salad_pack",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_salad_pack_down",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,17 @@
+{
+  "description": "The whole substation drawn on enamel across one wall, with a lamp at every switch. Red is closed, green is open, and there is one lamp near the bottom that is neither.",
+  "flags": {
+    "aliases": [
+      "mimic",
+      "panel",
+      "diagram"
+    ],
+    "interactions": {
+      "examine": "The odd lamp is bay seven. Its label has been overwritten in marker with a different bay number, and then that has been crossed out too."
+    }
+  },
+  "id": "furn_current_mimic",
+  "name": "the mimic panel",
+  "object_type": "fixture",
+  "zone_id": "zone_current_switch"
+}

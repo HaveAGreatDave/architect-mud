@@ -1,0 +1,17 @@
+{
+  "description": "Pinned across the back wall under perspex: every plot numbered and hatched, about a fifth of them coloured in. It is drawn well enough to be worth looking at as a drawing.",
+  "flags": {
+    "aliases": [
+      "plan",
+      "map",
+      "wall"
+    ],
+    "interactions": {
+      "examine": "The coloured plots are scattered rather than grouped, which is what it looks like when the sales are real and the buyers chose for themselves. Three of them are along the Curtain, where the view is a wall."
+    }
+  },
+  "id": "furn_plot_plan",
+  "name": "the plan of the quarter",
+  "object_type": "decoration",
+  "zone_id": "zone_plot_office"
+}

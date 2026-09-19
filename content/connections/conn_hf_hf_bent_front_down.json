@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_bent_front",
+  "b": "zone_util_zone_hf_bent_front",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_bent_front_down",
+  "lockable": false,
+  "one_way": false
+}

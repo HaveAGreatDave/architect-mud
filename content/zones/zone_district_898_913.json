@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#1a1d1f",
+  "color": "#cddbd8",
+  "description": "A pale rendered block stepped back at every floor, so that each storey gives the one below it a balcony running the full width, and every balcony faces south across the meadow. The rails are painted white and repainted often. There are more chairs on them than there are people in them. At street level a modest door under a glass canopy, and a plate beside it reading SECOND WIND · CONVALESCENT ROOMS · NO APPOINTMENT NEEDED.",
   "exits": {
     "east": "zone_district_899_913",
-    "north": "zone_district_898_912",
-    "south": "zone_district_898_914",
-    "west": "zone_district_897_913"
+    "west": "zone_wind_day"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Second Wind",
+    "building_type": "hydro",
+    "district": "halcyon_fields",
+    "entrance": "east",
+    "facade": true,
+    "floors": 4,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_899_913"
   },
   "grid_x": 898,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_898_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "WN",
+  "name": "Second Wind",
   "parent_zone": null
 }

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_current_gloves",
+  "name": "a pair of rubber gauntlets",
+  "tags": {
+    "description": "Elbow-length, dusted inside, with a test date stamped on the cuff that is still in. He will sell you a pair and then tell you, at length, what they are and are not for.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 45,
+  "weight": 380
+}

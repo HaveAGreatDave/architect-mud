@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Ferreira watches somebody come down the rail and does not help, which takes effort.",
+    "He coils a band round his hand and puts it back in the jar the right way.",
+    "He wipes the left-hand bar down and leaves the right one.",
+    "He looks at the appointment screen, counts the afternoon, and rolls one shoulder.",
+    "He moves a chair four inches so the gap by the rail is wide enough."
+  ],
+  "description": "A compact, very strong man of about forty with cropped hair and a physiotherapist's particular way of looking at how you came through the door. He worked on chrome rejection cases at the Ascendant clinic for nine years and left, and he will tell you that he left but not why, and the not-why is polite rather than evasive.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Use the rail on the way out,\" he says. \"Not because you need it. Because it costs you nothing and one day you will.\""
+    },
+    "clinic": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Nine years.\" He says it evenly. \"Rejection cases, mostly. I was good at it and they were good to me, and I left, and that is the whole of what I will say about leaving.\"\n\nHe holds your eye for a second to make sure it lands as a boundary and not as a hint.\n\n\"They still send me people. That should tell you it was not a falling out.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I am getting people off the estate now, not just off the campus.\" He frowns at the screen. \"Site workers. Shoulders and backs, which is ordinary, and four of them this season with the same thing in the same hand.\"\n\n\"Not an injury. A tremor, small, and it goes after a fortnight off the tools.\" He taps the desk twice. \"Four is not a pattern. Four is four. But they are all on the same gang and they are all cutting the same material, and I have written that down somewhere I can find it if there is a fifth.\""
+    },
+    "here": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because of what is three streets that way.\" He tips his head towards the campus without naming it. \"People come out of that clinic with hardware in them and a discharge sheet that says the procedure was a success, and it was. Nobody teaches them to walk with it.\"\n\n\"That is not a criticism of surgeons. Surgery is a different job.\" He shrugs. \"Somebody has to be the second appointment, and the second appointment was forty minutes across the city until I put a door here.\""
+    },
+    "rail": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because that is how far people can get on their own.\" He says it with something close to satisfaction. \"They come in on the rail, they let go somewhere in the middle third, and they do the last stretch unaided, and the shine stops where the hands stop.\"\n\n\"When somebody is finishing a course, I watch where they let go. It moves back down the arc week by week.\" He nods at the dull end. \"The far end is dull because nobody has ever needed it going out. That is the only chart in this practice and it is screwed to the wall.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Why physiotherapy, here?",
+          "next": "here"
+        },
+        {
+          "label": "A band, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "You worked at the clinic?",
+          "next": "clinic"
+        },
+        {
+          "label": "Why is the rail only shiny in the middle?",
+          "next": "rail"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in.\" He has already looked at how you walked in. \"Sit if you want. I will not ask you what happened unless you want me to.\"",
+      "text_by_relation": {
+        "familiar": "He is out from behind the desk before you have got halfway along the arc, and he is looking at your hip.\n\n\"Better,\" he says. \"Genuinely better, and I do not say that to be nice. Sit down and let me see the other thing.\"",
+        "first": "The man at the desk watches you the whole way down the arc, and what he is watching is your gait rather than your face.\n\n\"Ferreira. Physiotherapy.\" He does not get up. \"You are favouring one side, and before you tell me you are not, everybody says that, and I am right about four times in five.\"\n\nHe nudges the jar of bands forward.\n\n\"I am not going to sell you a course of treatment on your way past. Bands are twenty-six and the card on them is worth more than the rubber. Sit down if you want to sit down.\"",
+        "known": "\"Same side,\" he says, without looking up from the screen. \"Bands are where they were.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a plain grey short-sleeved tunic",
+      "loose dark trousers made to move in",
+      "flat shoes with no laces",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_bent_gym",
+  "hp": 42,
+  "hp_max": 42,
+  "id": "npc_hf_bent_ferreira",
+  "name": "Xan Ferreira",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_bent_band",
+      "price": 26
+    },
+    {
+      "item_id": "item_hf_bent_rub",
+      "price": 34
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Bent Double",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_bent_front"
+}

@@ -1,0 +1,11 @@
+{
+  "description": "A run of bulkheads down the frame aisle, half of them out, the rest throwing enough light to read a tag by and not enough to see the top of the wall.",
+  "flags": {},
+  "id": "furn_light_zone_wires_frame",
+  "light_type": "overhead",
+  "lumen_output": 700,
+  "name": "the frame lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_wires_frame"
+}

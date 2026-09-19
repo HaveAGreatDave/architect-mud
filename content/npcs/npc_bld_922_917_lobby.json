@@ -1,0 +1,80 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A heavy, unhurried man who knows the name of everyone who has ever slept here and the debts of most of them.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a many-pocketed utility coat",
+      "a faded company polo",
+      "grey boxer-briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_922_917_lobby",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_bld_922_917_lobby",
+  "name": "Wilmot Scarrow",
+  "npc_type": "vendor",
+  "sex": "male",
+  "vendor_inventory": [
+    {
+      "item_id": "item_flat_bread",
+      "price": 5
+    },
+    {
+      "item_id": "item_rag_bandage",
+      "price": 6
+    }
+  ],
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ]
+  },
+  "wander_zones": [],
+  "wanders": 0
+}

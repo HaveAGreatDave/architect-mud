@@ -1,0 +1,17 @@
+{
+  "description": "Three columns of names cut into the stone and filled with gilt, most of it still there. The list stops partway down the third column and the stone below it was never cut.",
+  "flags": {
+    "aliases": [
+      "wall",
+      "donors",
+      "names"
+    ],
+    "interactions": {
+      "examine": "Halcyon Assurance heads the first column. The rest are individuals, and every one of them is listed with the year they gave and no year after it."
+    }
+  },
+  "id": "furn_sound_donors",
+  "name": "the donor wall",
+  "object_type": "decoration",
+  "zone_id": "zone_sound_foyer"
+}

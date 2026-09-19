@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_course_transcript",
+  "name": "a bound transcript",
+  "tags": {
+    "description": "One term of lectures, half-bound in green cloth and lettered by hand. Somebody has taken down every word, including the questions from the floor, including the ones that were not really questions.",
+    "stackable": false
+  },
+  "type": "media",
+  "value": 18,
+  "weight": 210
+}

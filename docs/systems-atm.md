@@ -107,14 +107,14 @@ The allowance is spent by the amount **dispensed**, not the amount debited — t
 
 ### The 24-hour allowance and the teller bypass
 
-`atm_networks.withdrawal_limit` is what a **physical machine** will move for you in any rolling 24 hours, applied to `deposit` and `withdraw` alike. Citadel Financial sits at **2500c**. An ATM on no network falls back to `DEFAULT_TXN_CAP` (2500) — an unlinked terminal is capped, never uncapped.
+`atm_networks.withdrawal_limit` is what a **physical machine** will move for you in any rolling 24 hours, applied to `deposit` and `withdraw` alike. Compound Interest sits at **2500c**. An ATM on no network falls back to `DEFAULT_TXN_CAP` (2500) — an unlinked terminal is capped, never uncapped.
 
 It was a *per-transaction* ceiling until 2026-08-01, which meant it wasn't really a limit at all: you stood at the machine and ran the same maximum deposit until you'd moved everything you owned. A window is the only shape that bites.
 
 Four decisions define the window, each with a failure mode if reversed:
 
 - **Rolling, not a daily reset.** The window is always "the last 24 hours from now", summed at check time. No stored counter — so nothing to reset on a tick, nothing to drift across a restart, and no in-game midnight at which every player's limit refills at once.
-- **Per network.** Exhausting Citadel leaves a rival's terminals open, which is what finally gives `atm_units.network_id` a job. An **unlinked** terminal keys off its own furniture id (`atm:<id>`), so unlinked machines neither pool into one shared allowance nor escape into none.
+- **Per network.** Exhausting Compound Interest leaves a rival's terminals open, which is what finally gives `atm_units.network_id` a job. An **unlinked** terminal keys off its own furniture id (`atm:<id>`), so unlinked machines neither pool into one shared allowance nor escape into none.
 - **Separate buckets per direction.** Each direction gets the full allowance. Banking a day's earnings must not stop you drawing walking-around money back out.
 - **Summed off `bank_transactions`, which makes that table load-bearing.** It was a display-only history for the Tablet Bank app; it is now the substrate the limit is computed from. Two consequences: **withdrawals are now logged** (they never were — the ledger was deposits-only), and any new banking path that forgets to call `logBankTx` is a path whose money never counted against the limit.
 
@@ -129,7 +129,7 @@ The cap is a door, not a wall: **addressing an NPC flagged `flags.bank_teller` l
 Two consequences worth knowing:
 
 - The teller path works **in a room with no ATM furniture at all**, and there a bare `deposit`/`withdraw` falls to the counter automatically — nothing else it could mean.
-- `zone_citadel_hall` holds both the Citadel terminals *and* Robo Teller (`npc_citadel_teller`). `withdraw 9000` there is refused by the machine; `withdraw 9000 from teller` succeeds. The over-cap refusal quotes the working phrasing whenever a teller is in the room.
+- `zone_citadel_hall` holds both the Compound Interest terminals *and* Robo Teller (`npc_citadel_teller`). `withdraw 9000` there is refused by the machine; `withdraw 9000 from teller` succeeds. The over-cap refusal quotes the working phrasing whenever a teller is in the room.
 
 The client ATM panel receives the ceiling as `txnCap` (null at a teller) **and the live per-direction `allowance`**, and clamps its MAX button to `allowance[direction].remaining` — clamping to `txnCap` alone would over-propose the moment any of it is spent, i.e. MAX would offer an amount the machine then refuses. The line under the amount field states the ceiling while the window is untouched, switches to "X of Y left — resets in Nh" once any is spent, and goes to a warm "24h limit reached" once it's gone, so the rule is visible before you type a number rather than after. A transaction returns only the direction it spent (`atm_allowance`), so `updateAtmPanel` merges per-direction rather than replacing the pair.
 

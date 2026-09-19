@@ -290,7 +290,7 @@ makes the footer's zone line mean anything.
 one per major district plus the Coldwater Mint proper — on the reasoning that a terminal you have
 to walk to should not be a trek. That was the wrong reasoning: five civic terminals made minting a
 municipal errand, indistinguishable from renewing a permit, and the footer's zone line said
-*Citadel Hall* on almost every card in the pool. A record of a person on a particular day should
+*the Marble Hall* on almost every card in the pool. A record of a person on a particular day should
 not be issued by a bank. The press now lives at **Mint Condition**, the comic shop on Ironside
 (`zone_mintcond_floor`), whose proprietor bought the decommissioned civic presses at auction one at
 a time and rebuilt them into the one good one — so the walk is the feature, the zone line means
@@ -347,7 +347,7 @@ A blackout should take the card machines with it.
 | **Mint terminal** | 4–6 | Institutional only. Prestige is the point — you go *to* the Mint. |
 | **Pack machine** | 10–15 | High-traffic public interiors, and one street plaza. |
 
-**Mint terminals** — `zone_citadel_hall` (Citadel Financial's Marble Hall, already the ATM's home and
+**Mint terminals** — `zone_citadel_hall` (Compound Interest's Marble Hall, already the ATM's home and
 the obvious flagship), `zone_citadel_gallery` (Safe Deposit Gallery), `zone_records_reading` (the
 Paper Tomb's Reading Room — a card *is* a record), `zone_ward_permits` (Office of Permitted
 Suffering, for the joke of queueing to be issued yourself), and `zone_casino_interior` (The Lucky Bastard,

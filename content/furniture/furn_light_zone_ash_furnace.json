@@ -1,0 +1,11 @@
+{
+  "description": "Caged bulbs over each door, throwing enough light to find a handle by. The real light in the room comes up through the smoked glass and moves.",
+  "flags": {},
+  "id": "furn_light_zone_ash_furnace",
+  "light_type": "overhead",
+  "lumen_output": 800,
+  "name": "the inspection lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_ash_furnace"
+}

@@ -1,0 +1,84 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Rolled sleeves, short nails, and the flat incurious calm of somebody who has already seen worse than you today.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a lead-lined apron over a clinic coat",
+      "a fitted scrub top",
+      "a plain bra and panties"
+    ],
+    "personality": "doctor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_924_917_table",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_bld_924_917_table",
+  "name": "Merrit Lachance",
+  "npc_type": "npc",
+  "sex": "female",
+  "vendor_inventory": [
+    {
+      "item_id": "item_rag_bandage",
+      "price": 7
+    },
+    {
+      "item_id": "item_bandage",
+      "price": 14
+    },
+    {
+      "item_id": "item_field_splint",
+      "price": 32
+    }
+  ],
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ]
+  },
+  "wander_zones": [],
+  "wanders": 0
+}

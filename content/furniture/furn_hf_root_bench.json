@@ -1,0 +1,17 @@
+{
+  "description": "A long bench with four-place scales under a draught shield, a rack of numbered jars, and a printer that has been running long enough to fill a box.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "scales",
+      "lab"
+    ],
+    "hack_difficulty": 7,
+    "vendor_npc_id": "npc_hf_root_venn",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_root_bench",
+  "name": "the analysis bench",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_root_lab"
+}

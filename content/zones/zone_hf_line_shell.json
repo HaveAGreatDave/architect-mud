@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Four chrome uprights, a roof and no walls, with the glazing channels fitted and empty and a bench bolted down in the middle of it. Somebody has strung a tarpaulin across the windward side and weighted it with ballast off the bed, which is the only alteration anybody has made to this building since it stopped.",
+  "exits": {
+    "east": "zone_hf_line_platform"
+  },
+  "flags": {
+    "building_name": "Line of Enquiry",
+    "building_type": "transit_halt",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_908_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_line_shell",
+  "map_id": "map_int_hf_line",
+  "name": "Line of Enquiry — The Waiting Room Shell",
+  "parent_zone": "zone_district_908_917"
+}

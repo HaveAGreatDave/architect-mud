@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_sweep_model",
+  "b": "zone_hf_sweep_drawing",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_sweep_model_up",
+  "lockable": false,
+  "one_way": false
+}

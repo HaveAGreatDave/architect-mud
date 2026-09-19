@@ -9,9 +9,19 @@
   "id": "door_shoddy_zone_district_920_904_in",
   "is_locked": 0,
   "is_open": 0,
-  "lock_state": null,
+  "lock_state": "locked",
   "name": null,
-  "tags": {},
+  "tags": {
+    "lock:shoplock": {
+      "canHack": true,
+      "difficulty": 4,
+      "messages": {
+        "denied": "The shop lock reads your hand and declines to recognise it.",
+        "lock": "The bolt drops and the shopfront goes quiet.",
+        "unlock": "The bolt lifts. The shop door swings in."
+      }
+    }
+  },
   "target_zone": "zone_residential_lobby",
   "zone_id": "zone_district_920_904"
 }

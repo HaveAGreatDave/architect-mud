@@ -1,21 +1,29 @@
 {
   "adorn": [
     {
-      "cx": 0,
-      "cy": 0.3,
+      "cx": 0.22,
+      "cy": 0.365,
       "kind": "roofCross",
       "lit": 1,
-      "rgb": "80,230,160",
-      "rise": 0.05,
-      "span": 0.09,
+      "rgb": "96,235,172",
+      "rise": 0.045,
+      "span": 0.07,
       "z": 0.42
     },
     {
-      "cx": -0.08,
-      "cy": 0.44,
+      "cx": -0.05,
+      "cy": 0.47,
       "kind": "glowPool",
       "rgb": "90,220,165",
-      "s": 14,
+      "s": 13,
+      "z": 0.02
+    },
+    {
+      "cx": 0.27,
+      "cy": 0.45,
+      "kind": "glowPool",
+      "rgb": "170,255,215",
+      "s": 8,
       "z": 0.02
     }
   ],
@@ -31,105 +39,259 @@
   ],
   "detail": [
     {
-      "cx": 0,
-      "cy": 0,
-      "half": 0.34,
-      "hh": 0.016,
-      "kind": "parapet",
-      "pal": "ty_stitch",
-      "z": 0.94
-    },
-    {
-      "bars": 3,
-      "cx": -0.08,
-      "cy": 0.36,
-      "depth": 0.016,
+      "cx": -0.05,
+      "cy": 0.38,
+      "bars": 6,
+      "depth": 0.03,
       "glass": "#101b17",
-      "glow": "#cdf0df",
-      "half": 0.21,
-      "hh": 0.03,
-      "kind": "windowBay",
-      "pal": "ty_shop_d",
-      "z": 0.12
-    },
-    {
-      "bars": 4,
-      "cx": 0,
-      "cy": 0.36,
-      "depth": 0.01,
-      "glass": "#101b17",
-      "glow": "#9fd8c0",
+      "glow": "#bff0da",
       "half": 0.26,
-      "hh": 0.028,
+      "hh": 0.052,
       "kind": "windowBay",
-      "pal": "ty_shop_d",
-      "z": 0.5
+      "pal": "ty_chem",
+      "transom": 1,
+      "z": 0.075
     },
     {
-      "color": "#0e2a20",
-      "cx": -0.08,
-      "cy": 0.36,
+      "cx": 0.27,
+      "cy": 0.38,
+      "half": 0.055,
+      "hh": 0.038,
+      "kind": "shutter",
+      "pal": "ty_stitch",
+      "z": 0.085
+    },
+    {
+      "color": "#4fd39a",
+      "cx": -0.05,
+      "cy": 0.385,
+      "drop": 0.02,
+      "half": 0.285,
+      "kind": "neonRun",
+      "pal": "ty_stitch",
+      "z": 0.162
+    },
+    {
+      "cx": -0.05,
+      "cy": 0.38,
+      "half": 0.29,
+      "hh": 0.011,
+      "kind": "canopy",
+      "out": 0.11,
+      "pal": "ty_stitch",
+      "soffit": "#123026",
+      "strip": "#8fe8c4",
+      "z": 0.172
+    },
+    {
+      "color": "#0b2019",
+      "cx": 0,
+      "cy": 0.38,
       "font": "condensed",
-      "half": 0.24,
-      "hh": 0.028,
-      "ink": "#7fe8bd",
+      "half": 0.31,
+      "hh": 0.038,
+      "ink": "#9ff5cc",
       "kind": "signBoard",
       "label": "DOSED & CONFUSED",
       "picto": "pill",
-      "z": 0.32
+      "z": 0.24
     },
     {
-      "cx": 0.24,
-      "cy": 0.36,
-      "half": 0.06,
-      "hh": 0.03,
-      "kind": "shutter",
+      "cx": 0,
+      "cy": 0,
+      "half": 0.385,
+      "hh": 0.014,
+      "kind": "parapet",
       "pal": "ty_stitch",
-      "z": 0.11
+      "z": 0.288
+    },
+    {
+      "cap": true,
+      "cx": 0.02,
+      "cy": 0.35,
+      "kind": "pilaster",
+      "n": 4,
+      "out": 0.018,
+      "pal": "ty_stitch",
+      "step": 0.1,
+      "w": 0.02,
+      "z0": 0.3,
+      "z1": 0.86
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 4,
+        "cx": 0.06,
+        "cy": 0.35,
+        "depth": 0.014,
+        "glass": "#1c2a26",
+        "glow": "#cfe8e0",
+        "half": 0.15,
+        "hh": 0.034,
+        "kind": "windowBay",
+        "pal": "ty_shop_d",
+        "z": 0.4
+      },
+      "step": {
+        "z": 0.2
+      }
+    },
+    {
+      "count": 2,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.2,
+        "cy": 0.4,
+        "depth": 0.012,
+        "glass": "#1c2a26",
+        "glow": "#d8f2e6",
+        "half": 0.082,
+        "hh": 0.045,
+        "kind": "windowBay",
+        "pal": "ty_stitch",
+        "z": 0.42
+      },
+      "step": {
+        "z": 0.19
+      }
+    },
+    {
+      "cx": -0.35,
+      "cy": -0.3,
+      "face": "x",
+      "flights": 3,
+      "half": 0.07,
+      "kind": "fireEscape",
+      "out": 0.042,
+      "pal": "ty_chem",
+      "z0": 0.3,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.315,
+      "hh": 0.016,
+      "kind": "parapet",
+      "pal": "ty_stitch",
+      "z": 1
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.12,
+      "d": 0.09,
+      "hh": 0.05,
+      "kind": "roofBulkhead",
+      "pal": "ty_stitch",
+      "w": 0.1,
+      "z": 1
+    },
+    {
+      "cx": 0.16,
+      "cy": -0.06,
+      "d": 0.07,
+      "hh": 0.035,
+      "kind": "acUnit",
+      "pal": "ty_chem",
+      "w": 0.09,
+      "z": 1
     },
     {
       "cx": 0.2,
-      "cy": 0,
-      "d": 0.08,
-      "hh": 0.04,
-      "kind": "acUnit",
+      "cy": 0.18,
+      "hh": 0.06,
+      "kind": "roofTank",
       "pal": "ty_stitch",
-      "w": 0.1,
-      "z": 0.94
+      "r": 0.06,
+      "z": 1
+    },
+    {
+      "color": "#08100d",
+      "cx": 0,
+      "cy": -0.02,
+      "font": "condensed",
+      "half": 0.2,
+      "hh": 0.042,
+      "ink": "#7fe8bd",
+      "kind": "signGantry",
+      "label": "ALL NIGHT HATCH",
+      "neon": true,
+      "pal": "ty_stitch",
+      "rise": 0.065,
+      "z": 1.02
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.44,
+      "kind": "bollard",
+      "pal": "ty_stitch",
+      "z": 0.004
+    },
+    {
+      "cx": 0.36,
+      "cy": 0.44,
+      "kind": "bollard",
+      "pal": "ty_stitch",
+      "z": 0.004
     }
   ],
   "id": "dosedconfused",
   "neon": "#4fd39a",
-  "note": "A chemist on the corner where Foundry Way meets the Gate Road, with a green cross over the door that flickers on the downstroke and a night hatch beside it with a bell. The window is full of boxes that have faded down one side from standing in the light. Three floors, and the dispensing counter is up a step.",
+  "note": "A chemist on the corner where Foundry Way meets the Gate Road. A green cross over the door that flickers on the downstroke, a night hatch beside it with a bell, and a window full of boxes that have faded down one side from standing in the light. Three floors, and the dispensing counter is up a step.\n\nIt was a flat box with a small dark sign on it. A chemist is a SHOPFRONT with rooms over it, so it has the stack the rest of the street has: a stone plinth, a glazed podium under a canopy that reaches the kerb, a cornice, then a set-back shaft in the shop's own green-grey. Three palettes, because the setbacks were there and a single tone made four storeys read as one lump - the same thing adequate.json records.\n\nThe oriel on the left is the dispensary, which is the room that wants the light and is the one part of the frontage a chemist would pay to project.\n\nThe roof sign is the HATCH and not the name. The fascia already says the name; a roof board repeating it tells a player nothing, and the hatch is the thing worth knowing about at three in the morning.",
   "pal": "ty_shop_d",
   "segs": [
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.38,
-      "kind": "box",
-      "roof": true,
-      "z0": 0,
-      "z1": 0.07
-    },
-    {
-      "cx": 0,
-      "cy": 0,
-      "hw": 0.36,
-      "kind": "box",
-      "roof": true,
-      "z0": 0.07,
-      "z1": 0.82
-    },
-    {
-      "cx": 0,
-      "cy": 0,
-      "hw": 0.34,
+      "hw": 0.4,
       "kind": "box",
       "pal": "ty_stitch",
       "roof": true,
-      "z0": 0.82,
-      "z1": 0.94
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.38,
+      "kind": "box",
+      "pal": "ty_chem",
+      "roof": true,
+      "z0": 0.05,
+      "z1": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.35,
+      "kind": "box",
+      "pal": "ty_shop_d",
+      "roof": true,
+      "z0": 0.3,
+      "z1": 0.86
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.3,
+      "hw": 0.1,
+      "kind": "box",
+      "pal": "ty_stitch",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.31,
+      "kind": "box",
+      "pal": "ty_stitch",
+      "roof": true,
+      "z0": 0.86,
+      "z1": 1
     }
   ],
   "trade": "chem_supply"

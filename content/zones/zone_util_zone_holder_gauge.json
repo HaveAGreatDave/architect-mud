@@ -1,0 +1,18 @@
+{
+  "description": "A brick pit under the gauge house reached by a ladder, holding the inlet and outlet valves, a rack of keys for them and the cabinet. Everything down here is painted the same green and everything green has been repainted over rust at least twice.",
+  "exits": {
+    "up": "zone_holder_gauge"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_905_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_holder_gauge",
+  "map_id": "map_int_holder",
+  "name": "Holding Pattern — The Valve Pit",
+  "parent_zone": "zone_district_905_917"
+}

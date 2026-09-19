@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_root_lab",
+  "b": "zone_util_zone_hf_root_lab",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_root_lab_down",
+  "lockable": false,
+  "one_way": false
+}

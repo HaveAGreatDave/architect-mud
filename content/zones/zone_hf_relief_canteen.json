@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The plant floor, taken over: six tables, a long counter, a tea urn that is never off, and the whole of the west glazing with the Curtain behind it. At seven in the morning there are thirty people in here and it is the loudest room in Halcyon Fields by a distance nobody else in the quarter would believe.",
+  "exits": {
+    "down": "zone_hf_relief_lobby"
+  },
+  "flags": {
+    "building_name": "Light Relief",
+    "building_type": "chrome_tower",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_relief_canteen",
+  "map_id": "map_int_hf_relief",
+  "name": "Light Relief — The Fifth Collar",
+  "parent_zone": "zone_district_892_915"
+}

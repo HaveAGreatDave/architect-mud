@@ -18,7 +18,7 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { registerAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { vendorGrudgeRemaining, holdVendorGrudge, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
-import { isVendorClosed, isVendorAbsent, isVendorOffHours, vendorClosedLine, openInPhrase, formatChitchat } from '../../server/engine/ai-behaviour.js';
+import { isVendorClosed, vendorClosedLine, formatChitchat } from '../../server/engine/ai-behaviour.js';
 import { registerMoveGate, registerShutProvider } from '../../server/engine/movement-gates.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { propagateSound } from '../../server/engine/sounds.js';
@@ -26,7 +26,12 @@ import { dispatchAction } from '../../server/engine/actions.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
-import { isResidentOf, getBuildingName } from '../../server/engine/apartments.js';
+// The shop DOOR: the lock type, the trading-hours card, and the four predicates
+// the refusal below shares with it. See ./shopdoor.js for why they live there.
+import {
+  shopClosedFor, shutOnPresenceOnly, reopensPhrase, shopPlaceName, livesHere,
+  shopDoorDefeated, tradingHoursLine, describeDoorHook, reconcileShopDoors,
+} from './shopdoor.js';
 
 // Resolve which vendor a bare buy/sell targets: the one the player is actively
 // shopping with (if still in the zone), else the first vendor present. Without this,
@@ -215,102 +220,42 @@ on('vendor.purchase', async ({ player, npcId, itemId }) => {
 
 // ── Shop hours: a closed shop is a locked shop ───────────────────────────────
 // Refusing to trade wasn't enough — you could still stand in a dark shop all
-// night. A shop ROOM is now shut when every vendor who works it is off the clock:
+// night. A shop ROOM is shut when every vendor who works it is off the clock:
 // you can't walk in, and if you're inside when they close, they put you out.
 //
-// The index is presence-independent on purpose: a closed vendor has usually gone
-// home, so reading the live zone occupancy would make the room stop looking like a
-// shop the moment it closed. It's keyed off work_zone_id (where their shift IS),
-// rebuilt lazily on a 60s TTL — NPCs are created/edited rarely and the world Maps
-// are the read tier here, never a query.
+// THE SHOP INDEX, THE CLOSED TEST, THE PLACE NAME AND THE RESIDENCY EXEMPTION NOW
+// LIVE IN ./shopdoor.js, beside the physical lock they also drive. They were
+// written here, when a closed shop was a refusal and nothing else. The moment
+// that refusal had a real door standing behind it the two had to agree about
+// whose shop this is, whether it is shut, and who is allowed past it, and a
+// second copy of that answer is the thing this repo keeps having to un-write.
 const SHOP_IDX_TTL = 60_000;
-let _shopIdx = null, _shopIdxAt = 0;
-function shopVendorsFor(zoneId) {
-  if (!_shopIdx || Date.now() - _shopIdxAt > SHOP_IDX_TTL) {
-    _shopIdx = new Map();
-    for (const n of world.npcs.values()) {
-      if (!n?.work_zone_id || n.flags?.covert) continue;
-      if (!n.vendor_inventory?.length) continue;
-      if (!n.vendor_schedule || !Object.keys(n.vendor_schedule).length) continue;
-      if (!_shopIdx.has(n.work_zone_id)) _shopIdx.set(n.work_zone_id, []);
-      _shopIdx.get(n.work_zone_id).push(n);
-    }
-    _shopIdxAt = Date.now();
-  }
-  return _shopIdx.get(zoneId) || [];
-}
-
-// The vendor to quote when this room is shut, or null if it isn't a shop room /
-// someone is still trading. Interiors only: a stallholder standing on a street
-// tile must never lock the street.
-function shopClosedFor(zone) {
-  if (!zone?.flags?.is_interior) return null;
-  const vendors = shopVendorsFor(zone.id);
-  if (!vendors.length) return null;
-  if (vendors.some(n => !isVendorClosed(n))) return null;
-  return vendors[0];
-}
-
-function reopensPhrase(npc) {
-  const when = openInPhrase(npc);
-  return when ? `in ${when}` : 'during business hours';
-}
-
-// ── TWO REASONS A SHOP IS SHUT, AND ONLY ONE OF THEM HAS A TIME ──────────────
-// `isVendorClosed` folds together the clock (off the timetable) and presence (on
-// the timetable, but not behind the counter yet — walking in, stepped out, late).
-// Both shut the door; only the first can be answered with a wait.
-//
-// Quoting one for the second is where "opens again in about 24 hours" came from:
-// the shopkeeper's block had already started, so the next START was tomorrow's.
-// A player read that as a shop closed round the clock and reported it as such.
-// `vendorClosedLine` has refused to quote a time for an absent vendor since it
-// was written ("nobody is behind the counter to say a line, and quoting the next
-// scheduled block would be a lie if they're merely running late"); the door and
-// the closing sweep were the two surfaces that never got the same rule.
-//
-// Belt and braces with hoursUntilOpen's own 0: this decides WHICH SENTENCE, and
-// that stops the number being wrong in the first place.
-const shutOnPresenceOnly = (npc) => isVendorAbsent(npc) && !isVendorOffHours(npc);
-
-// ── WHOSE DOOR IS THIS? ──────────────────────────────────────────────────────
-// The refusal named the SHOPKEEPER and not the SHOP: "Angus Malcolm opens again in
-// about six hours" is a sentence about a stranger unless you already knew what he
-// keeps, which is exactly the knowledge a player standing at a locked door does not
-// have yet. The building's own name is the fact they can act on — it is on the sign
-// they are looking at, it is what they will call the place, and it is what makes the
-// line a direction rather than a rebuff.
-//
-// Nothing is authored for this: `getBuildingName` already walks the parent chain to
-// the building root, which is where a shop interior's name lives. A room with no
-// building over it (a stall, a room whose parent chain is bare) simply falls back to
-// the sentence as it was, so nothing that reads correctly today changes.
-const shopPlaceName = (zone) => {
-  const name = getBuildingName(zone);
-  return name && name !== zone?.name ? name : null;
-};
-
-// ── Does this player LIVE here? ───────────────────────────────────────────────
-// Coldwater is mixed-use: shops sit on the ground floor of buildings people live in,
-// and the closing-time law must never trump the housing one. Someone who owns a unit
-// in this building is a resident of it — closing time locks the door to CUSTOMERS,
-// not to the person who lives upstairs, and they are never swept out onto the street
-// at closing. After hours the building simply belongs to its residents.
-//
-// Building-level, not unit-level, deliberately: your own front door isn't the only
-// room you're entitled to be in at night — the stairwell, the lobby and the corridor
-// are the way home.
-const livesHere = (player, zone) => isResidentOf(player, getBuildingName(zone));
 
 registerMoveGate(({ player, to }) => {
   const shut = shopClosedFor(to);
   if (!shut) return;
   if (livesHere(player, to)) return;   // you live here; the hours aren't about you
+
+  // ⚠ THE DOOR OUTRANKS THE HOURS. A shop's entrance carries a real `lock:shoplock`
+  // that closing time drops and opening time lifts, so a player who hacked it or
+  // battered it down has already answered this gate. Leave the refusal absolute and
+  // the lock is scenery: you beat the door and the room still turns you away, which
+  // is the whole reason breaking into a shop was not a thing you could do.
+  //
+  // It can only ever ABSTAIN. A shop with no lock fitted (shopEntranceLock is null)
+  // reads as un-beaten, so the 12 shops whose entrance cannot take a door keep the
+  // refusal exactly as it was.
+  if (shopDoorDefeated(to)) return;
+
   const place = shopPlaceName(to);
+  // The hours themselves, not just a countdown. A player at a locked shopfront
+  // wants to know when to come back, and "about six hours" is only half of that.
+  const hours = tradingHoursLine(shut);
+  const card = hours ? ` A card behind the glass gives the hours: ${hours}.` : '';
   if (shutOnPresenceOnly(shut)) {
-    return { block: true, message: `The door won't give. ${place || 'The shop'} keeps these hours, but ${shut.name} isn't behind the counter yet.` };
+    return { block: true, message: `The door won't give. ${place || 'The shop'} keeps these hours, but ${shut.name} isn't behind the counter yet.${card}` };
   }
-  return { block: true, message: `The door won't give — shutters down, lights off. ${shut.name} opens ${place ? `${place} ` : ''}again ${reopensPhrase(shut)}.` };
+  return { block: true, message: `The door won't give. Shutters down, lights off. ${shut.name} opens ${place ? `${place} ` : ''}again ${reopensPhrase(shut)}.${card}` };
 }, 'commerce:shop-hours');
 
 // The same fact, told BEFORE the step. The gate above owns the refusal and every
@@ -324,6 +269,7 @@ registerShutProvider((player, zone) => {
   const shut = shopClosedFor(zone);
   if (!shut) return null;
   if (livesHere(player, zone)) return null;   // you live here; the hours aren't about you
+  if (shopDoorDefeated(zone)) return null;    // the door is open; drawing it shut would be a lie
   return { shut: true, label: 'closed' };
 }, 'commerce:shop-hours');
 
@@ -336,6 +282,11 @@ async function closingSweep() {
     const shut = shopClosedFor(zone);
     if (!shut) continue;
     if (livesHere(player, zone)) continue;   // never sweep someone out of their own building
+
+    // You came in through a door you beat. Nobody is here to show you out, and a
+    // shopkeeper's line quoted into an empty shop is the sweep describing a person
+    // who went home hours ago. Breaking in has to mean you get to stay in.
+    if (shopDoorDefeated(zone)) continue;
 
     // Out to the STREET — see streetExitFrom (server/engine/world.js). This used to
     // prefer a non-interior exit and fall back to "any exit at all", which had two
@@ -354,7 +305,7 @@ async function closingSweep() {
     // rather than quoted — and it quotes no time, for the reason above.
     sendToPlayer(player.id, shutOnPresenceOnly(shut)
       ? { type: 'output', message: `<span class="text-dim">With ${shut.name} out, ${place ? `${place} isn't` : "the shop isn't"} open to browse. You see yourself out.</span>` }
-      : formatChitchat(shut.name, `"That's us. Out you go — ${place ? `${place} opens` : 'we open'} again ${reopensPhrase(shut)}."`));
+      : formatChitchat(shut.name, `"That's us. Out you go. ${place ? `${place} opens` : 'We open'} again ${reopensPhrase(shut)}."`));
     await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dest }, context: { broadcast: getBroadcast() } });
     const dz = getZone(dest);
     if (dz) sendToPlayer(player.id, { type: 'move', message: await describeZone(dz, player), zone: dest, minimap: getMinimapData(dest, 8, player) });
@@ -669,5 +620,18 @@ export const commands = {
 export const specializedActions = [
   { verb: 'checkout', requiredTag: 'checkout', handler: (args, raw, player) => cmdCheckout(player) },
 ];
+
+// `examine door north` at a shopfront reads the trading-hours card. The engine
+// owns the door and its lock and knows nothing about vendors; this is the half
+// only a shop can answer.
+export const hooks = {
+  'door.describe': describeDoorHook,
+};
+
+// Set every shop's front door to whatever the clock says it should be. A reboot
+// rebuilds world.doors from authored state, so there is nothing to preserve and
+// this runs unconditionally — the same shape as storefront's shutter reconcile,
+// and for the same reason: door lock_state is runtime-only.
+reconcileShopDoors();
 
 console.log('[commerce] Plugin loaded.');

@@ -317,6 +317,18 @@ export const SCHEMA_SQL = `
   ALTER TABLE player_inventory ADD COLUMN IF NOT EXISTS container_id TEXT;
   ALTER TABLE player_inventory ADD COLUMN IF NOT EXISTS layer INTEGER DEFAULT 1;
   ALTER TABLE player_inventory ADD COLUMN IF NOT EXISTS equipped_at TIMESTAMPTZ;
+  -- When this ROW came into being. Perishable food decays from its mint time, not
+  -- from the first time somebody looked at it (plugins/preservation/decay.js) --
+  -- without this a steak nobody has examined is immortal, because the freshness
+  -- seed had nothing older than the present moment to start its clock from.
+  --
+  -- Added nullable and THEN given a default, deliberately, in two statements: a
+  -- volatile default on ADD COLUMN rewrites the whole table, and it would also
+  -- stamp every existing row with the deploy time and start it rotting. Existing
+  -- rows stay NULL and keep the old behaviour; every INSERT after this gets the
+  -- real thing with no mint site having to opt in -- there are about forty.
+  ALTER TABLE player_inventory ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;
+  ALTER TABLE player_inventory ALTER COLUMN created_at SET DEFAULT now();
 
   CREATE TABLE IF NOT EXISTS enemies (
     id TEXT PRIMARY KEY,

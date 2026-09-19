@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_standing_platform",
+  "id": "map_int_hf_standing",
+  "name": "Standing Room Only",
+  "parent_zone_id": "zone_district_893_917"
+}

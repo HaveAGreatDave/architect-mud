@@ -52,11 +52,11 @@
       "glass": "#2f1f30",
       "glow": "#ff6fc4",
       "half": 0.385,
-      "hh": 0.058,
+      "hh": 0.049,
       "kind": "windowBay",
       "pal": "ty_adequate_stone",
       "transom": 1,
-      "z": 0.052
+      "z": 0.042
     },
     {
       "cx": 0,
@@ -77,7 +77,7 @@
       "pal": "ty_adequate_dk",
       "soffit": "#8c4a14",
       "strip": "#ffc98a",
-      "z": 0.128
+      "z": 0.107
     },
     {
       "color": "#171009",
@@ -85,11 +85,11 @@
       "cy": 0.44,
       "font": "block",
       "half": 0.335,
-      "hh": 0.036,
+      "hh": 0.024,
       "ink": "#ffd678",
       "kind": "signBoard",
       "label": "ADEQUATE!",
-      "z": 0.112
+      "z": 0.145
     },
     {
       "cx": 0,

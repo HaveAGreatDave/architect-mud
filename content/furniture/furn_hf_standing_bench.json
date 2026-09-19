@@ -1,0 +1,19 @@
+{
+  "description": "A continuous bench round three sides of the glazed room, with the heater under the long side.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "seat"
+    ],
+    "hack_difficulty": 3,
+    "interactions": {
+      "sit": "You sit on the warm side, because everybody does, and outside the glass the rain does something you are no longer part of."
+    },
+    "vendor_npc_id": "npc_hf_standing_pell",
+    "vendor_safe": true
+  },
+  "id": "furn_hf_standing_bench",
+  "name": "the waiting bench",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_standing_waiting"
+}

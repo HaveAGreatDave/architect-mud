@@ -116,8 +116,44 @@ const KNOWN = new Map([
     "capped at the 0.05 tie-breaker, so the mast wins the depth test against a board it physically " +
     "stands behind, at three headings out of four. No position on that roof clears it with any " +
     "margin; the pull is the thing to fix, and not from one building."],
+  // ⚠ THE SAME MECHANISM AS THE ENTRY ABOVE, FOUND FROM THE OTHER END. The gable-end ad panel took
+  // the building's name, which fills a panel a mark only covered a third of, and ten models then
+  // drew something across it. Nine were a window bay, a louvre bank or a service riser on that
+  // flank — real claims on the wall, and `paintFree` now declines the panel on all nine. This one
+  // is not a claim: it is a cable run along the BACK wall at z 0.28, physically behind the flank
+  // plane the sign is painted on, which reaches the front of it only because `emitWire` pulls a
+  // stroke 0.6 of a tile toward the eye while the lettering is capped at 0.05. Nothing about the
+  // panel's placement can answer that — the cable is not on its wall — and the fix is still the
+  // pull, still not from one building.
+  // ⚠ THE SAME TWO-WALLS-AT-TWO-DEPTHS SHAPE AS THE TWO ENTRIES ABOVE, found when the lettering
+  // stopped leaning. `signSquare` puts a sign's quad where the building says it is instead of where
+  // the camera's forward axis had dragged it, and this crossing had been hidden by that lean.
+  ['type:studio',
+    "a conduit rises up the front plane at y −1.601 and the trade blade hangs at the corner on a " +
+    "face set back to −1.791, so they are 0.19 of a tile apart in depth and coincide in screen " +
+    "space from ONE heading out of four. Neither is on the other's wall, so no lateral rule on " +
+    "either can clear it — the same call recorded for thumbonthescale and theluckybastard."],
+  // ⚠ THE FIFTH OF THE emitWire SHAPE, found when the lettering stopped leaning. `signSquare` puts
+  // a sign's quad where the building says it is instead of where the camera's forward axis had
+  // dragged it, and this crossing had been hidden by that drift.
+  ['type:clinic',
+    "a lit neon vertical runs up the frontage on the same plane as the trade sign set back behind " +
+    "it, and reaches the front of it only through emitWire's 0.6-tile pull against " +
+    "emitSurfaceText's tie-breaker — measured 0.6 of a tile apart in depth, which is DECO_LIFT " +
+    "exactly. One heading out of four. Same mechanism as named:mintcondition and " +
+    "named:unit4marrowstreet below, and the same answer: the pull is the thing to fix, and not " +
+    "from one building."],
+  ['named:unit4marrowstreet',
+    "a cable run along the back wall at z 0.28 crosses the gable-end ad panel on the flank, at two " +
+    "headings out of four. The cable is behind the plane the sign is painted on; it only reaches " +
+    "the front of it through emitWire's 0.6-tile pull against emitSurfaceText's 0.05 cap. Same " +
+    "mechanism as named:mintcondition above, and the same answer: the pull is the thing to fix."],
 ]);
 
+// Two surfaces closer than this are the same surface — see the ⚠ at the depth test. Three times
+// `FACE_EPS`, the stand-off a sign is given over its own wall, so a fitting sharing that wall can
+// never be reported as standing in front of it.
+const COPLANAR = 0.02;
 const len = (p, q) => Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
 const inPoly = (pt, poly) => {
   let c = false;
@@ -169,9 +205,26 @@ for (const { key, m } of ws.shapeModelRegistry()) {
       if (poly.some((p) => !(p.f > 0.1))) continue;
       const fSign = poly.reduce((a, p) => a + p.f, 0) / 4;
       for (const s of r.sink.strokes) {
+        // ⚠ A SIGN'S OWN FRAME IS NOT A WIRE ACROSS IT, AND NO GEOMETRY CAN TELL THOSE APART. A
+        // neon box is a dark panel with a tube run round the inside of it — `marqueeBand`'s own
+        // note — so the tube is ON the board by construction, at every heading, on every model
+        // that has one. Measured when the hoarding and the corner blade took theirs: 93 models
+        // reported, all of them the frame the sign is meant to have. What settles it is OWNERSHIP,
+        // which is a thing the painter knows and this census cannot infer, so `emitWire` records
+        // it (`pushStroke`'s `tag`) exactly as `glresidue` records who queued a face.
+        // ⚠ AND IT IS A NAMED TAG, NEVER A BUDGET. A count would swallow the next real cable.
+        if (s.tag === 'signtube') continue;
         const A = cam.proj(s.a[0], s.a[1], s.a[2]), B = cam.proj(s.b[0], s.b[1], s.b[2]);
         if (!(A.f > 0.1) || !(B.f > 0.1)) continue;
-        if (Math.min(A.f, B.f) >= fSign) continue;   // behind the sign: the depth buffer hides it, correctly
+        // Behind the sign: the depth buffer hides it, correctly.
+        // ⚠ AND THE TOLERANCE IS NOT SLACK — IT IS WHAT "IN FRONT OF" MEANS ON A SURFACE. A fitting
+        // bolted flush to the fascia a sign is painted on is COPLANAR with it, and which of the two
+        // rounds nearer is decided by the stand-off rather than by anything a model author chose.
+        // Measured on `named:thedrygoods` and `type:mercantile`: a 0.024-tile dark stub at a
+        // shopfront corner, 0.005 of a tile — less than `FACE_EPS` — in front of the band it grazes,
+        // reported as a wire drawn across a sign. The five real crossings below are 0.2 of a tile and
+        // more, so this cannot hide one; it was checked by re-running with the tolerance and without.
+        if (Math.min(A.f, B.f) >= fSign - COPLANAR) continue;
         if (inPoly(A, poly) || inPoly(B, poly) || segCross(A, B, poly)) {
           crossed.set(key, (crossed.get(key) | 0) + 1);
           break;

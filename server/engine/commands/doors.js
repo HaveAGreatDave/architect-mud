@@ -433,13 +433,41 @@ function doorForcefieldActive(door) {
   return false;
 }
 
+// ── WHAT A LOCK SAYS ABOUT ITSELF ───────────────────────────────────────────
+// Two questions the hack path used to answer with a magic string.
+//
+// ⚠ IT NAMED `lock:hololock` AND NOTHING ELSE, which left `canHack` on every
+// other lock type a field with no reader. `lock:shopshutter` has shipped
+// `canHack: true` in its defaults since storefront was written and could never
+// be hacked: hackDoor returned undefined for it, the verb fell through to the
+// next handler, and a player working a shop shutter got an answer about a safe.
+// The registry is the authority on what a lock is; a second one in the hack path
+// is how a lock type ships with a capability nobody can reach.
+//
+// Both read the TAG first and the registered type's defaults second — the same
+// two-layer read every other lock field gets, so an authored door can still say
+// its own thing.
+export function lockCanHack(lockTag) {
+  if (!lockTag) return false;
+  if (lockTag.canHack !== undefined) return !!lockTag.canHack;
+  return !!getAllLockTypes().find(t => t.tagType === lockTag.type)?.defaults?.canHack;
+}
+
+// What to CALL it in a line of prose. A lock type may author a `noun`
+// ('hololock', 'shutter'); everything else is just a lock.
+export function lockNoun(lockTag) {
+  if (!lockTag) return 'lock';
+  return lockTag.noun
+    || getAllLockTypes().find(t => t.tagType === lockTag.type)?.defaults?.noun
+    || 'lock';
+}
 // A door a hack could plausibly target: an intact, locked, still-hackable
-// hololock. The picker pool is built from these; the per-door gates below give
-// the final verdict (auth/forcefield/device).
-function isHackableHololock(door) {
+// lock that says it can be breached. The picker pool is built from these; the
+// per-door gates below give the final verdict (auth/forcefield/device).
+function isHackableLock(door) {
   if (!door || door.hp <= 0) return false;
   const lockTag = getLockTag(door);
-  return !!lockTag && lockTag.type === 'lock:hololock' && !!lockTag.canHack
+  return !!lockTag && lockCanHack(lockTag)
     && door.lock_state === 'locked' && !doorGuardsOnlyUnownedApartment(door);
 }
 
@@ -459,7 +487,7 @@ async function cmdHackLock(args, raw, player, broadcast) {
     return hackDoor(r.door, player, broadcast);
   }
   // No direction — offer only the doors actually worth hacking here.
-  const hackable = doorCandidates(player).filter(c => isHackableHololock(c.door));
+  const hackable = doorCandidates(player).filter(c => isHackableLock(c.door));
   if (hackable.length === 0) return undefined;  // nothing to hack — fall through
   if (hackable.length === 1) return hackDoor(hackable[0].door, player, broadcast);
   return hackPicker(hackable, player);
@@ -478,8 +506,8 @@ async function hackDoor(door, player, broadcast) {
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
 
   const lockTag = getLockTag(door);
-  if (!lockTag || lockTag.type !== 'lock:hololock' || !lockTag.canHack) return undefined;
-  if (door.lock_state !== 'locked' || doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:'The hololock is already disengaged.' };
+  if (!lockTag || !lockCanHack(lockTag)) return undefined;
+  if (door.lock_state !== 'locked' || doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:`The ${lockNoun(lockTag)} is already disengaged.` };
 
   // You control this apartment — no need to break into your own place.
   if (await checkLockAuth(lockTag, door, player))
@@ -489,7 +517,7 @@ async function hackDoor(door, player, broadcast) {
     return { type:'error', message:"A quantum forcefield sheathes the lock — you can't get a signal in." };
 
   if (!(await hasHackDevice(player.id)))
-    return { type:'error', message:'You need a hacking device to breach a hololock.' };
+    return { type:'error', message:`You need a hacking device to breach a ${lockNoun(lockTag)}.` };
 
   const lockedUntil = hackLockout.get(player.id) || 0;
   if (Date.now() < lockedUntil) {
@@ -504,7 +532,7 @@ async function hackDoor(door, player, broadcast) {
   for (const zid of doorOppositeZoneIds(door, player.current_zone)) {
     broadcast(zid, { type:'zone_event', message:'A faint electronic whine buzzes from the door — someone is working the lock.' });
   }
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} jacks a deck into the door's hololock.` }, player.id);
+  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} jacks a deck into the door's ${lockNoun(lockTag)}.` }, player.id);
 
   // Signal the break-in to the burglary alarm system (picking phase begins now):
   // residents on the far side may hear the lock being worked.
@@ -519,7 +547,7 @@ async function hackDoor(door, player, broadcast) {
   return textRender(player, {
     type: 'hololock_game',
     doorId: door.id,
-    deviceName: door.name || 'hololock',
+    deviceName: door.name || lockNoun(lockTag),
     skill: await effectiveSkill(player, 'hacking'),
     difficulty: await hackDifficulty(player.id, lockTag.difficulty),
     resolveCmd: 'hackresolve',
@@ -546,15 +574,15 @@ async function cmdHackResolve(args, raw, player, broadcast) {
 
   const door = getDoorById(doorId);
   if (!door) return { type:'noop' };
-  // The door must still touch this zone and still be a locked hololock.
+  // The door must still touch this zone and still be a locked, hackable lock.
   if (door.zone_id !== player.current_zone && !doorFarZoneIds(door).includes(player.current_zone))
     return { type:'noop' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   const lockTag = getLockTag(door);
-  if (!lockTag || lockTag.type !== 'lock:hololock') return { type:'noop' };
-  if (door.lock_state !== 'locked' || doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:'The hololock is already disengaged.' };
+  if (!lockTag || !lockCanHack(lockTag)) return { type:'noop' };
+  if (door.lock_state !== 'locked' || doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:`The ${lockNoun(lockTag)} is already disengaged.` };
   if (doorForcefieldActive(door)) return { type:'error', message:"A quantum forcefield sheathes the lock — you can't get a signal in." };
-  if (!(await hasHackDevice(player.id))) return { type:'error', message:'You need a hacking device to breach a hololock.' };
+  if (!(await hasHackDevice(player.id))) return { type:'error', message:`You need a hacking device to breach a ${lockNoun(lockTag)}.` };
 
   if (!win) {
     // In-world lockout (the deck stays flagged) — scale the 5 game-minute cooldown
@@ -562,12 +590,12 @@ async function cmdHackResolve(args, raw, player, broadcast) {
     // it's the player's live minigame-completion window, not a world duration.)
     hackLockout.set(player.id, Date.now() + gameMsToReal(HACK_LOCKOUT_MS));
     const deckMsg = await damageHackDeck(player.id);
-    return { type:'error', message:`The hololock's key sequence resets mid-spoof. Your deck is flagged — five-minute lockout.${deckMsg}` };
+    return { type:'error', message:`The ${lockNoun(lockTag)}'s key sequence resets mid-spoof. Your deck is flagged — five-minute lockout.${deckMsg}` };
   }
 
   await updateDoor(door, { lock_state: 'unlocked' });
   await awardSkillUse(player.id, 'hacking', await breachMargin(player, lockTag.difficulty));
-  broadcast(player.current_zone, { type:'zone_event', message:'The hololock chirps and disengages.', refresh: true }, player.id);
+  broadcast(player.current_zone, { type:'zone_event', message:`The ${lockNoun(lockTag)} chirps and disengages.`, refresh: true }, player.id);
 
   // Attribute the break-in to whoever actually owns the place (from the table,
   // not just who's home) so an NPC-vendor owner holds a grudge whether or not
@@ -582,7 +610,7 @@ async function cmdHackResolve(args, raw, player, broadcast) {
   // (the generic witness gate on the hololock.breached listener).
   return {
     type: 'output',
-    message: `You spoof the hololock's handshake. It chirps green and the bolt slides back.\n<span class="ip-gain">Hacking improved.</span>`,
+    message: `You spoof the ${lockNoun(lockTag)}'s handshake. It chirps green and the bolt slides back.\n<span class="ip-gain">Hacking improved.</span>`,
   };
 }
 

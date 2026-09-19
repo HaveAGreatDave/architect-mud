@@ -36,11 +36,12 @@ stubCanvas('__yacht', W, H);
 // Open Basin water with the Echelon a few tiles ahead — her ordinary case, and the one the report
 // is about: nothing around her but the city behind.
 const N = 41, R = 20;
-const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
-  x === R && y === R - 5
+const sea = (withYacht) => Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
+  withYacht && x === R && y === R - 5
     ? { kind: 'land', biome: 'water', road: 0, mark: 'yacht', heading: 30, wake: { spd: 0.2 }, flr: 0 }
     : { kind: 'land', biome: 'water', road: 0, flr: 0 }
 )));
+const map = sea(true);
 
 const BASE = {
   cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12, fovMul: 1.22,
@@ -59,11 +60,12 @@ function collect(view, ship, gl = 1) {
   ws.RENDER_TUNE.gl = gl; ws.RENDER_TUNE.glFloor = gl; ws.RENDER_TUNE.glShip = ship;
   if (gl) {
     ws.installGLWorld((cells, cam, o) => {
-      seen = { ship: (o.ship || []).slice(), ox: cam.ox, oy: cam.oy };
+      seen = { ship: (o.ship || []).slice(), ox: cam.ox, oy: cam.oy,
+        strokes: (o.strokes || []).length, sprites: (o.sprites || []).length, decals: (o.decals || []).length };
       const c = globalThis.document.createElement('canvas'); c.width = W; c.height = H;
       return { faces: 1, canvas: c };
     });
-  } else { ws.installGLWorld(null); seen = { ship: [], ox: 0, oy: 0 }; }
+  } else { ws.installGLWorld(null); seen = { ship: [], ox: 0, oy: 0, strokes: 0, sprites: 0, decals: 0 }; }
   ws.paintWindshield('__yacht', view);        // settle every lazy cache
   globalThis.window.__emitWhoStart();
   ws.paintWindshield('__yacht', view);
@@ -136,6 +138,29 @@ if (on.ship.length && turned.ship.length) {
         + ' — the geometry is camera-dependent, so it is being culled or clipped before it is collected');
     }
   }
+}
+
+// ── AND THE FITTINGS HAVE TO ARRIVE SOMEWHERE ───────────────────────────────
+//
+// The hull was the first half. The other half is everything bolted to it — the pad ring, the rails,
+// the mast, the deck lamps, the sidelights and the wake — which stayed on the canvas for as long as
+// the whole ship was drawn from one `emitFace` closure, because a closure runs at FLUSH when every
+// sink is null. `worldresidue` checks that nothing of her is LEFT on the canvas; this checks the
+// other side of the same coin, which that one cannot: a ship whose fittings were simply deleted also
+// leaves nothing on the canvas, and reads as a pass. So the sinks are counted with her in the scene
+// and with the same sea empty, and every one of the three has to grow.
+//
+// Night, because a third of them are: the lamps and the glows are behind `isNight`.
+{
+  const NIGHT = { ...BASE, hour: 2 };
+  const bare = collect({ ...NIGHT, map: sea(false) }, 1);
+  const her = collect({ ...NIGHT, map: sea(true) }, 1);
+  const grew = { strokes: her.strokes - bare.strokes, sprites: her.sprites - bare.sprites, decals: her.decals - bare.decals };
+  for (const [layer, n] of Object.entries(grew)) {
+    if (n <= 0) problems.push(`the Echelon adds ${n} ${layer} to a GL frame — her fittings are not reaching the depth-tested layers,`
+      + ' so "nothing left on the canvas" only means they stopped being drawn at all');
+  }
+  if (her.canvas > 0) problems.push(`${her.canvas} face(s) of her are still painted over the composited city`);
 }
 
 // ── AND THE WAY OUT STILL WORKS ─────────────────────────────────────────────

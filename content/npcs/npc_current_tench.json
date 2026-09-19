@@ -1,0 +1,286 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Tench reads the mimic panel left to right, all of it, and then does it again.",
+    "He steps off the mat, remembers, and steps back on.",
+    "He writes the time in the log and nothing beside it, which is what the log is for.",
+    "He glances at bay seven's lamp, which is neither colour, and looks away again.",
+    "Outside, the hum changes by about nothing, and he lifts his head anyway."
+  ],
+  "description": "A thin, careful man in his thirties standing on the mat in front of the panel with his hands behind his back, which is a habit rather than a pose. He checks things twice while you are talking to him and apologises for it each time. He is not nervous about you. He is nervous about the yard, permanently, and he is right to be.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Out the way you came,\" he says. \"Not past the fence.\""
+    },
+    "feeds": {
+      "options": [
+        {
+          "label": "What if it did flicker?",
+          "next": "feeds_fail"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The campus, mostly.\" He indicates north on the panel without touching it. \"The Spire, the vats, the clinic. And then this quarter, and then a share of the row beyond it, but the campus is the load. The campus is nearly all of the load.\"\n\n\"Everything you can see out of that window exists so that a building four streets away never flickers. I find that easier to say out loud than most people find it to hear.\""
+    },
+    "feeds_fail": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "feeds"
+        }
+      ],
+      "text": "\"Then something in a tank up there stops being kept at the temperature it is kept at.\" He says it very evenly, which is how you can tell he has thought about it a great deal. \"And I am told there are batteries for that, and I believe there are, and I have never been shown them.\"\n\n\"So I keep two transformers on when one would do, which is wasteful and is entirely my decision, and nobody has ever queried it. I would rather be wasteful than find out.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The pump house man says there is no damp in his building and there is water everywhere in it, and I cannot make that make sense.\" He shakes his head. \"The cooling plant says my transformers make her floor hum. They do. I cannot help it and I have told her so.\"\n\n\"And there is a man selling building plots along this road who asked me whether the fence could be moved. I do not think he was being sly. I think he genuinely did not know what was behind it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What does this place feed?",
+          "next": "feeds"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's wrong with bay seven?",
+          "next": "seven"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I'll leave you to it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Stay on this side of the desk and we will get on very well.\" He is entirely polite about it. \"The yard is not somewhere you can go. Not with me, not for a minute, not to look.\"",
+      "text_by_relation": {
+        "familiar": "He is already reaching under the desk, and he actually smiles, which takes his whole face by surprise.\n\n\"I kept you a fuse of the right rating,\" he says. \"Do not tell me what it is for. I have decided I am happier not knowing and that is a new thing for me.\"",
+        "first": "The man in front of the panel turns round with his hands still behind his back, and the first thing he does is put himself between you and the door to the yard, without appearing to.\n\n\"Oriel Tench. You should not be able to get in here, and the fact that you could is something I have written three letters about.\"\n\nHe relaxes about a degree.\n\n\"Nothing in this room will hurt you. Everything through that door will kill you instantly, and not in a way that would look dramatic, which is the part people do not believe. So: this side of the desk.\"",
+        "known": "\"You again, and on the right side of the desk.\" Almost warm. \"What do you need?\""
+      }
+    },
+    "seven": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He looks at the lamp that is neither colour and then makes himself look back at you.\n\n\"Bay seven is isolated, and the label has been changed twice, and I did not change it.\" A pause. \"It was isolated before I came. There is no work order for it. The cable from it goes north and it is not on any drawing I have.\"\n\n\"I have asked. I got a form back confirming that bay seven is isolated, which I knew, and I have stopped asking, and I check that lamp about forty times a day.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a navy works coat with the arc-rated label still legible on the inside",
+      "a buttoned shirt and a tie he does not loosen even in here",
+      "heavy trousers with the cuffs inside his boots, deliberately",
+      "a vest and plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_current_switch",
+  "hp": 29,
+  "hp_max": 29,
+  "id": "npc_current_tench",
+  "name": "Oriel Tench",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_current_gloves",
+      "price": 45
+    },
+    {
+      "item_id": "item_current_fuse",
+      "price": 8
+    },
+    {
+      "item_id": "item_current_lamp",
+      "price": 22
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Current Affairs",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_current_switch"
+}

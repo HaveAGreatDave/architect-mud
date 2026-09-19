@@ -1,0 +1,16 @@
+{
+  "description": "Two chrome rails at hip height with four paces of sprung floor between them, and a mirror at the far end so you have to watch yourself do it.",
+  "flags": {
+    "aliases": [
+      "bars",
+      "parallel"
+    ],
+    "interactions": {
+      "examine": "There is a strip of grip tape on the left-hand bar and none on the right. Most of the people who come here are recovering from the same operation on the same side."
+    }
+  },
+  "id": "furn_hf_bent_bars",
+  "name": "the parallel bars",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_bent_gym"
+}

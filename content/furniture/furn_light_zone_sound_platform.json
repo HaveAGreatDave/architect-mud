@@ -1,0 +1,11 @@
+{
+  "description": "One bar of lamps left rigged over the platform, gelled a warm straw colour that flatters nobody and nothing, and was chosen for that.",
+  "flags": {},
+  "id": "furn_light_zone_sound_platform",
+  "light_type": "overhead",
+  "lumen_output": 2200,
+  "name": "the stage bar",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_sound_platform"
+}

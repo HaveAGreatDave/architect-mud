@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Rank upon rank of selector frames from the floor to well over your head, running away into a distance the outside of the building did not prepare you for. Every few seconds, somewhere in the room, a selector steps: a small dry sound, then another answering it two rows over. Nobody has plugged anything in here for a very long time and the machinery is still working, patiently, in the dark, on something.",
+  "exits": {
+    "down": "zone_util_zone_wires_apparatus",
+    "east": "zone_wires_frame",
+    "south": "zone_district_909_915"
+  },
+  "flags": {
+    "building_name": "Crossed Wires",
+    "building_type": "exchange",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "High up on the fifth floor, seen from the gantry: steel louvres open a few degrees, admitting a grey line of light and a great deal of cold air. The extract has to go somewhere.",
+      "light": 0.2,
+      "name": "the louvre band",
+      "visibility": 0.3
+    },
+    "world_exit_zone": "zone_district_909_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_wires_apparatus",
+  "map_id": "map_int_wires",
+  "name": "Crossed Wires — The Apparatus Room",
+  "parent_zone": "zone_district_909_915"
+}

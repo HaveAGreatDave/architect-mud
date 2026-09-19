@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "The verge widens into a sort of apron where the boulevard pulls out, striped once with white paint that has gone the colour of the road. A dead streetlight stands in the middle of it.",
+  "ambient_theme": "urban",
+  "bg_color": "#16232f",
+  "color": "#9fe0ff",
+  "description": "A nine-storey office that bends. The whole front is one long curved wall of glass on a chrome podium, with a turned column at each joint and a low frame on the roof, and because it is a curve it shows you a different building from every point on the boulevard. Six of the nine floors are let. The letting agent has stopped saying which six.",
   "exits": {
-    "east": "zone_district_898_909",
-    "north": "zone_district_897_908",
-    "south": "zone_district_897_910",
-    "west": "zone_district_896_909"
+    "north": "zone_hf_curve_atrium",
+    "south": "zone_district_897_910"
   },
   "flags": {
-    "district": "filaments",
+    "building_name": "Curve Appeal",
+    "building_type": "chrome_slab",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 9,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_897_910"
   },
   "grid_x": 897,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_897_909",
   "map_id": "map_world",
-  "name": "Halcyon Verge",
+  "marker": "CU",
+  "name": "Curve Appeal",
   "parent_zone": null
 }

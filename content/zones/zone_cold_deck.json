@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Up an open stair onto the roof: eight fans in a row in their cowls, each in its own guard, running at whatever speed the floor below has decided it needs. Between them a catwalk, wet with condensate blown sideways. From here the whole quarter lays out: the wall, the meadow, the new road, and away north the Spire, which is what all of this is for.",
+  "exits": {
+    "down": "zone_cold_floor"
+  },
+  "flags": {
+    "building_name": "Cold Comfort",
+    "building_type": "cooling_plant",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_cold_deck",
+  "map_id": "map_int_cold",
+  "name": "Cold Comfort — The Fan Deck",
+  "parent_zone": "zone_district_903_917"
+}

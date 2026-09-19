@@ -1,20 +1,21 @@
 {
-  "blurb": "The city’s underside, folded in on itself and still breathing.",
+  "blurb": "The oldest ground in the city, still standing and still lived in, which is the problem.",
   "color": "#cf6a2e",
   "id": "slum",
-  "landmark": null,
-  "name": "the Sprawl",
+  "landmark": "zone_district_927_916",
+  "name": "Old Coldwater",
   "prefixes": [
-    "deep",
-    "slums",
-    "tunnels"
+    "ropewalk",
+    "peg lane",
+    "the pitch",
+    "rag row"
   ],
   "signature": [
-    "Close air, warm and thick, breathed too many times already.",
-    "Frying oil, wet cardboard, and the sweet-sour reek of the gutter.",
-    "A hundred bartered voices braid into one low, ceaseless murmur.",
-    "Something drips steadily out of the dark overhead, and you decide not to wonder what."
+    "Woodsmoke, wet canvas, and the ammoniac tang of a place with no drains.",
+    "Everything here was built by hand, badly, a very long time ago, and is still up.",
+    "Somebody is hammering. Somebody is always hammering.",
+    "The ground is packed earth polished to a shine by boots, and it holds the rain in ruts."
   ],
-  "skyline": "the Sprawl's tangled aerials bristle overhead",
+  "skyline": "Old Coldwater's roofline sags below everything around it, chimneys and aerials and no two ridges level",
   "sort": 140
 }

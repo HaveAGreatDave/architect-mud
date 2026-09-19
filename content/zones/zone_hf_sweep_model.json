@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long curved room with the whole estate on a table down the middle of it, built at a scale where the Spire comes to your shoulder. Every building is there. Some of them are a different colour from the rest and there is no key on the table explaining which colour means what.",
+  "exits": {
+    "down": "zone_util_zone_hf_sweep_model",
+    "south": "zone_district_904_915",
+    "up": "zone_hf_sweep_drawing"
+  },
+  "flags": {
+    "building_name": "Sweeping Statement",
+    "building_type": "chrome_slab",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_904_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_sweep_model",
+  "map_id": "map_int_hf_sweep",
+  "name": "Sweeping Statement — The Model Room",
+  "parent_zone": "zone_district_904_915"
+}

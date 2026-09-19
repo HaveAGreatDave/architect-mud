@@ -296,6 +296,14 @@ export function uniqueMarkerFor(name, taken) {
   }
   const lead = (sigWords(name)[0] || 'X')[0].toUpperCase();
   for (let i = 2; i <= 9; i++) if (!used.has(lead + i)) return lead + i;
+  // ⚠ THE DIGIT SUFFIXES RUN OUT, AND THE LINE BELOW USED TO HAND BACK A CODE ANOTHER
+  // BUILDING IS ALREADY WEARING. Eight is not many when a city names half its trade after
+  // one letter: `S2`–`S9` filled up, and three Coldwater buildings were handed `SC`, `ST`
+  // and `SV` on top of three Terminus tiles that already had them. A duplicate code is a
+  // map with two buildings answering to the same mark, which is what MARK-4 is for — so the
+  // last resort widens to letters before it gives up. Twenty-six more per lead letter, in a
+  // fixed order, so the assignment stays deterministic and order-independent.
+  for (const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') if (!used.has(lead + c)) return lead + c;
   return first;
 }
 
@@ -627,6 +635,33 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   fishmonger: 'bldg_fishmonger', cobbler: 'bldg_cobbler',
   photographer: 'bldg_photographer', locksmith: 'bldg_locksmith', tattooist: 'bldg_tattooist',
   vet: 'bldg_vet', off_licence: 'bldg_off_licence', museum: 'bldg_museum',
+  // The Basin quay (907,907 and 908,907), on what used to be the doubled stretch of Greenside
+  // Row. Same rule as the infill above: the glyph ships with the tile and the model, never after.
+  // Neither reuses `bldg_cold` or `bldg_wharf` — a snowflake in a box is a chiller unit and an
+  // anchor is any dockside trade, and the point of both these buildings is that they are the only
+  // one of their kind in the city. An ice block under tongs, and a lantern under a time ball.
+  ice_house: 'bldg_ice_house', harbour_office: 'bldg_harbour_office',
+  // Halcyon Fields, the quarter the Glasshouse is building south into. Same rule as the infill
+  // trades: the glyph goes in with the tile and the arm, never after them.
+  concert_hall: 'bldg_concert_hall', members_club: 'bldg_members_club',
+  auction_house: 'bldg_auction_house', institute: 'bldg_institute',
+  land_office: 'bldg_land_office', hydro: 'bldg_hydro', winter_garden: 'bldg_winter_garden',
+  pumping_station: 'bldg_pumping_station', cooling_plant: 'bldg_cooling_plant',
+  gasholder: 'bldg_gasholder', substation: 'bldg_substation',
+  exchange: 'bldg_exchange', fire_station: 'bldg_fire_station',
+  incinerator: 'bldg_incinerator', water_tower: 'bldg_water_tower',
+  // Halcyon Fields, the second campaign — six chrome types, most of them standing on more than
+  // one plot. An estate put up by one developer repeats itself, and repeating a TYPE is how that
+  // reads on the map as well as on the skyline.
+  chrome_tower: 'bldg_chrome_tower', chrome_slab: 'bldg_chrome_slab',
+  pavilion: 'bldg_pavilion', sky_court: 'bldg_sky_court',
+  vertical_farm: 'bldg_vertical_farm', transit_halt: 'bldg_transit_halt',
+  // Old Coldwater, the slums in the south-east corner (docs/proposals/old-coldwater.md). Five
+  // trades, five glyphs, registered in the same build as the tiles and the arms. ⚠ THE RUINS GET
+  // NONE AND MUST NOT: `ruin` carries no `facade` tag, so buildingIconSvg never reaches it — a
+  // collapsed house is mass out the canopy and nothing at all on the map, which is correct.
+  water_seller: 'bldg_water_seller', flophouse: 'bldg_flophouse',
+  soup_kitchen: 'bldg_soup_kitchen', bonesetter: 'bldg_bonesetter', shebeen: 'bldg_shebeen',
 });
 
 // Gated on the `facade` tag so interior tiles (which also carry is_building) never

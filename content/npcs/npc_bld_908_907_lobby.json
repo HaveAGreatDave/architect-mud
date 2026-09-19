@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "The harbourmaster, in a coat she has had longer than the job, who keeps a log of a harbour nothing has entered since before she took it on.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "personality": "official"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_908_907_lobby",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_bld_908_907_lobby",
+  "name": "Honor Brine",
+  "npc_type": "npc",
+  "sex": "female",
+  "vendor_inventory": [],
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ]
+  },
+  "wander_zones": [],
+  "wanders": 0
+}

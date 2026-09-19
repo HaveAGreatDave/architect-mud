@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A plant floor that got finished as a residents' room instead, halfway up the tower, with the glass going all the way round and nothing outside it but air and the Curtain. There is a kitchen counter, four chairs, and a noticeboard with two notices on it, one of which is about the other one.",
+  "exits": {
+    "down": "zone_hf_topbrass_lobby"
+  },
+  "flags": {
+    "building_name": "Top Brass",
+    "building_type": "chrome_tower",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_topbrass_sky",
+  "map_id": "map_int_hf_topbrass",
+  "name": "Top Brass — The Fifteenth Collar",
+  "parent_zone": "zone_district_892_909"
+}

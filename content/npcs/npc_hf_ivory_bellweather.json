@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Bellweather stamps something with unnecessary force and looks satisfied.",
+    "She glances down the row of desks, counts the occupied ones, and writes the number in a book.",
+    "She shakes the tin, judges its weight, and puts it back exactly where it was.",
+    "She straightens a shelf that is already straight, by one book.",
+    "She looks out west at the Curtain for a moment, and then very deliberately does not."
+  ],
+  "description": "A small, dry, extremely quick woman of about seventy at the issue desk, who has been a librarian for fifty years in four institutions and regards this one as by some distance the silliest. She is enormously fond of the fellows and would not admit it under any pressure whatsoever.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Take the west lift,\" she says, \"and do not read on the stairs. I have seen where that ends and I had to fill in a form about it.\""
+    },
+    "dark": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"So you can see out.\" She gestures at the glass with the stamp. \"Light the room properly and every window in it becomes a mirror after four in the afternoon, and then you have the most expensive reading room in the Basin with a view of itself.\"\n\n\"They argue for brighter lamps twice a year. I let them argue and then I do not order the lamps.\" A small, entirely unrepentant pause. \"I am seventy-one and there is a limit to how much of my remaining time I am prepared to spend being outvoted.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Somebody is reading up here at night.\" She says it flatly. \"The tin is heavier on a Monday than I leave it on a Friday, by twenty-five or fifty, and there is no card gone from the tray.\"\n\n\"So somebody comes up, takes no card, and pays anyway.\" She looks down the empty desks. \"Desk seven has the blotter turned round. I turn it back every Monday and it is round again the Monday after, and it has been going on since the spring.\" A beat. \"I have stopped turning it back. If somebody wants a desk badly enough to pay for a card they do not take, they may have desk seven.\""
+    },
+    "name": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They are furious about it and they will never say so.\" She is enjoying this enormously. \"There were three pinned notes downstairs within a week of the signage going up.\"\n\n\"The estate named it. The estate names everything in this quarter with a joke in it, and they have been doing it since the first hoarding went up, and the fellows have decided the correct response is dignity.\" She stamps something. \"Which is of course exactly the response that makes the name funny. I have pointed this out. It did not help.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Do they mind the building being called that?",
+          "next": "name"
+        },
+        {
+          "label": "A reader's card, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What do the fellows actually study?",
+          "next": "study"
+        },
+        {
+          "label": "Why keep the room so dark?",
+          "next": "dark"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Twenty-five if you are not a fellow, and you are not a fellow.\" She has the card out. \"Do not apologise for it, half of them cannot read either.\"",
+      "text_by_relation": {
+        "familiar": "The card is stamped and on the counter before the lift has closed, and she taps it twice with one finger.\n\n\"Four,\" she says. \"I have kept a coat off it. Do not tell them that is a thing I do.\"",
+        "first": "The lift opens onto silence and a very great deal of sky, and a small woman at a counter by the door holds up one finger before you have made any noise at all.\n\n\"Quiet room,\" she says, quietly. \"That is the only rule and it is not negotiable, and I enforce it on the fellows more than on visitors.\"\n\nShe produces a card.\n\n\"Bellweather. Twenty-five for a reader's card, which goes in the tin, which buys the lamps. You may sit at any desk that does not have a coat on it, and if a fellow tells you that you may not, tell them I said you may.\"",
+        "known": "\"Card is still twenty-five.\" She stamps it before you ask. \"Desk four is free and desk four is the best one.\""
+      }
+    },
+    "study": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Continuity of self, which is a polite way of saying they argue about whether the thing that walks out of a vat is you.\" She says it entirely without weight. \"Eleven of them. Forty-one flats and eleven fellows, before you ask, and yes I know what that means about the rest of the building.\"\n\n\"It is not nonsense. I want to be clear about that, because people assume I think it is nonsense.\" She squares the tray of slips. \"Three of them have been right about something important before anybody else was. The difficulty is that nobody can tell which three until afterwards.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a cardigan with the buttons done up wrong on purpose, she says",
+      "a blouse with a small brooch",
+      "a long skirt and flat shoes",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_ivory_library",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_hf_ivory_bellweather",
+  "name": "Ottoline Bellweather",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_ivory_offprint",
+      "price": 44
+    },
+    {
+      "item_id": "item_hf_ivory_card",
+      "price": 25
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Ivory Tower",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_ivory_library"
+}

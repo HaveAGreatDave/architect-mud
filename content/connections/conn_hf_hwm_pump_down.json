@@ -1,0 +1,9 @@
+{
+  "a": "zone_hwm_pump",
+  "b": "zone_util_zone_hwm_pump",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hwm_pump_down",
+  "lockable": false,
+  "one_way": false
+}

@@ -192,7 +192,7 @@ import { routeOptions, aimedDest, destByWord } from './routes.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
-  announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, passHitcher, markWreck, pumpAt, pumpClamp, FUEL_FULL,
+  announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, passPlaza, passHitcher, markWreck, pumpAt, pumpClamp, FUEL_FULL,
   gatePair, rigLocked, tryDoorBoard, doorBoardLine,
   _clearGateCache, networkRoute,
   ridingRigOf, seatsFree, boardPassenger, alightPassenger } from './state.js';
@@ -208,6 +208,7 @@ import './hvac.js';   // registers the cab as a climate-controlled box while the
 import { schedule } from '../../server/engine/scheduler.js';
 import { hitcherAt } from './hitchers.js';
 import { runScale, afterDrive, customsAnswer, pendingCustoms, scaleAt, releaseImpound } from './scale.js';
+import { tryDeck, plazaHere, weighHere } from './plaza.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { TRAILER_TYPES, trailerType, trailersAt, trailersOf, getTrailer, trailerOnTruck,
@@ -2209,6 +2210,11 @@ async function cmdTruckSync(args, raw, player) {
   // — it is on the four-times-a-second path, so it may never await.
   roadTestTick(player, rig);
   passSign(player, rig);
+  // THE INSPECTION PLAZA — the call miles out, the gantry as you reach it, and the charge if you
+  // hold your lane past a lit one. Swept off the odometer for the same reason the boards are, and
+  // beside them rather than on the node crossing because a station is a place on the road and a
+  // node boundary is not. Sync, and free on a road that has no plaza on it.
+  passPlaza(player, rig);
   // …and the person standing on it. Beside the boards rather than on the node crossing, because
   // that is the placement the warning needs: a call about somebody eighteen miles up is a fact
   // about the ODOMETER, and the odometer only moves here. See passHitcher for why it is swept.
@@ -2269,6 +2275,12 @@ async function cmdTruckSync(args, raw, player) {
     return { type: 'noop' };
   }
 
+  // ── THE PLATES ─────────────────────────────────────────────────────────────
+  // Physically: be on the deck, and be stopped. Checked here rather than behind a verb because it
+  // is what the station asks you to do — ride over it and stop on it — and because a driver who has
+  // stopped on a weighbridge has unambiguously pulled in. `tryDeck` returns on a sync guard for
+  // every frame that is not that one, so the awaits inside it are only ever paid once.
+  await tryDeck(player, rig);
   if (r.bogged && !rig.bogged) {
     rig.bogged = true;
     unbog(rig);
@@ -2389,6 +2401,45 @@ async function cmdCb(args, raw, player) {
     return cbSpeaker(player, rig, args[1].toLowerCase() === 'on');
   }
   return cbTransmit(player, rig, rest);
+}
+
+// ── `weigh` — pulling onto the plates ────────────────────────────────────────
+//
+// The cab rung does not need this: you stop on the deck and the deck reads you, which is the whole
+// of what a weighbridge is. The TEXT rung does, because it has no wheel — a text run advances the
+// odometer down the centreline and there is no way to steer off it — so without a verb the lawful
+// answer to a lit plaza would be unreachable on one of the two rungs, and a station that charges
+// four stars for driving past would be a trap for everybody who drives by text. That is the one
+// thing a rung may not be.
+//
+// ⚠ IT IS THE SAME LAW, NOT A TEXT VERSION OF IT. `weighHere` is the function the deck itself
+// calls, so the arch, the cab check and the weighbridge run in the same order with the same rolls.
+// All this verb does is get you onto the plates.
+//
+// ⚠ AND PULLING IN ENDS A TEXT RUN, because you are stopping — that is what "stop on the plates"
+// means. `drive` starts it again afterwards. Leaving the run going would have the road narrating
+// past while somebody stands at your door with a slate.
+async function cmdWeigh(args, raw, player) {
+  const rig = rigOf(player);
+  if (!rig) return say("You're not behind a wheel.");
+  const p = plazaHere(rig);
+  if (!p) {
+    const ahead = (rig.route?.plazas || []).find((q) => q.s0 > (rig.s || 0));
+    return say(ahead
+      ? `There's nothing to weigh on here. <span class="text-dim">${ahead.name} is ${milesOf(ahead.s0 - rig.s)} miles up the road.</span>`
+      : "There's nothing to weigh on here.");
+  }
+  if (!p.open) return say(`The plates at ${p.name} are dark and the arch is cold. Nobody's weighing anything tonight.`);
+  if (rig._plaza?.weighed) return say(`You've already been over the plates at ${p.name}. The barrier is up and the lane out is that way.`);
+  if (isTextDriving(player.id)) {
+    stopTextDrive(player.id);
+    sendToPlayer(player.id, { type: 'emote', message:
+      '<span class="ambient">You come off the throttle, take the ramp with the lights running away under the mirrors, and bring it to a stand on the plates.</span>' });
+  } else if ((rig.speed || 0) > 3) {
+    return say("Not at this speed. Get it onto the apron and <b>stop</b> on the plates.");
+  }
+  await weighHere(player, rig, p);
+  return { type: 'ok' };
 }
 
 // ── The air horn ─────────────────────────────────────────────────────────────
@@ -3637,6 +3688,7 @@ export const commands = {
   horn: cmdHorn,
   honk: cmdHorn,   // both, because half the people who want this will type the other one
   route: cmdRoute,
+  weigh: cmdWeigh,
   haul: cmdHaul,
   market: cmdMarket,
   yard: cmdYard,

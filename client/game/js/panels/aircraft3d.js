@@ -2680,7 +2680,10 @@ export function vehicleLamps(cls, variant = '') {
     // pod's half-length so the renderer can size the pool to the machine rather than to a constant.
     // This replaces the flat teal ground boxes the mesh used to draw under each pod (⚠ in `pod()`):
     // same intent, drawn as light, so it spills instead of ending at a corner.
-    podGlow: (meta.pods || []).map(([f, g, halfLen, deck]) => ({ p: at(f, g, 0.002), r: halfLen, deck: !!deck })),
+    // ⚠ AND `hw` IS THE LIFTER'S LATERAL HALF-WIDTH, which the light pool does not use and the SNOW
+    // does: a wheel track is the gauge these stations sit at and the width of one of them, so the
+    // second number is published here too rather than the renderer keeping its own idea of it.
+    podGlow: (meta.pods || []).map(([f, g, halfLen, deck, halfW]) => ({ p: at(f, g, 0.002), r: halfLen, hw: halfW || 0.024, deck: !!deck })),
     // UNDERGLOW, as light rather than as a part: stations down the CENTRELINE between the axles,
     // sitting ON the ground plane rather than on the frame — what you are meant to see is the road
     // lit up under the truck, not a strip on the chassis. The renderer pools these together with
@@ -3162,12 +3165,17 @@ function buildTruck(variant = 'hauler', detail = 1) {
   const ACCENT = [96, 196, 214];         // the decorative running light — beltline strip, roof scanner
   const PK = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : null);
   const HOVER = 0.014;                   // the ride height a running lifter holds, and a parked one gives up
+  // The housing's lateral half-width. A named constant rather than a literal in the box below it
+  // because it is PUBLISHED now: a lifter's footprint is what marks the snow, and the mark has to
+  // be the width of the thing that made it rather than a second number somebody chose. See
+  // `trackGauge` in windshield.js.
+  const PW = 0.024;
   const pod = (f, g, r = 0.048, len = 1, deck = false) => {
     const s = Math.sign(g || 1), L = r * len;
-    podAt.push([f, g, r * len, deck]);      // where a lifter ended up, and on WHICH body — the lamp layer pools light under each one and has to swing the trailer's with the trailer
+    podAt.push([f, g, r * len, deck, PW]);  // where a lifter ended up, how wide it is, and on WHICH body — the lamp layer pools light under each one and has to swing the trailer's with the trailer
     const z0 = 0.016, z1 = z0 + r * 1.24;                                                       // the pod floats clear of the road
     box(f - L * 0.20, f + L * 0.20, 0.009, z1 - 0.006, 0.066, 'strut', null, g - s * 0.013);    // swing arm up into the frame
-    box(f - L, f + L, 0.024, z0 + r * 0.34, z1, 'gear', null, g);                               // housing
+    box(f - L, f + L, PW, z0 + r * 0.34, z1, 'gear', null, g);                                  // housing
     box(f - L * 0.88, f + L * 0.88, 0.018, z0, z0 + r * 0.36, 'gear', null, g);                 // shroud, drawn in under it
     if (!fine) return;
     // A chrome hubcap band round the housing — the atomic-age wheel-trim read, and the thing that

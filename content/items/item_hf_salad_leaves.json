@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_salad_leaves",
+  "name": "a bag of cut leaves",
+  "tags": {
+    "description": "Cut an hour ago, ten floors above where you are standing, and still cold. Nothing else sold in the Basin at this price has ever been in the ground and neither has this, which is the point.",
+    "stackable": true
+  },
+  "type": "food",
+  "value": 18,
+  "weight": 60
+}

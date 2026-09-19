@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_909_915",
+  "b": "zone_wires_apparatus",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_909_915_north",
+  "lockable": true,
+  "one_way": false
+}

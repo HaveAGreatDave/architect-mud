@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_cold_floor",
+  "id": "map_int_cold",
+  "name": "Cold Comfort",
+  "parent_zone_id": "zone_district_903_917"
+}

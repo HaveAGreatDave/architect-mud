@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_wires_relay",
+  "name": "a spare relay",
+  "tags": {
+    "description": "A coil, an armature and a set of contacts on a bakelite base, in a paper sleeve with a code on it. The stores here hold thousands and the exchange has not called for one in years.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 16,
+  "weight": 120
+}

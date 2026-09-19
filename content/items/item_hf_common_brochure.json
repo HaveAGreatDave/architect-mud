@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_common_brochure",
+  "name": "a Common Ground brochure",
+  "tags": {
+    "description": "Heavy paper, four folds, and a rendering on the front of the bridge at dusk with eleven people on it. Nobody has ever counted eleven people in this building at once.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 12,
+  "weight": 14
+}

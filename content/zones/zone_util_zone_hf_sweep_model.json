@@ -1,0 +1,18 @@
+{
+  "description": "At the foot of the building where the three segments meet, with the plotter, the paper store and everything the building runs on. The cabinet is on the flat wall and somebody has taped a phase programme up beside it that is two seasons out of date.",
+  "exits": {
+    "up": "zone_hf_sweep_model"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_904_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_sweep_model",
+  "map_id": "map_int_hf_sweep",
+  "name": "Sweeping Statement — The Print Room",
+  "parent_zone": "zone_district_904_915"
+}

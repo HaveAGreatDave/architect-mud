@@ -1,8 +1,12 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "waterfront",
-  "color": "#a98b63",
-  "description": "Weathered decking stretches out over the water, wide enough to land a truck, scarred with the drag-marks of cargo that hasn't come through in years. A bollard leans drunkenly at the lip; gulls the size of dogs watch you from the rail and don't move.",
+  "ambient_events": [
+    "The slew ring turns a few degrees and stops, and the cab goes round with it.",
+    "The hook comes down toward the water, hangs there, and starts back up.",
+    "Wash off the basin slaps the fenders and runs back down the face of the quay."
+  ],
+  "ambient_theme": "coast",
+  "color": "#7f8688",
+  "description": "Poured hardstanding to the water's edge, with rubber fenders bolted down the face of it. The crane on it is a squat, rust-streaked thing on a slew ring, cab glazed on three sides, boom flat out over the channel. Somebody's jacket is still hanging in there.",
   "exits": {
     "east": "zone_district_911_903",
     "north": "zone_district_910_902",
@@ -10,8 +14,11 @@
     "west": "zone_district_909_903"
   },
   "flags": {
+    "building_type": "quay_crane",
     "district": "docks",
+    "entrance": "west",
     "fishing_table_id": "fish_coldwater_bay",
+    "floors": 7,
     "region_id": "region_coldwater",
     "street_life": true,
     "terrain": "concrete"
@@ -21,6 +28,6 @@
   "grid_z": 0,
   "id": "zone_district_910_903",
   "map_id": "map_world",
-  "name": "Pier",
+  "name": "Basin Quay",
   "parent_zone": null
 }
