@@ -49346,7 +49346,7 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       // 4) THE GATEHOUSE, inside the wire beside the gate. One room, and the hatch in this arm's
       //    own prose. Small enough that the fence is still the thing you see.
       { const [hx, hy] = F(fh * 0.56, fh * 0.60);
-        draw3DBoxAt(ctx, cam, hx, hy, fh * 0.24, 0, h * 0.38, 'ty_guard', seed + 30, night, alpha, false); }
+        draw3DBoxAt(ctx, cam, hx, hy, fh * 0.24, 0, h * 0.38, 'ty_guard', seed + 30, night, alpha, true); }
       if (night) {
         // A floodlight on the gate post aimed down into the rows, and the hut's one window. The
         // yard is lit because a pound is watched, not because anybody is meant to look at it.
