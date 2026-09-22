@@ -196,8 +196,13 @@ ck('…without colliding with the STOP bell', /BELLS = \{ stop:/.test(th) && !/w
 
 // ⚠ A STOPPED MOTOR BURNS NOTHING, and that figure is the IDLE burn — left unconditional a hull
 // left shut down at the pontoon drinks her own tank, which is the one thing a key is for.
+// ⚠ AND IT MATCHES BOTH SPELLINGS OF THE ONE GATE, because `running` ABSENT MEANS RUNNING — the
+// migration invariant a seat hydrated before there was a key relies on. `if (c.s.running)` reads
+// an absent flag as a dead motor, which is the bug that had `conn full` refusing a live boat, so
+// the text rung asks `!== false`. What is being checked here is that the burn is GATED on the key
+// at all; which of the two spellings does it is not this claim's business.
 ck('neither rung burns fuel with the key off',
-   /running\)\s*st\.fuel = Math\.max/.test(cli) && /running\)\s*c\.fuel = Math\.max/.test(th));
+   /running(?: !== false)?\)\s*st\.fuel = Math\.max/.test(cli) && /running(?: !== false)?\)\s*c\.fuel = Math\.max/.test(th));
 
 // ── 5. AND IT LETS GO ───────────────────────────────────────────────────────
 console.log('\n— coming down —');

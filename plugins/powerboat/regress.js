@@ -9,11 +9,25 @@
 import {
   TYPES, WATER, createBoatState, boatReadout, boatSeaPose, step,
 } from '../../client/game/js/panels/flight-model.js';
+import fs from 'fs';
+import { seaAmpsFor, SEA_FULL_KT } from '../../client/shared/sea-swell.js';
 import { wreckSeverity, wreckPlan, wreckLines, WRECK } from './breakup.js';
 import { boatContactsNear, rigs } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = TYPES.hydro;
+  // ⚠ THE SEA COMES FROM THE SEA, NEVER FROM A LITERAL HERE. Both cases below used to hand-set
+  // roll 0.32 / wind 0.20 and roll 0.9 / wind 0.7 — the FIXED amplitudes the swell had before
+  // JONSWAP made it a function of the wind, and before the trains lengthened to 179 m. A number
+  // fitted against another system's output goes stale when that system is retuned and says
+  // nothing while it does: the boat simply stopped flying and stopped being able to sink.
+  // `glSeaGain` is the renderer's own taste knob and is read out of the source for the same
+  // reason `sea.mjs` reads it — restate it and this suite goes on passing while the sea moves
+  // out from under the hull exactly as before.
+  const gainM = fs.readFileSync('client/game/js/panels/windshield.js', 'utf8').match(/glSeaGain:\s*([\d.]+)/);
+  check('the sea gain the boat rides can be read', !!gainM);
+  const FULL = seaAmpsFor(SEA_FULL_KT, gainM ? +gainM[1] : 1);
+
   const drive = (s, inp, secs, dt = 1 / 60) => {
     for (let i = 0; i < Math.round(secs / dt); i++) {
       step(s, { steer: 0, throttle: 0, surface: 'open', ...inp }, p, dt);
@@ -87,7 +101,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // And with one, it does ride — and the pose is a real attitude rather than a constant.
   const sea = createBoatState(p);
-  sea.seaRoll = 0.32; sea.seaWind = 0.20;
+  sea.seaRoll = FULL.roll; sea.seaWind = FULL.wind;   // the top of the scale: a 45-knot gale
   let sawPitch = 0, sawRoll = 0, launches = 0;
   for (let i = 0; i < 60 * 60; i++) {
     step(sea, { throttle: 1, surface: 'open' }, p, 1 / 60);
@@ -165,7 +179,11 @@ export default async function regress({ run, check, getPlayer }) {
   check('one grounding does not destroy the boat', one.hull > 0.4,
     'a single beaching left ' + one.hull.toFixed(2));
   const doomed = createBoatState(p);
-  doomed.seaRoll = 0.9; doomed.seaWind = 0.7;
+  // ⚠ THREE TIMES THE TOP OF THE SCALE, DELIBERATELY. This claim is about the DAMAGE MODEL —
+  // that a hull can be destroyed and only the hard way — so it wants a sea harder than any the
+  // weather can make. At the real gale the hydro is down to 0.93 after four minutes and never
+  // holes, which is the model working rather than the model being untested.
+  doomed.seaRoll = FULL.roll * 3; doomed.seaWind = FULL.wind * 3;
   let holed = false;
   for (let i = 0; i < 60 * 240 && !holed; i++) {
     step(doomed, { throttle: 1, surface: 'chop' }, p, 1 / 60);

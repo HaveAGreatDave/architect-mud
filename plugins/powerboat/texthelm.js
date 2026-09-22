@@ -150,7 +150,7 @@ export async function cmdConn(args = [], raw, player) {
   // `helm`, `fuel` and `refit`. A helmsman rings STOP and kills the engines; they are not the same
   // instruction and never have been.
   if (word === 'start') {
-    if (c.s.running) return { type: 'error', message: 'She is already running.' };
+    if (c.s.running !== false) return { type: 'error', message: 'She is already running.' };
     if (c.fuel <= 0) return { type: 'error', message: 'She turns over and never catches. The tank is dry.' };
     // ⚠ HELD BY THE TICK RATHER THAN BY A FINGER, which is the same answer the tabs note above
     // gives: a typed order cannot be held down, so the order arms the starter and the tick turns
@@ -159,7 +159,7 @@ export async function cmdConn(args = [], raw, player) {
     return { type: 'emote', message: 'You turn the key. She churns.' };
   }
   if (word === 'kill' || word === 'shutdown') {
-    if (!c.s.running) return { type: 'error', message: 'She is already dead.' };
+    if (c.s.running === false) return { type: 'error', message: 'She is already dead.' };
     c.s.running = false; c.starting = false; c.want.bell = 'stop'; c.want.bottle = false;
     return { type: 'emote', message: 'You shut her down. The silence afterwards is startling.' };
   }
@@ -187,7 +187,7 @@ export async function cmdConn(args = [], raw, player) {
     // own rule about a bearing two branches down: the model cuts the lever on a dead motor, so a
     // bell accepted here would be a helm that says "you ring for full" over a boat that does not
     // move — and there would be nothing anywhere to say why.
-    if (!c.s.running && word !== 'stop') {
+    if (c.s.running === false && word !== 'stop') {
       return { type: 'error', message: 'Nothing happens. She is not running — <b>conn start</b>.' };
     }
     c.want.bell = word;
@@ -304,14 +304,14 @@ async function tick() {
     if (c.fuel <= 0) { input.throttle = 0; c.want.bell = 'stop'; }
     // ⚠ AND A DEAD MOTOR BURNS NOTHING HERE EITHER — the base figure is the IDLE burn, so left
     // unconditional a hull left conned but shut down would drink her tank dry sitting still.
-    else if (c.s.running) c.fuel = Math.max(0, c.fuel - (0.00042 + 0.0035 * c.s.pedal) * dt);
+    else if (c.s.running !== false) c.fuel = Math.max(0, c.fuel - (0.00042 + 0.0035 * c.s.pedal) * dt);
     if (c.s.nitro <= 0) c.want.bottle = false;
 
     stepBoat(c.s, input, c.p, dt);
     // ⚠ THE STARTER LETS GO ON AN ANSWER EITHER WAY, the panel's own click-crank rule: a dry motor
     // never catches, so a flag cleared only on success would leave the starter engaged for the
     // rest of the passage and quietly burn nothing while reporting nothing.
-    if (c.starting && (c.s.running || (c.s.events || []).includes('dry'))) c.starting = false;
+    if (c.starting && (c.s.running !== false || (c.s.events || []).includes('dry'))) c.starting = false;
 
     // ⚠ THE SAME RECORD THE PANEL FILLS. See the header: a text driver missing from `rigs` is a
     // boat that does not exist to anybody else on the water.
