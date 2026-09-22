@@ -1089,9 +1089,36 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
   // ⚠ A SPECIES DRAWN IN THE HUNDREDS IS THE ONE THAT MUST GIVE ITS MESH UP, which is the whole
   // reason this is per species: the starling is six hundred birds at 1.03 px, so a big share would
   // mean sixty thousand triangles for a cloud of specks.
+  //
+  // ⚠ AND THE BAR MOVED 0.25 -> 0.35 WHEN THE BUDGET AND THE GLYPH RUNG LANDED, BECAUSE AT 0.25 IT
+  // WAS ASKING FOR A BUG BACK. A songbird spans 0.027 tiles and a murmuration flies at 1.4 of them,
+  // so the mesh has to reach past 1.4 to be a mesh at all -- windshield.js says so where dotPx came
+  // down ("a starling only became a mesh inside 0.87 tiles ... get close and they stayed specks").
+  // Against a 6-tile drawRange that is a share of 0.233 AT BEST, and dotPx 3 puts it at 0.34. Every
+  // setting that satisfied 0.25 put the whole flock back below mesh range.
+  //
+  // ⚠ WHAT ACTUALLY BOUNDS THE COST IS NOT THIS RATIO ANY MORE. When the rule was written a near
+  // bird was a mesh or a dot and nothing counted them, so the share WAS the budget. It is not:
+  // `faunaMeshMax` rations meshes per frame off the frame clock, `faunaGlyphPx` gives the rung
+  // below it a three-face bird instead of a speck, and that rung carries its own cap. So the share
+  // is a shape check now, and the ceiling it used to stand in for is asserted directly below it.
   const crowd = rows.filter((r) => SPECIES[r.id].maxFlock >= 100);
   for (const r of crowd) {
-    if (r.share > 0.25) problems.push(`${r.id} flocks to ${SPECIES[r.id].maxFlock} and still keeps its mesh over ${(r.share * 100) | 0}% of its draw range -- a cloud of them is all triangles`);
+    if (r.share > 0.35) problems.push(`${r.id} flocks to ${SPECIES[r.id].maxFlock} and still keeps its mesh over ${(r.share * 100) | 0}% of its draw range -- a cloud of them is all triangles`);
+  }
+  // ⚠ AND THE CEILING IS ASSERTED, or relaxing the bar above would be relaxing the only bound there
+  // was. A crowd species' worst case is every bird of the biggest flock inside its own mesh range
+  // at once, and the answer to that has to be a COUNT rather than a ratio: the mesh budget must be
+  // set, finite, and below the largest flock the game can make -- otherwise there is nothing at all
+  // between a murmuration and seventeen hundred meshes.
+  {
+    const cap = ws.RENDER_TUNE.faunaMeshMax, floor = ws.RENDER_TUNE.faunaMeshMin;
+    const biggest = Math.max(...crowd.map((r) => SPECIES[r.id].maxFlock));
+    if (!(cap > 0) || !Number.isFinite(cap) || cap >= biggest) {
+      problems.push(`faunaMeshMax is ${cap} against a biggest flock of ${biggest} -- the per-frame mesh budget is what bounds a crowd species, and it is not bounding this one`);
+    }
+    if (!(floor > 0) || floor > cap) problems.push(`faunaMeshMin ${floor} is not a floor under faunaMeshMax ${cap}`);
+    notes.push(`mesh budget: ${floor}..${cap} meshes a frame against a biggest flock of ${biggest}`);
   }
   // ⚠ AND A SOLITARY OR LARGE BIRD MUST KEEP ITS MESH, or the LOD has quietly deleted the
   // silhouettes the models were built for. A goose IS its neck and nothing survives dotting it.
