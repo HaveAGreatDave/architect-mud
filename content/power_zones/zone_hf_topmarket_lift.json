@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_topmarket_lift",
+  "id": "zone_hf_topmarket_lift",
+  "name": "Top of the Market — The Restaurant Lobby",
+  "source_type": "junction_box"
+}

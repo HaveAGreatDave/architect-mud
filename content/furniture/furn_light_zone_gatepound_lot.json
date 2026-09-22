@@ -1,0 +1,14 @@
+{
+  "description": "A floodlight on the gate post, aimed down into the rows.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_gatepound_lot",
+  "light_type": "overhead",
+  "lumen_output": 4200,
+  "name": "yard floodlight",
+  "object_type": "light",
+  "power_draw_kw": 0.4,
+  "price": 0,
+  "zone_id": "zone_gatepound_lot"
+}

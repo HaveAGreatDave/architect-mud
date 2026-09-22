@@ -1,0 +1,293 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Lindqvist takes the cutaway down, looks at it at arm's length, and puts it back on the same two pins.",
+    "He makes a call that is answered by a recording, listens to all of it, and puts the handset down without leaving anything.",
+    "The pump under the floor starts up, and he glances at the ceiling as though somebody upstairs had spoken.",
+    "He straightens the two chairs facing the desk so that they are exactly the same distance from it.",
+    "Somebody walks past outside and he watches them all the way to the corner."
+  ],
+  "description": "A tall, slightly stooped man in his fifties in a good suit worn without much conviction, sitting at a desk set at an angle so that he can see the door without facing it. He is the only person selling anything in Halcyon Fields who lives in the thing he is selling, and he mentions it early, because it is the strongest argument he has.",
+  "dialogue_tree": {
+    "avail": {
+      "options": [
+        {
+          "label": "What about the fourth?",
+          "next": "fourth"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Third floor: A, B and C, all of them ready, all of them furnished to estate standard, and all three of them have been ready since the building was signed off.\" He counts them on the desk with two fingers. \"Go up. The lift works. The doors are on the latch and I will not follow you round, because people hate that and I have learned.\"\n\nA beat.\n\n\"If you want one, the terms are the terms. There is no haggling because there is nothing to haggle about — the price has not moved in two years and neither has anything else.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Everybody thinks about it.\" He says it without any edge at all, which is worse. \"Keys are here when you want them.\""
+    },
+    "fourth": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Three D is mine.\" Flat, no flourish. \"Not the estate's, not on the schedule. Mine. If you take one of the other three you will have me across the landing, and I am telling you now rather than after, because the ones who found out after did not like it.\"\n\nHe almost smiles.\n\n\"I am quiet. I am out from eight. And the pump wakes me before it wakes you.\""
+    },
+    "lives": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I do.\" He nods up at the ceiling. \"Third floor, west side. The window faces the Curtain and there is no sky in it at all, which everybody thinks is a joke until they stand in it, and then they understand that it is quiet in a way nothing else in this city is.\"\n\n\"I took the worst aspect in the building deliberately. If I had taken the best one, I could not sell the best one.\""
+    },
+    "people": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It needs one.\" He taps the desk. \"One flat, with somebody in it who puts a light on at six and has the window open in summer and argues with somebody on the landing. That is the whole of it. Everything else is built.\"\n\nHe looks at you a fraction longer than is comfortable.\n\n\"So. Three A.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is actually available?",
+          "next": "avail"
+        },
+        {
+          "label": "What have you got for sale?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Why is nobody buying?",
+          "next": "why"
+        },
+        {
+          "label": "You live here?",
+          "next": "lives"
+        },
+        {
+          "label": "I will think about it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in properly, you are letting the cold in.\" He is already moving the second chair.",
+      "text_by_relation": {
+        "familiar": "He has the kettle going in the back before you have crossed the room, and the viewing keys are already on the desk.\n\n\"Three A is the one,\" he says. \"I have stopped pretending otherwise.\"",
+        "first": "The man at the desk stands up before you are all the way through the door, and it is not a salesman's stand — it is faster than that, and a little too glad.\n\n\"Marius Lindqvist.\" He puts a hand out. \"Three flats available on the third, two on the seventh, one on the eleventh, and I will save you the first question: yes, I live here. Flat 3D. Have done since the day it topped out.\"\n\nHe gestures at the cutaway on the wall behind him, then does not look at it.\n\n\"Twenty-eight days to completion, no chain and nothing onward. That has been true for two years.\"",
+        "known": "\"You are the only person who has been in here twice.\" He says it lightly and it does not come out lightly. \"Sit down.\""
+      }
+    },
+    "why": {
+      "options": [
+        {
+          "label": "So it needs people.",
+          "next": "people"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"That is the question.\" He sits back, and for a moment he is not selling anything. \"It is not the price. It is not the build — the build is good, better than the ones on the mews, and I say that knowing what it costs me to say it.\"\n\nHe turns a pen over once.\n\n\"People come. They look. They stand at that window and they look up Kettle Lane at seven in the evening and there is nobody on it. Not a soul, in a quarter with forty buildings in it. And they do not say that is the reason. They say they will think about it.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a navy suit, good cloth, the jacket usually over the back of the chair",
+      "a shirt with the top button undone by about eleven in the morning",
+      "no tie, and a mark on the collar where one used to sit",
+      "brown shoes that are wrong with the suit and comfortable",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_chainfree_u4",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_hf_lindqvist",
+  "name": "Marius Lindqvist",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_reservation",
+      "price": 0
+    },
+    {
+      "item_id": "item_hf_flatkeyset",
+      "price": 15
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Chain Free Lettings",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_chainfree_lobby"
+}

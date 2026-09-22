@@ -1,0 +1,14 @@
+{
+  "description": "Standing on the counter with the glass smoked brown up one side. It lights the scales and whoever has their hands on them.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_gas_zone_bld_919_917_lobby",
+  "light_type": "gas",
+  "lumen_output": 400,
+  "name": "a gas lantern",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": 40,
+  "zone_id": "zone_bld_919_917_lobby"
+}

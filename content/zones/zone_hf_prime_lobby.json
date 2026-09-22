@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Double height, stone the colour of the outside, and largely empty on purpose — there is a desk at the far end, a lift bank of four, and about thirty feet of nothing between them and the door, which is a thing you pay for. The only decoration is the name again, in the same letters as outside, cut into the wall behind the desk so that anybody standing at it has it over their shoulder.",
+  "exits": {
+    "down": "zone_util_zone_hf_prime_lobby",
+    "up": "zone_hf_prime_sky",
+    "west": "zone_district_903_912"
+  },
+  "flags": {
+    "building_name": "Prime Location",
+    "building_type": "torque_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Two storeys of it either side of the entrance, out onto Cinder Lane. From in here the buildings opposite are exactly the height of the bottom third of the glass, which is a proportion somebody worked out and which will stop being true when the plots behind them are built.",
+      "light": 0.8,
+      "name": "the podium glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_903_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_prime_lobby",
+  "map_id": "map_int_hf_prime",
+  "name": "Prime Location — The Podium Lobby",
+  "parent_zone": "zone_district_903_912"
+}

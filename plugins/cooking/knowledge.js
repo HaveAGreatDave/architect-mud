@@ -17,7 +17,7 @@ import {
 } from '../../server/engine/flags.js';
 import { DISHES } from './dishes.js';
 import { QUALITY_BANDS, bandIndex } from './profiles.js';
-import { KNOWN_RECIPE_BONUS, DISCOVERY_ATTEMPTS, DISCOVERY_MIN_BAND } from './config.js';
+import { KNOWN_RECIPE_BONUS, DISCOVERY_ATTEMPTS, DISCOVERY_MIN_BAND, STARTER_RECIPES } from './config.js';
 
 export const FLAG_PREFIX = 'cookbook:';
 
@@ -54,6 +54,13 @@ export async function cookbookState(playerId) {
       if (DISHES[key]) progress.set(key, Number(flagValue) || 0);
     }
   }
+  // The five everybody starts with (STARTER_RECIPES in config.js). Unioned in
+  // HERE, at the one read every cookbook surface already goes through, so the
+  // cook path, the tablet app, the workspace Recipe Assistant and `cookbook`
+  // all inherit them without knowing they exist. A starter that HAS been cooked
+  // has a row like any other and keeps the band it earned, so this only ever
+  // fills a gap.
+  for (const key of STARTER_RECIPES) if (!known.has(key)) known.set(key, UNTRIED);
   return { known, progress, lastIpAt };
 }
 
@@ -85,6 +92,7 @@ export async function recordAttempt(playerId, key, band, soFar = 0) {
 }
 
 export async function knowsRecipe(playerId, key) {
+  if (STARTER_RECIPES.has(key)) return true;   // known without a row
   return (await getFlagById(playerId, FLAG_PREFIX + key)) !== undefined;
 }
 
@@ -104,13 +112,21 @@ export async function learnRecipe(playerId, key, band = null) {
     // tally has done its job and shouldn't linger.
     clearFlagsIn(playerId, [PROGRESS_PREFIX + key]),
   ]);
-  return { learned, band: value };
+  // A starter was never news. The row may genuinely be new — nothing had been
+  // written until now — but the player has known the dish since they woke up,
+  // so a card or an NPC teaching one must not announce a discovery.
+  return { learned: learned && !STARTER_RECIPES.has(key), band: value };
 }
 
 // Raise the recorded band on a recipe already in the book. The caller decides
 // whether this is an improvement — it already holds the map it loaded, so this
 // costs a write and never a read.
 export async function improveRecipe(playerId, key, band) {
+  // A STARTER is the one recipe that is in the book with NO row behind it, so
+  // the first time one is beaten there is nothing to update. Left as an UPDATE
+  // it fails the silent way: `plate` prints "best you've ever made it" and
+  // records nothing, for ever.
+  if (STARTER_RECIPES.has(key)) { await setFlagById(playerId, FLAG_PREFIX + key, band); return; }
   // UPDATE-only by design: raising the band on a recipe already in the book must
   // never mint a row for one that isn't.
   await updateFlagById(playerId, FLAG_PREFIX + key, band);

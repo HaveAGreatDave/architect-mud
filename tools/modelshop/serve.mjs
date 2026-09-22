@@ -175,6 +175,12 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && (path === '/' || path === '/index.html')) {
       return send(res, 200, await readFile(join(HERE, 'index.html')), 'text/html; charset=utf-8');
     }
+    // A look at the inside of a truck cab with a driver's own things in it. It lives here because
+    // this server already reaches client/game/js and client/shared and nothing else does; it is a
+    // page to LOOK at, and scripts/shapes/cabtrinkets.mjs is what actually gates the shelf.
+    if (req.method === 'GET' && path === '/cabtrinkets.html') {
+      return send(res, 200, await readFile(join(HERE, 'cabtrinkets.html')), 'text/html; charset=utf-8');
+    }
     // The tool's own modules. Name-restricted and joined onto this directory, so it cannot climb
     // out of it — the same shape as the client allowlist below, and the reason it is a pattern
     // rather than a list of filenames is that `app.js` importing `./editor.js` 404s otherwise.

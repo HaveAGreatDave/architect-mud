@@ -15,8 +15,9 @@
 import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
+import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
-import { glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { padCatchStep } from './pad-catch.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
@@ -42,6 +43,8 @@ import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
 import { hex2rgb, visorSpecFor, VIPER_SCALE } from './aircraft3d.js';
 import { createFreeCam, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
+import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
+import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { MOUSE_STICK, STICK_TUNE, STICK_HINT_ON, STICK_HINT_OFF, createMouseStick, bindMouseStick } from './mousestick.js';
 import { compactHidePanel } from '../../../shared/compact-view.js';
 
@@ -285,7 +288,9 @@ export function closeCockpit() {
   _lastGround = null; _lastMap = null; _lastBiome = null;
   unbindPaxKeys();
   document.body.classList.remove('ck-fullscreen', 'ck-hidepanel');   // drop the cabin immersive layouts if either was on
-  stopEngineAudio();
+  exitBigScreen();                                                   // …and the rung above them, which owns the whole page
+  endSeatKeyboard();                                                   // …and the keyboard goes back to the command bar
+  stopEngineAudio(); stopBoatContacts();
 }
 
 // Engine sound for an occupant WALKING a walkable cabin (the Leviathan) — they're in a
@@ -438,7 +443,7 @@ function paintWindow(id, a, s) {
     pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
     hour: s.sky?.hour, moon: s.sky?.moon, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
     event: s.sky?.event,   // named hero event — outranks `weather` for the canopy grade
-    wxField: s.sky?.field, acX: a.fx, acY: a.fy,   // spatial weather cells + our world position
+    wxField: s.sky?.field, wxGround: s.sky?.ground, acX: a.fx, acY: a.fy,   // spatial weather cells, the ground they have already soaked, and our world position
     // Both scenes' data are passed unconditionally (falling back to the last real values
     // once the server's own payload has moved on) — `worldBlend` above decides how much
     // of each windshield.js actually paints, not which one is available.
@@ -689,6 +694,7 @@ function mountPassenger(s) {
       <span class="ck-phase" id="ck-phase">Enjoy the flight.</span>
     </div>
     <div class="ck-pax-window">${windshieldHTML('ck-ws', 'CABIN WINDOW')}
+      <button class="ck-pax-bigbtn" id="ck-pax-bigbtn" title="${esc(BIGSCREEN_TITLE)}" tabindex="-1">${BIGSCREEN_GLYPH}</button>
       <button class="ck-pax-fsbtn" id="ck-pax-fsbtn" title="fullscreen" tabindex="-1">⛶</button>
       <button class="ck-pax-hidebtn" id="ck-pax-hidebtn" title="hide the text panel — more window" tabindex="-1">⊟</button>
       <div class="ck-pax-viewtag" id="ck-pax-viewtag"></div>
@@ -715,10 +721,15 @@ function mountPassenger(s) {
 // Fullscreen / hide-panel + keyboard-focus, matching the flight-sim + hangar chrome. The cabin
 // pane owns the keyboard by default (so Q/E swivel the view immediately instead of typing into
 // chat); clicking the pane takes focus off the command box, clicking the command box gives it back.
+// ⚠ THAT LAST SENTENCE IS seat-keys.js NOW. It was a dozen lines here, a dozen more in the sim
+// below, a dozen in the cab, and NONE AT ALL in the wheelhouse or in free look — and every copy
+// bound on the bubble, which `bindFreeCamPointer` stops dead on the capture phase of the glass
+// inside the pane, so with the camera off its mount clicking the picture stopped working.
 function wirePaxChrome() {
   const root = document.getElementById('ck-hud-root'); if (!root) return;
   const fsBtn = document.getElementById('ck-pax-fsbtn');
   const hideBtn = document.getElementById('ck-pax-hidebtn');
+  bindBigScreenButton(document.getElementById('ck-pax-bigbtn'));
   fsBtn?.addEventListener('click', (e) => {
     e.stopPropagation();
     const on = document.body.classList.toggle('ck-fullscreen');
@@ -736,11 +747,7 @@ function wirePaxChrome() {
   // it is shorter still. The panel's own toggle, so the button reads as pressed and one tap gives
   // the log back — see compact-view.js.
   compactHidePanel('ck-hidepanel', hideBtn);
-  root.tabIndex = -1;
-  const cmdInput = document.getElementById('cmd-input');
-  const focusPax = () => { try { if (document.activeElement === cmdInput) cmdInput.blur(); root.focus({ preventScroll: true }); } catch {} };
-  root.addEventListener('pointerdown', focusPax);
-  focusPax();
+  claimSeatKeyboard(root, { label: 'CABIN' });
 }
 
 // ── Compose the DOM from the aircraft's capabilities + size ───────────────────
@@ -833,12 +840,13 @@ function ensureHudStyles() {
     .ck-pax-strip b { color:#eaf6ff; }
     .ck-pax-hint { text-align:center; font-size:9px; letter-spacing:1px; color:#4d6a76; padding:0 6px 4px; }
     .ck-pax-hint b { color:#7fae99; }
-    /* Fullscreen / hide-panel toggles — the cabin twin of the flight-sim ⛶ / ⊟ chrome. */
-    .ck-pax-fsbtn, .ck-pax-hidebtn { position:absolute; top:8px; z-index:3; background:rgba(6,12,18,.7);
+    /* Big screen / fullscreen / hide-panel — the cabin twin of the flight-sim ⤢ / ⛶ / ⊟ chrome,
+       in the same order: the biggest rung nearest the corner. */
+    .ck-pax-bigbtn, .ck-pax-fsbtn, .ck-pax-hidebtn { position:absolute; top:8px; z-index:3; background:rgba(6,12,18,.7);
       border:1px solid #16303f; color:var(--acc); width:24px; height:24px; border-radius:5px; cursor:pointer;
       font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; }
-    .ck-pax-fsbtn { right:8px; } .ck-pax-hidebtn { right:36px; }
-    .ck-pax-fsbtn.on, .ck-pax-hidebtn.on { background:var(--acc); color:#05141f; border-color:var(--acc); }
+    .ck-pax-bigbtn { right:8px; } .ck-pax-fsbtn { right:36px; } .ck-pax-hidebtn { right:64px; }
+    .ck-pax-bigbtn.on, .ck-pax-fsbtn.on, .ck-pax-hidebtn.on { background:var(--acc); color:#05141f; border-color:var(--acc); }
     /* Q/E look-direction tag — mirrors the pilot's own fsim-viewtag styling. */
     .ck-pax-viewtag { position:absolute; top:8px; left:50%; transform:translateX(-50%); font:10px monospace;
       letter-spacing:2px; color:#ffcf3e; background:rgba(6,12,18,0.6); border:1px solid rgba(255,207,62,0.4);
@@ -934,6 +942,27 @@ function ensureHudStyles() {
     .ck-chrome-degraded .ck-titlebar { border-bottom-color:#4a5a2a; }
     @keyframes ck-glitch { 0%,90%,100%{opacity:1} 92%{opacity:0.72} 94%{opacity:1} 96%{opacity:0.85} }
     @media (max-width:560px) { .ck-row { flex-wrap:wrap; } .ck-row-top .ck-inst-adi, .ck-row-top .ck-inst-radar { flex:1 1 100% !important; } }
+
+    /* ── BIG SCREEN: THE WINDOW, AND NOTHING ELSE ─────────────────────────────
+       The third rung of the ⊟ / ⛶ ladder in the corner (js/panels/bigscreen.js): the page goes,
+       and so does everything this HUD draws round the glass. Both mounts put the window in its own
+       wrapper — '.ck-pax-window' for a passenger, '.ck-canopy' for the pilot's charter view — with
+       the titlebar, the instrument grid, the dial strip and the warning banner as its siblings, so
+       one allow-list covers both. The shape the three seats use, and for the same reason: a list
+       of things to HIDE is a list somebody has to remember to add to.
+       ⚠ THE PILOT'S CANOPY HAS NO CHROME ROW OF ITS OWN and so has no button — it has no ⛶ today
+       either, which is a gap this inherits rather than one it adds.
+       ⚠ AND THE RULES HAVE TO BE IN THIS SHEET RATHER THAN THE FLIGHT SIM'S, which is where they
+       were written first: the sim's stylesheet is injected when the sim opens and a passenger
+       never opens one, so the cabin had the button, the layout and no stripping at all. */
+    body.bigscreen #ck-hud-root > *:not(.ck-pax-window):not(.ck-canopy) { display:none !important; }
+    body.bigscreen #ck-hud-root .ck-pax-window > *:not(.ws-wrap) { display:none !important; }
+    /* No padding, no margins, no rounded corner: the window IS the screen now, and any inset left
+       on it is a frame drawn a few pixels inside the edge of the display. */
+    body.bigscreen #ck-hud-root { padding:0; border:0; border-radius:0; }
+    body.bigscreen #ck-hud-root .ck-pax-window,
+    body.bigscreen #ck-hud-root .ck-canopy { flex:1 1 auto; min-height:0; height:auto; margin:0; }
+    body.bigscreen #ck-hud-root .ws-label { display:none; }
   `;
   document.head.appendChild(st);
 }
@@ -1378,6 +1407,46 @@ const FSIM_TUNE = [
   // it does not, and 0 is the A/B. Only a seat whose eye is under about a tenth of a tile — a free
   // camera pressed down onto the road — ever gets a different number out of it.
   ['nearFit', 'Fit near plane to seat', 0, 1, 1],
+  // ── THE SEA ──────────────────────────────────────────────────────────────────────────────────
+  //
+  // Water is the one surface in GLASS that got a normal, then geometry, then physics, and none of
+  // it was reachable from here. The first two are booleans and the rest are the sea itself.
+  //
+  // Whether the water has a real facet normal and a specular lobe, or the flat brightness tint it
+  // was drawn with for years. 0 is that tint, bit for bit.
+  ['glSeaLit', 'Lit water', 0, 1, 1],
+  // Whether the sea is GEOMETRY. 1 puts a displaced mesh on it that occludes, breaks the horizon
+  // and carries hulls; 0 is the flat plane the floor shades, which is every sea this renderer drew
+  // before. ⚠ GLASS 2 only — the software floor has no vertices to displace, so with `gl` or
+  // `glFloor` at 0 the sea is flat whatever this says.
+  ['glSwell', 'Sea as geometry', 0, 1, 1],
+  // ⚠ HOW ROUGH IT IS, AND -1 IS THE ONE THAT MATTERS. At -1 the weather decides: wind speed drives
+  // significant wave height through JONSWAP's fetch-limited growth law, integrated through a
+  // reservoir so a squall builds a sea over minutes rather than snapping one into existence. Any
+  // value from 0 to 1 PINS it instead — 0 is a mirror, 1 is a Force 9 — which is what you want when
+  // you are looking at the water rather than flying through weather.
+  ['glSeaState', 'Sea state (-1 = weather)', -1, 1, 0.05],
+  // The Basin's effective FETCH in kilometres: how far the wind gets to work on the water before it
+  // reaches you. Significant height goes as its square root, and it is the number that separates an
+  // enclosed basin from an ocean — drop it to 5 and even a gale only ever raises a chop.
+  ['glSeaFetch', 'Fetch (km)', 2, 200, 1],
+  // The only taste in the chain, named for what it is: 1.0 is the physical wave height for the wind
+  // that is blowing. Above it the sea is bigger than the weather says. ⚠ Bounded by BREAKING rather
+  // than by preference — steepness is amplitude times wavenumber and a Stokes wave breaks at 0.443,
+  // so past about 2.2 the mesh folds through itself and stops being a surface.
+  ['glSeaGain', 'Wave height x', 0, 2.2, 0.05],
+  // How tall a hull's own bow wave and wake trough stand. 0 leaves a boat sitting on the sea
+  // without disturbing it, which is what the foam decal alone used to say.
+  ['glWakeAmp', 'Wake depth', 0, 0.2, 0.005],
+  // How hard the sea reflects the city, on the road's own 0..32 scale where 32 is exactly as hard
+  // as Fresnel says it should. The mirror pass has existed since the puddles shipped and was wired
+  // only to tarmac — world.js kept its uniforms "for the day somebody wants reflections on unpaved
+  // ground". 0 is that day not having come.
+  ['glSeaRefl', 'Sea reflections', 0, 32, 1],
+  // How far the wave's own normal drags the reflection lookup, in PIXELS — what makes a reflection
+  // ripple rather than sit there like a photograph. It is the SAME normal the specular uses, so the
+  // two cannot disagree about which way a facet is pointing.
+  ['glSeaReflBend', 'Reflection ripple', 0, 80, 1],
   // Where the rain is allowed to be. The curtain is a full-screen particle pass keyed off the
   // day's weather string, so it fell in clear air on top of an overcast and over the half of the
   // map with no cell above it. 1 gates it on the cloud base the deck is already drawn at and on
@@ -1915,12 +1984,20 @@ function ensureFlightSimStyles() {
       background:linear-gradient(#f0f7ff,#9fbfe0); box-shadow:0 0 6px var(--cy),0 1px 2px rgba(0,0,0,.6); }
     .fsim-trim-val{ font:9px monospace; color:#6f8698; letter-spacing:.5px; }
     .fsim-trim-val.set{ color:var(--yellow,#ffb43a); text-shadow:0 0 5px var(--yellow,#ffb43a); }
+    /* ⚠ THE CORNER ROW IS RIGHT-ANCHORED AND HAND-SPACED, so a button's slot is its own 'right'
+       plus its own width and adding one means moving every button inboard of it. The row, from the
+       corner: ⚙ 8, ⤢ 36, ⛶ 64, ⊟ 92, ◎ EXT 120 (52 wide, so it runs to 172), ⟲ 178. The ladder
+       reads outward — the biggest rung nearest the corner — which is why big screen sits above
+       fullscreen rather than at the far end of the row. */
     .fsim-tunebtn{ position:absolute; top:6px; right:8px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
-    .fsim-fsbtn{ position:absolute; top:6px; right:36px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+    .fsim-bigbtn{ position:absolute; top:6px; right:36px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+      border-radius:6px; width:24px; height:22px; font-size:13px; line-height:1; cursor:pointer; }
+    .fsim-bigbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+    .fsim-fsbtn{ position:absolute; top:6px; right:64px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; width:24px; height:22px; font-size:13px; line-height:1; cursor:pointer; }
     .fsim-fsbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
-    .fsim-hidebtn{ position:absolute; top:6px; right:64px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+    .fsim-hidebtn{ position:absolute; top:6px; right:92px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
     .fsim-hidebtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     /* Abort button — top-left, red so it reads as an exit hatch, not a normal control. */
@@ -1998,16 +2075,17 @@ function ensureFlightSimStyles() {
       background:rgba(40,10,10,.72); border:1px solid #7a3a3a; color:#ff8a5b; }
     .fsim-adminbtn:hover{ border-color:#ff8a5b; box-shadow:0 0 8px rgba(255,120,80,.4); }
     .fsim-adminbtn:active{ transform:translateY(1px); }
-    .fsim-viewbtn{ position:absolute; top:6px; right:92px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+    .fsim-viewbtn{ position:absolute; top:6px; right:120px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; height:22px; padding:0 7px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer; }
     .fsim-viewbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     /* Orbit-camera reset (⟲) — only meaningful in external view, so hidden until then. Sits just left of ◎ EXT. */
     /* ⚠ CLEAR OF THE VIEW BUTTON, WHICH IT WAS NOT. The row is right-anchored, so a button's slot
-       is 'right' plus its own width: the view button sits at right:92 and is 52 wide, so it runs to
-       right:144 — and this sat at right:132, twelve pixels underneath it. Both are only ever shown
-       together (this one is external-view-only, and that is the view the button switches out of),
-       so the orbit reset was permanently half-buried under the corner of ◎ EXT. */
-    .fsim-orbitreset{ display:none; position:absolute; top:6px; right:150px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+       is 'right' plus its own width: the view button is 52 wide, so at right:120 it runs to
+       right:172 — and this once sat twelve pixels underneath it. Both are only ever shown together
+       (this one is external-view-only, and that is the view the button switches out of), so the
+       orbit reset was permanently half-buried under the corner of ◎ EXT. Whoever adds a button to
+       this row moves every number outboard of it, this one included. */
+    .fsim-orbitreset{ display:none; position:absolute; top:6px; right:178px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; height:22px; width:24px; padding:0; font-size:13px; line-height:20px; text-align:center; cursor:pointer; }
     .fsim-orbitreset:hover{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     body.fsim-external .fsim-orbitreset{ display:block; }
@@ -2485,7 +2563,7 @@ function ensureFlightSimStyles() {
        ⚠ AND THE A-PILLARS, the same half of \`.ws-frame\` the cab and the wheelhouse drop (the
        reasoning is written out in cab-view.js): the pillars are glazing and go, the bezel and the
        vignette are the lens and stay. \`.ws-label\` is the aircraft's name, which is a caption. */
-    body.fsim-freecam .fsim-view > *:not(.ws-wrap):not(.fsim-toast):not(.fsim-fsbtn):not(.fsim-viewbtn):not(.fsim-orbitreset):not(.fsim-hidebtn):not(.fsim-tunebtn):not(.fsim-tune){ display:none !important; }
+    body.fsim-freecam .fsim-view > *:not(.ws-wrap):not(.fsim-toast):not(.fsim-fsbtn):not(.fsim-bigbtn):not(.fsim-viewbtn):not(.fsim-orbitreset):not(.fsim-hidebtn):not(.fsim-tunebtn):not(.fsim-tune){ display:none !important; }
     body.fsim-freecam .ws-label, body.fsim-freecam .ws-frame::after{ display:none; }
     /* ── AND THEN THE CORNER, ON A TIMER ────────────────────────────────────────
        See bindFreeCamIdle in freecam.js. ◎ is the way back, so the row cannot simply go: it fades
@@ -2495,12 +2573,33 @@ function ensureFlightSimStyles() {
        by a cursor that cannot see it.
        ⚠ THE TUNING PANEL IS NOT ON IT. A slider you are dragging is one you stop to look at, and a
        settings panel that faded while you read it would be the mode fighting the player. */
-    body.fsim-freecam .fsim-fsbtn, body.fsim-freecam .fsim-viewbtn,
+    body.fsim-freecam .fsim-fsbtn, body.fsim-freecam .fsim-bigbtn, body.fsim-freecam .fsim-viewbtn,
     body.fsim-freecam .fsim-orbitreset, body.fsim-freecam .fsim-hidebtn,
     body.fsim-freecam .fsim-tunebtn{ transition:opacity .5s ease; }
-    body.fsim-freecam.freecam-idle .fsim-fsbtn, body.fsim-freecam.freecam-idle .fsim-viewbtn,
+    body.fsim-freecam.freecam-idle .fsim-fsbtn, body.fsim-freecam.freecam-idle .fsim-bigbtn,
+    body.fsim-freecam.freecam-idle .fsim-viewbtn,
     body.fsim-freecam.freecam-idle .fsim-orbitreset, body.fsim-freecam.freecam-idle .fsim-hidebtn,
-    body.fsim-freecam.freecam-idle .fsim-tunebtn{ opacity:0; pointer-events:none; }`;
+    body.fsim-freecam.freecam-idle .fsim-tunebtn{ opacity:0; pointer-events:none; }
+
+    /* ── BIG SCREEN: THE SAME QUESTION, A SHORTER ANSWER ───────────────────────
+       The block above asks "what is still a control while the camera is off its mount", and spares
+       the corner so the pilot can get back. This asks "what is in the picture", and the answer is
+       everything: the way out of big screen is Esc and its own hint says so, so even the corner
+       goes. The instrument band, the control row, the stick, the pedals, the gunsight, the fuel
+       chip, the toast — all of it.
+       ⚠ AN ALLOW-LIST, for the reason spelled out above it: '.fsim-view' picks up a new overlay
+       every few months and a list of things to HIDE is a list somebody has to remember to add to.
+       ⚠ AND THE COAMING STAYS. Everything left is drawn INTO the canvas by the renderer — the
+       glare shield, the window posts, the panel top — because that is the aeroplane rather than
+       chrome laid over it. '.ws-label' is the aircraft's name, which is a caption, and
+       '.ws-frame''s ::after is the glazing down each edge; both go, as they do under a free
+       camera and for the same reason. */
+    body.bigscreen .fsim > *:not(.fsim-view){ display:none !important; }
+    body.bigscreen .fsim-view > *:not(.ws-wrap){ display:none !important; }
+    body.bigscreen .fsim .ws-label, body.bigscreen .fsim .ws-frame::after{ display:none; }
+    /* The pane has no padding in big screen, so the rounded corner and the inset ring round the
+       view are a frame drawn a pixel inside the edge of the screen. */
+    body.bigscreen .fsim-view{ border-radius:0; box-shadow:none; }`;
   document.head.appendChild(s);
 }
 
@@ -2888,7 +2987,7 @@ export function openFlightSim(opts = {}) {
       <button class="fsim-pedal fsim-pedal-r" id="fsim-pedal-r" title="right rudder / yaw (hold — . or C)" tabindex="-1" aria-label="right rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">R</span></span></button>
     </div>`;
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-dive" id="fsim-dive" style="opacity:0"></div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-tour" id="fsim-tour"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button><button class="fsim-weap-arm" id="fsim-bombbtn" tabindex="-1" title="select the bomb rack (3) — opens the dive sight" style="display:none">◎ BOMBS</button><button class="fsim-weap-arm" id="fsim-divebtn" tabindex="-1" title="dive computer (B) — pushes over to the attack angle, then flies the pull-out at the release" style="display:none">⤵ DIVE</button></div><div class="fsim-spray-mist" id="fsim-spray"></div><div class="fsim-sprayrig" id="fsim-sprayrig" aria-hidden="true"><svg viewBox="0 0 200 96" preserveAspectRatio="xMidYMid meet"><line class="sr-boom" x1="14" y1="42" x2="186" y2="42"/><g class="sr-noz"><line x1="30" y1="42" x2="30" y2="47"/><line x1="54" y1="42" x2="54" y2="47"/><line x1="78" y1="42" x2="78" y2="47"/><line x1="122" y1="42" x2="122" y2="47"/><line x1="146" y1="42" x2="146" y2="47"/><line x1="170" y1="42" x2="170" y2="47"/></g><rect class="sr-hopper" x="80" y="16" width="40" height="26" rx="3"/><line class="sr-hatch" x1="86" y1="24" x2="114" y2="24"/><rect class="sr-door sr-door-l" x="80" y="42" width="20" height="6" rx="1.5"/><rect class="sr-door sr-door-r" x="100" y="42" width="20" height="6" rx="1.5"/><g class="sr-spray"><line class="sr-drop" x1="30" y1="48" x2="30" y2="58" style="animation-delay:.30s"/><line class="sr-drop" x1="54" y1="48" x2="54" y2="58" style="animation-delay:.42s"/><line class="sr-drop" x1="90" y1="50" x2="90" y2="60" style="animation-delay:.26s"/><line class="sr-drop" x1="100" y1="50" x2="100" y2="60" style="animation-delay:.36s"/><line class="sr-drop" x1="110" y1="50" x2="110" y2="60" style="animation-delay:.30s"/><line class="sr-drop" x1="122" y1="48" x2="122" y2="58" style="animation-delay:.46s"/><line class="sr-drop" x1="146" y1="48" x2="146" y2="58" style="animation-delay:.34s"/><line class="sr-drop" x1="170" y1="48" x2="170" y2="58" style="animation-delay:.40s"/></g></svg><span class="sr-tag">◊ BOOMS OPEN</span></div><button class="fsim-spraybtn" id="fsim-spraybtn" tabindex="-1" title="crop-duster — open the spray booms on a LOW pass" style="display:none">◊ SPRAY</button><button class="fsim-hopbtn" id="fsim-hopbtn" tabindex="-1" title="load the chemical hopper — pour a container in on the ground" style="display:none">⬗ HOPPER</button><div class="fsim-hop" id="fsim-hop"></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
+    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-dive" id="fsim-dive" style="opacity:0"></div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-tour" id="fsim-tour"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button><button class="fsim-weap-arm" id="fsim-bombbtn" tabindex="-1" title="select the bomb rack (3) — opens the dive sight" style="display:none">◎ BOMBS</button><button class="fsim-weap-arm" id="fsim-divebtn" tabindex="-1" title="dive computer (B) — pushes over to the attack angle, then flies the pull-out at the release" style="display:none">⤵ DIVE</button></div><div class="fsim-spray-mist" id="fsim-spray"></div><div class="fsim-sprayrig" id="fsim-sprayrig" aria-hidden="true"><svg viewBox="0 0 200 96" preserveAspectRatio="xMidYMid meet"><line class="sr-boom" x1="14" y1="42" x2="186" y2="42"/><g class="sr-noz"><line x1="30" y1="42" x2="30" y2="47"/><line x1="54" y1="42" x2="54" y2="47"/><line x1="78" y1="42" x2="78" y2="47"/><line x1="122" y1="42" x2="122" y2="47"/><line x1="146" y1="42" x2="146" y2="47"/><line x1="170" y1="42" x2="170" y2="47"/></g><rect class="sr-hopper" x="80" y="16" width="40" height="26" rx="3"/><line class="sr-hatch" x1="86" y1="24" x2="114" y2="24"/><rect class="sr-door sr-door-l" x="80" y="42" width="20" height="6" rx="1.5"/><rect class="sr-door sr-door-r" x="100" y="42" width="20" height="6" rx="1.5"/><g class="sr-spray"><line class="sr-drop" x1="30" y1="48" x2="30" y2="58" style="animation-delay:.30s"/><line class="sr-drop" x1="54" y1="48" x2="54" y2="58" style="animation-delay:.42s"/><line class="sr-drop" x1="90" y1="50" x2="90" y2="60" style="animation-delay:.26s"/><line class="sr-drop" x1="100" y1="50" x2="100" y2="60" style="animation-delay:.36s"/><line class="sr-drop" x1="110" y1="50" x2="110" y2="60" style="animation-delay:.30s"/><line class="sr-drop" x1="122" y1="48" x2="122" y2="58" style="animation-delay:.46s"/><line class="sr-drop" x1="146" y1="48" x2="146" y2="58" style="animation-delay:.34s"/><line class="sr-drop" x1="170" y1="48" x2="170" y2="58" style="animation-delay:.40s"/></g></svg><span class="sr-tag">◊ BOOMS OPEN</span></div><button class="fsim-spraybtn" id="fsim-spraybtn" tabindex="-1" title="crop-duster — open the spray booms on a LOW pass" style="display:none">◊ SPRAY</button><button class="fsim-hopbtn" id="fsim-hopbtn" tabindex="-1" title="load the chemical hopper — pour a container in on the ground" style="display:none">⬗ HOPPER</button><div class="fsim-hop" id="fsim-hop"></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-bigbtn" id="fsim-bigbtn" title="${esc(BIGSCREEN_TITLE)}">${BIGSCREEN_GLYPH}</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -3046,7 +3145,31 @@ export function openFlightSim(opts = {}) {
       F.extPitch = clampNum((F.extPitch ?? REST_PITCH) - (e.clientY - oy) * 0.006, -1.1, 1.15);   // vertical orbit angle (rad): drag up = over the top (look down), drag down = under the belly (look up). Bounds kept short of the poles (~66°) so the near-vertical view can't stretch the model into a spindle. The renderer also stops the under-swing at the terrain.
       ox = e.clientX; oy = e.clientY;
     });
-    add(window, 'pointerup', (e) => { if (e.button === 1) F.orbitDrag = false; });
+    // ── ⚠ AND IN THE SEAT THE MIDDLE BUTTON IS A HEAD, NOT AN ORBIT ──────────
+    //
+    // Same split the truck makes: behind the aircraft the middle drag orbits it, inside it there is
+    // nothing to orbit and the button is free. Leaning is a TRANSLATION of the eye — a rotation
+    // swings near and far by the same angle and reveals nothing — and 'makeCam' reads 'lookLean'
+    // directly, so everything downstream of it (the world's own tiny shift, the panel's much larger
+    // one, the parallax between them) falls out with nothing further wired here.
+    //
+    // ⚠ ABSOLUTE, NOT A DELTA. A peek is spring-loaded and returns, so the cursor's distance from
+    // the middle IS the angle; a delta would drift with no detent to drift back to.
+    add(viewEl, 'pointerdown', (e) => {
+      if (e.button !== 1 || F.external) return;
+      F.looking = true; leanFrom(e);
+      try { viewEl.setPointerCapture(e.pointerId); } catch {}
+      e.preventDefault();
+    });
+    function leanFrom(e) {
+      const b = viewEl.getBoundingClientRect(); if (!b.width) return;
+      F.look = F.look || { x: 0, y: 0 };
+      F.look.x = clampNum(((e.clientX - b.left) / b.width - 0.5) * 2, -1, 1);
+      F.look.y = clampNum(((e.clientY - b.top) / b.height - 0.5) * 2, -1, 1);
+    }
+    add(window, 'pointermove', (e) => { if (F.looking) leanFrom(e); });
+    add(window, 'pointerup', (e) => { if (e.button === 1) { F.orbitDrag = false; F.looking = false; } });
+    add(window, 'pointercancel', () => { F.looking = false; });
     add(viewEl, 'auxclick', (e) => { if (e.button === 1) e.preventDefault(); });   // no middle-click autoscroll inside the view
     // External-view zoom — mouse wheel pulls the chase camera in/out (scale on chaseBack).
     // Down/away = zoom out (bigger back), up/toward = zoom in. Clamped so you can't clip
@@ -3222,6 +3345,9 @@ export function openFlightSim(opts = {}) {
     }
     fsimToast(F.gearUp ? 'GEAR UP' : 'GEAR DOWN');
   };
+  // Named for the same reason as the light switches — the panel's gear lever and flap gate are
+  // canvas, and these are the one implementation of each.
+  F.toggleGear = toggleGear; F.stepFlap = stepFlap;
   const jettison = () => {
     if (!F.cargoKg) { fsimToast('— NO CARGO —'); return; }
     F.cargoKg = 0; sendCmdSilent('jettison'); fsimToast('CARGO JETTISONED');
@@ -3427,6 +3553,52 @@ export function openFlightSim(opts = {}) {
       if (F.toast) F.toast(F.visorWant ? 'NOSE OPENING — cargo visor coming up.' : 'NOSE CLOSING — ~5s to the lock.');
     });
   }
+  // ── ⚠ THE FLIGHT PANEL TAKES A CLICK ───────────────────────────────────────
+  //
+  // The panel has drawn its own switch, lever and knob state since it was built and taken no input
+  // at all. Its controls are canvas, so there is nothing to bind a handler to — the hit test is
+  // against the rectangles the renderer recorded, for the same reason the truck's is: the positions
+  // are the end of a layout chain, and a second copy of that chain here goes wrong the first time
+  // either side is tuned.
+  //
+  // ⚠ CAPTURE PHASE, AND IT ONLY SWALLOWS A HIT. The windshield element already carries the camera
+  // drag, so listening in the bubble phase means the drag has already started by the time this
+  // runs. It stops propagation on a control and is invisible otherwise.
+  //
+  // ⚠ AND THE DASH CANVAS IS pointer-events:none, so the coordinates are the WORLD canvas's own
+  // box — the two are the same size at the same origin, which is why one getBoundingClientRect
+  // serves both. If that ever stops being true, this is the line that breaks.
+  {
+    const wsEl = document.getElementById('fsim-ws');
+    if (wsEl) wsEl.addEventListener('pointerdown', (e) => {
+      // ⚠ THE PRIMARY BUTTON ONLY. Without this the middle button — which is the free look below —
+      // throws whatever switch it happens to start over, so beginning a lean with the cursor near
+      // the ignition shuts the engine down. A hit test that does not ask WHICH button is a hit test
+      // that will be triggered by every other thing ever bound to the same element.
+      if (e.button !== 0) return;
+      if (F.external || F.viewYaw) return;       // not the forward seat: no panel under the cursor
+      const rects = panelControlRects();
+      if (!rects || !rects.length) return;
+      const b = wsEl.getBoundingClientRect();
+      if (!b.width || !b.height) return;
+      const px = e.clientX - b.left, py = e.clientY - b.top;
+      const hit = rects.find((r) => px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h);
+      if (!hit) return;
+      switch (hit.key) {
+        case 'bat': case 'alt': F.toggleMaster(); break;
+        case 'land': F.toggleLand(); break;
+        case 'panel': F.toggleNight(); break;
+        case 'gear': F.toggleGear(); break;
+        // ⚠ THE GATE IS TWO HALVES, NOT A TOGGLE. A flap lever has four positions and a click has
+        // one bit, so the half of the rectangle you press is the direction — up toward UP, down
+        // toward FULL. Which is also how the real one is used: you do not select a notch, you move
+        // the lever a notch.
+        case 'flaps': F.stepFlap(py < hit.y + hit.h * 0.5 ? -1 : 1); break;
+        default: return;                          // throttle/prop/mixture/rudder are not click controls
+      }
+      e.preventDefault(); e.stopPropagation();
+    }, true);
+  }
   const engBtn = q('#fsim-eng');
   if (F.engineOn) engBtn.classList.add('on');
   add(engBtn, 'click', () => {
@@ -3460,8 +3632,20 @@ export function openFlightSim(opts = {}) {
     }
   });
 
-  add(nightSw, 'click', () => { if (!F.powered) return; F.nightLight = !F.nightLight; syncLights(); });
-  add(landSw, 'click', () => { if (!F.powered) return; F.landingLight = !F.landingLight; syncLights(); });
+  // ── ⚠ NAMED, SO THE PANEL CAN REACH THEM ───────────────────────────────────
+  // These were two inline arrows on two DOM buttons, which is fine while the buttons are the only
+  // way to throw them — and the flight panel's own switches are drawn on a canvas, where there is
+  // no element to hang a handler on. Hung on F rather than exported, because that is where
+  // 'syncLights' already lives and this is the same kind of thing: one owner, several surfaces.
+  F.toggleNight = () => { if (!F.powered) return; F.nightLight = !F.nightLight; syncLights(); };
+  F.toggleLand = () => { if (!F.powered) return; F.landingLight = !F.landingLight; syncLights(); };
+  add(nightSw, 'click', () => F.toggleNight());
+  add(landSw, 'click', () => F.toggleLand());
+  // ⚠ THE MASTER ROUTES TO THE BUTTON, IT DOES NOT REIMPLEMENT IT. Starting an engine here is a
+  // spool, a nose visor, a throttle reset, a server event and a lights resync — five things the
+  // start button already owns and the one place they are correct. Dispatching its click is the
+  // opposite of duplicating it.
+  F.toggleMaster = () => { try { engBtn.click(); } catch (e) {} };
   syncLights();   // set the initial switch/LED state to match the engine at mount (usually cold + dark)
 
   // Weapons (gunship only): master-arm toggle + FIRE (a gun pass — resolved inline by the
@@ -3686,6 +3870,11 @@ export function openFlightSim(opts = {}) {
     if (on) { document.body.classList.remove('fsim-hidepanel'); q('#fsim-hidebtn')?.classList.remove('on'); }   // fullscreen supersedes hide-panel
   });
 
+  // Big screen — the rung above ⛶: the page goes with the log, and so does everything this file
+  // draws on the glass. bigscreen.js owns the state, because Esc and the browser's own fullscreen
+  // key can both leave it without this button being touched.
+  bindBigScreenButton(q('#fsim-bigbtn'));
+
   // Hide-panel — folds away just the scrollback log (keeps the command box) and grows the
   // outside view; the cockpit instrument rows keep their fixed height, so the panel stays put.
   const hideBtn = q('#fsim-hidebtn');
@@ -3727,12 +3916,9 @@ export function openFlightSim(opts = {}) {
 
   // Focus model: the sim pane owns the keyboard by default on embark (so A/Z/Q/E/S…
   // drive the plane immediately). Clicking anywhere on the pane takes focus off the
-  // command box; clicking the command box directly gives it back to typing.
-  root.tabIndex = -1;
-  const cmdInput = document.getElementById('cmd-input');
-  const focusSim = () => { try { if (document.activeElement === cmdInput) cmdInput.blur(); root.focus({ preventScroll: true }); } catch {} };
-  add(root, 'pointerdown', focusSim);
-  focusSim();
+  // command box; clicking the command box directly gives it back to typing. See seat-keys.js —
+  // one implementation for all five seats, bound where the free camera cannot swallow it.
+  claimSeatKeyboard(root, { label: 'SIM' });
 
   F.last = performance.now();
   F.raf = requestAnimationFrame(fsimFrame);
@@ -3858,7 +4044,8 @@ const DECK_HANDOFF_MS = 600;   // the 2s live linger now carries the post-shutdo
 // the deck floor z, the catch radius) is multiplied by it so the deck-landing capture + cinematic
 // stay square on the (scaled) pad.
 const YACHT_SCALE = 0.4;
-const DECK_PAD_Z = 0.085 * 1.7 * YACHT_SCALE;   // world-z of the Echelon's FLUSH helipad floor (drawYacht pad pZ1 = DECKZ 0.085 × YACHT_H 1.7 × YACHT_SCALE) — the heli rests ON the deck; gear square on the pad
+// The Echelon's helipad floor is no longer a number here: she HEAVES, so where her deck is is a
+// question with a clock in it. windshield.js's yachtPadZ() is the one answer — see yachtRide().
 const DECK_DROP_FT = 75;    // the close "standing on deck" shot picks her up here and watches her drop in almost on top of you
 
 // Auto-land catch zone: how close (tiles, from the pad centre) + how low (ft) you must be for her to
@@ -4136,7 +4323,7 @@ function stepCrashBreakup(F, now) {
     cls: F.cls, heading: C.hdg, bank, pitch, livery: F.livery, gearAnim: F.gearAnim ?? 1,
     enginePct: 0, engineOn: false, breakup: { t, parts }, wreckFx,
     extYaw: (F.extOrbit || 0) + 26 * t, extPitch: F.extPitch ?? REST_PITCH, extZoom: F.extZoom || 1,
-    height, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field,
+    height, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field, wxGround: F.sky?.ground,
     map: F.map, mapCenter: F.mapCenter, mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y },
     acX: F.pos.x, acY: F.pos.y, biomeBelow: F.biomeBelow || 'default', airport: F.airport || 'default', helipad: !!F.helipad,
   });
@@ -4226,7 +4413,10 @@ function stepDeckLanding(F, now) {
     id: 'deck-heli', dx: hx - lookAt[0], dy: hy - lookAt[1],
     // groundZ pins her gear to the physical helipad deck (its world-z in drawYacht), so `altDiff` is
     // her height in FEET ABOVE the pad — skids square on the deck at 0, not floating at eye height.
-    groundZ: DECK_PAD_Z, altDiff: alt,
+    // ⚠ THE DECK MOVES NOW, so this asks where it IS rather than restating a constant. It used to
+    // be a second copy of windshield.js's YACHT_DECK_Z, which is right for a ship that cannot move
+    // and is a helicopter landing on a deck that is not there for one that can.
+    groundZ: yachtPadZ(0, 0, C.hdg), altDiff: alt,
     // `armed` is the AIRFRAME, not the master-arm switch: it picks the attack-heli mesh out of the
     // class the Viper shares with the Dragonfly — the same expression the live external view uses
     // (see the paintWindshield call in the frame loop). Without it the cinematic landed every
@@ -4243,7 +4433,7 @@ function stepDeckLanding(F, now) {
   paintWindshield('fsim-ws', {
     external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,
     heading: C.hdg, extYaw: cam.yaw, extPitch: cam.pitch, extZoom: cam.zoom,
-    height: 0, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field,
+    height: 0, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field, wxGround: F.sky?.ground,
     map: deckLandingWindow(F), mapCenter: { x: 0, y: 0 }, mapOffset: { x: lookAt[0], y: lookAt[1] },
     acX: 0, acY: 0, biomeBelow: 'water', airport: 'default',
     contacts: [heli], padDome: dome ? { armed: true } : null,   // bubble shown during the wide approach, gone once on deck
@@ -5052,14 +5242,58 @@ function fsimFrame(now) {
     // Big IAS/ALT/VSI readouts over the glass — the two numbers the eye needs most, boxed large so
     // they read at a glance in every cockpit. vne feeds the tape a redline warn when the speed reddens.
     ias: Math.round(r.airspeed), alt: Math.round(r.altitude), vsi: Math.round(s.vs), vne: P.vne, vs0: P.vs0,
+    // ── ⚠ THE PANEL READS THE SIM, NOT A SET OF DEFAULTS ───────────────────────
+    //
+    // The flight panel shipped reading a dozen fields that were never on this payload, so it fell
+    // back to the authored value for every one of them: the engine cluster, the annunciators, the
+    // gear lever, the flap gate and the rudder pedals were all parked at a constant and looked
+    // exactly as if they were working. A gauge that cannot be wrong is not an instrument.
+    //
+    // ⚠ AND ONLY WHAT THE SIM ACTUALLY HAS IS SENT. There is no manifold pressure, no oil pressure,
+    // no ammeter, no prop governor, no mixture and no airframe ice in this flight model, so those
+    // gauges are gone rather than fed a plausible number — the same rule the radio stack is drawn
+    // under, which is visibly equipment and visibly not reading anything.
+    rpmFrac: F.rpms[0] || 0,
+    // The engine temperature runs 40 to about 215 by its own model; the gauge wants 0..1.
+    oilTemp: clampNum((((F.temps && F.temps[0]) || 40) - 40) / 175, 0, 1),
+    fuel: clampNum((s.fuelPct ?? 100) / 100, 0, 1),
+    hull: clampNum((s.hullPct ?? 100) / 100, 0, 1),
+    throttle: clampNum(F.input.throttle ?? 0, 0, 1),
+    // ⚠ THE FLAP LEVER IS A GATE AND THE MODEL'S INPUT IS CONTINUOUS. The detents ARE the control —
+    // flaps are selected to a position — so the 0..1 the aerodynamics reads is quantised to the four
+    // notches the lever has, rather than the lever being redrawn as a slider to match the float.
+    flapNotch: Math.round(clampNum(F.input.flaps || 0, 0, 1) * 3),
+    rudder: clampNum(F.input.pedal || 0, -1, 1),
+    // ⚠ A FIXED-GEAR AEROPLANE HAS NO GEAR LEVER, which is why the flag is sent rather than just the
+    // position: drawing a handle for a leg that does not retract is a control with nothing behind it.
+    gearFixed: !F.gearRetract,
+    gearDown: !F.gearRetract || !F.gearUp,
+    stall: !!(s.stalled || s.stallMargin < 0.35),
+    bingo: !!(F.fuel <= 0 || F.warn === 'BINGO'),
+    powered: !!F.powered, altOn: !!F.engineOn,
+    landingLight: !!F.landingLight, panelLight: !!F.nightLight,
     // Use the RAW s.heading, not the whole-degree-rounded readout the PFD tape eases toward
     // (d.hdg). readout() quantises heading to integer degrees; easing the WORLD toward that
     // stair-stepped target stutters the pan, and a 1° step throws distant horizon features
     // several pixels sideways — the "horizon jumps around when you yaw". The raw float yaws
     // continuously. (Same reason height uses raw s.altitude above.) d.hdg stays for the HUD.
+    // ⚠ THE SPRING LIVES HERE BECAUSE HERE IS ALREADY PER FRAME — no timer, no rAF of its own and
+    // nothing to cancel when the seat closes. Held, it tracks the cursor; released, it is an
+    // exponential back to zero. Suppressed in the chase camera and off the nose, where the middle
+    // button is the orbit and there is no panel under the cursor to parallax against.
+    ...(() => {
+      F.look = F.look || { x: 0, y: 0 };
+      if (F.external || F.viewYaw) { F.look.x = 0; F.look.y = 0; F.looking = false; return {}; }
+      if (!F.looking) {
+        F.look.x *= 0.78; F.look.y *= 0.78;
+        if (Math.abs(F.look.x) < 0.002) F.look.x = 0;
+        if (Math.abs(F.look.y) < 0.002) F.look.y = 0;
+      }
+      return (F.look.x || F.look.y) ? { lookLean: { x: F.look.x, y: F.look.y } } : {};
+    })(),
     hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wind: F.sky?.wind, heading: s.heading,
     // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
-    wxField: F.sky?.field, acX: F.pos.x, acY: F.pos.y,
+    wxField: F.sky?.field, wxGround: F.sky?.ground, acX: F.pos.x, acY: F.pos.y,
     map: F.map, mapCenter: F.mapCenter, roads: F.roads, phase: 'cruise', airport: F.airport, helipad: !!F.helipad, biomeBelow: F.biomeBelow,
     actors: F.actors,   // the street population under us — drawn only on a low pass (see drawStreetActors)
     regions: F.regions,   // drives the windshield region atmosphere grade (The Reach dust, …)
@@ -5175,6 +5409,17 @@ function fsimFrame(now) {
       rpm: s.rpm, airspeed: s.airspeed, vs: s.vs, altitude: s.altitude, onGround: s.onGround, groundSpeed: s.onGround ? s.airspeed : 0,
       stallMargin: s.stallMargin, stalled: s.stalled, flaps: input.flaps,
       perspective: F.external ? 'exterior' : 'interior', doppler });
+    // ── AND WHATEVER IS ON THE WATER UNDER YOU ──────────────────────────────
+    // The pass-by voices, from the seat that can already see a boat. ⚠ NO NEW WIRE AND NO NEW
+    // REQUEST: `F.contacts` is the feed this cockpit has always been sent, `boatContactsNear` now
+    // stamps `marine` on the hulls in it, and everything a voice needs — position, heading, speed,
+    // revs, throttle — was already in that payload for the renderer's sake. A boat you cannot see
+    // is not in the list, so you cannot hear one either.
+    //
+    // ⚠ KNOTS TO MPH AT THE BOUNDARY. An aircraft's `airspeed` is knots and `closingMph` is mph,
+    // and the two are close enough that getting it wrong would sound plausible and be 15% out.
+    updateBoatContacts({ x: F.pos.x, y: F.pos.y, hdg: F.hdg || 0, speed: (s.airspeed || 0) * KT_TO_MPH },
+      F.contacts || []);
   }
 
   // Impact screen-shake — a decaying jitter on the whole panel, kicked by the sink rate at
@@ -5964,10 +6209,12 @@ export function closeFlightSim() {
   for (const [t, ty, fn, op] of F.listeners) { try { t.removeEventListener(ty, fn, op); } catch {} }
   try { disposeWindshield('fsim-ws'); } catch {}
   try { clearFlightDrugFx(document.getElementById('fsim-root')?.querySelector('.fsim-view'), document.getElementById('fsim-ws')); } catch {}
-  stopEngineAudio();
+  stopEngineAudio(); stopBoatContacts();
   document.body.classList.remove('fsim-fullscreen');   // drop the immersive layout if it was on
   document.body.classList.remove('fsim-hidepanel');    // …and the lighter hide-panel layout
   document.body.classList.remove('fsim-external');     // …and the external chase-cam layout
+  exitBigScreen();                                     // …and big screen, which owns the page rather than the pane
+  endSeatKeyboard();                                     // …and the keyboard goes back to the command bar
   // ⚠ AND THE DETACHED CAMERA IS PUT AWAY. `freeCam` is module-scoped (one sim, like `F`), so a
   // pilot who climbed out with it still out would have found the NEXT aircraft holding its trim
   // with the keyboard already spoken for — and the chrome class outlives the panel that set it.

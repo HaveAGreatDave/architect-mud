@@ -19,8 +19,18 @@
 const clampN = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 export const hex2rgb = (h) => { if (typeof h !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(h)) return null; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-import { FW_ROWS, TRUCK_ROWS } from '../../../shared/vehicle-models.js';
+import { FW_ROWS, TRUCK_ROWS, BOAT_ROWS } from '../../../shared/vehicle-models.js';
+// The hull's stations and the pilothouse's curves. ⚠ SHARED WITH THE ROOM YOU SIT IN — see the
+// header there: `interior-shell.js` builds the inside of this same house off the same functions,
+// so a retuned beam, sill or roofline moves both. Declaring them here again is how the two came
+// to disagree by a factor of three in the first place.
+import { boatGeom } from '../../../shared/boat-house.js';
 import { rasterFaces, blitRaster, depthAt, maskRaster, depthWinAt } from './model-raster.js';
+import { boltBright } from '../../../shared/lightning.js';
+import { paintBolt } from '../../../shared/lightning-draw.js';
+// How far down the doorway a strike falls before it is behind the apron — see drawInspectDoor's
+// bolt reader, which also takes every lateral offset in the tree against this same span.
+const DOOR_BOLT_DROP = 0.66;
 export const shadeRgb = (c, m) => `rgb(${clampN(c[0] * m, 0, 255) | 0},${clampN(c[1] * m, 0, 255) | 0},${clampN(c[2] * m, 0, 255) | 0})`;
 const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
 
@@ -62,7 +72,10 @@ export function liveryPalette(lv) {
 export { truckLivery } from '../../../shared/truck-livery.js';
 
 // Structural accents that ALWAYS wear the trim colour, whatever the pattern.
-const TRIM_ROLE = new Set(['fin', 'rudder', 'nacelle', 'rotor']);
+// 'deck' is the boat's: a go-fast is TWO-TONE, dark deck and house over a light hull side, and
+// that split is the strongest thing about the way one looks. Putting the deck on the trim colour is
+// what makes it the BOOTH's decision rather than a literal in the mesh — one livery, two surfaces.
+const TRIM_ROLE = new Set(['fin', 'rudder', 'nacelle', 'rotor', 'deck']);
 // Hull roles the exterior pattern paints across (fuselage, flying surfaces + their
 // control surfaces, which inherit their parent panel's colour by sitting in its space).
 const PATTERN_ROLE = new Set(['body', 'wing', 'aileron', 'flap', 'stab', 'elevator']);
@@ -2227,7 +2240,7 @@ export const PROP_STATIONS = {
 // `truck` sits between the light singles and a Twin Otter: a rig with a box on it is a big animal
 // on a garage floor, and the shared-camera fit in drawHangarScene reads this to stand back far
 // enough that four of them park in one shot without shoving each other.
-export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85, grasshopper: 0.42, locust: 0.40, divebomber: 0.72, truck: 1.15 };
+export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85, grasshopper: 0.42, locust: 0.40, divebomber: 0.72, truck: 1.15, hydro: 1.0 };
 
 // ── Animated prop & rotor blades ────────────────────────────────────────────────
 // The spinning surfaces are an EFFECT LAYER every renderer draws through its OWN
@@ -2384,22 +2397,27 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
 //
 // This is a DESIGN-TIME seam and holds nothing durable: an override lives in one browser tab until
 // it is cleared or the page reloads. Persisting one means editing the table below.
-const _vehOverride = { fw: new Map(), truck: new Map() };
+const _vehOverride = { fw: new Map(), truck: new Map(), boat: new Map() };
 function overrideTable(kind) {
   const t = _vehOverride[kind];
   if (!t) throw new Error('unknown vehicle parameter table: ' + kind);
   return t;
 }
-function baseRow(kind, id) { return (kind === 'fw' ? FW_PARAMS : TRUCK_SHAPES)[id] || null; }
+// ⚠ ONE PLACE THAT NAMES THE TABLES. `baseRow` and `vehicleParamIds` were each a ternary over two
+// kinds, which is fine at two and is two more edits per kind after that — and the failure when one
+// is missed is a Modelshop slider that reads a row nothing builds from.
+const KIND_TABLE = () => ({ fw: FW_PARAMS, truck: TRUCK_SHAPES, boat: BOAT_SHAPES });
+function baseRow(kind, id) { return (KIND_TABLE()[kind] || {})[id] || null; }
 function fwParams(cls) { return _vehOverride.fw.get(cls) || FW_PARAMS[cls] || null; }
 function truckShape(id) { return _vehOverride.truck.get(id) || TRUCK_SHAPES[id] || null; }
+function boatShape(id) { return _vehOverride.boat.get(id) || BOAT_SHAPES[id] || null; }
 // The shipping row, for a caller that wants to seed a form from it. A copy, so an editor holding
 // the object cannot edit the table it is supposed to be overriding.
 export function vehicleParamBase(kind, id) {
   const row = baseRow(kind, id);
   return row ? { ...row } : null;
 }
-export function vehicleParamIds(kind) { return Object.keys(kind === 'fw' ? FW_PARAMS : TRUCK_SHAPES); }
+export function vehicleParamIds(kind) { return Object.keys(KIND_TABLE()[kind] || {}); }
 // `patch` is merged ONTO the shipping row, so a caller sends the fields it changed and inherits
 // the rest; `null` drops the override for that id.
 export function setVehicleParams(kind, id, patch) {
@@ -2410,8 +2428,7 @@ export function setVehicleParams(kind, id, patch) {
   clearVehicleFacesCache();
 }
 export function clearVehicleParams() {
-  _vehOverride.fw.clear();
-  _vehOverride.truck.clear();
+  for (const t of Object.values(_vehOverride)) t.clear();
   clearVehicleFacesCache();
 }
 
@@ -2605,6 +2622,11 @@ export function wingtipStation(cls) {
   // small truck, which is precisely what it looked like. Road vehicles light themselves through
   // `vehicleLamps` instead.
   if (cls === 'truck') return null;
+  // ⚠ AND NEITHER HAS A BOAT, for exactly the same reason and with exactly the same symptom — the
+  // fall-through is `FW_PARAMS[cls] || FW_PARAMS.prop`, so a hull would carry its navigation lights
+  // at the tips of a wingspan it does not have. A boat DOES carry sidelights, and they belong on
+  // its own gunwales through the lamp layer, not on a Twin Otter's wings.
+  if (boatShape(cls)) return null;
   // The Cessna's tip comes off her own wing constants, not a FW_PARAMS row she no longer has —
   // mid-chord at the tip rib, so the lamp sits ON the tip the mesh actually built.
   if (cls === 'ultralight') return [(cePt(CE_SPAN, 0, 0.5)[0] + cePt(CE_SPAN, 1, 0.5)[0]) / 2, CE_SPAN, cePt(CE_SPAN, 0.5, 0.5)[2]];
@@ -2928,10 +2950,18 @@ const _cache = {};
 export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   const key = cls + ':' + detail + (armed ? ':a' : '') + (variant ? ':' + variant : '');
   if (_cache[key]) return _cache[key];
+  // ⚠ THE LAST ARM IS A FALLBACK, NOT A DEFAULT, AND IT IS SILENT. Anything this chain does not
+  // recognise is built as a fixed wing off the `prop` row — so a class added anywhere else in the
+  // renderer without an arm HERE renders as a Twin Otter, throws nothing and logs nothing. That is
+  // how the Mayfly shipped as a light twin. A new class gets its arm first and its callers second.
+  //
+  // The boat arm asks the TABLE rather than naming a hull, so a second hull is one JSON file and no
+  // edit here. The id spaces cannot collide — the schema's VEHICLE_IDS is what allots them.
   const faces = cls === 'truck' ? buildTruck(variant || 'hauler', detail)
     : cls === 'heli' ? (armed ? buildAttackHeli() : buildHeli())
     : cls === 'ultralight' ? buildCessna(detail)
     : cls === 'grasshopper' ? buildCub(detail)
+    : boatShape(cls) ? buildBoat(cls, detail)
     : buildFixedWing(fwParams(cls) || fwParams('prop'), detail);
   _cache[key] = faces;
   // ── ⚠ THE TRUCK KEYS ARE BOUNDED AND NOTHING ELSE IS ───────────────────────
@@ -3047,6 +3077,858 @@ const _truckKeys = [];
 // The four rows are authored in content/vehicle_models/truck_*.json — see the fixed-wing note
 // above for why the prose stayed here and only the numbers moved.
 const TRUCK_SHAPES = TRUCK_ROWS;
+
+// ── A RACE BOAT (THE BASIN) ──────────────────────────────────────────────────
+//
+// A blown picklefork tunnel hull: two sponsons with a tunnel between them, a centre pod carrying a
+// canopy and a supercharged V8 behind it, zoomie headers out of both flanks and a wing over the
+// transom. Authored the way the truck is — a row of plain numbers in
+// content/vehicle_models/boat_*.json — and built out of the same boxes, for the same reason: this
+// is a machine made of flat panels bolted to other flat panels, not a skin stretched over rings.
+//
+// ⚠ IT IS BOX-BUILT, SO IT MUST BE PART-SORTED. Painter's algorithm cannot resolve a scoop sitting
+// on a blower sitting on a deck per FACE — their mean depths differ by a hair, so orbiting swaps
+// which is painted last several times a second, which is the flashing `sortTruckFaces` exists to
+// stop. Every box below therefore stamps a `part` and a `cen` exactly as buildTruck's does, and
+// the draw path routes this class through the same sorter.
+//
+// ⚠ AND THE HULL IS AUTHORED KEEL-DOWN, z = 0 AT THE WATERLINE. Not centred: the one thing every
+// consumer asks a boat is where the water meets it — the swell ride, the wake, the spray, the
+// reflection — and a mesh centred on its own bounding box makes that a number somebody has to
+// remember rather than a fact about the origin.
+const BOAT_SHAPES = BOAT_ROWS;
+// What a built hull publishes about itself, keyed `<id>:<detail>`. Today that is the station table,
+// and it exists because `drawBoatHullArt` has to know where the topside IS to signwrite it — the
+// same arrangement `TRUCK_META` is in, and for the same reason: the shape is known at build time
+// and re-deriving it in the painter would be a second copy of the hull free to disagree with the
+// first. ⚠ It is a Map so a hull whose row is retuned through the Modelshop replaces its entry
+// rather than accumulating one per edit.
+const BOAT_META = new Map();
+
+// Where this hull's exhaust leaves it — model-local mouth position, the unit direction the pipe
+// points, and which flank it is on, one entry per zoomie. Stamped by `buildBoat` and read by
+// `drawBoatExhaust` in windshield.js.
+//
+// ⚠ EMPTY UNTIL THE MESH HAS BEEN BUILT, and the caller must tolerate that rather than force a
+// build. `truckMeta` is in exactly this position and answers null on the first frame for the same
+// reason: the model loop runs before every detail pass in `drawAircraftModel`, so by the time
+// anybody asks, the answer is there — and forcing a build from a painter would mean the first
+// frame of a boat coming over the horizon pays for a whole mesh inside an FX pass.
+export function boatExhaustPorts(cls, detail = 1) {
+  const m = BOAT_META.get(cls + ':' + (detail >= 1 ? 1 : 0)) || BOAT_META.get(cls + ':1');
+  return (m && m.ports) || [];
+}
+
+// What colour the headers are, published for the same reason the ports are. The gate that checks a
+// port is ON a pipe has to find the pipe geometry first, and the only thing marking it out is its
+// tint — so written down a second time over there it drifts the moment somebody chromes the pipes.
+// ⚠ WHICH IS NOT HYPOTHETICAL: that is exactly what happened, and the gate went red over a colour
+// change rather than over a geometry one. A gate that fails for the wrong reason is a gate somebody
+// learns to wave through.
+export function boatPipeTint(cls, detail = 1) {
+  const m = BOAT_META.get(cls + ':' + (detail >= 1 ? 1 : 0)) || BOAT_META.get(cls + ':1');
+  return (m && m.pipeTint) || null;
+}
+
+function buildBoat(id = 'hydro', detail = 1) {
+  const S = boatShape(id) || boatShape('hydro') || {};
+  const fine = detail >= 1;
+  const TRIM = S.trim ?? 0.8;
+  const rich = (n) => fine && TRIM >= n;
+  const faces = [];
+  let partSeq = 0;
+  const V = (f, g, h) => [f, g, h];
+
+  const CHROME = [228, 233, 241];
+  const ACCENT = [96, 196, 214];
+  const DARK = [22, 24, 28];
+  // ── ⚠ MACHINERY IS NOT BODYWORK, SO IT IS NOT PAINT-KEYED ──────────────────
+  // `CHROME` and `ACCENT` carry paint keys, which is right for brightwork and running lights —
+  // the booth should be able to black out a rub rail. It is wrong for an ENGINE. Keyed as
+  // brightwork the blower and the hat took the livery's `bright`, so on a cream boat the whole
+  // motor went cream and disappeared into the deck it is sitting on: the loudest object on the
+  // vessel, invisible, on exactly the paint jobs that look best. Nobody paints a blower to match
+  // the hull. These four are literals and stay literals.
+  const BLOCK = [38, 40, 46];        // cast iron, near black but not flat
+  const POLISH = [212, 218, 226];    // a polished case — brighter than any hull
+  // ⚠ CHROME-LOOKING BUT NOT `CHROME`, and that is the whole point of it being its own array.
+  // `PKB` keys a tint by IDENTITY, so handing the headers the brightwork array would paint-key
+  // them — and a cream boat would then get a cream motor, which is the bug the block above is
+  // written about. Polished steel is a literal here and stays a literal.
+  const PIPE = [224, 231, 240];      // zoomies, chromed
+  const RUBBER = [30, 32, 36];
+  const PKB = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : null);
+
+  // A quad with its part id and the centre backface culling measures "outward" from.
+  // ⚠ `cen` GOES ON THE CENTRELINE FOR A HULL PANEL, not at the panel's own centroid. The renderer
+  // culls a face when it points away from `cen`, so for a lofted topside the reference has to be
+  // INSIDE the hull — put it on the panel and every panel faces away from itself.
+  const face = (p, sh, cen, role = 'body', tint = null) => {
+    const q = { role, sh, p: p.map((v) => V(v[0], v[1], v[2])), part: ++partSeq, cen };
+    if (tint) { q.tint = tint; const k = PKB(tint); if (k) q.pk = k; }
+    faces.push(q);
+  };
+  // A run of quads sharing one part id — a lofted panel is ONE object, and giving each of its
+  // quads a part of its own is what makes a hull flash as the camera orbits.
+  const strip = (quads, sh, cen, role = 'body', tint = null) => {
+    const part = ++partSeq;
+    for (const p of quads) {
+      const q = { role, sh, p: p.map((v) => V(v[0], v[1], v[2])), part, cen };
+      if (tint) { q.tint = tint; const k = PKB(tint); if (k) q.pk = k; }
+      faces.push(q);
+    }
+  };
+  const box = (f0, f1, w, z0, z1, role = 'body', tint = null, gc = 0) => {
+    const gl = gc - w, gr = gc + w;
+    const A = [V(f0, gl, z0), V(f0, gr, z0), V(f0, gr, z1), V(f0, gl, z1)];
+    const B = [V(f1, gl, z0), V(f1, gr, z0), V(f1, gr, z1), V(f1, gl, z1)];
+    const part = ++partSeq;
+    const cen = [(f0 + f1) / 2, gc, (z0 + z1) / 2];
+    const quad = (p, sh) => { const q = { role, sh, p, part, cen }; if (tint) { q.tint = tint; const k = PKB(tint); if (k) q.pk = k; } faces.push(q); };
+    quad([A[3], A[2], B[2], B[3]], 1.00);
+    quad([A[0], B[0], B[1], A[1]], 0.42);
+    quad([A[0], A[3], B[3], B[0]], 0.72);
+    quad([A[1], B[1], B[2], A[2]], 0.62);
+    quad([B[0], B[3], B[2], B[1]], 0.80);
+    quad([A[0], A[1], A[2], A[3]], 0.55);
+  };
+  const tube = (from, to, r, role = 'body', tint = null, n = 6) => {
+    const ax = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
+    const L = Math.hypot(ax[0], ax[1], ax[2]) || 1;
+    const u = [ax[0] / L, ax[1] / L, ax[2] / L];
+    const seed = Math.abs(u[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+    const e1n = [u[1] * seed[2] - u[2] * seed[1], u[2] * seed[0] - u[0] * seed[2], u[0] * seed[1] - u[1] * seed[0]];
+    const m1 = Math.hypot(e1n[0], e1n[1], e1n[2]) || 1;
+    const e1 = [e1n[0] / m1, e1n[1] / m1, e1n[2] / m1];
+    const e2 = [u[1] * e1[2] - u[2] * e1[1], u[2] * e1[0] - u[0] * e1[2], u[0] * e1[1] - u[1] * e1[0]];
+    const part = ++partSeq;
+    const cen = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2];
+    const ring = (p) => Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2;
+      const c = Math.cos(a) * r, s = Math.sin(a) * r;
+      return V(p[0] + e1[0] * c + e2[0] * s, p[1] + e1[1] * c + e2[1] * s, p[2] + e1[2] * c + e2[2] * s);
+    });
+    const A = ring(from), B = ring(to);
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const sh = 0.52 + 0.46 * Math.max(0, Math.cos((i / n) * Math.PI * 2 - Math.PI / 2));
+      const q = { role, sh, p: [A[i], A[j], B[j], B[i]], part, cen };
+      if (tint) { q.tint = tint; const k = PKB(tint); if (k) q.pk = k; }
+      faces.push(q);
+    }
+  };
+
+  // ── THE HULL, AS STATIONS ──────────────────────────────────────────────────
+  //
+  // ⚠ A DEEP-V IS LOFTED, NOT BOXED. The previous hull was a picklefork tunnel — two sponsons with
+  // a tunnel between them — which is a different KIND of boat, not a different size of one. An
+  // offshore hull is one body: a fine entry at the stem, maximum beam aft of amidships, a hard
+  // chine running the whole length, and a bottom that vees down to a keel. None of that is
+  // expressible in axis-aligned boxes, so the hull is a set of transverse stations lofted together
+  // and everything else hangs off them.
+  //
+  // ⚠ AND THE TABLE LIVES IN `client/shared/boat-house.js` NOW, because the room you sit in is the
+  // inside of this same hull and was authored as thirty unrelated scalars in another unit. Read
+  // that header before touching any of it: nothing below re-derives a station, a half-width or a
+  // sill, and the interior does not either.
+  const G = boatGeom(S);
+  const { LEN, DECK: DK, STATIONS, atF } = G;
+  // ⚠ ONE OBJECT, FILLED AS THE HULL IS BUILT. The exhaust ports below are stamped into this same
+  // record rather than into a second `set`, because a later `set` on the same key replaces the
+  // stations and a painter that reads them gets an empty hull.
+  const META = { stations: STATIONS, ports: [], pipeTint: PIPE };
+  BOAT_META.set(id + ':' + (fine ? 1 : 0), META);
+
+  for (let i = 0; i < STATIONS.length - 1; i++) {
+    const a = STATIONS[i], b = STATIONS[i + 1];
+    const cen = [(a.f + b.f) / 2, 0, (a.k + b.sz) / 2];
+    for (const s of [-1, 1]) {
+      // The bottom: keel out to the chine. This is the vee, and it is what you see of a boat
+      // running — a cigarette at speed shows a lot of it.
+      // ⚠ QUADS, NOT TRIANGLES — the opposite of the house sides, and for the same underlying
+      // reason. A station-to-station hull panel is very nearly planar (the vee angle barely changes
+      // between neighbours), so one quad is one tone and the hull reads smooth. Split into two
+      // triangles each takes its own normal, and the whole topside came out as a quilted diamond
+      // mesh. Triangulate what is genuinely twisted; leave flat things flat.
+      strip([[
+        [a.f, 0, a.k], [b.f, 0, b.k], [b.f, s * b.cw, b.cz], [a.f, s * a.cw, a.cz],
+      ]], s < 0 ? 0.46 : 0.40, cen);
+      // The topside: chine up to the sheer. Nearly vertical, and the brightest big surface on the
+      // boat, which is why a two-tone hull puts its split right here.
+      strip([[
+        [a.f, s * a.cw, a.cz], [b.f, s * b.cw, b.cz], [b.f, s * b.sw, b.sz], [a.f, s * a.sw, a.sz],
+      ]], s < 0 ? 0.80 : 0.68, cen);
+    }
+  }
+
+  // The transom: flat, wide, and where everything bolts on.
+  {
+    const t = STATIONS[STATIONS.length - 1];
+    const cen = [t.f + 0.05, 0, (t.k + t.sz) / 2];
+    face([[t.f, -t.cw, t.cz], [t.f, t.cw, t.cz], [t.f, t.sw, t.sz], [t.f, -t.sw, t.sz]], 0.55, cen);
+    face([[t.f, -t.cw, t.cz], [t.f, 0, t.k], [t.f, t.cw, t.cz]], 0.48, cen);
+  }
+
+  // ── THE CHINE ──────────────────────────────────────────────────────────────
+  // A hard lip along the join. ⚠ IT IS THE SINGLE MOST IMPORTANT LINE ON THIS BOAT: it is what
+  // separates the dark bottom from the light topside, it is what a two-tone paint job follows, and
+  // at any distance it is the only thing that says the hull has a shape rather than being a wedge.
+  for (let i = 0; i < STATIONS.length - 1; i++) {
+    const a = STATIONS[i], b = STATIONS[i + 1];
+    const cen = [(a.f + b.f) / 2, 0, (a.cz + b.cz) / 2];
+    for (const s of [-1, 1]) {
+      strip([[
+        [a.f, s * a.cw, a.cz], [b.f, s * b.cw, b.cz],
+        [b.f, s * (b.cw + 0.012), b.cz - 0.006], [a.f, s * (a.cw + 0.012), a.cz - 0.006],
+      ]], 0.92, cen, 'body', rich(0.5) ? CHROME : null);
+    }
+  }
+
+  // ── THE DECK ───────────────────────────────────────────────────────────────
+  // Long, and that length IS the boat: on a cigarette the foredeck is most of what you look at.
+  // Crowned slightly so it catches the light down the centreline rather than reading as a table.
+  // ⚠ THE WELL STARTS WHERE THE HOUSE ENDS, AND IT IS DERIVED SO IT CANNOT DRIFT. Authored
+  // separately they disagreed by 0.08 of a hull — the deck was cut away from -0.46 aft while the
+  // house's back wall stood at -0.54 — so the aft eighth of the cabin was standing over a hole and
+  // you could see daylight under the glazing. Two numbers describing one edge is two chances to be
+  // wrong about it; the house owns the edge and the well begins at it.
+  const cpF1 = S.cockpitF1 ?? (S.houseF0 ?? -0.54), cpF0 = S.cockpitF0 ?? -0.88;
+  const crown = S.crown ?? 0.012;
+  for (let i = 0; i < STATIONS.length - 1; i++) {
+    const a = STATIONS[i], b = STATIONS[i + 1];
+    // The deck is cut away over the cockpit — the well is an ABSENCE, the same rule the windscreen
+    // aperture follows: a lid over a hole would be a second description of the same shape.
+    const inWell = (f) => f < cpF1 && f > cpF0;
+    if (inWell(a.f) && inWell(b.f)) continue;
+    const cen = [(a.f + b.f) / 2, 0, (a.sz + b.sz) / 2 - 0.05];
+    const aw = inWell(a.f) ? a.sw * 0.22 : 0, bw = inWell(b.f) ? b.sw * 0.22 : 0;
+    for (const s of [-1, 1]) {
+      strip([[
+        [a.f, s * a.sw, a.sz], [b.f, s * b.sw, b.sz],
+        [b.f, s * bw, b.sz + crown * (bw ? 0 : 1)], [a.f, s * aw, a.sz + crown * (aw ? 0 : 1)],
+      ]], 1.00, cen, 'deck');
+    }
+  }
+  // The gunwale cap round the cockpit well, so the opening has an edge.
+  {
+    const gz = (f) => {
+      for (let i = 0; i < STATIONS.length - 1; i++) {
+        const a = STATIONS[i], b = STATIONS[i + 1];
+        if (f <= a.f && f >= b.f) { const t = (a.f - f) / (a.f - b.f || 1); return [a.sw + (b.sw - a.sw) * t, a.sz + (b.sz - a.sz) * t]; }
+      }
+      return [STATIONS[STATIONS.length - 1].sw, STATIONS[STATIONS.length - 1].sz];
+    };
+    const N = 6;
+    for (let i = 0; i < N; i++) {
+      const f0 = cpF1 + (cpF0 - cpF1) * (i / N), f1 = cpF1 + (cpF0 - cpF1) * ((i + 1) / N);
+      const [w0, z0] = gz(f0), [w1, z1] = gz(f1);
+      const cen = [(f0 + f1) / 2, 0, (z0 + z1) / 2 - 0.04];
+      for (const s of [-1, 1]) {
+        strip([[
+          [f0, s * w0, z0], [f1, s * w1, z1],
+          [f1, s * w1 * 0.80, z1 - 0.030], [f0, s * w0 * 0.80, z0 - 0.030],
+        ]], 0.58, cen);
+      }
+    }
+    // The sole — you can see into the well, so it needs a floor.
+    // ⚠ AND IT IS THE CABIN'S FLOOR TOO (`G.soleZ`). The door in the bulkhead joins the two, so a
+    // sole authored at one height here and another inside is a step you can see through the open
+    // doorway from the aft deck and fall down from the helm.
+    const [wa] = gz(cpF1), [wb] = gz(cpF0);
+    face([[cpF1, -wa * 0.78, G.soleZ], [cpF1, wa * 0.78, G.soleZ],
+          [cpF0, wb * 0.78, G.soleZ], [cpF0, -wb * 0.78, G.soleZ]], 0.66, [(cpF0 + cpF1) / 2, 0, 0]);
+  }
+
+  // ── THE PILOTHOUSE ─────────────────────────────────────────────────────────
+  //
+  // An ENCLOSED helm under a hardtop: a wrapped screen at the front, glass down both sides, a solid
+  // bulkhead at the back with a door onto the aft deck, and a crowned top carried on struts.
+  //
+  // ⚠ IT IS ENCLOSED BECAUSE NOBODY IS RENDERED IN IT. An open cockpit is a hole you look down into
+  // and expect to find a driver in; there is no crew model in this renderer, so an open one reads
+  // as an empty boat driving itself. Glass answers that without a single figure being drawn.
+  //
+  // ── ⚠ AND NOTHING HERE IS A BOX, WHICH IS THE WHOLE OF THIS PASS ───────────
+  //
+  // The first cut was six axis-aligned slabs and it read as a shipping container: square corners,
+  // a flat lid, vertical sides, one flat pane across the front. Four things fix that and none of
+  // them is a texture.
+  //
+  //   TUMBLEHOME — the sides lean IN as they rise. One number, and it is the single biggest change:
+  //     a vertical wall is the thing the eye reads as "box", and nothing on a fast boat is vertical.
+  //   A WRAPPED SCREEN — three panes, a centre and two corners that carry round onto the sides,
+  //     instead of one slab across the front. Real screens wrap because a flat one cannot be raked
+  //     and still see out of the corners, and the wrap is most of why a modern one looks fast.
+  //   A CROWNED TOP — the hardtop is arched across the beam and tapered in plan, so its edge is a
+  //     curve rather than a ruled line. A flat lid on a curved house is a tray sitting on a car.
+  //   STRUTS — the top is CARRIED at the back rather than continuous with the walls, with daylight
+  //     between them. That gap is what says the roof is a structure and not a lid.
+  const GLASS = [58, 78, 98];
+  const HOUSE = [26, 28, 33];
+  {
+    // ⚠ EVERY NUMBER AND EVERY CURVE BELOW COMES OUT OF `boat-house.js`, AND NONE OF THEM IS
+    // RE-DERIVED HERE. They used to be declared in this block, which made them invisible to the
+    // one other thing that has to agree with them — the room you sit in. See that file's header
+    // for what the two had drifted to. `fw`/`fwT` in particular are read by the side wall as well
+    // as by the screen, and a `const` read above its own declaration is a temporal-dead-zone THROW
+    // rather than an undefined: `shapes:smoke` caught exactly that once, "Cannot access fw before
+    // initialization", on every hydro at both hours.
+    const { hF1, hF0, hH, rake, TUM, WRAP, NOSE, fw, fwT, rF, hw, hz, cen } = G;
+
+    // ── THE SIDES ────────────────────────────────────────────────────────────
+    // Lofted in steps so the tumblehome and the plan taper are both curves rather than one slanted
+    // plane. Solid below the sill, glass above it.
+    // ⚠ THE SILL RISES GOING AFT, WHICH IS THE WHOLE SHAPE OF THE WINDOW. Held at one height the
+    // glass is a long rectangle down the side of a box — which is exactly what it looked like. On
+    // any fast boat the side light is a WEDGE: deep at the front where you look out of it, tapering
+    // away toward the back where there is nothing to see. One function, so the glass above it and
+    // the painted topside below it are cut by the same line and cannot leave a gap between them.
+    // ── THE DAYLIGHT OPENING ─────────────────────────────────────────────────
+    //
+    // ⚠ A WINDOW IS A CLOSED CURVE, NOT TWO EDGES AND A BOX. Every cut of this before now described
+    // the glass as a band between a sill and a head that ran the WHOLE length of the house, so
+    // however hard each edge swept, the shape still had a square back and two ruled lines — which
+    // is what a rectangle is. What a fast car or a fast boat actually has is a teardrop: the glass
+    // comes to a POINT somewhere short of the back, opens quickly off that point, and then flattens
+    // out along the top. The aft end being pointed is most of the read, and no amount of sweeping
+    // the two edges gets there while they are still parallel-ish lines meeting a wall.
+    //
+    // So the opening is parameterised from its own point rather than from the house. `u` is 0 at
+    // the point and 1 at the screen, and the two edges are powers of it — which converge on the
+    // point by construction rather than by two numbers being set equal by hand.
+    const { sillF, uOf } = G;
+    // ⚠ A CENTRELINE AND A HALF-HEIGHT, NOT TWO INDEPENDENT EDGES — which is the difference between
+    // the shape in the reference and the one before it. Described as two curves that happen to meet,
+    // the aperture converges on a CUSP: two straight-ish edges closing at an angle, sitting at mid
+    // height, which is a dart rather than a window. What the reference has is an ellipse's end —
+    // the trailing edge turns through the vertical and comes back, so the aft end is ROUNDED, and
+    // it sits LOW, down on the beltline rather than half way up the house.
+    //
+    //   `half` is elliptical in u, so its tangent at the point is vertical. That single property is
+    //     the rounded end; any polynomial in u meets the axis at an angle and gives a cusp.
+    //   `mid` rises as the opening grows, which is what tips the whole shape: the bottom edge comes
+    //     out nearly flat (a beltline) while the top sweeps up and over the helm. Held level, the
+    //     aperture is a symmetrical leaf and reads as a porthole stretched sideways.
+    // ⚠ AND THE BOTTOM EDGE IS A BELTLINE, WHICH IS THE OTHER HALF OF THE REFERENCE AND THE HALF
+    // THAT IS EASY TO MISS. Let the centreline ride up on its own and BOTH edges curve — the sill
+    // dips in the middle and comes back, the head arcs over, and the aperture is a symmetrical
+    // LEAF. Every window on every fast car is the opposite: the bottom runs nearly straight (it is
+    // the beltline, and a beltline is a line) and all of the shape lives in the top edge. So the
+    // sill is defined first, as a near-flat line with a gentle kick up toward the stern, and the
+    // head is simply the sill plus the full height of the opening.
+    const { sillAt, headAt } = G;
+    // ⚠ ONE PART PER SURFACE, NOT ONE PER SEGMENT. `strip` stamps a single part id for everything
+    // handed to it, and a lofted side is ONE object — but called once per segment it becomes six,
+    // which the painter then sorts independently. On a curved surface that reorders neighbours and
+    // the side reads as a row of sawteeth. It looked like a shading bug and it was a sorting one.
+    // ⚠ AND THE SILL CAP STEPPED OUT 3% PER SEGMENT, which turned a bright chrome line into a
+    // zigzag of little facets down the middle of the glazing — the most visible thing on the boat.
+    // It follows the wall now and only lifts, so it is a line rather than a staircase.
+    // ⚠ FEW, LARGE, DELIBERATE PLANES — NOT A FINE SUBDIVISION. This renderer is flat-shaded per
+    // face by design (gl/solids.js says so in its own note), so a doubly-curved surface does not
+    // become smooth by being cut into more pieces: every piece gets its own normal and its own tone,
+    // and eight of them down a tumbled, tapering side reads as a row of sawteeth. Subdividing made it
+    // WORSE, twice. Three big panels per side facet once each, deliberately, which is how every
+    // other curved thing in this game is built and is what the reference boat's own hard creased
+    // topsides actually look like.
+    // ── ⚠ THE PANE IS FLAT AND THE HOLE IS SHAPED, WHICH ARE TWO DIFFERENT PIECES ────────────
+    //
+    // Everything before this cut the glass to the shape of the opening, which put two requirements
+    // on one strip and they pull opposite ways:
+    //
+    //   THE EDGE wants MANY stations, because the sill and the head are smooth curves sampled at
+    //     the panel boundaries — at three stations a beautifully shaped profile arrives as a
+    //     three-segment polyline, and a three-segment polyline is a straight line with two kinks in
+    //     it. That is why the window kept reading as a rectangle however the profile was tuned.
+    //   THE SURFACE wants FEW, because this renderer is flat-shaded per face and the glass carries
+    //     a per-face sheen: nine panes is nine highlight streaks down the side of the boat, which
+    //     reads as a row of shutters rather than as one piece of glass. Measured over 4/5/6/9 — the
+    //     curve gets better and the glass gets worse, the whole way.
+    //
+    // So they are separated. The GLASS is one coarse pane, a plain band with straight edges, set
+    // INBOARD of the wall. The HOUSE is a shell at full width with the teardrop cut out of it,
+    // sampled finely because it is doing nothing but describing that curve. What you see through
+    // the hole is whatever the shell does not cover, so the opening is as round as `NT` says and
+    // the glass still has four highlights. That is also, straightforwardly, what a window IS: a
+    // pane behind an aperture, rather than a pane cut to the shape of one.
+    //
+    // ⚠ THE GLASS IS INSET AND THE WALL IS NOT, rather than the other way about. Standing the shell
+    // proud would widen the whole house by the offset and push it out past its own hardtop; setting
+    // the pane in leaves every other dimension exactly where it was and gives the aperture a real
+    // reveal, which is what stops the two surfaces z-fighting where they overlap.
+    // ⚠ THE SIDE RUNS FORWARD TO THE WRAP, NOT TO THE SCREEN'S TOP EDGE. Stopped at `rF` the side
+    // aperture ends on a VERTICAL cut — a square step where a sloping screen meets a sloping
+    // roofline, which is the "squarish cut out part" and is visible from every angle forward of
+    // the beam. Run forward to the wrap's own foot instead and the glass carries on UNDER the
+    // pillar; what then trims it is the pillar's raked aft edge, which is a sloped cut by
+    // construction. Nothing has to agree about an angle, because only one part owns it.
+    const { sideF1 } = G;
+    const NS = Math.max(2, Math.round(S.houseSegs ?? 4));    // panes — few, for the sheen
+    // ⚠ AND THE EDGE SHEDS WITH DISTANCE, WHICH THE PANE DOES NOT NEED TO. This is the only part of
+    // the house whose station count is about how round a curve LOOKS, so it is the only part worth
+    // spending on up close and the first worth taking back at range: at the coarse tier the whole
+    // hull is a few dozen pixels and the aperture is a slot. Without this the shell alone doubled
+    // the distant mesh — 285 faces to 549 — for a curve nobody can resolve.
+    const NT = Math.max(5, Math.round((S.trimSegs ?? 14) * (fine ? 1 : 0.4)));
+    const { INSET } = G;                                     // how far the pane sits behind the wall
+    // ⚠ AND THE FRAME AROUND THE HOLE IS THE BOAT'S COLOUR, WHICH IS THE POINT OF THE EXERCISE. A
+    // band of hull paint following the aperture is what turns a dark slot in a dark house into a
+    // shape: it picks up the pillar at the screen, runs round the top of the glass and closes on
+    // the point aft. Beyond the band the house goes back to its own near-black — a full-height
+    // livery panel was tried and is a third of the house in bright paint across every window, and
+    // the far side of it then reads straight through the near glass as a diagonal.
+    // ⚠ AND THE BAND IS NOT A CONSTANT WIDTH, WHICH IS MOST OF WHAT MAKES IT READ AS A CAR. Traced
+    // at one thickness it is a gasket — an even outline round a hole, which is what a porthole has.
+    // What a fast roofline actually does is run THIN over the glass and swell into a broad pillar
+    // where it turns down at the back, because that pillar is the thing holding the roof on. One
+    // taper term off the same `u` the aperture is built from: slim at the screen, two and a half
+    // times that at the point.
+    const { bandAt, gLo } = G;    // the painted band, and the pane's foot under the widest part of it
+    for (const s of [-1, 1]) {
+      const shade = s < 0 ? 0.76 : 0.64;
+      // ⚠ TRIANGLES, BECAUSE A LOFTED PANEL IS NOT PLANAR. `hw` varies with BOTH f and t — the plan
+      // taper and the tumblehome — so a four-corner patch across a segment is bilinear, and a
+      // bilinear quad has no single normal. The renderer backface-culls `body` and `glass` against
+      // the part's centre, so it keeps one half of each twisted quad and drops the other: a
+      // continuous side comes out as a row of alternating facets. A triangle cannot twist.
+      const t = (a, b, c) => [a, b, c];
+      const P = (f, tt) => [f, s * hw(f, tt), hz(f, tt)];                    // the wall
+      const G = (f, tt) => [f, s * hw(f, tt) * INSET, hz(f, tt)];            // the pane, set in
+
+      // 1) THE PANE. One band, straight-edged, coarse.
+      const glazed = [];
+      for (let i = 0; i < NS; i++) {
+        const fa = hF0 + (sideF1 - hF0) * (i / NS), fb = hF0 + (sideF1 - hF0) * ((i + 1) / NS);
+        glazed.push(t(G(fa, gLo), G(fb, gLo), G(fb, 1)), t(G(fa, gLo), G(fb, 1), G(fa, 1)));
+      }
+      strip(glazed, shade + 0.16, cen, 'glass', GLASS);
+
+      // 2) THE SHELL, with the teardrop cut out of it. Four bands per bay — the painted frame above
+      //    and below the aperture, and the house's own dark beyond each of them. They tile exactly
+      //    (each shares an edge with its neighbour), so the pane behind shows through the hole and
+      //    nowhere else.
+      const frame = [], dark = [], solid = [], capped = [];
+      for (let i = 0; i < NT; i++) {
+        const fa = hF0 + (sideF1 - hF0) * (i / NT), fb = hF0 + (sideF1 - hF0) * ((i + 1) / NT);
+        const ta = sillAt(fa), tb = sillAt(fb), ha = headAt(fa), hb = headAt(fb);
+        const ba = bandAt(fa), bb = bandAt(fb);
+        const uA = Math.min(1, ha + ba), uB = Math.min(1, hb + bb);          // top of the upper band
+        const lA = Math.max(gLo, ta - ba), lB = Math.max(gLo, tb - bb);      // foot of the lower band
+        const band = (z0a, z0b, z1a, z1b, into) => {
+          if (Math.min(z1a - z0a, z1b - z0b) <= 0.004) return;               // degenerate — see below
+          into.push(t(P(fa, z0a), P(fb, z0b), P(fb, z1b)), t(P(fa, z0a), P(fb, z1b), P(fa, z1a)));
+        };
+        // ⚠ A ZERO-HEIGHT BAND IS NOT A CHEAP BAND, IT IS A BROKEN ONE. The aperture closes to a
+        // point aft and runs out at the roof forward, so several of these have no area at those
+        // ends — and a quad with no area has no normal, which leaves the backface culler deciding
+        // about it on rounding error. That is a flicker along the shoulder as the camera moves.
+        band(ha, hb, uA, uB, frame);        // the painted band over the glass
+        band(uA, uB, 1, 1, dark);           // and the house's own dark above it
+        band(lA, lB, ta, tb, frame);        // the painted band under the glass
+        band(gLo, gLo, lA, lB, dark);       // and the house's own dark below it
+        band(0, 0, gLo, gLo, solid);        // the topside, under the whole aperture
+        // The bright line right at the bottom of the glass, tracing the aperture and running out at
+        // the point with it. It is what a car's DLO has round it and it is what makes the curve read
+        // at a distance, where the paint-to-paint step above it does not.
+        if ((hb - tb) > 0.004 || (ha - ta) > 0.004) {
+          const lo = (f, tt) => [f, s * hw(f, tt), hz(f, tt) - 0.006];
+          capped.push(t(P(fa, ta), P(fb, tb), lo(fb, tb)), t(P(fa, ta), lo(fb, tb), lo(fa, ta)));
+        }
+      }
+      if (solid.length) strip(solid, shade, cen, 'body', HOUSE);
+      if (dark.length) strip(dark, shade + 0.06, cen, 'body', HOUSE);
+      if (frame.length) strip(frame, shade + 0.10, cen);                     // no tint: the livery
+      if (capped.length) strip(capped, 0.94, cen, 'body', rich(0.5) ? CHROME : HOUSE);
+    }
+
+    // ── THE SCREEN ───────────────────────────────────────────────────────────
+    //
+    // ⚠ A RADIUS, NOT THREE PANES. The first cut was a flat centre plus one corner pane each side,
+    // which is a wrapped screen described in the fewest possible facets — and the cost of that is
+    // exactly two hard creases, one where the centre meets the corner and one where the corner
+    // meets the side. Reported as wanting "a good bend around the windshield so it's a smooth
+    // corner from front to side windows", and the creases are the whole of what is wrong: a screen
+    // that turns through ninety degrees in two steps reads as folded sheet, and the thing every
+    // fast boat and every fast car has instead is one continuous surface that starts flat on the
+    // centreline and tightens as it goes outboard.
+    //
+    // So it is LOFTED across the beam. `u` runs 0 at the centreline to 1 at the side wall, and the
+    // station pulls aft as `u^BEND` — which is what puts the bend where a bend belongs: at `BEND` 1
+    // the screen is a straight chamfer (a flat pane at an angle), and above 1 the middle stays
+    // nearly flat while the outer third does the turning. That is a radiused corner rather than an
+    // even curve, and it is the difference between a screen and a bay window.
+    //
+    // ⚠ BOTH EDGES SWEEP, AND THEY DO NOT SWEEP TOGETHER. The bottom runs from the screen's foot to
+    // the side sill and the top from the screen's own header — which is already further AFT than
+    // the foot, because the screen is raked — so the two curves are different lengths and the
+    // surface between them is genuinely twisted. That twist is the thing that catches light across
+    // the corner and is most of why it reads as glass.
+    const wBot = hw(hF1, 0), wTop = hw(rF, 1);
+    const BEND = S.screenBend ?? 2.1;       // how late in the sweep the corner turns
+    const NW = Math.max(3, Math.round((S.screenSegs ?? 6) * (fine ? 1 : 0.5)));
+    {
+      const tSill = sillAt(fw);
+      // The two edges, as a function of how far outboard you are.
+      // ⚠ `u` IS A LATERAL FRACTION AND y IS ZERO AT ZERO. Written as an interpolation FROM the
+      // screen's own half-width TO the side wall's, the pane starts at full beam on the centreline
+      // and only varies by the difference between the two — a pair of slivers hugging the flanks
+      // with the whole middle of the windscreen missing. It draws, it is glass, it is in the right
+      // place, and the boat has no front window: the sky comes straight through the aperture and
+      // reads as the screen having been deleted. Measured, the panes spanned y 0.174..0.195 on a
+      // hull whose screen is 0.195 wide.
+      const botAt = (u) => { const w = Math.pow(u, BEND);
+        const f = hF1 + (fw - hF1) * w;
+        return [f, hw(fw, tSill) * u, hz(hF1, 0) + (hz(fw, tSill) - hz(hF1, 0)) * w]; };
+      // ⚠ AND THE OUTBOARD EDGE RAKES, WHICH IT DID NOT. Both edges used to interpolate to the SAME
+      // station (`fw`), so at u = 1 they met and the wrap's outboard edge was dead VERTICAL — a
+      // screen raked 49 degrees on the centreline and 90 at its own corner, which is not a rake at
+      // all, it is a rake that dies before anybody can see it. Everything anchored to that edge
+      // inherited it, the pillar most visibly. Landing the top further aft than the bottom gives
+      // the corner an angle of its own: `screenRakeSide` is that offset, and it is authored as a
+      // DISTANCE rather than as an angle because the height it works against is the house's, so a
+      // taller house keeps the same proportions from one number.
+      const topAt = (u) => { const w = Math.pow(u, BEND);
+        const f = rF + (fwT - rF) * w;
+        return [f, hw(fw, 1) * u, hz(rF, 1) + (hz(fwT, 1) - hz(rF, 1)) * w]; };
+      for (const s of [-1, 1]) {
+        const pane = [], sill = [];
+        for (let i = 0; i < NW; i++) {
+          const ua = i / NW, ub = (i + 1) / NW;
+          const ba = botAt(ua), bb = botAt(ub), ta = topAt(ua), tb = topAt(ub);
+          const S3 = (p) => [p[0], s * p[1], p[2]];
+          // ⚠ TRIANGLES. A lofted pane across a corner is doubly curved and a four-corner patch
+          // across it is bilinear, which has no single normal — the same argument the side wall's
+          // own note makes, and the same alternating-facet artefact if it is ignored.
+          pane.push([S3(ba), S3(bb), S3(tb)], [S3(ba), S3(tb), S3(ta)]);
+          const drop = (p) => [p[0], s * p[1], p[2] - 0.012];
+          sill.push([S3(ba), S3(bb), drop(bb)], [S3(ba), drop(bb), drop(ba)]);
+        }
+        // ⚠ ONE PART FOR THE WHOLE SIDE. Per-facet parts are sorted independently and a curved
+        // surface then reorders its own neighbours, which is the sawtooth the side wall was rebuilt
+        // to remove. The shade is one value across the wrap for the same reason.
+        strip(pane, s < 0 ? 0.94 : 0.86, cen, 'glass', GLASS);
+        strip(sill, 0.70, cen, 'body', HOUSE);
+      }
+    }
+    // ── THE PILLAR AT THE CORNER OF THE SCREEN ───────────────────────────────
+    // ⚠ A BROAD SWEPT BLADE, NOT A POST. In the reference this is the most prominent thing on the
+    // boat after the hull itself: a wide member running from the deck at the screen's foot up and
+    // AFT to the corner of the hardtop, carrying it. A thin frame round the glass reads as a window
+    // in a wall; this reads as structure holding a roof up, which is what it is — and it is what
+    // turns the house from a box with a lid into a shape with a frame.
+    //
+    // ⚠ AND IT IS PAINTED THE BOAT'S COLOUR, WHICH IS NOT A DETAIL. Dark, it was one more black
+    // thing in a black greenhouse — the pillar, the side wall, the glass and the roof all reading
+    // as a single mass with some lighter panes in it, which is exactly the box this whole pass
+    // exists to break. In the hull's own colour it is a COLUMN: it picks up the paint at the deck,
+    // carries it up the corner of the screen and hands it to the sail panel behind the side light,
+    // which is the same colour and the same shape running the other way. One continuous painted
+    // member round the greenhouse, with the glass floating inside it.
+    //
+    // ⚠ NO TINT IS HOW A FACE ASKS FOR THE LIVERY. Handing it `pal.base` here would be a second
+    // copy of the paint the hull is already wearing, free to disagree the moment a finish or a
+    // pattern touches one and not the other — the same reason the topsides pass nothing either.
+    const apW = S.pillarW ?? 0.040;
+    for (const s of [-1, 1]) {
+      // ⚠ ANCHORED TO WHERE THE WRAP LANDS, not to a fraction of the screen's width. With a flat
+      // centre pane and one corner each side there was a crease at a fixed fraction and the pillar
+      // stood on it; the wrap is a continuous radius now and has no crease anywhere, so the only
+      // honest place for the member is its OUTBOARD EDGE — the station the screen finishes turning
+      // at, which is also where the side glass begins. Left on the old fraction the pillar stood in
+      // the middle of a curved pane, which is a bar across a windscreen.
+      // ⚠ A MEMBER OF CONSTANT WIDTH, NOT A WEDGE. Its foot used to sit at the wrap's edge on the
+      // SILL and its aft-bottom corner at the house's FOOT — two different heights — so the blade
+      // was a broad triangle sweeping down and aft, and from the beam it ate into the top front of
+      // the side light as a red delta with nothing to do with the screen behind it. Reported in
+      // exactly those terms: cut it back to conform to the shape of the windshield.
+      //
+      // Both edges are the same curve now, `apW` apart: the forward one IS the wrap's outboard
+      // edge, and the aft one is the same profile a pillar's width behind it. Bottom on the
+      // beltline, top on the roofline, parallel all the way — so the pillar reads as the thing
+      // finishing the screen rather than as a shape of its own.
+      // ⚠ AND IT LEANS WITH THE SCREEN. Its foot is at the wrap's own foot station and its head at
+      // the wrap's own head station, which are now different — so the member takes the corner's
+      // rake for free rather than carrying an angle of its own. Pinned to one station top and
+      // bottom it stood dead upright against a screen raked at forty-nine degrees, which reads as a
+      // post somebody bolted on afterwards.
+      const fb0 = fw + 0.006, fb1 = fw - apW;         // foot, and a pillar's width aft of it
+      const ft0 = fwT + 0.006, ft1 = fwT - apW;       // head, the same two, further aft
+      const s0 = sillAt(fw), s1 = sillAt(fb1);
+      const b0 = [fb0, s * hw(fw, s0) * 1.04, hz(fw, s0)];
+      const b1 = [fb1, s * hw(fb1, s1) * 1.04, hz(fb1, s1)];
+      const t0 = [ft0, s * hw(fwT, 1) * 1.04, hz(fwT, 1)];
+      const t1 = [ft1, s * hw(ft1, 1) * 1.04, hz(ft1, 1)];
+      const sh = s < 0 ? 0.82 : 0.68;
+      strip([[b0, b1, t1, t0]], sh, cen);                                   // the outboard face
+      // and its inboard return, so the blade has thickness edge-on — the same rule the shell's
+      // pillars follow: a pillar with no depth vanishes at the one angle it is doing anything.
+      const inb = (p) => [p[0], p[1] - s * apW * 0.5, p[2]];
+      strip([[inb(b0), inb(b1), inb(t1), inb(t0)]], sh - 0.22, cen);
+      strip([[b0, inb(b0), inb(t0), t0]], sh + 0.14, cen);
+    }
+
+    // ── THE COWL ─────────────────────────────────────────────────────────────
+    //
+    // A raised fairing running forward off the foot of the screen and dying into the foredeck.
+    //
+    // ⚠ WITHOUT IT THE HOUSE BEGINS AT A HARD LINE. The screen rakes up out of flat deck, so from
+    // anywhere forward of the beam the pilothouse reads as a windscreen propped on a plank — a
+    // separate object standing on the boat rather than part of it. Every fast hull has something
+    // here, because the same structure that carries the screen has to go somewhere, and what it
+    // does is spread forward and sink into the deck. It is also the piece that makes the front
+    // three-quarter view angular rather than blunt: the flanks are steep, the crest falls fast, and
+    // the whole thing narrows on its way to the bow.
+    //
+    // ⚠ IT RIDES THE SHEER RATHER THAN A HEIGHT. The deck RISES going forward on this hull (`bowZ`
+    // against `deckZ`), so a fairing authored as a fixed z would be proud of the deck at the screen
+    // and buried in it a third of the way along. `atF(f).sz` is the deck under each station and the
+    // rise is measured from there, which is what makes it die out cleanly instead of submerging.
+    if ((S.cowlL ?? 0) > 0.01) {
+      const cL = S.cowlL, cR = S.cowlRise ?? 0.020, NC = 4;
+      const cap = [], flank = [];
+      const cw = (q) => hw(hF1, 0) * (0.72 - 0.46 * q * q);   // narrowing toward the bow
+      const cz = (f, q) => atF(f).sz + cR * (1 - q) * (1 - q);  // and settling onto the deck
+      for (let i = 0; i < NC; i++) {
+        const qa = i / NC, qb = (i + 1) / NC;
+        const fa = hF1 + cL * qa, fb = hF1 + cL * qb;
+        const wa = cw(qa), wb = cw(qb), za = cz(fa, qa), zb = cz(fb, qb);
+        cap.push([[fa, -wa, za], [fb, -wb, zb], [fb, wb, zb], [fa, wa, za]]);
+        for (const s of [-1, 1]) {
+          flank.push([[fa, s * wa, za], [fb, s * wb, zb], [fb, s * wb, atF(fb).sz], [fa, s * wa, atF(fa).sz]]);
+        }
+      }
+      // ⚠ THE CULLING CENTRE GOES INSIDE THE FAIRING, not at a face's own centroid — the crest
+      // faces up and the flanks face out, and only a reference between them calls all three
+      // outward. Same rule the hull panels follow with their centreline.
+      const ccen = [hF1 + cL * 0.4, 0, atF(hF1).sz + cR * 0.4];
+      strip(cap, 0.98, ccen);
+      strip(flank, 0.74, ccen);
+    }
+
+    // ── THE BACK, AND THE DOOR OUT OF IT ─────────────────────────────────────
+    // ⚠ SOLID, AND IT IS THE ONE FACE THAT IS. The helm is entered from the aft deck, so this is the
+    // wall the door is in — drawn as a RECESS rather than as a flat panel in a different shade,
+    // because at any distance a shade change reads as dirt and a step reads as a door.
+    {
+      const wb = hw(hF0, 0), wt = hw(hF0, 1);
+      const zb = hz(hF0, 0), zt = hz(hF0, 1);
+      // ⚠ THE SAME DOOR THE INTERIOR CUTS IN THE SAME WALL — `G.door`, not two numbers that happen
+      // to match today. Looking through it from the aft deck and looking at it from the helm are
+      // the same opening or the boat has two back walls.
+      const dW = G.door.halfW, dH = G.door.topT;
+      const at = (x, t) => [hF0, x * (t ? wt / wb : 1), zb + (zt - zb) * t];
+      face([at(-wb, 0), at(-dW, 0), at(-dW, 1), at(-wb, 1)], 0.50, cen, 'body', HOUSE);
+      face([at(dW, 0), at(wb, 0), at(wb, 1), at(dW, 1)], 0.50, cen, 'body', HOUSE);
+      face([at(-dW, dH), at(dW, dH), at(dW, 1), at(-dW, 1)], 0.50, cen, 'body', HOUSE);
+      // The door, set INTO the opening from inside so the jamb has depth.
+      box(hF0 + 0.004, hF0 + 0.020, dW * 0.94, zb, zb + (zt - zb) * dH, 'body', HOUSE);
+      if (rich(0.5)) box(hF0 + 0.000, hF0 + 0.006, dW * 0.14, zb + (zt - zb) * 0.42,
+        zb + (zt - zb) * 0.54, 'body', CHROME, dW * 0.58);
+    }
+
+    // ── THE HARDTOP ──────────────────────────────────────────────────────────
+    // ⚠ CROWNED AND TAPERED, and it OVERHANGS. Built as spanwise segments so the edge is a curve;
+    // one quad would be the flat lid this pass exists to remove.
+    {
+      const NR = 4;
+      // The overhang, the crown, the sweep and the two plan functions — shared, because the
+      // headlining inside is the underside of this same panel.
+      const { crownH, over, THK, rf0, rf1, rw, rz, cr } = G.roof;
+      // ⚠ THE LEADING EDGE IS SWEPT, WHICH IS THE SHAPE THE WHOLE TOP IS READ BY. Square across, a
+      // hardtop is a tray; swept back at the tips it is a wing, and that is the one line in the
+      // reference photograph you would recognise the boat from at a distance. The centreline
+      // reaches furthest forward and the corners trail it.
+      const { frontAt } = G.roof;
+      const p = (f, u, dz = 0) => [f, u * rw(f), rz(f) + cr(u) + dz];
+      const pf = (u, dz = 0) => p(frontAt(u), u, dz);    // a point ON the swept leading edge
+      // ⚠ ONE SURFACE ACROSS THE WHOLE LENGTH, and the underside is the SAME quad dropped by its
+      // thickness. The first cut split it into two fore-aft bands and built the underside out of
+      // mismatched corners — `u0` on one edge and `u1` on the other — so every panel was twisted and
+      // the roof read as a crumpled tent rather than as an arched top. A skin and its lining are the
+      // same shape; if they are not, one of them is wrong.
+      // ⚠ THE WHOLE TOP IS ONE PART, and the lining is another — see the note on the sides. Emitted
+      // per segment the crown became a corrugated ridge, because six independently sorted panels on
+      // a curved surface cannot be relied on to stay in order.
+      const top = [], lining = [];
+      for (let i = 0; i < NR; i++) {
+        const u0 = -1 + 2 * (i / NR), u1 = -1 + 2 * ((i + 1) / NR);
+        // Triangles, for the reason on the sides: the top is bilinear in  and the crown.
+        top.push([p(rf0, u0), pf(u0), pf(u1)], [p(rf0, u0), pf(u1), p(rf0, u1)]);
+        lining.push([pf(u0, -THK), p(rf0, u0, -THK), p(rf0, u1, -THK)],
+                    [pf(u0, -THK), p(rf0, u1, -THK), pf(u1, -THK)]);
+      }
+      strip(top, 0.98, cen, 'body', HOUSE);
+      strip(lining, 0.38, cen, 'body', HOUSE);
+      // The rim, so the top has a real edge rather than being a sheet of paper.
+      for (const s of [-1, 1]) {
+        strip([[p(rf0, s), pf(s), pf(s, -THK), p(rf0, s, -THK)]], s < 0 ? 0.66 : 0.58, cen, 'body', HOUSE);
+      }
+      for (let i = 0; i < NR; i++) {
+        const u0 = -1 + 2 * (i / NR), u1 = -1 + 2 * ((i + 1) / NR);
+        strip([[pf(u0), pf(u1), pf(u1, -THK), pf(u0, -THK)]], 0.84, cen, 'body', HOUSE);
+        strip([[p(rf0, u1), p(rf0, u0), p(rf0, u0, -THK), p(rf0, u1, -THK)]], 0.44, cen, 'body', HOUSE);
+      }
+      // A light bar let into the leading edge.
+      if (rich(0.5)) box(rf1 - 0.026, rf1 - 0.004, rw(rF) * 0.56, rz(rF) + 0.004, rz(rF) + 0.014, 'body', ACCENT);
+      // ── THE STRUTS ─────────────────────────────────────────────────────────
+      // ⚠ THE TOP IS CARRIED AT THE BACK, WITH DAYLIGHT UNDER IT. This is the part that stops the
+      // house being one solid lump: the aft end of the hardtop stands on legs rather than growing
+      // out of the bulkhead, so there is a gap you can see the sky through. The struts rake, because
+      // a vertical post is the same "box" read the tumblehome above exists to break.
+      const sw2 = hw(hF0, 1) * 0.92;
+      for (const s of [-1, 1]) {
+        tube([hF0 + 0.010, s * sw2, hz(hF0, 0.52)], [hF0 - over * 0.6, s * sw2 * 1.02, rz(hF0)], 0.011, 'body', null, 5);
+      }
+      if (fine) box(hF0 + 0.05, hF0 + 0.12, rw(hF0) * 0.20, rz(hF0) + crownH, rz(hF0) + crownH + 0.026, 'body', HOUSE);
+    }
+  }
+
+
+  // ⚠ THE ARCH IS GONE, AND THAT IS THE HARDTOP REPLACING IT RATHER THAN A DELETION. An arch and a
+  // hardtop are two answers to the same question — what stands above the sheer — and a boat with
+  // both has a roof with a frame over it. The light bar that lived on the arch is on the hardtop's
+  // leading edge now, which is where it is in the photograph.
+
+  // ── THE OUTBOARDS ──────────────────────────────────────────────────────────
+  // A bank of them on the transom, which is what a modern one of these has instead of a blower
+  // standing out of the deck. ⚠ THE COUNT IS AUTHORED and it is the loudest thing about the boat:
+  // four is a statement, and it is the detail every one of these photographs is really about.
+  const mot = Math.max(0, Math.round(S.motors ?? 4));
+  if (mot > 0) {
+    const t = STATIONS[STATIONS.length - 1];
+    // ⚠ SIZED AGAINST THE HULL, NOT AGAINST A GUESS. The first cut gave each cowl a half-width of
+    // 0.034 and a height of 0.114 — TALLER THAN THE SHEER IS HIGH — so four of them read as a wall
+    // of black slabs bolted to the back of the boat rather than as engines on it. A bank of
+    // outboards is tight, low and tucked against the transom; it is the loudest detail on the boat
+    // and it is still a detail.
+    const span = t.sw * 1.44, step = mot > 1 ? span / (mot - 1) : 0;
+    for (let i = 0; i < mot; i++) {
+      const g = mot > 1 ? -span / 2 + i * step : 0;
+      const f0 = t.f - 0.088, f1 = t.f + 0.006;
+      box(f0, f1, 0.021, t.cz + 0.004, t.cz + 0.072, 'body', DARK, g);                  // the cowl
+      box(f0 + 0.022, f1 - 0.014, 0.010, t.cz - 0.034, t.cz + 0.008, 'body', null, g);  // the leg
+      if (fine) box(f0 + 0.014, f0 + 0.038, 0.016, t.cz - 0.050, t.cz - 0.030, 'body', null, g);  // the skeg
+      if (rich(0.5)) box(f0 + 0.003, f0 + 0.011, 0.019, t.cz + 0.054, t.cz + 0.068, 'body', ACCENT, g);
+    }
+  }
+
+  // ── WHAT IS ON THE FOREDECK ────────────────────────────────────────────────
+  //
+  // ⚠ A LONG BLANK DECK IS THE OTHER HALF OF "BLOCKY". Half this boat's plan is foredeck and it was
+  // one unbroken sheet of colour — which reads as an unfinished surface however good the sheer line
+  // round it is. Three things break it, and all three are things the real boat has rather than
+  // decoration: a flush hatch, a crease running forward from the house, and the fittings at the stem.
+  {
+    // ⚠ READ FROM THE ROW, NOT FROM THE PILOTHOUSE BLOCK. `HOUSE` and the house's own stations are
+    // scoped inside it, and reaching for them here is how a foredeck ends up depending on the order
+    // two blocks happen to run in.
+    const HOUSE_TONE = [26, 28, 33];
+    const hF0Ref = S.houseF0 ?? -0.54;
+    const dk = (f) => atF(f).sz + crown * 0.6;
+    // The hatch. Flush, dark, and set on the centreline where the anchor locker actually is.
+    const h0 = (S.hatchF ?? 0.62), h1 = h0 + (S.hatchL ?? 0.20);
+    const hwid = atF((h0 + h1) / 2).sw * 0.34;
+    face([[h1, -hwid, dk(h1) + 0.002], [h1, hwid, dk(h1) + 0.002],
+          [h0, hwid, dk(h0) + 0.002], [h0, -hwid, dk(h0) + 0.002]],
+      0.72, [(h0 + h1) / 2, 0, dk(h0)], 'body', HOUSE_TONE);
+    // ⚠ THE CREASE IS A SHALLOW KNUCKLE, NOT A PAINTED LINE. A stripe on a flat deck is a sticker;
+    // a knuckle catches the light on one side and not the other, which is what gives a deck a
+    // direction. It runs from the house forward and dies out before the stem.
+    const kA = hF0Ref, kB = LEN * 0.88;
+    const KN = 3;
+    for (const s of [-1, 1]) {
+      const quads = [];
+      for (let i = 0; i < KN; i++) {
+        const fa = kA + (kB - kA) * (i / KN), fb = kA + (kB - kA) * ((i + 1) / KN);
+        const wa = atF(fa).sw * 0.56, wb = atF(fb).sw * 0.56;
+        quads.push([[fa, s * wa, dk(fa) + 0.004], [fb, s * wb, dk(fb) + 0.004],
+                    [fb, s * wb * 0.78, dk(fb)], [fa, s * wa * 0.78, dk(fa)]]);
+      }
+      strip(quads, s < 0 ? 1.06 : 0.90, [(kA + kB) / 2, 0, dk(kA)], 'deck');
+    }
+    // The stem fittings: a cleat each side and a bow eye, which is where your eye goes on a bow.
+    if (rich(0.5)) {
+      for (const s of [-1, 1]) box(LEN * 0.80, LEN * 0.845, atF(LEN * 0.82).sw * 0.16,
+        dk(LEN * 0.82), dk(LEN * 0.82) + 0.010, 'body', CHROME, s * atF(LEN * 0.82).sw * 0.52);
+      box(LEN * 0.955, LEN * 0.985, 0.012, dk(LEN * 0.97) - 0.004, dk(LEN * 0.97) + 0.012, 'body', CHROME);
+    }
+  }
+
+  // ── THE MOTOR ──────────────────────────────────────────────────────────────
+  //
+  // A blown V8 standing open in the aft well: block, blower case, injector hat and zoomie headers
+  // out of both flanks. The hat clears the sheer, which is the whole point of it — an engine you
+  // cannot see from outside the boat is an engine that may as well be a number in a file.
+  //
+  // ⚠ IT LIVES IN THE WELL, WHICH IS WHY THE WELL IS THERE. An open deck behind an enclosed helm is
+  // otherwise a hole with nothing in it; this is what it is a hole FOR, and it is why the house
+  // moved forward rather than the well simply being deleted when the cockpit was enclosed.
+  //
+  // ⚠ AND IT IS EXCLUSIVE WITH THE OUTBOARDS BY AUTHORING, NOT BY CODE. A hull carrying an exposed
+  // blown inboard AND a bank of transom outboards has two complete propulsion systems, which is not
+  // a boat anybody builds — but which of the two a given hull has is a property of that hull, so
+  // both are params and the row picks. Set `motors` and clear `v8` for the outboard version back.
+  if ((S.v8 ?? 1) !== 0) {
+    const t = STATIONS[STATIONS.length - 1];
+    const eF1 = S.v8F ?? -0.60, eF0 = eF1 - (S.v8L ?? 0.22);
+    // ⚠ ON STRINGERS, NOT ON THE SOLE. Sitting the block on the well floor put the hat barely a
+    // gunwale clear of the deck, so from the beam you saw a glint of chrome and nothing else — which
+    // is an engine you have to be told is there. A real one is bedded on rails well up in the bilge.
+    const sole = G.soleZ + (S.v8Rise ?? 0.022);
+    const hw = atF((eF0 + eF1) / 2).sw * 0.46;
+    const blk = sole + (S.v8H ?? 0.072);
+    box(eF0, eF1, hw, sole, blk, 'body', BLOCK);                              // the block
+    const caseTop = blk + 0.030;
+    box(eF0 + 0.020, eF1 - 0.020, hw * 0.82, blk, caseTop, 'body', POLISH);    // the blower case
+    // The injector hat — forward-facing, so it is a scoop rather than a lid.
+    face([[eF1 - 0.020, -hw * 0.66, caseTop + 0.034], [eF1 - 0.020, hw * 0.66, caseTop + 0.034],
+          [eF0 + 0.034, hw * 0.72, caseTop], [eF0 + 0.034, -hw * 0.72, caseTop]],
+      1.00, [(eF0 + eF1) / 2, 0, caseTop], 'body', POLISH);
+    box(eF1 - 0.030, eF1 - 0.020, hw * 0.66, caseTop, caseTop + 0.034, 'body', POLISH);
+    if (rich(0.6)) tube([eF1 - 0.014, 0, caseTop + 0.018], [eF1 + 0.040, 0, caseTop + 0.012], 0.010, 'body', POLISH, 6);
+    // Zoomies. ⚠ A REAL COUNT — the number of pipes a side is the number of cylinders a side, and
+    // it is the loudest single thing about a motor like this.
+    //
+    // ⚠ AND THE MOUTH OF EACH ONE IS PUBLISHED, NEVER RE-DERIVED. What comes OUT of a zoomie is
+    // drawn by windshield.js, which has no access to `S`, `atF` or the station table — so a painter
+    // wanting the flame at the pipe would have to rebuild this expression from the row, and the two
+    // copies would then be free to disagree. That is the bug `TRUCK_META.pin` exists to stop, in
+    // the same words: a guessed offset hangs the fire in mid-air. The port carries its own
+    // direction as well as its position, because a zoomie points up and out and the flame follows
+    // the pipe rather than the boat.
+    //
+    // ⚠ AT BOTH DETAIL LEVELS, THOUGH THE TUBES ARE FINE-ONLY. Fire is a LIGHT, and a light is
+    // legible a long way past the range at which this hull stops drawing its plumbing — so a
+    // coarse contact still shows the motor lit even though the pipes themselves have gone.
+    const zoom = Math.max(0, Math.round(S.zoom ?? 4));
+    for (const s of [-1, 1]) for (let i = 0; i < zoom; i++) {
+      const u = zoom === 1 ? 0.5 : i / (zoom - 1);
+      const f = eF0 + (eF1 - eF0) * (0.16 + 0.68 * u);
+      const z = sole + (S.v8H ?? 0.072) * 0.42;
+      const tip = [f - 0.028, s * (hw + 0.060), z + 0.044];
+      if (fine) tube([f, s * hw, z], tip, 0.012, 'body', PIPE, 5);
+      const d = [tip[0] - f, tip[1] - s * hw, tip[2] - z];
+      const m = Math.hypot(d[0], d[1], d[2]) || 1;
+      META.ports.push({ p: tip, d: [d[0] / m, d[1] / m, d[2] / m], side: s, bore: 0.012 });
+    }
+  }
+
+  // ── THE STRIPE ─────────────────────────────────────────────────────────────
+  // A boot stripe just under the sheer, which is the other line these boats are known for.
+  if (rich(0.5)) {
+    for (let i = 0; i < STATIONS.length - 1; i++) {
+      const a = STATIONS[i], b = STATIONS[i + 1];
+      const cen = [(a.f + b.f) / 2, 0, (a.sz + b.sz) / 2];
+      for (const s of [-1, 1]) {
+        strip([[
+          [a.f, s * (a.sw + 0.002), a.sz - 0.014], [b.f, s * (b.sw + 0.002), b.sz - 0.014],
+          [b.f, s * (b.sw + 0.002), b.sz - 0.026], [a.f, s * (a.sw + 0.002), a.sz - 0.026],
+        ]], 0.86, cen, 'body', ACCENT);
+      }
+    }
+  }
+  return faces;
+}
 // `variant` is `<typeId>` or `<typeId>+t` for a rig with a trailer on the back. BOBTAIL IS A REAL
 // SILHOUETTE and has to look like one — a tractor with nothing behind it is short, stubby and
 // obviously unloaded, which is most of what makes running empty feel different from the outside.
@@ -5002,6 +5884,117 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_N
   }
 }
 
+// ── HULL ART ─────────────────────────────────────────────────────────────────
+//
+// What a boat wears, and it goes where a boat actually wears it: the topside, between the chine and
+// the sheer, amidships. That strip is the one surface on a hull you READ rather than look at — it
+// is where the builder's name goes, where a race number goes, and where every photograph of one of
+// these boats puts its graphics.
+//
+// ⚠ IT IS NOT `drawNoseArt` WITH DIFFERENT NUMBERS, for the same reason the door art is not. That
+// function reconstructs a FIXED-WING fuselage — radius taper, superellipse section, drooping
+// centreline — and its fallback when it does not recognise a class is `fwParams('prop')`, so
+// pointed at a boat it maps the artwork onto the cross-section of a Twin Otter that is not there.
+// A hull has stations, and they are published for exactly this.
+//
+// ⚠ AND THE BAND IS INSET FROM BOTH EDGES. The chine carries a hard lip and the sheer carries the
+// boot stripe; art run flush to either is art with a bright line through it.
+export function drawBoatHullArt(ctx, proj, cls, detail, lv, occluders = null, near = MODEL_NEAR_Z) {
+  const id = lv?.decal; if (!id || id === 'none') return;
+  // ⚠ THE SIGNWRITING FAMILY, NOT THE NOSE-ART ONE. `decalTex` holds squadron markings — a
+  // sharkmouth, kill tallies, an ace — which are things painted on an AIRCRAFT because of what it
+  // did. `doorArtTex` holds the crests, skulls, dice, flames and saints a haulier puts on a door,
+  // and that is the same impulse, the same trade and the same graphic vocabulary as the topside of
+  // a go-fast boat. Both are square-ish procedural canvases, so the mapping below does not care.
+  const img = doorArtTex(id); if (!img) return;
+  const meta = BOAT_META.get(cls + ':' + (detail >= 1 ? 1 : 0)) || BOAT_META.get(cls + ':1');
+  const ST = meta && meta.stations; if (!ST || ST.length < 2) return;
+
+  // The station pair bracketing a fore-aft position, interpolated.
+  const at = (f) => {
+    for (let i = 0; i < ST.length - 1; i++) {
+      const a = ST[i], b = ST[i + 1];
+      if (f <= a.f && f >= b.f) {
+        const t = (a.f - f) / ((a.f - b.f) || 1);
+        return { cw: a.cw + (b.cw - a.cw) * t, cz: a.cz + (b.cz - a.cz) * t,
+                 sw: a.sw + (b.sw - a.sw) * t, sz: a.sz + (b.sz - a.sz) * t };
+      }
+    }
+    const e = f > ST[0].f ? ST[0] : ST[ST.length - 1];
+    return { cw: e.cw, cz: e.cz, sw: e.sw, sz: e.sz };
+  };
+  // The panel available to signwrite: aft of the fine entry, forward of the motors. Both ends are
+  // fractions of the hull rather than literals, so a longer boat offers a longer panel.
+  const pF = ST[0].f * 0.34, pR = ST[ST.length - 1].f * 0.62;
+  const INSET = 0.22;                                  // how far in from chine and sheer
+  // ── ⚠ THE ART KEEPS ITS OWN ASPECT, AND THE PANEL IS ONLY A BUDGET ─────────
+  //
+  // Mapping the texture across the WHOLE run is the obvious thing and it is wrong: this panel is
+  // about 1.1 hull units long and a couple of hundredths tall, so a square decal stretched over it
+  // comes out ten times wider than it was drawn. A skull becomes a smear. So the height of the band
+  // is what is fixed — it is set by the hull — and the LENGTH is then solved from the texture's own
+  // aspect, centred in the run. This is `fitSignPts`'s rule for signage, for the same reason.
+  //
+  // ⚠ AND IT IS CLAMPED TO THE RUN, so a very wide decal shrinks to fit rather than running off the
+  // bow. The band loses height in that case, which keeps the aspect rather than the size.
+  const mid0 = (pF + pR) / 2;
+  const sMid = at(mid0);
+  let bandH = (sMid.sz - sMid.cz) * (1 - 2 * INSET);   // the band's height in hull units
+  let bandL = bandH * (img.width / (img.height || 1));
+  const runL = Math.abs(pF - pR);
+  if (bandL > runL) { bandH *= runL / bandL; bandL = runL; }
+  const fF = mid0 + bandL / 2, fR = mid0 - bandL / 2;
+  // With the length solved, the band is centred vertically on the panel and is `bandH` tall.
+  const vMid = 0.5;
+  const halfV = () => {
+    const s = at(mid0);
+    return bandH / (2 * ((s.sz - s.cz) || 1e-6));       // as a fraction of chine-to-sheer
+  };
+  // t: 0 at the bottom of the ART BAND, 1 at the top — which is no longer the chine and the sheer,
+  // because the band is now sized by the texture rather than by the panel.
+  const hV = halfV();
+  const surf = (f, t, sign) => {
+    const s = at(f);
+    const u = vMid + (t - 0.5) * 2 * hV;
+    return [f, sign * (s.cw + (s.sw - s.cw) * u), s.cz + (s.sz - s.cz) * u];
+  };
+  // Which flank is facing you — the same nearest-z test drawNoseArt uses.
+  const mid = (fF + fR) / 2;
+  const sign = proj(...surf(mid, 0.5, 1)).z <= proj(...surf(mid, 0.5, -1)).z ? 1 : -1;
+
+  const Nc = 6, Nr = 2, W = img.width, H = img.height, grid = [];
+  let anyNear = false;
+  for (let j = 0; j <= Nr; j++) {
+    const row = [];
+    for (let i = 0; i <= Nc; i++) {
+      // top(j=0) is the SHEER end of the band, so the texture is not upside down.
+      const P = proj(...surf(fF + (fR - fF) * (i / Nc), 1 - j / Nr, sign));
+      row.push(P); if (P.z > near) anyNear = true;
+    }
+    grid.push(row);
+  }
+  if (!anyNear) return;
+  // ⚠ UN-MIRROR ON THE FAR FLANK, exactly as the nose art does and for the same reason: lettering
+  // painted on a handedness-flipped surface reads backwards, and a boat's name is the one decal
+  // that is always lettering.
+  const n0 = grid[0][0], nT = grid[0][Nc], bL = grid[Nr][0];
+  const cross = (nT.sx - n0.sx) * (bL.sy - n0.sy) - (nT.sy - n0.sy) * (bL.sx - n0.sx);
+  const flip = cross > 0;
+  const uOf = (col) => (flip ? (Nc - col) : col) / Nc * W;
+  const occ = occluders || [];
+  for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {
+    const a = grid[j][i], b = grid[j][i + 1], c = grid[j + 1][i + 1], d = grid[j + 1][i];
+    if (a.z <= near || b.z <= near || c.z <= near || d.z <= near) continue;
+    const mx = (a.sx + b.sx + c.sx + d.sx) / 4, my = (a.sy + b.sy + c.sy + d.sy) / 4;
+    const mz = (a.z + b.z + c.z + d.z) / 4;
+    if (occ.some((o) => o.z < mz && ptInScreenPoly(mx, my, o.P))) continue;
+    const s0 = [uOf(i), j / Nr * H], s1 = [uOf(i + 1), j / Nr * H];
+    const s2 = [uOf(i + 1), (j + 1) / Nr * H], s3 = [uOf(i), (j + 1) / Nr * H];
+    acTexTri(ctx, img, s0, s1, s2, [a.sx, a.sy], [b.sx, b.sy], [c.sx, c.sy]);
+    acTexTri(ctx, img, s0, s2, s3, [a.sx, a.sy], [c.sx, c.sy], [d.sx, d.sy]);
+  }
+}
+
 // ── DOOR ART ─────────────────────────────────────────────────────────────────
 // The other thing a truck wears, and it goes where a truck actually wears it: the flat panel under
 // the door glass, at the height of somebody standing beside the cab. That is where a haulier
@@ -5480,13 +6473,21 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
   }
   // 7) Lightning — the full-door flash (lights the whole scene) then the bolt on top of it.
   if (fx.flash > 0.01) { ctx.fillStyle = `rgba(222,232,255,${Math.min(0.72, fx.flash * 0.72)})`; ctx.fillRect(x0 - 6, yTop - dh, dw + 12, dh * 2 + 6); }
-  if (fx.bolt && fx.bolt.seg?.length > 1) {
-    const a = Math.max(0, 1 - (performance.now() - fx.bolt.born) / fx.bolt.dur);
-    ctx.save(); ctx.strokeStyle = `rgba(232,242,255,${a})`; ctx.lineWidth = 2.2; ctx.lineJoin = 'round';
-    ctx.shadowColor = 'rgba(180,210,255,0.9)'; ctx.shadowBlur = 12;
-    ctx.beginPath();
-    fx.bolt.seg.forEach((p, i) => { const sx = x0 + p[0] * dw, sy = yTop + p[1] * dh; i ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy); });
-    ctx.stroke(); ctx.restore();
+  // The door reader for a lightning tree — see client/shared/lightning-draw.js. It drops
+  // DOOR_BOLT_DROP of the door's height, and its lateral offsets are scaled by that same span
+  // rather than by the width: the tree is authored square, so scaling `ox` by a door's width fans
+  // every branch out to an angle nobody chose.
+  //
+  // ⚠ AND THE ENVELOPE IS THE SHARED ONE. This used to be a straight linear fade over 240ms, which
+  // is a bolt that DIMS — where what lightning does is stammer, two or three return strokes up the
+  // same channel. It reads the same `boltBright` the canopy does, so the door and the cockpit agree
+  // about what a flash looks like.
+  if (fx.bolt && fx.bolt.branches) {
+    const { ch, br } = boltBright(fx.bolt, performance.now() - fx.bolt.born);
+    if (ch > 0.02) {
+      const span = dh * DOOR_BOLT_DROP, bx = x0 + (fx.bolt.x ?? 0.5) * dw;
+      paintBolt(ctx, fx.bolt, (p) => [bx + p.ox * span, yTop + (1 - p.f) * span], { ch, br, w: 0.9 });
+    }
   }
   ctx.restore();
   ctx.strokeStyle = 'rgba(36,44,52,0.95)'; ctx.lineWidth = 4;                  // heavy door frame
@@ -6418,6 +7419,199 @@ function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
 }
 
+// ── The covered dock ─────────────────────────────────────────────────────────
+// NOT THE DEPOT WITH A BLUE FLOOR ON IT, for the reason drawDepotBackdrop sets out at length about
+// the hangar: what separates these buildings is the work, not the decoration. A boathouse is a roof
+// on columns over a SLOT OF OPEN WATER — the floor is the thing that moves — and everything in it
+// follows from that: no bays painted on anything, because you cannot paint water; a gantry track
+// down the length rather than a pit across it, because a hull comes OUT upwards; and one open end
+// where the roof simply stops and the Basin carries on, which is the only wall this room has.
+//
+// ⚠ THE WATER IS LIT FROM UNDER. That is the marina's own prose ("the water under the dock is lit
+// from below and the room is not"), and it is also the only way a dark interior over dark water
+// reads as anything at all: a flat dark quad with a boat on it is a boat on a black floor.
+function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
+  const pal = skyPalette(sky), night = pal.night ?? 0;
+  const horizon = h * 0.44, cx = w / 2;
+
+  // ── The open end: the roof stops and the Basin carries on ──────────────────
+  // Sized off how many hulls are in here, the same way the hangar's door is.
+  const mouthW = w * (0.3 + doorFrac * 0.26), mouthT = h * 0.12, mouthB = horizon + h * 0.02;
+  ctx.fillStyle = '#0b0f14'; ctx.fillRect(0, 0, w, horizon);
+  let g = ctx.createLinearGradient(0, mouthT, 0, mouthB);
+  g.addColorStop(0, rgbStr(pal.top)); g.addColorStop(1, rgbStr(pal.hor));
+  ctx.fillStyle = g; ctx.fillRect(cx - mouthW / 2, mouthT, mouthW, mouthB - mouthT);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(cx - mouthW / 2, mouthT, mouthW, mouthB - mouthT); ctx.clip();
+  ctx.fillStyle = rgbStr(mix3(pal.hor, [18, 24, 32], 0.55), 0.8);
+  const bw = mouthW / 9;
+  for (let i = 0; i < 9; i++) {
+    const bh = (mouthB - mouthT) * (0.08 + hash01(i * 5.1) * 0.3);
+    ctx.fillRect(cx - mouthW / 2 + i * bw, mouthB - bh - (mouthB - mouthT) * 0.12, bw * 0.86, bh);
+  }
+  ctx.restore();
+
+  // ── The roof, and the columns holding it up ────────────────────────────────
+  // Deliberately heavy and deliberately close: the hall's own description is columns you can get
+  // both arms around "and no more than that", so they are the scale reference in the room.
+  const eave = h * 0.1;
+  ctx.fillStyle = '#10151b'; ctx.fillRect(0, 0, w, eave);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, eave - 5, w, 5);
+  for (const t of [0.09, 0.26, 0.74, 0.91]) {
+    const x = t * w, top = eave, bot = horizon + h * (0.02 + Math.abs(t - 0.5) * 0.1);
+    const cw = w * (0.022 + Math.abs(t - 0.5) * 0.02);
+    const cg = ctx.createLinearGradient(x - cw, 0, x + cw, 0);
+    cg.addColorStop(0, '#0d1116'); cg.addColorStop(0.45, '#242c34'); cg.addColorStop(1, '#0b0e12');
+    ctx.fillStyle = cg; ctx.fillRect(x - cw, top, cw * 2, bot - top);
+  }
+  // The travel hoist on its gantry: rails down the length, and the crab parked over the slot.
+  ctx.strokeStyle = 'rgba(120,136,152,0.45)'; ctx.lineWidth = 3;
+  for (const sgn of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(cx + sgn * mouthW * 0.36, eave + h * 0.02);
+    ctx.lineTo(cx + sgn * w * 0.46, eave + h * 0.055);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#2a323b'; ctx.fillRect(cx - w * 0.05, eave + h * 0.015, w * 0.1, h * 0.028);
+  // ⚠ THE SLINGS HANG OFF IT, and a travel hoist with nothing hanging from it is a footbridge.
+  // Two webbing straps and the falls between them — the shape of the machine that picks a hull up
+  // by the middle, which is the one piece of plant in this building a garage has no equivalent of.
+  ctx.strokeStyle = 'rgba(150,164,178,0.5)'; ctx.lineWidth = 1.4;
+  for (const off of [-w * 0.032, w * 0.032]) {
+    ctx.beginPath(); ctx.moveTo(cx + off, eave + h * 0.043); ctx.lineTo(cx + off, eave + h * 0.105); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(196,186,150,0.45)'; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.032, eave + h * 0.105);
+  ctx.quadraticCurveTo(cx, eave + h * 0.135, cx + w * 0.032, eave + h * 0.105);
+  ctx.stroke();
+
+  // ⚠ THE SLOT IS MOST OF THE FRAME, because the CAMERA fits the row of hulls to the width of the
+  // canvas and the backdrop cannot argue with it — a narrow slot with a wide camera puts a boat
+  // sitting on the deck planking with water visible either side of her, which is exactly what the
+  // first cut drew. The decks are what is left in the bottom corners.
+  const deckTop = horizon + h * 0.02, slotTop = w * 0.26, slotBot = w * 1.02;
+
+  // ── The slot itself ────────────────────────────────────────────────────────
+  // Drawn BEFORE the decks so their cleats and fenders overhang it, which is what a deck does.
+  ctx.beginPath();
+  ctx.moveTo(cx - slotTop, deckTop); ctx.lineTo(cx + slotTop, deckTop);
+  ctx.lineTo(cx + slotBot, h); ctx.lineTo(cx - slotBot, h); ctx.closePath();
+  g = ctx.createLinearGradient(0, deckTop, 0, h);
+  g.addColorStop(0, '#0a1a24'); g.addColorStop(1, '#06121a');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.save(); ctx.clip();
+  const underA = 0.2 + night * 0.3;
+  const pool = ctx.createRadialGradient(cx, h * 0.86, 4, cx, h * 0.86, w * 0.55);
+  pool.addColorStop(0, 'rgba(120,200,206,' + underA.toFixed(3) + ')'); pool.addColorStop(1, 'rgba(120,200,206,0)');
+  ctx.fillStyle = pool; ctx.fillRect(0, deckTop, w, h - deckTop);
+  // ⚠ AND THE OPEN END LAYS ITS OWN LIGHT DOWN THE SLOT, which is most of what says this water is
+  // water and that end is open. A daylit mouth throws a pale wedge toward the camera; at night it
+  // throws almost nothing, and the under-deck pool above is what carries the room instead.
+  const mouthLight = ctx.createLinearGradient(0, deckTop, 0, h);
+  const mLA = 0.17 * (1 - night);
+  mouthLight.addColorStop(0, rgbStr(pal.hor, mLA));
+  mouthLight.addColorStop(0.45, rgbStr(pal.hor, mLA * 0.35));
+  mouthLight.addColorStop(1, rgbStr(pal.hor, 0));
+  ctx.fillStyle = mouthLight;
+  ctx.beginPath();
+  ctx.moveTo(cx - mouthW * 0.4, deckTop); ctx.lineTo(cx + mouthW * 0.4, deckTop);
+  ctx.lineTo(cx + w * 0.30, h); ctx.lineTo(cx - w * 0.30, h); ctx.closePath(); ctx.fill();
+  // Ripple: horizontal bands that widen and separate toward the camera, which is all perspective on
+  // flat water ever is. Still — nothing here animates, because a dock screen is a photograph.
+  ctx.strokeStyle = 'rgba(160,214,220,0.16)';
+  for (let k = 1; k < 16; k++) {
+    const f = Math.pow(k / 16, 1.7), y = deckTop + (h - deckTop) * f;
+    ctx.lineWidth = 0.6 + f * 1.6;
+    ctx.beginPath();
+    ctx.moveTo(cx - (slotTop + (slotBot - slotTop) * f) * (0.6 + hash01(k) * 0.4), y);
+    ctx.lineTo(cx + (slotTop + (slotBot - slotTop) * f) * (0.6 + hash01(k * 2.7) * 0.4), y);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // ── The decks, either side of the slot ─────────────────────────────────────
+  const deckQuad = (sgn) => {
+    ctx.beginPath();
+    ctx.moveTo(cx + sgn * slotTop, deckTop);
+    ctx.lineTo(cx + sgn * w * 0.6, deckTop);
+    ctx.lineTo(cx + sgn * w * 1.2, h);
+    ctx.lineTo(cx + sgn * slotBot, h);
+    ctx.closePath();
+    const dg = ctx.createLinearGradient(0, deckTop, 0, h);
+    dg.addColorStop(0, '#1a2026'); dg.addColorStop(1, '#0d1116');
+    ctx.fillStyle = dg; ctx.fill();
+    ctx.save(); ctx.clip();
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1;
+    for (let k = 1; k < 9; k++) {
+      const f = k / 9;
+      ctx.beginPath();
+      ctx.moveTo(cx + sgn * (slotTop + (w * 0.6 - slotTop) * f), deckTop);
+      ctx.lineTo(cx + sgn * (slotBot + (w * 1.2 - slotBot) * f), h);
+      ctx.stroke();
+    }
+    ctx.restore();
+    // The rubbing strake down the slot edge, and the cleats and fenders on it. ⚠ THIS IS THE
+    // DIFFERENCE, and it is not decoration: a depot's floor edge is a painted line and a dock's is
+    // a piece of timber with hardware bolted to it, because something heavy comes alongside it.
+    ctx.strokeStyle = 'rgba(70,84,96,0.8)'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + sgn * slotTop, deckTop); ctx.lineTo(cx + sgn * slotBot, h); ctx.stroke();
+    for (let k = 0; k < 6; k++) {
+      const f = (k + 0.5) / 6;
+      const x = cx + sgn * (slotTop + (slotBot - slotTop) * f), y = deckTop + (h - deckTop) * f;
+      // The cleat, standing on the deck…
+      ctx.fillStyle = 'rgba(148,162,176,0.55)';
+      ctx.fillRect(x + sgn * 4, y - 2 - f * 4, 4 + f * 6, 2 + f * 4);
+      // …and a fender hung off it over the water, which is a thing no yard has ever needed.
+      const fr = 2 + f * 7;
+      ctx.fillStyle = 'rgba(28,34,40,0.85)';
+      ctx.beginPath(); ctx.ellipse(x - sgn * fr * 0.6, y + fr * 0.5, fr * 0.45, fr, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(120,136,152,0.35)'; ctx.lineWidth = Math.max(0.6, f * 1.2);
+      ctx.beginPath(); ctx.moveTo(x + sgn * 2, y - f * 3); ctx.lineTo(x - sgn * fr * 0.6, y - fr * 0.4); ctx.stroke();
+    }
+    // A ladder down the face of the deck into the water, near the camera where it can be seen.
+    {
+      const f = 0.82;
+      const x = cx + sgn * (slotTop + (slotBot - slotTop) * f), y = deckTop + (h - deckTop) * f;
+      ctx.strokeStyle = 'rgba(160,176,190,0.5)'; ctx.lineWidth = 2;
+      for (const off of [-7, 7]) {
+        ctx.beginPath(); ctx.moveTo(x - sgn * 14 + off, y); ctx.lineTo(x - sgn * 26 + off, y + 26); ctx.stroke();
+      }
+      ctx.lineWidth = 1.6;
+      for (let r = 0; r < 3; r++) {
+        const t2 = r / 3;
+        ctx.beginPath();
+        ctx.moveTo(x - sgn * (14 + 12 * t2) - 7, y + 26 * t2);
+        ctx.lineTo(x - sgn * (14 + 12 * t2) + 7, y + 26 * t2);
+        ctx.stroke();
+      }
+    }
+  };
+  deckQuad(-1); deckQuad(1);
+
+  // Cradles down one side — the hall's own south wall, and the only dry thing in the room.
+  ctx.fillStyle = 'rgba(58,44,30,0.8)';
+  for (let k = 0; k < 3; k++) {
+    const f = 0.15 + k * 0.28, y = deckTop + (h - deckTop) * f;
+    const x = cx - (slotTop + (slotBot - slotTop) * f) - w * (0.07 + f * 0.1);
+    ctx.fillRect(x, y, w * (0.03 + f * 0.04), h * (0.02 + f * 0.03));
+  }
+
+  // Strip lights under the roof — cold, few, and a long way up.
+  for (const t of [0.34, 0.5, 0.66]) {
+    const lx = t * w, ly = eave + h * 0.008;
+    const lg = ctx.createRadialGradient(lx, ly, 2, lx, ly, w * 0.13);
+    lg.addColorStop(0, 'rgba(198,222,236,' + (0.1 + night * 0.16).toFixed(3) + ')');
+    lg.addColorStop(1, 'rgba(198,222,236,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, w, horizon);
+    ctx.fillStyle = 'rgba(222,238,248,0.7)'; ctx.fillRect(lx - w * 0.035, ly, w * 0.07, 2.5);
+  }
+  const vg = ctx.createRadialGradient(cx, h * 0.55, Math.min(w, h) * 0.42, cx, h * 0.5, Math.max(w, h) * 0.85);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.42)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+}
+
 // ── The truck depot ──────────────────────────────────────────────────────────
 // NOT THE HANGAR WITH AN OIL STAIN ON IT. The first cut drew the yard by handing
 // `drawHangarBackdrop` a brown tint and a wider door, which is a reasonable saving right up until
@@ -6754,6 +7948,8 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
   ctx.clearRect(0, 0, w, h);
   const n = entries.length;
   if (venue === 'helipad') drawHelipadBackdrop(ctx, w, h, { sky });
+  // A covered dock is its own room for the same reason a depot is — see drawDockBackdrop.
+  else if (venue === 'dock') drawDockBackdrop(ctx, w, h, { doorFrac: Math.min(0.9, 0.4 + n * 0.12), sky });
   // A truck depot is its OWN room — see drawDepotBackdrop for why a tint over the hangar wasn't it.
   else if (venue === 'garage') drawDepotBackdrop(ctx, w, h, { doorFrac: Math.min(0.9, 0.5 + n * 0.05), sky });
   else drawHangarBackdrop(ctx, w, h, { doorFrac: Math.min(0.86, 0.34 + n * 0.05), sky });

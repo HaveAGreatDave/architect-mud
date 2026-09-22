@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_newmarket_lobby",
+  "id": "zone_hf_newmarket_show",
+  "name": "New to Market — The Show Home",
+  "source_type": "junction_box"
+}

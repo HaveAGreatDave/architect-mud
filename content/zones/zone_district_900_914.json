@@ -1,22 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#0f1922",
+  "color": "#c8e6ff",
+  "description": "Thirteen floors in five bulges, the top one noticeably smaller than the bottom one, with a chrome collar at every pinch. The board by the door still lists the launch terms: no chain, no onward purchase, completion in twenty-eight days. Every one of those was true and the building is a third occupied anyway. The door beside the board is open during the day and there is a desk visible through it with somebody behind it, which is the only building on this street where that is true. The door beside the board is open during the day and there is a desk visible through it with somebody behind it, which is the only building on this street where that is true. The door beside the board is open during the day and there is a desk visible through it with somebody behind it, which is the only building on this street where that is true. The door beside the board is open during the day and there is a desk visible through it with somebody behind it, which is the only building on this street where that is true. The door beside the board is open during the day and there is a desk visible through it with somebody behind it, which is the only building on this street where that is true. The door beside the board is open during the day and there is a desk visible through it with somebody behind it, which is the only building on this street where that is true.",
   "exits": {
-    "south": "zone_district_900_915",
+    "east": "zone_hf_chainfree_lobby",
     "west": "zone_district_899_914"
   },
   "flags": {
+    "building_name": "Chain Free",
+    "building_type": "bead_tower",
     "district": "halcyon_fields",
+    "entrance": "west",
+    "facade": true,
+    "floors": 13,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_899_914"
   },
   "grid_x": 900,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_900_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "CE",
+  "name": "Chain Free",
   "parent_zone": null
 }

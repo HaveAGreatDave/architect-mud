@@ -37,7 +37,8 @@
 // the one that always shipped, and a second draw with `colorMask` off lays the silhouette into the
 // depth buffer ahead of it. ⚠ With no batch asking for it the prepass is not merely cheap, it is
 // the absence of a code path — which is what makes the flag's `0` provably the old renderer.
-import { viewProjMatrix } from './camera.js';
+import { viewProjMatrix, mat4f } from './camera.js';
+import { makeVertexStream } from './stream.js';
 
 // What alpha counts as the SHAPE rather than as its edge, in the depth-only prepass. A billboard is
 // baked from flat fills, so its interior is 1 and only the rim is between; half is the middle of
@@ -216,7 +217,10 @@ export function createBillboardLayer(gl) {
   };
 
   const vao = gl.createVertexArray();
-  const buf = gl.createBuffer();
+  // One stream, set up once: the attribute pointers are recorded into the VAO here and never
+  // touched again, and the storage grows by doubling instead of being reallocated every frame.
+  // See gl/stream.js.
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.off, 2, 12], [loc.uv, 2, 20], [loc.alpha, 1, 28]], 2048);
   let data = new Float32Array(0);
   const texes = new Map();
   let batches = [];
@@ -322,12 +326,20 @@ export function createBillboardLayer(gl) {
       if (b.rot) {
         const c = Math.cos(b.rot), s = Math.sin(b.rot);
         const rx = (x, y) => x * c - y * s, ry = (x, y) => x * s + y * c;
-        put(b, rx(L, T), ry(L, T), 0, 0); put(b, rx(R, T), ry(R, T), 1, 0); put(b, rx(R, B), ry(R, B), 1, 1);
-        put(b, rx(L, T), ry(L, T), 0, 0); put(b, rx(R, B), ry(R, B), 1, 1); put(b, rx(L, B), ry(L, B), 0, 1);
+        const q0 = b.flip ? 1 : 0, q1 = b.flip ? 0 : 1;
+        put(b, rx(L, T), ry(L, T), q0, 0); put(b, rx(R, T), ry(R, T), q1, 0); put(b, rx(R, B), ry(R, B), q1, 1);
+        put(b, rx(L, T), ry(L, T), q0, 0); put(b, rx(R, B), ry(R, B), q1, 1); put(b, rx(L, B), ry(L, B), q0, 1);
         return;
       }
-      put(b, L, T, 0, 0); put(b, R, T, 1, 0); put(b, R, B, 1, 1);
-      put(b, L, T, 0, 0); put(b, R, B, 1, 1); put(b, L, B, 0, 1);
+      // ⚠ A MIRROR IS A FREE SILHOUETTE. It swaps the texture's u, so a mirrored card is the
+      // SAME texture drawn the other way round — no second bake, no second cache entry, and
+      // therefore nothing taken from a budget whose overflow is this layer's worst failure. The
+      // scatter uses it to get two silhouettes out of every card it already had.
+      // ⚠ AND THE ZERO CASE IS NOT A CODE PATH, the rule `rot` above already follows: with no
+      // flip the constants are the ones that always shipped, to the bit.
+      const u0 = b.flip ? 1 : 0, u1 = b.flip ? 0 : 1;
+      put(b, L, T, u0, 0); put(b, R, T, u1, 0); put(b, R, B, u1, 1);
+      put(b, L, T, u0, 0); put(b, R, B, u1, 1); put(b, L, B, u0, 1);
     };
     for (const [key, a] of byKey) {
       // ⚠ ONE TEXTURE, UP TO TWO BATCHES. `depth` is GL STATE set once per draw call, so it belongs
@@ -342,20 +354,14 @@ export function createBillboardLayer(gl) {
       for (const b of a.deep) quad(b);
       if (a.deep.length) { const n = a.deep.length * 6; batches.push({ tex, first, count: n, depth: true, snow: a.snow }); first += n; }
     }
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, verts * STRIDE), gl.DYNAMIC_DRAW);
-    const S = STRIDE * 4;
-    const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
-    bind(loc.pos, 3, 0); bind(loc.off, 2, 12); bind(loc.uv, 2, 20); bind(loc.alpha, 1, 28);
-    gl.bindVertexArray(null);
+    stream.write(data, verts * STRIDE);
     return quads;
   }
 
   function draw(cam, W, H, cssH, fog, snow) {
     if (!batches.length) return 0;
     gl.useProgram(prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, cssH || H)));
+    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
     const f = fog || {};
     const c = f.col || [0.5, 0.5, 0.55];

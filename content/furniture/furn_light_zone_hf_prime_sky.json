@@ -1,0 +1,11 @@
+{
+  "description": "Round all four sheared sides at the head of the glass, turned down after dark so that the room is dimmer than the city outside it and the view keeps working. Whoever specified that understood the building.",
+  "flags": {},
+  "id": "furn_light_zone_hf_prime_sky",
+  "light_type": "cove",
+  "lumen_output": 380,
+  "name": "a perimeter cove",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_prime_sky"
+}

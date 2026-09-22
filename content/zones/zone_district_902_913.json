@@ -3,10 +3,8 @@
   "ambient_theme": "city",
   "description": "A run of new kerb along the east side stops mid-stone, sawn off clean. The rest of it never came.",
   "exits": {
-    "east": "zone_district_903_913",
     "north": "zone_district_902_912",
-    "south": "zone_district_902_914",
-    "west": "zone_district_901_913"
+    "south": "zone_district_902_914"
   },
   "flags": {
     "district": "halcyon_fields",

@@ -1,0 +1,8 @@
+{
+  "description": "Engraved rather than printed, screwed to the wall beside the gap. Four clauses. The first says the house holds no second key. The third says the house does not know, and will not ask, what is in a box. The fourth says that in the event of a default the box is drilled in the presence of two witnesses and its contents destroyed unexamined. There is no clause about insurance because there is no insurance.",
+  "flags": {},
+  "id": "furn_hf_safe_terms",
+  "name": "a card of terms",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_safe_hall"
+}

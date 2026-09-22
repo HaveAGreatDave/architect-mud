@@ -1,0 +1,8 @@
+{
+  "description": "Chrome, freestanding, with an arrow on it pointing horizontally at the lift doors. It was made with the arrow pointing up, and somebody in the estate office decided that an upward arrow in a lobby means the floor above rather than the fourth, and had it remade.",
+  "flags": {},
+  "id": "furn_hf_newmarket_sign",
+  "name": "a show home sign",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_newmarket_lobby"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "The bottom of the spine, where the collars are tied down. Plain, painted, and containing one thing worth looking at: an off-cut of the bright collar section about a metre long, left standing against the wall, unpolished on the inside and mirror on the out.",
+  "exits": {
+    "up": "zone_hf_wellappointed_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_wellappointed_lobby",
+  "map_id": "map_int_hf_wellappointed",
+  "name": "Well Appointed — The Ring Base",
+  "parent_zone": "zone_district_896_917"
+}

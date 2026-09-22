@@ -1,22 +1,28 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_events": [
+    "Light comes through the marina flank and lies across the slabs in bars.",
+    "The gravel has been raked since this morning. Nobody saw it done.",
+    "Water slaps once against something out of sight and stops."
+  ],
+  "ambient_theme": "coast",
+  "color": "#cfd8de",
+  "description": "The quay runs west along the back of the marina, one slab wide and swept. On the water side the marina pavilion stands over it in glass, lit from inside whatever the hour, with its roof carrying on north over the dock. On the land side there is a strip of gravel raked into lines, which somebody comes and rakes again.",
   "exits": {
     "east": "zone_district_894_903",
     "north": "zone_district_893_902",
     "west": "zone_district_892_903"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "glasshouse",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 893,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_893_903",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Halcyon Quay",
   "parent_zone": null
 }

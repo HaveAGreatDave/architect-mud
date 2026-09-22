@@ -6,6 +6,7 @@ import { command as textFishingCommand } from './panels/textfishing.js';
 import { command as textNullCommand } from './panels/textnullboard.js';
 import { command as textCalibrationCommand } from './panels/textcalibration.js';
 import { command as textDemolitionCommand } from './panels/textdemolition.js';
+import { command as textAlarmCommand } from './panels/textalarm.js';
 import {
 	loadSettings,
 	saveSettings,
@@ -79,6 +80,7 @@ import { stopEngineAudio } from "./panels/engine-audio.js";
 import { isFlightSimActive } from "./panels/cockpit.js";
 import { isHangarBayWalkActive } from "./panels/hangar-bay.js";
 import { isTruckDepotWalkActive } from "./panels/truck-depot.js";
+import { seatHoldsKeyboard } from "./panels/seat-keys.js";
 import { runBootScreen } from "./panels/bootscreen.js";
 
 // Started before anything else is wired, and deliberately NOT awaited: the POST
@@ -372,7 +374,7 @@ setWhoModalHandler(openWhoModal);
 // text minigame runs entirely client-side, so there is nothing server-side to
 // receive those words. Returns false when the board is shut, so the verbs stay
 // available to whatever else owns them.
-setMinigameCommandHandler((cmd) => textBreachCommand(cmd) || textHololockCommand(cmd) || textVaultCommand(cmd) || textSignalCommand(cmd) || textFishingCommand(cmd) || textCalibrationCommand(cmd) || textNullCommand(cmd) || textDemolitionCommand(cmd));
+setMinigameCommandHandler((cmd) => textBreachCommand(cmd) || textHololockCommand(cmd) || textVaultCommand(cmd) || textSignalCommand(cmd) || textFishingCommand(cmd) || textCalibrationCommand(cmd) || textNullCommand(cmd) || textDemolitionCommand(cmd) || textAlarmCommand(cmd));
 
 // Auth form — restore remembered credentials
 const _savedUser = localStorage.getItem("mud_remember_user");
@@ -815,10 +817,27 @@ if (wasdBtn) {
 	// Embarking an aircraft: W/A/S/D become flight controls, so drop walk-mode if it was armed
 	// (otherwise the capture handler below eats the keys before the flight sim ever sees them).
 	window.addEventListener("flightsim:open", () => { if (state.wasdMove) setArmed(false); });
+	// …and any other 3-D seat, which says so through one event rather than through a list of panels
+	// this file would have to be told about. The button is disabled while a seat is up as well as
+	// disarmed: the guard above already makes the mode a no-op there, and a control that silently
+	// does nothing when pressed is worse than one that says it is not available.
+	window.addEventListener("seat:keyboard", (e) => {
+		const seated = !!e.detail?.seated;
+		if (seated && state.wasdMove) setArmed(false);
+		wasdBtn.disabled = seated;
+		wasdBtn.title = seated
+			? "Keyboard movement — unavailable while a 3-D view has the keys"
+			: "Keyboard movement: WASD=N/W/S/E · Q=in Z=out E=up C=down";
+	});
 	window.addEventListener(
 		"keydown",
 		(e) => {
-			if (!state.wasdMove || isFlightSimActive() || isHangarBayWalkActive() || isTruckDepotWalkActive()) return;
+			// ⚠ A 3-D SEAT OWNS THESE LETTERS. seatHoldsKeyboard() is the derived answer — any seat is
+			// mounted and the caret is not in a text field — so the cab, the wheelhouse, the helm, the
+			// charter cabin and free look are all covered without being named; the two walk views below
+			// claim no seat keyboard of their own and so are still asked for by hand.
+			if (!state.wasdMove || seatHoldsKeyboard()) return;
+			if (isFlightSimActive() || isHangarBayWalkActive() || isTruckDepotWalkActive()) return;
 			if (e.ctrlKey || e.metaKey || e.altKey) return;
 			// Let real text fields (command box, chat, tablet, dialogs) type normally.
 			const tag = e.target.tagName;

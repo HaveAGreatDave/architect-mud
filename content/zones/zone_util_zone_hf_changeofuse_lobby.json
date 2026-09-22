@@ -1,0 +1,18 @@
+{
+  "description": "Under the lobby, with the switchgear and four separate meters on a board, labelled STUDIO, PAPER, CLINIC and — on the fourth, in a different hand — ?. The fourth one turns.",
+  "exits": {
+    "up": "zone_hf_changeofuse_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_changeofuse_lobby",
+  "map_id": "map_int_hf_changeofuse",
+  "name": "Change of Use — The Riser Cupboard",
+  "parent_zone": "zone_district_897_917"
+}

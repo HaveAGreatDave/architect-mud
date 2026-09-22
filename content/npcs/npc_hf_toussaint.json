@@ -1,0 +1,267 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Toussaint pulls a lead out of the field, looks at both ends of it, and puts it back in the same port.",
+    "She writes a label, holds it up against the light, and writes it again.",
+    "The tester in her belt chirps twice and she ignores it.",
+    "She coils a length of cable against her elbow in eleven turns without looking at it once.",
+    "Something in the rack changes note, very slightly, and she goes still for about two seconds and then carries on."
+  ],
+  "description": "A compact woman on a stool at a bench, with a headtorch pushed up onto her forehead and a crimp tool in her hand more often than not. She is the only person in Halcyon Fields who was hired by the estate and is no longer paid by it, and she is still here, and the racks are still immaculate.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Pull the door to. It sticks and then it does not latch, and then it is open all night.\" She is back at the bench already."
+    },
+    "filter": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I sell the filter because people ask me for it.\" A small shrug. \"Second week I was here, a man on the fourth floor asked me whether there was a way to be on the network without being on the network. There is. It is not clever and it is not hidden — it sits in the line and it is the size of your thumb.\"\n\n\"Nobody has told me to stop. I have thought about why nobody has told me to stop, and the answer I keep arriving at is that eleven flats is not enough people for anyone to care.\""
+    },
+    "line11": {
+      "options": [
+        {
+          "label": "Is that why you sell the filter?",
+          "next": "filter"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"CONNECTED TO THE ESTATE NETWORK.\" She says it in the flat voice of somebody quoting. \"It means the building takes its data off the estate's spine instead of off the city's. It is faster. It is genuinely faster, I am not going to stand here and tell you it is not.\"\n\nShe turns the crimp tool over.\n\n\"It also means every port in that field goes through one room at the top of the Spire before it goes anywhere else. That is not a secret. It is in the technical schedule. It is on page forty-one of a document nobody who buys a flat has ever read, and it is not on the plate in the hall.\""
+    },
+    "paid": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The contractor went under in the spring.\" She says it without heat. \"Their people went with them. The estate re-tendered the south end and the tender is at the land office with everything else in this quarter, and in the meantime there are eleven families and a health club and a bar down the lane that all need to be on something.\"\n\nShe taps the bench.\n\n\"So I am here. I invoice the buildings direct and they mostly pay. It is better money than the contractor was and it is worse in every other way, and I would take the contractor back tomorrow.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What does line eleven actually mean?",
+          "next": "line11"
+        },
+        {
+          "label": "What are you selling?",
+          "next": "__shop__"
+        },
+        {
+          "label": "The estate stopped paying you?",
+          "next": "paid"
+        },
+        {
+          "label": "I will leave you to it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Door was open.\" She does not look up from the bench. \"That is not an invitation, it is a fact.\"",
+      "text_by_relation": {
+        "familiar": "She has a lead made up and tagged on the corner of the bench before you speak, which means she was expecting you, which means she has been thinking about the last thing you said.\n\n\"I looked into it,\" she says. \"You were right and you were right for the wrong reason.\"",
+        "first": "The woman on the stool finishes the crimp before she turns round, and the turn is unhurried.\n\n\"You are not from a flat in this building, because I know all eleven of them.\" She looks at you properly. \"Ghalia Toussaint. I do the connections. Not just here — the whole south end of the estate, since the contractor that had it went.\"\n\nShe nods at the patch field, three hundred ports of it.\n\n\"Forty live. Out of three hundred. So I have time to talk, which is a thing I have stopped pretending is good.\"",
+        "known": "\"You.\" She kicks the second stool out from under the bench with her heel. \"Sit down and do not touch the field.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a charcoal work shirt with the sleeves rolled to the elbow",
+      "a tool belt worn low with a crimp tool and a tester in it",
+      "dark trousers with a long pocket down one thigh",
+      "a headtorch pushed up onto the forehead and left there",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_modcons_comms",
+  "hp": 35,
+  "hp_max": 35,
+  "id": "npc_hf_toussaint",
+  "name": "Ghalia Toussaint",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_patchlead",
+      "price": 14
+    },
+    {
+      "item_id": "item_hf_netfilter",
+      "price": 55
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Mod Cons Connections",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_modcons_comms"
+}

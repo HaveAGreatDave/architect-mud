@@ -3,10 +3,8 @@
   "ambient_theme": "city",
   "description": "Drainage was an afterthought here and looks it. Water stands along the western kerb in a long shallow strip that never entirely dries.",
   "exits": {
-    "east": "zone_district_900_917",
     "north": "zone_district_899_916",
-    "south": "zone_district_899_918",
-    "west": "zone_district_898_917"
+    "south": "zone_district_899_918"
   },
   "flags": {
     "district": "halcyon_fields",

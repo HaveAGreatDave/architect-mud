@@ -1,0 +1,20 @@
+{
+  "description": "A single pump in Fairweather's grey, bolted through the decking at the head of the walkway: a cranked hose on a drum, a dead-man nozzle in a clip, a card reader with the paint worn off the keys, and a bonding cable coiled on a hook that everybody uses and nobody checks. The plate above the reader carries the rate for race fuel and nothing else — no grades, no offers, no hours, on the reasoning that anybody who has to ask is at the wrong marina.",
+  "flags": {
+    "fuel_price_sign": true,
+    "fuel_source": 1.15,
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_marina_fuel_pump",
+  "light_type": "lamp",
+  "lumen_output": 180,
+  "name": "the fuel pump",
+  "object_type": "furniture",
+  "power_draw_kw": 0.05,
+  "price": 0,
+  "zone_id": "zone_district_892_901"
+}

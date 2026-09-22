@@ -105,7 +105,7 @@ export function openTruckDepot(msg) {
     screen: SCREEN_FOR_TAB[msg.tab] || (first ? 'floor' : B?.screen) || 'floor',
     selId: (msg.fleet || []).some(t => t.id === keepSel) ? keepSel : (msg.fleet || [])[0]?.id || null,
     inspect: B?.inspect || inspectDefault(),
-    bench: B?.bench || { tab: 'condition', psec: 'scheme', fslot: null, tune: null, paint: null, trim: null },
+    bench: B?.bench || { tab: 'condition', psec: 'scheme', fslot: null, cslot: null, tune: null, paint: null, trim: null },
     lotSel: B?.lotSel || null,
     // Which box is open, kept across a re-push exactly as the truck selection is — a repush lands
     // after every mutation on this screen, and a panel that closed itself each time would make
@@ -247,14 +247,30 @@ function footChips() {
   const chip = (cmd, label, spend = false) =>
     `<button class="td-verb" ${spend ? 'data-confirm' : 'data-cmd'}="${esc(cmd)}">${esc(label || cmd)}</button>`;
   const out = [];
-  if (sel?.hereNow) out.push(chip(`drive ${sel.id}`, 'drive'));
-  if (sel && sel.condition < 1) out.push(chip(`rig repair ${sel.id} shop`, `rig repair · ${money(sel.repairShop)}`, true));
-  if (sel && d.fuelHere && sel.fuel < 0.99) out.push(chip(`rig fuel ${sel.id}`, `rig fuel · ${money(sel.refuel)}`, true));
-  if (sel?.washPrice) out.push(chip(`rig wash ${sel.id}`, `rig wash · ${money(sel.washPrice)}`, true));
+  // ⚠ AND NOT WHAT THE SCREEN ABOVE IT IS ALREADY SHOWING, which is the other half of the same
+  // idea. Every screen here already carries its own verbs where they belong — Take it out beside
+  // the truck it takes out, the repair choices under the condition gauge, Take it on each row of
+  // the board — and the footer was printing all of them again, four inches down, in a different
+  // costume and without the explanation. That is what made one panel feel like four sets of
+  // buttons: not the number of them, but the same verb twice. A chip is dropped when the screen in
+  // front of you already offers it, and comes back the moment you leave that screen.
+  const shown = new Set(
+    B.screen === 'floor' ? ['drive']
+    : B.screen === 'freight' ? ['haul']
+    : B.screen === 'market' ? ['market sell']
+    // The bench's Condition tab is the only one that does work on the truck rather than to its
+    // appearance, and it does all three with the choice spelled out beside each price.
+    : B.screen === 'bench' && B.bench.tab === 'condition' ? ['rig repair', 'rig fuel', 'rig wash']
+    : []);
+  const has = (v) => shown.has(v);
+  if (sel?.hereNow && !has('drive')) out.push(chip(`drive ${sel.id}`, 'drive'));
+  if (sel && sel.condition < 1 && !has('rig repair')) out.push(chip(`rig repair ${sel.id} shop`, `rig repair · ${money(sel.repairShop)}`, true));
+  if (sel && d.fuelHere && sel.fuel < 0.99 && !has('rig fuel')) out.push(chip(`rig fuel ${sel.id}`, `rig fuel · ${money(sel.refuel)}`, true));
+  if (sel?.washPrice && !has('rig wash')) out.push(chip(`rig wash ${sel.id}`, `rig wash · ${money(sel.washPrice)}`, true));
   // …and not while the deck is full, for the same reason the board's own buttons go dim: the footer
   // is built from what is true right now, and `haul 1` onto a loaded truck is not.
-  if (d.board?.length && !d.cargo) out.push(chip('haul 1', `haul 1 · ${money(d.board[0].pay)}`));
-  if (d.cargo?.kind === 'goods') out.push(chip('market sell'));
+  if (d.board?.length && !d.cargo && !has('haul')) out.push(chip('haul 1', `haul 1 · ${money(d.board[0].pay)}`));
+  if (d.cargo?.kind === 'goods' && !has('market sell')) out.push(chip('market sell'));
   out.push(chip('yard'));
   // ── THE BUNKROOM ───────────────────────────────────────────────────────────
   // The one room in a depot that is not about trucks, and the screen never admitted it existed.
@@ -328,12 +344,11 @@ function floorScreen() {
   const boxes = mine.length ? `
       <div class="td-deck td-boxes"><span class="td-lab">Your boxes</span>
         ${mine.map(t => `<div class="td-box-row${t.id === B.boxSel ? ' on' : ''}" data-box="${esc(t.id)}">
-          <b>${esc(t.name)}</b> <span class="td-dim">· ${t.ratedKg} kg rated</span>
-          <span class="td-dim">· ${t.towedBy ? 'on the pin' : t.hereNow ? 'standing here' : `at ${esc(t.where)}`}</span>
-          ${t.cargo ? `<span class="td-dim">· loaded: ${esc(t.cargo.name)}</span>` : ''}
-          ${t.hereNow && d.driving ? tbtn('⚯', 'Back under it', 'data-cmd="hitch"') : ''}
-          ${t.canSell ? tbtn('₵', `Sell · ${money(t.resale)}`, `data-confirm="yard sell ${esc(t.id)}"`) : ''}
-          ${!t.canSell && (t.hereNow || t.towedBy) && t.loaded ? '<span class="td-dim">· empty it to sell it</span>' : ''}
+          <span class="td-box-what"><b>${esc(t.name)}</b> <span class="td-dim">· ${t.ratedKg} kg
+            · ${t.towedBy ? 'on the pin' : t.hereNow ? 'standing here' : `at ${esc(t.where)}`}${t.cargo ? ` · loaded: ${esc(t.cargo.name)}` : ''}</span></span>
+          ${t.hereNow && d.driving ? tbtn('⚯', 'Hitch', `data-cmd="hitch ${esc(t.id)}"`) : ''}
+          ${t.canSell ? tbtn('₵', `Sell · ${money(t.resale)}`, `data-confirm="yard sell ${esc(t.id)}" title="Sell ${esc(t.name)}"`) : ''}
+          ${!t.canSell && (t.hereNow || t.towedBy) && t.loaded ? '<span class="td-dim td-box-why">empty it to sell it</span>' : ''}
         </div>`).join('')}
         ${boxDetail(mine)}
       </div>` : '';
@@ -343,19 +358,37 @@ function floorScreen() {
       : `<b>${esc(d.cargo.name)}</b> · contracted to ${esc(d.cargo.to)}`)
     : '<span class="td-dim">empty</span>';
 
-  // The toolbar is the selected truck's, and every entry on it is gated on a fact the SERVER sent.
-  // A button that is present and refuses is worse than one that is absent and explains itself.
+  // ── THE TOOLBAR ────────────────────────────────────────────────────────────
+  // Every entry is gated on a fact the SERVER sent: a button that is present and refuses is worse
+  // than one that is absent and explains itself.
+  //
+  // ⚠ IT IS THE TRUCK'S, AND THE FOOTER IS THE DEPOT'S. They used to be neither — the same four
+  // verbs (drive, repair, fuel, wash) sat in both, four inches apart, in two different costumes,
+  // which is the whole of "I have to hunt for buttons in different areas". The line between them is
+  // now a rule a player can learn rather than an accident: what you do to THIS MACHINE is here,
+  // beside the machine, and what you do at THIS PLACE is on the footer. Nothing is in both — see
+  // `footChips`, which drops `drive` on this screen for that reason — and nothing that used to be
+  // reachable stopped being: Refuel is the footer's `rig fuel` chip, gated on the same two facts it
+  // always was, and the dealer's line is the FOR SALE tab across the top.
   const acts = sel ? [
     sel.hereNow ? tbtn('➤', 'Take it out', `data-cmd="drive ${esc(sel.id)}"`, 'primary') : '',
-    tbtn('⚙', 'Bench', 'data-screen="bench"'),
-    d.fuelHere && sel.fuel < 0.99 ? tbtn('⛽', `Refuel · ${money(sel.refuel)}`, `data-cmd="rig fuel ${esc(sel.id)}"`) : '',
+    // ── THE PIN ───────────────────────────────────────────────────────────────
+    // Coupling and dropping are the two commonest things anybody does in a yard and neither had a
+    // button on this screen: `hitch` was a row inside the boxes list — a scroll and a half below
+    // the fold — and `unhitch` was nowhere at all. Which of the two is offered, and whether the
+    // fifth wheel is actually under the pin, are the server's answers (payload `hitchState`), so
+    // this reads a fact rather than guessing one out of `driving` and `canLoad`.
+    // ⚠ THE PIN IS THE RIG'S, NOT THE SELECTION'S — hence `drivingId`. This toolbar is the selected
+    // truck's, and the truck under you is only sometimes the one you are looking at; offered beside
+    // a rig standing in another region, the key would couple a box to a different machine.
+    sel.id === d.drivingId ? hitchAct(d.hitchState) : '',
     tbtn('◉', 'Walk around', 'data-screen="inspect"'),
+    tbtn('⚙', 'Bench', 'data-screen="bench"'),
     sel.hereNow ? tbtn('₵', `Sell · ${money(sel.resale)}`, `data-confirm="yard sell ${esc(sel.id)}"`) : '',
     // NOT HERE? THEN THE ONLY USEFUL BUTTON IS THE ONE THAT FETCHES IT. A rig parked two regions
     // away used to offer nothing at all — the toolbar simply thinned out and left you looking at a
     // truck you could not reach, with no way back to it except the drive you were trying to avoid.
     sel.hereNow ? '' : tbtn('⛓', `Tow it home · ${money(sel.recall)}`, `data-confirm="yard recall ${esc(sel.id)}"`, 'primary'),
-    tbtn('⊕', "Dealer's line", 'data-screen="buy"'),
   ].filter(Boolean).join('') : tbtn('⊕', "See what's for sale", 'data-screen="buy"', 'primary');
 
   return `
@@ -377,6 +410,25 @@ function floorScreen() {
         ${d.driving ? '' : '<div class="td-dim td-note">You aren\'t in a truck.</div>'}</div>
       ${boxes}
     </aside>`;
+}
+
+// Which way the pin goes — the button for `hitchState`, or nothing when there is no cab under you
+// and no box standing here. The refusal is a DIM BUTTON WITH THE REASON ON IT rather than an
+// absence, because "you are alongside it, not on its pin" is the one thing a driver who cannot see
+// why the verb said no actually needs; that is the same shape the freight board's `loadWhy` uses.
+// ⚠ THE LABEL IS THE VERB PLUS THE BOX, in that order, because the key is half a two-column bar
+// and what gets ellipsised is the END. "Back under a reefer" reads better and loses the word that
+// tells you what the button does; "Hitch a reefer" survives being trimmed to "Hitch a ree…" and
+// still says it. The full text is on the title either way.
+function hitchAct(h) {
+  if (!h) return '';
+  if (h.verb === 'unhitch') return tbtn('⚯', `Unhitch ${esc(h.name)}`, `data-cmd="unhitch" title="Drop ${esc(h.name)} and pull out from under it"`);
+  // ⚠ NOT `primary`, however much it wants to be. On this bar `primary` means "the one thing you
+  // came here to do" and it takes a whole row to say so — Take it out, or Tow it home, never both
+  // at once. A second one turns a two-row bar into a four-row bar, and the bar is pinned.
+  return h.id
+    ? tbtn('⚯', `Hitch ${esc(h.name)}`, `data-cmd="hitch ${esc(h.id)}" title="Back under ${esc(h.name)}"`)
+    : tbtn('⚯', `Hitch ${esc(h.name)}`, `disabled title="${esc(h.why || '')}"`);
 }
 
 // The read-out for one rig: what it is, how worn, how full, and what it is worth. Same facts the
@@ -553,6 +605,19 @@ function stepWalk(dt) {
 // Big cards, big schematics. The old lot drew a 260×104 thumbnail per truck, which for the one
 // screen in the system whose entire job is "look at what you could own" was the wrong size by
 // about half — you were buying a price and a paragraph.
+//
+// ⚠ AND THE PRICE IS THE BUY BUTTON. It was printed twice on every card — once in the head and once
+// on a key at the bottom — and the key had a row of its own under the specs, so the one thing you
+// came to this screen to press was the one thing furthest down it. Merged, the card loses a row, the
+// number stops being said twice, and buying is next to the name at the top where a partly-scrolled
+// card still shows it.
+//
+// ⚠ THE SCHEMATIC SHRANK WITH THE CARD, and there is no way round that: the canvas is displayed at
+// the column's width, so its buffer aspect IS its height on screen, and `drawWireframe3D` fits the
+// rig to whatever frame it is handed. A shorter viewport is a smaller truck. 230 is where that
+// trade was left — three cards to a row instead of two, against a schematic about a fifth smaller.
+// It is not the letterbox it looks like: at this camera a rig projects very nearly square (measured
+// 141×131 for the Krell), so a wide frame buys nothing and the height is the whole budget.
 function buyScreen() {
   const d = B.data;
   // One scale for the whole line, taken off the biggest thing on it — see the `fitRef` note in
@@ -562,10 +627,10 @@ function buyScreen() {
   const cards = (d.stock || []).map(t => `
     <div class="td-lot${t.afford ? '' : ' poor'}${B.lotSel === t.id ? ' on' : ''}" data-lot="${esc(t.id)}">
       <div class="td-lot-head">
-        <div><b>${esc(t.name)}</b><div class="td-dim">TIER ${t.tier}</div></div>
-        <div class="td-price">${money(t.price)}</div>
+        <div class="td-main"><b>${esc(t.name)}</b><div class="td-dim">TIER ${t.tier}</div></div>
+        ${tbtn('⊕', `Buy · ${money(t.price)}`, `data-cmd="yard buy ${esc(t.id)}" ${t.afford ? '' : 'disabled title="You can\'t afford it"'}`, 'primary')}
       </div>
-      <canvas class="td-wf" width="440" height="300" data-variant="${esc(t.variant)}" data-fit="${esc(fitRef)}" aria-hidden="true"></canvas>
+      <canvas class="td-wf" width="440" height="230" data-variant="${esc(t.variant)}" data-fit="${esc(fitRef)}" aria-hidden="true"></canvas>
       <div class="td-blurb">${esc(t.blurb)}</div>
       ${statBars(t.stats)}
       <dl class="td-spec">
@@ -573,9 +638,6 @@ function buyScreen() {
         <div><dt>tank</dt><dd>${t.tank}</dd></div>
         <div><dt>top</dt><dd>${t.top} mph</dd></div>
       </dl>
-      <div class="td-acts">
-        ${tbtn('⊕', `Buy · ${money(t.price)}`, `data-cmd="yard buy ${esc(t.id)}" ${t.afford ? '' : 'disabled title="You can\'t afford it"'}`, 'primary')}
-      </div>
     </div>`).join('');
 
   // Trailers are bought on the same fence, because a tractor with nothing behind it carries
@@ -597,7 +659,7 @@ function buyScreen() {
 function benchScreen() {
   const t = selected();
   if (!t) return '<div class="td-none">Nothing of yours is here to work on. <button class="td-act" data-screen="buy">The dealer\'s line</button></div>';
-  const tabs = [['condition', 'Condition', '◧'], ['tune', 'Tuning', '⌥'], ['kits', 'Kits', '⊞'], ['paint', 'Paint', '◐'], ['fits', 'Fittings', '⚑']]
+  const tabs = [['condition', 'Condition', '◧'], ['tune', 'Tuning', '⌥'], ['kits', 'Kits', '⊞'], ['paint', 'Paint', '◐'], ['fits', 'Fittings', '⚑'], ['cab', 'In the cab', '◇']]
     .map(([k, l, ico]) => `<button class="td-tab sm${B.bench.tab === k ? ' on' : ''}" data-bench="${k}"><span class="td-tab-ico" aria-hidden="true">${ico}</span>${l}</button>`).join('');
   return `
     <div class="td-floor">
@@ -608,7 +670,7 @@ function benchScreen() {
       <div class="td-pane-head"><div><b>${esc(t.name)}</b><div class="td-dim">${esc(t.type)}</div></div>
         <span class="td-band ${t.band}">${esc(t.bandLabel)}</span></div>
       ${B.bench.tab === 'tune' ? tuneTab(t) : B.bench.tab === 'kits' ? kitsTab(t) : B.bench.tab === 'paint' ? paintTab(t)
-        : B.bench.tab === 'fits' ? fitsTab(t) : conditionTab(t)}
+        : B.bench.tab === 'fits' ? fitsTab(t) : B.bench.tab === 'cab' ? cabTab(t) : conditionTab(t)}
     </aside>`;
 }
 
@@ -748,6 +810,54 @@ function fitsTab(t) {
   </div>`;
 }
 
+
+// ── The inside ───────────────────────────────────────────────────────────────
+// The same sheet-then-shelf shape as the fittings tab, and deliberately not a merged one. These
+// are bought at the same bench and they are not the same kind of thing: what is bolted to the
+// outside is for other people, and none of this is ever shown to anybody but the driver. Keeping
+// them apart on screen is also what keeps them apart in the data — see the ⚠ in cab-trinkets.js
+// about interior codes finding their way onto the wire.
+function cabTab(t) {
+  const cat = B.data.cabCat;
+  if (!cat) return '<div class="td-pane"><div class="td-dim td-note">No case at this counter.</div></div>';
+  const on = new Set(t.cab || []);
+  const price = (id) => (t.cabPrices || {})[id];
+  const byId = Object.fromEntries(cat.items.map((f) => [f.id, f]));
+  const inSlot = (sid) => (t.cab || []).map((id) => byId[id]).find((f) => f && f.slot === sid) || null;
+  const sel = cat.slots.some((s) => s.id === B.bench.cslot) ? B.bench.cslot : cat.slots[0].id;
+
+  const sheet = cat.slots.map((s) => {
+    const f = inSlot(s.id);
+    return `<button class="td-fitcell${f ? ' on' : ''}${s.id === sel ? ' sel' : ''}" data-cslot="${esc(s.id)}"
+        aria-pressed="${s.id === sel ? 'true' : 'false'}" title="${esc(s.note)}">
+        <span class="td-fitslot">${esc(s.label)}</span>
+        <span class="td-fitwhat">${f ? esc(f.name) : 'empty'}</span>
+      </button>`;
+  }).join('');
+
+  const cur = cat.slots.find((s) => s.id === sel);
+  const rows = cat.items.filter((f) => f.slot === sel).map((f) => {
+    const fitted = on.has(f.id), p = price(f.id), mine = p === 0;
+    return `<div class="td-kit-row${fitted ? ' on' : ''}">
+      <div class="td-main"><b>${esc(f.name)}</b>${mine && !fitted ? '<span class="td-drawer">YOURS</span>' : ''}
+        <div class="td-dim">${esc(f.desc)}</div></div>
+      ${fitted
+        ? `<button class="td-act ghost" data-cmd="rig cab ${esc(t.id)} off ${esc(f.id)}">Take it down</button>`
+        : `<button class="td-act" data-cmd="rig cab ${esc(t.id)} ${esc(f.id)}" ${(B.data.credits || 0) >= p ? '' : 'disabled title="You can\'t afford it"'}>${p ? money(p) : 'Put it back'}</button>`}
+    </div>`;
+  }).join('');
+
+  const worn = cat.slots.filter((s) => inSlot(s.id)).length;
+  const drawer = cat.items.filter((f) => price(f.id) === 0 && !on.has(f.id)).length;
+  return `<div class="td-pane">
+    <div class="td-lab">In the cab<span class="td-dim"> — ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
+    <div class="td-fitsheet">${sheet}</div>
+    <div class="td-sub-head">${esc(cur.label)} <span class="td-dim">${esc(cur.note)}</span></div>
+    ${rows}
+    <div class="td-dim td-note">Nobody but you ever sees any of it, and none of it changes how the truck drives.</div>
+  </div>`;
+}
+
 // ── THE SEVEN SURFACES ───────────────────────────────────────────────────────
 // Each row is a place on the truck, not a slot in a record — the label is where you would point,
 // and the note is what changes when you move it. That second half is the whole reason these are a
@@ -878,7 +988,7 @@ function paintColours(t) {
     `<button class="td-swatch${cur[key] === r.id ? ' on' : ''}" data-paintpick="${key}" data-paintval="${esc(r.id)}">${esc(r.label || r.id)}</button>`).join('');
   const rows = PAINT_FIELDS.map(([k, label, note]) => `
       <label class="td-crow${k === 'bright' && !cur.chrome ? ' off' : ''}">
-        <input type="color" class="td-col" data-paint="${k}" value="${esc(cur[k])}" aria-label="${esc(label)}">
+        <input type="color" class="td-well" data-paint="${k}" value="${esc(cur[k])}" aria-label="${esc(label)}">
         <span class="td-cname">${esc(label)}<span class="td-dim">${esc(note)}</span></span>
         <code class="td-chex">${esc(String(cur[k] || '').toUpperCase())}</code>
       </label>`).join('');
@@ -942,7 +1052,7 @@ function paintInside(t) {
   };
   const wells = MIX_FIELDS.map(([k, label, note]) => `
       <label class="td-crow">
-        <input type="color" class="td-col" data-trimcol="${k}" value="${esc(mixNow(cur)[k])}" aria-label="${esc(label)}">
+        <input type="color" class="td-well" data-trimcol="${k}" value="${esc(mixNow(cur)[k])}" aria-label="${esc(label)}">
         <span class="td-cname">${esc(label)}<span class="td-dim">${esc(note)}</span></span>
         <code class="td-chex">${esc(String(mixNow(cur)[k] || '').toUpperCase())}</code>
       </label>`).join('');
@@ -1075,8 +1185,11 @@ function deckStrip() {
       ? `<b>${esc(d.cargo.qty)} × ${esc(d.cargo.name)}</b> · ${d.cargo.kg} kg · paid ${money(d.cargo.paid)}/unit`
       : `<b>${esc(d.cargo.name)}</b> · ${d.cargo.kg} kg · contracted to ${esc(d.cargo.to)}`)
     : '<span class="td-dim">empty</span>';
-  return `<div class="td-deck td-deckstrip"><span class="td-lab">On the deck</span> ${load}
-    <div class="td-dim td-note">Rated ${d.deckKg} kg.${d.canLoad || !d.loadWhy ? '' : ` <span class="td-warn">${esc(d.loadWhy)}.</span>`}</div>
+  // ⚠ ONE LINE. It was three — a block label, the load, then the rating on a rule of its own — which
+  // cost 110px of a 370px board to say "empty, 3,600 kg". This strip is a caption over the thing the
+  // screen is actually for, and a caption that takes a third of the screen is the screen.
+  return `<div class="td-deck td-deckstrip"><span class="td-lab">On the deck</span>${load}
+    <span class="td-dim">rated ${d.deckKg} kg</span>${d.canLoad || !d.loadWhy ? '' : `<span class="td-warn">${esc(d.loadWhy)}</span>`}
   </div>`;
 }
 
@@ -1149,7 +1262,7 @@ function marketScreen() {
 // ── Events ───────────────────────────────────────────────────────────────────
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-fslot],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-view-reset]');
+  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-fslot],[data-cslot],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-view-reset]');
   if (!t || t.disabled) {
     if (e.target.id === 'td-scene') pickOnFloor(e);
     return;
@@ -1178,6 +1291,7 @@ function onClick(e) {
   // FITTED, so this one field is both "where am I looking" and "which cell is lit". That is the
   // point of the layout: there is no second control to disagree with the first.
   if (t.dataset.fslot) { B.bench.fslot = t.dataset.fslot; return void render(); }
+  if (t.dataset.cslot) { B.bench.cslot = t.dataset.cslot; return void render(); }
   // The interior's two swatch rows, exactly as the paint's are: an edit held locally, previewed,
   // and charged only by the button. ⚠ It is a SEPARATE draft from the paint (`B.bench.trim`), or
   // clicking a colourway would dirty the respray and the booth would quote for both.
@@ -1537,6 +1651,15 @@ function ensureStyles() {
     --td-fg-dim:var(--text-dim,#9db5c6);
     --td-fg-dim2:color-mix(in srgb, var(--text-dim,#9db5c6) 60%, transparent);
     position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
+    /* ⚠ AND THE 'white-space' HERE IS WORTH MORE THAN EVERY OTHER SIZE IN THIS FILE PUT
+       TOGETHER. The client sets 'pre-wrap' globally because the LOG is prose the server formatted
+       with newlines in it — and this panel is markup built out of indented template literals, so
+       every line break between two tags was being rendered as a real one. A four-child block cost
+       four extra 19px line boxes it drew nothing in: the box detail measured 246px for 76px of
+       content, and the same tax was on the read-out, the deck, the boxes and every row. It is not a
+       tightening, it is whitespace that was never meant to be there. Anything here that genuinely
+       wants the log's behaviour asks for it by name. */
+    white-space:normal;
     color:var(--td-fg);font-family:'Courier New',monospace;font-size:14.5px;line-height:1.5;
     background:linear-gradient(175deg,color-mix(in srgb, var(--border) 55%, var(--bg3)) 0%,var(--bg3) 8%,var(--bg2) 50%),
       radial-gradient(140% 100% at 50% 0%,color-mix(in srgb, var(--border) 40%, var(--bg3)),var(--bg) 75%);
@@ -1549,15 +1672,22 @@ function ensureStyles() {
   #td-root > *{position:relative;z-index:1}
   /* Head + foot are frosted tablet chrome: a slim accent-tinted glass slab over whatever's behind. */
   .td-head,.td-foot{-webkit-backdrop-filter:blur(11px) saturate(1.15);backdrop-filter:blur(11px) saturate(1.15)}
-  .td-head{display:flex;align-items:center;gap:14px;padding:0 16px;height:52px;flex:0 0 auto;
+  /* ⚠ ONE ROW, AND IT HAS TO STAY ONE ROW. At the pane's ordinary width the title wrapped onto two
+     lines, the balance broke between the thousands and the units ("24,85 / 0₵") and the fifth tab
+     dropped under the other four — a 52px bar drawing 78px of content, so the head ate the top of
+     the yard on every screen. Nothing here may wrap: the title takes the slack and ellipsises, the
+     balance and the tabs are rigid. The 720px query below is where it is ALLOWED to break, and it
+     says so explicitly. */
+  .td-head{display:flex;align-items:center;gap:10px;padding:0 12px;height:44px;flex:0 0 auto;
     background:color-mix(in srgb, var(--td-surf) 82%, transparent);
     border-bottom:1px solid color-mix(in srgb, var(--td-accent) 26%, transparent);
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 2px 8px rgba(0,0,0,.14)}
-  .td-title b{color:var(--td-fg);letter-spacing:2px;text-shadow:0 0 6px color-mix(in srgb, var(--td-accent) 30%, transparent)}
-  .td-nav{margin-left:8px}
-  .td-bal{margin-left:auto;color:var(--td-fg);letter-spacing:1px;font-variant-numeric:tabular-nums;
+  .td-title{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .td-title b{color:var(--td-fg);letter-spacing:1.2px;text-shadow:0 0 6px color-mix(in srgb, var(--td-accent) 30%, transparent)}
+  .td-nav{margin-left:2px;flex:0 0 auto}
+  .td-bal{margin-left:auto;flex:0 0 auto;white-space:nowrap;color:var(--td-fg);letter-spacing:1px;font-variant-numeric:tabular-nums;
     text-shadow:0 0 5px color-mix(in srgb, var(--td-accent) 30%, transparent)}
-  .td-viewbtns{display:flex;gap:6px;margin-left:10px}
+  .td-viewbtns{display:flex;gap:5px;margin-left:6px;flex:0 0 auto}
   .td-x{font-family:inherit;font-size:14px;line-height:1;cursor:pointer;padding:6px 9px;color:var(--td-fg-dim);
     background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
     border:1px solid color-mix(in srgb, var(--td-accent) 28%, transparent);border-radius:6px;
@@ -1570,14 +1700,14 @@ function ensureStyles() {
   /* Segmented pill nav — the active tab lifts out of a recessed track and lights a hairline bar
      along its bottom edge. Replaces the underlined-text tabs, which were the single loudest tell
      that this was a web page and the hangar was a device. */
-  .td-seg{display:flex;gap:4px;flex-wrap:wrap;padding:4px;border-radius:9px;
+  .td-seg{display:flex;gap:3px;flex-wrap:nowrap;padding:3px;border-radius:8px;
     background:var(--td-surf-lo);border:1px solid var(--border);box-shadow:inset 0 1px 3px var(--td-bevel-lo)}
-  .td-tab{position:relative;display:flex;align-items:center;justify-content:center;gap:6px;overflow:hidden;
-    font-family:inherit;font:700 12.5px/1 'Courier New',monospace;letter-spacing:1px;cursor:pointer;
-    color:var(--td-fg-dim);background:transparent;border:1px solid transparent;border-radius:6px;padding:7px 12px;
+  .td-tab{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;overflow:hidden;
+    font-family:inherit;font:700 11.5px/1 'Courier New',monospace;letter-spacing:.8px;cursor:pointer;white-space:nowrap;
+    color:var(--td-fg-dim);background:transparent;border:1px solid transparent;border-radius:6px;padding:6px 10px;
     transition:filter .12s,box-shadow .12s,color .12s,background .12s}
-  .td-tab.sm{padding:6px 10px}
-  .td-tab-ico{font-size:13.5px;line-height:1;opacity:.7;transition:opacity .12s,filter .12s}
+  .td-tab.sm{padding:5px 8px;letter-spacing:.4px}
+  .td-tab-ico{font-size:12.5px;line-height:1;opacity:.7;transition:opacity .12s,filter .12s}
   .td-tab:hover{color:var(--td-fg);background:color-mix(in srgb, var(--td-accent) 10%, transparent)}
   .td-tab:hover .td-tab-ico{opacity:1}
   .td-tab.on{color:var(--td-fg);background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
@@ -1587,8 +1717,8 @@ function ensureStyles() {
   .td-tab.on::after{content:'';position:absolute;left:14%;right:14%;bottom:0;height:2px;border-radius:2px;
     background:var(--td-accent);box-shadow:0 0 8px var(--td-accent);animation:tdTabSlide .22s ease-out}
   @keyframes tdTabSlide{from{left:48%;right:48%;opacity:0}to{left:14%;right:14%;opacity:1}}
-  .td-body{flex:1;min-height:0;display:flex;gap:12px;padding:12px 14px;overflow:hidden}
-  .td-floor{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;position:relative}
+  .td-body{flex:1;min-height:0;display:flex;gap:9px;padding:9px 10px;overflow:hidden}
+  .td-floor{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;position:relative}
   /* The 3D floor is a recessed viewport — a screen sunk into the chassis, and one of the two things
      that deliberately does NOT follow a light theme. */
   .td-scene{flex:1;min-height:0;width:100%;display:block;border-radius:9px;cursor:pointer;touch-action:none;
@@ -1614,12 +1744,12 @@ function ensureStyles() {
   @keyframes tdRunPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.16)}}
   .td-hint{position:absolute;top:16px;left:18px;right:18px;color:var(--td-fg-dim);font-size:13.5px;max-width:46ch;
     text-shadow:0 1px 3px rgba(0,0,0,.8);pointer-events:none}
-  .td-strip{display:flex;gap:9px;flex-wrap:wrap;align-items:center;flex:0 0 auto;padding:11px 12px;border-radius:9px;
+  .td-strip{display:flex;gap:7px;flex-wrap:wrap;align-items:center;flex:0 0 auto;padding:7px 9px;border-radius:9px;
     background:color-mix(in srgb, var(--td-surf-lo) 84%, transparent);
     border:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent);
     box-shadow:inset 0 2px 8px var(--td-bevel-lo),inset 0 1px 0 var(--td-bevel-hi)}
   /* A rig on the strip is a raised surface card, same recipe as the dealer's lot cards. */
-  .td-chip{display:flex;flex-direction:column;gap:3px;min-width:138px;text-align:left;padding:7px 10px;cursor:pointer;
+  .td-chip{display:flex;flex-direction:column;gap:2px;min-width:118px;text-align:left;padding:5px 9px;cursor:pointer;
     font-family:inherit;color:var(--td-fg);border-radius:8px;
     background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
     border:1px solid color-mix(in srgb, var(--td-accent) 30%, transparent);
@@ -1628,32 +1758,37 @@ function ensureStyles() {
   .td-chip:hover{filter:brightness(1.08);border-color:var(--td-accent)}
   .td-chip.on{border-color:var(--td-accent);box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 0 12px color-mix(in srgb, var(--td-accent) 30%, transparent)}
   .td-chip.away{opacity:.55}
-  .td-chip-name{font-weight:bold;font-size:13.5px;letter-spacing:.5px}
-  .td-chip-sub{color:var(--td-fg-dim);font-size:12px}
-  .td-side{width:352px;flex:none;overflow:auto;display:flex;flex-direction:column;gap:10px;padding-right:2px}
+  .td-chip-name{font-weight:bold;font-size:12.5px;letter-spacing:.4px}
+  .td-chip-sub{color:var(--td-fg-dim);font-size:11px}
+  .td-side{width:326px;flex:none;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px}
   /* The read-out is a raised surface card too — the hangar's .hb-info. */
-  .td-pane{display:flex;flex-direction:column;gap:8px;padding:11px 12px;border-radius:9px;
+  .td-pane{display:flex;flex-direction:column;gap:6px;padding:9px 10px;border-radius:9px;
     background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
     border:1px solid color-mix(in srgb, var(--td-accent) 30%, transparent);
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 3px var(--td-bevel-lo),0 2px 5px rgba(0,0,0,.2)}
   .td-pane-head{display:flex;align-items:flex-start;gap:8px}
-  .td-pane-head b{color:var(--td-fg);font-size:16px;letter-spacing:.5px}
+  .td-pane-head b{color:var(--td-fg);font-size:14.5px;letter-spacing:.4px}
   .td-band{margin-left:auto;font:700 10.5px/1 'Courier New',monospace;letter-spacing:1px;text-transform:uppercase;
     padding:4px 9px;border-radius:11px;background:var(--td-surf-lo);border:1px solid var(--border)}
   .td-band.sound{color:#6fcf83}.td-band.worked{color:#a8c98a}.td-band.tired{color:#e8c07a}
   .td-band.ailing{color:#d8934e}.td-band.derelict{color:#d2685c}
-  .td-spec{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0}
+  /* ⚠ SIX PILLS ON A GRID, NOT ON A WRAPPING ROW. Free-flowing they packed 3/2/1 to a line against
+     the width of whatever numbers the truck happened to carry, so the read-out changed height when
+     the odometer rolled over — and it is the read-out's height that decides whether the toolbar
+     under it is on screen. Two fixed rows of three is the same information in a predictable box. */
+  .td-spec{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:1px 0}
   /* Each spec is a recessed vital pill, the hangar's .hb-bench-vital. */
-  .td-spec div{display:flex;flex-direction:column;line-height:1.2;padding:3px 10px;border-radius:6px;
+  .td-spec div{display:flex;flex-direction:column;line-height:1.15;padding:2px 7px;border-radius:6px;min-width:0;
     background:var(--td-surf-lo);border:1px solid var(--border);box-shadow:inset 0 1px 2px var(--td-bevel-lo)}
-  .td-spec dt{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2)}
-  .td-spec dd{margin:0;font-size:15px;font-weight:bold;color:var(--td-fg);font-variant-numeric:tabular-nums}
-  .td-axes{display:flex;flex-direction:column;gap:4px;margin:4px 0}
-  .td-axis{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:8px;
-    font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim)}
+  .td-spec dt{font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--td-fg-dim2)}
+  .td-spec dd{margin:0;font-size:13px;font-weight:bold;color:var(--td-fg);font-variant-numeric:tabular-nums;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .td-axes{display:flex;flex-direction:column;gap:2px;margin:2px 0}
+  .td-axis{display:grid;grid-template-columns:54px 1fr;align-items:center;gap:7px;
+    font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--td-fg-dim)}
   .td-axis-bar,.td-bar,.td-gauge{background:var(--td-surf-lo);border-radius:4px;overflow:hidden;
     box-shadow:inset 0 1px 2px var(--td-bevel-lo),inset 0 0 0 1px var(--border)}
-  .td-axis-bar{height:7px}
+  .td-axis-bar{height:6px}
   .td-axis-bar i{display:block;height:100%;background:var(--td-accent);box-shadow:0 0 7px currentColor}
   .td-axis-bar i.up{background:#6fcf83}.td-axis-bar i.down{background:#d2685c}
   .td-bar{display:block;height:5px}
@@ -1664,23 +1799,54 @@ function ensureStyles() {
   .td-gauge i.ctired{background:#e8c07a}.td-gauge i.cailing{background:#d8934e}.td-gauge i.cderelict{background:#d2685c}
   .td-gauge span{position:absolute;inset:0;text-align:center;font:700 12px/22px 'Courier New',monospace;color:var(--td-fg);
     text-shadow:0 1px 2px rgba(0,0,0,.7)}
-  .td-acts{display:flex;gap:9px;flex-wrap:wrap}
+  .td-acts{display:flex;gap:6px;flex-wrap:wrap}
   .td-acts.col{flex-direction:column;align-items:stretch}
+  /* ── THE TOOLBAR IS ON THE GLASS AT EVERY WIDTH ────────────────────────────
+     The phone query below has pinned it since the day somebody reported not being able to tow a
+     truck home, and the diagnosis in it — "the toolbar sits under the read-out, and the read-out is
+     taller than a phone" — was never only true of phones. In the pane the sidebar is the scroller,
+     and it holds 1,360px of read-out, boxes and deck in about 350px of glass: Take it out, the pin
+     and Tow it home all opened two hundred pixels BELOW the fold, on the screen whose whole job is
+     to let you do something with the truck you are looking at. Sticky keeps the reading order —
+     the machine, then the buttons that act on it — and keeps them where the cursor can reach them.
+     ⚠ It needs a surface of its own, because content scrolls underneath it. */
+  .td-side > .td-acts{position:sticky;bottom:0;z-index:3;margin:0 -4px;padding:7px 4px;
+    background:color-mix(in srgb, var(--td-surf) 90%, transparent);
+    -webkit-backdrop-filter:blur(11px) saturate(1.15);backdrop-filter:blur(11px) saturate(1.15);
+    border-top:1px solid color-mix(in srgb, var(--td-accent) 26%, transparent);
+    box-shadow:0 -6px 14px rgba(0,0,0,.28)}
+  /* ⚠ AND A PINNED BAR HAS TO EARN ITS PIXELS, because it is the one thing on this screen that is
+     never scrolled away — every row it takes is a row the read-out behind it never gets back. Left
+     to wrap, six keys of uppercase at 1px tracking went one to a line and spent 180px of a 300px
+     sidebar; two columns put the same six in three rows and half the height with nothing shortened
+     and nothing dropped. The two PRIMARY keys take a line to themselves: there is at most one of
+     them at a time (you either take the truck out or you tow it home), and it is the one thing on
+     the bar somebody is looking for. */
+  .td-side > .td-acts{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .td-side > .td-acts .td-act{justify-content:flex-start;min-width:0;padding:8px 9px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex}
+  .td-side > .td-acts .td-act.primary{grid-column:1/-1}
   /* THE 3D KEY. The tablet's bevel language: a raised accent-tinted cap with a bright top highlight
      and a dark bottom bevel that PRESSES IN to a deep inset recess on :active, so every press feels
      like a physical key rather than a link with a border. */
-  .td-act{display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    font-family:inherit;font-size:12.5px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;
-    cursor:pointer;padding:10px 16px;border-radius:9px;color:var(--td-fg);
+  .td-act{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    font-family:inherit;font-size:11.5px;font-weight:bold;letter-spacing:.5px;text-transform:uppercase;
+    cursor:pointer;padding:7px 11px;border-radius:8px;color:var(--td-fg);
     border:1px solid color-mix(in srgb, var(--td-accent) 38%, transparent);
     background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 4px var(--td-bevel-lo),0 2px 4px rgba(0,0,0,.25);
     transition:filter .12s,box-shadow .12s,transform .05s,border-color .12s}
-  .td-ico{font-size:15.5px;line-height:1;opacity:.95}
+  .td-ico{font-size:13.5px;line-height:1;opacity:.95}
   .td-act:hover:not(:disabled){filter:brightness(1.1);border-color:var(--td-accent);
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 4px var(--td-bevel-lo),0 3px 9px rgba(0,0,0,.28),0 0 14px color-mix(in srgb, var(--td-accent) 32%, transparent)}
   .td-act:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 6px var(--td-bevel-lo)}
   .td-act:disabled{opacity:.4;cursor:default;filter:grayscale(.5)}
+  /* ⚠ A KEY'S LABEL IS A LABEL, NOT A PARAGRAPH. On a shelf row the button is a flex item with the
+     description beside it, so it shrinks — and with nothing stopping it, "2,400₵" broke after the
+     2 and the key drew a digit above a comma. The stacked keys on the bench are the one deliberate
+     exception, because those really are sentences (see '.td-acts.col' below). */
+  .td-act{white-space:nowrap}
+  .td-kit-row .td-act,.td-row .td-act{flex:0 0 auto}
   /* The primary key — a stronger accent tint of the theme bg, never a solid accent fill, so the
      high-contrast label stays legible on a light theme and a dark one alike. */
   .td-act.primary{border-color:var(--td-accent);
@@ -1691,9 +1857,19 @@ function ensureStyles() {
   .td-act.ghost:hover:not(:disabled){color:var(--td-fg)}
   /* A stacked column of choices is a list of sentences, not a row of keys: left-align it and let a
      line wrap, or "Do it yourself · 340₵ — up to 80%, and you can botch it" centres into porridge. */
-  .td-acts.col .td-act{justify-content:flex-start;text-align:left;text-transform:none;letter-spacing:.4px;line-height:1.35}
-  .td-lots{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;align-content:start;padding:2px}
-  .td-lot{padding:12px;border-radius:12px;display:flex;flex-direction:column;gap:6px;
+  /* ⚠ AND IT HAS TO LEAVE FLEX TO DO IT. A stacked key is "Put it through the shop · 980₵" followed
+     by "— back to new, no roll", and as a flex box those are TWO ITEMS side by side: the price sat
+     in a column of its own while the label wrapped in the middle of a word beside it. Block flow is
+     what a sentence wants, and the reason goes under the offer rather than next to it. */
+  .td-acts.col .td-act{display:block;text-align:left;text-transform:none;letter-spacing:.4px;line-height:1.35;white-space:normal}
+  .td-acts.col .td-act .td-dim{display:block;font-size:11px}
+  /* ⚠ THREE TO A ROW, NOT TWO. A 360px minimum put two cards across the pane and the dealer's four
+     trucks became two screens of scrolling to compare four numbers — on the one screen whose whole
+     job is "look at what you could own side by side". At 290 the whole line fits above the fold on
+     an ordinary pane and the schematic is still the biggest thing on the card, which is the part
+     that had to be protected. */
+  .td-lots{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px;align-content:start;padding:2px}
+  .td-lot{padding:10px;border-radius:11px;display:flex;flex-direction:column;gap:5px;
     background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
     border:1px solid color-mix(in srgb, var(--td-accent) 30%, transparent);
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 3px var(--td-bevel-lo),0 3px 10px rgba(0,0,0,.22);
@@ -1702,14 +1878,21 @@ function ensureStyles() {
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 3px var(--td-bevel-lo),0 5px 16px rgba(0,0,0,.28),0 0 14px color-mix(in srgb, var(--td-accent) 22%, transparent)}
   .td-lot.on{border-color:var(--td-accent)}
   .td-lot.poor{opacity:.62}
-  .td-lot-head{display:flex;align-items:flex-start}
-  .td-lot-head b{color:var(--td-fg);font-size:16.5px;letter-spacing:1px}
-  .td-price{margin-left:auto;color:var(--td-fg);font-variant-numeric:tabular-nums;font-weight:bold;letter-spacing:1px}
+  .td-lot-head{display:flex;align-items:center;gap:8px}
+  .td-lot-head b{color:var(--td-fg);font-size:15px;letter-spacing:.8px}
+  .td-lot-head .td-main{flex:1;min-width:0;overflow:hidden}
+  .td-lot-head .td-act{flex:0 0 auto;font-variant-numeric:tabular-nums}
   /* The schematic sits in its own recessed dark viewport, same as the hangar's .hb-lot-view. */
   .td-wf{display:block;width:100%;height:auto;padding:6px;border-radius:9px;
     background:radial-gradient(120% 120% at 50% 40%,color-mix(in srgb, var(--td-accent) 15%, var(--bg)),color-mix(in srgb, var(--td-accent) 8%, var(--bg)));
     border:1px solid color-mix(in srgb, var(--td-accent) 22%, transparent);box-shadow:inset 0 2px 9px rgba(0,0,0,.4)}
-  .td-blurb{color:var(--td-fg-dim);font-size:13px;min-height:3.2em}
+  /* ⚠ THE CLAMP REPLACES A 'min-height', WHICH IS THE SAME JOB DONE FROM THE OTHER END. The reserve
+     was there so four cards on a row line their specs up whatever length the copywriter ran to, and
+     it only ever worked downward — a blurb longer than three lines still pushed its own card taller
+     than its neighbours. Clamped, every card spends exactly three lines on the blurb: the row lines
+     up, and the tallest card no longer decides how far you scroll. */
+  .td-blurb{color:var(--td-fg-dim);font-size:12.5px;line-height:1.35;height:4.05em;overflow:hidden;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3}
   .td-sub-head{grid-column:1/-1;font:700 11px/1 'Courier New',monospace;letter-spacing:3px;text-transform:uppercase;
     color:var(--td-fg-dim);margin:12px 0 2px;padding-bottom:4px;
     border-bottom:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent)}
@@ -1797,7 +1980,13 @@ function ensureStyles() {
     letter-spacing:.6px;text-transform:uppercase;color:var(--td-fg)}
   .td-cname .td-dim{font:400 11px/1.25 inherit;letter-spacing:0;text-transform:none}
   .td-chex{font:400 10.5px/1 'Courier New',monospace;color:var(--td-fg-dim2)}
-  .td-col{width:38px;height:30px;border:1px solid color-mix(in srgb, var(--td-accent) 35%, transparent);
+  /* ⚠ THE WELL IS '.td-well', AND IT USED TO BE '.td-col'. So did the column the freight board and
+     the exchange stack themselves in (see '.td-col' below), and the two rules landed in one file
+     forty lines apart: a 38×30 swatch is a cross-axis HEIGHT, which 'flex:1' does not override, so
+     both boards drew their column at thirty pixels tall and every row on them spilled out of the
+     panel — unpainted, and with no scroll container to reach them in. One class, two ideas, and the
+     symptom was on the screens neither rule mentions. */
+  .td-well{width:38px;height:30px;border:1px solid color-mix(in srgb, var(--td-accent) 35%, transparent);
     border-radius:6px;background:var(--td-surf-lo);cursor:pointer;box-shadow:inset 0 1px 0 var(--td-bevel-hi);padding:2px}
   /* ── The interior, and its still ────────────────────────────────────────────
      A dashboard is a slab under a header rail with two lit dials in it, and that's exactly what
@@ -1836,11 +2025,14 @@ function ensureStyles() {
     box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 32%, transparent),inset 0 1px 0 var(--td-bevel-hi)}
   .td-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--td-fg-dim)}
   .td-check input{accent-color:var(--td-accent)}
-  .td-deck{padding:10px 12px;border-radius:9px;background:var(--td-surf-lo);
+  .td-deck{padding:7px 9px;border-radius:9px;background:var(--td-surf-lo);
     border:1px solid var(--border);box-shadow:inset 0 1px 3px var(--td-bevel-lo)}
   /* The two boards stack their own contents — .td-body is a flex ROW (see freightScreen). */
   .td-col{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px}
-  .td-deckstrip{flex:0 0 auto}
+  /* A caption, not a card: one row, wrapping only when the load is long enough to need it, with the
+     ledge between items doing the work three stacked lines used to. */
+  .td-deckstrip{flex:0 0 auto;display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;font-size:13px}
+  .td-deckstrip .td-lab{display:inline}
   /* The row you're already carrying: lit down its leading edge, the same channel the selected box
      row uses, so "this one is yours" reads the same way everywhere in the panel. */
   .td-row.taken{background:color-mix(in srgb,var(--td-accent) 9%,transparent);
@@ -1869,16 +2061,25 @@ function ensureStyles() {
     @keyframes tdToastFade{0%,90%{opacity:1}100%{opacity:0}}}
   /* The boxes you own, under the deck read-out — a list, because a trailer is a capacity and a
      place rather than something you look at from three angles. */
-  .td-boxes{margin-top:8px}
-  .td-box-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;padding:4px 6px;
+  .td-boxes{margin-top:6px}
+  /* ⚠ ONE LINE PER BOX. Wrapping, a row was the name, the rating, where it is and what is on it,
+     then two keys — four to six flex items in a 300px column, which came out 80px tall EACH, so
+     three trailers were 240px of a sidebar that has 350px in it. The facts are one ellipsised run
+     now and the keys hold the right-hand end; the DETAIL panel underneath is where the full text
+     already lives, which is what the row selection is for. */
+  .td-box-row{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;font-size:12.5px;padding:3px 6px;
     border-top:1px solid var(--border);cursor:pointer;border-radius:4px}
+  .td-box-what{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .td-box-why{flex:0 0 auto;white-space:nowrap;font-size:11px}
   .td-box-row:hover{background:color-mix(in srgb,var(--td-accent) 8%,transparent)}
   .td-box-row.on{background:color-mix(in srgb,var(--td-accent) 15%,transparent);
     box-shadow:inset 2px 0 0 var(--td-accent)}
-  .td-box-detail{margin-top:6px;padding:8px;border-radius:5px;
+  .td-box-detail{margin-top:5px;padding:7px 8px;border-radius:5px;font-size:12.5px;
     background:color-mix(in srgb,var(--td-accent) 6%,transparent);
     border:1px solid color-mix(in srgb,var(--td-accent) 22%,transparent)}
-  .td-box-stats{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;font-size:12.5px}
+  /* Two columns rather than a wrapping row: four facts that each fit half the width were taking a
+     line apiece, because the longest of them ("Standing here") decided the wrap for all of them. */
+  .td-box-stats{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:4px;font-size:12px}
   .td-box-row:first-of-type{border-top:0}
   .td-box-row .td-act{margin-left:auto;padding:2px 8px;font-size:11px}
   .td-lab{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2);display:block}
@@ -1887,17 +2088,17 @@ function ensureStyles() {
   .td-note{font-size:12.5px}
   .td-good{color:#6fcf83}
   .td-warn{color:#ffb26b}
-    .td-foot{flex:0 0 auto;padding:10px 16px;font-size:12.5px;color:var(--td-fg-dim);
+    .td-foot{flex:0 0 auto;padding:7px 10px;font-size:11.5px;color:var(--td-fg-dim);
     background:color-mix(in srgb, var(--td-surf-lo) 84%, transparent);
     border-top:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent);
     box-shadow:inset 0 1px 0 var(--td-bevel-hi)}
   /* The footer verbs. They're buttons, so they look pressable: a raised chip that lifts under the
      cursor and sits down when armed — never the flat dim <code> they used to be, which read as
      documentation and was ignored accordingly. */
-  .td-foot{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
-  .td-verb{font:inherit;font-size:12.5px;color:var(--td-fg);cursor:pointer;
+  .td-foot{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .td-verb{font:inherit;font-size:11.5px;color:var(--td-fg);cursor:pointer;
     background:linear-gradient(180deg,color-mix(in srgb, var(--td-surf) 92%, transparent),var(--td-surf-lo));
-    padding:4px 11px;border-radius:6px;
+    padding:4px 9px;border-radius:6px;
     border:1px solid color-mix(in srgb, var(--td-accent) 30%, var(--border));
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 1px 2px rgba(0,0,0,.25);
     transition:transform .08s ease,border-color .12s ease,background .12s ease}
@@ -1946,14 +2147,12 @@ function ensureStyles() {
        'flex:1' has no slack to take, and a canvas with no height at all is a canvas at 0. */
     .td-floor{flex:0 0 auto}
     .td-scene{flex:0 0 auto;height:min(30vh,200px)}
-    /* The toolbar, always on the glass. It needs a surface of its own now that content
-       scrolls under it — the head's frosted slab, so it reads as chrome rather than as a
-       row that failed to move. */
-    .td-side > .td-acts{position:sticky;bottom:0;z-index:3;margin:0 -4px;padding:8px 4px;
-      background:color-mix(in srgb, var(--td-surf) 88%, transparent);
-      -webkit-backdrop-filter:blur(11px) saturate(1.15);backdrop-filter:blur(11px) saturate(1.15);
-      border-top:1px solid color-mix(in srgb, var(--td-accent) 26%, transparent);
-      box-shadow:0 -6px 14px rgba(0,0,0,.28)}
+    /* The toolbar's own pin is no longer this query's business — it is sticky at every width now
+       (see '.td-side > .td-acts' above), which is where the argument written here always led. What
+       IS this query's is the scrollport it sticks to: stacked, the BODY is the scroller and the
+       sidebar is merely tall, so the bar has to stick to the body rather than to a column that no
+       longer clips anything — and sticky resolves against the nearest scroller on its own, so the
+       stack needs no rule of its own for it. */
   }
   /* The head repack is a separate question from the stack: at 880px the columns won't sit
      side by side and the head is still fine, and it's the head that decides this one. 720px
@@ -1993,14 +2192,9 @@ function ensureStyles() {
     .td-foot{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:8px 10px;gap:6px}
     .td-foot::-webkit-scrollbar{display:none}
     .td-verb{flex:0 0 auto;white-space:nowrap}
-    /* ⚠ AND THE PINNED BAR HAS TO EARN ITS PIXELS, because it is the one thing on the
-       screen that is never scrolled away. Six keys at desktop metrics wrapped to four rows
-       and 241px — 40% of the body, held there permanently. The width is nearly all
-       letter-spacing and uppercase: a two-column grid at tighter type puts the same six in
-       three rows and 118px, with no label shortened and nothing dropped. */
-    .td-side > .td-acts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-    .td-side > .td-acts .td-act{padding:9px 8px;font-size:11.5px;letter-spacing:.3px;min-width:0}
-    .td-side > .td-acts .td-ico{font-size:13.5px}
+    /* The two-column bar argued for here is the desktop bar's now as well, for the same reason in
+       a bigger box — see the rule above. What is left for a phone is the type. */
+    .td-side > .td-acts .td-act{padding:9px 8px;letter-spacing:.3px}
   }
   @media (prefers-reduced-motion:reduce){.td-board.near,.td-run{animation:none}.td-tab.on::after{animation:none}}
   `;

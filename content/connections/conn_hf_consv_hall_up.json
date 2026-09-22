@@ -1,0 +1,9 @@
+{
+  "a": "zone_consv_hall",
+  "b": "zone_consv_loft",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_consv_hall_up",
+  "lockable": false,
+  "one_way": false
+}

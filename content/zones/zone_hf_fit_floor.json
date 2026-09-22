@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long room under the first terrace with the machines in ranks facing the glass, all of them the same make, all of them new enough that the rubber still smells. Two thirds of them have never been used. The glass looks out at Vetch Green, which means the view from every machine is of six birches and a bin, and that is genuinely the best view from a gym in this city.",
+  "exits": {
+    "down": "zone_util_zone_hf_fit_floor",
+    "south": "zone_district_897_913",
+    "up": "zone_hf_fit_pool"
+  },
+  "flags": {
+    "building_name": "Fit for Purpose",
+    "building_type": "cascade_block",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Floor to ceiling the length of the room, with the underside of the terrace above cutting the sky off at the top of the frame. Vetch Green fills the whole of it.",
+      "light": 0.75,
+      "name": "the terrace glazing",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_fit_floor",
+  "map_id": "map_int_hf_fit",
+  "name": "Fit for Purpose — The Floor",
+  "parent_zone": "zone_district_897_913"
+}

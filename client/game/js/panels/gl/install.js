@@ -8,7 +8,7 @@
 // This module is that call, and it is the only place that knows both halves: it hands the GL pass
 // the renderer's own mesh capture, its own baked textures and its own palette, so nothing here has
 // an opinion about what a building is made of.
-import { installGLWorld, installGLClouds, installGLDispose, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
+import { installGLWorld, installGLClouds, installGLDispose, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
 import { glWorldPass, glCloudPass, glDisposeScene } from './world.js';
 import { NEAR, FAR } from './camera.js';
 import { MAX_LIGHTS, MAX_MATERIALS } from './context.js';   // the uniform budgets the light pass and the material table ask for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
@@ -127,6 +127,11 @@ export function installGL(hostFor) {
     const u = (c) => [c[0] / 255, c[1] / 255, c[2] / 255];
     return (lastStats = glWorldPass(opts.id || host.id || 'ws', host, cells, cam, {
       captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
+      // What the grid is doing to a tile's building, ANSWERED BY WINDSHIELD.JS. The mapping from
+      // the wire's `pw`/`em` to a wall bake is declared there and read there by the 2-D painter;
+      // handing the function over rather than the codes is what stops the two renderers growing
+      // two opinions about which buildings in a blackout are lit.
+      glPowerForCell,
       // Which of the nineteen families a surface belongs to, and how each of them answers the
       // light. Both come from windshield.js because that is where the families are DECLARED — a
       // second table here would be a second opinion about what brick is, and the one thing this
@@ -161,11 +166,15 @@ export function installGL(hostFor) {
       // three shaders that declare a uniform for it.
       glFogH: opts.glFogH,
       glScatter: opts.glScatter,
+      // AND THE POOL A LAMP LAYS ON THE ROAD - see the WARN on 'glWet' above and 'npm run gl:opts'.
+      // Thirteenth entry on this file's list.
+      glPool: opts.glPool,
       // ⚠ AND THE TRACKS IN IT, WHICH REACH BOTH GROUND SHADERS. Twelfth entry on this file own
       // list: the store records, the buffer uploads, both shaders declare the array and both
       // branch on the count — and dropped here every frame hands over `undefined`, `uNTrack`
       // stays 0, and a feature with a slider and a gate leaves no mark on the snow.
       tracks: opts.tracks,
+      lids: opts.lids,
       glPudRoad: opts.glPudRoad,
       glPuddle: opts.glPuddle,
       glGroundBias: opts.glGroundBias,
@@ -182,10 +191,13 @@ export function installGL(hostFor) {
       // appears to have been a no-op. `glLastFrame().mirror` reading 0 with the tune at 1 is the
       // tell, and it is reported for exactly this reason.
       glMirror: opts.glMirror, glMirrorRes: opts.glMirrorRes,
+      glMetalRefl: opts.glMetalRefl,
       // ⚠ AND SO DO THESE TWO, for the same reason and with the same failure. A material response
       // wired at the windshield end and dropped here reports 0.0% of wall pixels moved at every
       // strength — which is the third time that sentence has had to be written in this file.
-      glMat: opts.glMat, glBump: opts.glBump,
+      glMat: opts.glMat, glSpec: opts.glSpec, glBump: opts.glBump,
+      // The city in the glass — see gl/skyline.js and RENDER_TUNE.glEnvCity.
+      glEnvCity: opts.glEnvCity, glEnvDim: opts.glEnvDim,
       // ⚠ AND SO DOES THIS ONE. Fourth entry in the list this paragraph keeps having to be written
       // on: the shading bevel is wired at the windshield end, gated and measurable — and a missing
       // line HERE is what makes __glBevel() report 0.0% of wall pixels moved at every width, which

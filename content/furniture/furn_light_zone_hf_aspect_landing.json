@@ -1,0 +1,11 @@
+{
+  "description": "Six of them in the ceiling at the pinch, which at this diameter puts them almost shoulder to shoulder and makes the landing the brightest two and a half metres in the tower. Walking out of the lift you squint, every time.",
+  "flags": {},
+  "id": "furn_light_zone_hf_aspect_landing",
+  "light_type": "overhead",
+  "lumen_output": 700,
+  "name": "a ring of collar lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_aspect_landing"
+}

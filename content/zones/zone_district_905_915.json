@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "A new road off the row, rising perhaps a foot over its whole length, which is enough for the developer to have called it a Rise. The nameplate is chrome and the letters are cut rather than printed.",
   "exits": {
-    "east": "zone_district_906_915",
     "north": "zone_district_905_914",
     "south": "zone_district_905_916"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 905,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_905_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Cowslip Rise",
   "parent_zone": null
 }

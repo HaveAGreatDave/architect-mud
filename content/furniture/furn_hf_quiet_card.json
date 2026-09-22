@@ -1,0 +1,8 @@
+{
+  "description": "Thick cream card, printed, standing on the counter. It thanks you for viewing, gives a telephone number, and asks that you do not use the taps. The water is connected. The reason for the card is that the drains on this riser are not.",
+  "flags": {},
+  "id": "furn_hf_quiet_card",
+  "name": "a folded viewing card",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_quiet_show"
+}

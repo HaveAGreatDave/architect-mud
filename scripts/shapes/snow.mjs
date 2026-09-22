@@ -568,6 +568,103 @@ try {
   }
 
   ws.RENDER_TUNE.snowForce = null; ws.RENDER_TUNE.glTracks = tWas;
+
+  // ── 6. THE CELL OVERHEAD DECIDES THE TYPE, NOT THE HEADLINE WORD ───────────────────────────
+  //
+  // ⚠ THE BUG THIS EXISTS FOR DREW A PERFECTLY GOOD PICTURE OF THE WRONG WEATHER. The wet branch
+  // and the snow branch each OR'd a headline test with a cell test, and only the cell halves knew
+  // about each other — so a snow HEADLINE with a rain CELL over you drew rain streaks out of the
+  // window, wet the road AND deepened the snow at full rate, all three at once. Reported as
+  // puddles gathering on the grass in the rain, which is what a field of lying snow looks like
+  // when nobody is expecting one.
+  //
+  // ⚠ AND IT NEEDS A REAL FIELD, not a weather word: 'wxSample' is null without both 'wxField'
+  // and 'acX', so every other case in this file exercises the headline path alone and not one of
+  // them could have caught it.
+  const cellField = (ptype) => ({
+    tick: 30, bounds: { minX: 880, minY: 880, maxX: 920, maxY: 920 },
+    baseCloud: 0.8, precipFloor: 0, floorType: 'none',
+    cells: [{ x: 900, y: 900, r: 20, vx: 0, vy: 0, type: 'precip', intensity: 0.8, precip: ptype }],
+  });
+  const overhead = (headline, ptype, frames) =>
+    run(headline, frames, { wxField: cellField(ptype), acX: 900, acY: 900 });
+
+  {
+    const before = run('clear', 400).snow;   // let whatever is lying thaw well down first
+    const r = overhead('snow', 'rain', 120);
+    ok(r.wet > 0.5, 'a rain cell under a snow headline left the road dry (' + r.wet.toFixed(3) + ') — the local cell is not reaching the wet branch.');
+    ok(r.snow < before, 'a rain cell under a snow HEADLINE went on deepening the snow (' + before.toFixed(4) + ' -> ' + r.snow.toFixed(4)
+      + ') — the headline word is crediting the snow branch behind the cell\'s back, which is rain falling on a snowfield that should not be there.');
+    notes.push('snow headline + rain cell -> wet ' + r.wet.toFixed(3) + ', depth ' + before.toFixed(4) + ' -> ' + r.snow.toFixed(4));
+  }
+  {
+    // …and the mirror, or the fix above could simply be "a cell always means rain".
+    //
+    // ⚠ THE ROAD IS ASKED TO BE DRYING, NOT TO BE DRY. The film dries at 0.06/s, so six seconds
+    // after the downpour above it is still over half wet whatever this case does — a threshold
+    // here fails on the PREVIOUS case's water and says nothing about this one.
+    const before = run('clear', 40);
+    const r = overhead('rain', 'snow', 120);
+    ok(r.snow > before.snow, 'a snow cell under a rain headline accumulated nothing (' + before.snow.toFixed(4) + ' -> ' + r.snow.toFixed(4) + ').');
+    ok(r.wet < before.wet, 'a snow cell under a rain HEADLINE went on wetting the road (' + before.wet.toFixed(3) + ' -> ' + r.wet.toFixed(3)
+      + ') — the same blindness, pointed the other way.');
+    notes.push('rain headline + snow cell -> depth ' + before.snow.toFixed(4) + ' -> ' + r.snow.toFixed(4) + ', wet ' + before.wet.toFixed(3) + ' -> ' + r.wet.toFixed(3));
+  }
+
+  // ── 7. AND RAIN TAKES THE SNOW AWAY ────────────────────────────────────────────────────────
+  //
+  // 'SNOW_THAW_S' is the CLEAR-SKY thaw — how long the city keeps a fall once the sky clears — and
+  // for a while it was the only way snow could ever go. So rain fell on lying snow for a full
+  // seven minutes and removed none of it, which is the other half of the report above: rain in
+  // the air, a wet road, and a snowfield underneath all three.
+  //
+  // ⚠ COMPARED AS A RATIO, NOT A DEPTH. With no snow falling both cases are a pure exponential
+  // decay, so after/before is scale-free and the two runs need not start from the same depth —
+  // which they cannot be made to, short of a reset hook this module does not have.
+  {
+    const decayUnder = (weather) => {
+      run('snow', 200);                       // build some depth back up
+      const before = run('clear', 2).snow;    // two frames to settle, so this is a real reading
+      const after = run(weather, 200).snow;
+      return before > 0.02 ? after / before : null;
+    };
+    const clearRatio = decayUnder('clear');
+    const rainRatio = decayUnder('rain');
+    if (clearRatio != null && rainRatio != null) {
+      ok(rainRatio < clearRatio * 0.9,
+        'ten seconds of rain took the snow to ' + rainRatio.toFixed(4) + ' of its depth against ' + clearRatio.toFixed(4)
+        + ' under clear sky — rain is not melting it, so a downpour leaves the ground white for the full clear-sky thaw.');
+      notes.push('10 s decay: clear x' + clearRatio.toFixed(4) + ', rain x' + rainRatio.toFixed(4));
+    } else {
+      problems.push('the melt case never built enough depth to measure, so nothing checks that rain removes snow.');
+    }
+  }
+
+  // ── 8. AND A CLIENT THAT HAS JUST OPENED ITS EYES IS HANDED THE GROUND ─────────────────────
+  //
+  // Everything here integrates forward from where the ground already is, and that used to be ZERO
+  // on every page load — so a player logging in ten minutes into a blizzard stood on bare grass
+  // beside somebody standing in snow, and the two did not converge until it thawed.
+  //
+  // ⚠ ONCE, NEVER AGAIN. The server's figure is the day's headline and the renderer's is refined
+  // by the cell the player is standing under, so re-seating every push would drag a pilot inside a
+  // rain cell back to the global answer several times a second. Both halves are asserted, because
+  // a seed that keeps firing looks exactly like a seed that works.
+  //
+  // ⚠ AND IT GOES LAST, because it writes the module's own accumulator and nothing above would
+  // survive that.
+  {
+    const seeded = run('clear', 1, { wxGround: { wet: 0.4, pond: 0.3, snow: 0.66, fell: 12 } });
+    ok(Math.abs(seeded.snow - 0.66) < 0.01,
+      'the depth the server sent was not adopted (asked for ' + seeded.snow.toFixed(4) + ' against 0.66) — every client starts bare, which is the bug.');
+    ok(Math.abs(seeded.wet - 0.4) < 0.05,
+      'the wetness the server sent was not adopted (' + seeded.wet.toFixed(4) + ' against 0.4).');
+    const again = run('clear', 1, { wxGround: { wet: 0, pond: 0, snow: 0.05, fell: 0 } });
+    ok(again.snow > 0.5,
+      'a second ground packet re-seated the accumulator (' + again.snow.toFixed(4) + ') — it is meant to seed once and integrate from there, '
+      + 'or a local cell is overwritten by the global answer on every push.');
+    notes.push('seed: adopted 0.66 -> ' + seeded.snow.toFixed(4) + ', second packet ignored (' + again.snow.toFixed(4) + ')');
+  }
 } finally {
   ws.RENDER_TUNE.gl = was.gl; ws.RENDER_TUNE.glFloor = was.floor;
   ws.RENDER_TUNE.glSnow = was.snow; ws.RENDER_TUNE.snowForce = was.force; ws.RENDER_TUNE.glSnowBB = was.bb;
@@ -576,6 +673,57 @@ try {
   globalThis.performance = clock; Date.now = realDateNow;
 }
 
+
+// ── 9. AND EVERY SEAT THAT PAINTS THE WINDSHIELD ACTUALLY PASSES IT ──────────────────────────
+//
+// The seed above is worth nothing to a seat that never receives one, and there are five call
+// sites across four view files plus the server end. A missed one is not an error anywhere: that
+// seat simply starts bare, for ever, and looks exactly like the seat that works until you put two
+// players side by side. Same shape as 'gl:opts' one layer over — an allowlist handing a bag on,
+// where a key added at one end and not the other is dropped silently in the middle.
+//
+// ⚠ PAIRED WITH 'wxField', NEVER COUNTED. Both ride the same object literal at every site, so the
+// question is "does this literal carry both" rather than "how many are there" — a budget passes a
+// new site the moment somebody deletes an old one.
+{
+  const fs = await import('node:fs');
+  const SEATS = [
+    'client/game/js/panels/cockpit.js',
+    'client/game/js/panels/cab-view.js',
+    'client/game/js/panels/freelook-view.js',
+    'client/game/js/panels/helm-view.js',
+    // ⚠ A HARD-CODED LIST IS A LIST SOMEBODY HAS TO REMEMBER TO ADD TO, and the fifth seat proved
+    // it: `boat-view.js` shipped sending `ground` instead of `wxGround` and this gate — whose
+    // entire job is that pairing — could not see the file. Derive it from who calls
+    // `windshieldHTML(` if this happens again; for now, a new seat goes here.
+    'client/game/js/panels/boat-view.js',
+  ];
+  let sites = 0;
+  for (const f of SEATS) {
+    const src = await fs.promises.readFile(f, 'utf8');
+    for (const line of src.split(/\r?\n/)) {
+      // The declaration of the prop, not a mention of it: a comment about 'wxField' is not a site.
+      if (!/(^|[\s{,])wxField\s*:/.test(line)) continue;
+      sites++;
+      ok(/(^|[\s{,])wxGround\s*:/.test(line),
+        f + ' hands the renderer a wxField with no wxGround beside it — that seat starts on dry, bare ground for ever:\n      ' + line.trim());
+    }
+  }
+  ok(sites >= 6, 'only ' + sites + ' wxField hand-offs found across the four seats — the scan has stopped matching, so it is checking nothing.');
+  const sky = await fs.promises.readFile('plugins/flight/state.js', 'utf8');
+  ok(/\bground:\s*groundAccum\(\)/.test(sky),
+    'plugins/flight/state.js never puts the ground on the sky payload — nothing reaches any of the seats above, however well they are wired.');
+  const env = await fs.promises.readFile('server/engine/environment.js', 'utf8');
+  // ⚠ AND THE RATE HAS TO BE CLOSED OFF BEFORE IT MOVES. groundAccum integrates one constant-rate
+  // stretch exactly; without this the whole interval since the last read is integrated at the NEW
+  // rate, so a shower that stopped an hour ago is still filling the gutters for anyone who asks.
+  const setFrom = env.indexOf('export function setCurrentPrecip');
+  const setTo = env.indexOf('export function', setFrom + 24);
+  const setBody = env.slice(setFrom, setTo > setFrom ? setTo : setFrom + 600);
+  ok(setBody.includes('groundAccum()'),
+    'setCurrentPrecip changes the precipitation without bringing the ground up to date first — every rate change is then back-applied to the whole stretch before it.');
+  notes.push('seats: ' + sites + ' wxField hand-offs, all carrying wxGround');
+}
 if (REPORT) for (const n of notes) console.log('   ' + n);
 if (problems.length) {
   console.error('✗ snow — ' + problems.length + ' problem(s):');

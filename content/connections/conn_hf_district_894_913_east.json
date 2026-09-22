@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_894_913",
+  "b": "zone_hf_impression_suite",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_district_894_913_east",
+  "lockable": true,
+  "one_way": false
+}

@@ -20,3 +20,20 @@ content/audio_samples/*.json text eol=lf -diff merge=contentjson
 # LF-only .bat jumps to the wrong line mid-run — blocks get skipped and re-executed
 # (this bit scripts/oneshots.bat during authoring). Never let autocrlf leave these LF.
 *.bat text eol=crlf
+
+# Source is TEXT, and saying so is the point — not the line ending it lands in.
+#
+# Without this git decides per file from a content heuristic, and a single stray
+# CR is enough to make it answer "binary". plugins/trucking/corridor.js picked up
+# one (a doubled `\r\r\n` on an import line, from a tool that wrote mixed endings)
+# and git stopped diffing it: 3,105 changed lines for 43 real ones, unreviewable,
+# and a `git blame` that would have been useless from then on. Marking these text
+# costs nothing — the index already holds LF and core.autocrlf still decides the
+# working tree — and it takes the heuristic, and that failure, out of the loop.
+*.js    text
+*.mjs   text
+*.cjs   text
+*.json  text
+*.css   text
+*.html  text
+*.md    text

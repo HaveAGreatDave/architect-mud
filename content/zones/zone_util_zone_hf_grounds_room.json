@@ -1,0 +1,18 @@
+{
+  "description": "Below the counter: the water treatment, the compressor, the sacks, and a wall of white tile somebody has stuck twelve years of postcards to. None of the postcards are from anywhere in the Basin.",
+  "exits": {
+    "up": "zone_hf_grounds_room"
+  },
+  "flags": {
+    "floor": "tile",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_grounds_room",
+  "map_id": "map_int_hf_grounds",
+  "name": "Grounds for Concern — The Back of House",
+  "parent_zone": "zone_district_896_913"
+}

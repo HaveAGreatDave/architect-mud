@@ -1,0 +1,19 @@
+{
+  "description": "A plastic bell box on the inside wall, which is already most of what you need to know, because a bell box belongs on the outside. It was fitted by a man who charged for two hours and was gone in twenty minutes. It does work. It works the way a thing works when nobody has ever asked it to.",
+  "flags": {
+    "alarm_panel": true,
+    "alarm_tier": 1,
+    "aliases": "alarm,panel,box,alarm panel,alarm box,intruder panel",
+    "click_cmd": "hack alarm"
+  },
+  "hp": 120,
+  "hp_max": 120,
+  "id": "furn_kessel_alarm",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the alarm box",
+  "object_type": "terminal",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kessel_shop"
+}

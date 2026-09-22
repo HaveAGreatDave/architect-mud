@@ -1,0 +1,11 @@
+{
+  "description": "A continuous slot of light down the whole length of the passage ceiling, on day and night, because the award says the path must be lit and does not say when. It is the only thing in Halcyon Fields that has never once been switched off.",
+  "flags": {},
+  "id": "furn_light_zone_hf_rightofway_passage",
+  "light_type": "cove",
+  "lumen_output": 640,
+  "name": "a lit soffit",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_rightofway_passage"
+}

@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A dead-end corridor running along the inside of the blind wall, put there because the flats could not use the depth and something had to. Six metres of pale stone on one side and six metres of nothing on the other, with a cleaner's cupboard at the far end and a tap. People who live here use it to store bicycles, which they are not supposed to do and which is the only thing anybody has ever thought of to do with it.",
+  "exits": {
+    "east": "zone_hf_partywall_hall"
+  },
+  "flags": {
+    "building_name": "Party Wall",
+    "building_type": "cascade_block",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_partywall_flank",
+  "map_id": "map_int_hf_partywall",
+  "name": "Party Wall — The Flank Corridor",
+  "parent_zone": "zone_district_892_917"
+}

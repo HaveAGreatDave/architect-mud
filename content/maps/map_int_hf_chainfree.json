@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_chainfree_lobby",
+  "id": "map_int_hf_chainfree",
+  "name": "Chain Free",
+  "parent_zone_id": "zone_district_900_914"
+}

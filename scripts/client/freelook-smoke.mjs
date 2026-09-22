@@ -30,78 +30,12 @@
 // The shared dom-stub's context is a Proxy answering every method with a no-op. This is that Proxy
 // with a tally hung off it, so the module under test cannot tell the difference — deliberately not
 // a second stub, because a second stub is a second thing to keep in step with the first.
-const TALLY = { ops: {}, text: [] };
-const gradient = { addColorStop() {} };
-function makeCtx() {
-  return new Proxy({}, {
-    get(t, k) {
-      if (k === 'canvas') return { width: 640, height: 360 };
-      if (k === 'measureText') return (txt) => ({ width: String(txt == null ? '' : txt).length * 20 });
-      if (k === 'createLinearGradient' || k === 'createRadialGradient' || k === 'createConicGradient') return () => gradient;
-      if (k === 'createPattern') return () => null;
-      // Two arities, and they are not the same one — see the dom-stub's own ⚠ on this pair.
-      if (k === 'getImageData' || k === 'createImageData') return (...a) => {
-        const [w, h] = a.length >= 4 ? [a[2], a[3]] : [a[0], a[1]];
-        const W = Math.max(1, w | 0), H = Math.max(1, h | 0);
-        return { data: new Uint8ClampedArray(W * H * 4), width: W, height: H };
-      };
-      if (k in t) return t[k];
-      return (...a) => {
-        TALLY.ops[k] = (TALLY.ops[k] || 0) + 1;
-        if (k === 'fillText' || k === 'strokeText') TALLY.text.push(String(a[0]));
-      };
-    },
-    set(t, k, v) { t[k] = v; return true; },
-  });
-}
+// ⚠ THE HARNESS IS SHARED NOW — see scripts/client/seat-harness.mjs. It was written here first,
+// and lifted out the moment there was a second seat to mount: ~80 lines of browser furniture,
+// none of it behaviour under test, is not a thing to keep three copies of in step.
+import { installSeatDom, fakeEl, TALLY, step as frameStep, pending } from './seat-harness.mjs';
 
-await import('../shapes/dom-stub.mjs');   // installs document / window / canvas globals
-
-// ⚠ THREE THINGS THE SHARED STUB CANNOT ANSWER, and all three are browser furniture rather than
-// behaviour under test — nothing that goes through that stub has ever mounted a panel.
-//
-// 1. `pane:claimed` / `pane:released`: every panel that takes the area pane fires these (openHelm
-//    has the identical line), and the stub has no `dispatchEvent` and no `Event`.
-globalThis.Event = class { constructor(type) { this.type = type; } };
-globalThis.window.dispatchEvent = () => true;
-globalThis.dispatchEvent = globalThis.window.dispatchEvent;
-
-// 2. The panel writes its markup with innerHTML and then finds its own parts with querySelector. A
-//    browser parses that string into findable elements; the stub answers null for every lookup, so
-//    the panel would die on a dereference that is correct in a browser. An element that answers
-//    every lookup stands in for the PARSE — the DOM's job, not the panel's logic.
-function fakeEl(tag = 'DIV') {
-  return {
-    tagName: tag, style: {}, dataset: {}, children: [], innerHTML: '', textContent: '',
-    clientWidth: 640, clientHeight: 360, width: 640, height: 360,
-    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-    getContext: () => makeCtx(),
-    appendChild(c) { this.children.push(c); return c; },
-    removeChild() {}, remove() {}, setAttribute() {}, getAttribute() { return null; },
-    addEventListener() {}, removeEventListener() {},
-    querySelector: () => fakeEl(), querySelectorAll: () => [],
-    getBoundingClientRect: () => ({ x: 0, y: 0, width: 640, height: 360, top: 0, left: 0, right: 640, bottom: 360 }),
-    focus() {}, blur() {},
-  };
-}
-
-// 3. The panel mints its canvas id per open (`freelook-<rand>`), so it cannot be pre-registered.
-const realGet = globalThis.document.getElementById;
-const canvases = new Map();
-globalThis.document.getElementById = (id) => {
-  if (id === 'marks-ws' || (typeof id === 'string' && id.startsWith('freelook-'))) {
-    if (!canvases.has(id)) canvases.set(id, fakeEl('CANVAS'));
-    return canvases.get(id);
-  }
-  return realGet(id);
-};
-
-// The frame callback, captured so it can be stepped by hand — the stub's rAF never fires.
-let pending = null;
-globalThis.requestAnimationFrame = (fn) => { pending = fn; return 1; };
-globalThis.cancelAnimationFrame = () => { pending = null; };
-globalThis.window.requestAnimationFrame = globalThis.requestAnimationFrame;
-globalThis.window.cancelAnimationFrame = globalThis.cancelAnimationFrame;
+const { canvases } = await installSeatDom(['freelook-']);
 
 const ws = await import('../../client/game/js/panels/windshield.js');
 const fl = await import('../../client/game/js/panels/freelook-view.js');
@@ -131,6 +65,15 @@ console.log('— the freelook seat —');
 ck('starts inactive', fl.isFreelookActive() === false);
 
 const mount = fakeEl();
+// ⚠ THE RENDERER IS FETCHED, SO A COLD OPEN IS ASYNC AND THIS HAS TO AWAIT IT. The seat imports
+// `windshield.js` through a lazy facade — 3.8 MB that only a seat needs, and 43.6% of the cold
+// boot payload if it rides in the eager graph — so the FIRST `openFreelook` starts the fetch,
+// returns null and re-enters itself when the module lands. `dispatch.js` ignores the return and
+// needs none of this; a caller that wants the api on a cold open awaits the loader, as here.
+//
+// This is also the check that the facade is wired at all: with the loader left out, every
+// assertion below fails, which is exactly what it did the first time it was run.
+await fl.loadWindshield();
 let api = null;
 try {
   api = fl.openFreelook({ mount, gx: 918, gy: 903, map, sky, onExit: () => {} });
@@ -139,7 +82,7 @@ try {
 }
 ck('openFreelook returns its api', !!api && typeof api.setSky === 'function');
 ck('…and the panel reports active', fl.isFreelookActive() === true);
-ck('…and it armed a frame', typeof pending === 'function');
+ck('…and it armed a frame', typeof pending() === 'function');
 
 // ⚠ THE PANEL'S FRAME BODY IS WRAPPED IN try/catch (helm-view's rule: one throw in a loop that
 // reschedules at the END freezes the view for good), so a throw inside it is SWALLOWED and logged
@@ -150,7 +93,7 @@ let logged = null;
 const step = (t) => {
   logged = null;
   console.error = (...a) => { logged = a.map(String).join(' '); };
-  try { pending(t); } catch (e) { logged = 'threw out of the loop: ' + e.message; }
+  try { frameStep(t); } catch (e) { logged = 'threw out of the loop: ' + e.message; }
   console.error = realErr;
   return logged;
 };
@@ -162,7 +105,7 @@ ck('…with this panel\'s own canvas', !!lv && String(lv.id).startsWith('freeloo
 ck('…as an external view', !!lv && lv.external === true, lv && String(lv.external));
 ck('…on the window it was handed', !!lv && lv.mapR === R, lv && String(lv.mapR));
 ck('…centred on the tile it was given', !!lv && lv.mapCenter?.x === 918 && lv.mapCenter?.y === 903, JSON.stringify(lv && lv.mapCenter));
-ck('…and it rearmed the loop', typeof pending === 'function');
+ck('…and it rearmed the loop', typeof pending() === 'function');
 
 fl.freelookSetSky({ hour: 3.25, weather: 'storm', field: { cells: [] } });
 ck('a streamed sky does not throw', step(1016) === null, logged);
@@ -177,7 +120,7 @@ ck('…and the window moved under the camera', !moved && lv2?.mapCenter?.x === 9
 
 try { fl.closeFreelook(); } catch (e) { ck('closeFreelook does not throw', false, e.message); }
 ck('closes clean', fl.isFreelookActive() === false);
-ck('…and cancels its frame', pending === null);
+ck('…and cancels its frame', pending() === null);
 ck('…and a second close is harmless', (() => { try { fl.closeFreelook(); return true; } catch { return false; } })());
 
 // ⚠ A FRESH CANVAS ID PER OPEN is the helm's own leak trap (see disposeWindshield): it is what
@@ -188,6 +131,144 @@ ck('reopens after a close', !!api3 && fl.isFreelookActive());
 ck('…on a new canvas id', [...canvases.keys()].filter((k) => k.startsWith('freelook-')).length >= 2,
   `${[...canvases.keys()].filter((k) => k.startsWith('freelook-')).length} id(s) minted`);
 fl.closeFreelook();
+
+// ── PART 1b: THE KEYBOARD, AND THE KEY THAT GETS STUCK DOWN ────────────────
+//
+// ⚠ THE FAILURE IS A CAMERA THAT TURNS ON ITS OWN, and neither half of the cause is in this panel's
+// arithmetic. The handler ignores anything addressed to an INPUT, which is right for a PRESS — a
+// player writing a message must not be flying the camera — and catastrophic for a RELEASE: the
+// command box takes focus on any single-character keypress (input.js's auto-focus), so E is
+// delivered to the body, focus moves while it is still down, and the keyup for E is addressed to an
+// INPUT and dropped here. The key is never taken out of the camera's held set, and the shot swings
+// at 62°/s for the rest of the session with nothing held down and nothing on screen to say why.
+//
+// So: a press only counts while this seat has the keyboard, and a release counts wherever it lands
+// — the rule cab-view.js already spells out for its own throttle, arriving one layer up.
+console.log('\n— the keyboard —');
+
+// The shared stub's window swallows listeners, so record them for this part. ⚠ Installed BEFORE the
+// open: the panel binds at open time, and a recorder attached afterwards records nothing.
+const KEYS = {};
+globalThis.window.addEventListener = (t, fn) => { (KEYS[t] ||= []).push(fn); };
+globalThis.window.removeEventListener = (t, fn) => { KEYS[t] = (KEYS[t] || []).filter((f) => f !== fn); };
+const fire = (type, o = {}) => {
+  for (const fn of (KEYS[type] || []).slice()) fn({ type, repeat: false, target: { tagName: 'BODY' }, preventDefault() {}, ...o });
+};
+
+fl.openFreelook({ mount, gx: 900, gy: 900, map, sky, onExit: () => {} });
+let t = 2000;
+const cam = () => { step(t += 100); return ws.lastViewState()?.freeCam || null; };
+ck('the seat is listening for keys', (KEYS.keydown || []).length > 0, `${(KEYS.keydown || []).length} listener(s)`);
+ck('…and the camera reaches the renderer', !!cam(), 'no freeCam in the view payload');
+
+const yaw0 = cam().yaw;
+fire('keydown', { key: 'e' });
+const yaw1 = cam().yaw;
+ck('E turns the camera', yaw1 !== yaw0, `${yaw0} → ${yaw1}`);
+
+// ⚠ THE ONE THAT MATTERS. The release is addressed to the command box, because that is where the
+// focus went on the press. Two frames after it, the shot has to be still.
+fire('keyup', { key: 'e', target: { tagName: 'INPUT' } });
+const yaw2 = cam().yaw, yaw3 = cam().yaw;
+ck('…and a release delivered to the command box still stops it', yaw2 === yaw3, `${yaw2} → ${yaw3}`);
+
+// The same failure on the other axis: a stuck W is a camera flying away rather than turning.
+const p0 = cam();
+fire('keydown', { key: 'w' });
+const p1 = cam();
+ck('W flies the camera', p1.x !== p0.x || p1.y !== p0.y, `${p0.x},${p0.y} → ${p1.x},${p1.y}`);
+// ⚠ AND ALT-TAB IS THE THIRD WAY IT STICKS — the keyup is delivered to whatever you switched to and
+// this window never hears it at all, so there is no release to be lenient about. The cab releases
+// everything on blur for exactly this; a detached camera has further to drift than a truck does.
+fire('blur');
+const p2 = cam(), p3 = cam();
+ck('…and the window losing focus lets go of it', p2.x === p3.x && p2.y === p3.y, `${p2.x},${p2.y} → ${p3.x},${p3.y}`);
+fl.closeFreelook();
+
+// ── PART 1b2: THE CAMERA OUTRUNS ITS WINDOW, AND THE WORLD FOLLOWS ──────────
+//
+// ⚠ THE BUG THIS EXISTS FOR IS ONE THING MISSING, NEVER AN EDGE. The window is 36 tiles around the
+// tile the camera opened on and the camera flies anywhere; past that square the floor shader goes
+// on drawing terrain and everything STANDING on it silently stops. Coldwater is ~30 tiles across
+// with the Curtain sealing its rim, so a shot framing the whole city puts exactly one wall outside
+// the window while the other two are still in it — reported as "the western wall of the Curtain is
+// missing", and measured as 67 Curtain segments becoming 46 with the window 10 tiles east.
+//
+// Two claims, and the second is the one that is easy to ship broken: the camera ASKS for ground
+// when it drifts, and the shot does not move when that ground arrives.
+console.log('\n— the world follows the camera —');
+{
+  const asked = [];
+  fl.openFreelook({ mount, gx: 900, gy: 900, map, sky, onExit: () => {},
+    onRecenter: (x, y) => asked.push([x, y]) });
+  let u = 5000;
+  const camf = () => { step(u += 100); return ws.lastViewState()?.freeCam || null; };
+  camf();
+  fire('keydown', { key: 'Shift' });
+  fire('keydown', { key: 'w' });
+  let fc = null;
+  for (let i = 0; i < 400 && !asked.length; i++) fc = camf();
+  fire('keyup', { key: 'w' });
+  fire('keyup', { key: 'Shift' });
+
+  ck('flying out of the window asks for a new one', asked.length === 1, `${asked.length} request(s)`);
+  ck('…past half the radius, not before', !!fc && Math.max(Math.abs(fc.x), Math.abs(fc.y)) > 18,
+    fc && `${fc.x.toFixed(2)},${fc.y.toFixed(2)}`);
+  const want = asked[0] || [0, 0];
+  ck('…and it names the tile the CAMERA is on', !!fc
+    && want[0] === 900 + Math.round(fc.x) && want[1] === 900 + Math.round(fc.y),
+    `asked ${want} from 900,900 + ${fc && fc.x.toFixed(2)},${fc && fc.y.toFixed(2)}`);
+  // ⚠ ONE OUTSTANDING AT A TIME. Without that the request fires on every frame of the drift — at
+  // the fast ladder that is sixty 73x73 windows a second, which is a different bug of its own.
+  for (let i = 0; i < 20; i++) camf();
+  ck('…once, not once a frame', asked.length === 1, `${asked.length} request(s)`);
+
+  // AND THE SHOT HOLDS WHEN THE GROUND ARRIVES. The camera's x/y are an offset from the window
+  // centre, so moving the centre without rebasing teleports the picture by the whole re-centre.
+  const before = camf();
+  const world = { x: 900 + before.x, y: 900 + before.y };
+  fl.openFreelook({ mount, gx: want[0], gy: want[1], map, sky });
+  const after = camf();
+  const lvR = ws.lastViewState();
+  ck('the window moves to meet it', lvR?.mapCenter?.x === want[0] && lvR?.mapCenter?.y === want[1],
+    JSON.stringify(lvR && lvR.mapCenter));
+  ck('…and the camera does not move with it',
+    Math.abs((want[0] + after.x) - world.x) < 0.6 && Math.abs((want[1] + after.y) - world.y) < 0.6,
+    `${world.x.toFixed(2)},${world.y.toFixed(2)} → ${(want[0] + after.x).toFixed(2)},${(want[1] + after.y).toFixed(2)}`);
+  ck('…and the offset it flew out to is spent', Math.max(Math.abs(after.x), Math.abs(after.y)) < 18,
+    `${after.x.toFixed(2)},${after.y.toFixed(2)}`);
+
+  // ⚠ THE CONTROL, AND THE REASON THE REBASE IS CONDITIONAL. A person typing `freelook 918 903`
+  // wants the world to move and the SHOT to hold its framing — the opposite correction — and both
+  // arrive down the same wire. A rebase applied to that one drags the camera off the tile it was
+  // sent to look at.
+  const manual = camf();
+  fl.openFreelook({ mount, gx: want[0] + 25, gy: want[1] + 25, map, sky });
+  const held = camf();
+  ck('a typed re-centre still moves the world, not the shot',
+    Math.abs(held.x - manual.x) < 0.6 && Math.abs(held.y - manual.y) < 0.6,
+    `${manual.x.toFixed(2)},${manual.y.toFixed(2)} → ${held.x.toFixed(2)},${held.y.toFixed(2)}`);
+  fl.closeFreelook();
+}
+
+// ── PART 1c: …AND THE COMMAND BOX DOES NOT TAKE THE KEYBOARD OFF THIS SEAT ──
+//
+// The other half, and the cause rather than the symptom. input.js focuses `#cmd-input` on any
+// single-character keypress delivered outside a text field, and every panel that owns the keyboard
+// is named in its guard list — the sim, the cockpit HUD, both walkarounds, the cab, the piano. A
+// seat missing from that list is one where the first W types a letter into the command box, moves
+// the focus, and strands the release. ⚠ LOCATED IN THE GUARD ITSELF, never grepped over the file:
+// `isFreelookActive` is imported at the top of input.js for other reasons, so a whole-file search
+// passes while the guard list has nothing in it.
+{
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../../client/game/js/input.js', import.meta.url), 'utf8');
+  const at = src.indexOf('Auto-focus when user types anywhere outside');
+  const end = src.indexOf('input.focus();', at);
+  const guard = at >= 0 && end > at ? src.slice(at, end) : '';
+  ck('the command box leaves this seat its keyboard', guard.includes('isFreelookActive()'),
+    at < 0 ? 'the auto-focus listener has moved — this check needs re-aiming' : 'not named in the guard list');
+}
 
 // ── PART 2: the nav-mark switch reaches the canvas ──────────────────────────
 console.log('\n— the nav-mark switch —');
@@ -248,6 +329,46 @@ ck('a detached camera drops it too', free.fill < on.fill, `on ${on.fill} vs free
 const shed = (on.total - off.total) / on.total;
 ck('the switch hides overlays, not the city', shed > 0 && shed < 0.25, `${(shed * 100).toFixed(2)}% of ops shed`);
 
+// ── PART 3: A VANTAGE — THE SAME SEAT WITH THE CAMERA ON ITS FEET ──────────
+//
+// `telescope` opens this panel with a `stand` block, and the client half of that is the one seam
+// nothing else here reaches: `standSpot` resolves a named MOUNT against the world window and the
+// renderer answers where the fixture is. Every way it can fail is silent — a stale identifier in
+// that function is swallowed by the panel own try/catch (see the ⚠ above) and the player gets a
+// frozen frame; a mount that answers null leaves the camera flying, which looks like a telescope
+// you can walk away from.
+//
+// ⚠ THE CENTRE CELL HAS TO BE THE SHIP. The mount reads `map[R][R]` and refuses anything that is
+// not her, which is what stops a vantage standing in mid-air over whatever tile it was pointed at.
+console.log("");
+console.log("— a vantage —");
+{
+  const shipMap = map.map((row) => row.slice());
+  shipMap[R][R] = { kind: "land", biome: "water", road: 0, mark: "yacht", heading: 0 };
+  const stand = { mount: "yacht_scope", leash: 0.055, label: "TELESCOPE" };
+  fl.openFreelook({ mount, gx: 897, gy: 898, map: shipMap, sky, stand, onExit: () => {} });
+  ck("a vantage opens the seat", fl.isFreelookActive() === true);
+  const err = step(16);
+  ck("…and its first frame does not throw", err === null, err || "");
+  step(33);
+  ck("…and its second does not either", true);
+  // The mount has to have actually answered: the camera is standing on her sun deck rather than at
+  // the OPEN_Z a flying one would have taken. Asked through the renderer, so this cannot pass by
+  // agreeing with a number copied into the test.
+  const want = ws.yachtScopeMount(0, 0, 0, 1000);
+  ck("the mount answers a real eye height", Number.isFinite(want.z) && want.z > 0.05 && want.z < 1, String(want.z));
+  ck("…and a bearing off her bow", Number.isFinite(want.yaw));
+  fl.closeFreelook();
+  ck("…and it comes down", fl.isFreelookActive() === false);
+
+  // ⚠ AND A WINDOW WHOSE CENTRE IS NOT THE SHIP MUST NOT PUT THE CAMERA ANYWHERE. The mount
+  // refuses, `standSpot` falls through to the authored eye — and with none authored it answers
+  // null, which leaves the ordinary flying camera rather than an eye at an invented height.
+  fl.openFreelook({ mount, gx: 900, gy: 900, map, sky, stand, onExit: () => {} });
+  const err2 = step(16);
+  ck("a vantage over the wrong tile still paints", err2 === null, err2 || "");
+  fl.closeFreelook();
+}
 console.log(fails
   ? `\n  ✗ freelook smoke — ${fails} FAILED`
   : '\n  ✓ freelook smoke — the seat mounts, paints and closes; the mark switch reaches the canvas');

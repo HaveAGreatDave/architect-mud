@@ -1,0 +1,19 @@
+{
+  "description": "Steel frames on castors, adjustable at eight points, each one holding a hull off its keel and strapped across. Four are occupied. Every cover is fitted rather than draped, and every one has a tag at the bow.",
+  "flags": {
+    "aliases": [
+      "cradles",
+      "cradle",
+      "hulls",
+      "boats",
+      "covers"
+    ],
+    "interactions": {
+      "examine": "Three of the tags are current. The fourth is two years old, the strapping has been checked since, and the account it is billed to has not lapsed. Somebody is paying to keep a boat they have not come to see."
+    }
+  },
+  "id": "furn_consv_cradles",
+  "name": "the cradles",
+  "object_type": "furniture",
+  "zone_id": "zone_consv_hall"
+}

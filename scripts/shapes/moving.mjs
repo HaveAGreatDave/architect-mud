@@ -41,7 +41,14 @@ const MUST_MOVE = new Map([
   ['named:coldwaterclonefacility', 'the vats breathe'],
   ['named:halloransfixit', 'the chain block pulls an engine'],
   ['named:thedynamo', 'the wind wheel turns at the speed of the wind'],
+  ['named:voltage', 'the club sweeps two searchlights across the sky'],
 ]);
+
+// ⚠ AND ONE OF THEM ONLY EXISTS AFTER DARK. `skyBeam` draws nothing at noon — a searchlight at
+// midday is a lamp nobody can see — so the sweep below has to ask for the hour the part is for.
+// Everything else here is machinery and machinery works in daylight, which is why `night: 0` is
+// the default and this is a per-entry exception rather than a change to all of them.
+const AT_NIGHT = new Set(['named:voltage']);
 
 // ⚠ AN ARM MAY CARRY BOTH KINDS OF ANIMATION, and one of them does. `RENDER_TUNE.motion` parks the
 // motion LAYER; a smoke plume, a beacon and an arc strike are adornments on their own clocks that
@@ -50,8 +57,63 @@ const MUST_MOVE = new Map([
 // a jib nailed to one bearing would also have, so it is declared with its REASON rather than
 // waved through by a number. Adding a name here without one is how this check stops meaning
 // anything.
+// ⚠ AND IT IS INERT SINCE THE DIGEST BECAME TAG-SCOPED, which is worth saying rather than
+// deleting: smoke is not queued with MOTION_TAG, so it no longer reaches the pose hash at all and
+// this entry can neither excuse nor hide anything. It is kept because the REASON is still true and
+// is the shape of thing that would need declaring again the day a moving part borrows a drifting
+// one. If it is ever the only entry left and nothing has needed it for a while, delete it.
 const ALSO_DRIFTS = new Map([
   ['named:halloransfixit', 'the rooftop extractor smokes, and smoke is not a moving part'],
+]);
+
+// ⚠ AND THREE OF THEM MOVE IN A WAY THIS DIGEST CANNOT SEE, WHICH IS A GAP IN THE GATE AND NOT
+// A PASS. Every entry below is a MUST_MOVE arm that genuinely animates in the picture and whose
+// animation reaches neither a tagged position nor a part count. They are declared rather than
+// deleted because the reason is the useful thing: a future moving part built the same way will
+// be invisible here too, and a name in MUST_MOVE with nothing checking it is worse than a name
+// on this list.
+//
+// HOW THEY WERE PASSING UNTIL 2026-09-20, which is the part worth keeping. `captureRawPass`
+// saved and nulled FACE_SINK and left STROKE_SINK installed, so the shape capture — which runs
+// the arm again against SHAPE_STUB_CAM — pushed that run's strokes into the live sink. The
+// capture is memoised on the model, so it happened on the FIRST render of each model and never
+// again: `named:thedynamo` emitted 321 strokes on frame one and 21 on every frame after it. The
+// digest mixes `r.strokes` as a COUNT, so that cold-versus-warm difference read as a second
+// pose, and three arms that move nothing this digest can hash scored exactly the two poses the
+// check asks for. Fixing the leak turned all three red on the same run, which is how they were
+// found. A gate that passes because of a bug somewhere else passes for as long as that bug lives.
+//
+// WHAT EACH ONE ACTUALLY DOES, measured over a 40 s sweep with the model warmed first:
+//   named:thedynamo             — 12 distinct all-sink position signatures, 0 of them tagged. The
+//                                 wheel is `windWheel`, a BAKED BILLBOARD: `emitDecoQuad` keyed
+//                                 `wheel|<step>`, so its pose is the texture IDENTITY and its
+//                                 quad never moves. The twelve signatures are the stack smoke and
+//                                 the arc strike beside it, and this file is explicit that
+//                                 neither of those is a moving part. Fixing it is two lines —
+//                                 give the wheel the `moving|` prefix, and mix `d.key` for
+//                                 `moving|` decals — but the prefix is also what `glresidue`
+//                                 buckets on, so it is a change to make with that gate in view.
+//   named:coldwaterclonefacility — 12 signatures, 0 tagged. The vats breathe on `motionPhase`,
+//                                 and the ⚠ on the digest names a breathing vat as exactly the
+//                                 kind of thing that is NOT a moving part. Either it should not
+//                                 be in MUST_MOVE or the vats should be tagged; that is a
+//                                 question about the building, not about this file.
+//   type:pier                   — 5 arcflag decals every frame, 5 distinct keys, and 1 corner
+//                                 signature over 40 s. Not a missing part and not a silent one:
+//                                 a flag in a dead calm does not ripple, and that is correct.
+//                                 Every animated term in `windFlag` — `wav` and `rip` — is
+//                                 multiplied by `windOf().fly`; `canvasResidue` runs an arm
+//                                 OUTSIDE a world pass so `WIND_STATE` is null, and
+//                                 `WIND_CALM.fly` is 0. Observing this one at all would need the
+//                                 harness to blow some wind, which needs a seam windshield.js
+//                                 does not export today. An earlier draft of this note said the
+//                                 flags "never reach a sink", which was simply wrong — they do,
+//                                 five of them, every frame.
+//                                 is any motion.
+const UNSEEN = new Map([
+  ['named:thedynamo', 'the wheel is a baked billboard; its pose is the texture key, not a position'],
+  ['named:coldwaterclonefacility', 'the vats breathe, and a breathing vat is not a tagged moving part'],
+  ['type:pier', 'the flags are becalmed — canvasResidue runs outside a world pass, so wind is WIND_CALM'],
 ]);
 
 const ws = await loadWindshield();
@@ -63,25 +125,70 @@ const byKey = new Map(reg.map((e) => [e.key, e.m]));
 // one inside the working stroke of every duty cycle in the set, whatever its phase offset.
 const TIMES = Array.from({ length: 20 }, (_, i) => i * 2000);
 
-const poses = (m, motion) => {
+// ⚠ A POSE IS WHERE THE PARTS ARE, AND FOR A LONG TIME THIS HASHED HOW MANY THERE WERE. The
+// paragraph at the top of this file says a pose is the whole emitted frame precisely because
+// anything counting parts would pass a jib nailed to one bearing — and then the check took
+// `canvasResidue`'s default return, which is COUNTS plus a tally of canvas calls by name. Every
+// entry here passed anyway, by luck: a slewing crane's own backface culling changes how many quads
+// survive, so its counts moved even though nothing was asking them to.
+//
+// The luck ran out on the first part whose count is constant by construction. Voltage's
+// searchlights are `lightBeam` cones, and a cone's node count is a property of the CONE — its
+// length over its mean radius — so it is the same number at every bearing. The beams swept
+// perfectly and the gate reported one pose, which is the exact false negative this file exists to
+// prevent, pointed at the newest thing in the layer.
+//
+// So it collects and digests the POSITIONS. `collect: true` hands back the stroke, sprite and decal
+// sinks by reference; the digest is a cheap rolling hash over their coordinates at three decimals,
+// because JSON of every corner of every decal over 20 samples × 13 models × 2 settings is a minute
+// of stringifying to answer a yes/no question.
+const MOVING = 'moving';   // windshield.js's own MOTION_TAG — the parts RENDER_TUNE.motion parks
+const R3 = (v) => Math.round(v * 1000);
+const digest = (r) => {
+  let hx = 0x811c9dc5;
+  const mix = (n) => { hx = ((hx ^ (n | 0)) * 0x01000193) >>> 0; };
+  mix(r.faces); mix(r.decals); mix(r.sprites); mix(r.scatter); mix(r.strokes || 0);
+  for (const k of Object.keys(r.canvas).sort()) { for (let i = 0; i < k.length; i++) mix(k.charCodeAt(i)); mix(r.canvas[k]); }
+  const s = r.sink;
+  if (s) {
+    // ⚠ ONLY WHAT THE MOTION LAYER ITSELF QUEUED, WHICH IS WHAT `MOTION_TAG` IS FOR. A building
+    // moves things on clocks that are not this flag - a smoke plume drifts, an arc welder strikes,
+    // a vat breathes, a beacon pulses - and the note further down this file is explicit that none
+    // of those is a moving PART. Hashing every position in the frame reports all four of them as
+    // never parking, which is a gate that has stopped meaning anything; hashing only the tagged
+    // ones measures exactly what the slider controls. The tag is recorded by the painter, because
+    // a census cannot infer who queued a thing - `glresidue`'s lesson, one layer over.
+    for (const w of s.strokes) if (w.tag === MOVING) { mix(R3(w.a[0])); mix(R3(w.a[1])); mix(R3(w.a[2])); mix(R3(w.b[0])); mix(R3(w.b[1])); mix(R3(w.b[2])); }
+    for (const p of s.sprites) if (p.tag === MOVING) { mix(R3(p.x)); mix(R3(p.y)); mix(R3(p.z)); }
+    for (const d of s.decals) if (String(d.key).startsWith(MOVING + "|")) for (const q of d.p) { mix(R3(q[0])); mix(R3(q[1])); mix(R3(q[2])); }
+  }
+  return hx;
+};
+
+const poses = (m, motion, night = 0) => {
   ws.RENDER_TUNE.motion = motion;
   const seen = new Set();
   for (const now of TIMES) {
-    const r = ws.canvasResidue(m, { cam, night: 0, bn: 'THE EXAMPLE', dy: -2, now });
+    const r = ws.canvasResidue(m, { cam, night, bn: 'THE EXAMPLE', dy: -2, now, collect: true });
     if (r.threw) return { threw: r.threw };
-    seen.add(JSON.stringify(r));
+    seen.add(digest(r));
   }
   return { n: seen.size };
 };
 
+const unseen = [];   // MUST_MOVE arms this digest provably cannot observe — see UNSEEN
 const problems = [], rows = [];
 for (const [key, why] of MUST_MOVE) {
   const m = byKey.get(key);
   if (!m) { problems.push(`${key}: not in the model registry at all — ${why}`); continue; }
-  const on = poses(m, 1), off = poses(m, 0);
+  const nite = AT_NIGHT.has(key) ? 1 : 0;
+  const on = poses(m, 1, nite), off = poses(m, 0, nite);
   if (on.threw) { problems.push(`${key}: threw with motion on — ${on.threw}`); continue; }
   if (off.threw) { problems.push(`${key}: threw with motion off — ${off.threw}`); continue; }
   rows.push({ key, on: on.n, off: off.n, why });
+  // Declared above: the arm moves, and this digest has no way to observe it. Not a pass —
+  // a recorded blind spot, which is why it prints even when it is not failing.
+  if (UNSEEN.has(key)) { unseen.push(`${key}: ${UNSEEN.get(key)}`); } else
   if (on.n < 2) problems.push(`${key}: ONE pose over a 40 s sweep with motion on — ${why}, and it is not`);
   const drifts = ALSO_DRIFTS.has(key);
   if (off.n !== 1 && !drifts) problems.push(`${key}: ${off.n} poses with RENDER_TUNE.motion 0 — that flag promises a still building, not a slower one`);
@@ -283,6 +390,133 @@ for (const [key, why] of MUST_MOVE) {
   }
 }
 
+// ── 4c. AND THE BOX THE GANTRY LETS GO OF IS THE BOX THAT APPEARS ───────────
+//
+// The berth's second agreement, and a harder one than "is there a ship": the crane and the hull
+// now have to concur about WHICH box, WHAT COLOUR and WHEN. Nothing passes between them — a lift
+// is a slice of the working window, and each of them divides that window for itself — so every way
+// this drifts draws a crane working beside a ship that is filling, which is what it looked like
+// when the two had nothing whatever to do with each other:
+//
+//   • the hull back on a RAMP, filling continuously while the gantry mimes over the top of it;
+//   • the stow advancing by the wrong number, so boxes appear that nobody lifted;
+//   • the container on the spreader painted a fixed colour, so what swings out over the water is
+//     never what lands;
+//   • one gantry working every lift, which with two on the quay is two machines setting down
+//     together and one box arriving.
+//
+// ⚠ AND THE CRANE'S OWN FILLS ARE THE DIFFERENCE BETWEEN TWO SCENES, never a colour found anywhere
+// in the frame. The hull is stacked out of the same six colours, so "is that colour on screen" is
+// answered yes by her deck whatever the gantry is carrying — the same vacuous-control trap this
+// file's wind check records. The berth is rendered with a gantry beside it and again without one,
+// and what is only in the first is the machine.
+{
+  const { berthPhase, berthBoxColour, berthRow, motionTopCss, BERTH_LIFTS, BERTH_SLOTS, BERTH_SETDOWN } = ws;
+  const el = stubCanvas('__lift', 900, 500);
+  const real3 = el.getContext('2d');
+  // The same filled-paths-only recorder check 4 uses, and for the same reason — plus the FILL
+  // STYLE, which is the whole question here.
+  let ops3 = [], pend3 = [];
+  const N3 = (x) => typeof x === 'number' ? x.toFixed(2) : String(x);
+  el.getContext = () => new Proxy(real3, {
+    get(o, k) { const v = o[k]; if (typeof v !== 'function') return v;
+      return (...a) => {
+        if (k === 'beginPath') pend3 = [];
+        else if (k === 'moveTo' || k === 'lineTo') pend3.push(k + a.map(N3).join(','));
+        else if (k === 'fill') { ops3.push(String(o.fillStyle) + '@' + pend3.join('|')); pend3 = []; }
+        return v.apply(o, a);
+      }; },
+    set(o, k, v) { o[k] = v; return true; },
+  });
+  ws.RENDER_TUNE.motion = 1;
+  const clock3 = globalThis.performance, rnd3 = Math.random, date3 = Date.now;
+  globalThis.performance = { ...clock3, now: () => 1e6 };
+  Date.now = () => 1.7e12;
+  Math.random = () => 0.42;
+  const RR3 = 9, N4 = RR3 * 2 + 1;
+  const mapOf = (crane) => {
+    const m = Array.from({ length: N4 }, () => Array.from({ length: N4 }, () => ({ kind: 'land', biome: 'water', flr: 0 })));
+    m[RR3 - 4][RR3] = { kind: 'land', biome: 'water', flr: 0, mark: 'berth', bf: 'north', bq: 'west' };
+    if (crane) m[RR3 - 4][RR3 - 1] = { kind: 'land', biome: 'docks', flr: 7, bt: 'quay_crane', ent: 'west' };
+    return m;
+  };
+  const quay = mapOf(true), open = mapOf(false);
+  const shot3 = (map, u) => {
+    ws.RENDER_TUNE.shipForce = u;
+    const v = { cls: 'prop', phase: 'cruise', worldBlend: 1, map, heading: 0, speed: 0, hour: 13, height: 0.02, weather: 'clear', acX: 100, acY: 100 };
+    ws.paintWindshield('__lift', v); ops3 = []; ws.paintWindshield('__lift', v);
+    return ops3.slice();
+  };
+  shot3(quay, 0.5);   // warm every lazy cache and bake before anything is compared
+  // ⚠ WHERE A LIFT STARTS IS BISECTED OUT OF THE RENDERER, not written down here. The working
+  // window's own bounds are the berth's business; a gate holding a copy of them would keep agreeing
+  // with itself while the thing it is watching moved.
+  const uOfLift = (L) => {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 50; i++) { const m = (lo + hi) / 2; ws.RENDER_TUNE.shipForce = m;
+      if (berthPhase(0).lift >= L) hi = m; else lo = m; }
+    return hi;
+  };
+  const u0 = uOfLift(0), W = uOfLift(1) - u0;
+  const uAt = (L, f) => u0 + (L + f) * W;
+  const at = (u) => { ws.RENDER_TUNE.shipForce = u; return berthPhase(0); };
+
+  // 1. ONE BOX PER LIFT. Her stow is a step function with exactly one step in it per lift, and each
+  //    step is one box — a ramp, a stall or a double count all fail here and only here.
+  const aboard = [];
+  for (let L = 0; L < BERTH_LIFTS; L++) aboard.push([at(uAt(L, BERTH_SETDOWN - 0.04)).aboard, at(uAt(L, BERTH_SETDOWN + 0.03)).aboard]);
+  const steps = aboard.filter(([b, a]) => a - b === 1).length;
+  if (steps !== BERTH_LIFTS) problems.push(`the deck stow steps by one box on ${steps} of ${BERTH_LIFTS} lifts — a lift is one box, and the rest of this check is about WHICH box`);
+  if (aboard[BERTH_LIFTS - 1][1] - aboard[0][0] !== BERTH_LIFTS) problems.push('she does not end the call BERTH_LIFTS boxes heavier than she started it — the gantries and the stow are counting different things');
+
+  // 2. AND SHE GAINS IT AT THE SET-DOWN AND AT NO OTHER TIME. The anti-ramp assertion, asked of the
+  //    PICTURE rather than of the arithmetic: over the whole working window her frame is allowed to
+  //    change only where a box joined the stow. ⚠ THE CONVERSE IS NOT ASSERTED — a box can join it
+  //    and be hidden behind the ones already there, which is a real outcome at a tier boundary.
+  let crept = 0, prevF = null, prevA = null;
+  for (let i = 0; i <= 60; i++) {
+    const u = uAt(0, 0) + (i / 60) * BERTH_LIFTS * W * 0.999;
+    const P = at(u), f = shot3(open, u).join('|');
+    if (prevF !== null && f !== prevF && P.aboard === prevA) crept++;
+    prevF = f; prevA = P.aboard;
+  }
+  if (crept) problems.push(`her deck changed ${crept} times over the working window without a box joining the stow — she is filling on a ramp of her own again, and the gantry beside her is miming`);
+
+  // 3. ONE GANTRY WORKS ITS SHARE, AND CARRIES THE COLOUR THE STOW IS ABOUT TO GAIN.
+  const worked = [];
+  for (let L = 0; L < BERTH_LIFTS; L++) {
+    const u = uAt(L, 0.60);                       // mid-stroke: out over her, laden
+    // ⚠ THE COLOUR IS ASKED OF THE RENDERER, NOT REBUILT HERE. A box is no longer painted at its raw
+    // palette value — `movingBox` shades every face — so `'rgb(' + berthBoxColour(…) + ')'`, which is
+    // what this line used to be, named a string that appears in no frame. It went red on a picture
+    // that was correct, which is the failure a gate holding its own copy of somebody else's
+    // arithmetic always has. See the ⚠ on `motionTopCss`.
+    const P = at(u), css = motionTopCss(berthBoxColour(P.box, P.ship), 0);
+    const withC = shot3(quay, u), without = new Set(shot3(open, u));
+    const crane = withC.filter((x) => !without.has(x));
+    if (crane.some((x) => x.startsWith(css + '@'))) worked.push({ L, row: berthRow(P.box), crane: crane.join('|') });
+  }
+  // ⚠ ONE COUNT, TWO CAUSES, AND FROM OUTSIDE THEY CANNOT BE TOLD APART. "The spreader was carrying
+  // this lift's colour" goes wrong both when the gantry works the wrong lifts and when it paints the
+  // container something of its own, and a crane that is not laden is drawing the NEXT box on its
+  // chassis in a colour off the same six — so there is no fill in the frame that means "laden"
+  // independently of the colour being right. The message names both rather than guessing.
+  const CAUSES = 'either the two machines on the quay are not taking alternate lifts — so they set '
+    + 'down together and one box arrives — or the container on the spreader is painted something of '
+    + 'its own, and what swings out over the water is never what lands';
+  if (!worked.length) problems.push(`no lift in the call puts the stow's next colour on the spreader — ${CAUSES}`);
+  else if (worked.length !== BERTH_LIFTS / BERTH_SLOTS) problems.push(`one gantry carries this lift's own box on ${worked.length} of ${BERTH_LIFTS} lifts, not ${BERTH_LIFTS / BERTH_SLOTS} — ${CAUSES}`);
+  // 4. …AND IT STOPS THE TROLLEY OVER THAT BOX'S OWN ROW. Two of its own lifts at the same point in
+  //    the stroke, going into different rows across her beam, cannot draw the same crane.
+  const pair = worked.find((a, i) => i && a.row !== worked[i - 1].row);
+  if (worked.length > 1 && !pair) problems.push('every lift this gantry works goes into the same row — the stow is not walking across her beam, so the trolley has nothing to follow');
+  else if (pair && pair.crane === worked[worked.indexOf(pair) - 1].crane) problems.push('the gantry draws identically on two lifts bound for different rows — the trolley is stopping at one fixed spot on her beam while she stows the boxes across six of them');
+  rows.push({ key: 'berth/lift', on: BERTH_LIFTS, off: 1, why: 'one box per gantry stroke, in the colour and the row it was carried to' });
+
+  ws.RENDER_TUNE.shipForce = null;
+  globalThis.performance = clock3; Math.random = rnd3; Date.now = date3;
+}
+
 ws.RENDER_TUNE.motion = 1;
 
 if (REPORT) {
@@ -298,5 +532,9 @@ if (problems.length) {
 }
 
 const tot = rows.reduce((a, r) => a + r.on, 0);
+if (unseen.length) {
+  console.log(`\n  ⚠ ${unseen.length} MUST_MOVE arm(s) this digest cannot observe — declared, not passed:`);
+  for (const u of unseen) console.log('    ' + u);
+}
 console.log(`✓ moving: ${rows.length} arms move and every one of them parks — ${tot} distinct poses across a 40 s sweep, `
   + `down to one each with RENDER_TUNE.motion 0 (${ALSO_DRIFTS.size} declared exception: smoke, which is not a moving part).`);

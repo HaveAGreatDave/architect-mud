@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_cylinder",
+  "name": "a spare door cylinder",
+  "tags": {
+    "description": "Estate standard, brass, keyed to a blank, and sold over the counter to residents who have lost keys and to a certain number of people who have not. Vallance writes every one of them in the book, which he is not required to do.",
+    "stackable": true
+  },
+  "type": "component",
+  "value": 40,
+  "weight": 180
+}

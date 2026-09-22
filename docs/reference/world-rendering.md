@@ -709,6 +709,109 @@ second rule to keep in step. ⚠ `sl` is **three states** (1 lit / 0 dark / abse
 post is still street furniture; collapsing "off" into "absent" would pop every lamp in the city out
 of existence at dawn.
 
+## Buildings in a blackout
+
+*(as built, 2026-09-21)*
+
+The power sim has produced scattered per-building blackouts since it shipped: a severe storm faults
+individual junction boxes offline — the building-level distribution feed, not the hardened central
+plant — and an EMP or ion storm takes the lot. `pw` reached the client the whole time, the traffic
+signals read it and the streetlights read their own `sl`, and **the buildings read nothing**. A tower
+with its feed down kept its lit window grid, its neon, its blades, its blooms and its rooftop ad over
+a blacked-out street.
+
+**The wire is four answers, not one bit.** `deriveSurfaceCell` sends `pw` as **1 powered / 2 browning
+out / 0 dark**, with `em` on a dark tile that keeps an emergency circuit and `og` on one that was
+never wired at all.
+
+- ⚠ **`overloaded` used to collapse into 0 and that was a lie the canopy told.**
+  `applyPowerLightEffects` keeps the cheap fixtures on in a brownout, sheds the expensive ones and
+  flickers whatever is marginal, and it explicitly holds streetlights up as infrastructure that never
+  competes for the pool. Reported as a blackout, a browning-out junction went dark out of the
+  windscreen while the room description said the lights were flickering. **`pw === 0` still means
+  exactly what it always meant**, which is why the signal test that already reads it needed no change.
+- ⚠ **`og` is the exemption with a whole region behind it.** Deadwater is dark *by construction* —
+  4,836 orphan `power_zones` rows, one per tile, no generator anywhere, offline from the first power
+  cycle — and so is the Under (117 more). Every light in those arms is flame, oil or carbide. Read as
+  a power cut, this feature would have blacked out the Null's powerhouse for a fault their region
+  cannot have. `getZoneOnGrid` tells a feed that **failed** from a connection that never **existed**;
+  the two are identical to the sim and opposites out of a cockpit, and a dead generator is still a
+  generator (out of fuel, smashed, storm-faulted — the zone is on the grid and its blackout is real).
+  A tile with no `power_zones` row at all answers no too, which is the safe direction.
+
+**It is two states in the renderer that look like one.** `POWER_DUTY` scales what a building EMITS;
+`POWER_WIN` says what the ROOMS BEHIND THE GLASS are doing, and that is **baked into the wall texture**
+rather than drawn. Setting only the first leaves a dark building wearing a full grid of lit windows,
+which is most of the bug; setting only the second leaves a dark building with its neon still on. Both
+are frame state armed per tile by the world pass and restored in the same breath, exactly as
+`ADORN_TIER` is — a power *argument* would have to be threaded through `drawTypeModel` →
+`drawTypeModelArm` → every one of the 170-odd cases, and the first arm anybody added would be the one
+that forgot it.
+
+**A lit window is a TEXTURE, not a light**, so `wallTex` gains three night bakes beside the one it had:
+dark (no pane passes, and every one falls into the dark-pane arm already written to go darker with the
+wall), brownout (the grid thinned, because that is what the sim does to the fixtures), and emergency
+(a handful of cold lamps carrying none of the building's accent — a clinic on its last circuit must
+not look like it is still trading). ⚠ **Only the NIGHT bake varies**: a building with its feed down
+looks like its neighbours at noon, so the day texture is shared and the atlas stays at one entry per
+palette however dark the city gets. ⚠ And `flatWallCol` takes the variant too — it is what a wall is
+painted with once it is too small to blit a texture onto, which is most of the city from the air, and
+without it a blacked-out tower is dark up close and **lights up as you fly away**.
+
+**Scale once, at the point that owns the alpha.** Every light that reaches the GPU arrives at
+`pushLight`, including a dozen direct callers that reach no primitive at all — a stack's ember, a
+steam plume lit from below, a rooftop helideck's perimeter ring — which is why guards in `glowPool`,
+`blinkLight`, `groundLamp` and `lightBeam` could never have been the whole answer. The census that
+found that named **526 leaks**. So the emitters only ever switch OFF and the dimming is one line in
+`pushLight`; `lightBeam` → `glowPool` → `pushLight` and `helixRunner` → `emitLightRunner` would
+otherwise apply the same factor two and three times down a chain. ⚠ The 2-D fallback keeps the
+blackout and loses the dim — with no sprite sink that function is never called, so on GLASS 1 a
+brownout is the thinned window grid alone.
+
+**A dead sign is a painted board, never a deleted one** — the streetlight's own rule pointed at
+signage. `neonBlade`, `marqueeBand` and `bakeSignText` (the universal lettering chokepoint, which is
+why the read is there and at none of its 44 call sites) take `powerNight`, so a blacked-out building
+letters itself in flat paint and keeps every word of its own name. ⚠ `powerNight` rather than a
+factor, because it is **idempotent**: a caller whose own night is already zeroed passes 0 in and gets
+0 out, and nothing is quietly halved once per hop through a chain nobody traced.
+
+**GLASS 2 gets the light half free** — the arm runs for its lights either way — and needs two things
+of its own. The atlas grows a **variant entry** per dark palette (`texVariant`; ⚠ a roof never varies,
+it has no windows in it, and doubling every roof entry on a page with a hard device ceiling is how
+the whole city falls back to flat colours), and a group may **disagree with the frame about `nb`**, so
+a dark building's captured trim — 4,973 of 28,717 faces on 163 of the 173 models change colour after
+dark — resolves to its unlit day pair. ⚠ The mesh is memoised per MODEL and shared between tiles, so
+the variant rides the GROUP and is resolved at fill time; `texKey` itself must never carry it, and
+`rectOf` takes the group. ⚠ And `windowKey` carries the grid state: it is the one term in that key
+that is not a property of the building, so leaving it out means the buffer is not stale and the
+blackout arrives at the next corner instead of now.
+
+⚠ **The 2-D painter needs one thing GLASS 2 does not.** A dark building's arm is run at `night: 0` —
+the only seam this file has for the lit-trim decisions the 170-odd arms each make privately — and
+`draw3DBoxAt` derives its texture blend from that same argument, so the wall would come out as the
+DAY texture: several shades **paler** than the lit buildings beside it, which is exactly backwards.
+`POWER_NB` carries what the hour actually is.
+
+**The picture is `__glPower()` and `__powerShot()` in the Modelshop**, because no harness here reaches a GL draw call. Measured on a 640×360 cab seat at 23:00 over 9,312 wall pixels: control 0%, brownout 8.0%, dark 21.6%, emergency 25.3%, **off-grid 0%** (the exemption, exactly), and emergency-vs-dark 10.2% at worst 37 — the stairwell. At 13:00 every one of them collapses to the control, which is the design and not a weak result. ⚠ **The emergency circuit was an OCCUPANCY of 0.06 first and that measured as ONE PANE per facade**, so `dark` and `emergency` returned the identical 90.8% / worst 60: a feature nobody can tell from a full blackout is not a feature. The fix is not a bigger number — scattering more rooms reads as a building half occupied, which is what a brownout already says — it is a COLUMN, the stair lit at every landing, which is the one thing a battery is there for. ⚠ And the bench's own trap is written up in the [Modelshop README](../../tools/modelshop/README.md): a scene of NAMED models measures half the feature, because a named model paints its own facade and never reaches the shared wall texture the window grid lives in.
+
+**Coverage:** `npm run gl:power` ([scripts/shapes/power.mjs](../../scripts/shapes/power.mjs)), in the
+`pretest:regress` chain **and** in `shapes:smoke`. 61 claims over 267 models, mutation-tested 13 of
+13. It pins the mapping, that a blackout takes 1,290 lights to 0 and keeps the lettering on all 251
+models that have any, that 1,859 structural strokes still stand (a stroke is a wire and most are
+structure — a gate in `pushStroke` would take a dark building's steelwork with its neon), that a
+brownout keeps 1,284 of 1,290 lights while halving the total alpha, and that a powered *or* off-grid
+building is identical to one with no `pw` at all. The GLASS 2 hop chain is read out of the source,
+because no harness here reaches a GL draw call — ⚠ with comments blanked first, which is this repo's
+most-repeated scanner lesson and was proved again: two mutants survived a raw-source scan because the
+gate's own prose mentioned the identifiers it was looking for.
+
+⚠ Two traps that cost real time. **`wallTex`'s bake closure binds `w` to the palette RGB**, three
+hundred lines from the top, so a mode read through that name compares an ARRAY to a small integer —
+always false, every branch takes the ordinary arm, and a blackout bakes a fully lit facade while
+every counter reports the feature working. And `type:noodle_bar` **emits 0 strokes on its first run
+and 4 on every one after it** (a cold shape/kit cache, nothing to do with power), so a census that
+compares the first two runs of a model is reporting the cache.
+
 **Traffic signals** are one mast-arm per **axis** of a junction — not one head per arm — with the
 boom cantilevered out over the carriageway and the street light on the same steel. Both directions
 of a street already share a phase by construction, so the arms of an axis were never independent
@@ -780,10 +883,14 @@ calibrate `K` against the billboards already in the world (`drawTreeBB` 34, `dra
 rather than picking a number: a first pass used 9 for a signal head and it came out the size of a
 pedestrian's head — plausible at a glance, and half what it should have been.
 
-Coverage: the `shapes:smoke` view sweep includes a **`cab:blackout`** case (`pw: 0`) so the
-power-cut branch is executed, and its map carries a crossroads placed **off the centre tile** — the
-centre is the camera's own position and near-clips, so a junction at `(R,R)` exercises none of the
-signal code while appearing to. The regress suite asserts the phase invariants (the two axes are
+Coverage: the `shapes:smoke` view sweep includes a **`cab:blackout`** case (and a
+`cab:blackout-night` beside it, because the wall bake only varies after dark) so the power-cut branch
+is executed, and its map carries a crossroads placed **off the centre tile** — the centre is the
+camera's own position and near-clips, so a junction at `(R,R)` exercises none of the signal code while
+appearing to. ⚠ That map is a **mixed** street rather than a uniform one: a storm faults individual
+junction boxes, so a real outage is a block with its feed down beside one browning out beside one that
+was never wired, and those three take three different branches and three different wall bakes. A map
+that is uniformly `pw: 0` runs one of them and reports the suite green on the other two. The regress suite asserts the phase invariants (the two axes are
 never both green, opposite arms agree, a full cycle shows all three) and that the **real world map
 contains junctions by the exit rule**.
 
@@ -844,10 +951,48 @@ exists to prevent.
 
 **⚠ One set of numbers, two readers.** A gantry's outreach and a hull's beam are the same
 measurement from two ends, in two files. `BERTH_GAP`, `BERTH_BEAM`, `BERTH_DECK`, `BERTH_BOX`,
-`BERTH_COAM` and `berthStackZ` are all read by both, and two copies of any of them is a crane
-lowering boxes into the water beside a ship — a picture that looks entirely deliberate. The crane
-resolves them into its own parameters at draw time (`troAt`, `hkAt`), because `fh` is seeded per
-tile and a fraction of the boom is a different world distance on every crane.
+`BERTH_COAM`, the stow grid (`BERTH_BAYS`/`BERTH_ROWS`/`BERTH_TIERS`) and the functions over it
+(`berthBoxZ`, `berthRow`, `berthBay`, `berthTier`, `berthRowOut`, `berthBoxColour`) are all read by
+both, and two copies of any of them is a crane lowering boxes into the water beside a ship — a
+picture that looks entirely deliberate. The crane resolves them into its own parameters at draw
+time (`troAt`, `hkAt`), because `fh` is seeded per tile and a fraction of the boom is a different
+world distance on every crane.
+
+**⚠ One box, one gantry stroke** (`BERTH_LIFTS`). The stow used to be a RAMP — `load` ran 0..1 over
+the working window and the hull drew `round(load × 72)` boxes off it, so a box arrived on her deck
+about every second while the gantry beside her was on a forty-four second cycle of its own. The two
+were reading one clock and still had nothing to do with each other: she filled like a progress bar
+and the crane mimed over the top of it. The working window is divided into LIFTS instead, and a
+lift is one box. The hull counts the lifts that have reached their set-down; the gantry runs one
+stroke per lift, and its `u` IS the fraction through that lift rather than a timer of its own.
+
+**⚠ The latch and the release are the berth's, not two literals in the arm** (`BERTH_LATCH`,
+`BERTH_SETDOWN`). The crane stops drawing the box on its hook at `BERTH_SETDOWN` and the hull
+starts drawing it on her deck at `BERTH_SETDOWN`. Written out twice, the container blinks out of
+the air. Colour comes the same way: `berthBoxColour(k, ship)` is asked by both, so what swings out
+over the water is what lands, and nothing passes between them. Consecutive boxes are deliberately
+never the same colour — a plain hash gives a run of three about one lift in six, at which point you
+are watching a box go out and a box of the same colour appear, which is what the whole thing looked
+like before any of it was true.
+
+**⚠ Two gantries take alternate lifts** (`BERTH_SLOTS`). A lift is one box, so two cranes both
+working every lift is two machines setting down together and one box arriving. A crane's slot is
+`(wx + wy) % 2` off its own TILE and never off its seed — adjacent tiles are always in opposite
+slots, where a seed hash gets it right about half the time. Its duty cycle now comes from that: it
+is idle because the other one is working, rather than because somebody wrote 0.42. Same scale limit
+as the clock's: a third gantry on one quay would share a slot with the first.
+
+**⚠ And the trolley stops over the box's own row.** It was one fixed spot on her beam while the hull
+laid the boxes out across six rows, which disagreed by up to a third of a tile without either being
+wrong about anything it could see. `berthRowOut(r)` is a distance from the quay FACE — the one
+landmark both of them can name — so the hull lays her rows out along it and the crane stops on it.
+Which way her local +x points has to be solved from her own heading before a row number means
+anything.
+
+**⚠ She arrives part-loaded** (`BERTH_PRELOAD`, one figure per hull). A feeder calls at several ports
+and the gantry tops her up; eight lifts against a 72-cell deck could not fill her anyway. The
+figures are picked so two of the three hulls cross a tier boundary while they are being worked,
+which is the only time `berthBoxZ`'s rise is visible. Each must leave `BERTH_LIFTS` cells free.
 
 **⚠ The quay face is the tile boundary**, and that is a decision rather than an approximation. The
 crane's deck is `fh * 1.22` from its tile centre and `fh` varies 0.38..0.44, so the real face
@@ -855,7 +1000,7 @@ wanders ±0.03 of a tile either side of 0.5 — less than the fender gap. The hu
 crane for its `fh` (different tile, different pass), so the hull places itself off the boundary
 and the crane reaches to the boundary.
 
-**⚠ The stow fills tier-major**, because `berthStackZ` says the crane lowers to the top of the
+**⚠ The stow fills tier-major**, because `berthBoxZ` says the crane lowers to the top of the
 tier being filled. A stow that filled bay-by-bay to full height would be a gantry setting boxes
 down in mid-air over an empty bay.
 
@@ -1407,3 +1552,103 @@ are **far enough to flat-fill and far enough to fog** — which is most of a dow
 cab, and *none* of the 8-tile test scene, where it is worth about 50 path constructions per 65
 passes. The structural claim (three descriptions become one) is exact; the frame-time claim needs a
 browser profile, which this file has always said and still does.
+
+## The Echelon's decks, and standing on one
+
+**She was flat, and that is arithmetic rather than an opinion.** Her deckhouse ran 0.085 to 0.163 in
+local z — three tiers totalling 0.078 on a hull 2.08 long, a superstructure with a 27:1
+length-to-height ratio. A 60-metre yacht carrying four decks is nearer 5:1, and what that looked
+like out of a cockpit was a black blade with a ridge on it: her interior content has a bridge, a
+foyer, a suite, a broadcast studio, a stern deck, a helipad, a landing and a sun deck, and the model
+showed one and a half of them. `YACHT_TIERS` is the table now, a deck is 0.046 of local z (derived:
+a metre is `LEN / 60` of oy, and z is exaggerated by `YACHT_H` against oy), and she tops out at
+0.222 for an overall 5.5:1.
+
+⚠ **`YACHT_DECKZ` does not move and must not.** It is the helipad floor, and `YACHT_DECK_Z`,
+`yachtPadZ` and cockpit.js's deck-landing capture all key off it — so **the ship grows upward from
+the pad**, and every helicopter that has ever landed on her lands in the same place.
+
+⚠ **The overhang is what makes a level readable.** The old shape stepped back in plan and stacked
+roof straight onto floor, so from any distance the flanks ran together into one dark wedge. What a
+real ship has at every level is a lip: the deck plate stands proud of the house it carries, so there
+is a bright horizontal top, a dark fascia under it and a shadow beneath that — a band, at every
+deck, from any angle, in any light. Three per ship, nine faces each, plus a handrail per deck off
+the same table.
+
+⚠ **The table has three readers**, which is why it is a table: the model draws the houses and the
+decks off it, the fittings pass hangs a rail on every deck edge off it, and `yachtScopeMount` puts a
+camera on the top one.
+
+### A specular lobe on a flat face is not a highlight
+
+The same trap the GL material pass records one layer up. `drawYacht`'s shading is a polished hull —
+a low dark diffuse plus a tight specular and a sky rim **added** on top, so a near-black facet can
+flash bright — and `n·h` is constant over a plane, so a deck either flashes in its entirety or not
+at all. With the sun high and an eye above her, **every horizontal surface on the ship went to
+(175, 182, 192) at once**. At a fly-past that never showed, because the eye is near the deck plane
+and the lobe is nowhere near it; from a camera standing on her sun deck it is the whole picture, and
+what it looks like is a black yacht with white plastic decks. `matte` on a face keeps a tenth of the
+lobe — a deck in the sun has a sheen, it is just not a mirror. The flanks, the transom, the glass
+and the domes are untouched, which is the read the mirror-black palette was written for.
+
+### The sun deck
+
+`zone_echelon_sundeck` has said what is up here since it was written: pale teak underfoot, a long
+curved run of cushioned loungers, a sunken jacuzzi lit turquoise from below. The model had a flat
+dark plate with a mast on it. Now that `telescope` puts a camera **on** this deck, which of them is
+true is a question somebody standing there asks immediately.
+
+⚠ **It is always drawn, at every distance.** The obvious shape is a near-LOD and
+[scripts/shapes/yacht.mjs](../../scripts/shapes/yacht.mjs) is right to forbid one — it compares the
+hull collected from two seats and demands the coordinates be identical, because geometry that is a
+function of the camera hands the depth buffer a different ship from every angle. The Echelon is ONE
+object in a world of forty thousand faces, so the whole terrace costs about thirty. What **is**
+near-only is the fine stroke work (planking, the grab rail round the pool, the stanchions at the
+spacing a hand meets them), which is a fitting rather than a hull and is re-collected every frame.
+
+⚠ **Nothing on a deck may overlap anything else in the horizontal.** This renderer sorts faces
+far→near and fills them, so a *sunken* pool is painted over by the plate it is sunk into — the first
+cut of this deck had a jacuzzi that could not be seen from any angle at all, and a companionway with
+the same problem. Punching a real hole means splitting the teak into four panels round it. Both are
+**raised** instead: a spa on a tiled surround and a hatch inside a low coaming, which is what a deck
+actually has, and the surround itself is a **frame of four quads round a hole** rather than a plate
+with the water laid on it — the same rule one step in.
+
+### The near clip was hiding the deck you stand on
+
+`drawYacht`'s canvas-path near plane was 0.12 tiles, nearly a fifth of her whole beam at
+`YACHT_SCALE`. Fine for a helicopter looking at her from a pad, and wrong the moment somebody stands
+on her: the deck under a vantage is entirely inside it, so what a telescope on her forward rail
+showed was the Basin and the ship's own after end with a hole where the terrace should be. It is
+0.065 now, and the wall is `cam.proj`'s own `Math.max(0.06, …)` — below that the projection
+saturates and stops meaning anything. The *clipping* (rather than dropping) is unchanged; only the
+margin moved, and it can only ever add geometry that was being cut.
+
+⚠ **It is a canvas-path number only.** The collecting pass returns before it, so the hull GLASS 2
+puts in the depth buffer has never been near-clipped at all — which is why the deck draws correctly
+there whatever this is, and why the camera-independence check is unaffected by it.
+
+### The telescope, and where a camera stands on her
+
+`YACHT_SCOPE` is one position with two readers: `drawYacht` bolts the instrument there and
+`yachtScopeMount` stands the camera at it, so the thing you look through and the place you look from
+cannot drift apart. It is `yachtRide`'s own argument — a constant written down twice is a telescope
+you use from six feet to the left of it.
+
+⚠ **`bearing` is a world bearing off her bow, not a local vector.** The two readers want it in
+opposite units: the model needs a direction in her own frame (where the beam axis is stretched by
+`SB` and z by `YACHT_H`), and the camera needs a compass angle. It is authored as the angle a person
+would describe — *34° off the port bow* — and converted once, each way, at the two ends. Authored as
+a world yaw it would be right on the day it was written and wrong the first time she was sailed
+anywhere.
+
+⚠ **The eye height is in her own exaggerated frame** (`YACHT_SCOPE_EYE`, local z above the sun
+deck), so a person standing up there is a deck-and-a-bit tall rather than towering over the ship
+they are on. It comes to ~0.188 world tiles, between the truck cab's 0.139 and the cockpit's 0.228.
+
+⚠ **And `yachtScopeMount` takes the clock**, so a caller that asks every frame gets a camera that
+rides the swell with the deck under it. The alternative — publish what the last draw computed — is
+one frame behind by construction, and which frame depends on draw order. The **same** clock:
+`paintWindshield` runs on `performance.now()`, and so does the rAF timestamp the view passes in. A
+mount sampled off `Date.now()` would leave the camera standing where the deck was at some unrelated
+instant of the swell.

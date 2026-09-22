@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A paved room with no walls: six chrome legs, a lit soffit overhead, and the weather on all sides of it. It is the most used space in Halcyon Fields by a distance — everybody on Kerbstone Row stands in here when it rains, contractors eat lunch in here, and two of the legs have the polish worn off them at shoulder height on the side you lean on. The lighting in the soffit is on all day because there is no daylight under a disc.",
+  "exits": {
+    "down": "zone_util_zone_hf_stampduty_undercroft",
+    "north": "zone_district_902_917",
+    "up": "zone_hf_stampduty_records"
+  },
+  "flags": {
+    "building_name": "Stamp Duty",
+    "building_type": "lens_hall",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Six of them, between the legs, which is not a window and is how you see out of this room. Standing at the middle you have the row, the lane, Cinder Lane coming down, and the Curtain, in six separate framed slices.",
+      "light": 0.7,
+      "name": "the open sides",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_902_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_stampduty_undercroft",
+  "map_id": "map_int_hf_stampduty",
+  "name": "Stamp Duty — The Undercroft",
+  "parent_zone": "zone_district_902_917"
+}

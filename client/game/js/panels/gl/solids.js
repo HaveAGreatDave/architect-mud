@@ -53,6 +53,7 @@
 // world.js), so the buffer has to be filled before either. Upload and draw are separate calls for
 // that reason alone.
 import { viewProjMatrix } from './camera.js';
+import { makeVertexStream } from './stream.js';
 
 const STRIDE = 7;   // pos3, colour3, alpha1
 
@@ -123,7 +124,10 @@ export function createSolidsLayer(gl) {
   };
 
   const vao = gl.createVertexArray();
-  const buf = gl.createBuffer();
+  // One stream, set up once: the attribute pointers are recorded into the VAO here and never
+  // touched again, and the storage grows by doubling instead of being reallocated every frame.
+  // See gl/stream.js.
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.color, 3, 12], [loc.alpha, 1, 24]], 8192);
   let data = new Float32Array(1 << 13);
   let count = 0;
 
@@ -146,20 +150,20 @@ export function createSolidsLayer(gl) {
       };
       for (let i = 1; i + 1 < p.length; i++) { put(p[0]); put(p[i]); put(p[i + 1]); }
     }
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, count * STRIDE), gl.DYNAMIC_DRAW);
-    const S = STRIDE * 4;
-    const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
-    bind(loc.pos, 3, 0); bind(loc.color, 3, 12); bind(loc.alpha, 1, 24);
-    gl.bindVertexArray(null);
+    stream.write(data, count * STRIDE);
     return quads.length;
   }
 
   function draw(cam, cssH, opts = {}) {
     if (!count) return 0;
     gl.useProgram(prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH));
+    // ⚠ THE CLIP RANGE IS THE CALLER'S WHEN IT STATES ONE. Every world client leaves it out and
+    // gets exactly the matrix it always got — `viewProjMatrix` defaults to NEAR/FAR — which is what
+    // makes this safe under the rig, the shed and the fauna at once. The interior states one
+    // because it is INSIDE the ordinary near plane: a cab is about a twentieth of a tile deep and
+    // NEAR is 0.06, so every surface of it is nearer than the nearest thing the world camera can
+    // draw, and the whole room clips away to nothing. See drawInterior.
+    gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
     const f = opts.fog;
     gl.uniform3f(loc.fog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);
     gl.uniform1f(loc.fogNear, f ? f.near : 1e9);

@@ -1,22 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
-  "exits": {
-    "south": "zone_district_908_916",
-    "west": "zone_district_907_915"
-  },
+  "ambient_theme": "urban",
+  "description": "Thirteen floors, clad to the fifth, and visibly slower than the others: the crane works three days in seven and the site below it is tidy in the way a site is tidy when nothing is happening on it. The hoarding has been re-printed once, at a lower price, in the same layout, which is a thing you can only see if you photographed the first one.",
+  "exits": {},
   "flags": {
+    "building_name": "Priced to Sell",
+    "building_type": "shell_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "entrance": "south",
+    "floors": 13,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 908,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_908_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "PS",
+  "name": "Priced to Sell",
   "parent_zone": null
 }

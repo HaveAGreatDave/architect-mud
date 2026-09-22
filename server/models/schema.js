@@ -2996,6 +2996,28 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_trailers_parked ON trailers(parked_zone);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_trailers_towed ON trailers(towed_by) WHERE towed_by IS NOT NULL;
 
+  -- BOATS. The trucks table's sibling, and deliberately its shape rather than a new one: the row is
+  -- the OWNERSHIP and the TYPE is the boat, so nothing about speed, thrust, tank or price is
+  -- duplicated here (it lives in flight-model.js TYPES, keyed by type_id, with water: true).
+  -- NO BACKTICKS IN HERE — SCHEMA_SQL is a template literal and a stray one inside a SQL comment
+  -- breaks the whole module. It has happened twice.
+  CREATE TABLE IF NOT EXISTS boats (
+    id            TEXT PRIMARY KEY,
+    type_id       TEXT NOT NULL,                  -- key into flight-model.js TYPES (water: true)
+    name          TEXT,                           -- what is painted on the transom
+    owner_id      TEXT,                           -- player id; null = dealer stock
+    berth_zone    TEXT,                           -- where she is tied up; null = out on the water
+    fuel          REAL    NOT NULL DEFAULT 1,     -- 0..1 of the type's tank
+    odometer      REAL    NOT NULL DEFAULT 0,     -- lifetime tiles
+    -- THE HULL. 1 is out of the shop and 0 is matchwood. Same sense as trucks.condition and the
+    -- OPPOSITE of aircraft.damage, which is why boatReadout converts once and nothing else does.
+    condition     REAL    NOT NULL DEFAULT 1,
+    custom_data   JSONB   NOT NULL DEFAULT '{}'::jsonb,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_boats_owner ON boats(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_boats_berth ON boats(berth_zone);
+
   CREATE TABLE IF NOT EXISTS hangars (
     id            TEXT PRIMARY KEY,
     field_zone    TEXT NOT NULL,                 -- airfield zone id

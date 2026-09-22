@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_gatepound_lot",
+  "max_capacity_kw": 200,
+  "name": "Long Stay",
+  "source_type": "city_grid"
+}

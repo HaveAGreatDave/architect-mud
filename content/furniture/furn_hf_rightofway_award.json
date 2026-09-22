@@ -1,0 +1,8 @@
+{
+  "description": "Set into the floor at the midpoint of the passage, flush, engraved: PUBLIC FOOTPATH — NOT TO BE OBSTRUCTED, and a date. The date is about two hundred years before the building. The stone is a different stone from the paving round it and is the oldest made thing in Halcyon Fields by a very long way.",
+  "flags": {},
+  "id": "furn_hf_rightofway_award",
+  "name": "a stone plate in the paving",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_rightofway_passage"
+}

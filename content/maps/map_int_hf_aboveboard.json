@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_aboveboard_lobby",
+  "id": "map_int_hf_aboveboard",
+  "name": "Above Board",
+  "parent_zone_id": "zone_district_900_911"
+}

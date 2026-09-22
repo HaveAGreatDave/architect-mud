@@ -184,7 +184,7 @@ Not auto-tiling at all is what a cart track wants anyway, and it needed no art a
 
 ### The camp
 
-**It was six identical grey ridge tents and read as a campsite.** Five pitches now, in three
+**It was six identical grey ridge tents and read as a campsite.** Several pitches, in three
 shelter kinds — a ridge tent, a flat tarp on four posts with a sag in it, and a lean-to — drawn in
 five weathered tarpaulin colours and patched with each other, because every sheet in a shanty has
 been mended with whatever the last one was made of. Over them: poles taller than anything under
@@ -254,3 +254,103 @@ worth is decided by standing in it.
 
 **Nothing on the far side of the Curtain.** The cut half of Ropewalk is a view and stays a view.
 Making it reachable is a different and much larger change to what the Curtain means.
+
+---
+
+## The gaslight pass (2026-09-21)
+
+The quarter shipped with eleven interior rooms, eleven working overhead lights and a junction
+box per building, all of it functioning perfectly. That is the one thing this district should
+not be. `scripts/content/old-coldwater-gaslight.mjs` is the fix: **the shops are a roof and a
+counter better off than the tents forty feet away, and not more than that.**
+
+**The supply is fine and the boxes are not.** All five junction boxes carry `flags.faulted`
+(new — see [flags-keys.md](../flags-keys.md#generatorsflags)), so every room in Old Coldwater
+is unpowered with its light fittings still screwed to the joists. ⚠ **The fault is on the
+building's side of the meter and must stay there.** Cutting these buildings off their city
+plant would express "the grid does not reach this district", which is a far larger claim than
+"nobody has answered the call-out", and it is not what is happening: the plant is carrying a
+fifth of its capacity and the feed reaches the wall.
+
+**Eleven gas lanterns**, at `light_type: 'gas'` — the new off-grid class documented in
+[architecture.md](../architecture.md). A lit off-grid fixture raises `has_emergency_lighting`,
+so every room reads at `EMERGENCY_LIGHT_LEVEL`: dim, and not dark, which is the register of
+the whole place. ⚠ **The dead overheads all stay.** Nothing here has been taken out; it has
+just stopped, and a fitting with a bulb in it that nobody alive in the building has switched
+on says that better than an empty ceiling.
+
+⚠ **The lantern list is checked against the rooms, not counted.** The script derives the set of
+interior rooms from the five buildings and refuses to run if any of them is missing a light.
+The first draft missed The Front Desk, which would have shipped as one pitch-black room you
+could only find by walking into it.
+
+**Camping stoves and butane.** Four stoves where people actually live — the flophouse dorm
+(one per bunk that can afford one; the house stove is for heat, these are for eating) and three
+camp pitches — plus `item_butane_canister`, which turns up part-used in `scav_consumer_trash`
+and `scav_roadside_junk`, because that is where everybody in the quarter gets theirs.
+
+**How the quarter earns**, in three sentences across Peg Lane's mouth, the East Wall and
+Ropewalk: begging at the Gate Road and in the soup-kitchen queue, and going out through the
+Gate after something with a bounty on its parts. ⚠ **Written without a verdict.**
+[lore-wildblood.md](../lore-wildblood.md) is explicit that the Watch calls it cannibalism, the
+Wildblood call it inheritance, and the game takes no side. These are people who need the money
+or the meat; no line here is admiring or disgusted, and `item_raw_meat` and `item_mutant_gland`
+already existed, so the two halves of "for meat or a profit" needed no new content at all.
+
+**Still deliberately absent:** no verb, no quest and no repair path for the boxes. Somebody
+fixing Old Coldwater's wiring is a thing the district should have to be *given*, not something
+a player can buy their way out of on the second visit.
+
+---
+
+## The dereliction pass (2026-09-22)
+
+The quarter had the right parts and read too tidy from a cab: one ruin silhouette, a fixed five
+pitches on every camp tile, and three slogans across the whole district. Four changes, no new
+mechanics and no new content types.
+
+**The ruin is a house with half of it gone.** The old arm was a front wall, a knee-high remnant, a
+stack and a rubble wall — a low broken rectangle with one finger out of it, which reads as an
+*unfinished shed* as readily as a collapse. What was missing is that a terrace does not come down
+level. It is two halves now: one still standing under its own roof, one no higher than the first
+floor with no lid at all, and ⚠ **that single roof-flag asymmetry is the whole read** — a ruin with
+no lid anywhere is a compound and a ruin with a lid everywhere is a shed. On top of the open half,
+three **teeth** at three heights turn a level top edge into a break line; across it, six **joists**
+say this was a house rather than a yard. Openings on the standing half are **boarded** — a pale
+timber panel with two planks nailed across it at an angle nobody measured — with one left as a
+black void, because the tile wants both: the first is a house somebody still owns and the second is
+a hole in a wall.
+
+⚠ **The paint is applied in the arm and not left to the derived kit.** `TAG_DENSE` already eases
+this trade's gates and the section above records that nobody had ever seen a piece land on one of
+these walls. The reason is structural rather than a tuning miss: the kit needs a bare RUN at its
+paint band, and this frontage is two short boxes with openings in them rather than the long clear
+flank `bareRuns` searches for. Five pieces now, across both halves, each with a hand rolled off the
+same number its word comes from — which is the kit's own rule, because a fresh roll for the hand
+shifts the stream and moves the word with it.
+
+**More tents, and a density that varies.** The pitch count was five on every tile, and one density
+over ten tiles reads as a layout — a campsite with numbered pitches rather than ground people keep
+arriving on. It is six to eleven rolled per tile, which puts a crowded tile beside a thin one and is
+what makes the thin one read as thin. ⚠ **Near tier gets the whole roll and the cheap tier is capped
+at seven**: past that the shelters are a few pixels each and overlap into one dark mass, so the extra
+ones cost a draw and subtract from the read. The cap is on the DRAWN count and never on the roll, so
+a tile holds the same pitches at both tiers and simply stops early. Clutter is rolled the same way.
+
+**Three more camp tiles, two of which the prose had already put tents on.** 924,915 (Rag Row) opens
+*"A row of pitches down one side"* and 927,917 (The East Wall) says *"Tents are pitched hard against
+it the whole length of the corner"* — and neither carried `flags.camp`, so both described a camp the
+cockpit could not see. 927,918 (The Corner) joins them. ⚠ **927,916 deliberately does not**: the Cut
+is the one tile whose whole job is the view through the Curtain, and this doc's own rule is that the
+far side stays a view.
+
+**The camp writes more on itself, in three registers.** Three slogans became eighteen, and the list
+is deliberately not one voice: a **territory** line is addressed outward at the city, a **notice** is
+addressed at the lane and is the only kind with a practical purpose, and a **name** is addressed at
+one person who may not be coming. The third does the work — a camp that only ever shouts is a
+protest, and a camp with somebody's name on a tarp is people living somewhere. It lands on two tiles
+in three rather than one in four, and one tile in three of those carries a second line lower down in
+a different ink, ⚠ **taken from a different part of the list rather than re-rolled freely**, because
+two territory lines on one sheet is a placard.
+
+Nothing here is a joke and nothing here is a verdict.

@@ -42,6 +42,8 @@
 // standing on it and nothing in the picture says why.
 import { NEAR, zRow } from './camera.js';
 import { HEIGHT_FOG_GLSL } from './fog.js';
+import { seaSlopeVariance } from '../../../../shared/sea-swell.js';
+import { SEA_GLSL } from './sea-glsl.js';   // the ONE GLSL copy of the swell — water.js includes the same string, and client/shared/sea-swell.js is the JS original
 
 // A screen-filling triangle rather than a quad: no diagonal seam, one fewer vertex, and the
 // interpolators do not care. The vertex shader synthesises it from gl_VertexID, so there is no
@@ -122,12 +124,39 @@ uniform float uFogHScale;     // the horizon colour times the night dim, already
 
 // Water, and the weather over it.
 uniform float uT;          // seconds
-uniform vec2  uSS;         // sea scroll — the Helm chase holds position and streams the swell past
+// ── THE LIT SEA ───────────────────────────────────────────────────────────────────────────────
+// uSeaLit is RENDER_TUNE.glSeaLit: how much of the water's shading comes from a real surface
+// normal rather than from the shipped brightness tint. 0 is bit-identical to the sea that shipped,
+// which is the whole reason the two models are mixed rather than added.
+// uSeaRoll is the long swell's amplitude in TILES — the 8.6-tile train that carries the rolling
+// read and that a hull rides. It is the term Phase 5 drives off the sea state; at 0 there is no
+// roll at all and only the 1-tile chop remains.
+// uSeaAmp is the chop's own physical amplitude, also in tiles.
+uniform float uSeaLit;
+uniform float uSeaRoll;
+uniform float uSeaWind;   // the wind sea amplitude — the steep 3.2-tile train
+uniform float uShoal;    // how far, in tiles, a crest is dragged along the shore as it shallows
+uniform float uSpread;   // 0 = the single-train sea that shipped, 1 = the full spectral band
+uniform float uSeaAmp;
 uniform vec2  uSunDir;
 uniform float uSunElev;
 uniform vec2  uMoonDir;
 uniform float uMoonElev;
 uniform float uNight;
+// ── THE CITY'S LIGHT LYING ON THE WATER ────────────────────────────────────────────────────────
+// The same six the mesh takes, and the same Cox & Munk glitter — see 'seaGlitter' in sea-glsl.js.
+// ⚠ THE FLOOR NEEDS IT AS WELL AS THE MESH, AND NOT ONLY FOR THE FAR FIELD. water.js returns
+// without drawing at all when the swell is zero ("no swell, no mesh — the flat floor is the whole
+// sea"), so a GLASSY sea has no mesh anywhere — and a glassy sea is the single case where a
+// reflection matters most. Measured before this was here: 3.91% of a night frame at sea state 0.55
+// and 0.00% at state 0, which reads as a reflection that switches itself off on flat water.
+#define NEON_MAX 6
+uniform int   uNeonN;
+uniform vec4  uNeonP[NEON_MAX];   // xyz = ground point and height, w = reach in tiles
+uniform vec3  uNeonC[NEON_MAX];
+uniform float uNeonGain;
+uniform vec2  uSig2;              // slope variance: x along the wind, y across it
+uniform vec2  uSeaWindDir;        // the axis the glitter stretches along
 uniform float uHeliDown;   // downwash strength; 0 for anything that is not a heli in ground effect
 uniform float uRotor;
 uniform vec2  uDC;         // the craft's ground point, for the downwash disc
@@ -314,13 +343,24 @@ float vnoise2(float x, float y) {
 // '>>> 0' is the unsigned read.
 
 const float GE_WARP = 80.0, GE_WARP_F = 0.0055;
+// fBm, mirroring windshield.js character for character — see the long note there. A relief the two
+// floors disagree about draws a ring of mismatched hillshade at the map-window edge, so the octave
+// count, the frequencies, the offsets and the gain are all copied rather than re-derived.
+float fbm2(float x, float y, int oct, float pers) {
+  float amp = 0.5, f = 1.0, sum = 0.0, norm = 0.0;
+  for (int i = 0; i < 8; i++) {
+    if (i >= oct) break;
+    sum += (vnoise2(x * f, y * f) - 0.5) * amp;
+    norm += amp; f *= 2.0; amp *= pers;
+  }
+  return sum / (norm * 2.0);
+}
+const float GE_F = 0.026, GE_PERS = 0.58, GE_GAIN = 7.55;
+const int GE_OCT = 4;
 float groundElev(float gx0, float gy0) {
   float wx = gx0 + (vnoise2(gx0 * GE_WARP_F - 3.1, gy0 * GE_WARP_F + 7.7) - 0.5) * GE_WARP;
   float wy = gy0 + (vnoise2(gx0 * GE_WARP_F + 17.3, gy0 * GE_WARP_F - 11.9) - 0.5) * GE_WARP;
-  return sin(wx * 0.085 + 1.3) * cos(wy * 0.07 - 0.7) * 0.78
-       + sin((wx + wy) * 0.043 + 2.1) * 0.5
-       + sin(wx * 0.13 - wy * 0.11 + 0.6) * 0.3
-       + sin(wx * 0.19 - wy * 0.16) * 0.16;
+  return fbm2(wx * GE_F + 11.3, wy * GE_F - 4.9, GE_OCT, GE_PERS) * GE_GAIN;
 }
 const float WILD_WARP = 42.0, WILD_PROV_F = 0.0065;
 float wildsRelief(float x, float y) {
@@ -329,12 +369,12 @@ float wildsRelief(float x, float y) {
   float prov = vnoise2(x * WILD_PROV_F + 4.5, y * WILD_PROV_F + 9.25);
   float ridgeAmp = 0.35 + prov * 1.45;
   float terrAmp = 0.45 + (1.0 - prov) * 1.25;
-  float ridge = 1.0 - abs(sin(wx * 0.16 + 0.4) * cos(wy * 0.14 - 0.9));
+  float ridge = 1.0 - abs(fbm2(wx * 0.026 + 5.7, wy * 0.026 - 2.4, 3, 0.55) * 2.0);
   // ⚠ floor(v + 0.5), NEVER round(v). JavaScript's Math.round breaks a .5 tie upward and GLSL's
   // round() is implementation-defined there (most drivers round half to even). A terrace is a
   // quantiser, so the tie lands on every escarpment edge in the field — precisely the lines the eye
   // is drawn to — and the two renderers would disagree by a whole step along all of them.
-  float terrace = floor((sin(wx * 0.11 - 0.6) + sin(wy * 0.09 + 1.7)) * 1.5 + 0.5) / 1.5;
+  float terrace = floor(fbm2(wx * 0.017 - 1.9, wy * 0.017 + 6.1, 3, 0.55) * 4.0 * 1.5 + 0.5) / 1.5;
   return terrace * 1.3 * terrAmp + ridge * ridge * 1.1 * ridgeAmp;
 }
 float aridElev(float x, float y) { return groundElev(x, y) + wildsRelief(x, y); }
@@ -398,6 +438,7 @@ float roadCoverage(vec2 gp, float fp) {
 }
 
 ${HEIGHT_FOG_GLSL}
+${SEA_GLSL}
 void main() {
   // CSS pixel coordinates, which is the frame drawMode7Floor works in.
   float sx = gl_FragCoord.x / uDpr;
@@ -419,17 +460,46 @@ void main() {
   // would put the shimmer back.
   float detail = clamp(1.15 - d * 0.7, 0.15, 1.0);
   // Schlick, for the water: a steep view sees the body colour, a grazing one mirrors the sky.
-  float cosI = uEH / sqrt(d * d + uEH * uEH);
+  // ⚠ 'd' IS THE FORWARD DISTANCE AND NOT THE GROUND RANGE, which is a real error this term has
+  // always carried: the range to the point is sqrt(d² + l²), and dropping 'l' overstates cosI at
+  // the frame edges. It is invisible in a Schlick wash — the sheen is simply a touch weaker out at
+  // the corners — and it is NOT invisible under a specular lobe, where it walks the highlight
+  // toward the horizon as you look sideways. Fixed with the lit sea so the shipped picture is
+  // bit-identical at uSeaLit 0, since 'fres' has exactly one consumer and it is the water.
+  float gr2 = d * d + (uSeaLit > 0.001 ? l * l : 0.0);
+  float cosI = uEH / sqrt(gr2 + uEH * uEH);
   float fres = 0.02 + 0.98 * pow(1.0 - cosI, 5.0);
 
   // Domain-warp the sampling position so a coast meanders off the tile grid — but never near
   // anything man-made, or a kerb wobbles. The phase reads ABSOLUTE world coords so the wave is
   // pinned to the world and does not snap a whole tile when the window recentres.
+  //
+  // ⚠ TWO OCTAVES, BECAUSE ONE OF THEM FOLDED THE DOMAIN. This was a single sine at amplitude
+  // 0.9 tiles and frequency 1.9 rad/tile, and a domain warp stops being injective once
+  // amplitude × frequency passes 1: the Jacobian determinant of that pair bottoms out at
+  // -2.13, so the map turns the plane inside out over a lens at every antinode. What that
+  // draws is not a meander — it is a row of CUSPS at the sine's own 3.3-tile period, which is
+  // why every shoreline in the game was a sawtooth and why the river south of Coldwater came
+  // out as a zigzag with the pond on the end of it rendered as a starburst. The warp was doing
+  // the opposite of its job: it exists to take the 90° corners off a tile-quantised coast, and
+  // it was replacing them with sharper ones at a higher frequency.
+  //
+  // The amplitude is what a coast wants and the FREQUENCY was what could not be paid for, so
+  // the displacement is split: a slow octave carries most of it (0.55 rad/tile, an 11-tile
+  // wavelength — a bay-sized meander) and a fast one keeps the fine raggedness at the original
+  // frequency with a fifth of the throw. Min determinant 0.383, so it never folds at any
+  // phase; rms displacement 0.73 tiles against 0.90, so the coast moves about as far as it did.
+  //
+  // ⚠ WINDSHIELD.JS HOLDS THE SAME EXPRESSION AND THE TWO MUST MATCH TERM FOR TERM. The raster
+  // and this shader are two renderings of one ground, and a coast that meanders differently
+  // depending on which one is drawing it is the drift 'drawMode7Floor' exists to prevent.
+  // Both are pinned by scripts/shapes/coastwarp.mjs, which reads the coefficients out of the
+  // two files rather than restating them.
   float wpx = wx, wpy = wy;
   if (uCwarp > 0.001 && pavedAt(uR + wx, uR + wy) < 0.5) {
     float awx = wx + uWc.x, awy = wy + uWc.y;
-    float nx = wx + uCwarp * sin(awy * 1.9 + awx * 0.5);
-    float ny = wy + uCwarp * sin(awx * 1.9 - awy * 0.5 + 2.1);
+    float nx = wx + uCwarp * (0.78 * sin(awy * 0.55 + awx * 0.15) + 0.22 * sin(awy * 1.9 + awx * 0.5));
+    float ny = wy + uCwarp * (0.78 * sin(awx * 0.55 - awy * 0.15 + 2.1) + 0.22 * sin(awx * 1.9 - awy * 0.5 + 2.1));
     float jx = uR + nx, jy = uR + ny;
     if (pavedAt(jx, jy) < 0.5 && pavedAt(jx + 1.0, jy) < 0.5
      && pavedAt(jx, jy + 1.0) < 0.5 && pavedAt(jx + 1.0, jy + 1.0) < 0.5) { wpx = nx; wpy = ny; }
@@ -609,6 +679,8 @@ void main() {
   // the waterline. Everything below is placed against that number rather than against a distance,
   // which is what lets one expression serve a beach, a harbour wall and the open sea.
   float cr = 0.0, foam = 0.0, gln = 0.0, moon = 0.0, cap = 0.0;
+  // The lit sea's own specular, declared out here with the rest so it reaches the composite below.
+  float spc = 0.0;
   if (waterW > 0.002) {
     // Sky sheen: a grazing sea mirrors the horizon, a steep one keeps its body colour.
     float sheen = fres * 0.5 * waterW;
@@ -617,12 +689,81 @@ void main() {
     // low-frequency sine so the crests wander instead of forming a corrugated diamond lattice. The
     // raster does it this way to avoid two noise lookups per water texel; kept identical here,
     // because a renderer that de-lattices differently disagrees about where every crest is.
-    float swx = wx + uSS.x, swy = wy + uSS.y;
-    float ph = sin(swx * 0.6 - swy * 0.45 + uT * 0.25);
-    float wv = 0.5 * sin(swx * 5.6 + swy * 1.3 + uT * 0.9 + ph * 1.6)
-             + 0.4 * sin((swx - swy) * 3.7 - uT * 0.66 + ph * 1.1)
-             + 0.11 * sin((swx + swy) * 7.4 + uT * 1.25 + ph * 0.7);
-    tex = tex * (1.0 - waterW) + (1.0 + wv * 0.15 * detail) * waterW;
+    // ⚠ THE SWELL ITSELF LIVES IN gl/sea-glsl.js NOW, because water.js displaces the same surface
+    // this shades and a mesh standing a few centimetres off the sea being painted under it is a
+    // seam. One string, included by both, is the only arrangement in which they cannot disagree.
+    // ⚠ THE SHORE NORMAL IS FREE HERE: the four corners of this tile have already been fetched for
+    // the bilinear blend above, so the gradient of waterness across the cell costs two subtractions
+    // rather than four more texel reads.
+    vec2 gW = vec2((s10.a + s11.a) - (s00.a + s01.a), (s01.a + s11.a) - (s00.a + s10.a)) * 0.5;
+    vec2 sw = seaShoal(vec2(wx, wy), waterW, gW, uShoal);
+    float swx = sw.x, swy = sw.y;
+    float ph = seaPh(vec2(swx, swy), uT);
+    float wv = seaChop(vec2(swx, swy), uT, ph);
+    // ── THE LIT SURFACE ──────────────────────────────────────────────────────────────────────
+    //
+    // ⚠ THIS IS THE GLSL TWIN OF client/shared/sea-swell.js. A shader cannot import, so the
+    // coefficients are stated in two places and 'scripts/shapes/sea.mjs' reads them out of both
+    // and fails when they drift — the same arrangement 'landform.js' has with the relief noise and
+    // 'coastwarp.mjs' guards for the coast.
+    //
+    // Water is the one surface in this renderer with no normal and no lighting at all: the
+    // hillshade is bypassed above and 'wv' is spent as a brightness multiplier, which is a tint
+    // rather than a surface. Every train here is a sine of an argument linear in swx/swy plus one
+    // shared 'ph', so the chain rule closes and a true normal costs four more cosines and NO
+    // texture taps. That is the only reason lighting the sea is affordable.
+    //
+    // ⚠ AND THE THREE TRAINS ARE CHOP, NOT SWELL. Their wavelengths are 1.09, 1.20 and 0.60 tiles
+    // — wind waves, four to eight metres. Lighting them alone gives a sparkling sea and not a
+    // rolling one, so 'uSeaRoll' adds one long 8.6-tile train whose amplitude is the sea state.
+    float rollA = uSeaRoll * waterW;
+    float lit = wv * 0.15;   // the shipped tint, kept verbatim as the uSeaLit 0 case
+    if (uSeaLit > 0.001 && detail > 0.3) {
+      // The slope comes from gl/sea-glsl.js, which water.js includes too — so the surface this
+      // shades and the mesh that displaces it cannot disagree about where a crest is.
+      vec2 dd = seaSlope(vec2(swx, swy), uT, ph, uSeaAmp, rollA, uSeaWind * waterW, uSpread);
+      float du = dd.x, dv = dd.y;
+      vec3 N = normalize(vec3(-du, -dv, 1.0));
+      // The eye, in world tiles. 'l' is the lateral offset the projection already recovered above,
+      // so the view ray is exact and costs no new uniform.
+      vec3 Vw = normalize(vec3(-(d * uSinh + l * uCosh), d * uCosh - l * uSinh, uEH));
+      // ⚠ sun.elev IS sin(elevation) and sun.dir a unit bearing (windshield.js), so the 3-D light
+      // vector is free and exact — there is no third sun uniform to add and keep in step.
+      float se = max(uSunElev, 0.0), me = max(uMoonElev, 0.0);
+      float upS = step(0.02, se), upM = step(0.02, me) * clamp(uNight, 0.0, 1.0);
+      vec3 L  = vec3(uSunDir  * sqrt(max(0.0, 1.0 - se * se)), se);
+      vec3 Lm = vec3(uMoonDir * sqrt(max(0.0, 1.0 - me * me)), me);
+      // ⚠ THE LOBE IS AS WIDE AS THE SEA IS ROUGH, AND THAT IS NOT A TUNING CHOICE. A near-level
+      // eye can only mirror light arriving within about twice the steepest facet of the mirror
+      // direction, so a tight lobe on a flat sea reflects the horizon and nothing else — a sun 60
+      // degrees up then puts literally NOTHING on the water, which is what this shipped as. The
+      // exponent is derived from the slope the amplitude actually produces (2/tan^2 of the steepest
+      // facet), so roughening the sea widens its glitter path by arithmetic rather than by anybody
+      // remembering to move a second number.
+      float mxs = max(0.02, uSeaAmp * 5.9);
+      float shin = clamp(2.0 / (mxs * mxs), 4.0, 400.0);
+      float sunS = upS * pow(max(0.0, dot(N, normalize(L  + Vw))), shin) * (0.35 + 0.65 * se);
+      // ⚠ THE MOON GETS THE SAME LOBE, or the term measures as no change for half the day and
+      // reads exactly like a dead flag. Broader and far weaker: it is the night's only light here.
+      float mnS = upM * pow(max(0.0, dot(N, normalize(Lm + Vw))), shin * 0.5) * 0.45;
+      spc = (sunS + mnS) * waterW * uSeaLit;
+      // ⚠ THE DIFFUSE COMES FROM WHICHEVER LIGHT IS UP, AND FROM NEITHER IN TRUE DARK. With the
+      // sun below the horizon its vector goes flat, every facet reads dot ~= 0, and the term
+      // collapses to a CONSTANT -0.15 — which is not shading at all, it is the whole sea uniformly
+      // darker with no crests in it. Measured: 0% of a night frame moved, and every pixel that did
+      // moved by the same amount.
+      // ⚠ AND IT IS MEASURED AGAINST THE FLAT SEA, NOT AGAINST A CONSTANT. A flat surface gets
+      // dot(up, L), which IS the light's elevation sine — so (lam - elev) is exactly how much this
+      // FACET deviates from flat, and the term is zero-mean by construction at every hour. Written
+      // against a literal 0.5 instead it carries the sun's height as a brightness offset: at a low
+      // sun every facet reads dark, the whole sea drops about 9%, and what should have been crest
+      // shading came out as the sea simply being darker in the evening.
+      float flatL = upS > 0.5 ? se : me;
+      float lam = upS > 0.5 ? dot(N, L) : dot(N, Lm);
+      float key = max(upS, upM * 0.6);
+      lit = mix(lit, (lam - flatL) * 0.45, uSeaLit * key);
+    }
+    tex = tex * (1.0 - waterW) + (1.0 + lit * detail) * waterW;
     float deep = clamp((waterW - 0.5) * 2.0, 0.0, 1.0);
     tex *= 1.0 - deep * 0.18;   // shallows near the line stay lighter; open water sits darker
     if (detail > 0.35) {
@@ -669,7 +810,7 @@ void main() {
   float nearK = clamp((0.55 - d) / 0.55, 0.0, 1.0);
   if (nearK > 0.01) {
     if (waterW > 0.002) {
-      float nwx = wx + uSS.x, nwy = wy + uSS.y;
+      float nwx = wx, nwy = wy;
       float nph = sin(nwx * 2.3 - nwy * 1.7 + uT * 0.4);
       float wv2 = 0.5 * sin(nwx * 22.0 + nwy * 15.0 - uT * 1.3 + nph * 0.9)
                 + 0.5 * sin((nwx + nwy) * 17.0 + uT * 1.0 + nph * 0.7);
@@ -782,13 +923,19 @@ void main() {
 
   // The bright specular spikes fade out with distance too, exactly as the material does.
   cr *= detail; foam *= detail; gln *= detail; moon *= detail; cap *= detail;
+  // ⚠ AND SO DOES THE LIT SEA'S LOBE, on the SAME ramp. The swell's amplitude is already faded by
+  // 'detail', so a highlight that outlived it would sparkle on a horizon that has gone flat.
+  spc *= detail;
 
   float haze = clamp(1.0 - p * uHz, 0.0, uHazeMax);
   float ih = 1.0 - haze;
   // The raster composes in 0-255 and this works in 0-1, so every constant below is its own over 255.
-  vec3 spec = vec3(cr * 55.0 + foam * 150.0 + gln * 150.0,
-                   cr * 70.0 + foam * 165.0 + gln * 132.0,
-                   cr * 90.0 + foam * 175.0 + gln * 66.0) / 255.0;
+  // The lit sea's lobe rides in the same composite as the rest of the water's specular adds, in
+  // sunlight's own colour rather than white, so a low sun lays a warm path and a high one a pale
+  // one without a second table to keep in step.
+  vec3 spec = vec3(cr * 55.0 + foam * 150.0 + gln * 150.0 + spc * 235.0,
+                   cr * 70.0 + foam * 165.0 + gln * 132.0 + spc * 230.0,
+                   cr * 90.0 + foam * 175.0 + gln * 66.0 + spc * 205.0) / 255.0;
   float capAdd = cap * 205.0 * ih * (0.45 + 0.55 * uNm) / 255.0;
   vec3 mAdd = moon * ih * vec3(120.0, 140.0, 185.0) / 255.0;
   vec3 col = ((base * tex + spec) * ih + uHor * haze) * uNm
@@ -856,6 +1003,29 @@ void main() {
     col += wetAdd * (uWet * pavedW * 1.35 * clamp(uNight, 0.0, 1.0));
   }
 
+  // ── AND THE SAME THING ON THE WATER, WHICH IS A DIFFERENT CALCULATION ───────────────────────
+  //
+  // ⚠ NOT THE LOOP ABOVE WITH 'pavedW' SWAPPED FOR 'waterW'. That one is two hand-fitted Gaussians
+  // in the eye frame with a length somebody chose, which is a reasonable model of a rough opaque
+  // surface. Water has a measured answer: how long and how wide a glitter path is IS the slope
+  // distribution of the surface, and that is a function of the wind the sea is already integrating.
+  // So the shape is derived and only the strength is a number here.
+  if (uNeonGain > 0.001 && uNeonN > 0 && waterW > 0.02 && uNight > 0.01) {
+    float wdeep = clamp((waterW - 0.5) * 2.0, 0.0, 1.0);
+    vec3 neon = vec3(0.0);
+    for (int i = 0; i < NEON_MAX; i++) {
+      if (i >= uNeonN) break;
+      vec4 L = uNeonP[i];
+      float g = seaGlitter(vec2(wx, wy), uA, max(0.02, uEH), L.xyz, uSeaWindDir, uSig2.x, uSig2.y);
+      float dl = length(L.xy - vec2(wx, wy)) / max(0.001, L.w);
+      neon += uNeonC[i] * (g / (1.0 + dl * dl));
+    }
+    // ⚠ WEIGHED ON 'wdeep' AND NOT ON 'waterW', the same term the mesh uses. waterW rises across the
+    // shore seam and doubles as a shoreline coordinate, so weighing on it lays neon along the wet
+    // sand and into the surf band — which is a beach glowing pink rather than a harbour.
+    col += neon * (uNeonGain * wdeep * clamp(uNight, 0.0, 1.0));
+  }
+
   // N64 distance fog, last and uniformly over every material, so the far field recedes into the
   // sky. A squared ramp: a crisp foreground thickening into the far.
   // ⚠ ONE MIX FOR BOTH, because they are two things the light has to get through and what
@@ -914,6 +1084,11 @@ const MAX_WET = 6;
 // above states for the same reason. The GLSL one is inside a template literal and cannot be read
 // from here, so this is the second copy, kept adjacent so a change to one is a visible diff.
 const MAX_TRACK_PTS = 40;
+// ⚠ THE SAME SIX AS THE SHADER'S OWN 'NEON_MAX', the MAX_WET arrangement one block down.
+const NEON_MAX = 6;
+const NEON_P = new Float32Array(NEON_MAX * 4);
+const NEON_C = new Float32Array(NEON_MAX * 3);
+const EMPTY_NEON = [];
 const WET_P = new Float32Array(MAX_WET * 3);
 const WET_C = new Float32Array(MAX_WET * 3);
 const WET_R = new Float32Array(MAX_WET);
@@ -942,11 +1117,14 @@ export function createFloorLayer(gl) {
     nRoad: U('uNRoad'), roadSeg: U('uRoadSeg'), roadW: U('uRoadW'), roadCol: U('uRoadCol'),
     fogAmt: U('uFogAmt'), fogNear: U('uFogNear'), fogFar: U('uFogFar'), fogCol: U('uFogCol'),
     fogH: U('uFogH'), fogHScale: U('uFogHScale'),
-    t: U('uT'), ss: U('uSS'), sunDir: U('uSunDir'), sunElev: U('uSunElev'),
+    t: U('uT'), seaLit: U('uSeaLit'), seaRoll: U('uSeaRoll'), seaWind: U('uSeaWind'), seaAmp: U('uSeaAmp'), spread: U('uSpread'), shoal: U('uShoal'),
+    sunDir: U('uSunDir'), sunElev: U('uSunElev'),
     moonDir: U('uMoonDir'), moonElev: U('uMoonElev'), night: U('uNight'),
     heliDown: U('uHeliDown'), rotor: U('uRotor'), dc: U('uDC'),
     zA: U('uZA'), zB: U('uZB'), debug: U('uDebug'),
     nWet: U('uNWet'), wetP: U('uWetP'), wetC: U('uWetC'), wetR: U('uWetR'), wet: U('uWet'),
+    neonN: U('uNeonN'), neonP: U('uNeonP'), neonC: U('uNeonC'), neonGain: U('uNeonGain'),
+    sig2: U('uSig2'), seaWindDir: U('uSeaWindDir'),
     snow: U('uSnow'),
     nTrack: U('uNTrack'), track: U('uTrack'), trackHalf: U('uTrackHalf'),
     trackW: U('uTrackW'), trackBox: U('uTrackBox'),
@@ -1019,7 +1197,15 @@ export function createFloorLayer(gl) {
     const fc = s.fogCol || [0, 0, 0];
     gl.uniform3f(loc.fogCol, fc[0], fc[1], fc[2]);
     gl.uniform1f(loc.t, s.t || 0);
-    gl.uniform2f(loc.ss, s.ssx || 0, s.ssy || 0);
+    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES OVER DRY LAND — same rule as the road segments,
+    // the snow and the wet lights below. A uniform holds its last value, so a sea state written
+    // only when there is water in the window leaves the last gale on the sea for the session.
+    gl.uniform1f(loc.seaLit, s.seaLit == null ? 0 : s.seaLit);
+    gl.uniform1f(loc.seaRoll, s.seaRoll || 0);
+    gl.uniform1f(loc.seaWind, s.seaWind || 0);
+    gl.uniform1f(loc.seaAmp, s.seaAmp == null ? 0.02 : s.seaAmp);
+    gl.uniform1f(loc.spread, s.seaSpread == null ? 0 : s.seaSpread);
+    gl.uniform1f(loc.shoal, s.seaShoal == null ? 0 : s.seaShoal);
     const sd = s.sunDir || [0, 0], md = s.moonDir || [0, 0];
     gl.uniform2f(loc.sunDir, sd[0], sd[1]); gl.uniform1f(loc.sunElev, s.sunElev || 0);
     gl.uniform2f(loc.moonDir, md[0], md[1]); gl.uniform1f(loc.moonElev, s.moonElev || 0);
@@ -1063,6 +1249,30 @@ export function createFloorLayer(gl) {
       gl.uniform3fv(loc.wetC, WET_C.subarray(0, nw * 3));
       gl.uniform1fv(loc.wetR, WET_R.subarray(0, nw));
     }
+    // ── THE LIGHTS ON THE WATER ───────────────────────────────────────────────────────────────
+    //
+    // ⚠ 'seaLights', NOT 'wetLights'. world.js nulls the wet list for the floor on purpose — every
+    // surface that term is gated to is repainted opaquely by GROUND_FULL a moment later — and none
+    // of that is true of water, which nothing repaints.
+    const nl = (s.seaNeon > 0 ? s.seaLights : null) || EMPTY_NEON;
+    const nn = Math.min(NEON_MAX, nl.length);
+    for (let i = 0; i < nn; i++) {
+      const L = nl[i];
+      NEON_P[i * 4] = L.p[0]; NEON_P[i * 4 + 1] = L.p[1]; NEON_P[i * 4 + 2] = L.p[2]; NEON_P[i * 4 + 3] = L.r;
+      // ⚠ 'rgbRaw', NEVER 'rgb' — see the same ⚠ in water.js and in ground.js. 'rgb' is the colour
+      // as a WALL WASH, scaled by that term's gain and by the night, and it is flatly zero whenever
+      // the wash is off: a reflection reading it measures 0.000% at every gain.
+      const c = L.rgbRaw || L.rgb;
+      NEON_C[i * 3] = c[0]; NEON_C[i * 3 + 1] = c[1]; NEON_C[i * 3 + 2] = c[2];
+    }
+    gl.uniform1i(loc.neonN, nn);
+    if (nn > 0) { gl.uniform4fv(loc.neonP, NEON_P); gl.uniform3fv(loc.neonC, NEON_C); }
+    gl.uniform1f(loc.neonGain, nn > 0 ? (s.seaNeon || 0) : 0);
+    const sv = seaSlopeVariance(s.seaKt || 0);
+    gl.uniform2f(loc.sig2, sv.u, sv.c);
+    const swd = s.seaWindDir || [1, 0];
+    gl.uniform2f(loc.seaWindDir, swd[0], swd[1]);
+
     const zr = zRow(near);
     gl.uniform1f(loc.zA, zr[0]);
     gl.uniform1f(loc.zB, zr[1]);
@@ -1079,5 +1289,12 @@ export function createFloorLayer(gl) {
     return 1;
   }
 
-  return { draw };
+  // ⚠ THE WATER MESH READS THE SAME LUT, RATHER THAN BEING HANDED A SECOND ONE. gl/water.js needs
+  // waterness to know where the sea is and how far it has shoaled, and a second upload of the same
+  // bytes is a second answer to 'where is the coast' that would drift the moment either changed.
+  // It is exposed rather than passed because the floor owns the upload and the mesh draws after it.
+  // ⚠ BOTH PLANES, because the water mesh needs the SHELTER in uLut1.a as well as the waterness in
+  // uLut0.a — and a getter that hands over only the first is a mesh that samples shelter from the
+  // tile COLOUR, which is a number between 0 and 1 that varies plausibly and is not shelter.
+  return { draw, get lut() { return t0 ? { tex: t0, tex1: t1, mh: lutN } : null; } };
 }

@@ -4,8 +4,6 @@
   "description": "Old kerbstones, re-laid by somebody who cared more about speed than line. The road they edge is half fresh gravel and half whatever was already down there, and the join shows.",
   "exits": {
     "east": "zone_district_896_916",
-    "north": "zone_district_895_915",
-    "south": "zone_district_895_917",
     "west": "zone_district_894_916"
   },
   "flags": {

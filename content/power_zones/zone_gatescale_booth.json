@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_gatescale_booth",
+  "max_capacity_kw": 200,
+  "name": "The Glacis Weigh — Booth",
+  "source_type": "city_grid"
+}

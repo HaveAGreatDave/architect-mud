@@ -1,0 +1,18 @@
+{
+  "description": "Inside the inner hexagon, which is the only part of this building with a flat wall you can put a panel on. Switchgear, meters, and a chalk line on the floor marking the thirty-degree turn between the two hexagons, left by whoever set the core out and never cleaned off.",
+  "exits": {
+    "up": "zone_hf_fixedrate_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_fixedrate_lobby",
+  "map_id": "map_int_hf_fixedrate",
+  "name": "Fixed Rate — The Base of the Core",
+  "parent_zone": "zone_district_901_912"
+}

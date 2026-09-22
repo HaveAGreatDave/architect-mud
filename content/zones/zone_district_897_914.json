@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "description": "Cable covers run across the road here in yellow rubber, taped down and lifting at the corners, feeding a site nobody is working on today. The tape has been retaped twice.",
   "exits": {
     "east": "zone_district_898_914",
     "north": "zone_district_897_913",
@@ -11,13 +10,15 @@
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 897,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_897_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

@@ -522,10 +522,88 @@ schedule('15s', pushHelmLive);
 function pushHelmContacts() {
   if (!helmViewers.size) return;
   const ext = getZone(EXTERIOR); if (!ext) return;
-  const contacts = flightStateMod?.aircraftNearCoord?.(ext.grid_x, ext.grid_y) || [];
-  for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_contacts', contacts });
+  // ⚠ AN EMPTY LIST, NOT A SKIPPED PUSH. This scheduler already uses the empty
+  // list to mean "the sky is clear", and the client clears its plot off it — so
+  // simply not sending while the radar is cooked would leave the last contacts
+  // frozen on the screen, which is worse than a blank one: a driver would fly
+  // her past traffic that is no longer there.
+  for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_contacts', contacts: helmContacts() });
+}
+// The plot itself, so the rule about a cooked radar has exactly one statement of
+// it and the regress suite reads that one rather than a copy that could agree
+// with it today and not next month.
+function helmContacts() {
+  const ext = getZone(EXTERIOR);
+  if (!ext) return [];
+  return bridgeElecDead() ? [] : (flightStateMod?.aircraftNearCoord?.(ext.grid_x, ext.grid_y) || []);
 }
 schedule('2s', pushHelmContacts);
+
+// ── THE BRIDGE ELECTRONICS, AND WHAT AN EMP PULSE DOES TO THEM ───────────────
+//
+// She is not a vehicle anybody sims — she is a zone at a tile — so the whole of
+// her state here is one timestamp, RAM-only, and the two things that read it are
+// the radar plot above and the chart plotter (`sailto`).
+//
+// ⚠ `sail <direction>` KEEPS WORKING AND `sailto <place>` DOES NOT, and that
+// split is the feature rather than an inconsistency. A ship is steered by eye
+// off a compass and always has been; what the pulse took is the box that knows
+// where things ARE. Refusing to let her move at all would strand a player on the
+// water for the duration, which is the "never fatal on its own" rule the aircraft
+// hazard is built to and which applies here with more force — she is a building
+// people live in.
+let bridgeEmpUntil = 0;
+const bridgeElecDead = () => Date.now() < bridgeEmpUntil;
+
+function knockOutBridge(until) {
+  if (until <= Date.now()) return;
+  const already = bridgeElecDead();
+  bridgeEmpUntil = Math.max(bridgeEmpUntil, until);
+  const bc = getBroadcast();
+  if (!already) {
+    for (const z of yachtZones()) {
+      bc?.(z.id, { type: 'zone_event', message:
+        '<span class="text-red">Every screen aboard whites out and dies. The engines never falter — they do not need to be told anything — but the plot, the radar and the radios are gone.</span>' }, null);
+    }
+  }
+  clearTimeout(bridgeEmpTimer);
+  bridgeEmpTimer = setTimeout(() => {
+    if (bridgeElecDead()) return;             // a later pulse owns it now
+    bridgeEmpUntil = 0;
+    for (const z of yachtZones()) {
+      getBroadcast()?.(z.id, { type: 'zone_event', message:
+        '<span class="text-cyan">The bridge comes back a console at a time, each one announcing itself with a chime nobody asked for.</span>' }, null);
+    }
+  }, bridgeEmpUntil - Date.now() + 250);
+  bridgeEmpTimer.unref?.();
+}
+let bridgeEmpTimer = null;
+
+// ⚠ CREWED MEANS SOMEBODY IS ABOARD, and it has to, because this list also
+// decides where a pulse can LAND. An empty ship moored at the quay is a place
+// with no electronics anybody is using; putting the storm's epicentre on her
+// would be rolling it onto furniture.
+function crewedYacht() {
+  const ext = getZone(EXTERIOR);
+  if (!ext || ext.grid_x == null || ext.grid_y == null) return [];
+  const aboard = yachtZones().some(z => z.players?.size);
+  if (!aboard) return [];
+  return [{ mapId: ext.map_id || 'map_world', x: ext.grid_x, y: ext.grid_y, knockOut: knockOutBridge }];
+}
+
+// Regress only (never loaded in production — see plugin-standard.md). The pulse
+// arrives through a gather hook and an event, neither of which a suite can fire
+// without a storm, so the two states and the plot are reachable directly.
+// `helmContactsNow` is the function the scheduler pushes, not a restatement of
+// it — a second copy of the rule would agree today and drift tomorrow, and the
+// test would be testing itself.
+export const _yachtTest = {
+  bridgeElecDead,
+  knockOutBridge,
+  clearBridgeEmp() { clearTimeout(bridgeEmpTimer); bridgeEmpUntil = 0; },
+  helmContactsNow: helmContacts,
+  crewedYacht,
+};
 
 // Walking off the bridge closes the helm at once (you can only steer from the bridge) — don't wait
 // for the 15s prune. The client `helm_close` hands the pane back to the room view.
@@ -653,6 +731,12 @@ async function cmdSailTo(args, raw, player, broadcast) {
   if (!getZone(player.current_zone)?.flags?.echelon_bridge) {
     return { type: 'error', message: 'You can only steer the Echelon from her bridge.' };
   }
+  // The plotter is dead. A charted course is the one thing aboard that genuinely
+  // needs a working computer — `sail <direction>` is a compass and a helmsman and
+  // is deliberately still available. See knockOutBridge.
+  if (bridgeElecDead()) {
+    return { type: 'error', message: 'The chart plotter is a dead pane of glass. You could still take her out on the compass — <span class="text-dim">sail &lt;direction&gt;</span> — but nothing aboard will plot you a course.' };
+  }
   const left = transitLeft();
   if (left > 0) return { type: 'error', message: `The Echelon is already underway. She reaches her next position in ${Math.ceil(left / 1000)}s — you can't give a new order until she's there.` };
 
@@ -735,17 +819,36 @@ async function cmdHelmConsole(args, raw, player) {
   // re-opens. Routing the exit through the plain toggle below let a helmViewers desync (see the
   // pushHelmLive zone sweep) flip it back OPEN, so you had to close a second time. Handle it first,
   // before the admin/bridge gates, so closing always works even if you've since left the bridge.
-  if ((args[0] || '').toLowerCase() === 'close') {
+  // ⚠ AND ONLY WHEN THE CLOSE IS OURS. This verb is shared with the marina's race boat (see the
+  // BOAT_HELM delegation below), so an unconditional intercept here answers `helm close` for a
+  // helmsman who has never been aboard the Echelon and sends a `helm_close` to a client with no
+  // helm open — harmless, and it swallows the word from whoever it was meant for.
+  if ((args[0] || '').toLowerCase() === 'close' && helmViewers.has(player.id)) {
     helmViewers.delete(player.id);
     sendToPlayer(player.id, { type: 'helm_close' });
     return { type: 'noop' };
   }
-  if (player.role !== 'admin') return ADMIN_ONLY;
+  // ── ⚠ `helm` IS TWO BOATS' WORD, AND THIS PLUGIN IS ONLY THE ONE THAT WON THE LOADER ──────
+  //
+  // `plugins/powerboat` declares `helm` too and loads first, so the last writer — this file — took
+  // the verb outright: every `helm` a race-boat owner typed reached the Echelon and was refused for
+  // not being on a bridge they have no business standing on. A collision is not a load error, it is
+  // two systems quietly ceasing to work, which is the powerboat README's own warning landing on it.
+  //
+  // So the gate comes BEFORE the admin check and hands the word on rather than spending it: not on
+  // her bridge ⇒ dispatch `BOAT_HELM` BY NAME, the `CHARGE_CRIME` idiom, so this file never imports
+  // the marina and the marina never learns the Echelon exists. ⚠ An unregistered action RETURNS an
+  // error rather than throwing, so a world with no powerboat plugin falls back to the refusal that
+  // has always been here instead of answering "Unknown action: BOAT_HELM".
   const ext = getZone(EXTERIOR);
-  if (!ext) return { type: 'error', message: "The Echelon isn't on the water right now." };
   if (!getZone(player.current_zone)?.flags?.echelon_bridge) {
+    const { dispatchAction } = await import('../../server/engine/actions.js');
+    const out = await dispatchAction({ type: 'BOAT_HELM', actor: player, params: { args, raw } });
+    if (!(out?.type === 'error' && /^Unknown action:/.test(out.message || ''))) return out;
     return { type: 'error', message: 'You can only take the helm from her bridge.' };
   }
+  if (player.role !== 'admin') return ADMIN_ONLY;
+  if (!ext) return { type: 'error', message: "The Echelon isn't on the water right now." };
   // `helm` toggles: a second call while the console is up steps back from it (closes the client view).
   if (helmViewers.has(player.id)) {
     helmViewers.delete(player.id);
@@ -774,6 +877,10 @@ function describeBridge(zone) {
 
 export const hooks = {
   'zone.describeRoom': describeBridge,
+  // The water's answer to "where is every crewed vehicle". One consumer — the EMP
+  // pulse — and the entry carries its own `knockOut`, so the weather plugin never
+  // learns what a yacht is. See crewedYacht.
+  'vehicle.crewed': () => crewedYacht(),
 };
 
 export const commands = {

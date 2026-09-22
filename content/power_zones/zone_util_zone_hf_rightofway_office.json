@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_rightofway_office",
+  "id": "zone_util_zone_hf_rightofway_office",
+  "name": "Right of Way — The Bin Store That Was",
+  "source_type": "junction_box"
+}

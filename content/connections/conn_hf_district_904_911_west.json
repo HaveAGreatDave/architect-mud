@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_904_911",
+  "b": "zone_hf_glassceiling_lobby",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_district_904_911_west",
+  "lockable": true,
+  "one_way": false
+}

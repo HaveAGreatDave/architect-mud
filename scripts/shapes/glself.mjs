@@ -166,8 +166,44 @@ for (const { key, m } of ws.shapeModelRegistry()) {
 // took the registry from 256 models to 257. Five points for a whole landmark leaves the rate flat:
 // 2.4375 a model before, 2.4475 after. A rise with no new model behind it is still the regression
 // this budget is here to catch.
+// ⚠ AND 629 → 642 IS A LIGHT RUNNER ON A ROUND TOWER, WHICH IS A SHAPE THE CITY DID NOT HAVE.
+// Voltage was rebuilt as a drum, and two runners go up it. A cylinder is the one surface where a
+// runner cannot be given a smaller pull: it LIES ON the drum by construction, so it has to be moved
+// to win the depth tie, and every point that is moved lands in this census. The reducible half was
+// reduced rather than blessed — the runners are authored 0.02 of a tile PROUD of the drum, which is
+// a neon tube on its own standoffs and is what one actually is, and that took the model's own row
+// from 29 to 13. Thirteen points over two 18-segment runs is the floor a tapering cylinder leaves,
+// and it is the `drawRing` case in the reason below, word for word: a band hugging a tower is not
+// inside anything.
 const KNOWN = new Map([
-  ['stroke', { budget: 629, why:
+  // ⚠ 642 → 661 WHEN HALCYON FIELDS GOT EIGHT NEW TYPES AND THIRTEEN RESTYLES (see
+  // docs/proposals/halcyon-fields-infill.md). Almost all of the quarter is drums now, and a light
+  // runner on a drum is a band hugging a tower — the case the reason below already names. The one
+  // that needed real work is the arch: its runner follows the leg's own parabola, so it is a
+  // stroke lying on a CYLINDER about a tenth of a tile across, and putting it on the leg's axis
+  // (the obvious reading) buried it inside its own mass and cost 54 points on that arm alone. It
+  // sits on the inner-front quadrant, which is the surface a driver on Kerbstone Row can see, and
+  // contributes four. ⚠ The other fifteen are a handful each across twenty-one models and none of
+  // them reaches the census list, which is what says this is the ordinary cost of the shape change
+  // rather than one part authored in the wrong place.
+  // ⚠ AND 661 → 672 IS TWO MORE AUTHORED MODELS REBUILT AFTER THE LINE ABOVE WAS WRITTEN. The note
+  // above covers the eight new Halcyon types and the one before it covers `named:voltage`'s drum —
+  // +19 and +13, and both reconcile to the point against a per-model census taken at the commit.
+  // What neither covers is `named:thespire` 4 → 10 and `named:theweave` 0 → 5, which is the whole
+  // of the eleven. Both are the reason below rather than a new category: each carries a helix
+  // runner up a tapering tower and a mast standing on the tile's own axis, and a mast at x=0, y=0
+  // is the sentence that reason opens with. Nine of The Spire's 192 strokes leak, four of The
+  // Weave's 84 — the runners clear their own mass nearly everywhere and are caught in one place.
+  //
+  // ⚠ AND THE SPIRE'S HALF IS REDUCIBLE, RECORDED HERE BECAUSE IT WAS MEASURED AND NOT DONE. Its
+  // runner follows the SHAFT radius while the tower carries periodic pod bulges, so every leaked
+  // point is a bulge swallowing it — 0.011 of a tile inside the pod at z 1.19, 0.035 at z 2.01 and
+  // 0.033 at z 2.60, against a run that is 0.001 PROUD where the shaft is plain. That is the drum's
+  // own fix one step harder: `named:voltage` went 29 → 13 by authoring its runners 0.02 proud of a
+  // radius that only tapers, and this one has to be proud of a radius that bulges. It is blessed
+  // rather than fixed because the pods are a live edit in another session, so the standoff would be
+  // authored against geometry that is still moving. Fix it and this number owes eight points back.
+  ['stroke', { budget: 672, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
    + 'the full DECO_LIFT and they are pulled clear on purpose. The Dynamo lost its entire external '

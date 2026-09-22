@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#0f1721",
+  "color": "#bfe2ff",
+  "description": "A glass cylinder on a chrome podium with a collar at every fifth floor and a mast on top, which is the estate's standard tower and the fourth one of it. It has been new to market for two years. The hoarding came down last spring and the banner that replaced it says the same thing in a better typeface. The entrance faces Kerbstone Row across the podium, and there is a chrome A-board on the pavement outside it that says SHOW HOME OPEN and is brought in at six and put out again at nine. The entrance faces Kerbstone Row across the podium, and there is a chrome A-board on the pavement outside it that says SHOW HOME OPEN and is brought in at six and put out again at nine. The entrance faces Kerbstone Row across the podium, and there is a chrome A-board on the pavement outside it that says SHOW HOME OPEN and is brought in at six and put out again at nine. The entrance faces Kerbstone Row across the podium, and there is a chrome A-board on the pavement outside it that says SHOW HOME OPEN and is brought in at six and put out again at nine. The entrance faces Kerbstone Row across the podium, and there is a chrome A-board on the pavement outside it that says SHOW HOME OPEN and is brought in at six and put out again at nine. The entrance faces Kerbstone Row across the podium, and there is a chrome A-board on the pavement outside it that says SHOW HOME OPEN and is brought in at six and put out again at nine.",
   "exits": {
-    "east": "zone_district_908_915",
-    "south": "zone_district_907_916",
-    "west": "zone_district_906_915"
+    "north": "zone_hf_newmarket_lobby",
+    "south": "zone_district_907_916"
   },
   "flags": {
+    "building_name": "New to Market",
+    "building_type": "chrome_tower",
     "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 14,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_907_916"
   },
   "grid_x": 907,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_907_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "NM",
+  "name": "New to Market",
   "parent_zone": null
 }

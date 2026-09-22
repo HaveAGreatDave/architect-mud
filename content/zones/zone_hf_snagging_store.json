@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The rest of the ground floor, racked out and surprisingly well ordered: everything labelled, everything by size, a lot of it the estate's own specification and none of it, strictly, anybody's to sell. The chrome cladding panels in the corner are worth more than the rest of the room together and are stacked face to face with felt between them, which is somebody being careful with something they are stealing.",
+  "exits": {
+    "west": "zone_hf_snagging_office"
+  },
+  "flags": {
+    "building_name": "Snagging List",
+    "building_type": "cascade_block",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_904_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_snagging_store",
+  "map_id": "map_int_hf_snagging",
+  "name": "Snagging List — The Material Store",
+  "parent_zone": "zone_district_904_917"
+}

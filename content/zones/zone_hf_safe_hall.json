@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A low, wide room at the foot of the tower with a stone floor and no chairs at all, which is deliberate: nobody is meant to wait here. A single counter runs across the far end in one piece of chrome with a gap in it you walk through. Behind the gap the floor changes to steel and the ceiling drops, and that is where the building stops being a lobby.",
+  "exits": {
+    "down": "zone_hf_safe_corridor",
+    "east": "zone_district_901_911"
+  },
+  "flags": {
+    "building_name": "Safe as Houses",
+    "building_type": "torque_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A band of glass round the drum at eye height, so from the counter you can see the ankles of everyone on Cinder Lane and nothing above the knee.",
+      "light": 0.55,
+      "name": "the canopy glazing",
+      "visibility": 0.4
+    },
+    "world_exit_zone": "zone_district_901_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_safe_hall",
+  "map_id": "map_int_hf_safe",
+  "name": "Safe as Houses — The Hall",
+  "parent_zone": "zone_district_901_911"
+}

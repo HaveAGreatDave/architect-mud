@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
-  "exits": {
-    "east": "zone_district_901_912",
-    "north": "zone_district_900_911",
-    "west": "zone_district_899_912"
-  },
+  "ambient_theme": "urban",
+  "description": "Clad to the eighth and open above it, with the floor plates stacked on the core like a set of plates on a spindle. The crane has been slewed and parked in the same position for long enough that the gulls have an arrangement with it. The hoarding advertises a completion that was last summer and nobody has taken it down, because taking it down would be a statement.",
+  "exits": {},
   "flags": {
+    "building_name": "Under Offer",
+    "building_type": "shell_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "entrance": "west",
+    "floors": 16,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 900,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_900_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "UO",
+  "name": "Under Offer",
   "parent_zone": null
 }

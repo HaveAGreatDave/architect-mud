@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A working bay off the hall, and the first room on this shore that smells of anything. Resin, mostly, and the ghost of acetone. The bench runs the length of the wall in one slab of hardwood scarred to a depth that took years, with the tools racked above it in silhouettes painted onto the board so a gap is visible from across the room. There are no gaps. On the end wall, a stack of moulds, and a hull section cut away to show the lay-up, which is either a teaching aid or an argument somebody won.",
+  "exits": {
+    "south": "zone_consv_hall"
+  },
+  "flags": {
+    "building_name": "Fairweather Marina",
+    "building_type": "boathouse",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_consv_bench",
+  "map_id": "map_int_consv",
+  "name": "Fairweather Marina — The Bench",
+  "parent_zone": "zone_district_893_902"
+}

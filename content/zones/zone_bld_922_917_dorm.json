@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "Bunks down both walls, three high, with the gap between them narrow enough to touch either side. The floor slopes toward the back of the building and everybody's belongings have migrated that way. A stove at the far end stays lit.",
+  "description": "Bunks down both walls, three high, with the gap between them narrow enough to touch either side. The floor slopes toward the back of the building and everybody's belongings have migrated that way. A stove at the far end stays lit. The overhead has been dead so long that the men who complained about it sleeping under it have all moved on.",
   "exits": {
     "west": "zone_bld_922_917_lobby"
   },

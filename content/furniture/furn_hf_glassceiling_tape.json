@@ -1,0 +1,8 @@
+{
+  "description": "Yellow tape on the screed, a full flight and a half-landing, set out at full size so that the unit could be shown with the stair \"indicated\". It was set out four years ago, it has been walked over ever since, and it is still legible because nobody walks over the middle of a room this size.",
+  "flags": {},
+  "id": "furn_hf_glassceiling_tape",
+  "name": "a taped-out stair",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_glassceiling_apex"
+}

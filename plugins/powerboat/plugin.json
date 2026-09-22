@@ -1,0 +1,45 @@
+{
+  "name": "powerboat",
+  "version": "0.1.0",
+  "description": "THE BASIN — a blown picklefork race boat you drive on the water, and what happens to you when the hull lets go.",
+  "hooks": [
+    "vehicle.contacts",
+    "zone.describeRoom",
+    "fuel.prices",
+    "swim.afloat",
+    "shop.neverShuts"
+  ],
+  "commands": [
+    "boat",
+    "boats",
+    "berth",
+    "refit",
+    "helm",
+    "conn",
+    "boatsync",
+    "boatevent"
+  ],
+  "actions": {
+    "registers": [
+      "BOAT_BREAKUP",
+      "BOAT_EMBARK",
+      "BOAT_DISEMBARK",
+      "BOAT_HELM",
+      "BOAT_FUEL",
+      "BOAT_TOW"
+    ],
+    "tagGated": []
+  },
+  "events": {
+    "emits": [],
+    "consumes": [
+      "player.logout",
+      "player.death"
+    ]
+  },
+  "dependencies": [],
+  "dataSchema": [
+    "boats"
+  ],
+  "extensionPoints": []
+}

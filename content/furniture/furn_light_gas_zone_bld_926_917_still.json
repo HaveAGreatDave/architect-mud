@@ -1,0 +1,14 @@
+{
+  "description": "Set on the floor in the far corner, as far from the still as the room allows, which is not very far.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_gas_zone_bld_926_917_still",
+  "light_type": "gas",
+  "lumen_output": 400,
+  "name": "a gas lantern",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": 40,
+  "zone_id": "zone_bld_926_917_still"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_895_913",
+  "b": "zone_hf_assets_hang",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_895_913_north",
+  "lockable": true,
+  "one_way": false
+}

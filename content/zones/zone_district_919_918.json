@@ -1,15 +1,15 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#9a7d4a",
-  "description": "A gatehouse hut beside the Gate Road, one tile short of the South Gate, positioned so that everything walking out and everything dragging itself back in goes past the window. A brass hanging-scale is bolted to the frame outside, big enough to weigh a person, and the pan swings gently whether or not there's wind. THUMB ON THE SCALE is burned into the lintel.",
+  "ambient_theme": "city",
+  "color": "#7d7f84",
+  "description": "Two hundred feet of palisade with a sliding gate in it, and behind the gate the tops of trailers standing in rows close enough that none of them could be got out without moving four others. The sign on the gate is municipal green and says COLDWATER VEHICLE POUND · RELEASE BY APPOINTMENT, and somebody has added LONG STAY underneath it in paint, years ago, well enough that it has been left alone.",
   "exits": {
-    "east": "zone_thumb_shop",
+    "east": "zone_gatepound_lot",
     "west": "zone_district_918_918"
   },
   "flags": {
-    "building_name": "Thumb On The Scale",
-    "building_type": "junkyard",
+    "building_name": "Long Stay",
+    "building_type": "vehicle_pound",
     "district": "ashway",
     "entrance": "west",
     "facade": true,
@@ -22,7 +22,7 @@
   "grid_z": 0,
   "id": "zone_district_919_918",
   "map_id": "map_world",
-  "marker": "TB",
-  "name": "Thumb On The Scale",
+  "marker": "PN",
+  "name": "Long Stay",
   "parent_zone": null
 }

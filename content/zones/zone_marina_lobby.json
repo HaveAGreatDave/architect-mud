@@ -1,0 +1,31 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Stone floor, glass on three sides, and so little in it that the room reads as a decision rather than a shortage. One desk, and somebody behind it whatever hour you come in — two of them share the day between them and the handover is the only minute it's ever empty. The berth board is behind the desk in brushed steel with the bay numbers set into the face so shallow you have to be standing at it to read them. East, past the doors, the dock: you can hear water working under the deck, and that door does not lock, ever. North, a pair of doors in dark glass with no sign on them whatsoever.",
+  "exits": {
+    "east": "zone_consv_hall",
+    "north": "zone_marina_anchovies",
+    "south": "zone_district_893_902",
+    "west": "zone_consv_counter"
+  },
+  "flags": {
+    "building_name": "Fairweather Marina",
+    "building_type": "boathouse",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Floor to ceiling on the quay side, in panes big enough that the joints are the only thing telling you there is glass there at all. Halcyon Quay beyond it, swept, and the rail along the water with the gap in it where the pontoon goes down.",
+      "light": 0.75,
+      "name": "the quay glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_893_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_marina_lobby",
+  "map_id": "map_int_consv",
+  "name": "Fairweather Marina — The Lobby",
+  "parent_zone": "zone_district_893_902"
+}

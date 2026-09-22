@@ -34,22 +34,10 @@
     {
       "cx": 0,
       "cy": 0,
-      "kind": "helixRunner",
-      "n": 2,
-      "r0": 0,
-      "r1": 0,
-      "rgb": "74,168,255",
-      "turns": 0,
-      "z0": 1.5,
-      "z1": 2.6
-    },
-    {
-      "cx": 0,
-      "cy": 0,
       "kind": "blinkLight",
       "r": 2,
       "rgb": "74,168,255",
-      "z": 2.6
+      "z": 2.1
     },
     {
       "cx": -0.26,
@@ -82,6 +70,40 @@
       "rgb": "74,168,255",
       "s": 10,
       "z": 1.04
+    },
+    {
+      "a": 0.42,
+      "at": 0,
+      "cx": -0.11,
+      "cy": 0,
+      "fall": 1.35,
+      "kind": "skyBeam",
+      "len": 3.4,
+      "period": 12000,
+      "r": 0.095,
+      "rgb": "120,200,255",
+      "s": 22,
+      "spread": 5,
+      "sweep": 0,
+      "tilt": 1.5708,
+      "z": 1.34
+    },
+    {
+      "a": 0.42,
+      "at": 0,
+      "cx": 0.11,
+      "cy": 0,
+      "fall": 1.35,
+      "kind": "skyBeam",
+      "len": 3.4,
+      "period": 12000,
+      "r": 0.095,
+      "rgb": "120,200,255",
+      "s": 22,
+      "spread": 5,
+      "sweep": 0,
+      "tilt": 1.5708,
+      "z": 1.34
     }
   ],
   "basis": {
@@ -101,7 +123,7 @@
       "half": 0.44,
       "hh": 0.0212,
       "kind": "parapet",
-      "pal": "ty_asc_shrine",
+      "pal": "ty_asc_chrome_dk",
       "z": 0.1274
     },
     {
@@ -124,7 +146,7 @@
       "hh": 0.0156,
       "kind": "canopy",
       "out": 0.105,
-      "pal": "ty_asc_shrine",
+      "pal": "ty_asc_chrome_dk",
       "soffit": "#2a5f8c",
       "strip": "#bfe4ff",
       "z": 0.1019
@@ -133,14 +155,14 @@
       "cx": -0.34,
       "cy": 0.46,
       "kind": "bollard",
-      "pal": "ty_asc_shrine",
+      "pal": "ty_asc_chrome_dk",
       "z": 0.0057
     },
     {
       "cx": 0.34,
       "cy": 0.46,
       "kind": "bollard",
-      "pal": "ty_asc_shrine",
+      "pal": "ty_asc_chrome_dk",
       "z": 0.0057
     },
     {
@@ -148,13 +170,67 @@
       "cy": 0,
       "hh": 0.0566,
       "kind": "antennaCluster",
-      "pal": "ty_asc_shrine",
+      "pal": "ty_asc_chrome_dk",
       "r": 0.04,
       "z": 1.5
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.39,
+      "hh": 0.0177,
+      "kind": "parapet",
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.3962
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.335,
+      "hh": 0.0177,
+      "kind": "parapet",
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.6368
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.28,
+      "hh": 0.0177,
+      "kind": "parapet",
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.8491
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.225,
+      "hh": 0.0177,
+      "kind": "parapet",
+      "pal": "ty_asc_chrome_dk",
+      "z": 1.033
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.17,
+      "hh": 0.0177,
+      "kind": "parapet",
+      "pal": "ty_asc_chrome_dk",
+      "z": 1.1887
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.115,
+      "hh": 0.0141,
+      "kind": "parapet",
+      "pal": "ty_asc_chrome",
+      "z": 1.316
     }
   ],
   "id": "architectshrine",
-  "note": "Ten floors of Ascendant devotion that rendered as a three-box stack on the shared asc_shrine arm. Built as a ZIGGURAT: seven square boxes stepping in from the podium to a tenth of its width, with a faceted drum lantern on the apex — the one silhouette in Coldwater that narrows the whole way and ends in a point rather than a lid. ⚠ NO AUTHORED `neon`, deliberately. `derivedStyle` reads `m.neon` as a TRUTH TEST for works-vs-front-vs-block, so authoring a colour here would reclassify a stone shrine as a SHOPFRONT and hang a retail kit on it; the accent it wants (#7fc8ff, off the stone family) is what `accentOf` already derives with the field left empty. RENDER_TUNE.legacyArms puts the asc_shrine arm back.\n\n⚠ RESTORED TO THE HEIGHT OF ITS ARM (2026-09-17). The form above is unchanged and was\nnever the problem; what did not carry across from the asc_shrine arm was how tall it stands. It was\nat 71% — 1.06x the storey stack against the arm's 1.50x — so every 'h'-tagged field\nhere was multiplied by 1.415 and every 'fh'-tagged one left alone. The silhouette is identical;\nonly the storeys are taller. Same regression as halcyontowers and thespire, same measurement.\n\n⚠ AND THE UPLINK BEAM CAME BACK WITH THE HEIGHT. The asc_shrine arm ran a glowing Ascendant-blue\nwire from the cap at 1.5 to 2.6 with a beacon on the end of it, and a server-rack glow on the\nCurtain side — the whole reason the building reads as a shrine to a machine rather than as a\nblack ziggurat. None of it survived the port: this model emitted three sprites on a palette of\n[20,28,44], which after dark is nothing at all. The beam is a helixRunner with r0 = r1 = 0 and\nturns = 0, which is a straight vertical line through the same emitLightRunner the arm used.",
+  "note": "Ten floors of Ascendant devotion that rendered as a three-box stack on the shared asc_shrine arm. Built as a ZIGGURAT: seven square boxes stepping in from the podium to a tenth of its width, with a faceted drum lantern on the apex — the one silhouette in Coldwater that narrows the whole way and ends in a point rather than a lid. ⚠ NO AUTHORED `neon`, deliberately. `derivedStyle` reads `m.neon` as a TRUTH TEST for works-vs-front-vs-block, so authoring a colour here would reclassify a stone shrine as a SHOPFRONT and hang a retail kit on it; the accent it wants (#7fc8ff, off the stone family) is what `accentOf` already derives with the field left empty. RENDER_TUNE.legacyArms puts the asc_shrine arm back.\n\n⚠ RESTORED TO THE HEIGHT OF ITS ARM (2026-09-17). The form above is unchanged and was\nnever the problem; what did not carry across from the asc_shrine arm was how tall it stands. It was\nat 71% — 1.06x the storey stack against the arm's 1.50x — so every 'h'-tagged field\nhere was multiplied by 1.415 and every 'fh'-tagged one left alone. The silhouette is identical;\nonly the storeys are taller. Same regression as halcyontowers and thespire, same measurement.\n\n⚠ AND THE UPLINK BEAM CAME BACK WITH THE HEIGHT. The asc_shrine arm ran a glowing Ascendant-blue\nwire from the cap at 1.5 to 2.6 with a beacon on the end of it, and a server-rack glow on the\nCurtain side — the whole reason the building reads as a shrine to a machine rather than as a\nblack ziggurat. None of it survived the port: this model emitted three sprites on a palette of\n[20,28,44], which after dark is nothing at all. The beam is a helixRunner with r0 = r1 = 0 and\nturns = 0, which is a straight vertical line through the same emitLightRunner the arm used.\n\n⚠ THE UPLINK WAS A STROKE AND READ AS A SCRATCH ON THE GLASS (2026-09-22). The beam restored above\nis a helixRunner with r0 = r1 = 0 through emitLightRunner, which is a STROKE: a length in the world\nand a width in SCREEN PIXELS, so the shaft was the same hairline from the next street and from\ndirectly underneath it, and no alpha was ever going to make a line look like light. That is\nlightBeam's own header, learned on the lighthouse and then on Voltage, and this was the third\ninstance of it. It is two skyBeam cones now — widths in TILES, so they open out along their own\nlength and swell as you close on them, additive and depth-tested through the sprite layer, so the\nlantern cuts them per pixel.\n\n⚠ THEY GO STRAIGHT UP AND DO NOT SWEEP (tilt PI/2, sweep 0), which is the difference between this\nand Voltage. A club's beams rake the sky because a club is advertising; a shrine is not, and a pair\nof fixed verticals reads as a marker rather than as a pitch. The period is still authored because\nskyBeam's motion gate is what answers -1 at RENDER_TUNE.motion 0, and at sweep 0 that phase moves\nnothing — the beams are already standing still.\n\n⚠ AND THE ZIGGURAT HAD NO EDGES IN IT. Seven setbacks, a drum lantern, a canopy, two bollards and\nan antenna cluster, every one of them ty_asc_shrine [20,28,44] — so the silhouette this model was\nbuilt for could not be seen at all, and the building read as a black smudge among articulated\nfrontages. The glass stays black, because that IS the shrine; what it gains is a chrome band on\neach setback (ty_asc_chrome_dk, ty_asc_chrome at the lantern collar), which is the one thing a\nstepped monument is read by, and the entrance fittings in the same metal so there are three more\nparts you can find. No mass moved and no segment changed.",
   "pal": "ty_asc_shrine",
   "replaces": "asc_shrine",
   "segs": [
@@ -234,4 +310,3 @@
     }
   ]
 }
-

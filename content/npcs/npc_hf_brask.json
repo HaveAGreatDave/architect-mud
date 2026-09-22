@@ -1,0 +1,267 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Brask walks the length of the hall, turns at the lift, and walks back, which takes eleven seconds and which he does about forty times a shift.",
+    "He straightens the bench nobody sits on by about an inch.",
+    "The radio in the post room finishes a song and he goes through and changes the station without hurrying.",
+    "He checks the four full mailboxes, touches nothing, and comes back.",
+    "A lift arrives at the ground floor with nobody in it. He looks at it until the doors close again."
+  ],
+  "description": "A heavy, unhurried man in a grey estate jacket with the cuffs turned once, standing rather than sitting because sitting makes the shift longer. He has the manner of somebody who has worked in buildings with four hundred people in them and now works in one with four, and has not decided yet whether that is a promotion.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the step at the hood. Everybody does it once.\" He is already looking past you at the door."
+    },
+    "job": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It is a job.\" A pause, and then, because you are still there: \"I did the tower at the Yards end for nine years. Four hundred and some, every one of them in and out twice a day, half of them wanting something. You could not hear yourself.\"\n\nHe looks down the hall.\n\n\"I thought I would like this. I would like it better with about forty more people in it.\""
+    },
+    "quiet": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The building is not quiet. The building makes a great deal of noise.\" He tilts his head at the ceiling. \"Pumps at four, lift at six, and the collars flex when the wind gets round the west side — you hear that in the hall as a sort of knock, twice, about a second apart.\"\n\n\"It is the people who are quiet. There are not enough of them to be anything else.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Who lives here?",
+          "next": "who"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Is it always this quiet?",
+          "next": "quiet"
+        },
+        {
+          "label": "Nothing. Good afternoon.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Afternoon.\" He does not ask what you want, which is a kind of manners.",
+      "text_by_relation": {
+        "familiar": "He has the kettle on in the post room before you reach the desk, which is not a thing he does for tenants.\n\n\"Nothing today,\" he says. \"Nothing yesterday either.\"",
+        "first": "The man behind the desk watches you the whole way across the hall without it being rude, and speaks when you are close enough that he does not have to raise his voice.\n\n\"You can come in. People stop at the glass because of the hood — it is designed to look like you are not meant to.\" He says it as though he has said it a hundred times, which he has, to perhaps nine people. \"Corvin Brask. I look after this.\"\n\nHe gestures at the hall, and the gesture takes in rather more emptiness than he probably intends.",
+        "known": "\"You again.\" He nods at the bench. \"Sit down if you like. Nobody ever has.\""
+      }
+    },
+    "who": {
+      "options": [
+        {
+          "label": "That is a strange job.",
+          "next": "job"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Four flats out of forty-eight.\" He says the numbers flatly, the way you say a thing you have checked. \"Two on six, one on eleven, one on fifteen. The rest were bought by the same purchaser as the building and are furnished, cleaned on a rota and not lived in.\"\n\nHe puts a hand on the desk.\n\n\"I have keys to all of them. I have been into all of them. They are very nice.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey estate jacket, single button, the cuffs turned once",
+      "a pressed shirt with no tie, because the tie was optional and he checked",
+      "dark trousers with a crease kept in them",
+      "flat black shoes, soled twice",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_longlease_post",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_hf_brask",
+  "name": "Corvin Brask",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_headlease",
+      "price": 12
+    },
+    {
+      "item_id": "item_hf_spareflatkey",
+      "price": 6
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "The Porter's Desk",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_longlease_hall"
+}

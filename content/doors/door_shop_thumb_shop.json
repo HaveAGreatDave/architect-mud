@@ -1,5 +1,5 @@
 {
-  "connection_id": "conn_district_919_918_east_187a",
+  "connection_id": "conn_district_924_914_east_187a",
   "door_type": "basic",
   "exit_dir": "east",
   "flags": {},
@@ -23,5 +23,5 @@
     }
   },
   "target_zone": "zone_thumb_shop",
-  "zone_id": "zone_district_919_918"
+  "zone_id": "zone_district_924_914"
 }

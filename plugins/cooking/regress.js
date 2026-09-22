@@ -14,7 +14,7 @@ import { prepWindowMult, prepBurnMult, prepCeilingDrop, prepBonus, marinadeStren
 import { tasteNotes, tasteTier, flavourLines } from './taste.js';
 import { portionOf, isWhole, canChop, portionName, yieldOf } from './portions.js';
 import { FOND_BONUS, FOND_RESIDUE_PENALTY, FOND_NEGLECT_PENALTY, FOND_LIFE_MS, MODIFIER_BONUS_CAP, MIN_PORTION, MINCE_RATE, MARINATE_MIN_MS, MARINATE_FULL_MS, MARINATE_PROFILES, TASTE_TIERS, MINCE_CEILING_DROP, BAND_SCALE, BASE_OFFSET, FOND_MIN_BAND, DISCOVERY_MIN_BAND, SLOP_CEILING, BAND_REWARDS, rewardFor, restMultiplier, restText, RESTS_WELL, REST_MIN_MS, REST_PEAK_MS, REST_COLD_MS, REST_COLD_PENALTY } from './config.js';
-import { DISCOVERY_ATTEMPTS, cookingIpFor, ROUTINE_IP, MASTERFUL_IP, ROUTINE_IP_COOLDOWN_MS, DISCOVERY_IP, RECIPE_MASTERY_IP } from './config.js';
+import { DISCOVERY_ATTEMPTS, cookingIpFor, ROUTINE_IP, MASTERFUL_IP, ROUTINE_IP_COOLDOWN_MS, DISCOVERY_IP, RECIPE_MASTERY_IP, STARTER_RECIPES } from './config.js';
 import { POUR_PORTION, FLUID_MEASURE_G, SCORCH_GRACE_MS, SCORCH_CEILING_DROP } from './config.js';
 import {
   DISHES, UNKNOWN_DISH, validateDishes, signature, matchScore, matchDish,
@@ -2058,8 +2058,33 @@ export default async function regress({ run, check, getPlayer }) {
     // ── Recipe knowledge ─────────────────────────────────────────────────────
     await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key LIKE $2', [player.id, `${FLAG_PREFIX}%`]);
 
+    // A FRESH COOKBOOK IS NOT EMPTY — it holds STARTER_RECIPES, derived at read
+    // rather than seeded, so every character that already existed has them too.
     const empty = await knownRecipes(player.id);
-    check('a fresh cookbook is empty', empty.size === 0, empty.size);
+    check('a fresh cookbook holds exactly the starter recipes, all untried',
+      empty.size === STARTER_RECIPES.size && [...STARTER_RECIPES].every(k => empty.get(k) === UNTRIED),
+      [...empty]);
+    check('every starter names a real dish', [...STARTER_RECIPES].every(k => !!DISHES[k]), [...STARTER_RECIPES]);
+    // A starter is a floor under a new cook, never the top of the ladder: a
+    // masterful ceiling handed out free would undercut both the discovery loop
+    // and RECIPE_MASTERY_IP.
+    check('no starter recipe has a masterful ceiling',
+      [...STARTER_RECIPES].every(k => DISHES[k].ceiling !== 'masterful'),
+      [...STARTER_RECIPES].map(k => k + ':' + DISHES[k].ceiling).join(' '));
+    check('a starter is worth the known-recipe bonus', knownBonus(empty, [...STARTER_RECIPES][0]) > 0);
+
+    // ⚠ THE SILENT ONE. A starter is known with NO flag row behind it, so an
+    // UPDATE-only improve writes nothing: `plate` would print "best you've ever
+    // made it" and record it nowhere, for ever.
+    const starterKey = [...STARTER_RECIPES][0];
+    await improveRecipe(player.id, starterKey, 'good');
+    check('beating a starter for the first time mints its row',
+      (await knownRecipes(player.id)).get(starterKey) === 'good',
+      (await knownRecipes(player.id)).get(starterKey));
+    // And a card or an NPC offering one announces nothing — you already knew it.
+    const taughtStarter = await learnRecipe(player.id, [...STARTER_RECIPES][1]);
+    check('teaching a starter is never a discovery', taughtStarter.learned === false, taughtStarter);
+    await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key LIKE $2', [player.id, `${FLAG_PREFIX}%`]);
 
     // Discovery by repetition: three good-or-better plates, then it's written.
     let att = await recordAttempt(player.id, 'stew', 'good', 0);

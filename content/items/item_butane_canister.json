@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_butane_canister",
+  "name": "butane canister",
+  "tags": {
+    "description": "A blue steel cylinder that clicks into a camping stove. Shake it and you can hear roughly how long you have got.",
+    "material": true,
+    "stackable": true
+  },
+  "type": "material",
+  "value": 18,
+  "weight": 380
+}

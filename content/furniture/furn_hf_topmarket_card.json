@@ -1,0 +1,8 @@
+{
+  "description": "Cream, engraved, in a chrome frame at eye height. It says TOP OF THE MARKET and nothing else — no menu, no prices, no hours, no telephone number. Everyone who has ever stood in this lobby has read it twice looking for the rest of it.",
+  "flags": {},
+  "id": "furn_hf_topmarket_card",
+  "name": "a framed card",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_topmarket_lift"
+}

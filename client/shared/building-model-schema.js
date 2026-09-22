@@ -167,6 +167,15 @@ export const DETAIL_SCHEMA = {
   // A coping band round the top of a mass: the difference between a roof and a bare lid.
   parapet: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half'],
     plain: { pal: 'string' }, px: 8 },
+  // ── THE TWO PARTS A CYLINDER CAN WEAR ──────────────────────────────────────────────────────
+  // ⚠ `parapet` IS SQUARE — one `half` for all four sides — so it cannot band a drum at all, and a
+  // building made of cylinders could carry nothing from this list. `collar` is that job on a curve
+  // and `drumfin` is `pilaster`'s. Both take a RADIUS rather than a half-width, which is the whole
+  // difference: authoring a band at the half-width of the box it is not wraps a shaft in a slab.
+  collar: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h' }, required: ['z', 'r'],
+    plain: { pal: 'string', n: 'number' }, px: 8 },
+  drumfin: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', r: 'fh', out: 'fh', hw: 'fh' }, required: ['z0', 'z1', 'r'],
+    plain: { pal: 'string', n: 'number' }, px: 10 },
   // A flat sign board on a face. Not neonBlade: that is a lit blade standing proud on its own
   // mast, this is a painted panel bolted to a wall, and most signage in a city is the second one.
   // A zigzag steel fire escape down a face: landings, rails and the flights between them. The
@@ -225,6 +234,13 @@ export const DETAIL_SCHEMA = {
   // ⚠ AND `font` IS NOT `face`. signBoard already has a `face`, and it means which WALL the board is
   // bolted to. Two keys one letter apart on the same part, meaning the side of a building and the
   // shape of its letters, is the reason this paragraph names both.
+  // ⚠ `label` TAKES TWO SENTINELS. `$name` is the TILE's own building name, which is why a board
+  // carrying it is per-tile and in no per-model mesh; `$trade` is what the building SELLS, out of
+  // `SIGN_HANZI` / `SIGN_WORD` in windshield.js, and the HAND picks the language — a `hanzi` font
+  // gets the Chinese word and anything else the English one.
+  // ⚠ REACH FOR `$trade` WHENEVER A BUILDING ALREADY HAS ITS NAME UP. The rule is `SIGN_WORD`'s
+  // own: what makes a busy frontage read is not how many signs it carries but that they say
+  // DIFFERENT THINGS, and two fittings on one building repeating one word is worse than one.
   // ⚠ `bare` DELETES THE BOARD AND LEAVES THE LETTERING -- the name painted straight onto the
   // wall, which is how a works, a depot and a cold store identify themselves. `color` is then
   // unread (there is no board to fill) and the ink is picked against the WALL instead of against
@@ -259,6 +275,24 @@ export const DETAIL_SCHEMA = {
   // signage rather than as graffiti.
   tag: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', hh: 'h' }, required: ['z', 'w'],
     plain: { color: 'string', word: 'string', n: 'number', v: 'number' }, px: 5 },
+
+  // Dirt on a wall with nothing making it — a run of water and soot down a face, tapering and
+  // fading as it goes. The SAME stain `vent` and `acUnit` put under themselves (`dripStain`),
+  // with the fitting deleted.
+  //
+  // ⚠ IT EXISTS BECAUSE THE STAIN WAS OPT-IN PER FITTING AND SOME BUILDINGS HAVE NO FITTINGS.
+  // `drip` is a field on a grille because a roof unit with a stain hangs a smear in mid-air below
+  // its own deck, and that rule is right. It also means the one thing in Coldwater that is nothing
+  // BUT weather — a ruin, with no vent, no louvre, no condenser and no roof to stand one on — was
+  // the cleanest brick in the city. `z` is where the run starts and `w` is the half-width of the
+  // face it runs down; `drip` scales its length exactly as it does on a grille.
+  //
+  // ⚠ AND IT IS DELIBERATELY NOT IN `PAINT_WALL`. A stain does not occupy a wall the way a window
+  // or a canopy does — paint goes OVER grime, which is what every photograph of a tagged wall
+  // shows — so it must not subtract from the bare runs the graffiti search reads, or a ruin would
+  // gain a stain and lose the piece that is the other half of what makes it read as derelict.
+  grime: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh' }, required: ['z', 'w'],
+    plain: { drip: 'number', face: 'string' }, px: 4 },
 
   // ── THE STRUCTURAL FOUR ─────────────────────────────────────────────────────
   // Everything above is bolted TO a wall. These four give a wall a front and a back, and they are
@@ -339,11 +373,44 @@ export const ADORN_SCHEMA = {
   // legible after dark — the `luxtower` and `asc_spire` arms both drew one and neither authored
   // model that replaced them could, which is why Halcyon went dark when it was ported.
   helixRunner: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', r0: 'fh', r1: 'fh' },
-    required: ['z0', 'z1', 'r0', 'r1'], plain: { rgb: 'string', turns: 'number', at: 'number', n: 'int' } },
+    required: ['z0', 'z1', 'r0', 'r1'],
+    // 'rgb2' is the SECOND colour of a travelling pulse — a wave of it running along the tube and
+    // back, over 'period' ms, 'waves' of them on the run at once, 'depth' how far the blend goes
+    // (1 reaches the second colour outright, 0 is no pulse at all). Night only, and a moving part:
+    // RENDER_TUNE.motion 0 parks the wave rather than deleting the runner.
+    plain: { rgb: 'string', turns: 'number', at: 'number', n: 'int', rgb2: 'string', period: 'number', waves: 'number', depth: 'number' } },
   neonBlade: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h' }, required: ['z0', 'z1'], plain: { color: 'string', label: 'string' } },
   marqueeBand: { geom: { cx: 'fh', cy: 'fh', half: 'fh', z: 'h' }, required: ['half', 'z'], plain: { color: 'string', label: 'string' } },
   awning: { geom: { cx: 'fh', cy: 'fh', half: 'fh', lip: 'fh', z0: 'h', z1: 'h' }, required: ['half', 'z0', 'z1'], plain: { pal: 'string', depth: 'number' } },
   roofCross: { geom: { cx: 'fh', cy: 'fh', z: 'h', span: 'fh', rise: 'h' }, required: ['z', 'span'], plain: { rgb: 'string', lit: 'number', frame: 'rgb' } },
+  // A SEARCHLIGHT SWEEPING THE SKY. 'z' is the deck the lamp stands on, 'len' how far the shaft
+  // carries, 'r' its half-width at the lamp and 'spread' the multiple of that at the far end.
+  // 'at' is the centre bearing in the MODEL's own frame (0 is the entrance side, radians clockwise
+  // from it), 'sweep' the half-angle it swings through, 'tilt' its elevation off the horizontal and
+  // 'period' one full there-and-back in ms. 's' is the lamp glow at the foot.
+  // 'a' is the shaft's alpha at the lamp and 'fall' how fast it gives up along its own length.
+  // ⚠ 'r' AND 'spread' ARE WIDTHS IN TILES, NOT SCREEN SIZES. This draws through 'lightBeam',
+  // whose whole argument is that how wide a beam is at a point along it is a fact about the beam
+  // and not about the lens — see its header, and the lighthouse's numbers for the scale.
+  // ⚠ IT IS NIGHT-ONLY AND IT IS A MOVING PART — see skyBeam in windshield.js for both. The first
+  // means an authored beam draws nothing at noon and that is not a fault; the second means
+  // RENDER_TUNE.motion 0 pins it at 'at', which is a beam standing still rather than a beam gone.
+  skyBeam: { geom: { cx: 'fh', cy: 'fh', z: 'h', len: 'h', r: 'fh' }, required: ['z', 'len'],
+    plain: { rgb: 'string', sweep: 'number', tilt: 'number', at: 'number', period: 'number', spread: 'number', s: 'number', a: 'number', fall: 'number' } },
+  // A REVOLVING RESTAURANT'S TURN. 'z' is the middle of the glazed band, 'hz' its half-height and
+  // 'r' the radius the mullions stand on — set that a hair outside the drum's own radius, because
+  // a frame in the plane of the glass is a depth-buffer tie and loses about half the time.
+  // 'n' is how many mullions, 'period' one full revolution in ms, 'rgb' the lit interior colour
+  // and 'frame' the collar rings' steel. 's' is the warm glow at the band, at night only.
+  //
+  // ⚠ IT DRAWS NO GLAZING, and that is the point of it rather than a gap. The pod itself is
+  // authored as ordinary `drum` segments: a drum is MASS, captured once at a frozen clock, so one
+  // that read the wall clock would be animated by GLASS 1, frozen by GLASS 2 and collided with as
+  // a third shape again. This is the moving half, and it is strokes, which are collected fresh.
+  // ⚠ IT IS A MOVING PART — RENDER_TUNE.motion 0 pins the rank at its home bearing, which is a
+  // restaurant standing still rather than a pod with its window frames deleted.
+  revolveRing: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hz: 'h' }, required: ['z', 'r', 'hz'],
+    plain: { rgb: 'string', frame: 'string', n: 'int', period: 'number', s: 'number' } },
 };
 
 // The authoring basis. These are the values captureRawPass itself uses, so a number an

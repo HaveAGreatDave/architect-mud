@@ -1,0 +1,8 @@
+{
+  "description": "The full length of the mirror, at two heights, bracketed into a wall that was built to take pinboards. The brackets are far better than the wall and there is a line of small repairs under each one where the plaster has given up and been made good, four times, in a slightly different colour each time.",
+  "flags": {},
+  "id": "furn_hf_changeofuse_barre",
+  "name": "a barre",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_changeofuse_studio"
+}

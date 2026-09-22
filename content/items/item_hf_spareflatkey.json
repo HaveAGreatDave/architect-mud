@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_spareflatkey",
+  "name": "a spare mailbox key",
+  "tags": {
+    "description": "Small, brass, and stamped with a number that is not a flat number but a box number, which are not the same thing in this building and have caused two arguments.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 6,
+  "weight": 5
+}

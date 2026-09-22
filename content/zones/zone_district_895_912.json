@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "color": "#8fd08a",
+  "description": "A square of mown grass behind the boulevard frontage, with four benches set facing inward at the corners and a bin that is emptied. The backs of five expensive buildings look down into it. It is completely private and completely overlooked, which is a combination the plan does not seem to have noticed.",
   "exits": {
-    "east": "zone_district_896_912",
-    "south": "zone_district_895_913",
-    "west": "zone_district_894_912"
+    "east": "zone_district_896_912"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "benches",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 895,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_895_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Vetch Green",
   "parent_zone": null
 }

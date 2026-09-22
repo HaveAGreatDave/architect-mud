@@ -1,0 +1,18 @@
+{
+  "description": "Filtration, dosing and the heat exchanger, in a room that is warm and smells of chlorine and is, at four in the morning, the single most comfortable place in Halcyon Fields.",
+  "exits": {
+    "up": "zone_hf_fit_floor"
+  },
+  "flags": {
+    "floor": "tile",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_fit_floor",
+  "map_id": "map_int_hf_fit",
+  "name": "Fit for Purpose — The Pool Plant",
+  "parent_zone": "zone_district_897_913"
+}

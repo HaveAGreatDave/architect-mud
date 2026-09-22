@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_glassceiling_lobby",
+  "id": "zone_hf_glassceiling_apex",
+  "name": "Glass Ceiling — The Apex Floor",
+  "source_type": "junction_box"
+}

@@ -1,0 +1,11 @@
+{
+  "description": "The same cone again, and the only one of the four that has been switched on enough to have collected any dust on the top of it.",
+  "flags": {},
+  "id": "furn_light_zone_hf_chainfree_u3",
+  "light_type": "pendant",
+  "lumen_output": 420,
+  "name": "a ceiling pendant",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_chainfree_u3"
+}

@@ -14,6 +14,7 @@ import { builtinCommandNames } from '../../server/engine/commands/index.js';
 import { getRegisteredSpecializedActions } from '../../server/engine/specializedActions.js';
 import { clearFlagsByPrefix, setFlagById } from '../../server/engine/flags.js';
 import { learnRecipe, FLAG_PREFIX, SAVED_PREFIX } from '../cooking/knowledge.js';
+import { STARTER_RECIPES } from '../cooking/config.js';
 import { buildWorkspaceView } from './index.js';
 import { planKitchen } from '../cooking/workspace.js';
 import { DISHES } from '../cooking/dishes.js';
@@ -275,9 +276,14 @@ export default async function regress({ run, check, getPlayer }) {
     // discovery is the whole point of the cooking system.
     await clearFlagsByPrefix(player.id, FLAG_PREFIX);
     let view = await run('workspace');
-    check('an empty cookbook suggests nothing, and says so',
-      view.assistant && !view.assistant.groups.length && /Nothing written down yet/.test(view.assistant.note),
-      JSON.stringify(view.assistant));
+    // Clearing the flags no longer empties the cookbook: STARTER_RECIPES are
+    // derived at read, so a brand-new cook opens the Assistant on five things
+    // they can actually attempt — and on nothing else.
+    const catalogOffered = (view.assistant?.groups || [])
+      .flatMap(g => g.recipes).filter(r => !r.own).map(r => r.key);
+    check('a cleared cookbook offers the starter recipes and no other catalog dish',
+      catalogOffered.length === STARTER_RECIPES.size && catalogOffered.every(k => STARTER_RECIPES.has(k)),
+      catalogOffered.join(', '));
     check("...and never names a recipe you haven't discovered",
       !JSON.stringify(view.assistant).toLowerCase().includes('stew'), JSON.stringify(view.assistant));
 
@@ -311,7 +317,7 @@ export default async function regress({ run, check, getPlayer }) {
       stew.group === 'Available Now' && stew.pct === 100 && !stew.missing.length, JSON.stringify(stew));
     check('...and suggests a first step rather than dictating one', !!stew.suggestion, JSON.stringify(stew));
     check('the undiscovered half is a COUNT and nothing more',
-      view.assistant.unknown === Object.keys(DISHES).length - 1
+      view.assistant.unknown === Object.keys(DISHES).length - 1 - STARTER_RECIPES.size
       && !/ricotta|liquid:/i.test(view.assistant.note), view.assistant.note);
 
     // A dish already made is dinner, not an ingredient.

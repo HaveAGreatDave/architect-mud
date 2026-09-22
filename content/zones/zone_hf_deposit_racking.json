@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The rest of the drum, four bays deep and curved, racked out to the underside of the second floor in galvanised steel that was bought second-hand and is the only un-chrome metal in Halcyon Fields. Three of the bays are let. The fourth holds about four hundred identical chrome-fronted kitchen units, still wrapped, belonging to the estate, stored here against the day the flats they were bought for are finished.",
+  "exits": {
+    "down": "zone_util_zone_hf_deposit_racking",
+    "west": "zone_hf_deposit_counter"
+  },
+  "flags": {
+    "building_name": "Deposit Taken",
+    "building_type": "atrium_court",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_deposit_racking",
+  "map_id": "map_int_hf_deposit",
+  "name": "Deposit Taken — The Racking Floor",
+  "parent_zone": "zone_district_895_915"
+}

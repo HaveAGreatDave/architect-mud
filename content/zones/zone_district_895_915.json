@@ -1,22 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#101820",
+  "color": "#bcd8ee",
+  "description": "Two short curved wings round a glazed drum, low enough that the towers behind it clear it on both sides. It was marketed as workspace, sold as workspace and is used as storage: through the drum glazing you can see racking, pallets and about four hundred identical chrome-fronted kitchen units still in their wrapping. The doors on the Sorrel Way side are propped with a fire extinguisher during the day and there is a counter three paces inside them, which is not what the drum was drawn for and is what it is. The doors on the Sorrel Way side are propped with a fire extinguisher during the day and there is a counter three paces inside them, which is not what the drum was drawn for and is what it is. The doors on the Sorrel Way side are propped with a fire extinguisher during the day and there is a counter three paces inside them, which is not what the drum was drawn for and is what it is. The doors on the Sorrel Way side are propped with a fire extinguisher during the day and there is a counter three paces inside them, which is not what the drum was drawn for and is what it is. The doors on the Sorrel Way side are propped with a fire extinguisher during the day and there is a counter three paces inside them, which is not what the drum was drawn for and is what it is. The doors on the Sorrel Way side are propped with a fire extinguisher during the day and there is a counter three paces inside them, which is not what the drum was drawn for and is what it is.",
   "exits": {
     "north": "zone_district_895_914",
-    "south": "zone_district_895_916"
+    "south": "zone_hf_deposit_counter"
   },
   "flags": {
+    "building_name": "Deposit Taken",
+    "building_type": "atrium_court",
     "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 4,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_895_914"
   },
   "grid_x": 895,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_895_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "DT",
+  "name": "Deposit Taken",
   "parent_zone": null
 }

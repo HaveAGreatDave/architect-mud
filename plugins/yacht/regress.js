@@ -126,4 +126,52 @@ export default async function regress({ run, check, getPlayer }) {
 
   r = await run('dock');
   check('dock refused for non-admin', r?.type === 'error' && /clearance/i.test(r.message || ''), r?.message);
+
+  // ── AN EMP PULSE TAKES THE BRIDGE, AND SHE CAN STILL BE STEERED ─────────────
+  //
+  // The split is the feature: the plotter is a computer and goes, the compass is
+  // not and stays. Collapsing them would strand whoever is aboard on the water
+  // for the length of the blackout, which is the one thing a hero event that is
+  // 'never fatal on its own' must not do.
+  {
+    const { _yachtTest } = await import('./index.js');
+    if (!_yachtTest) {
+      check('emp/yacht: the test seam is exported', false);
+    } else {
+      // ⚠ ON THE BRIDGE AND AN ADMIN, or the helm's own two gates answer first and
+      // the plotter check passes for the wrong reason — a first cut asserted the
+      // refusal from a harness zone and got "you can only steer her from her
+      // bridge", which is a true sentence about something else entirely.
+      const wasRole2 = p.role;
+      const wasZone2 = p.current_zone;
+      p.role = 'admin';
+      p.current_zone = 'zone_echelon_bridge';
+      try {
+        check('emp/yacht: the bridge starts live', !_yachtTest.bridgeElecDead());
+        _yachtTest.knockOutBridge(Date.now() + 60_000);
+        check('emp/yacht: the pulse kills the bridge', _yachtTest.bridgeElecDead());
+
+        // The radar plot must go EMPTY rather than stale — the helm client clears
+        // its plot off an empty list, so a skipped push would freeze the last
+        // contacts on the glass and show traffic that is no longer there.
+        check('emp/yacht: the radar answers an empty plot', _yachtTest.helmContactsNow().length === 0,
+          String(_yachtTest.helmContactsNow().length));
+
+        r = await run('sailto 900 900');
+        check('emp/yacht: the chart plotter refuses',
+          r?.type === 'error' && /plotter/i.test(r.message || ''), r?.message);
+
+        // …and the compass does not. Whatever this answers it must not be the
+        // plotter's refusal: she is steerable by eye.
+        r = await run('sail north');
+        check('emp/yacht: …but she can still be steered by eye',
+          !(r?.type === 'error' && /plotter/i.test(r.message || '')), r?.message);
+      } finally {
+        _yachtTest.clearBridgeEmp();
+        p.role = wasRole2;
+        p.current_zone = wasZone2;
+      }
+    }
+  }
+
 }

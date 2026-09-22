@@ -1,0 +1,11 @@
+{
+  "description": "Four fittings down the length of the corridor on a movement sensor, and the sensor is at the hall end, so they come on when you enter and go off about eleven seconds after you have stopped at the tap.",
+  "flags": {},
+  "id": "furn_light_zone_hf_partywall_flank",
+  "light_type": "overhead",
+  "lumen_output": 400,
+  "name": "a run of ceiling lights on a sensor",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_partywall_flank"
+}

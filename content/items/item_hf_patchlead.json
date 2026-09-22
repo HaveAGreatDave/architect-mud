@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_patchlead",
+  "name": "a made-up patch lead",
+  "tags": {
+    "description": "Two metres, terminated by hand, tested and tagged with the date. It is better than anything you can buy in the Filaments and it costs more, and the reason it costs more is on the tag.",
+    "stackable": true
+  },
+  "type": "component",
+  "value": 14,
+  "weight": 60
+}

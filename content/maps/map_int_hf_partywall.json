@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_partywall_hall",
+  "id": "map_int_hf_partywall",
+  "name": "Party Wall",
+  "parent_zone_id": "zone_district_892_917"
+}

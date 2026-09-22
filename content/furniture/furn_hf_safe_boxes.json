@@ -1,0 +1,8 @@
+{
+  "description": "Chrome fronts floor to ceiling, numbered in a sequence that does not start at one. Roughly a third of them have the thin film of dust that says nobody has opened them this year; a dozen are polished bright round the keyhole. You can tell a great deal about this quarter by which numbers are which.",
+  "flags": {},
+  "id": "furn_hf_safe_boxes",
+  "name": "the deposit boxes",
+  "object_type": "container",
+  "zone_id": "zone_hf_safe_corridor"
+}

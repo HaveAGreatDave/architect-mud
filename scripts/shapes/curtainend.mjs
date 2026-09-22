@@ -28,7 +28,7 @@
 // `curtain.mjs`'s own CFIT check, and comments are blanked first or the paragraph explaining the
 // call satisfies the check on its own.
 import { readFileSync } from 'node:fs';
-import { loadWindshield } from './dom-stub.mjs';
+import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { blank } from '../lib/blank-scanner.mjs';
 
 const DETAIL = process.argv.includes('--detail');
@@ -122,6 +122,55 @@ for (const [cur, [ax, ay]] of Object.entries(ENDS)) {
     check('and only where the run has ONE arm', gated,
       gated ? '' : 'the length test is gone, so every Curtain tile in the world grows an emitter');
   }
+}
+
+// ── 5. AND A RUN THAT FINISHES IN THE SEA IS DRAWN THERE ─────────────────────
+//
+// A perimeter has to stop somewhere and that somewhere is the shoreline, so the last tile of a run
+// is authored on WATER: `927,908` carries `terrain: water` and `flags.curtain`, and its own prose
+// says the Curtain "walks straight on out into the channel". The world sweep skips open water
+// along with your own tile and a bare airfield, and that skip had no exception for the Curtain —
+// so the wall drew nothing out there, and the land tile behind it stopped being a free end as
+// well, because its run had gained a neighbour. Authoring the wall out to the sea made the end
+// look LESS finished than leaving it on the beach, and nothing said why.
+//
+// ⚠ ASKED THROUGH A PAINTED FRAME, not of the expression. The skip is one clause inside the world
+// sweep and what matters is whether the segment reaches the layer that draws it. ⚠ AND THE LAND
+// RUN IS THE CONTROL: an empty water tally is also what comes back from a scene with no Curtain
+// in it at all, which is the vacuous pass this whole file is written around.
+{
+  const CW = 320, CH = 200, N = 25, CR = 12;
+  stubCanvas('__ce', CW, CH);
+  // A five-tile run straight ahead (heading 0 looks down -y), its FAR tile the end of the run.
+  const scene = (farBiome) => Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+    if (x !== CR || y < CR - 6 || y > CR - 2) return { kind: 'land', biome: 'parkland', flr: 0 };
+    const cur = y === CR - 6 ? 's' : y === CR - 2 ? 'n' : 'ns';
+    return { kind: 'land', biome: y === CR - 6 ? farBiome : 'parkland', flr: 0, cur };
+  }));
+  const view = (map) => ({
+    cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12,
+    hour: 13, weather: 'clear', speed: 0, map, heading: 0,
+    mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0, y: 0 },
+  });
+  const glCanvas = globalThis.document.createElement('canvas');
+  glCanvas.width = CW; glCanvas.height = CH;
+  const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor;
+  let seen = 0;
+  ws.RENDER_TUNE.gl = 1; ws.RENDER_TUNE.glFloor = 1;
+  // ⚠ THE HOOK HAS TO HAND BACK A CANVAS. Anything else is the no-WebGL2 path, which puts the flag
+  // to 0 and finishes in 2-D — and the tally then answers for the other renderer.
+  ws.installGLWorld((cells, cam, o) => { seen = (o.curtain || []).length; return { faces: 1, canvas: glCanvas }; });
+  const segs = (farBiome) => { const v = view(scene(farBiome)); ws.paintWindshield('__ce', v); seen = 0; ws.paintWindshield('__ce', v); return seen; };
+  const onLand = segs('parkland');
+  const onWater = segs('water');
+  ws.installGLWorld(null);
+  ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas;
+
+  check('a run on dry land reaches the Curtain layer', onLand === 5,
+    `${onLand} of 5 segments — the scene holds no wall, so the water case below would prove nothing`);
+  check('and a run that ends on WATER reaches it too', onWater === onLand,
+    `${onWater} against ${onLand} on land — the sweep is skipping the sea tile with the open water, `
+    + 'so the wall stops short of the shore and the tile behind it loses its emitter');
 }
 
 if (fails.length) {

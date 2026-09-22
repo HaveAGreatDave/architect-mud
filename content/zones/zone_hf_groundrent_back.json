@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Behind the counter in the west wing: four desks, a wall of lever-arch files by plot number, and a plan of the quarter pinned up with coloured tacks in it. Green for let, red for in dispute, and a third colour nobody has written a key for that is used on eleven plots and is, if you look at which eleven, the ones with cranes still on them.",
+  "exits": {
+    "south": "zone_hf_groundrent_counter"
+  },
+  "flags": {
+    "building_name": "Ground Rent",
+    "building_type": "atrium_court",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_groundrent_back",
+  "map_id": "map_int_hf_groundrent",
+  "name": "Ground Rent — The Back Office",
+  "parent_zone": "zone_district_901_915"
+}

@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "color": "#8d8f93",
+  "description": "The run back onto the Gate Road: a tapering strip of the same hard grey pour, with a line of kerbstones down the near side that most of the way along have been shunted out of true by trailers cutting it fine. A sign at the top end faces back the way you came and says REJOIN — GIVE WAY, which nobody out here has ever had to.",
   "exits": {
     "east": "zone_district_918_917",
     "north": "zone_district_917_916",
@@ -10,15 +10,18 @@
     "west": "zone_district_916_917"
   },
   "flags": {
-    "district": "wasteland",
+    "artery": [
+      "The Gate Road"
+    ],
+    "district": "ashway",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 917,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_917_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Weigh Lane",
   "parent_zone": null
 }

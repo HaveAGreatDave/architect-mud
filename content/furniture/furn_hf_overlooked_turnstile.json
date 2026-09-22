@@ -1,0 +1,8 @@
+{
+  "description": "Chrome, waist height, with a card slot and a fare plate reading 4 CREDITS. It has been chocked open since the week it went in with a folded brochure, and the brochure has gone the colour of weak tea. Nobody has ever collected four credits in this building.",
+  "flags": {},
+  "id": "furn_hf_overlooked_turnstile",
+  "name": "a chocked turnstile",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_overlooked_lobby"
+}

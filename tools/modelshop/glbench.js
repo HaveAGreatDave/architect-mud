@@ -16,11 +16,13 @@
 //
 // Re-run it from the console with `__glBench()`. It is a measurement, not a gate: the numbers move
 // with the machine, so what belongs in a commit message is the RATIO and the conditions.
+import { murmurReset, murmurStats } from '/client/game/js/panels/murmur.js';
 import { createGLView } from '/client/game/js/panels/gl/context.js';
 import { installGL, glLastFrame, glCapabilities } from '/client/game/js/panels/gl/install.js';
 import { LIGHT_TUNE } from '/client/game/js/panels/gl/world.js';
-import { flocksNear, flockState } from '/client/shared/goose.js';
-import { paintWindshield, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
+import { flocksNear, flockState, speciesAt, flockSize, hawkStoop } from '/client/shared/birds.js';
+import { faunaPaintCount } from '/client/game/js/panels/fauna3d.js';
+import { paintWindshield, pushLightningStrike, foamReset, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 
 const R = 16, N = R * 2 + 1;
 
@@ -3466,3 +3468,1780 @@ export function runBoardSky({ W = 640, H = 360, thresh = 10, seats = BOARD_SEATS
   return rows;
 }
 if (typeof window !== 'undefined') window.__glBoardSky = runBoardSky;
+
+// ── WHAT A FLOCK COSTS A PAINTED FRAME, WITH A REAL CONTEXT ──────────────────
+//
+// 'BIRD_FACE_BUDGET' was swept with framecost.mjs, which installs no GL hook and therefore paints
+// every bird face as a polygon fill on a 2-D canvas. GLASS 2 is the default renderer and sends the
+// same faces to gl/solids.js as triangles. Those are not the same cost and the budget was only
+// ever measured as one of them, so this measures the other.
+//
+// ⚠ IT TIMES WITH THE REAL CLOCK WHILE THE SCENE SEES A FROZEN ONE. Both of the renderer's clocks
+// have to be pinned or the flock moves between paints -- the ⚠ on BIRD_FACE_BUDGET records four
+// runs of an unchanged tree disagreeing by a factor of six for exactly that reason -- but a pinned
+// performance.now() is also the thing you would otherwise measure WITH. The real reference is
+// captured before the override and the timing is taken through it.
+//
+// ⚠ AND IT REPORTS A SPREAD. Every other bench in this file does, for the reason written at
+// __glFrame: the same seat has handed the occluder pre-pass an 8.4 ms cost and a 6.7 ms saving on
+// consecutive runs. A difference inside the spread is not a finding.
+//
+// ⚠ THE FACES DRAWN ARE COUNTED, NOT ASSUMED. A budget that is not biting looks exactly like a
+// budget that is free, and both report a flat line -- so each row prints what the frame actually
+// painted. If 'birds' stops climbing with the budget, the scene ran out of flocks and every row
+// past that point is measuring nothing.
+export function runFaunaCost({ W = 640, H = 360, budgets = [700, 1400, 2800, 5600, 11200], reps = 24 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__faunacost'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+
+  const realNow = performance.now.bind(performance);
+  const realDate = Date.now;
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, geese: RENDER_TUNE.geese,
+    bf: RENDER_TUNE.birdFaces, bg: RENDER_TUNE.birdFacesGL, res: RENDER_TUNE.resFloor };
+  const out = { ok: false, rows: [] };
+  try {
+    const A = flocksNear(900, 900, 30, 1, () => true)[0];
+    if (!A) throw new Error('no flock anchor near the seed tile');
+    const centre = { x: A.ax, y: A.ay + 3 };
+    // Parkland under the whole window, so the scene is as thick with flocks as the world gets.
+    const RR = 20, NN = RR * 2 + 1;
+    const map = Array.from({ length: NN }, () => Array.from({ length: NN }, () => ({ kind: 'land', biome: 'parkland', flr: 0 })));
+    const view = { cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0,
+      eyeH: 0.12, fovMul: 1.22, hour: 12, weather: 'clear', speed: 0, resFloor: 1,
+      map, heading: 0, mapCenter: { ...centre }, mapOffset: { x: 0, y: -0.5 } };
+
+    // A moment the anchor flock is UP, because a murmuration is an airborne thing.
+    let T = 1e6;
+    for (let i = 0; i < 4000; i++) { const t = 1e6 + i * 250; if (flockState(A, t).airborne) { T = t; break; } }
+    performance.now = () => T; Date.now = () => T;
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.geese = was.geese || 1;
+
+    const paint = () => paintWindshield('__faunacost', view);
+    const measure = (budget, gl) => {
+      RENDER_TUNE.gl = gl ? 1 : 0; RENDER_TUNE.glFloor = gl ? 1 : 0;
+      RENDER_TUNE.birdFacesGL = budget; RENDER_TUNE.birdFaces = budget;
+      paint(); paint();                                   // settle every lazy bake
+      const before = faunaPaintCount().total;
+      paint();
+      const birds = faunaPaintCount().total - before;
+      const ts = [];
+      for (let r = 0; r < reps; r++) { const t0 = realNow(); paint(); ts.push(realNow() - t0); }
+      ts.sort((a, b) => a - b);
+      return { birds, med: +ts[ts.length >> 1].toFixed(2), lo: +ts[0].toFixed(2), hi: +ts[ts.length - 1].toFixed(2) };
+    };
+    // A zero-bird floor for each renderer, so every row can be read as a MARGINAL cost rather than
+    // as a frame time that happens to contain some birds.
+    RENDER_TUNE.geese = 0;
+    const baseGL = measure(1400, true), baseCv = measure(1400, false);
+    RENDER_TUNE.geese = was.geese || 1;
+    for (const b of budgets) {
+      const g = measure(b, true), c = measure(b, false);
+      out.rows.push({ budget: b, birdsGL: g.birds, glMs: +(g.med - baseGL.med).toFixed(2), glSpread: g.hi - g.lo,
+        birdsCanvas: c.birds, canvasMs: +(c.med - baseCv.med).toFixed(2), canvasSpread: c.hi - c.lo });
+    }
+    out.emptyFrame = { gl: baseGL.med, canvas: baseCv.med };
+    out.ok = true;
+  } finally {
+    performance.now = realNow; Date.now = realDate;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor; RENDER_TUNE.geese = was.geese;
+    RENDER_TUNE.birdFaces = was.bf; RENDER_TUNE.birdFacesGL = was.bg; RENDER_TUNE.resFloor = was.res;
+    uninstall(); holder.remove();
+  }
+  console.log('empty frame: GL ' + out.emptyFrame.gl + ' ms, canvas ' + out.emptyFrame.canvas + ' ms');
+  console.table(out.rows);
+  return out;
+}
+if (typeof window !== 'undefined') window.__faunaCost = runFaunaCost;
+
+// ── __glFlash() — the murmuration's orientation flash, as a picture ───────────
+//
+// A dotted bird dims by how much wing it is presenting, so a rotating murmuration bands. The gate
+// in scripts/shapes/fauna.mjs measures that (spread 0.188 at an instant, neighbours agreeing 3.6x
+// better than chance); this is the same claim in pixels.
+//
+// ⚠ THE DIFF LOCATES THE FLOCK, AND THAT IS ALSO THE PROOF THE LOD IS LIVE. The flash only runs
+// past a species' dotPx, so if the camera is close enough for meshes the two frames are identical
+// and there is nothing to crop to. An empty diff is a failed setup, never a flat-looking flock.
+//
+// ⚠ IT MUST BE A SONGBIRD, which is a property of the GROUND rather than something to ask for:
+// speciesAt hashes the tile among whatever lives on that biome, so the anchor is SEARCHED for
+// rather than set. A goose skein is a dozen birds in a line and has no murmuration to photograph.
+//
+// ⚠ AND THE FRAMES ARE SPACED IN TIME, because one frame shows a flock with light and dark
+// patches in it and could be a flock of two colours. What says it is a FLASH is the bands moving.
+export function runFlash({ W = 900, H = 520, frames = 4, stepMs = 900, dist = 5, zoom = 6, SETTLE = 40 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__flashbench'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+
+  const realNow = performance.now.bind(performance), realDate = Date.now, realRnd = Math.random;
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, geese: RENDER_TUNE.geese,
+    flash: RENDER_TUNE.faunaFlash, res: RENDER_TUNE.resFloor, ds: RENDER_TUNE.perfDS };
+  const out = { ok: false, shots: [], notes: [] };
+  try {
+    // Open citycore ground: placeOf hands back the biome untouched when no building stands on the
+    // tile, so the species table answers for a street without a street in the way of the sky.
+    const RR = 26, NN = RR * 2 + 1;
+    const cell = () => ({ kind: 'land', biome: 'citycore', flr: 0 });
+    const map = Array.from({ length: NN }, () => Array.from({ length: NN }, cell));
+    const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+
+    let A = null;
+    for (const f of flocksNear(900, 900, 24, 1, habitat)) if (f.sp === 'songbird') { A = f; break; }
+    if (!A) throw new Error('no songbird flock within 24 tiles of the seed');
+    out.notes.push('anchor ' + A.ax + ',' + A.ay + ' songbird, ' + flockSize(A) + ' birds');
+
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.geese = was.geese || 1;
+    RENDER_TUNE.resFloor = 1; RENDER_TUNE.perfDS = 0;
+
+    // A moment the flock is up AND OPEN.
+    //
+    // ⚠ THE FIRST AIRBORNE INSTANT IS TAKE-OFF, WHICH IS NOT A MURMURATION. `airborne` turns true
+    // the moment the birds leave the ground, where the cloud's radius is still ~0.005 tiles and all
+    // 546 of them are inside a couple of pixels: the flash is working perfectly and there is
+    // nothing on screen wide enough to see it in. Searching for the widest moment instead gives
+    // r 2.4 and z 1.4 -- an actual ball of birds over the street. The first cut of this bench took
+    // the first true and reported four identical frames, which reads exactly like a dead feature.
+    let T0 = 0, bestR = -1;
+    for (let i = 0; i < 40000; i++) {
+      const t = 1e6 + i * 250, st = flockState(A, t);
+      if (st.airborne && st.r > bestR) { bestR = st.r; T0 = t; }
+    }
+    if (!T0) throw new Error('the anchor flock is never airborne in the window searched');
+    out.notes.push('widest at t=' + T0 + ', radius ' + bestR.toFixed(2) + ' tiles');
+
+    const view = { cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0,
+      eyeH: 0.12, fovMul: 1.0, hour: 11, weather: 'clear', speed: 0, resFloor: 1,
+      map, heading: 0, mapCenter: { x: A.ax, y: A.ay + dist }, mapOffset: { x: 0, y: -0.5 } };
+
+    // ⚠ A PINNED CLOCK GIVES A MURMURATION NO VELOCITY, AND THE FLASH THEN CORRECTLY READS ZERO.
+    // Every bench in this file freezes performance.now so a drifting sky is not mistaken for a
+    // finding, and for a boids cloud that is exactly wrong: murmur() integrates on dt, so at a
+    // single instant it hands back its SEEDED points with vx = vy = 0, every heading is
+    // atan2(0, 0) = 0, every bird is broadside, and dim is 1 for all of them. Measured that way:
+    // air dim min 1, max 1, mean 1 over 546 birds, against walk 0.42-1.0 -- the walking flock
+    // flashing while the murmuration sat there, which reads exactly like a feature that does not
+    // reach the thing it was built for. Same trap as settleFade and for the same reason.
+    //
+    // ⚠ SO THE CLOUD IS FLOWN BEFORE IT IS PHOTOGRAPHED. The clock advances for SETTLE frames at
+    // a real frame interval, which is what gives the boids a velocity to have a heading from; the
+    // pair of captures then happens at ONE instant, where dt is 0 and the cloud cannot drift
+    // between the two exposures. Pinned and settled, rather than pinned or live.
+    const step = (t) => { performance.now = () => t; Date.now = () => t; paintWindshield('__flashbench', view); };
+    const settle = (t0) => { for (let i = SETTLE; i > 0; i--) step(t0 - i * 33); };
+    const grab = (t, flash) => {
+      let s = 0x2545f49; Math.random = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+      RENDER_TUNE.faunaFlash = flash;
+      performance.now = () => t; Date.now = () => t;
+      paintWindshield('__flashbench', view); paintWindshield('__flashbench', view);
+      return el.getContext('2d').getImageData(0, 0, W, H);
+    };
+
+    for (let i = 0; i < frames; i++) {
+      const t = T0 + i * stepMs;
+      settle(t);                                    // fly the cloud up to this instant
+      const on = grab(t, 1), off = grab(t, 0);
+      // The flock is exactly the set of pixels the flash moved.
+      let x0 = W, y0 = H, x1 = -1, y1 = -1, moved = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const k = (y * W + x) * 4;
+        const d = Math.abs(on.data[k] - off.data[k]) + Math.abs(on.data[k+1] - off.data[k+1]) + Math.abs(on.data[k+2] - off.data[k+2]);
+        if (d > 6) { moved++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+      if (x1 < 0) { out.notes.push('frame ' + i + ': the two renders are identical -- the flock is drawn as MESHES at this distance, so raise dist'); continue; }
+      const pad = 12;
+      x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+      x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad);
+      const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+
+      const shot = (img, label) => {
+        const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+        c.getContext('2d').putImageData(img, -x0, -y0);
+        const z = document.createElement('canvas'); z.width = cw * zoom; z.height = ch * zoom;
+        const zc = z.getContext('2d'); zc.imageSmoothingEnabled = false;
+        zc.drawImage(c, 0, 0, cw * zoom, ch * zoom);
+        zc.font = '600 13px system-ui,sans-serif'; zc.fillStyle = 'rgba(0,0,0,.66)';
+        zc.fillRect(0, 0, 148, 20); zc.fillStyle = '#fff'; zc.fillText(label, 7, 14);
+        return z.toDataURL('image/png');
+      };
+      out.shots.push({ t, moved, box: [x0, y0, cw, ch],
+        on: shot(on, 'flash on  t+' + (i * stepMs) + 'ms'), off: shot(off, 'flash OFF  t+' + (i * stepMs) + 'ms') });
+    }
+    out.ok = out.shots.length > 0;
+  } finally {
+    performance.now = realNow; Date.now = realDate; Math.random = realRnd;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor; RENDER_TUNE.geese = was.geese;
+    RENDER_TUNE.faunaFlash = was.flash; RENDER_TUNE.resFloor = was.res; RENDER_TUNE.perfDS = was.ds;
+    uninstall(); holder.remove();
+  }
+  for (const n of out.notes) console.log(n);
+  for (const s of out.shots) console.log('t=' + s.t + '  ' + s.moved + ' px moved, flock box ' + s.box.join(','));
+  return out;
+}
+if (typeof window !== 'undefined') window.__glFlash = runFlash;
+
+/**
+ * What a stoop does to the shape of a murmuration.
+ *
+ * ⚠ THE BENCH EXISTS BECAUSE THE FEATURE WAS SILENTLY OFF. `hawkStoop` returned the prey flock's
+ * ANCHOR TILE as the stoop point, and an airborne flock sits a median 2.4 tiles from its anchor,
+ * while `murmur` pushes birds out of a Gaussian bubble of radius SCARE_R = 1.15. The push reaching
+ * the birds was 1.3% of full strength, so the hawk dived at empty sky next door and the cloud never
+ * moved -- the shape with the scare and the shape without it differed by ~4%, which is what a dead
+ * feature measures like. Nothing threw, nothing logged, and the wave still crossed the cloud, so
+ * the one visible half of the effect went on working and hid the other.
+ *
+ * ⚠ SO IT PHOTOGRAPHS ONE MOMENT TWICE, not two moments. `RENDER_TUNE.faunaScare` is the A/B: a
+ * stoop is three seconds long and a murmuration changes shape continuously on its own, so two
+ * frames a second apart differ whatever the hawk is doing. Same instant, same seeded dice, one
+ * knob -- and then every pixel of difference IS the predator.
+ */
+export function runStoop({ W = 900, H = 520, ages = [0.4, 0.9, 1.5, 2.2], zoom = 5, SETTLE = 120,
+                          dist = 4, eyeH = 1.1 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__stoopbench'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+
+  const realNow = performance.now.bind(performance), realDate = Date.now, realRnd = Math.random;
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, geese: RENDER_TUNE.geese,
+    scare: RENDER_TUNE.faunaScare, res: RENDER_TUNE.resFloor, ds: RENDER_TUNE.perfDS };
+  const out = { ok: false, shots: [], notes: [] };
+  try {
+    const RR = 30, NN = RR * 2 + 1;
+    const cell = () => ({ kind: 'land', biome: 'citycore', flr: 0 });
+    const map = Array.from({ length: NN }, () => Array.from({ length: NN }, cell));
+    const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+    const anchors = flocksNear(900, 900, RR, 1, habitat);
+    const hawks = anchors.filter((f) => f.sp === 'hawk');
+    if (!hawks.length) throw new Error('no hawk within ' + RR + ' tiles of the seed');
+
+    // ⚠ A STOOP IS RARE AND MOST OF THEM ARE AT A FLOCK STILL ON THE GROUND, which has no shape
+    // to disturb. Scan for one whose prey is airborne AND open (r > 1.5), the same test runFlash
+    // makes for the flash -- a cloud 0.005 tiles wide is a take-off, not a murmuration.
+    let found = null;
+    for (let i = 0; i < 200000 && !found; i++) {
+      const now = 1e6 + i * 200;
+      for (const h of hawks) {
+        const st = hawkStoop(h, now, anchors);
+        if (!st) continue;
+        const ps = flockState(st.prey, now);
+        if (!ps.airborne || ps.r < 1.5) continue;
+        found = { at: st.at, prey: st.prey, hawk: h, hit: st.hit };
+        break;
+      }
+    }
+    if (!found) throw new Error('no stoop at an airborne flock in the scanned window');
+    out.notes.push('hawk ' + found.hawk.ax + ',' + found.hawk.ay + ' stoops at '
+      + found.prey.ax + ',' + found.prey.ay + ' (' + flockSize(found.prey) + ' birds), '
+      + (found.hit ? 'and takes one' : 'and misses'));
+
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.geese = was.geese || 1;
+    RENDER_TUNE.resFloor = 1; RENDER_TUNE.perfDS = 0;
+
+    // The camera is placed off the flock's own centre AT THE STOOP, not off its anchor -- the two
+    // are the 2.4 tiles this whole bug was about, and framing on the anchor puts the birds in the
+    // corner. mapCenter is a TILE and integer by contract, so it is rounded.
+    const c0 = flockState(found.prey, found.at);
+    const view = { cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0,
+      eyeH, fovMul: 1.0, hour: 11, weather: 'clear', speed: 0, resFloor: 1, map,
+      heading: 0, mapCenter: { x: Math.round(c0.cx), y: Math.round(c0.cy + dist) },
+      mapOffset: { x: 0, y: 0 } };
+
+    const step = (t) => { performance.now = () => t; Date.now = () => t; paintWindshield('__stoopbench', view); };
+    const grab = (t, scare) => {
+      let s2 = 0x2545f49; Math.random = () => { s2 = (s2 * 1103515245 + 12345) & 0x7fffffff; return s2 / 0x7fffffff; };
+      RENDER_TUNE.faunaScare = scare;
+      // ⚠ FLOWN FROM BEFORE THE STOOP, EVERY TIME, or the two exposures are not of one flock.
+      // The cloud is a boids integrator: where it is at t depends on every frame since it took
+      // off, so the control has to be re-flown with the knob down rather than reusing the state
+      // the scared run left behind. Same reason runFlash settles before each pair.
+      for (let i = SETTLE; i > 0; i--) step(t - i * 33);
+      performance.now = () => t; Date.now = () => t;
+      paintWindshield('__stoopbench', view); paintWindshield('__stoopbench', view);
+      return el.getContext('2d').getImageData(0, 0, W, H);
+    };
+
+    for (const age of ages) {
+      const t = found.at + age * 1000;
+      const on = grab(t, 1), off = grab(t, 0);
+      let x0 = W, y0 = H, x1 = -1, y1 = -1, moved = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const k = (y * W + x) * 4;
+        const d = Math.abs(on.data[k] - off.data[k]) + Math.abs(on.data[k+1] - off.data[k+1]) + Math.abs(on.data[k+2] - off.data[k+2]);
+        if (d > 6) { moved++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+      if (x1 < 0) { out.notes.push('age ' + age + 's: the two renders are IDENTICAL -- the scare is reaching nothing'); continue; }
+      const pad = 14;
+      x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+      x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad);
+      const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+      const shot = (img, label) => {
+        const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+        c.getContext('2d').putImageData(img, -x0, -y0);
+        const z = document.createElement('canvas'); z.width = cw * zoom; z.height = ch * zoom;
+        const zc = z.getContext('2d'); zc.imageSmoothingEnabled = false;
+        zc.drawImage(c, 0, 0, cw * zoom, ch * zoom);
+        zc.font = '600 13px system-ui,sans-serif'; zc.fillStyle = 'rgba(0,0,0,.66)';
+        zc.fillRect(0, 0, 210, 20); zc.fillStyle = '#fff'; zc.fillText(label, 7, 14);
+        return z.toDataURL('image/png');
+      };
+      out.shots.push({ age, moved, box: [x0, y0, cw, ch],
+        on: shot(on, 'hawk t+' + age + 's'), off: shot(off, 'no stoop t+' + age + 's') });
+    }
+    out.ok = out.shots.length > 0;
+  } finally {
+    performance.now = realNow; Date.now = realDate; Math.random = realRnd;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor; RENDER_TUNE.geese = was.geese;
+    RENDER_TUNE.faunaScare = was.scare; RENDER_TUNE.resFloor = was.res; RENDER_TUNE.perfDS = was.ds;
+    uninstall(); holder.remove();
+  }
+  for (const n of out.notes) console.log(n);
+  for (const s2 of out.shots) console.log('t+' + s2.age + 's  ' + s2.moved + ' px moved, box ' + s2.box.join(','));
+  return out;
+}
+if (typeof window !== 'undefined') window.__glStoop = runStoop;
+
+/**
+ * Does a murmuration ever band into dark stripes, and what makes them?
+ *
+ * ⚠ THE QUESTION IS ABOUT PIXELS, SO IT IS MEASURED IN PIXELS. Every other fauna instrument here
+ * reads the point cloud -- `murmurStats`, the proportions in 1j, the flash spread in 1h -- and a
+ * flock can be perfectly banded in 3-D and read as an even smear on screen, or look striped because
+ * two even layers overlap along the line of sight. What a player sees is ink on the sky.
+ *
+ * ⚠ THE BACKGROUND IS ESTIMATED, NOT ASSUMED. The sky is a vertical gradient with clouds in it,
+ * so "darker than some constant" finds the cloud edges as readily as the birds. A grayscale CLOSING
+ * (max filter then min filter) at a radius larger than a bird removes dark specks and keeps the
+ * gradient and the clouds, so `close - lum` is the bird ink and nothing else -- checked by the ink
+ * outside the flock box, which has to come back at roughly zero.
+ *
+ * ⚠ AND IT IS READ AGAINST THE FLASH RATHER THAN AGAINST NOTHING. A profile with structure in it
+ * is not news on its own: a finite number of specks is lumpy, and the lumpiness of a random
+ * scatter is exactly what a band has to beat. Rendering the same instant with `faunaFlash` down
+ * leaves the DENSITY banding alone and removes the orientation banding, so the pair says which of
+ * the two is doing the work rather than just that something is.
+ */
+export function runBands({ W = 900, H = 520, dist = 5, eyeH = 0.6, SETTLE = 120,
+                          samples = 14, stepFrames = 24, zoom = 3, stoop = false, binPx = 8,
+                          skyFrac = 0.42 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__bandbench'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+
+  const realNow = performance.now.bind(performance), realDate = Date.now, realRnd = Math.random;
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, geese: RENDER_TUNE.geese,
+    flash: RENDER_TUNE.faunaFlash, scare: RENDER_TUNE.faunaScare, res: RENDER_TUNE.resFloor, ds: RENDER_TUNE.perfDS };
+  const out = { ok: false, rows: [], notes: [], shots: [] };
+  try {
+    const RR = 30, NN = RR * 2 + 1;
+    const cell = () => ({ kind: 'land', biome: 'citycore', flr: 0 });
+    const map = Array.from({ length: NN }, () => Array.from({ length: NN }, cell));
+    const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+    const anchors = flocksNear(900, 900, RR, 1, habitat);
+
+    // The biggest songbird flock in reach -- banding is a crowd effect and a hundred birds cannot
+    // show one however they are arranged.
+    let A = null;
+    for (const f of anchors) if (f.sp === 'songbird' && (!A || flockSize(f) > flockSize(A))) A = f;
+    if (!A) throw new Error('no songbird flock within ' + RR + ' tiles of the seed');
+
+    // ⚠ THE START IS A MOMENT THE CLOUD IS OPEN, not the first airborne instant, which is a
+    // take-off 0.005 tiles wide. Same trap runFlash records.
+    let T0 = 0, bestR = -1, ev = null;
+    if (stoop) {
+      const hawks = anchors.filter((f) => f.sp === 'hawk');
+      for (let i = 0; i < 200000 && !ev; i++) {
+        const now = 1e6 + i * 200;
+        for (const h of hawks) {
+          const st = hawkStoop(h, now, anchors);
+          if (!st) continue;
+          const ps = flockState(st.prey, now);
+          if (!ps.airborne || ps.r < 1.5) continue;
+          ev = { at: st.at, prey: st.prey }; break;
+        }
+      }
+      if (!ev) throw new Error('no stoop at an airborne flock in the scanned window');
+      A = ev.prey; T0 = ev.at;
+      out.notes.push('stooped at ' + A.ax + ',' + A.ay + ' (' + flockSize(A) + ' birds); sampling the 3s wave');
+    } else {
+      for (let i = 0; i < 40000; i++) {
+        const t = 1e6 + i * 250, st = flockState(A, t);
+        if (st.airborne && st.r > bestR) { bestR = st.r; T0 = t; }
+      }
+      if (!T0) throw new Error('the flock is never airborne in the window');
+      out.notes.push('ordinary flight at ' + A.ax + ',' + A.ay + ' (' + flockSize(A) + ' birds)');
+    }
+
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.geese = was.geese || 1;
+    RENDER_TUNE.resFloor = 1; RENDER_TUNE.perfDS = 0; RENDER_TUNE.faunaScare = 1;
+
+    const c0 = flockState(A, T0);
+    const view = { cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0,
+      eyeH, fovMul: 1.0, hour: 11, weather: 'clear', speed: 0, resFloor: 1, map,
+      heading: 0, mapCenter: { x: Math.round(c0.cx), y: Math.round(c0.cy + dist) },
+      mapOffset: { x: 0, y: 0 } };
+
+    const paint = (t) => { performance.now = () => t; Date.now = () => t; paintWindshield('__bandbench', view); };
+
+    // ── the ink ──────────────────────────────────────────────────────────────
+    // ⚠ ABOVE THE HORIZON ONLY, AND THE FIRST CUT CUT IT TOO LOW. The flock has to be read against
+    // SKY: below the horizon the ground carries walking birds, scatter and a terrain edge, and the
+    // blob-keep happily locks onto the grounded half of the same flock -- which is a genuine lump of
+    // ink, is bigger than the airborne one, and bands beautifully in perspective. Measured that way
+    // a landed flock scored 0.567 against an airborne 0.108, which is the instrument reading the
+    // wrong birds rather than a finding about murmurations.
+    const SKY = Math.floor(H * skyFrac);
+    const RAD = 6;                            // bigger than a bird, smaller than a cloud
+    const lum = new Float32Array(W * SKY);
+    const tmp = new Float32Array(W * SKY);
+    const bg  = new Float32Array(W * SKY);
+    const ink = new Float32Array(W * SKY);
+    const passH = (src, dst, r, max) => {
+      for (let y = 0; y < SKY; y++) for (let x = 0; x < W; x++) {
+        let v = max ? -1e9 : 1e9;
+        const a = Math.max(0, x - r), b = Math.min(W - 1, x + r);
+        for (let k = a; k <= b; k++) { const q = src[y * W + k]; if (max ? q > v : q < v) v = q; }
+        dst[y * W + x] = v;
+      }
+    };
+    const passV = (src, dst, r, max) => {
+      for (let y = 0; y < SKY; y++) for (let x = 0; x < W; x++) {
+        let v = max ? -1e9 : 1e9;
+        const a = Math.max(0, y - r), b = Math.min(SKY - 1, y + r);
+        for (let k = a; k <= b; k++) { const q = src[k * W + x]; if (max ? q > v : q < v) v = q; }
+        dst[y * W + x] = v;
+      }
+    };
+    let FRAME = null;
+    const putFrame = (img) => { FRAME = img; };
+    const inkify = () => {
+      const d = (FRAME || el.getContext('2d').getImageData(0, 0, W, SKY)).data;
+      for (let i = 0; i < W * SKY; i++) lum[i] = 0.3 * d[i * 4] + 0.6 * d[i * 4 + 1] + 0.1 * d[i * 4 + 2];
+      passH(lum, tmp, RAD, true);  passV(tmp, bg, RAD, true);     // dilate: specks gone
+      passH(bg, tmp, RAD, false);  passV(tmp, bg, RAD, false);    // erode: bright edges back
+      for (let i = 0; i < W * SKY; i++) { const v = bg[i] - lum[i]; ink[i] = v > 4 ? v : 0; }
+    };
+
+    // ── the profile ──────────────────────────────────────────────────────────
+    // ⚠ ONLY THE FLOCK, AND THE FIRST CUT OF THIS FORGOT TO SAY SO. `ink` is every dark speck
+    // above the cut line, and at an eye height that frames a murmuration the horizon is halfway up
+    // the frame -- so ground birds, the far shore and the terrain edge all landed in the profile and
+    // showed up as structure. They are not part of the flock and they do not move with it, which is
+    // the worst kind of contaminant: it is STABLE, so it reads as a persistent band.
+    //
+    // The flock is the biggest connected lump of ink. Binned coarse so a gap between two birds does
+    // not cut it in half, then flood-filled from the densest cell.
+    const CELL = 12;
+    const keepBlob = () => {
+      const gw = Math.ceil(W / CELL), gh = Math.ceil(SKY / CELL);
+      const g = new Float32Array(gw * gh);
+      for (let y = 0; y < SKY; y++) for (let x = 0; x < W; x++) {
+        const v = ink[y * W + x]; if (v) g[((y / CELL) | 0) * gw + ((x / CELL) | 0)] += v;
+      }
+      let seed = 0, best = 0;
+      for (let i = 0; i < g.length; i++) if (g[i] > best) { best = g[i]; seed = i; }
+      if (!best) return;
+      const lim = best * 0.06, keep = new Uint8Array(g.length), st = [seed];
+      keep[seed] = 1;
+      while (st.length) {
+        const i = st.pop(), cx2 = i % gw, cy2 = (i / gw) | 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = cx2 + dx, ny = cy2 + dy;
+          if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+          const k = ny * gw + nx;
+          if (keep[k] || g[k] < lim) continue;
+          keep[k] = 1; st.push(k);
+        }
+      }
+      for (let y = 0; y < SKY; y++) for (let x = 0; x < W; x++) {
+        if (!keep[((y / CELL) | 0) * gw + ((x / CELL) | 0)]) ink[y * W + x] = 0;
+      }
+    };
+
+    const analyse = () => {
+      let m = 0, mx = 0, my = 0;
+      for (let y = 0; y < SKY; y++) for (let x = 0; x < W; x++) {
+        const w = ink[y * W + x]; if (!w) continue; m += w; mx += w * x; my += w * y;
+      }
+      if (m < 500) return null;
+      mx /= m; my /= m;
+      let xx = 0, yy = 0, xy = 0;
+      for (let y = 0; y < SKY; y++) for (let x = 0; x < W; x++) {
+        const w = ink[y * W + x]; if (!w) continue;
+        const a = x - mx, b = y - my; xx += w * a * a; yy += w * b * b; xy += w * a * b;
+      }
+      xx /= m; yy /= m; xy /= m;
+      const th = 0.5 * Math.atan2(2 * xy, xx - yy);
+      const axes = [{ c: Math.cos(th), s: Math.sin(th) }, { c: -Math.sin(th), s: Math.cos(th) }];
+      const best = { strength: -1 };
+      for (let ai = 0; ai < 2; ai++) {
+        const { c, s: sn } = axes[ai];
+        let lo = 1e9, hi = -1e9;
+        for (let y = 0; y < SKY; y++) for (let x = 0; x < W; x++) {
+          if (!ink[y * W + x]) continue;
+          const u = (x - mx) * c + (y - my) * sn;
+          if (u < lo) lo = u; if (u > hi) hi = u;
+        }
+        const span = hi - lo; if (span < 24) continue;
+        const N = Math.max(10, Math.min(90, Math.round(span / binPx)));
+        const prof = new Float64Array(N);
+        for (let y = 0; y < SKY; y++) for (let x = 0; x < W; x++) {
+          const w = ink[y * W + x]; if (!w) continue;
+          const u = (x - mx) * c + (y - my) * sn;
+          const k = Math.min(N - 1, Math.max(0, Math.floor((u - lo) / span * N)));
+          prof[k] += w;
+        }
+        // Envelope: the shape of the flock. Residual: the banding on top of it.
+        const sig = N / 5, envl = new Float64Array(N);
+        for (let i = 0; i < N; i++) {
+          let acc = 0, wsum = 0;
+          for (let k = 0; k < N; k++) {
+            const g = Math.exp(-Math.pow((k - i) / sig, 2));
+            acc += g * prof[k]; wsum += g;
+          }
+          envl[i] = acc / wsum;
+        }
+        let rms = 0, mean = 0;
+        for (let i = 0; i < N; i++) { const r = prof[i] - envl[i]; rms += r * r; mean += envl[i]; }
+        rms = Math.sqrt(rms / N); mean /= N;
+        const strength = mean > 0 ? rms / mean : 0;
+        // A band is a run on one side of the envelope that is worth seeing, so count crossings
+        // of a threshold rather than every sign flip, which speckle alone would fill.
+        let bands = 0, sgn = 0;
+        for (let i = 0; i < N; i++) {
+          const r = prof[i] - envl[i];
+          const t2 = Math.abs(r) > 0.6 * rms ? Math.sign(r) : 0;
+          if (t2 && t2 !== sgn) { if (t2 < 0) bands++; sgn = t2; }
+        }
+        if (strength > best.strength) Object.assign(best, { strength, bands, axis: ai ? 'across' : 'along', N, prof: Array.from(prof), envl: Array.from(envl), mx, my });
+      }
+      return best.strength >= 0 ? best : null;
+    };
+
+    const shoot = (t, flash) => {
+      let s2 = 0x2545f49; Math.random = () => { s2 = (s2 * 1103515245 + 12345) & 0x7fffffff; return s2 / 0x7fffffff; };
+      RENDER_TUNE.faunaFlash = flash;
+      paint(t); paint(t);
+      return el.getContext('2d').getImageData(0, 0, W, SKY);
+    };
+
+    // ⚠ THE FLOCK IS FOUND BY WHAT THE FLASH MOVES, NEVER BY WHAT IS DARKEST. `keepBlob` took the
+    // densest lump of ink in the sky, and the densest dark thing on this canvas is the HUD -- the
+    // CLEAR button in the top corner is solid chrome, far denser than any number of birds, and it is
+    // in EXACTLY the same place in every frame. So the bench locked onto it and reported an
+    // identical 0.108 for every moment of every flight, at two different seats, with the flock
+    // filling the frame or absent from it. A reading that never changes is not a stable measurement,
+    // it is a measurement of something that never changes.
+    //
+    // Flipping `faunaFlash` moves birds and moves nothing else, so the difference between the pair
+    // is the flock and only the flock. runFlash locates its crop the same way for the same reason.
+    const findFlock = (on, off) => {
+      let x0 = W, y0 = SKY, x1 = -1, y1 = -1;
+      for (let y = 0; y < SKY; y++) for (let x = 0; x < W; x++) {
+        const k = (y * W + x) * 4;
+        const d = Math.abs(on.data[k] - off.data[k]) + Math.abs(on.data[k+1] - off.data[k+1]) + Math.abs(on.data[k+2] - off.data[k+2]);
+        if (d > 6) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+      if (x1 < 0) return null;
+      const pad = 10;
+      return { x0: Math.max(0, x0 - pad), y0: Math.max(0, y0 - pad),
+               x1: Math.min(W - 1, x1 + pad), y1: Math.min(SKY - 1, y1 + pad) };
+    };
+
+    const measure = (img, box) => {
+      putFrame(img);
+      inkify();
+      for (let y = 0; y < SKY; y++) for (let x = 0; x < W; x++) {
+        if (x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1) ink[y * W + x] = 0;
+      }
+      keepBlob();
+      return analyse();
+    };
+
+    // Flown once and then sampled as it goes: the cloud is an integrator and re-settling per
+    // sample would photograph fourteen different flocks rather than one flight.
+    for (let i = SETTLE; i > 0; i--) paint(T0 - i * 33);
+    let bestShot = null;
+    for (let i = 0; i < samples; i++) {
+      const t = T0 + i * stepFrames * 33;
+      for (let k = 0; k < stepFrames; k++) paint(T0 + (i * stepFrames + k) * 33);
+      const imgOn = shoot(t, 1), imgOff = shoot(t, 0);
+      const box = findFlock(imgOn, imgOff);
+      if (!box) { out.notes.push('t+' + Math.round(t - T0) + 'ms: the flash moved nothing, so the flock could not be located'); continue; }
+      const on = measure(imgOn, box), off = measure(imgOff, box);
+      if (!on) continue;
+      // ⚠ THE NUMBER TO BEAT IS SPECKLE, NOT ZERO. A finite scatter of independent specks is
+      // already lumpy: with m birds in a bin the count wobbles by sqrt(m), so a profile of N bins
+      // over B birds shows a residual of 1/sqrt(B/N) of the mean with NO structure in the flock at
+      // all. A band is only a band if it beats that, and at these bird counts it is a large number --
+      // which is why the first cut of this bench reported 'banding' of 1.2 on a flock that is
+      // visibly an even smear.
+      const speckle = Math.sqrt(on.N / Math.max(1, flockSize(A)));
+      const row = { t: Math.round(t - T0), on: +on.strength.toFixed(3), bands: on.bands,
+        speckle: +speckle.toFixed(3), excess: +(on.strength / speckle).toFixed(2),
+        axis: on.axis, off: off ? +off.strength.toFixed(3) : null };
+      out.rows.push(row);
+      if (!bestShot || on.strength > bestShot.strength) {
+        RENDER_TUNE.faunaFlash = 1; paint(t); paint(t);
+        const shotOn = el.getContext('2d').getImageData(0, 0, W, H);
+        RENDER_TUNE.faunaFlash = 0; paint(t); paint(t);
+        const shotOff = el.getContext('2d').getImageData(0, 0, W, H);
+        RENDER_TUNE.faunaFlash = 1;
+        bestShot = { strength: on.strength, t, img: shotOn, imgOff: shotOff, a: on, box };
+      }
+    }
+
+    if (bestShot) {
+      const a = bestShot.a;
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      c.getContext('2d').putImageData(bestShot.img, 0, 0);
+      // Cropped to the flock the flash located, so the picture is of the birds rather than of a
+      // field with some birds in the corner of it.
+      const bx = bestShot.box, cw = bx.x1 - bx.x0 + 1, ch = bx.y1 - bx.y0 + 1;
+      const z = document.createElement('canvas'); z.width = cw * zoom; z.height = ch * zoom;
+      const zc = z.getContext('2d'); zc.imageSmoothingEnabled = false;
+      zc.drawImage(c, bx.x0, bx.y0, cw, ch, 0, 0, cw * zoom, ch * zoom);
+      const c2 = document.createElement('canvas'); c2.width = W; c2.height = H;
+      c2.getContext('2d').putImageData(bestShot.imgOff, 0, 0);
+      const z2 = document.createElement('canvas'); z2.width = cw * zoom; z2.height = ch * zoom;
+      const zc2 = z2.getContext('2d'); zc2.imageSmoothingEnabled = false;
+      zc2.drawImage(c2, bx.x0, bx.y0, cw, ch, 0, 0, cw * zoom, ch * zoom);
+      out.shots.push({ label: 'strongest banding', png: z.toDataURL('image/png'), pngOff: z2.toDataURL('image/png'),
+        strength: +a.strength.toFixed(3), bands: a.bands, axis: a.axis,
+        prof: a.prof, envl: a.envl });
+    }
+    out.ok = out.rows.length > 0;
+  } finally {
+    performance.now = realNow; Date.now = realDate; Math.random = realRnd;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor; RENDER_TUNE.geese = was.geese;
+    RENDER_TUNE.faunaFlash = was.flash; RENDER_TUNE.faunaScare = was.scare;
+    RENDER_TUNE.resFloor = was.res; RENDER_TUNE.perfDS = was.ds;
+    uninstall(); holder.remove();
+  }
+  for (const n of out.notes) console.log(n);
+  for (const r of out.rows) console.log('t+' + r.t + 'ms  band ' + r.on + ' (flash off ' + r.off + ')  ' + r.bands + ' dark bands, ' + r.axis);
+  return out;
+}
+if (typeof window !== 'undefined') window.__glBands = runBands;
+
+/**
+ * What a murmuration costs the WHOLE frame, against how many birds are actually in it.
+ *
+ * ⚠ THE BOIDS STEP IS NOT THE ANSWER, ONLY THE HALF THAT IS EASY TO TIME. That step is pure JS
+ * and can be benched in node; the other half is faces, and 3,200 birds is 176,000 of them. Deciding
+ * a bird count off the simulation cost alone is how the face budget stops being the thing that
+ * bounds the frame.
+ *
+ * ⚠ SO THE CLOCK IS PINNED FOR THE SCENE AND REAL FOR THE STOPWATCH. Every other bench here pins
+ * performance.now so a drifting sky is not read as a finding, and that also makes the renderer's own
+ * profiler report zero elapsed -- which is why `perfSnapshot` comes back empty inside one. The scene
+ * clock is advanced by hand at a frame interval so the boids integrate properly, and the elapsed
+ * time is taken from a saved reference to the REAL one.
+ *
+ * ⚠ AND THE BIRD COUNT IS MOVED WITH THE BUDGET, NOT WITH maxFlock. `st.n` is thinned to fit
+ * `birdFacesGL` before it ever reaches murmur(), so the budget is what actually decides how many
+ * birds exist in a frame; raising maxFlock past the share simply crowds out the next flock.
+ */
+export function runBirds({ W = 640, H = 360, budgets = [55000, 93500, 165000, 220000, 293000, 400000],
+                          warm = 50, frames = 45, dist = 3, eyeH = 0.12 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__birdbench'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+
+  const realNow = performance.now.bind(performance);
+  const realDate = Date.now, realRnd = Math.random;
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, geese: RENDER_TUNE.geese,
+    bg: RENDER_TUNE.birdFacesGL, res: RENDER_TUNE.resFloor, ds: RENDER_TUNE.perfDS };
+  const out = { ok: false, rows: [], notes: [] };
+  try {
+    const RR = 30, NN = RR * 2 + 1;
+    const cell = () => ({ kind: 'land', biome: 'citycore', flr: 0 });
+    const map = Array.from({ length: NN }, () => Array.from({ length: NN }, cell));
+    const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+    const anchors = flocksNear(900, 900, RR, 1, habitat);
+    let A = null;
+    for (const f of anchors) if (f.sp === 'songbird' && (!A || flockSize(f) > flockSize(A))) A = f;
+    if (!A) throw new Error('no songbird flock within ' + RR + ' tiles of the seed');
+
+    let T0 = 0, bestR = -1;
+    for (let i = 0; i < 40000; i++) {
+      const t = 1e6 + i * 250, st = flockState(A, t);
+      if (st.airborne && st.r > bestR) { bestR = st.r; T0 = t; }
+    }
+    out.notes.push('flock ' + A.ax + ',' + A.ay + ' holds ' + flockSize(A) + ' birds at full size');
+
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.geese = 1;
+    RENDER_TUNE.resFloor = 1; RENDER_TUNE.perfDS = 0;
+
+    const c0 = flockState(A, T0);
+    const view = { cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0,
+      eyeH, fovMul: 1.0, hour: 11, weather: 'clear', speed: 0, resFloor: 1, map,
+      heading: 0, mapCenter: { x: Math.round(c0.cx), y: Math.round(c0.cy + dist) },
+      mapOffset: { x: 0, y: 0 } };
+
+    // A control with no birds at all, so the bird cost is a DIFFERENCE rather than a frame time.
+    const measure = (budget, geese) => {
+      RENDER_TUNE.birdFacesGL = budget; RENDER_TUNE.geese = geese;
+      murmurReset();
+      let t = T0 - warm * 16.7;
+      let sd = 0x2545f49;
+      Math.random = () => { sd = (sd * 1103515245 + 12345) & 0x7fffffff; return sd / 0x7fffffff; };
+      const step = () => { performance.now = () => t; Date.now = () => t; paintWindshield('__birdbench', view); t += 16.7; };
+      for (let i = 0; i < warm; i++) step();
+      const runs = [];
+      for (let r = 0; r < 3; r++) {
+        const a = realNow();
+        for (let i = 0; i < frames; i++) step();
+        runs.push((realNow() - a) / frames);
+      }
+      runs.sort((x, y) => x - y);
+      const birds = murmurStats ? murmurStats().birds : 0;
+      Math.random = realRnd;
+      return { ms: runs[1], birds };
+    };
+
+    const base = measure(165000, 0);
+    out.notes.push('empty sky: ' + base.ms.toFixed(2) + ' ms a frame');
+    for (const b of budgets) {
+      const m = measure(b, 1);
+      out.rows.push({ budget: b, birds: m.birds, ms: +m.ms.toFixed(2),
+        overEmpty: +(m.ms - base.ms).toFixed(2),
+        usPerBird: m.birds ? +((m.ms - base.ms) / m.birds * 1000).toFixed(2) : null,
+        fps: +(1000 / m.ms).toFixed(0) });
+    }
+    out.ok = true;
+  } finally {
+    performance.now = realNow; Date.now = realDate; Math.random = realRnd;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor; RENDER_TUNE.geese = was.geese;
+    RENDER_TUNE.birdFacesGL = was.bg; RENDER_TUNE.resFloor = was.res; RENDER_TUNE.perfDS = was.ds;
+    uninstall(); holder.remove();
+  }
+  for (const n of out.notes) console.log(n);
+  for (const r of out.rows) console.log(r.budget + ' faces -> ' + r.birds + ' birds, ' + r.ms + ' ms (+' + r.overEmpty + ' over empty), ' + r.fps + ' fps');
+  return out;
+}
+if (typeof window !== 'undefined') window.__glBirds = runBirds;
+
+/**
+ * The flight sim, flown at a murmuration, measured by the renderer's own profiler.
+ *
+ * ⚠ THE CLOCK IS REAL HERE, AND THAT IS THE WHOLE POINT. Every other bench in this file pins
+ * `performance.now` so a drifting sky is not read as a finding -- and `setWindshieldProfiler` reads
+ * that same clock, so inside one of those benches every phase measures zero elapsed and
+ * `perfSnapshot` comes back with `frames: 0`. That was read as "the profiler cannot work in a
+ * hidden pane", which is wrong: the pane freezes requestAnimationFrame, and this loop does not use
+ * requestAnimationFrame. Drive the frames by hand, leave both clocks alone, and the profiler works.
+ *
+ * ⚠ AND IT IS A COCKPIT, NOT A TRUCK. A murmuration flies at z 1.4 tiles and the earlier benches
+ * sat on the road looking up at it; what the question is actually about is flying INTO one, which is
+ * a different seat, a different field of view and the case the mesh cap exists for.
+ *
+ * ⚠ PHASE TIMES, NOT FRAME TIMES. A whole-frame stopwatch in this environment measured the same
+ * configuration at 1.35 ms and 28.85 ms in consecutive runs -- cold V8, a hidden pane and GPU work
+ * queueing unpredictably. The profiler times named phases inside the frame, so `world:fauna` is
+ * attributable and comparable even when the frame total is not.
+ */
+export function runFlightFauna({ W = 960, H = 540, seconds = 4, cls = 'twinotter', at = null, shot = false,
+                                closeTiles = 2.2, hour = 11 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__flightfauna'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, geese: RENDER_TUNE.geese,
+    res: RENDER_TUNE.resFloor, ds: RENDER_TUNE.perfDS };
+  const out = { ok: false, notes: [], phases: null, withBirds: null, withoutBirds: null };
+  try {
+    const RR = 30, NN = RR * 2 + 1;
+    const cell = () => ({ kind: 'land', biome: 'citycore', flr: 0 });
+    const map = Array.from({ length: NN }, () => Array.from({ length: NN }, cell));
+    const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+    const anchors = flocksNear(900, 900, RR, 1, habitat);
+    let A = null;
+    for (const f of anchors) if (f.sp === 'songbird' && (!A || flockSize(f) > flockSize(A))) A = f;
+    if (!A) throw new Error('no songbird flock within ' + RR + ' tiles of the seed');
+
+    // A moment the cloud is open, by its own radius -- the first airborne instant is a take-off.
+    let T0 = 0, bestR = -1;
+    for (let i = 0; i < 40000; i++) {
+      const t = 1e6 + i * 250, st = flockState(A, t);
+      if (st.airborne && st.r > bestR) { bestR = st.r; T0 = t; }
+    }
+    if (at) { T0 = at.t; }
+    const c0 = at ? { cx: at.x, cy: at.y, z: at.z != null ? at.z : 1.4 } : flockState(A, T0);
+    out.notes.push('flock ' + A.ax + ',' + A.ay + ', ' + flockSize(A) + ' birds, centre '
+      + c0.cx.toFixed(1) + ',' + c0.cy.toFixed(1) + ' at z ' + c0.z.toFixed(2));
+
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.resFloor = 1; RENDER_TUNE.perfDS = 0;
+
+    // ⚠ THE SEAT IS PUT AT THE FLOCK'S OWN ALTITUDE. mapCenter is a TILE and integer by
+    // contract, so the approach is flown by moving the sub-tile offset rather than the centre.
+    const view = { cls, variant: cls, phase: 'cruise', worldBlend: 1,
+      // ⚠ height IS A 0..1 FRACTION AND eyeH IS IN TILES. The view contract at the top of
+      // windshield.js says so -- "0 = on the deck ... 1 = high" -- and a murmuration flies at z 1.4
+      // TILES. Passing the altitude as `height` hands the camera 1.4 of a 0..1 dial, which put the
+      // seat somewhere the flock was not and drew 0 birds while every other number in the profile
+      // looked reasonable.
+      height: 0, eyeH: c0.z, fovMul: 1.0, hour, weather: 'clear', speed: 0.45, hud: 1,
+      map, heading: 0, pitch: 0, bank: 0,
+      mapCenter: { x: Math.round(c0.cx), y: Math.round(c0.cy + closeTiles) },
+      mapOffset: { x: 0, y: 0 } };
+
+    const run = (geese) => {
+      RENDER_TUNE.geese = geese;
+      murmurReset();
+      // ⚠ THE TWO CLOCKS DO DIFFERENT JOBS AND ONLY ONE OF THEM MAY BE REAL.
+      //
+      // `performance.now` is what `setWindshieldProfiler` reads, so pinning it makes every phase
+      // measure zero elapsed -- that is the trap every other bench in this file falls into, and the
+      // reason `perfSnapshot` came back with `frames: 0` and looked broken in a hidden pane. It is
+      // left alone here.
+      //
+      // `Date.now` is what `flockState` reads. Leaving THAT real puts the flock wherever the wall
+      // clock happens to have it rather than at the open moment this bench went to the trouble of
+      // searching for -- and a songbird is on the ground for 55% of its cycle, so a first cut that
+      // left both clocks real measured an empty sky in two runs out of three and reported the
+      // result as a fauna cost. It is advanced by hand, one frame interval at a time, from T0.
+      const realDate = Date.now;
+      let t = T0 - 90 * 33;
+      for (let i = 0; i < 90; i++) { Date.now = () => t; paintWindshield('__flightfauna', view); t += 33; }
+
+      setWindshieldProfiler(true);
+      const until = performance.now() + seconds * 1000;
+      let frames = 0, builds = 0, lastB = null, peakBirds = 0, simT = T0;
+      while (performance.now() < until) {
+        Date.now = () => simT; simT += 16.7;
+        paintWindshield('__flightfauna', view); frames++;
+        if (murmurStats) { const bb = murmurStats().birds; if (bb > peakBirds) peakBirds = bb; }
+        const lf = glLastFrame ? glLastFrame() : null;
+        if (lf && lf.builds != null && lf.builds !== lastB) { builds++; lastB = lf.builds; }
+      }
+      Date.now = realDate;
+      const snap = perfSnapshot();
+      setWindshieldProfiler(false);
+      return { frames, snap, builds, birds: peakBirds };
+    };
+
+    // A picture of the seat, for the questions a phase timing cannot answer -- what a far-tier
+    // bird actually looks like being the one this bench was extended for.
+    const shoot = () => { const c = document.createElement('canvas'); c.width = W; c.height = H;
+      c.getContext('2d').drawImage(el, 0, 0); return c.toDataURL('image/png'); };
+    const on = run(1);
+    if (shot) out.png = shoot();
+    const off = run(0);
+    out.withBirds = on; out.withoutBirds = off;
+    out.ok = true;
+  } finally {
+    setWindshieldProfiler(false);
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor; RENDER_TUNE.geese = was.geese;
+    RENDER_TUNE.resFloor = was.res; RENDER_TUNE.perfDS = was.ds;
+    uninstall(); holder.remove();
+  }
+  for (const n of out.notes) console.log(n);
+  return out;
+}
+if (typeof window !== 'undefined') window.__glFlight = runFlightFauna;
+
+// ── IS THE SEA LIT, AND BY HOW MUCH? ─────────────────────────────────────────
+//
+// `__glSea()`. Water was the one surface in GLASS with no normal and no lighting at all — the
+// hillshade is bypassed on it by name and the swell was spent as a brightness multiplier, which is
+// a tint rather than a surface. `RENDER_TUNE.glSeaLit` replaces that tint with a real facet normal
+// taken from the closed-form derivative of the same sine trains, plus a specular lobe. This is the
+// A/B for it, and there is no headless answer: every harness in the repo installs a GL hook that
+// returns null and so never reaches a draw call.
+//
+// ⚠ IT MEASURES THE FLAG, NEVER THE RENDERER. Both sides are the same GLASS 2 frame with the same
+// geometry, so every pixel of difference IS the lighting. Comparing the two RENDERERS instead
+// (which is what `__glFloor` does) would fold in every other way they differ.
+//
+// ⚠ AND IT NEEDS THE ABLATION ROW, which is the `off` pair — a lit sea and an unlit one agreeing to
+// "0.2% of pixels" is also exactly what comes back when the term draws nothing. The `off` row is
+// the control that says the instrument works at all.
+//
+// ⚠ THE CLOCK IS SETTLED, NOT MERELY FROZEN. Under a clock that never advances no light reaches
+// its slot, so the lights read 0 and a correctly wired feature looks exactly like a dead one —
+// `settleFade` runs the frame forward first and freezes after, and it must run AFTER the setting
+// under test is applied. `Math.random` is pinned as well, because GLASS throws a meteor across a
+// clear night sky on a random timer and settling the fade is what advances it.
+// ⚠ AND IT TAKES THE FLAG TO MEASURE, BECAUSE A SECOND NEARLY-IDENTICAL BENCH IS A SECOND PLACE TO
+// GET THE SETTLE ORDER AND THE ABLATION ROW WRONG. `flag` names any sea tune key; the defaults are
+// the lit term this was written for.
+//
+// ⚠ AND `headings` IS NOT DECORATION FOR A DIRECTIONAL TERM. A backlit crest needs the sun IN FRONT
+// of the eye, so a sweep pinned at heading 0 measures whatever azimuth the clock happens to give it
+// and reports a dead flag for a working feature half the time. A term that depends on where you are
+// looking has to be measured from more than one direction; one that does not costs one row.
+export function runSea({ W = 640, H = 360, R = 20, hours = [13, 20, 2], SEA = 0.6,
+                         flag = 'glSeaLit', on = 1, off = 0, headings = [0] } = {}) {
+  const realNow = performance.now.bind(performance);
+  const realRandom = Math.random;
+  // ⚠ AND `Date.now` AS WELL, WHICH `settleFade` DOES NOT PIN AND CANNOT. The sea deliberately runs
+  // on the WALL clock rather than on `performance.now`, because `seaClock` is what makes the ocean
+  // the same for two players on one tile and verifiable from a server — a per-tab clock would undo
+  // all of it. The consequence lands here: freezing `performance.now` freezes the light fade and
+  // leaves every wave moving, so the same configuration painted twice differs on most of the frame
+  // and a real effect is buried under its own control. Measured before this line existed: a 58.7%
+  // noise floor under a 17.6% signal. A sea bench must pin BOTH clocks or it measures the tide.
+  const realDateNow = Date.now;
+  Date.now = () => 1.75e12;
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__sea'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const N = R * 2 + 1;
+
+  // Water dead ahead, land behind — the swell, the glitter, the surf band and the shore emboss are
+  // all placed against waterness, so a coast has to be in the frame for any of them to read.
+  const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, () =>
+    (y <= R ? { kind: 'water', biome: 'water' } : { kind: 'land', biome: 'parkland', flr: 0 })));
+
+  const seats = [
+    { tag: 'cab',   eyeH: 0.12, height: 0, cls: 'truck' },
+    // The helm chase comes nearly level with the waterline, which is where a grazing sea lives and
+    // where the Fresnel term saturates — the seat this feature is most visible from.
+    { tag: 'helm',  eyeH: 0.06, height: 0, cls: 'truck' },
+    { tag: 'air',   eyeH: 0.24, height: 0.6, cls: 'twin' },
+  ];
+
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const paintWith = (view, val, state) => {
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+    RENDER_TUNE[flag] = val; RENDER_TUNE.glSeaState = state;
+    Math.random = () => 0.42;
+    // ⚠ AFTER the setting, or the fade settles against the previous configuration.
+    settleFade(() => paintWindshield('__sea', view), 24, 33);
+    paintWindshield('__sea', view);
+    return shot();
+  };
+
+  const rows = [];
+  const litWas = RENDER_TUNE[flag], stateWas = RENDER_TUNE.glSeaState;
+  try {
+    for (const seat of seats) {
+      for (const hour of hours) for (const heading of headings) {
+        const view = {
+          cls: seat.cls, phase: 'cruise', worldBlend: 1, height: seat.height, eyeH: seat.eyeH,
+          hour, weather: 'clear', speed: 0.4, map, heading,
+          mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        };
+        // ⚠ THE SEA STATE IS HELD ON BOTH SIDES, so the only difference is the lighting. It used
+        // to move with the flag (`glSeaRoll 0` against `0.016`), which measured the lit term AND a
+        // flat-versus-rolling sea at once — and `glSeaRoll` has since been replaced by `glSeaState`
+        // anyway, so that argument was landing on a key nothing reads and the roll half was
+        // silently absent. A tune key that no longer exists sets nothing and says nothing.
+        const base = paintWith(view, off, SEA);      // the flag off — the sea as it shipped
+        const lit  = paintWith(view, on,  SEA);      // the flag on
+        const ctl  = paintWith(view, off, SEA);      // the control: the same config twice
+        let moved = 0, sum = 0, n = 0, noise = 0, peak = 0;
+        for (let i = 0; i < base.length; i += 4) {
+          const d = Math.max(Math.abs(base[i] - lit[i]), Math.abs(base[i + 1] - lit[i + 1]), Math.abs(base[i + 2] - lit[i + 2]));
+          const c = Math.max(Math.abs(base[i] - ctl[i]), Math.abs(base[i + 1] - ctl[i + 1]), Math.abs(base[i + 2] - ctl[i + 2]));
+          n++; sum += d; if (d > 6) moved++; if (c > 6) noise++; if (d > peak) peak = d;
+        }
+        rows.push({
+          seat: seat.tag, hour, heading,
+          movedPct: +(moved / n * 100).toFixed(2),
+          meanLevels: +(sum / n).toFixed(2),
+          peak,
+          noisePct: +(noise / n * 100).toFixed(2),
+        });
+      }
+    }
+  } finally {
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0;
+    RENDER_TUNE[flag] = litWas; RENDER_TUNE.glSeaState = stateWas;
+    performance.now = realNow; Math.random = realRandom; Date.now = realDateNow;
+    uninstall(); holder.remove();
+  }
+  console.table(rows);
+  const worstNoise = rows.reduce((m, r) => Math.max(m, r.noisePct), 0);
+  const moved = rows.reduce((m, r) => Math.max(m, r.movedPct), 0);
+  console.log('   up to ' + moved + '% of the frame moved; the same config twice differs on ' + worstNoise + '%');
+  if (worstNoise > 0.05) console.warn('   ⚠ the control is not still — a row near it is a question, not a finding');
+  return { rows, moved, worstNoise };
+}
+if (typeof window !== 'undefined') window.__glSea = runSea;
+
+// ── AND WHAT DOES THE SEA COST? ──────────────────────────────────────────────
+//
+// __glSeaCost(). `__glSea` above answers whether the water LOOKS different and says nothing about
+// what it costs, and the difference matters the moment somebody asks for more wave trains: the
+// fragment shader evaluates the whole height field per pixel, so train count multiplies the most
+// expensive term in the frame. This is the headroom number that decision needs.
+//
+// ⚠ IT REPORTS A SPREAD, AND A ROW INSIDE IT IS NOT A FINDING. This file records the occluder
+// pre-pass measuring an 8.4 ms COST and a 6.7 ms SAVING on the same seat in two consecutive runs,
+// which is how a plan to delete it nearly got made. Every config is run `reps` times and the table
+// carries the best and the worst, because one number here has repeatedly been a lie.
+//
+// ⚠ AND THE DIALS ARE PINNED (`resFloor: 1`, `perfDS: 0`). Left alone the renderer sheds resolution
+// exactly where the frame is expensive, so the sea measures cheapest in the storm that makes it
+// costliest — the trap this whole file is written around.
+//
+// ⚠ THE SEA STATE IS FORCED AND HELD. `glSeaState` -1 is weather-driven, which means an unforced
+// bench measures whatever the clock's weather happens to be doing and cannot be compared with
+// itself an hour later. 1.0 is a full gale: the most expensive sea there is, and the one to size a
+// budget against.
+//
+// ⚠ AND THE REFLECTION ROW CARRIES THE MIRROR PREPASS WITH IT. `glSeaRefl 0` makes `seaWants`
+// false, which drops the whole city-mirror render rather than just the lookup — that IS the cost of
+// reflections on water and it is right that it lands in this row, but it is not a fragment-shader
+// number and must not be read as one.
+// ⚠ WHAT IT MEASURED, 2026-09-21, ON ONE RTX 2070 SUPER: NOTHING IT COULD RESOLVE. A GPU-floor sea
+// frame is 1.5-1.9 ms at 640x360 and the sea's own three layers land at 0.15, -0.29 and 0.15 ms
+// across the three seats against a run-to-run spread of 1.5 ms — a negative reading is the tell.
+// Pushing to 1920x1080, and again to 2560x1440 with `allWater`, moved the frame time barely at all,
+// so it is not fragment-bound here: what this table is mostly timing is the CPU side of the frame.
+// ⚠ AND THE CONTROL SAYS THE INSTRUMENT WORKS, which is the only reason that reading is worth
+// anything — `__glFloorCost` on the same page resolves the sea scene at 208 ms on GLASS 1 against
+// 1.86 ms on the GPU floor, a 112x difference, and its GPU-floor figure agrees with this bench's
+// own frame time. A harness that cannot see a 0.2 ms difference but can see a 200 ms one is not
+// broken, it is being asked for a number below its floor.
+// ⚠ SO THE HEADROOM ANSWER IS "YES, AND STOP ASKING THIS INSTRUMENT": the height field could carry
+// several times the trains it has before this bench would notice. ⚠ But per-pixel trigonometry is
+// exactly what an integrated GPU is worst at, and every number here is one discrete NVIDIA card —
+// the caveat the whole GLASS 2 flip already carries, and it applies hardest to this shader.
+//
+// ⚠ AND `allWater` IS FOR HEADROOM, NOT FOR A FRAME ANYBODY SAILS. The default scene is half
+// coast because that is what the game draws and what the surf band needs to read at all; but the
+// sea's cost is PER PIXEL, so a half-water frame measures half of it, and on a discrete GPU at
+// 640x360 the whole stack lands under this bench's own run-to-run spread — which says nothing
+// except that the instrument cannot see it. Filling the frame with water and pushing the canvas
+// up is how you find out what the shader actually costs when it is the only thing running.
+export function runSeaCost({ W = 640, H = 360, R = 20, frames = 30, reps = 3, state = 1,
+                             allWater = false } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__seaCost'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const N = R * 2 + 1;
+
+  // Open water dead ahead with a coast behind, the same scene `__glSea` uses: the surf band and the
+  // shore emboss are placed against waterness, so a frame of nothing but sea is not a frame the
+  // game draws.
+  const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, () =>
+    ((allWater || y <= R) ? { kind: 'water', biome: 'water' } : { kind: 'land', biome: 'parkland', flr: 0 })));
+
+  const seats = [
+    { tag: 'cab',  eyeH: 0.12, height: 0,   cls: 'truck' },
+    // Nearly level with the waterline — the grazing seat, where the most sea fills the most pixels.
+    { tag: 'helm', eyeH: 0.06, height: 0,   cls: 'truck' },
+    { tag: 'air',  eyeH: 0.24, height: 0.6, cls: 'twin' },
+  ];
+
+  // lit / swell / refl, cumulative — each row adds one layer to the row above it, so a column of
+  // deltas reads as what that layer costs on top of everything already switched on.
+  const CONFIGS = [
+    { tag: 'flat',   lit: 0, swell: 0, refl: 0 },
+    { tag: '+lit',   lit: 1, swell: 0, refl: 0 },
+    { tag: '+swell', lit: 1, swell: 1, refl: 0 },
+    { tag: '+refl',  lit: 1, swell: 1, refl: 17 },
+  ];
+
+  const was = {
+    lit: RENDER_TUNE.glSeaLit, swell: RENDER_TUNE.glSwell,
+    refl: RENDER_TUNE.glSeaRefl, state: RENDER_TUNE.glSeaState, perf: RENDER_TUNE.perfDS,
+  };
+  const rows = [];
+  try {
+    RENDER_TUNE.perfDS = 0;
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.glSeaState = state;
+    for (const seat of seats) {
+      const view = {
+        cls: seat.cls, phase: 'cruise', worldBlend: 1, height: seat.height, eyeH: seat.eyeH,
+        hour: 13, weather: 'clear', speed: 0.4, map, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 }, resFloor: 1,
+      };
+      const time = (c) => {
+        RENDER_TUNE.glSeaLit = c.lit; RENDER_TUNE.glSwell = c.swell; RENDER_TUNE.glSeaRefl = c.refl;
+        for (let i = 0; i < 12; i++) paintWindshield('__seaCost', view);
+        const t0 = performance.now();
+        // The heading walks, so nothing measures a frame whose every cache is already warm for
+        // exactly that camera — which is not a frame anybody ever sails.
+        for (let i = 0; i < frames; i++) paintWindshield('__seaCost', { ...view, heading: i * 0.7 });
+        return (performance.now() - t0) / frames;
+      };
+      const row = { seat: seat.tag };
+      const best = {};
+      for (const c of CONFIGS) {
+        const runs = [];
+        for (let r = 0; r < reps; r++) runs.push(time(c));
+        runs.sort((a, b) => a - b);
+        best[c.tag] = runs[0];
+        row[c.tag] = +runs[0].toFixed(2);
+        row[c.tag + ' hi'] = +runs[runs.length - 1].toFixed(2);
+      }
+      // What the water layers cost together, against the same frame with the sea flat.
+      row.sea = +(best['+refl'] - best.flat).toFixed(2);
+      row['sea %'] = +((best['+refl'] - best.flat) / Math.max(0.01, best['+refl']) * 100).toFixed(1);
+      rows.push(row);
+    }
+  } finally {
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0;
+    RENDER_TUNE.glSeaLit = was.lit; RENDER_TUNE.glSwell = was.swell;
+    RENDER_TUNE.glSeaRefl = was.refl; RENDER_TUNE.glSeaState = was.state;
+    RENDER_TUNE.perfDS = was.perf;
+    uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   ms per frame at ' + W + 'x' + H + ', sea state ' + state + ', best of ' + reps
+    + '; each `hi` beside its column is the worst of the same three runs');
+  const worstSpread = rows.reduce((m, r) => Math.max(m,
+    ...CONFIGS.map((c) => r[c.tag + ' hi'] - r[c.tag])), 0);
+  const seaCost = rows.reduce((m, r) => Math.max(m, r.sea), 0);
+  console.log('   the water is up to ' + seaCost + ' ms of a frame; run-to-run spread is up to '
+    + worstSpread.toFixed(2) + ' ms');
+  if (worstSpread >= seaCost) {
+    console.warn('   ⚠ the spread is as large as the thing being measured — this table says the '
+      + 'water costs nothing this machine can resolve, and nothing more than that');
+  }
+  return { rows, seaCost, worstSpread };
+}
+if (typeof window !== 'undefined') window.__glSeaCost = runSeaCost;
+
+// ── AND JUST SHOW ME THE SEA ─────────────────────────────────────────────────
+//
+// __glSeaShot(). Every other instrument in this file returns a number, which is right for a
+// regression and wrong for a judgement: "does this read as water" is not a percentage, and the
+// whole sea was built and tuned without anybody once putting it on screen beside itself.
+//
+// ⚠ IT LEAVES THE CANVAS ON THE PAGE, which is the entire point — the benches all tear their
+// canvas down in a `finally` so nothing can be looked at afterwards. This one paints into a fixed
+// visible element and returns, so a screenshot catches it.
+//
+// ⚠ AND IT PINS BOTH CLOCKS, for the reason `runSea` now carries at length: the sea runs on the
+// WALL clock so that two players see one ocean, so freezing `performance.now` alone leaves every
+// wave moving and two shots of "the same" sea are different seas. A comparison taken that way is
+// worthless, and it is not obvious from the picture.
+// ⚠ AND `sail` IS THE ONLY WAY TO SEE A TRAIL AT ALL. Foam is the one part of this sea with
+// MEMORY — it is a polyline laid down over successive frames — so a single painted frame shows
+// exactly nothing of it however correct the shader is. The boat has to be driven first, and driven
+// round a bend, because the whole claim is that the foam keeps going straight after she turns away.
+export function runSeaShot({ W = 900, H = 500, R = 20, hour = 7, heading = 0, seat = 'cab',
+                             state = 0.8, weather = 'clear', tune = {}, label = '',
+                             sail = null, shore = false, city = false, clockMs = 1.75e12,
+                             mag = 1 } = {}) {
+  // ⚠ `helm` IS A TRUCK CAB AT HALF SCALE AND HAS NEVER BEEN A BOAT. `pushInteriorShell` sizes the
+  // shell by `cam.EH / eyeMetresOf(profile)`, so the eye height does not move the camera inside a
+  // fixed room — it SCALES THE ROOM around it. At `cls: 'truck'` the profile's eye is 2.6 m, so
+  // 0.06 draws the cab at 0.0231 against the `cab` seat's 0.0462: a half-size cab around a
+  // full-size viewpoint, which is why one flank gapes open and the framing reads as a boat with a
+  // missing side. The 0.06 was almost certainly meant as "a low, boat-like eye" — and it is within
+  // a whisker of the real one (0.0623) — but the class was left on the truck.
+  //
+  // `boat` is the real thing: the hydro's pilothouse, the same shell `boat-view.js` mounts, at the
+  // eye height it derives (HELM.eyeM = 1.35 m through the shared metre-to-tile bridge).
+  const SEATS = {
+    cab:  { eyeH: 0.12,   height: 0,   cls: 'truck' },
+    helm: { eyeH: 0.06,   height: 0,   cls: 'truck' },
+    boat: { eyeH: 0.0623, height: 0,   cls: 'hydro' },
+    air:  { eyeH: 0.24,   height: 0.6, cls: 'twin' },
+  };
+  const s = SEATS[seat] || SEATS.cab;
+  let holder = document.getElementById('__seaShotHolder');
+  if (!holder) {
+    holder = document.createElement('div');
+    holder.id = '__seaShotHolder';
+    holder.style.cssText = 'position:fixed;left:8px;top:8px;z-index:99999;background:#111;'
+      + 'padding:6px;border:1px solid #444;font:11px monospace;color:#ccc';
+    document.body.append(holder);
+  }
+  holder.innerHTML = '';
+  const cap = document.createElement('div');
+  cap.textContent = label || (seat + '  ' + hour + ':00  hdg ' + heading + '  sea ' + state
+    + '  ' + weather + (city ? '  city' : '') + '  ' + JSON.stringify(tune));
+  const el = document.createElement('canvas');
+  el.id = '__seaShot'; el.width = W; el.height = H;
+  // MAGNIFIED IN CSS, NEVER BY RENDERING BIGGER. A screenshot is downsampled to a fixed width, so
+  // a 1800px canvas of the same street shows the same detail as a 900px one; what is wanted is more
+  // SCREEN pixels per rendered pixel, which is a style width over a fixed backing store. The
+  // renderer still draws at W x H, so the shot is of the frame the game paints.
+  el.style.width = (W * mag) + 'px'; el.style.height = (H * mag) + 'px'; el.style.display = 'block';
+  el.style.imageRendering = mag > 1 ? 'pixelated' : 'auto';
+  holder.append(cap, el);
+
+  const realNow = performance.now.bind(performance);
+  const realRandom = Math.random;
+  const realDateNow = Date.now;
+  const uninstall = installGL(() => el);
+  const N = R * 2 + 1;
+  // ⚠ THE MAP IS CENTRED ON THE BOAT EVERY FRAME, so a half-and-half scene puts her permanently ON
+  // the shoreline rather than sailing away from it — which is exactly what the first sail looked
+  // like: a field of grass filling most of the frame and open water nowhere near her. A sail wants
+  // open water; a still shot wants the coast, because the surf band needs one to read at all.
+  // ⚠ A REFLECTION BENCH NEEDS SOMETHING TO REFLECT, and the default coast is PARKLAND — flat
+  // ground with no buildings and no lights on it, so the mirror buffer is empty and every
+  // reflection setting measures 0.000% against every other one. That reads exactly like a
+  // reflection that does nothing, and it was read that way once: 'glMirror' 0 and 'glSeaRefl' 32
+  // came back identical on this scene, which is true and says nothing about the feature. 'city'
+  // puts a lit skyline on the far shore, far enough back that its reflection lands on open water
+  // rather than on the surf band.
+  // ⚠ ON THE QUAY, NOT SET BACK. A first cut started the buildings six tiles behind the water's far
+  // edge, which is a beach with a town behind it — and a reflection needs the light and the water to
+  // be the SAME place, so every streak landed in the last few rows before the horizon and the
+  // measurement read it as an effect that does not reach the viewer. A harbour has the city standing
+  // at the water.
+  const built = (x, y) => {
+    if (!city || y > R - 7) return null;
+    if (x % 5 === 1) return { kind: 'land', biome: 'citycore', bt: 'luxtower', ent: 'south', flr: 22 };
+    if (x % 2 === 0) return { kind: 'land', biome: 'citycore', bt: 'office', ent: 'south', flr: 10 };
+    return { kind: 'land', biome: 'citycore', bt: 'shop', ent: 'south', flr: 3 };
+  };
+  const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) =>
+    ((shore ? (y > R - 6 && y < R + 6) : (sail || y <= R))
+      ? { kind: 'water', biome: 'water' }
+      : (built(x, y) || { kind: 'land', biome: city ? 'citycore' : 'parkland', flr: 0 }))));
+  // ⚠ A SHOT STARTS FROM A CLEAN TRAIL. Foam is the one thing in this sea with memory and it is
+  // per-session, so a scene painted after a sail carries that boat's wake — ageing by a different
+  // amount between each pair of paints, which showed up as a 4.5% noise floor on water with no
+  // boat in it and buried every effect smaller than that.
+  foamReset();
+  const was = {};
+  for (const k of Object.keys(tune)) was[k] = RENDER_TUNE[k];
+  const stateWas = RENDER_TUNE.glSeaState, perfWas = RENDER_TUNE.perfDS;
+  try {
+    Date.now = () => clockMs;
+    Math.random = () => 0.42;
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.perfDS = 0;
+    RENDER_TUNE.glSeaState = state;
+    for (const k of Object.keys(tune)) RENDER_TUNE[k] = tune[k];
+    const view = {
+      cls: s.cls, phase: 'cruise', worldBlend: 1, height: s.height, eyeH: s.eyeH,
+      hour, weather, speed: 0.4, map, heading,
+      mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 }, resFloor: 1,
+    };
+    // The exact view the last shot painted, for poking at afterwards — a debug read, not a
+    // contract. Foam is stateful, so "did the store fill" is a question only the real view can ask.
+    if (typeof window !== "undefined") window.__seaShotView = view;
+    // Settled, then frozen — the light fade ramps over ELAPSED time, so a clock that never
+    // advanced leaves every lamp at weight 0 and the shot is of a renderer that has not woken up.
+    if (sail) {
+      // ⚠ THE CLOCK HAS TO RUN WHILE SHE SAILS AND BE FROZEN FOR THE SHOT. Each point is stamped
+      // with the wall clock and fades against it, so under a pinned clock the whole trail is laid
+      // at one instant and every point is equally fresh — which is a stripe of uniform white, not a
+      // wake. It is advanced by the frame step here and pinned again before the last paint.
+      const { frames = 90, speed = 0.09, turn = 1.6, dt = 33 } = sail;
+      let hdg = heading, px = 100, py = 100, t = clockMs, pnow = 1e6;
+      // ⚠ THE CLASS DECIDES WHOSE COCKPIT IS DRAWN, so forcing the boat's fills the lower half of
+      // every shot with her own dash — which is right for a helm shot and useless for looking at
+      // what she left on the water. 'ownWake' is what lays foam, and it is read whatever the class
+      // is, so an aerial camera over a wake needs the wake and not the boat.
+      if (sail.cls) view.cls = sail.cls;
+      view.speed = speed * 20;
+      view.ownWake = { spd: Math.min(1.4, speed * 12), beam: 0.20 };
+      for (let i = 0; i < frames; i++) {
+        // A straight, then a turn, then a straight — so the picture carries the one thing a rigid
+        // wake cannot show: foam still lying along a course the boat is no longer on.
+        if (i > frames * 0.35 && i < frames * 0.7) hdg += turn;
+        const r = hdg * Math.PI / 180;
+        px += Math.sin(r) * speed; py += -Math.cos(r) * speed;
+        t += dt; pnow += dt;
+        // ⚠ BOTH CLOCKS, AND THIS ONE IS THE TRAIL'S. Foam is stamped with the renderer's own
+        // `performance.now` and fades over FOAM_AGE_MS, so a sail left on the real clock ages the
+        // trail by however long the BENCH took to paint — measured at 29 seconds for sixty frames
+        // on a 900x500 canvas, which is most of a 40-second life. The picture then shows a correct
+        // trail at a tenth of its brightness, which reads exactly like the feature not working.
+        Date.now = () => t;
+        performance.now = () => pnow;
+        view.heading = hdg;
+        view.mapCenter = { x: Math.round(px), y: Math.round(py) };
+        view.mapOffset = { x: px - Math.round(px), y: py - Math.round(py) };
+        paintWindshield('__seaShot', view);
+      }
+      // ⚠ THE CAMERA IS THE BOAT, so the trail is ASTERN and a forward shot shows none of it
+      // however well it is working — which is exactly what the first run of this looked like.
+      if (sail.lookBack) view.heading = hdg + 180;
+      paintWindshield('__seaShot', view);
+    } else {
+      settleFade(() => paintWindshield('__seaShot', view), 24, 33);
+      paintWindshield('__seaShot', view);
+    }
+  } finally {
+    // ⚠ THE CANVAS STAYS, but nothing else does — the tune keys, both clocks and the GL hook all go
+    // back, or the next thing anybody runs on this page is measuring whatever this shot set.
+    for (const k of Object.keys(tune)) RENDER_TUNE[k] = was[k];
+    RENDER_TUNE.glSeaState = stateWas; RENDER_TUNE.perfDS = perfWas;
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0;
+    performance.now = realNow; Math.random = realRandom; Date.now = realDateNow;
+    uninstall();
+  }
+  return { el, W, H };
+}
+if (typeof window !== 'undefined') window.__glSeaShot = runSeaShot;
+
+// ── `__glPool()` ───────────────────────────────────────────────────────────────────────────────
+//
+// What a street lamp actually lights, as a number. Reported from the game as street lights being
+// "a bit harsh, almost a ball of bright light instead of spreading out a more gradual cone around
+// their area" — and the ball was the whole of what a lamp WAS: a disc of the highest alpha in the
+// city, over tarmac that took nothing from it. See `uPool` in gl/ground.js.
+//
+// Four columns:
+//   moved   — share of the frame that differs from `glPool` 0. The road is roughly a third of this
+//             frame, so this saturates well below 100%.
+//   mean Δ  — how far, averaged over the WHOLE frame. A pool is a large area at a small amplitude,
+//             so this is the column that separates a pool from a hot spot; `peak` is the other half.
+//   peak    — the single largest change. ⚠ WATCH THIS AGAINST `mean`: a gain that raises `peak`
+//             without raising `moved` is not spreading light, it is growing the ball back.
+//   flat    — what share of the ROAD's own pixels are inside 8 levels of each other. This is the
+//             failure the wall wash was reverted five times for, one surface over: past some gain
+//             the pools stop being pools and become a uniform lift, and the road goes flat. It
+//             wants to go UP a little and then stop; a jump means the gain is past its knee.
+//
+// ⚠ THE NOON ROW IS THE CONTROL AND WANTS TO BE EXACTLY 0. The light list carries no night term by
+// design (`rgbRaw` is unweighted so a wet road reflects neon in the afternoon), so the only thing
+// between this and a pink cast on sunlit tarmac is the `uNight` gate — the bug the wall wash had.
+//
+// ⚠ AND THE `glPool` 0 PAIR IS THE NOISE FLOOR. Reported rather than subtracted: `__street` is the
+// instrument for the PICTURE and it deliberately freezes nothing, so a first attempt to measure
+// this there came back with a control moving 5.47% against an effect of 3.93%. This one settles
+// the fade and then pins both clocks and `Math.random`, which is the difference.
+export function runPool({ W = 640, H = 360, hours = [23, 13], gains = [0.6, 1.2, 2.4] } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__pool' + (runPool.n = (runPool.n || 0) + 1);
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const realNow = performance.now, realRandom = Math.random, realDate = Date.now;
+  const was = RENDER_TUNE.glPool, wasGl = RENDER_TUNE.gl, wasFloor = RENDER_TUNE.glFloor, wasDS = RENDER_TUNE.perfDS;
+  // ⚠ A LAMP EVERY THIRD TILE, NOT EVERY TILE. `scene()` lights one in three down its own road,
+  // which is the spacing a pool has to look right at: light every tile and the pools overlap into
+  // a sheet whatever the gain is, which is the one failure this bench exists to catch.
+  const map = scene(true);
+  const rows = [];
+  let rngS = 0;
+  try {
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.perfDS = 0;
+    Date.now = () => 1.75e12;
+    Math.random = () => { rngS = (rngS * 1664525 + 1013904223) >>> 0; return rngS / 4294967296; };
+    // Eye height 0.12 and the truck class: the seat this was reported from, and the one a street
+    // lamp is for. An aeroplane never sees the pool at all.
+    const view = (hour) => ({
+      cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12, hour,
+      weather: 'clear', speed: 0, map, heading: 22, mapCenter: { x: 100, y: 100 },
+      mapOffset: { x: 0, y: 0 }, resFloor: 1, tune: { gl: 1, perfDS: 0 },
+    });
+    const paint = (pool, hour) => {
+      RENDER_TUNE.glPool = pool;
+      rngS = 12345;
+      settleFade(() => { rngS = 12345; paintWindshield(el.id, view(hour)); });
+      return shot();
+    };
+    // How level the bottom third is — the road, from this seat — in its own pixels.
+    const flat = (a) => {
+      const vals = [];
+      for (let y = (H * 0.62) | 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        vals.push(a[i] * 0.299 + a[i + 1] * 0.587 + a[i + 2] * 0.114);
+      }
+      const mean = vals.reduce((s, v) => s + v, 0) / vals.length;
+      let near = 0;
+      for (const v of vals) if (Math.abs(v - mean) < 8) near++;
+      return 100 * near / vals.length;
+    };
+    for (const hour of hours) {
+      const base = paint(0, hour), base2 = paint(0, hour);
+      const f0 = flat(base);
+      for (const g of [0, ...gains]) {
+        const b = g === 0 ? base2 : paint(g, hour);
+        let moved = 0, sum = 0, peak = 0;
+        for (let i = 0; i < base.length; i += 4) {
+          const d = Math.abs(base[i] - b[i]) + Math.abs(base[i + 1] - b[i + 1]) + Math.abs(base[i + 2] - b[i + 2]);
+          if (d >= 12) moved++;
+          sum += d / 3;
+          if (d > peak) peak = d;
+        }
+        const px = base.length / 4;
+        rows.push({
+          hour: hour + ':00',
+          glPool: g === 0 ? '0 (control)' : g.toFixed(2),
+          moved: (100 * moved / px).toFixed(2) + '%',
+          'mean Δ': (sum / px).toFixed(3),
+          peak,
+          'road flat': flat(b).toFixed(1) + '%' + (g === 0 ? ' (was ' + f0.toFixed(1) + '%)' : ''),
+        });
+      }
+    }
+  } finally {
+    RENDER_TUNE.glPool = was; RENDER_TUNE.gl = wasGl; RENDER_TUNE.glFloor = wasFloor; RENDER_TUNE.perfDS = wasDS;
+    performance.now = realNow; Math.random = realRandom; Date.now = realDate;
+    uninstall && uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   The 13:00 rows are the control and want to be flat — the light list carries no');
+  console.log('   night term, so uNight is the only thing keeping a lamp off sunlit tarmac.');
+  console.log('   `__street({x: 905, y: 909, heading: 90, hour: 23})` is the picture; this is the number.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glPool = runPool;
+
+// ══ A STREET WITH ITS FEED DOWN ═══════════════════════════════════════════════════════════════
+//
+// `gl:power` proves the MECHANISM headlessly — a blackout takes every light to 0, keeps the
+// lettering, leaves the ironwork standing — and it cannot see the picture, because every harness in
+// the repo installs a GL hook that answers null and never reaches a draw call. This is the picture.
+//
+// Four states over one night street: the grid up, browning out, dark, dark on an emergency circuit,
+// and never wired at all. What separates them is mostly the WALL BAKE — the lit window grid is a
+// texture, not a light — so the number that matters is how much of the BUILDINGS moved, masked the
+// way runLights masks: against a render with no buildings in it, or the answer is divided by a sky
+// and a road none of this is allowed to touch, and it falls as the window grows.
+//
+// ⚠ NIGHT, AND ONLY NIGHT. The day bake is shared by every grid state on purpose (a building with
+// its feed down looks like its neighbours at noon), so midday is a CONTROL that must read near
+// zero — which is why it is in the table rather than assumed.
+// ⚠ AND THE CLOCK IS SETTLED, THEN FROZEN. `fadeLights` ramps over ELAPSED time, so under a clock
+// that never advances no light ever reaches its slot and every state comes back identical: a
+// correctly wired feature looking exactly like one that is switched off. Same trap, in the same
+// words, as the one recorded on `settleFade` above.
+const POWER_STATES = [
+  { tag: 'grid up',   cell: { pw: 1 } },
+  { tag: 'brownout',  cell: { pw: 2 } },
+  { tag: 'dark',      cell: { pw: 0 } },
+  { tag: 'emergency', cell: { pw: 0, em: 1 } },
+  { tag: 'off-grid',  cell: { pw: 0, og: 1 } },
+];
+
+function powerStreet(R, density, named, cell) {
+  const N = R * 2 + 1;
+  let k = 0;
+  return Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+    const dx = x - R;
+    // ⚠ THE ROAD AND THE VERGE CARRY THE STATE TOO, so the traffic signals and the street lamps
+    // answer to the same outage the buildings do — which is the point of the feature and would be
+    // missed entirely by a scene that only powered the buildings.
+    const sl = Math.abs(dx) === 3 && (y % 5) === 0 ? (cell.pw === 1 || cell.pw === 2 ? 1 : 0) : undefined;
+    if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, ...cell, sl };
+    if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, ...cell, sl };
+    const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+    if (density && (h % 1000) / 1000 < density) {
+      // ⚠ HALF NAMED AND HALF PLAIN, AND A SCENE OF ONLY THE FIRST MEASURES HALF THE FEATURE. A
+      // named model binds its own arm and PAINTS ITS OWN FACADE, so the shared biome wall texture —
+      // which is where the lit window grid lives — is never reached: on a street of landmarks, dark
+      // and emergency came back byte-identical at 90.8% / worst 60, which reads exactly like the
+      // emergency bake not being wired. With plain type buildings in the same scene the pair
+      // separates by 2,670 px. The named half still earns its place: it is the only half that
+      // carries neon, blades and lettering, which is the other thing a blackout has to take out.
+      if ((h >> 4) & 1) {
+        const r = named[(k++) % named.length];
+        return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6),
+          ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 3), ...cell };
+      }
+      return { kind: 'land', biome: 'citycore', bt: 'luxtower',
+        ent: dx < 0 ? 'east' : 'west', flr: 6 + ((h >> 8) % 6), ...cell };
+    }
+    return { kind: 'land', biome: 'citycore', flr: 0, ...cell };
+  }));
+}
+
+function powerView(map, { hour, cls, R }) {
+  return {
+    cls, phase: 'cruise', worldBlend: 1,
+    height: cls === 'prop' ? 0.5 : 0, eyeH: cls === 'prop' ? undefined : 0.12,
+    hour, weather: 'clear', speed: 0.4, map, heading: 0,
+    mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+    resFloor: 1, tune: { gl: 1, perfDS: 0 },
+  };
+}
+
+export function runPower({ W = 640, H = 360, R = 14, density = 0.5, hours = [23, 13] } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__power'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const realNow = performance.now.bind(performance);
+  const rows = [];
+  try {
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+    for (const hour of hours) {
+      const ID = '__power_' + hour + '_' + (runPower.n = (runPower.n || 0) + 1);
+      el.id = ID;
+      const seat = { hour, cls: 'truck', R };
+      const at = (cell, dens = density) => {
+        const v = powerView(powerStreet(R, dens, named, cell), seat);
+        settleFade(() => paintWindshield(ID, v));
+        paintWindshield(ID, v); paintWindshield(ID, v);
+        return shot();
+      };
+      // The mask: what is a BUILDING, taken from a render with none in it.
+      const empty = at({ pw: 1 }, 0);
+      const lit = at({ pw: 1 });
+      const isWall = new Uint8Array(lit.length >> 2);
+      let mask = 0;
+      for (let i = 0; i < lit.length; i += 4) {
+        const d = Math.abs(lit[i] - empty[i]) + Math.abs(lit[i + 1] - empty[i + 1]) + Math.abs(lit[i + 2] - empty[i + 2]);
+        if (d >= 12) { isWall[i >> 2] = 1; mask++; }
+      }
+      // ⚠ THE CONTROL IS THE SAME STATE RENDERED TWICE, and it is not decoration: two paints of one
+      // scene are not bit-identical here (a cache warms, a fade lands a step further on), so a row
+      // near the control's own figure is noise rather than a finding.
+      const litB = at({ pw: 1 });
+      const meas = (a, b) => {
+        let moved = 0, sum = 0, worst = 0;
+        for (let i = 0; i < a.length; i += 4) {
+          if (!isWall[i >> 2]) continue;
+          const d = (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2])) / 3;
+          if (d >= 2) { moved++; sum += d; }
+          if (d > worst) worst = d;
+        }
+        return { pct: mask ? +(moved / mask * 100).toFixed(1) : null,
+          mean: moved ? +(sum / moved / 255 * 100).toFixed(1) : null, worst: Math.round(worst) };
+      };
+      rows.push({ hour, state: 'control (lit twice)', wallPx: mask, ...meas(lit, litB) });
+      const shots = {};
+      for (const s of POWER_STATES) {
+        if (s.tag === 'grid up') continue;
+        shots[s.tag] = at(s.cell);
+        rows.push({ hour, state: s.tag, wallPx: mask, ...meas(shots[s.tag], lit) });
+      }
+      // ⚠ AND THE ONE PAIR THAT MUST BE COMPARED TO EACH OTHER RATHER THAN TO `lit`. An emergency
+      // circuit is a small thing beside a blackout, so measured against the lit street both land on
+      // the same figure to a tenth of a per cent and the row says nothing at all about whether the
+      // stairwell is drawn. It is the DIFFERENCE BETWEEN TWO DARK STREETS that is the feature.
+      rows.push({ hour, state: 'emergency vs dark', wallPx: mask, ...meas(shots.emergency, shots.dark) });
+    }
+  } finally { performance.now = realNow; uninstall && uninstall(); holder.remove(); }
+  console.table(rows);
+  console.log('  A blackout is mostly the WALL BAKE — the lit window grid is a texture, not a light —');
+  console.log('  so `dark` should dwarf the control at night and sit ON it at midday, where every grid');
+  console.log('  state shares one day texture. `off-grid` must match the control at BOTH hours:');
+  console.log('  Deadwater and the Under burn flame, and have never been on anybody else grid.');
+  console.log('  `__powerShot({state: "dark"})` is the picture; this is the number.');
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glPower = runPower;
+
+// The same street, painted once and LEFT ON THE CANVAS, because "does a blacked-out block read as a
+// blacked-out block" is not a percentage. Every other function in this file returns a number and
+// this question is not one of them — the sibling of `__glSeaShot`, for the same reason.
+export function runPowerShot({ W = 900, H = 500, R = 14, density = 0.5, hour = 23, state = 'dark' } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const s = POWER_STATES.find((p) => p.tag === state) || POWER_STATES[2];
+  let el = document.getElementById('__powershot');
+  if (!el) {
+    el = document.createElement('canvas');
+    el.id = '__powershot';
+    el.style.cssText = 'position:fixed;right:8px;bottom:8px;z-index:99999;border:1px solid #333;background:#000';
+    document.body.append(el);
+    installGL(() => el);
+  }
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+  const v = powerView(powerStreet(R, density, named, s.cell), { hour, cls: 'truck', R });
+  const realNow = performance.now.bind(performance);
+  settleFade(() => paintWindshield('__powershot', v));
+  paintWindshield('__powershot', v); paintWindshield('__powershot', v);
+  performance.now = realNow;
+  console.log(`__powerShot: ${state} at ${hour}:00 — ${W}x${H}, bottom right. States: ${POWER_STATES.map((p) => p.tag).join(', ')}`);
+  return el;
+}
+if (typeof window !== 'undefined') window.__powerShot = runPowerShot;
+
+// ── `__glBolt()` — a strike, as a picture ──────────────────────────────────────────────────────
+//
+// The sibling of `__glSeaShot`, and here for the same reason: every other instrument in this file
+// returns a percentage, and "does that read as lightning" is not one. A bolt is also the one thing
+// in this renderer that cannot be caught by playing the game — it lives for a quarter of a second,
+// it only happens in a storm, and the strike that produced it was decided on the server.
+//
+// ⚠ IT LEAVES THE CANVASES ON THE PAGE, one per case in a row, so a screenshot is a contact sheet.
+// A single frame of a single bolt says nothing about the restrike envelope; what says it is the
+// same seed at four ages beside each other.
+//
+// ⚠ AND THE AGE IS PINNED THROUGH `RENDER_TUNE.boltForce` RATHER THAN BY LETTING THE CLOCK RUN.
+// Every bench here pins `performance.now` so a picture can be compared with itself, and a bolt
+// drained under a pinned clock is for ever nought milliseconds old — the first return stroke and
+// nothing else, which is the one moment of its life that shows neither the decay nor the flicker.
+//
+// ⚠ AND IT CROPS AND MAGNIFIES RATHER THAN RENDERING BIGGER, WHICH IS NOT WHAT THE SEA SHOT DOES.
+// That one magnifies in CSS on the note that a bigger backing store shows no more detail through a
+// downsampled screenshot — and it does not work here, because `paintWindshield` sizes its backing
+// store from `clientWidth`, so a CSS width of 2x renders at 2x and the shot is the same picture
+// again. The only way to actually look closely is to render at the size the game draws and blit a
+// crop of it through a nearest-neighbour upscale.
+//
+// ⚠ AND THE CROP IS A FIXED WINDOW ON THE CENTRELINE, never a hunt for the brightest pixel. The
+// strike is straight ahead unless a case moves it, and the brightest pixel in a storm frame is a
+// lit raindrop in the foreground about nine times out of ten.
+//
+// ⚠ EACH CASE NEEDS ITS OWN CANVAS ID. `st` is per-canvas frame state and `st.bolts` is only culled
+// when the clock is live, so a second case painted onto the first one's canvas draws both bolts at
+// once — which reads as the generator producing two trees per strike.
+let boltRun = 0;
+export function runBolt({ W = 420, H = 300, hour = 21, weather = 'storm', dist = 12,
+                          cases = null, tune = {}, crop = null } = {}) {
+  const CASES = cases || [
+    { label: 'age 0 — first return stroke', age: 0 },
+    { label: 'age 55 — between strokes', age: 55 },
+    { label: 'age 95 — a restrike', age: 95 },
+    { label: 'age 180 — dying', age: 180 },
+  ];
+  const Z = { w: 224, h: 158, y: 0.06, scale: 3.4, ...(crop || {}) };
+  const run = ++boltRun;
+  let holder = document.getElementById('__boltHolder');
+  if (!holder) {
+    holder = document.createElement('div');
+    holder.id = '__boltHolder';
+    document.body.append(holder);
+  }
+  holder.style.cssText = 'position:fixed;left:0;top:0;z-index:99999;background:#000;display:flex;'
+    + 'gap:2px;flex-wrap:wrap;font:11px monospace;color:#bbb';
+  holder.innerHTML = '';
+
+  const realNow = performance.now.bind(performance);
+  const realRandom = Math.random;
+  const realDate = Date.now;
+  const uninstall = installGL();
+  const was = { detail: RENDER_TUNE.boltDetail, force: RENDER_TUNE.boltForce,
+    res: RENDER_TUNE.resFloor, ds: RENDER_TUNE.perfDS, hour: RENDER_TUNE.hourForce };
+  for (const k of Object.keys(tune)) was[k] = RENDER_TUNE[k];
+  const map = scene(true, 20);
+  const src = document.createElement('canvas');
+  src.style.cssText = 'position:fixed;left:-10000px;top:0;display:block;width:' + W + 'px;height:' + H + 'px';
+  src.width = W; src.height = H;
+  document.body.append(src);
+  try {
+    RENDER_TUNE.resFloor = 1; RENDER_TUNE.perfDS = 0; RENDER_TUNE.hourForce = null;
+    for (const k of Object.keys(tune)) RENDER_TUNE[k] = tune[k];
+    CASES.forEach((c, i) => {
+      src.id = '__boltsrc' + run + '_' + i;
+      // ⚠ THE DETAIL DIAL IS READ AT GROW TIME, so it has to be set BEFORE the strike is pushed —
+      // the drain inside paintWindshield is what builds the tree. Setting it after paints the
+      // previous case's setting and reports it as this one's.
+      RENDER_TUNE.boltDetail = c.detail ?? 1;
+      RENDER_TUNE.boltForce = c.age ?? 0;
+      const d = c.dist ?? dist;
+      pushLightningStrike(100 + (c.off ?? 0), 100 - d, c.intensity ?? 0.9);
+      if (c.second) pushLightningStrike(100 + c.second[0], 100 - c.second[1], 0.7);
+      const view = {
+        cls: c.cls || 'truck', phase: 'cruise', worldBlend: 1,
+        height: c.height ?? 0, eyeH: c.eyeH ?? 0.12,
+        hour: c.hour ?? hour, weather: c.weather || weather, speed: 0.3, map,
+        heading: 0, acX: 100, acY: 100,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0, y: 0 }, resFloor: 1,
+      };
+      settleFade(() => paintWindshield(src.id, view), 20, 33);
+      paintWindshield(src.id, view);
+
+      const x0 = Math.max(0, Math.min(src.width - Z.w, src.width / 2 + (c.off || 0) * 8 - Z.w / 2));
+      const y0 = Math.max(0, Math.min(src.height - Z.h, src.height * Z.y));
+      const z = document.createElement('canvas');
+      z.width = Z.w * Z.scale; z.height = Z.h * Z.scale;
+      z.style.cssText = 'display:block;image-rendering:pixelated';
+      const g = z.getContext('2d'); g.imageSmoothingEnabled = false;
+      g.drawImage(src, x0, y0, Z.w, Z.h, 0, 0, z.width, z.height);
+      const cell = document.createElement('div');
+      const cap = document.createElement('div'); cap.textContent = c.label || ('case ' + i);
+      cell.append(cap, z); holder.append(cell);
+    });
+  } finally {
+    src.remove();
+    RENDER_TUNE.boltDetail = was.detail; RENDER_TUNE.boltForce = was.force;
+    RENDER_TUNE.resFloor = was.res; RENDER_TUNE.perfDS = was.ds; RENDER_TUNE.hourForce = was.hour;
+    for (const k of Object.keys(tune)) RENDER_TUNE[k] = was[k];
+    performance.now = realNow; Math.random = realRandom; Date.now = realDate;
+    uninstall();
+  }
+  return { cases: CASES.length };
+}
+if (typeof window !== 'undefined') window.__glBolt = runBolt;
+
+// ── `__glBoltLum()` — how bright a strike actually lands in the frame ──────────────────────────
+//
+// The number behind the picture, and the one that found the whole defect. A bolt is painted very
+// nearly white and then every full-frame grade in the rest of `paintWindshield` runs over the top
+// of it; additive white cannot clip past 255 before a wash, so the only way to know whether any of
+// it survived is to read the pixels back.
+//
+// ⚠ AND IT NEEDS A CONTROL, because "the brightest pixel in the frame" is a lit raindrop or the
+// weather badge. The control is the SAME frame with the strike pushed past `BOLT_MAX_DIST`, so it
+// is culled at the drain and everything else in the picture — the rain, the city, the grade, the
+// flood — is identical; the difference is the channel and nothing else.
+//
+// It read `peak: 102` against a sky of 15 when the channel was drawn inside the world block, and
+// 255 with it drawn after the grades. See the block in windshield.js for the arithmetic.
+export function runBoltLum({ W = 420, H = 300, dist = 12, hour = 21, weather = 'storm', tune = {} } = {}) {
+  const shots = [];
+  for (const d of [dist, 300]) {
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+    const el = document.createElement('canvas');
+    el.id = '__boltlum' + d; el.width = W; el.height = H;
+    el.style.width = W + 'px'; el.style.height = H + 'px';
+    holder.append(el); document.body.append(holder);
+    const uninstall = installGL();
+    const realNow = performance.now.bind(performance);
+    const was = { detail: RENDER_TUNE.boltDetail, force: RENDER_TUNE.boltForce, res: RENDER_TUNE.resFloor, ds: RENDER_TUNE.perfDS };
+    for (const k of Object.keys(tune)) was[k] = RENDER_TUNE[k];
+    try {
+      RENDER_TUNE.resFloor = 1; RENDER_TUNE.perfDS = 0; RENDER_TUNE.boltDetail = 1; RENDER_TUNE.boltForce = 0;
+      for (const k of Object.keys(tune)) RENDER_TUNE[k] = tune[k];
+      pushLightningStrike(100, 100 - d, 0.9);
+      const view = { cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12,
+        hour, weather, speed: 0.3, map: scene(true, 20), heading: 0, acX: 100, acY: 100,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0, y: 0 }, resFloor: 1 };
+      settleFade(() => paintWindshield(el.id, view), 20, 33);
+      paintWindshield(el.id, view);
+      shots.push(el.getContext('2d').getImageData(0, 0, W, H).data);
+    } finally {
+      RENDER_TUNE.boltDetail = was.detail; RENDER_TUNE.boltForce = was.force;
+      RENDER_TUNE.resFloor = was.res; RENDER_TUNE.perfDS = was.ds;
+      for (const k of Object.keys(tune)) RENDER_TUNE[k] = was[k];
+      performance.now = realNow; uninstall(); holder.remove();
+    }
+  }
+  const [A, B] = shots;
+  const lum = (d, i) => d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11;
+  let peak = 0, sky = 0, at = null, hot = 0;
+  for (let i = 0; i < A.length; i += 4) {
+    const la = lum(A, i);
+    if (la > 230) hot++;
+    if (la - lum(B, i) > peak - sky) { peak = la; sky = lum(B, i); at = [(i / 4) % W, ((i / 4) / W) | 0]; }
+  }
+  const out = { peak: peak | 0, skyAtSamePixel: sky | 0, at, pxOver230: hot };
+  console.log('__glBoltLum', JSON.stringify(out));
+  return out;
+}
+if (typeof window !== 'undefined') window.__glBoltLum = runBoltLum;

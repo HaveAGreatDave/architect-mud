@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_896_913",
+  "b": "zone_hf_grounds_room",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_896_913_north",
+  "lockable": true,
+  "one_way": false
+}

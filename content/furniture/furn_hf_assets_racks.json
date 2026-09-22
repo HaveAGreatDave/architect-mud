@@ -1,0 +1,8 @@
+{
+  "description": "Shallow steel frames on runners, each one numbered, each one holding a face turned inward. Pulling a frame out is silent and takes both hands. There are four hundred and eleven of them and the lights only ever come on over the one you are at.",
+  "flags": {},
+  "id": "furn_hf_assets_racks",
+  "name": "the slotted racking",
+  "object_type": "container",
+  "zone_id": "zone_hf_assets_strong"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_chargecopy",
+  "name": "a copy of the charge schedule",
+  "tags": {
+    "description": "A photocopy of the laminated card, four credits, which is what it costs the office to make. It is one side. On the back, in Pardoe's handwriting, is a list of six things people most often assume are on the front and are not.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 4,
+  "weight": 20
+}

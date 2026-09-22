@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_airrights_foot",
+  "b": "zone_hf_airrights_key",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_airrights_foot_up",
+  "lockable": false,
+  "one_way": false
+}

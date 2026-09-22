@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_stampduty_undercroft",
+  "b": "zone_util_zone_hf_stampduty_undercroft",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_stampduty_undercroft_down",
+  "lockable": false,
+  "one_way": false
+}

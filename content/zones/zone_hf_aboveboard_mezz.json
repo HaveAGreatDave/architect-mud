@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A gallery round three sides of the lobby, a half-turn into the twist, so the balustrade on the far side is noticeably not parallel with the one you are standing at. There are eight chairs up here and a table with a water jug on it, and the consent requires all of it to be open to the public between nine and five. Nobody has ever tested that, and the chairs are always exactly where they were.",
+  "exits": {
+    "down": "zone_hf_aboveboard_lobby"
+  },
+  "flags": {
+    "building_name": "Above Board",
+    "building_type": "torque_tower",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The lowest floor where the turn shows. Stand at the north end and the glass runs away from the street; stand at the south end and it runs toward it. People who work here stop noticing inside a week.",
+      "light": 0.75,
+      "name": "the first sheared glazing",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_900_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_aboveboard_mezz",
+  "map_id": "map_int_hf_aboveboard",
+  "name": "Above Board — The Mezzanine",
+  "parent_zone": "zone_district_900_911"
+}

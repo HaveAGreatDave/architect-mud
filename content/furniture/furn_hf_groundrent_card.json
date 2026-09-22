@@ -1,0 +1,8 @@
+{
+  "description": "One side of A4 under plastic, screwed to the counter so it cannot be taken away. It lists what the service charge covers in eleven lines. Cleaning of common parts, lighting of common parts, grounds maintenance, lift maintenance. Every line has the word COMMON in it somewhere, and that word is doing a very great deal of work.",
+  "flags": {},
+  "id": "furn_hf_groundrent_card",
+  "name": "a laminated charges card",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_groundrent_counter"
+}

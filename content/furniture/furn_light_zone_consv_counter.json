@@ -1,0 +1,11 @@
+{
+  "description": "A warm strip run along under the top shelf, which lights the stock and the hands and leaves the ceiling dark.",
+  "flags": {},
+  "id": "furn_light_zone_consv_counter",
+  "light_type": "lamp",
+  "lumen_output": 1400,
+  "name": "the shelf strip",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_consv_counter"
+}

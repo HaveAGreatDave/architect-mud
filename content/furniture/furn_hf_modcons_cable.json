@@ -1,0 +1,8 @@
+{
+  "description": "Every coil hung on its own hook, every hook labelled with a length, and every coil dressed in the same direction. There are more hooks than coils and the empty ones have not been taken down, which tells you what shape the stock is meant to be.",
+  "flags": {},
+  "id": "furn_hf_modcons_cable",
+  "name": "a wall of coiled cable",
+  "object_type": "container",
+  "zone_id": "zone_hf_modcons_comms"
+}

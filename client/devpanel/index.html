@@ -168,6 +168,7 @@
     <div class="nav-item" data-panel="furniture" onclick="showPanel('furniture')">🪑 Furniture</div>
     <div class="nav-item" data-panel="recipes" onclick="showPanel('recipes')">⚗ Recipes</div>
     <div class="nav-item" data-panel="scavenging" onclick="showPanel('scavenging')">🔦 Scavenging</div>
+    <div class="nav-item" data-panel="fauna" onclick="showPanel('fauna')">🐦 Birds</div>
     <div class="nav-item" data-panel="vine" onclick="showPanel('vine')">🌿 VINE Suite</div>
     <div class="nav-children" id="nav-vine-children">
       <div class="nav-item nav-child" data-panel="scripts" onclick="showPanel('scripts')">⎇ Scripts</div>
@@ -535,6 +536,10 @@
      is read lazily when the modal opens, which is long after a deferred module
      has run. -->
 <script type="module" src="/shared/drug-fx.js"></script>
+<!-- The engine's own work-schedule arithmetic. A module, because the panel scripts below are
+     classic and reach it through the window global it stamps; loaded BEFORE them for the same
+     reason drug-fx.js is. -->
+<script type="module" src="/shared/work-schedule.js"></script>
 <script src="/shared/tagCatalog.js"></script>
 <script src="/shared/tagHelpers.js"></script>
 <script src="/shared/tagSupertags.js"></script>
@@ -556,6 +561,7 @@
 <script src="/dev/js/panels/drug-editor-modal.js"></script>
 <script src="/dev/js/panels/dreams.js"></script>
 <script src="/dev/js/panels/scavenging.js"></script>
+<script src="/dev/js/panels/fauna.js"></script>
 <script src="/dev/js/panels/mis-fit.js"></script>
 <script src="/dev/js/panels/scripts.js"></script>
 <script src="/dev/js/panels/script-triggers.js"></script>

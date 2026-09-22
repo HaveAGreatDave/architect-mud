@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_safe_hall",
+  "b": "zone_hf_safe_corridor",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_safe_hall_down",
+  "lockable": false,
+  "one_way": false
+}

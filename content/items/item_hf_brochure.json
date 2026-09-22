@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_brochure",
+  "name": "a Halcyon Fields brochure",
+  "tags": {
+    "description": "Heavy paper, square format, and photographed entirely at dusk. Every image has people in it and none of them have faces. The plan on the last spread is drawn at no stated scale and the north arrow points up the page rather than north.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 0,
+  "weight": 40
+}

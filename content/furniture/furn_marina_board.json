@@ -1,0 +1,8 @@
+{
+  "description": "Brushed steel, the whole wall behind the desk, with every bay in the marina cut into it and a small chrome tab beside each one that is either turned out or not. Reading it takes a moment. Nothing on it is a number you could argue with.",
+  "flags": {},
+  "id": "furn_marina_board",
+  "name": "the berth board",
+  "object_type": "furniture",
+  "zone_id": "zone_marina_lobby"
+}

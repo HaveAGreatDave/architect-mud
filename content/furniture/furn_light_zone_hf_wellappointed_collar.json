@@ -1,0 +1,11 @@
+{
+  "description": "Concealed inside the structural collar itself and washing down the inside face of it, so the landing is lit by a ring of reflected light with no fitting visible anywhere. It is the single most expensive light in Halcyon Fields and it is on a landing with three doors off it.",
+  "flags": {},
+  "id": "furn_light_zone_hf_wellappointed_collar",
+  "light_type": "cove",
+  "lumen_output": 440,
+  "name": "a light in the ring",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_wellappointed_collar"
+}

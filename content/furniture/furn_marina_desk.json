@@ -1,0 +1,8 @@
+{
+  "description": "One slab of pale stone on a chrome plinth with nothing on it: no screen, no pad, no bell. Whoever is meant to be behind it is usually out on the dock, and the marina has decided that is fine.",
+  "flags": {},
+  "id": "furn_marina_desk",
+  "name": "the desk",
+  "object_type": "furniture",
+  "zone_id": "zone_marina_lobby"
+}

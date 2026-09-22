@@ -1,0 +1,11 @@
+{
+  "description": "A chrome-rimmed bulkhead fitting of the sort you get in a plant room, put here because the room was never drawn to be a room. It is the wrong light for a place somebody sleeps and she has put a scarf over half of it.",
+  "flags": {},
+  "id": "furn_light_zone_hf_rightofway_office",
+  "light_type": "bulkhead",
+  "lumen_output": 320,
+  "name": "a bulkhead over the sink",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_rightofway_office"
+}

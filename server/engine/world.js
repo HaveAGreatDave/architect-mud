@@ -103,6 +103,50 @@ async function loadMaps() {
 
 export function getMap(mapId) { return world.maps.get(mapId) || null; }
 
+// ── WHAT IS AROUND A TILE ─────────────────────────────────────────────────────
+//
+// How many of a tile's eight neighbours are buildings, and does it touch water. Two facts, and
+// between them they say whether somewhere is a street, a quayside or open country — which is a
+// different question from what the ground is PAINTED, and the one the fauna table actually wants.
+// The rule that turns these two numbers into a place lives in client/shared/birds.js so the
+// renderer reaches the identical answer from its own map window.
+//
+// ⚠ INDEXED ONCE, LAZILY, BECAUSE THIS IS READ ON THE EVERY-MOVE PATH. A scan of world.zones per
+// room description is exactly the thing the read-tier rule forbids. The index is a property of the
+// MAP rather than of play — buildings do not move — so it is built on first ask and dropped
+// whenever zones are reloaded.
+let _tileIdx = null;
+export function clearTileIndex() { _tileIdx = null; }
+function tileIndex() {
+  if (_tileIdx) return _tileIdx;
+  _tileIdx = new Map();
+  for (const z of world.zones.values()) {
+    if (z.grid_x == null || z.grid_y == null) continue;
+    if (z.grid_x === 0 && z.grid_y === 0) continue;          // 0,0 is unset, never a tile
+    _tileIdx.set(`${z.map_id}|${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`, z);
+  }
+  return _tileIdx;
+}
+
+/** { bld, shore } for a tile — the two facts `placeOf` needs. */
+export function tileSurroundings(zone) {
+  if (!zone || zone.grid_x == null || zone.grid_y == null) return { bld: 0, shore: false };
+  if (zone.grid_x === 0 && zone.grid_y === 0) return { bld: 0, shore: false };
+  const idx = tileIndex();
+  const z0 = zone.grid_z ?? 0;
+  let bld = 0, shore = false;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const n = idx.get(`${zone.map_id}|${zone.grid_x + dx},${zone.grid_y + dy},${z0}`);
+      if (!n) continue;
+      if (n.flags?.is_building || n.flags?.building_type) bld++;
+      if (n.flags?.terrain === 'water') shore = true;
+    }
+  }
+  return { bld, shore };
+}
+
 // Spatial regions (the World Editor's named world-map places: Coldwater Basin, The
 // Reach…). A small, cold table — cached in RAM so runtime readers (e.g. the flight
 // target guide) can resolve a member zone's region name without a DB round trip.
@@ -876,6 +920,7 @@ async function loadZones() {
     }
     world.zones.set(zone.id, live);
   }
+  _tileIdx = null;                 // the map just changed shape
   if (noFile.length) {
     const { rows: extra } = await query('SELECT id, description FROM zones WHERE id = ANY($1)', [noFile]);
     for (const r of extra) {

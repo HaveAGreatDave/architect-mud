@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#101a20",
+  "color": "#bfe4d8",
+  "description": "Four masses of falling height, each one a step further forward than the one behind, so the building comes down to the pavement in stages instead of standing on it. Every terrace is planted and lit from underneath, and the top one has water on it — you can see the light off the pool moving on the soffit of the terrace above from the far end of Sorrel Way. The entrance is a chrome drum at the foot with a towel rail bolted beside it, which nobody has ever used for a towel.",
   "exits": {
-    "north": "zone_district_897_912",
-    "south": "zone_district_897_914",
-    "west": "zone_district_896_913"
+    "north": "zone_hf_fit_floor",
+    "south": "zone_district_897_914"
   },
   "flags": {
+    "building_name": "Fit for Purpose",
+    "building_type": "cascade_block",
     "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 7,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_897_914"
   },
   "grid_x": 897,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_897_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "FC",
+  "name": "Fit for Purpose",
   "parent_zone": null
 }

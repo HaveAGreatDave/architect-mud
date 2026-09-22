@@ -1,0 +1,8 @@
+{
+  "description": "Triplicate, numbered, with a carbon between each copy. The top copy is for the office, the second for the managing agent and the third for you. In practice the pad is always on about 40 and the box file behind the counter is always on about 6, and nobody at the counter has ever been able to account for the difference.",
+  "flags": {},
+  "id": "furn_hf_groundrent_forms",
+  "name": "a pad of complaint forms",
+  "object_type": "container",
+  "zone_id": "zone_hf_groundrent_counter"
+}

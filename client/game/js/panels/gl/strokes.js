@@ -22,7 +22,8 @@
 // expanded IN THE VERTEX SHADER from the two endpoints and a pixel width, exactly as the sprite
 // layer expands a light from a point and a pixel radius. Six vertices a segment, no texture, no
 // bake, one draw call for every wire in the city.
-import { viewProjMatrix, zRow, NEAR } from './camera.js';
+import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
+import { makeVertexStream } from './stream.js';
 
 // NDC depth is A + B/f, from the ONE place NEAR and FAR are named. See sprites.js for the twin.
 // ⚠ PER FRAME, BECAUSE THE PLANE IS. These two were module constants off NEAR/FAR, which
@@ -136,7 +137,10 @@ export function createStrokeLayer(gl) {
   };
 
   const vao = gl.createVertexArray();
-  const buf = gl.createBuffer();
+  // One stream, set up once: the attribute pointers are recorded into the VAO here and never
+  // touched again, and the storage grows by doubling instead of being reallocated every frame.
+  // See gl/stream.js.
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.a, 3, 0], [loc.b, 3, 12], [loc.param, 2, 24], [loc.style, 3, 32], [loc.color, 3, 44]], 4096);
   let data = new Float32Array(0);
   let count = 0, split = 0;
 
@@ -178,13 +182,7 @@ export function createStrokeLayer(gl) {
       put(s, w, 0, (s.alpha == null ? 1 : s.alpha) * Math.min(1, (s.w || 1) / w));
     }
     for (const s of halo) put(s, Math.max(1, s.w || 1) + s.glow * 2, 1, (s.alpha == null ? 1 : s.alpha) * 0.38);
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, count * STRIDE), gl.DYNAMIC_DRAW);
-    const S = STRIDE * 4;
-    const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
-    bind(loc.a, 3, 0); bind(loc.b, 3, 12); bind(loc.param, 2, 24); bind(loc.style, 3, 32); bind(loc.color, 3, 44);
-    gl.bindVertexArray(null);
+    stream.write(data, count * STRIDE);
     return count / 6;
   }
 
@@ -194,7 +192,7 @@ export function createStrokeLayer(gl) {
   function draw(cam, W, H, cssH) {
     if (!count) return 0;
     gl.useProgram(prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, cssH || H)));
+    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
     const zr = zRow((cam && cam.near) || NEAR);
     gl.uniform2f(loc.ab, zr[0], zr[1]);

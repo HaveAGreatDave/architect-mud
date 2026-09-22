@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_909_916",
+  "b": "zone_district_909_917",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_district_909_916_south_jynk",
+  "lockable": false,
+  "one_way": false
+}

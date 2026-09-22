@@ -16,7 +16,14 @@
 import { writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateVehicleRow, VEHICLE_IDS, vehicleFileName } from '../../client/shared/vehicle-model-schema.js';
+import { validateVehicleRow, VEHICLE_KINDS, VEHICLE_IDS, vehicleFileName } from '../../client/shared/vehicle-model-schema.js';
+
+// The exported table name for a kind. ⚠ DERIVED, so adding a kind to the schema is the ONLY edit a
+// new family of vehicles needs here — the row bag below, the emitted module and the orphan check in
+// shapes/smoke.mjs all walk VEHICLE_KINDS. This file used to spell `{ fw: {}, truck: {} }` and emit
+// two literal tables, which is the same one-more-list trap the push gate has been caught by four
+// times: prose says "add a kind", and the third place nobody edited is the one that decides.
+const TABLE = (kind) => kind.toUpperCase() + '_ROWS';
 
 const ROOT = new URL('../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const SRC = join(ROOT, 'content', 'vehicle_models');
@@ -29,7 +36,7 @@ export function readVehicleFiles(dir = SRC) {
 }
 
 export function bakeVehicles(files = readVehicleFiles()) {
-  const rows = { fw: {}, truck: {} }, errors = [], warnings = [];
+  const rows = Object.fromEntries(VEHICLE_KINDS.map((k) => [k, {}])), errors = [], warnings = [];
   for (const { file, doc } of files) {
     const v = validateVehicleRow(doc, file);
     errors.push(...v.errors); warnings.push(...v.warnings);
@@ -74,12 +81,7 @@ export function renderModule({ rows }) {
     '//',
     '// Re-run `npm run vehicles:bake` after editing any of those files. `npm run shapes:smoke` fails',
     '// on a stale bake rather than letting the module and the content disagree.',
-    'export const FW_ROWS = {',
-    table('fw'),
-    '};',
-    'export const TRUCK_ROWS = {',
-    table('truck'),
-    '};',
+    ...VEHICLE_KINDS.flatMap((kind) => ['export const ' + TABLE(kind) + ' = {', table(kind), '};']),
     '',
   ].join('\n');
 }

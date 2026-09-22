@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A room that was drawn as a bin store and is now the most complicated eight square metres in Halcyon Fields: two racks, a patch field with about three hundred ports on it, a wall of labelled cable, and a bench with a stool at it. The estate network comes into this building here and leaves it upstairs, and everything in between is one person's work and is neater than the building it is in.",
+  "exits": {
+    "down": "zone_util_zone_hf_modcons_comms",
+    "south": "zone_hf_modcons_hall"
+  },
+  "flags": {
+    "building_name": "Mod Cons",
+    "building_type": "cascade_block",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_modcons_comms",
+  "map_id": "map_int_hf_modcons",
+  "name": "Mod Cons — The Comms Room",
+  "parent_zone": "zone_district_903_914"
+}

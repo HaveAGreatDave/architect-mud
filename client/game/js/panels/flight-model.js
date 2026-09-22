@@ -18,6 +18,16 @@
 //            elevator +1 = full pull (nose up), -1 = full push (nose down).
 //   params = a TYPES entry (per-airframe tuning).
 
+// ⚠ THE ONE IMPORT IN THIS FILE, AND IT IS ALLOWED TO BE HERE. The header above calls this module
+// "pure, dependency-free" and means three specific things by it — no DOM, no network, no plugin
+// state — every one of which is still true: `sea-swell.js` is a table of coefficients and four
+// trigonometric functions, and it is the ONE JS copy of the sea's shape by explicit decree of its
+// own header. A hull that sampled its own private wave would ride a sea nobody is drawing, which
+// looks completely fine in a screenshot and completely wrong in motion; and a hull that reached
+// into windshield.js for `seaPoseAt` instead could not be stepped on a server, which is what the
+// text rung is and therefore what the accessibility rung is.
+import { seaRoll, seaWind, seaSlope } from '../../../shared/sea-swell.js';
+
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 const G_KT = 19.06;               // gravity as a knots/second airspeed change (9.81 m/s²)
@@ -449,7 +459,79 @@ export const TYPES = {
     trailerLen: 0.15, hitchOffset: 0.05, trailerKg: 900,   // kingpin geometry, and the empty box itself
     blurb: 'Krell stopped making these long enough ago that nobody agrees which decade. Three of them in a trenchcoat. The heater works, which the previous owner mentioned first and at length.',
   },
+
+  // ── THE BASIN — a blown picklefork tunnel hull ─────────────────────────────
+  //
+  // `water: true` is the whole hook-up: `step()` reads it exactly as it reads `ground` and `heli`,
+  // and everything else about this row is ordinary. The shape of the bet is the opposite of the
+  // truck's — a rig winds up slowly and then holds a road speed for an hour, and this leaves the
+  // pontoon like a dropped anvil and then asks you to survive it.
+  //
+  //   thrustMax 22    FIVE TIMES a Courier's, which is not a typo and is the point: 0-100 in about
+  //                   five seconds. It is also what pays for the handling being bad.
+  //   dragP           SOLVED, not chosen: at terminal, thrust = drag, so dragP = thrustMax / v^2 =
+  //                   22 / 138^2 = 0.001155. Set a hair under it so terminal sits just ABOVE the
+  //                   ceiling and the clamp stays a backstop rather than the thing you drive into.
+  //   tileMph 95      THE SCALE KNOB, same as the truck's. At 135 mph that is 1.42 tiles/s, so the
+  //                   basin's 86-tile width is about a minute — a race, not a commute. The truck
+  //                   does 0.93 at its own ceiling, so a boat genuinely outruns a rig over ground.
+  //   hump 48         Where the hull stops pushing water and starts planing. Below it, `humpDrag`
+  //                   is added — the bow wave you have to climb over — which is why the launch has
+  //                   a shove in the middle of it instead of being one smooth ramp.
+  //   turnLock/turnFade  Lock at rest, and how fast the RUDDER'S AUTHORITY dies with speed. This
+  //                   is the "hard to turn" half and it is deliberately not friction: a boat at
+  //                   speed steers fine and simply does not GO where it is pointed (see driftTau).
+  //   driftTau 1.35   How long the hull keeps carrying the way it was already going, in seconds.
+  //                   This is the slide, and it is the single number that decides whether a corner
+  //                   is a corner or a broadside.
+  //
+  // NAMING: an invented maker plus a hull class, the truck's own convention, and deliberately a
+  // different family again from the aircraft (single evocative nouns) and the rigs (haulage words).
+  // A rooster tail is what this thing throws, so a Rooster is what it is.
+  hydro: {
+    name: 'Vaskin Rooster', water: true, tier: 1,
+    mass: 0.55,                        // relative inertia — light, which is most of the acceleration
+    thrustMax: 22, topSpeed: 138, tileMph: 95,
+    waterFric: 2.2,                    // the truck's rollFric: hull friction with the throttle shut
+    dragP: 0.001100, brake: 3.4,       // a boat has no brakes; this is what shutting the throttle buys
+    hump: 48, humpDrag: 5.4,           // the bow wave, and how hard it is to climb over
+    turnLock: 34, turnFade: 0.72,      // degrees of rudder at rest, and how hard authority falls off
+    driftTau: 1.35,                    // the slide: seconds for lateral way to decay
+    hullLen: 0.036, hullBeam: 0.015,   // HALF-length and HALF-beam in TILES, for the swell sample
+    nitroMul: 1.35, nitroBurn: 0.22, nitroCool: 0.11,   // the bottle: how much, how fast out, how fast back
+    // Vertical speed off a crest, in tiles/s per unit of slope x speed.
+    // ⚠ 0.55 WAS FITTED TO A SEA THAT NO LONGER EXISTS, AND THE HULL SIMPLY STOPPED FLYING. The
+    // note in section 6 says it was tuned against "the shipping swell (roll 0.32, wind 0.20)",
+    // which at the time were FIXED amplitudes. JONSWAP then made them a function of the wind, and
+    // a wind-derived sea is about half as big: at SEA_FULL_KT — 45 knots, the top of the whole
+    // scale — the amplitudes are roll 0.155 / wind 0.127 and the steepest face is 17.2 degrees
+    // against the 27.8 the number was fitted to. Measured over two minutes at full throttle head
+    // into it: ZERO launches, at every sea state the weather can produce. It would take about 95
+    // knots to reach roll 0.32, which is twice the top of the scale.
+    //
+    // ⚠ AND THE THRESHOLD IS NOT THE KNOB, WHICH IS THE PART WORTH KEEPING. Dropping 'kick > 0.25'
+    // is the obvious fix and it is the wrong one: the launch speed IS the kick ('s.vs = kick'), so
+    // a lower bar buys more launches at the same tiny height — swept down to 0.03 the hull left the
+    // water 357 times a minute and never got above 0.011 tiles, which is a skitter rather than a
+    // jump. The height comes from here.
+    //
+    // 0.9 reproduces the authored feel almost exactly against the sea that actually ships: 13.5
+    // launches a minute at 45 knots against the 13.0 the old number gave on its own sea, peak
+    // height 0.033 tiles against 0.036, airborne 7.9% of the time against 7.8%. Re-derived rather
+    // than picked, and 'sea.mjs' holds it against the sea so the next retune cannot silently
+    // ground the boat again.
+    launchVs: 0.9,
+    hullKg: 700, tank: 260, price: 14500,
+    blurb: 'Vaskin build about nine of these a year and will not tell you who buys them. Two sponsons, a tunnel, and an engine somebody has clearly been inside recently. It does not have brakes. It was never going to have brakes.',
+  },
 };
+
+// Every water type, cheapest first — the boatyard's stock list, derived exactly as TRUCK_TYPES is
+// rather than written out a second time.
+export const BOAT_TYPES = Object.entries(TYPES)
+  .filter(([, t]) => t.water)
+  .sort((a, b) => a[1].price - b[1].price)
+  .map(([id, t]) => ({ id, ...t }));
 
 // Every ground type, cheapest first — the dealer's stock list and the ladder the yard shows.
 export const TRUCK_TYPES = Object.entries(TYPES)
@@ -1321,7 +1403,9 @@ export function truckReadout(s, p) {
     rpm: Math.round(s.rpm * 100),
     gear: s.gear, gears: p.gears.length - 1,
     inBand: !!s.inBand, stalled: !!s.stalled,
-    pedal: +(s.pedal || 0).toFixed(2),           // BOOST, not pedal position — what the engine is actually making
+    pedal: +(s.pedal || 0).toFixed(2),
+    rich: +(s.rich || 0).toFixed(2),
+    bang: +(s.bang || 0).toFixed(2),           // BOOST, not pedal position — what the engine is actually making
 
     best: bestGear(s.speed, p),                 // a suggestion, never an automatic
     slip: +s.slip.toFixed(2),
@@ -1335,8 +1419,449 @@ export function truckReadout(s, p) {
   };
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// THE BOAT
+// ════════════════════════════════════════════════════════════════════════════
+//
+// The truck's sibling, and it borrows the truck's whole shape: a client-sim integrator the server
+// reconciles rather than re-runs, a surface table, a speed dial anchored by `tileMph`, and one
+// entry in `step()`. What it does NOT borrow is the gearbox — a blown boat has one drive and no
+// ratios, so there is nothing to shift and the interesting longitudinal decision is the throttle
+// alone. Everything that makes it a boat instead of a truck on a blue road is below.
+
+// ── WATER, AS A SURFACE ─────────────────────────────────────────────────────
+// The same four columns SURFACES carries, and the same invariant, which is not decoration here
+// either: `thrustMax x drive > waterFric x drag` on EVERY row, with headroom, or a boat that
+// drifts off the racing line into the shallows is STUCK rather than slow — the wall wearing a
+// penalty's clothes that the truck's "edge of the road is a law" rule exists to forbid.
+//
+// ⚠ LAND IS DELIBERATELY NOT IN THIS TABLE. A boat on land really is a wall, so making it a row
+// with `drive: 0` would put a deliberate violation inside the very set a gate sweeps for
+// violations — and the gate would then have to carry an exception, which is how a real one gets
+// waved through later. Aground is its own branch in stepBoat, and it is the one place in this
+// model where being stopped is correct.
+export const WATER = {
+  open:     { cap: 1.00, grip: 1.00, drag: 1.00, drive: 1.00 },
+  // A working chop. Slower and wetter, and it is where the hull starts being thrown about rather
+  // than merely lifted — the damage model reads the sea, not this row, so this only costs speed.
+  chop:     { cap: 0.88, grip: 0.92, drag: 1.18, drive: 0.97 },
+  // Over the bar. The drive is half out of the water, so it is loose, draggy and slow — passable,
+  // and a mistake, exactly as the verge is.
+  shallows: { cap: 0.55, grip: 0.70, drag: 1.70, drive: 0.78 },
+};
+
+// How much of the hull's condition a given insult costs. All three are fractions of a FULL hull,
+// so they read against the 0..1 bar directly.
+const HULL_LAND = 0.34;        // driving it onto the beach: catastrophic, and meant to be
+// ⚠ QUADRATIC IN THE EXCESS, AND THE FREE DROP IS TUNED AGAINST THE SEA THAT EXISTS. A linear cost
+// past 0.55 tiles/s made the whole slam branch DEAD CODE: measured, the worst touchdown the
+// shipping swell can produce is 0.55 and a full gale only reaches 0.65, so every landing in the
+// game was a free one and "landing hard breaks the boat" was a sentence with no arithmetic behind
+// it. The free drop is now under what an ordinary sea produces, and the cost is squared — so a
+// hundred small landings are cheap and the one that drops the hull flat off a big face is not,
+// which is the difference between a maintenance tax and a mistake.
+const HULL_SLAM = 0.35;
+const HULL_FREE_VS = 0.30;
+// ⚠ PER SECOND, SO IT IS SMALL. At 0.020 a minute of running hard across the swell took the hull
+// from 100% to 47% — which is not "a decision rather than a shortcut", it is a boat that dissolves
+// while you are looking at the scenery. At 0.004, sustained worst-case costs about a tenth of the
+// hull a minute, which you have to keep choosing.
+const HULL_BEAM = 0.004;
+// And it has a DEADBAND. The swell throws up 25 degrees of slope on its steeper faces, so a term
+// that starts the moment the hull is off level is a term that is always on — the lean has to be a
+// real one before it counts, and it saturates at a genuinely bad one.
+const HULL_BEAM_FROM = 0.20, HULL_BEAM_FULL = 0.55;   // radians: ~11 deg to ~31 deg
+const NITRO_HEAT_HURT = 0.82;  // where leaning on the bottle starts costing hull
+
+export function createBoatState(p) {
+  return {
+    speed: 0, heading: 0, x: 0, y: 0,
+    pedal: 0,                     // the blower follower — what the engine is MAKING, not the lever
+    rich: 0, bang: 0,             // and how far it is behind / ahead of the lever — see step 4b
+    rpm: IDLE,
+    yawRate: 0, drift: 0, slip: 0,
+    // Where the hull is relative to the water under it. `z` is height above the LOCAL surface, so
+    // 0 is floating and anything positive is air — which is the whole reason a crest matters.
+    z: 0, vs: 0, airborne: false,
+    heave: 0, pitch: 0, roll: 0,
+    // The swell the caller is drawing. ⚠ ZERO IS FLAT WATER AND IS THE DEFAULT, so a harness that
+    // says nothing about the sea gets exactly the sea that has no waves in it — which is what makes
+    // "the ride is flat when the swell is off" a provable statement rather than a hopeful one.
+    seaRoll: 0, seaWind: 0, ssx: 0, ssy: 0, clock: 0,
+    nitro: 1, nitroOn: false, nitroHeat: 0,
+    hull: 1, hullHit: 0,
+    aground: false, planing: false,
+    events: [],
+  };
+}
+
+// ── HOW THE SEA IS HOLDING THE HULL, RIGHT NOW ──────────────────────────────
+//
+// ⚠ AND IT IS THE TANGENT PLANE, NOT A THREE-POINT FIT, WHICH IS THE DIFFERENCE BETWEEN THIS AND
+// THE ECHELON. `yachtRide` samples the bow and both quarters and fits a plane through them, and
+// its own comment says why: she is about a tile long against an 8.6-tile swell, so she BRIDGES the
+// wave and the gradient under her bow is not the angle she sits at. This hull is `hullLen` — about
+// 0.036 of a tile — which is a fiftieth of that wave, so the three samples would land inside a
+// rounding error of each other and the fit would be the local slope computed the expensive way.
+// A short boat rides tangent to the face. That is not an approximation, it is the behaviour: it is
+// why a race boat follows the water and a ship ignores it, and it is the whole feel of the thing.
+//
+// `seaSlope` returns the gradient in closed form for four more cosines and no texture taps, which
+// is exactly what it was written for.
+export function boatSeaPose(s, p, t) {
+  const rollA = s.seaRoll || 0, windA = s.seaWind || 0;
+  if (!(rollA > 1e-4 || windA > 1e-4)) return { heave: 0, pitch: 0, roll: 0, du: 0, dv: 0 };
+  const u = s.x + (s.ssx || 0), v = s.y + (s.ssy || 0);
+  // ⚠ THE ROLL AND THE WIND SEA, AND NOT THE CHOP — the same two terms `seaPoseAt` answers with and
+  // the same two the MESH displaces, because a hull has to ride the water somebody is drawing.
+  // The chop is about a tile and is a normal map rather than geometry, so a boat fitted to it would
+  // be pitching to something nobody can see; the wind sea is 3.2 tiles and the roll 8.6, and this
+  // hull is 0.07 of a tile, so both are real swell to it.
+  const [du, dv] = seaSlope(u, v, t, rollA, 0, windA);
+  const h = (s.heading || 0) * D2R, sh = Math.sin(h), ch = Math.cos(h);
+  // The basis `step` moves in: forward is (sin h, -cos h) and right is (cos h, sin h). Taken from
+  // the integrator below rather than restated, because a boat that pitched about an axis the
+  // position update disagreed with would lean the wrong way in half the compass.
+  const alongF = du * sh + dv * -ch;
+  const alongR = du * ch + dv * sh;
+  return {
+    heave: seaRoll(u, v, t, rollA) + seaWind(u, v, t, windA),
+    pitch: Math.atan(alongF),    // bow up when the water ahead is rising
+    roll: Math.atan(alongR),     // starboard up when the water to starboard is higher
+    du, dv,
+  };
+}
+
+export function boatReadout(s, p) {
+  return {
+    speed: Math.round(s.speed),
+    heading: Math.round(s.heading),
+    rpm: Math.round(s.rpm * 100),
+    pedal: +(s.pedal || 0).toFixed(2),
+    slip: +(s.slip || 0).toFixed(2),
+    planing: !!s.planing,
+    airborne: !!s.airborne,
+    air: +(s.z || 0).toFixed(3),
+    vs: +(s.vs || 0).toFixed(3),
+    pitch: +((s.pitch || 0) * R2D).toFixed(1),
+    roll: +((s.roll || 0) * R2D).toFixed(1),
+    // ⚠ STORED AS CONDITION, REPORTED AS A PERCENTAGE — see the note on the boats table. The row
+    // follows the truck (1 is out of the shop) and the readout follows the aircraft (hullPct), and
+    // this is the ONE place the two meet, so neither convention leaks into the other.
+    hullPct: Math.max(0, Math.round((s.hull ?? 1) * 100)),
+    nitro: +(s.nitro || 0).toFixed(2),
+    nitroHeat: +(s.nitroHeat || 0).toFixed(2),
+    nitroOn: !!s.nitroOn,
+    aground: !!s.aground,
+    // ⚠ THE SAME READING THE MODEL MAKES, NOT A SECOND ONE. Absent means running — see the note on
+    // `ignitionStep` — so a readout written `!!s.running` would report every untouched hull in the
+    // game as dead while the model went on driving it.
+    running: s.running !== false,
+    cranking: (s.crank || 0) > 0,
+    x: +s.x.toFixed(3), y: +s.y.toFixed(3),
+    topSpeed: p.topSpeed,
+  };
+}
+
+// ── THE IGNITION ─────────────────────────────────────────────────────────────
+//
+// ⚠ ABSENT MEANS RUNNING, AND THAT IS THE MIGRATION INVARIANT RATHER THAN A DEFAULT SOMEBODY LIKED.
+// This boat shipped with no ignition at all — she was alive the moment the pane opened — so every
+// caller that already exists (the text helm, every regress case, every harness that drives a hull
+// across the Basin) hands `stepBoat` a state with no `running` on it. Read as `!s.running` all of
+// them would be dead in the water and the whole suite would go red for a feature none of them have
+// heard of. `s.running !== false` is the one reading under which a state that has never been told
+// about the key behaves bit-for-bit as it did, and a state that HAS been told obeys it.
+//
+// ⚠ AND A DEAD ENGINE IS NOT A STOPPED BOAT. The lever is cut, the blower falls away and the motor
+// stops making revs — and the hull keeps every bit of the way it had, goes on riding the sea, and
+// goes on steering for exactly as long as there is water going past the rudder. That is what
+// killing the engine at forty miles an hour actually is, and it is why this is a term on the DRIVE
+// rather than an early return: a boat with no brakes that comes to a dead stop when you turn the
+// key would be a worse lie than not having a key.
+export const CRANK_S = 0.85;            // how long the starter turns her over before she catches
+export const CRANK_RPM = 0.07;          // what the tacho shows while it is cranking: under idle
+
+function ignitionStep(s, input, dt) {
+  // The caller owns the switch; this owns what the switch DOES. `s.running` is set by whoever has
+  // the key — the panel on K, `conn start` in the text rung — and the starter is a held input.
+  if (s.running === false) {
+    // ⚠ DRY IS A REFUSAL, NOT A FAILURE TO CATCH, and the difference is audible: a motor with no
+    // fuel turns over for as long as you hold it and never fires. `fuel` is the caller's, because
+    // the model has no opinion about a database row — the hull's own note one section down.
+    const dry = input.fuel != null && input.fuel <= 0;
+    if (input.starter && !dry) {
+      s.crank = (s.crank || 0) + dt;
+      if (s.crank >= CRANK_S) { s.running = true; s.crank = 0; s.events.push('started'); }
+    } else {
+      if (input.starter && dry && !s.wasDry) { s.events.push('dry'); s.wasDry = true; }
+      s.crank = 0;
+    }
+    if (!input.starter) s.wasDry = false;
+    return false;
+  }
+  s.crank = 0; s.wasDry = false;
+  return true;
+}
+
+export function stepBoat(s, input, p, dt) {
+  s.events = [];
+  s.hullHit = 0;
+  const steer = clamp(input.steer || 0, -1, 1);
+  const running = ignitionStep(s, input, dt);
+  const lever = running ? clamp(input.throttle || 0, 0, 1) : 0;
+  const surf = WATER[input.surface] || WATER.open;
+  s.clock = input.now != null ? input.now * 0.001 : (s.clock || 0) + dt;
+  const t = s.clock;
+
+  // ── 0. AGROUND ─────────────────────────────────────────────────────────────
+  // The hard law. Not a penalty curve and not a surface row: a boat does not drive on land, so the
+  // way is scrubbed off and the hull pays for it once per grounding rather than every frame.
+  const aground = !!input.aground || input.surface === 'land';
+  if (aground && !s.aground) {
+    const bite = Math.min(1, Math.abs(s.speed) / Math.max(1, p.topSpeed));
+    s.hullHit += HULL_LAND * bite;
+    s.events.push('aground');
+  }
+  s.aground = aground;
+
+  // ── 1. THE BLOWER FOLLOWS THE LEVER ────────────────────────────────────────
+  // A supercharger spools; it does not snap. Lifting is quicker than coming on, which is the
+  // truck's own asymmetry and for the same reason — an engine dumps boost far faster than it makes it.
+  const rate = lever > s.pedal ? 2.6 : 6.0;
+  s.pedal = clamp(s.pedal + (lever - s.pedal) * Math.min(1, rate * dt), 0, 1);
+
+  // ── 2. THE BOTTLE ──────────────────────────────────────────────────────────
+  // ⚠ IT IS THE TRUCK'S TURBO MADE TRANSIENT, not a second power system. `rig.js` already prices a
+  // hard turbo as "a bill you pay later" and spends it as heat; this is that, with the player
+  // holding the switch. There is no new resource: what it costs is HULL, through the same bar
+  // everything else on this boat costs, which is what stops it being free speed with a cooldown.
+  const want = running && !!input.nitro && s.nitro > 0 && !aground && s.pedal > 0.35;
+  s.nitroOn = want;
+  if (want) {
+    s.nitro = Math.max(0, s.nitro - (p.nitroBurn ?? 0.22) * dt);
+    s.nitroHeat = Math.min(1.4, s.nitroHeat + 0.30 * dt);
+    if (s.nitroHeat > NITRO_HEAT_HURT) {
+      s.hullHit += (s.nitroHeat - NITRO_HEAT_HURT) * 0.055 * dt;
+      if (!s.wasCooking) { s.events.push('nitroheat'); s.wasCooking = true; }
+    }
+  } else {
+    s.nitro = Math.min(1, s.nitro + (p.nitroCool ?? 0.11) * dt * 0.45);
+    s.nitroHeat = Math.max(0, s.nitroHeat - (p.nitroCool ?? 0.11) * dt);
+    if (s.nitroHeat < NITRO_HEAT_HURT * 0.7) s.wasCooking = false;
+  }
+  const boost = want ? (p.nitroMul ?? 1.55) : 1;
+
+  // ── 3. THE SEA ─────────────────────────────────────────────────────────────
+  const pose = boatSeaPose(s, p, t);
+  s.heave = pose.heave;
+
+  // ── 4. LONGITUDINAL ────────────────────────────────────────────────────────
+  // The truck's integration, with the gearbox taken out and the hump put in. Thrust only reaches
+  // the water while the drive is IN it, which is what makes a long flight off a crest cost you the
+  // race rather than win it.
+  const wet = s.airborne ? 0 : 1;
+  const drive = p.thrustMax * s.pedal * boost * surf.drive * wet;
+  const v = Math.abs(s.speed);
+
+  // ── 3b. THE TABS ───────────────────────────────────────────────────────────
+  //
+  // ⚠ THIS IS NOT A SECOND THROTTLE, WHICH IS THE OBJECTION THE PLUGIN'S OWN HEADER RAISES. It says
+  // a blown boat has one drive and no ratios, so the interesting LONGITUDINAL decision is the lever
+  // alone — and that is still true. Trim is not longitudinal: it is the hull's ATTITUDE, and what
+  // it decides is how much of the boat is in the water. The two are orthogonal, which is why a real
+  // race boat has both and why the tabs are the thing that separates people who can drive one.
+  //
+  // Tabs DOWN (-1) pushes the bow down: more hull wetted, so more drag and a lower ceiling, but she
+  // climbs over her own bow wave more easily and she holds on. Tabs UP (+1) lifts her onto her
+  // after sections: less wetted surface and a real turn of speed, at the price of a boat that is
+  // barely holding the water and will fly off anything she meets.
+  //
+  // ⚠ NEUTRAL IS EXACT, NOT NEARLY. Every term is `1 + k * trim`, so at trim 0 each one is 1
+  // exactly and every passage anybody has ever driven behaves bit-for-bit as it did. That is the
+  // same migration invariant `calibration: 100` and the cooking dial's named tiers are built on,
+  // and it is what lets this land without retuning a single authored row.
+  const trim = clamp(input.trim || 0, -1, 1);
+  const TRIM_DRAG = 0.16;      // bow up sheds parasitic drag — the top-speed half
+  const TRIM_HUMP = 0.30;      // …and makes the hump worse, which is the price out of the hole
+  const TRIM_GRIP = 0.22;      // bow down puts the forefoot in: authority and less slide
+  const TRIM_FLY  = 0.45;      // …and bow up is what actually throws her off a face
+  s.trim = trim;
+
+  // ⚠ THE HUMP IS THE WHOLE LAUNCH. Below planing speed the hull is pushing its own bow wave uphill
+  // and the drag is enormous; over it the boat is riding on top of the water and most of that goes
+  // away. Written as a smooth shoulder rather than a step, because a cliff here reads as the engine
+  // catching rather than as the hull coming up.
+  const humpAt = p.hump ?? 48;
+  const over = clamp((v - humpAt * 0.55) / (humpAt * 0.75), 0, 1);
+  s.planing = over > 0.92;
+  // ⚠ IT IS A BUMP, NOT A FLOOR, AND THE DIFFERENCE IS WHETHER YOU CAN LEAVE A DOCK. Written as
+  // `humpDrag * (1 - over)^2` the resistance is at its MAXIMUM at rest — so below about 35% throttle
+  // the thrust never exceeded it and the boat did not move at all, measured at a flat 0.0 mph. That
+  // is the same wall-wearing-a-penalty's-clothes the surface invariant exists to forbid, arriving
+  // through a different term. A real hull pushes its own bow wave hardest somewhere AROUND
+  // three-quarters of planing speed and is free of it at both ends, so this is a parabola through
+  // zero at rest and zero once planing, peaking in between.
+  const hx = clamp(v / humpAt, 0, 1.6) - 0.72;
+  const hump = (p.humpDrag ?? 5.4) * (1 + TRIM_HUMP * trim) * Math.max(0, 1 - (hx / 0.72) * (hx / 0.72));
+  const fric = (p.waterFric ?? 2.2) * surf.drag * wet;
+  const aero = p.dragP * (1 - TRIM_DRAG * trim) * s.speed * s.speed;
+  const moving = Math.sign(s.speed) || (drive > 0 ? 1 : 0);
+  // Aground, the only term left is a very large drag: no thrust, no way to make any.
+  const scrub = aground ? 26 : 0;
+  s.speed += ((drive - (fric + hump * wet + scrub) * moving) / Math.max(0.2, p.mass) - aero * moving / Math.max(0.2, p.mass)) * dt;
+  if (drive === 0 && Math.abs(s.speed) < 0.05) s.speed = 0;
+  // ⚠ THE BOOSTED CEILING IS SOLVED LIKE THE UNBOOSTED ONE. Terminal under nitro is
+  // sqrt(thrustMax * nitroMul / dragP) = sqrt(22 * 1.35 / 0.0011) = 164 mph, so the cap sits just
+  // above it and stays a BACKSTOP. At 1.12 the clamp was the thing actually limiting the boat,
+  // which makes the bottle feel like a switch that stops working rather than like more engine.
+  s.speed = clamp(s.speed, 0, p.topSpeed * surf.cap * (want ? 1.19 : 1));
+  // ⚠ AND THE TACHO READS THE CRANK, NOT ZERO, WHILE THE STARTER IS TURNING HER. A needle that sat
+  // dead on the peg through the whole start would leave nothing on the boat saying the key was
+  // doing anything at all — which is exactly the state the boat was in before it had a key. The
+  // shift lights and the engine note both hang off this one number, so they inherit it for free.
+  s.rpm = running
+    ? IDLE + (1 - IDLE) * clamp(s.pedal * 0.55 + (v / Math.max(1, p.topSpeed)) * 0.45, 0, 1)
+    : ((s.crank || 0) > 0 ? CRANK_RPM : 0);
+
+  // ── 4b. HOW FAR OUT OF STEP THE MOTOR IS WITH THE LEVER ────────────────────
+  //
+  // The blower follower above is asymmetric on purpose — 2.6/s coming up, 6.0/s going down — and
+  // the GAP it leaves is not an artefact of the smoothing, it is the whole physical story of an
+  // engine with too much air and not enough time. Split by sign it is two different events, and
+  // together they are everything a race motor does that you can SEE:
+  //
+  //   `rich` — the lever is ahead of the blower. Fuel is going past the valve unburnt and lighting
+  //     in the header, which is the flame out of a zoomie when somebody stands on it.
+  //   `bang` — the blower is ahead of the lever, at revs. You have shut it and eight cylinders'
+  //     worth of mixture has nowhere to go but out. That is the backfire.
+  //
+  // ⚠ DERIVED HERE BECAUSE THIS IS THE ONLY PLACE WITH A dt. A renderer or a sound module taking
+  // the same difference between two frames gets a number that depends on the frame rate, which is
+  // the bug the drift term shipped with; a panel reading `rich` off the state gets the same answer
+  // at 30 Hz and 144. It is also why they are state rather than a readout-only derivation: the wire
+  // carries them to other players' windscreens, and a boat two hundred yards away should flame when
+  // its driver stands on it.
+  //
+  // ⚠ AND `bang` IS GATED ON REVS, NOT ON SPEED. Snapping the lever shut at a dock is a motor
+  // dropping to idle; snapping it shut at seven grand is the noise the whole hull is known for.
+  s.rich = clamp((lever - s.pedal) * 2.6, 0, 1);
+  s.bang = clamp((s.pedal - lever) * 1.7, 0, 1) * clamp((s.rpm - IDLE) / (1 - IDLE || 1), 0, 1);
+
+  const tps = s.speed / (p.tileMph || 95);        // tiles per second — the sim's real velocity
+
+  // ── 5. STEERING, AND WHY IT IS BAD ─────────────────────────────────────────
+  // Two separate things, and collapsing them is what makes a boat feel like a car on ice instead of
+  // like a boat.
+  //
+  //   · AUTHORITY falls with speed. A rudder in fast water is not a rudder with more grip, it is a
+  //     rudder you dare not use — so the LOCK comes down, hard, as the hull comes up. That is what
+  //     stops a 138 mph pass being a slalom.
+  //   · WAY does not follow the bow. The hull keeps going where it was already going and the nose
+  //     comes round first, which is `drift` — a real lateral velocity that decays over `driftTau`
+  //     seconds. Nothing anywhere decides "now you are sliding": a corner taken too fast simply
+  //     carries, because the number that would have to change is a physical one.
+  const fade = 1 / (1 + (p.turnFade ?? 0.72) * (v / Math.max(1, humpAt)));
+  const lock = (p.turnLock ?? 34) * fade * surf.grip * (1 - TRIM_GRIP * trim);
+  // ⚠ A RUDDER NEEDS WATER GOING PAST IT. Stopped, a boat cannot steer at all, and the whole
+  // low-speed feel of one comes from that: you point it by moving it. Airborne there is no water.
+  const auth = s.airborne ? 0 : clamp(v / 6, 0, 1);
+  const yaw = steer * lock * auth;
+  s.heading = wrap360(s.heading + yaw * dt);
+  s.yawRate = yaw;
+
+  // The bow swinging is what PUTS way on the beam: the hull's existing velocity vector is now at an
+  // angle to the new heading, and that component is the slide.
+  // ⚠ IT IS A RATE, SO IT IS TIMES dt. Without it the slide is accumulated once per FRAME rather
+  // than once per second, which is a factor of sixty and reads as the hull being fired sideways off
+  // the map — measured at 17 tiles/s of drift against 1.4 of forward way. It also makes the
+  // handling a function of the frame rate, which is the quiet half of the same bug.
+  s.drift += (-yaw * D2R) * tps * dt;
+  s.drift *= Math.exp(-dt / Math.max(0.05, p.driftTau ?? 1.35));
+  s.slip = clamp(Math.abs(s.drift) / Math.max(0.02, Math.abs(tps) + 0.02), 0, 1);
+  if (s.slip > 0.5 && !s.wasSliding) { s.events.push('slide'); s.wasSliding = true; }
+  else if (s.slip < 0.28) s.wasSliding = false;
+
+  // ── 6. AIR ─────────────────────────────────────────────────────────────────
+  // Leaving a crest, and coming back. A hull driven fast up a rising face gets thrown, and the
+  // faster and the steeper, the further it goes.
+  const GRAV = 1.35;                                 // tiles/s^2 — tuned for a readable hang, not for Earth
+  if (!s.airborne) {
+    // The launch. The hull is tangent to the face, so its vertical rate IS the slope it is climbing
+    // times how fast it is climbing it. Past a threshold the water lets go.
+    const climb = pose.pitch * tps;                  // tiles/s of rise being forced on the hull
+    const kick = climb * (p.launchVs ?? 0.55) * (1 + (want ? 0.35 : 0)) * (1 + TRIM_FLY * trim);
+    // ⚠ TUNED AGAINST THE SEA THE RENDERER ACTUALLY DRAWS, not against a guess — and ⚠ THAT SEA
+    // HAS CHANGED SINCE, WHICH IS WHY 'launchVs' CARRIES THE STORY NOW. This threshold was fitted
+    // when the swell was a fixed roll 0.32 / wind 0.20 topping out around 25-28 degrees of face.
+    // The amplitudes are derived from the wind through JONSWAP now and are about half that, so the
+    // bar stayed where it was and nothing could reach it. The bar is still right; what it is
+    // measuring had to be rescaled. See the ⚠ on 'launchVs' for the measurement.
+    //
+    // ⚠ A NUMBER FITTED AGAINST ANOTHER SYSTEM'S OUTPUT GOES STALE WITHOUT ANYBODY EDITING IT, and
+    // it goes stale SILENTLY: a boat that never leaves the water looks exactly like a boat being
+    // driven carefully. Same shape as the wall wash's gain being calibrated against last month's
+    // city, one system over.
+    if (kick > 0.25 && tps > 0.45) {
+      s.airborne = true; s.vs = kick; s.z = 0.0001;
+      s.events.push('launch');
+    }
+  }
+  if (s.airborne) {
+    s.vs -= GRAV * dt;
+    s.z += s.vs * dt;
+    // The water has moved while you were off it — which is the point. You come down on whatever is
+    // there now, and a trough is a much longer fall than the crest you left.
+    if (s.z <= 0) {
+      const impact = Math.abs(s.vs);
+      s.airborne = false; s.z = 0; s.vs = 0;
+      // ⚠ BEAM-ON IS WHAT BREAKS A BOAT, not height. Landing flat across a face drops the whole
+      // length of one sponson onto rising water at once; landing bow-first onto the same face is
+      // what the hull is shaped to do. So the roll the sea is holding you at multiplies the drop.
+      const beam = Math.min(1, Math.abs(pose.roll) * 2.2);
+      const over2 = Math.max(0, impact - HULL_FREE_VS);
+      if (over2 > 0) {
+        s.hullHit += over2 * over2 * HULL_SLAM * (1 + beam);
+        s.events.push(over2 > 0.18 ? 'slam' : 'land');
+      } else s.events.push('land');
+      // A hard landing scrubs way, which is the racing consequence of flying badly.
+      s.speed *= clamp(1 - over2 * 0.22, 0.45, 1);
+    }
+  }
+
+  // ── 7. TAKING A SEA BADLY ──────────────────────────────────────────────────
+  // On the water, at speed, held over at an angle by a steep face. This is the slow bleed rather
+  // than the bang: it is what makes running hard across the swell a decision rather than a shortcut.
+  if (!s.airborne && !aground) {
+    const lean = clamp((Math.abs(pose.roll) - HULL_BEAM_FROM) / (HULL_BEAM_FULL - HULL_BEAM_FROM), 0, 1);
+    const fast = clamp((v - humpAt) / Math.max(1, p.topSpeed - humpAt), 0, 1);
+    if (lean > 0 && fast > 0.25) s.hullHit += HULL_BEAM * lean * fast * dt;
+  }
+
+  // ── 8. POSITION ────────────────────────────────────────────────────────────
+  // Heading-forward plus the slide, in the SAME basis boatSeaPose reads. ⚠ The drift is added on
+  // the BEAM, so a boat mid-slide is genuinely somewhere its nose is not pointing — which is the
+  // one thing that makes the handling readable from outside the boat.
+  const h = s.heading * D2R, shh = Math.sin(h), chh = Math.cos(h);
+  s.x += (shh * tps + chh * s.drift) * dt;
+  s.y += (-chh * tps + shh * s.drift) * dt;
+
+  // ── 9. THE HULL ────────────────────────────────────────────────────────────
+  // ⚠ THE MODEL ACCRUES, THE OWNER DECIDES. `hullHit` is this frame's damage and `hull` is the
+  // running condition, but whether hitting zero DESTROYS the boat is a question about a database
+  // row and a player's money, and this file has no business answering it. It reports; the plugin
+  // spends. That is also what keeps a headless suite able to drive the hull to zero and look at it.
+  if (s.hullHit > 0) {
+    s.hull = clamp((s.hull ?? 1) - s.hullHit, 0, 1);
+    if (s.hull <= 0 && !s.wasHoled) { s.events.push('holed'); s.wasHoled = true; }
+  }
+  s.pitch = pose.pitch; s.roll = pose.roll;
+  return s;
+}
+
 export function step(state, input, p, dt) {
   if (p.ground) return stepTruck(state, input, p, dt);
+  if (p.water) return stepBoat(state, input, p, dt);
   if (p.heli) return stepHeli(state, input, p, dt);
   const s = state;
   s.events = [];

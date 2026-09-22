@@ -1,0 +1,8 @@
+{
+  "description": "Filled every morning, covered, and changed every evening whether or not the level has moved. The level does not move. The glasses are turned upside down on a folded cloth and the cloth is folded the same way every day by the same person.",
+  "flags": {},
+  "id": "furn_hf_aboveboard_jug",
+  "name": "a water jug and eight glasses",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_aboveboard_mezz"
+}

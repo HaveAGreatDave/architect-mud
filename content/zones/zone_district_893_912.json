@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "The dead end. Sound Investment's back wall closes it off: forty feet of blank chrome with a stage door in it, a bell, and a grille over the bell. Delivery vans reverse the whole length of the mews rather than try to turn here.",
   "exits": {
     "east": "zone_district_894_912",
-    "south": "zone_district_893_913",
-    "west": "zone_district_892_912"
+    "south": "zone_district_893_913"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 893,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_893_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Vetch Mews",
   "parent_zone": null
 }

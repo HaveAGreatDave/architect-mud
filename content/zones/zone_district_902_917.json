@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#0f1721",
+  "color": "#c0dcf4",
+  "description": "A glazed disc on six chrome legs with the whole ground floor given over to the space underneath it, paved, lit from the soffit, and used by everybody on the row to get out of the rain. It is the second lens in the quarter and the smaller of the two. The floor above is a records office and nobody has ever been up there. There is no front door at street level, because at street level there is no front — you walk in under the disc between two of the legs, and the stair up to the records office is wrapped round the leg nearest the corner. There is no front door at street level, because at street level there is no front — you walk in under the disc between two of the legs, and the stair up to the records office is wrapped round the leg nearest the corner. There is no front door at street level, because at street level there is no front — you walk in under the disc between two of the legs, and the stair up to the records office is wrapped round the leg nearest the corner. There is no front door at street level, because at street level there is no front — you walk in under the disc between two of the legs, and the stair up to the records office is wrapped round the leg nearest the corner. There is no front door at street level, because at street level there is no front — you walk in under the disc between two of the legs, and the stair up to the records office is wrapped round the leg nearest the corner. There is no front door at street level, because at street level there is no front — you walk in under the disc between two of the legs, and the stair up to the records office is wrapped round the leg nearest the corner.",
   "exits": {
     "north": "zone_district_902_916",
-    "south": "zone_district_902_918",
-    "west": "zone_district_901_917"
+    "south": "zone_hf_stampduty_undercroft"
   },
   "flags": {
+    "building_name": "Stamp Duty",
+    "building_type": "lens_hall",
     "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 4,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_902_916"
   },
   "grid_x": 902,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_902_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "DU",
+  "name": "Stamp Duty",
   "parent_zone": null
 }

@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The bottom bulge of the tower, used half as a lobby and half as an office, with a desk at an angle across the curve and two chairs facing it. On the wall behind the desk: a cutaway of the building with every flat coloured in, green for sold, amber for reserved and white for available, redrawn by hand often enough that the paper has gone soft at the pin holes. There is a great deal more white on it than the board outside would lead you to expect.",
+  "exits": {
+    "down": "zone_util_zone_hf_chainfree_lobby",
+    "up": "zone_hf_chainfree_landing",
+    "west": "zone_district_900_914"
+  },
+  "flags": {
+    "building_name": "Chain Free",
+    "building_type": "bead_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole curve of the lowest bead, from the collar down to the floor, looking out at the junction where Kettle Lane meets Sorrel Way. It is the only lit window on this side of the street after six.",
+      "light": 0.8,
+      "name": "the bulge glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_900_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_chainfree_lobby",
+  "map_id": "map_int_hf_chainfree",
+  "name": "Chain Free — The Letting Office",
+  "parent_zone": "zone_district_900_914"
+}

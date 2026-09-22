@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_longlease_hall",
+  "id": "map_int_hf_longlease",
+  "name": "Long Lease",
+  "parent_zone_id": "zone_district_892_914"
+}

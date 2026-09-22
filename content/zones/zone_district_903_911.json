@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#0d151e",
+  "color": "#cae4ff",
+  "description": "Six sides of tinted glass drawn out to an actual point, with a chrome fin up each corner and nothing on top at all — no plant, no mast, no deck. It is the only tall thing in Coldwater that ends rather than stopping. From the lane it reads as a crystal somebody has pushed into the meadow; from four streets away, at dusk, it reads as the one thing on the skyline that has been designed all the way to the end.",
   "exits": {
-    "east": "zone_district_904_911",
-    "north": "zone_district_903_910",
-    "south": "zone_district_903_912",
+    "east": "zone_hf_overlooked_lobby",
     "west": "zone_district_902_911"
   },
   "flags": {
+    "building_name": "Overlooked",
+    "building_type": "glass_prism",
     "district": "halcyon_fields",
+    "entrance": "west",
+    "facade": true,
+    "floors": 18,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_902_911"
   },
   "grid_x": 903,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_903_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "OV",
+  "name": "Overlooked",
   "parent_zone": null
 }

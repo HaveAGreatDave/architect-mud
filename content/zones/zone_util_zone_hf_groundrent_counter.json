@@ -1,0 +1,18 @@
+{
+  "description": "Under the back office: shelving, boxes by year, and the original contract documents for the whole estate in the far corner under a dust sheet. It is the only room in Halcyon Fields where a complete and honest account of the place exists, and nobody has been down here in fourteen months.",
+  "exits": {
+    "up": "zone_hf_groundrent_counter"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_groundrent_counter",
+  "map_id": "map_int_hf_groundrent",
+  "name": "Ground Rent — The Records Basement",
+  "parent_zone": "zone_district_901_915"
+}

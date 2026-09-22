@@ -96,6 +96,31 @@ const ROLL_LIM = Math.PI; // all the way over, both ways: a dutch angle has no n
 // The camera may go under the road — briefly, and on purpose, because a low shot looking up at a
 // rig is worth having and the ground is not solid to a camera. What it may not do is fall forever.
 const Z_MIN = -0.6, Z_MAX = 40;
+// ── STANDING UP ──────────────────────────────────────────────────────────────
+//
+// The same camera with its feet on something. A flying camera and a standing one are not two
+// cameras: they are one camera under two constraints, so this is a MODE rather than a second file —
+// the mouse, the rim push, the lens, the speed ladder, the idle fade and the key routing are all
+// exactly the ones above, and what changes is three things about where the eye may be.
+//
+//   · FORWARD IS ALONG THE GROUND, NOT ALONG THE LENS. This is the whole difference between a
+//     camera and a person, and it is the one everybody means by "FPS controls": flying, W carries
+//     the pitch, so looking up and pressing W takes off. Standing, you look up at the sky and walk
+//     forward, which is what a body does.
+//   · THE EYE HEIGHT IS NOT YOURS TO SET. It is handed in and can be re-handed every frame (see
+//     `setEye`), which is what lets a deck that is riding a swell carry the shot with it. R/F and
+//     the two mouse buttons are then inert BY ARITHMETIC rather than by a guard: every one of them
+//     spends its motion through the same chokepoint, and the chokepoint overwrites z.
+//   · AND THERE IS A LEASH. `stand` is a place, so a camera that could be walked off it would not
+//     be standing anywhere — it would be a flying camera that started low. The radius is a circle
+//     about the spot you were put down on; WASD still moves you inside it, which is what keeps this
+//     a first-person view rather than a fixed frame with a mouse bolted to it.
+//
+// ⚠ THE ORBIT AND THE ROLL ARE REFUSED, and they are refused for two different reasons. The orbit
+// MOVES THE EYE — that is what an orbit is — so it would walk straight through the leash; and the
+// roll is a dutch angle, which is a thing a camera does and not a thing a head does.
+const STAND_LEASH = 0.55;   // tiles — about a deck's width; the default when a vantage names none
+const STAND_EYE = 0.12;     // tiles — a standing eye, the cab's own 0.139 taken down to a person
 // ── THE LENS ─────────────────────────────────────────────────────────────────
 // A multiplier on the focal length, spent as the renderer's own `fovMul` — 1 is the seat's field of
 // view, above it a longer lens, below it a wider one. It is the OTHER half of the wheel, and the
@@ -142,8 +167,28 @@ const BTNS = new Set(['up', 'down', 'orbit']);
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 export function createFreeCam() {
-  const st = { on: false, x: 0, y: 0, z: 0.45, yaw: 0, pitch: 0, roll: 0, fov: 1, speed: 1, px: 0, py: 0, keys: new Set(), btn: new Set(), notify: null, hold: true, holdNotify: null };
+  const st = { on: false, x: 0, y: 0, z: 0.45, yaw: 0, pitch: 0, roll: 0, fov: 1, speed: 1, px: 0, py: 0, keys: new Set(), btn: new Set(), notify: null, hold: true, holdNotify: null,
+    // The standing constraints. `stand` off is the flying camera that always shipped, and every
+    // expression below that reads these is written so that `stand: false` is the line it was.
+    stand: false, eye: STAND_EYE, leash: 0, ax: 0, ay: 0 };
   const held = (k) => st.keys.has(k);
+
+  // ── ONE PLACE WHERE THE EYE IS PUT SOMEWHERE ────────────────────────────────
+  // Every control that moves the camera ends here — WASD, the dolly, the orbit, the buttons — which
+  // is what makes the standing constraints a property of the camera rather than a rule five callers
+  // have to remember. Flying, it is the height clamp that was already on every one of them.
+  const place = (x, y, z) => {
+    if (st.stand) {
+      // The leash, as a circle about the spot this camera was stood on. Clamped rather than
+      // refused: walking into it should feel like the end of the deck, not like the controls
+      // having stopped working.
+      const dx = x - st.ax, dy = y - st.ay, d = Math.hypot(dx, dy);
+      if (st.leash > 0 && d > st.leash) { const k = st.leash / d; x = st.ax + dx * k; y = st.ay + dy * k; }
+      st.x = x; st.y = y; st.z = st.eye;
+      return;
+    }
+    st.x = x; st.y = y; st.z = clamp(z, Z_MIN, Z_MAX);
+  };
 
   // ── ONE PLACE WHERE A PIXEL BECOMES AN ANGLE ────────────────────────────────
   // Both the mouse and the rim push spend their travel here, which is what keeps them one control
@@ -195,9 +240,16 @@ export function createFreeCam() {
       st.hold = true;
       st.yaw = seed.yaw != null ? seed.yaw : 0;
       st.pitch = seed.pitch != null ? seed.pitch : 0;
-      st.z = seed.z != null ? seed.z : 0.45;
-      st.x = seed.x || 0; st.y = seed.y || 0;
       st.roll = 0;
+      // ⚠ THE CONSTRAINTS BEFORE THE POSITION, because `place` reads them. Seeded the other way
+      // round the first frame is spent at an unleashed height and the shot drops into itself.
+      st.stand = !!seed.stand;
+      st.eye = seed.eye != null ? seed.eye : STAND_EYE;
+      st.leash = st.stand ? (seed.leash != null ? seed.leash : STAND_LEASH) : 0;
+      // The anchor the leash is measured from IS where the camera was put down, which is what makes
+      // `stand` mean "here" rather than "within half a tile of the middle of this tile".
+      st.ax = seed.x || 0; st.ay = seed.y || 0;
+      place(seed.x || 0, seed.y || 0, seed.z != null ? seed.z : 0.45);
       // The lens comes back to the seat's own, for the reason the roll does: the shot you were
       // handed is the one the panel can honestly describe, and it cannot describe a zoom it has
       // never had. Opening on last session's 3x would read as the camera arriving broken.
@@ -310,7 +362,10 @@ export function createFreeCam() {
     // new position rather than carried, which is also what makes the gesture reversible: drag back
     // the same distance and the shot is the one you had.
     orbit(dx, dy) {
-      if (!st.on) return false;
+      // ⚠ AN ORBIT MOVES THE EYE — that is the whole of what an orbit is — so a standing camera
+      // has no answer to it that is not "walk off the deck". Refused at the top rather than run
+      // and then clawed back by the leash, which would grind the shot against the tether.
+      if (!st.on || st.stand) return false;
       let ex = st.x, ey = st.y, ez = st.z - ORBIT_PIVOT_Z;
       let D = Math.hypot(ex, ey, ez);
       if (D < ORBIT_MIN) {
@@ -356,8 +411,13 @@ export function createFreeCam() {
     // shot. They are spent in `step` beside R and F rather than here, so the speed modifiers, the
     // frame clock and the height clamp are the ones the keyboard already goes through: two ways to
     // raise the camera, one thing that raises it.
+    // ⚠ AND A STANDING CAMERA NEVER TAKES THE ORBIT BUTTON, WHICH IS NOT THE SAME AS `orbit()`
+    // REFUSING IT. The binder reads `cam.orbiting` to decide whether a drag aims or swings, so a
+    // held middle button that got as far as the set would send every delta to an `orbit` that says
+    // no — and the mouse would simply stop looking for as long as the button was down.
     setButton(name, down) {
       if (!st.on || !BTNS.has(name)) return false;
+      if (st.stand && name === 'orbit') return false;
       if (down) st.btn.add(name); else st.btn.delete(name);
       return true;
     },
@@ -389,9 +449,10 @@ export function createFreeCam() {
     dolly(dir) {
       if (!st.on) return false;
       const s = Math.sin(st.yaw * DEG), c = Math.cos(st.yaw * DEG);
-      const cp = Math.cos(st.pitch), d = (dir < 0 ? 1 : -1) * 0.55;
-      st.x += d * s * cp; st.y += d * -c * cp; st.z += d * Math.sin(st.pitch);
-      st.z = clamp(st.z, Z_MIN, Z_MAX);
+      // Standing, a step is along the GROUND — the same sentence W is written in below, and for the
+      // same reason: a dolly is a walk here, and walking while looking up is not climbing.
+      const cp = st.stand ? 1 : Math.cos(st.pitch), d = (dir < 0 ? 1 : -1) * 0.55;
+      place(st.x + d * s * cp, st.y + d * -c * cp, st.z + d * (st.stand ? 0 : Math.sin(st.pitch)));
       return true;
     },
 
@@ -412,8 +473,12 @@ export function createFreeCam() {
       // thing you are composing is a photograph. Unbounded both ways: a dutch angle has no natural
       // stopping point and there is nothing to protect, since the world is drawn through one canvas
       // rotate either way (see bankRad).
-      if (held('z')) st.roll = Math.max(-ROLL_LIM, st.roll - ROLL_RATE * DEG * d);
-      if (held('x')) st.roll = Math.min(ROLL_LIM, st.roll + ROLL_RATE * DEG * d);
+      // ⚠ AND NOT WHILE STANDING. A dutch angle is a thing a camera does; a head does not do it,
+      // and a tilted horizon out of a telescope reads as the ship capsizing rather than as a shot.
+      if (!st.stand) {
+        if (held('z')) st.roll = Math.max(-ROLL_LIM, st.roll - ROLL_RATE * DEG * d);
+        if (held('x')) st.roll = Math.min(ROLL_LIM, st.roll + ROLL_RATE * DEG * d);
+      }
       // THE RIM, spent as the pixels the hand would have gone on travelling if the desk had not run
       // out. See EDGE_PX — it goes through `aim`, so it wraps the yaw and stops at PITCH_LIM on the
       // way in exactly as the mouse does, and the arrows above cannot disagree with it.
@@ -428,11 +493,15 @@ export function createFreeCam() {
       // screen" there cannot drift apart. Forward carries the pitch, because a camera you can only
       // fly horizontally is one you have to fight to get up over a trailer.
       const s = Math.sin(st.yaw * DEG), c = Math.cos(st.yaw * DEG);
-      const cp = Math.cos(st.pitch), sp2 = Math.sin(st.pitch);
+      // ⚠ STANDING, FORWARD DROPS THE PITCH TERM, AND THAT IS THE WHOLE OF "FPS CONTROLS". Flying,
+      // `cp`/`sp2` carry the lens into the movement, so looking up and pressing W takes off. On
+      // your feet you look up at the sky and walk forward — one cosine, and it is the difference
+      // between a camera you are flying and a person you are being. See STAND_LEASH.
+      const cp = st.stand ? 1 : Math.cos(st.pitch), sp2 = st.stand ? 0 : Math.sin(st.pitch);
       const go = (fwd, right, up) => {
-        st.x += fwd * s * cp + right * c;
-        st.y += fwd * -c * cp + right * s;
-        st.z += fwd * sp2 + up;
+        place(st.x + fwd * s * cp + right * c,
+              st.y + fwd * -c * cp + right * s,
+              st.z + fwd * sp2 + up);
       };
       if (held('w')) go(sp, 0, 0);
       if (held('s')) go(-sp, 0, 0);
@@ -440,14 +509,78 @@ export function createFreeCam() {
       if (held('a')) go(0, -sp, 0);
       // Up and down, from the keyboard or from the two mouse buttons the freelook left free. Both
       // held at once cancels, which is the arithmetic doing the right thing rather than a rule.
+      // ⚠ STILL CALLED WHILE STANDING, AND INERT BY ARITHMETIC. `place` overwrites z with the eye
+      // height, so these two cost a clamp and change nothing — which is a much safer way to say
+      // "you cannot fly" than a guard here that the next control to be added would have to repeat.
       if (held('r') || st.btn.has('up')) go(0, 0, sp);
       if (held('f') || st.btn.has('down')) go(0, 0, -sp);
-      st.z = clamp(st.z, Z_MIN, Z_MAX);
     },
 
     // The shape `paintWindshield` reads as `v.freeCam`. x/y are a world-tile offset from the
     // vehicle, z an absolute eye height, yaw degrees, pitch radians, fov a focal-length multiplier.
     view() { return st.on ? { x: st.x, y: st.y, z: st.z, yaw: st.yaw, pitch: st.pitch, roll: st.roll, fov: st.fov } : null; },
+
+    // ⚠ THE ORIGIN MOVED, AND THE CAMERA DID NOT. `x`/`y` are an offset from whatever the renderer
+    // is using as the centre of its world window, so a caller that re-centres that window has moved
+    // the origin out from under this camera: leave the offset alone and the shot jumps by the whole
+    // re-centre. This is the correction, and it is deliberately the ONLY thing it touches — not the
+    // yaw, not the height, not the lens, not the speed ladder — because the whole claim being made
+    // is that the picture does not change.
+    //
+    // ⚠ IT IS NOT THE VERB FOR "PUT THE CAMERA OVER THERE". That is a re-open with a new centre and
+    // no rebase, which is what `freelook <x> <y>` already does and is correct: somebody naming a
+    // tile wants the world to move and the shot to hold.
+    // ⚠ AND THE ANCHOR GOES WITH IT. The leash is a circle about a place in the world, so an origin
+    // that moved under the camera moved it under the tether too — leave the anchor behind and the
+    // whole re-centre is spent walking the shot to the edge of a leash that is now somewhere else.
+    rebase(dx, dy) { if (!st.on) return false; st.x += dx || 0; st.y += dy || 0; st.ax += dx || 0; st.ay += dy || 0; return true; },
+
+    // ── THE GROUND UNDER A STANDING CAMERA CAN MOVE ───────────────────────────
+    // The eye height is handed in rather than flown to, so whatever put this camera down owns it
+    // and may go on owning it: a deck on a swell is a floor whose height is a function of the
+    // clock, and this is how that reaches the shot. A no-op flying, where z is the camera's own.
+    setEye(z) { if (!st.on || !st.stand || !Number.isFinite(z)) return false; st.eye = z; st.z = z; return true; },
+
+    // ── PUTTING YOUR FEET DOWN WITHOUT LOSING THE SHOT ──────────────────────
+    //
+    // `open(seed)` can already start a camera standing, and it is the wrong verb for a TOGGLE: it
+    // resets the yaw, the pitch, the lens and the speed ladder on purpose, because the shot a panel
+    // hands over at open time is the only one it can honestly describe. Re-opening to change one
+    // constraint would throw away the frame the player had just lined up, which is exactly the
+    // thing they pressed the button to keep.
+    //
+    // ⚠ THE CONSTRAINTS BEFORE THE POSITION, `open`'s own rule and for its own reason: `place`
+    // reads `eye` and `leash`, so setting them after it spends the first frame at an unleashed
+    // height and the shot drops into itself.
+    //
+    // ⚠ AND THE ANCHOR IS WHERE YOU ARE STANDING, NOT WHERE YOU WERE PUT DOWN. The leash is a
+    // circle about a spot, and the spot a toggle means is the one under your feet now — carried
+    // over from the open, a camera that flew half the basin and then stood up would be snapped
+    // back to the tile it launched from.
+    //
+    // ⚠ PITCH SURVIVES, WHICH IS NOT AN OVERSIGHT. Standing drops the pitch term from FORWARD (you
+    // look up at the sky and walk on the level) and keeps it in the LOOK, so a shot composed
+    // looking down at a street is still that shot with its feet on the ground.
+    setStand(on, opts = {}) {
+      if (!st.on) return false;
+      const want = !!on;
+      if (want === st.stand) return st.stand;
+      st.stand = want;
+      if (want) {
+        st.eye = Number.isFinite(opts.eye) ? opts.eye : STAND_EYE;
+        st.leash = Number.isFinite(opts.leash) ? opts.leash : STAND_LEASH;
+        st.ax = st.x; st.ay = st.y;
+      } else {
+        st.leash = 0;
+      }
+      // Standing, this overwrites z with the eye and applies the leash; flying, it is the identity
+      // on a camera that has not moved. Either way it is the one chokepoint that owns where the
+      // eye may be, which is what keeps the next control anybody adds honest.
+      place(st.x, st.y, st.z);
+      return st.stand;
+    },
+    get standing() { return st.stand; },
+    get leash() { return st.leash; },
     // Not part of `view` — the renderer has no use for it and would be the wrong reader anyway. It
     // is here because the harness has to be able to ask, and a second copy of the ladder there would
     // be a second opinion about where the stops are.
@@ -457,7 +590,12 @@ export function createFreeCam() {
 
 // The one line of chrome all three panels show while it is on. Kept here so the wording is the same
 // in a cab, a cockpit and a wheelhouse — three copies of a hint is three things to update.
-export const FREECAM_HINT = 'FREE CAM · mouse looks, screen edge keeps turning · MMB orbit · LMB/RMB or R/F up-down · WASD move · [ ] speed · Q/E turn · Z/X roll · wheel zoom · SHIFT+wheel dolly · SHIFT fast · U free mouse · O exit';
+export const FREECAM_HINT = 'FREE CAM · mouse looks, view edge keeps turning · MMB orbit · LMB/RMB or R/F up-down · WASD move · [ ] speed · Q/E turn · Z/X roll · wheel zoom · SHIFT+wheel dolly · SHIFT fast · U free mouse · O exit';
+// The standing camera's line, and it is a DIFFERENT SENTENCE rather than the one above with three
+// clauses struck out. Half of what that one advertises does not exist here — there is no orbit, no
+// roll and no up-down — and a hint that names a control which does nothing is worse than no hint,
+// because the player spends the first minute deciding whether the camera is broken.
+export const FREECAM_STAND_HINT = 'mouse looks, view edge keeps turning · WASD steps · wheel zooms · Q/E turn · SHIFT quick · U free mouse · O steps back';
 
 // ── AND THEN THE SCREEN CLEARS ITSELF ────────────────────────────────────────
 //
@@ -627,9 +765,19 @@ export function bindFreeCamPointer(el, cam) {
   // The binder's half of the rim turn: the cam owns the frame clock and spends this, and this end
   // owns the element and so is the only one that can measure it. See EDGE_MARGIN.
   //
-  // ⚠ IT SATURATES OUTSIDE THE GLASS RATHER THAN FALLING OFF IT. A cursor the window has stopped
-  // following is a cursor still being pushed — a clamp of ±1 is the whole of what makes the turn go
-  // on once the desk has genuinely run out, which is the case the feature exists for.
+  // ⚠ IT USED TO SATURATE OUTSIDE THE GLASS, AND THAT IS THE BUG IT ARRIVED WITH. The rule was that
+  // a cursor the window has stopped following is a cursor still being pushed — true of a view that
+  // fills the screen, false of every view that does not. Free look is a panel in a page: the command
+  // box the player typed `freelook` into is a few hundred pixels below this rect, the log is beside
+  // it, and so is the rest of the desk. So the first twitch of the mouse ANYWHERE out there read as
+  // a hand pressed into the rim, and the camera turned at 136°/s until somebody happened to put the
+  // cursor back in the middle of the view — with nothing held, nothing clicked and nothing on screen
+  // to say why. Reported as the camera turning on its own.
+  //
+  // So the rim is the rim OF THE GLASS: on it or not at all, which is what every map-scroll anybody
+  // has ever used already does. Pressed into the last strip the turn is unbounded, which is the
+  // whole feature; off the picture entirely it is not aiming, because a cursor off the picture is a
+  // cursor doing something else.
   //
   // ⚠ AND THE MARGIN CANNOT BE A CONSTANT ON A SMALL VIEW. At 96px on a 200px-wide pane the two rims
   // meet in the middle and there is nowhere left to aim by hand, so it takes a third of the shorter
@@ -637,6 +785,9 @@ export function bindFreeCamPointer(el, cam) {
   const edgePush = (x, y) => {
     const r = el.getBoundingClientRect?.();
     if (!r || !(r.width > 0) || !(r.height > 0)) return;
+    // ⚠ BOTH AXES TOGETHER, never one at a time: the cursor is on the glass or it is not, and a
+    // cursor below the view is not making a sideways gesture in it.
+    if (x < r.left || x > r.right || y < r.top || y > r.bottom) { cam.setLookPush?.(0, 0); return; }
     const m = Math.min(EDGE_MARGIN, r.width / 3, r.height / 3);
     const f = (v, lo, hi) => (v < lo + m ? (v - (lo + m)) / m : v > hi - m ? (v - (hi - m)) / m : 0);
     cam.setLookPush?.(f(x, r.left, r.right), f(y, r.top, r.bottom));

@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The top four storeys are one unit and this is the bottom of it: a single volume with no internal walls whatever, tapering, so the six faces come in over your head and the room gets smaller the further up you look until it ends in a point about forty feet above the floor. Screed floor, exposed services, and a ring of tape on the slab marking out a stair that was never built. There is no light fitting except the one temporary one. Sound in here does something you can hear yourself doing.",
+  "exits": {
+    "down": "zone_hf_glassceiling_lobby"
+  },
+  "flags": {
+    "building_name": "Glass Ceiling",
+    "building_type": "glass_prism",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "All six of them, from the floor to the apex, which means the view includes the sky at the top of every single wall. On a clear morning the whole Basin is in here and there is nothing in the room to look at it from.",
+      "light": 0.95,
+      "name": "the six faces",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_904_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_glassceiling_apex",
+  "map_id": "map_int_hf_glassceiling",
+  "name": "Glass Ceiling — The Apex Floor",
+  "parent_zone": "zone_district_904_911"
+}

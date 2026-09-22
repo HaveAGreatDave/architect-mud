@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_safe_corridor",
+  "id": "zone_util_zone_hf_safe_corridor",
+  "name": "Safe as Houses — The Sub-Basement",
+  "source_type": "junction_box"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_marina_lobby",
+  "b": "zone_consv_hall",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_marina_lobby_east",
+  "lockable": false,
+  "one_way": false
+}

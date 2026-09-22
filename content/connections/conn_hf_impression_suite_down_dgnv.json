@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_impression_suite",
+  "b": "zone_util_zone_hf_impression_suite",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_impression_suite_down_dgnv",
+  "lockable": false,
+  "one_way": false
+}

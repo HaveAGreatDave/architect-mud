@@ -31,6 +31,8 @@ import { routeOptions } from './routes.js';
 import { damageOf, overall, wearSplit, impactSplit, grindSplit, IMPACT_AREAS, partEffects, applyDamage, PARTS } from './damage.js';
 import { accrueGrime, grimeBand, washCost, WASH_FULL } from './filth.js';
 import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitSuffix, fitByCode, priceFor } from './fittings.js';
+import { TRINKETS, TRINKET_IDS, CAB_SLOTS, MOUNTS, installedTrinkets, trinketPrice, wheelStyle,
+  trinketState, stepTrinket, trinketFreq } from '../../client/shared/cab-trinkets.js';
 import { truckLivery } from '../../client/shared/truck-livery.js';
 import { isTerminal, TERMINAL_CONDITION } from './rig.js';   // breakChance is already imported below
 import { displayRung, setDisplayRung, DISPLAY_MODE_FLAG } from '../../server/engine/presentation.js';
@@ -1986,6 +1988,39 @@ export default async function regress({ run, check, getPlayer }) {
       check('…and carries a fine proportional to the overload', heavy && heavy.fine > 0, heavy?.fine);
       clearCustoms(player.id);
 
+      // ── WHERE A SEIZED RIG IS ACTUALLY PUT ───────────────────────────────
+      // `impound` wrote the INSPECTION'S OWN TILE into `depot_zone`, which parks a forty-tonne
+      // truck on the weighbridge it was caught on — the one piece of ground at any station that has
+      // to stay clear for the next one. Content names a lot instead. Both cases below are about the
+      // hand-off rather than about the tow: the fee and the UPDATE are the same two lines either
+      // way, and what changes is the address they carry.
+      //
+      // ⚠ THE FALLBACK IS THE CASE THAT MATTERS MOST. Every station in the world that has not
+      // authored a pound must behave exactly as it always did, or this is a migration rather than
+      // an addition.
+      {
+        box.cargo = { kind: 'goods', key: 'scrap', name: 'scrap', kg: 2000, qty: 20 };
+        box.stash = [{ itemId: 'x', name: 'a crate', kg: 2800 }];
+        const plain = await runScale(player, rig, zone);
+        check('a station with no pound authored holds a rig at its own tile',
+          plain && plain.pound === null, plain && `pound=${plain.pound}`);
+        clearCustoms(player.id);
+
+        const POUND = 'zone_regress_pound';
+        world.zones.set(S, mkZone(S, 'Test Scale', { map_id: 'map_world', grid_x: 3200, grid_y: 3200,
+          flags: { weigh_station: { name: 'the test scale', pound: POUND } } }));
+        box.stash = [{ itemId: 'x', name: 'a crate', kg: 2800 }];
+        const lot = await runScale(player, rig, world.zones.get(S));
+        check('…and one that names a lot sends it there instead',
+          lot && lot.pound === POUND, lot && `pound=${lot.pound}`);
+        // The plates are not the pound. Stated as its own claim because the two fields travelling
+        // together on one object is exactly how they would drift back into being one field.
+        check('…without the weighbridge tile stopping being the weighbridge tile',
+          lot && lot.zoneId === S && lot.zoneId !== lot.pound);
+        clearCustoms(player.id);
+        world.zones.delete(POUND);
+      }
+
       // The tolerance exists so the system is a decision rather than a tax.
       box.cargo = { kind: 'goods', key: 'scrap', name: 'scrap', kg: 2000, qty: 20 };
       box.stash = [{ itemId: 'x', name: 'a parcel', kg: 40 }];
@@ -2069,7 +2104,11 @@ export default async function regress({ run, check, getPlayer }) {
           if (isCarriageway(c)) paved.add(x + ',' + y);
           const k = c.flags?.scale_plaza?.k;
           if (k) kinds.set(k, (kinds.get(k) || 0) + 1);
-          if (c.flags?.building_type === 'garage' && c.name?.includes('office')) kinds.set('booth', (kinds.get('booth') || 0) + 1);
+          // ⚠ 'weigh_station', NOT 'garage'. The office used to borrow the garage silhouette because
+          // there was nothing else to wear; the station inside the South Gate has a real one now, and
+          // a plaza office is the SAME institution out in the waste — so it is the same building type,
+          // the same map icon and the same drawTypeModel arm.
+          if (c.flags?.building_type === 'weigh_station' && c.name?.includes('office')) kinds.set('booth', (kinds.get('booth') || 0) + 1);
         }
       }
       const seed = paved.values().next().value;
@@ -2146,7 +2185,7 @@ export default async function regress({ run, check, getPlayer }) {
         Number.isFinite(win[2][2].plz?.deg));
       const owin = mapWindow({ grid_x: P.t.booth[0], grid_y: P.t.booth[1] }, 2, corridorProvider(r));
       check('the office is a BUILDING and carries no mark — a mark would delete its walls',
-        owin[2][2].bt === 'garage' && !owin[2][2].mark, JSON.stringify([owin[2][2].bt, owin[2][2].mark]));
+        owin[2][2].bt === 'weigh_station' && !owin[2][2].mark, JSON.stringify([owin[2][2].bt, owin[2][2].mark]));
 
       // ⚠ 8. THE DECISION. Split out of the law precisely so it can be asked without charging
       // anybody: four facts settle it and none of them is a side effect.
@@ -2678,6 +2717,18 @@ export default async function regress({ run, check, getPlayer }) {
     check('every shipped depot sells diesel, so a tight tank pressures rather than strands',
       realDepots.length >= 3 && realDepots.every(d => d.flags?.truck_fuel || d.flags?.building_type === 'fuel_yard'),
       realDepots.map(d => `${d.flags?.truck_depot?.name}:${!!d.flags?.truck_fuel}`).join(' '));
+
+    // ⚠ AND A POUND IS DELIBERATELY NOT ON THAT LIST. It carries `truck_depot` because `drive`
+    // refuses on `!depot` before it ever looks up who owns what, so without the flag you walk into
+    // the lot your own rig is standing in and are told there is nothing to drive here. But this
+    // list is the FREIGHT roster — boards, the contract generator, the text driver's default
+    // target, the crossing — and a compound you cannot leave without paying a fine is not a place
+    // work goes to. The rule above is what made it visible: a police lot would have had to run a
+    // public diesel pump to satisfy it.
+    check('a pound is a depot for getting your truck back and not for hauling',
+      realDepots.every(d => !d.flags?.impound_pound), realDepots.filter(d => d.flags?.impound_pound).map(d => d.id).join(','));
+    check('…and it is still a depot to the thing that has to find your truck in it',
+      [...world.zones.values()].some(z => z.flags?.impound_pound && z.flags?.truck_depot));
 
     // (Kessler Street, one tile east — not an apron, not a bay.)
     check('a non-depot street says nothing about trucks',
@@ -3436,6 +3487,117 @@ export default async function regress({ run, check, getPlayer }) {
       priceFor({ owned_fits: ['skull'] }, 'skull') === 0 && priceFor({}, 'skull') === FITTINGS.skull.price);
   }
 
+  // ── 4c. The inside of the cab ──────────────────────────────────────────────
+  // The trinkets a driver hangs, stands and bolts in here (client/shared/cab-trinkets.js). Two
+  // halves: the shelf, which is fittings.js's rules restated for a second catalogue, and the
+  // PHYSICS, which is the half no other gate in this repo can see. `drawCabInterior` needs a canvas
+  // and the integrator needs nothing at all, so this is the only place the swing can be checked.
+  {
+    // ⚠ THE ONE RULE THE TWO CATALOGUES SHARE AND MUST NEVER BREAK: nothing interior may reach the
+    // wire. `fitSuffix` reads `fits` and the trinkets live on `cab`, and this is the case that
+    // fails the day somebody merges them — at which point every pilot in the basin is being sent
+    // the inside of everybody's cab, four times a second, permanently, and nothing would say so.
+    check('nothing in the cab reaches the mesh variant',
+      fitSuffix({ cab: TRINKET_IDS, fits: ['rampl'] }) === fitSuffix({ fits: ['rampl'] }));
+    check('…and a truck with nothing but trinkets adds nothing to the wire',
+      fitSuffix({ cab: ['dice', 'reaper', 'skullwheel'] }) === '');
+
+    // A PLACE IS A LEGAL ARGUMENT TO `rig cab`, so nothing may be NAMED after one — and `off` is
+    // the remove keyword, so an item called that would be unbuyable. Same collision `rig fit`
+    // records, plus one this shelf has that the other does not.
+    const words = new Set(CAB_SLOTS.flatMap((s2) => [s2.id, s2.label.toLowerCase()]).concat(['all', 'off']));
+    const clash2 = TRINKET_IDS.filter((id) => words.has(id) || words.has(TRINKETS[id].name.toLowerCase()));
+    check('no trinket is named after a place or after `off`', clash2.length === 0, clash2.join(' '));
+
+    // ONE PER PLACE, enforced on READ — a hand-edited bag or a trinket that changes place in a
+    // later build would otherwise put two heads on one dash.
+    const two = installedTrinkets({ cab: ['dice', 'beads', 'reaper'] });
+    check('two things for one place resolve to one, first mention winning',
+      two.length === 2 && two.includes('dice') && !two.includes('beads'));
+    check('a junk id in the bag hangs nothing rather than crashing the cab',
+      installedTrinkets({ cab: ['nonesuch', 'dice'] }).join() === 'dice');
+    check('a thing you already own costs nothing to put back',
+      trinketPrice({ owned_cab: ['dice'] }, 'dice') === 0 && trinketPrice({}, 'dice') === TRINKETS.dice.price);
+
+    // EVERY TRINKET IS DRAWABLE. The renderer switches on `kind` for the two mounted slots and on
+    // `rim`/`boss` for the wheel, so a catalogue row missing one is money taken for nothing drawn —
+    // silent in every other way, exactly like the fittings case above.
+    const noKind = TRINKET_IDS.filter((id) => TRINKETS[id].slot !== 'wheel' && !TRINKETS[id].kind);
+    check('everything that hangs or stands says what it looks like', noKind.length === 0, noKind.join(' '));
+    const noMount = TRINKET_IDS.filter((id) => TRINKETS[id].slot !== 'wheel' && !MOUNTS[TRINKETS[id].mount]);
+    check('…and every one of them names a mount that exists', noMount.length === 0, noMount.join(' '));
+    const badWheel = TRINKET_IDS.filter((id) => TRINKETS[id].slot === 'wheel'
+      && !(TRINKETS[id].pal && TRINKETS[id].pal.rimAlt && TRINKETS[id].rim && TRINKETS[id].boss));
+    check('every wheel carries a rim, a boss and a full palette', badWheel.length === 0, badWheel.join(' '));
+    check('the wheel lookup finds the wheel and ignores everything else',
+      wheelStyle(['dice', 'skullwheel', 'reaper'])?.id === 'skullwheel' && wheelStyle(['dice']) === null);
+
+    // ── THE SWING ────────────────────────────────────────────────────────────
+    // A helper that runs the integrator for `secs` at 60fps under a constant g and hands back the
+    // angle. Everything below is a claim about what a driver would see out of one bend.
+    const run = (mount, mass, lat, lon, secs, st) => {
+      const s2 = st || trinketState();
+      for (let i = 0; i < Math.round(secs * 60); i++) stepTrinket(s2, mount, mass, lat, lon, 1 / 60);
+      return s2;
+    };
+
+    // A STANDING TRUCK HANGS STRAIGHT DOWN. Nothing should move without an input, which is also
+    // what makes a cab render deterministic for the shape gates.
+    const still = run('swing', 1, 0, 0, 3);
+    check('nothing swings in a truck that is standing still',
+      Math.abs(still.x.a) < 1e-9 && Math.abs(still.y.a) < 1e-9);
+
+    // ⚠ IT DEFLECTS AGAINST THE ACCELERATION. Turn right (positive lateral) and the dice go LEFT,
+    // because they are being left behind. Getting this backwards is the one error that reads as the
+    // cab being driven by somebody else, and it is not something a screenshot settles.
+    const right = run('swing', 1, 0.3, 0, 2);
+    check('a pendant swings away from the corner, not into it', right.x.a < -0.05, String(right.x.a));
+    const nose = run('bobble', 1, 0, -0.4, 0.4);
+    check('a head on a spring is thrown forward under the brakes', nose.y.a > 0.02, String(nose.y.a));
+
+    // A PENDANT HANGS OUT AT THE ANGLE OF THE BEND AND A HEAD BARELY LEANS. Not that one returns to
+    // upright and the other doesn't — see the ⚠ on MOUNTS, both settle somewhere under a sustained
+    // g — but that the pendant settles at the true apparent-gravity angle while the stiff spring
+    // holds a fraction of it. Collapse that and both slots are one object with two skins.
+    const heldSwing = run('swing', 1, 0.3, 0, 10);
+    const heldBob = run('bobble', 1, 0.3, 0, 10);
+    check('a pendant hangs at the bend’s own angle', Math.abs(heldSwing.x.a + 0.3) < 0.02, String(heldSwing.x.a));
+    check('…and a bobblehead leans a fraction of that in the same bend',
+      Math.abs(heldBob.x.a) < Math.abs(heldSwing.x.a) * 0.5, `${heldBob.x.a} vs ${heldSwing.x.a}`);
+
+    // A BOBBLEHEAD OVERSHOOTS, WHICH IS THE ENTIRE CHARM OF THE OBJECT. Under-damp it and you have
+    // a paperweight; this is the case that would catch somebody 'fixing' the ringing.
+    let peak = 0, ends = 0;
+    {
+      const s2 = trinketState();
+      for (let i = 0; i < 90; i++) { stepTrinket(s2, 'bobble', 1, 0, -0.5, 1 / 60); peak = Math.max(peak, Math.abs(s2.y.a)); }
+      for (let i = 0; i < 240; i++) { stepTrinket(s2, 'bobble', 1, 0, 0, 1 / 60); ends = Math.abs(s2.y.a); }
+    }
+    check('a head on a spring rings rather than creeping to a stop', peak > 0.02 && ends < peak * 0.35,
+      `${peak} -> ${ends}`);
+
+    // MASS CHANGES THE FREQUENCY AND NOT THE ANGLE — the ⚠ on trinketFreq. Scale the amplitude by it
+    // instead and the heavy things read as glued down.
+    check('a heavy pendant swings slower than a light one',
+      trinketFreq('swing', 1.45) < trinketFreq('swing', 0.55));
+    const heavy = run('swing', 1.45, 0.3, 0, 12), light = run('swing', 0.55, 0.3, 0, 12);
+    check('…and both end up hanging at the same angle',
+      Math.abs(heavy.x.a - light.x.a) < 0.02, `${heavy.x.a} vs ${light.x.a}`);
+
+    // ⚠ A LONG dt MUST NOT WIND IT UP. This is the case semi-implicit integration exists for: a tab
+    // that was in the background, or a machine dropping frames, hands the integrator a dt an
+    // explicit step would gain energy on — and a bobblehead tuned at 60fps would then spin on a slow
+    // machine, which is invisible to anybody testing on a fast one.
+    {
+      const s2 = trinketState();
+      for (let i = 0; i < 200; i++) stepTrinket(s2, 'bobble', 1, 0.6, 0.6, 1.0);
+      check('a starved frame rate cannot make a bobblehead spin',
+        Number.isFinite(s2.x.a) && Math.abs(s2.x.a) < 3 && Math.abs(s2.y.a) < 3, `${s2.x.a} ${s2.y.a}`);
+    }
+    check('a zero dt leaves everything exactly where it was',
+      stepTrinket(run('swing', 1, 0.3, 0, 1), 'swing', 1, 0.9, 0.9, 0).x.a === run('swing', 1, 0.3, 0, 1).x.a);
+  }
+
   // ── 5. The whole haul, end to end, through the real verbs ──────────────────
   // Depot → city street → off the rim → the crossing → the far region. A synthetic depot that is
   // ALSO a rim tile (so the city leg is one tile long and the case stays fast), a real
@@ -3602,6 +3764,62 @@ export default async function regress({ run, check, getPlayer }) {
         pA?.base === '#101820' && pB?.base === '#e0d8c0', `${pA?.base} vs ${pB?.base}`);
       check('…right down to the flash, which is the half nobody looks at',
         pA?.flash === 'flame' && pB?.flash === 'scallop', `${pA?.flash} vs ${pB?.flash}`);
+      {
+        // ── AND THE INSIDE OF ONE ──────────────────────────────────────────────
+        // `rig cab` driven through the real dispatcher. Everything in §4c is the catalogue and the
+        // physics, and neither can tell you the subcommand is WIRED — the failure that hides behind a
+        // green §4c is the whole shelf answering with the help line, which reads to a player as the
+        // feature not existing.
+        const before = player.credits;
+        const put = await run(`rig cab ${tA} dice`);
+        check('rig cab is a subcommand and not a typo in the help line',
+          /fuzzy dice/i.test(put?.message || ''), (put?.message || '').slice(0, 70));
+        check('…and it charges for it once', before - player.credits === TRINKETS.dice.price,
+          `${before} → ${player.credits}`);
+        const readCab = async () => {
+          const { rows } = await query(
+            "SELECT id, custom_data->'cab' AS cab, custom_data->'owned_cab' AS owned FROM trucks WHERE owner_id=$1 AND id=ANY($2)",
+            [player.id, [tA, tB]]);
+          return Object.fromEntries(rows.map((r) => [r.id, r]));
+        };
+        let cabRow = await readCab();
+        check('what a driver hangs lands on THAT truck and not the one beside it',
+          JSON.stringify(cabRow[tA]?.cab) === '["dice"]' && !(cabRow[tB]?.cab || []).length,
+          `${JSON.stringify(cabRow[tA]?.cab)} vs ${JSON.stringify(cabRow[tB]?.cab)}`);
+
+        // ONE PER PLACE, through the verb rather than through the reader — the write has to enforce
+        // it too, or the reader is quietly covering for a row that is wrong on disk.
+        await run(`rig cab ${tA} beads`);
+        cabRow = await readCab();
+        check('a second thing on the header replaces the first',
+          JSON.stringify(cabRow[tA]?.cab) === '["beads"]', JSON.stringify(cabRow[tA]?.cab));
+        check('…and the first one is still yours', (cabRow[tA]?.owned || []).includes('dice'),
+          JSON.stringify(cabRow[tA]?.owned));
+
+        // …AND PUTTING IT BACK IS FREE. Rule 5, and the reason anybody experiments at all.
+        const midway = player.credits;
+        await run(`rig cab ${tA} dice`);
+        check('putting something you already own back costs nothing',
+          player.credits === midway, `${midway} → ${player.credits}`);
+
+        // OFF, AND IT STAYS YOURS.
+        const took = await run(`rig cab ${tA} off dice`);
+        cabRow = await readCab();
+        check('rig cab off takes it down', !(cabRow[tA]?.cab || []).length, JSON.stringify(cabRow[tA]?.cab));
+        check('…and says so rather than answering the help line',
+          /fuzzy dice/i.test(took?.message || ''), (took?.message || '').slice(0, 60));
+        check('…and it is still in the drawer', (cabRow[tA]?.owned || []).includes('dice'));
+
+        // ⚠ THE BARE FORM IS A LISTING AND MUST NEVER BE A PURCHASE. `rig cab` with no argument is
+        // what a player types first, and a version that bought the first thing on the shelf would be
+        // taking money for a question.
+        const spent = player.credits;
+        const sheet = await run(`rig cab ${tA}`);
+        check('bare `rig cab` prints the shelf and buys nothing',
+          player.credits === spent && /header/i.test(sheet?.message || ''),
+          (sheet?.message || '').slice(0, 60));
+      }
+
       // And the yard SAYS so — the panel and the log rung both read one list, and a paint that
       // reaches the database and not the screen is a paint nobody bought.
       const twoUp = await run('yard');
@@ -3708,6 +3926,14 @@ export default async function regress({ run, check, getPlayer }) {
         !!cab && 'wxField' in cab, 'wx keys=' + (cab ? Object.keys(cab).filter(k => k.startsWith('wx')).join(',') || 'none' : 'no cab'));
       check('…and the hero event, which outranks the weather word for everything visual',
         !!cab && 'wxEvent' in cab, 'wxEvent=' + JSON.stringify(cab && cab.wxEvent));
+      // ⚠ …AND HOW WET OR SNOWED THE GROUND ALREADY IS. The renderer integrates that itself from
+      // the weather it can see, and used to start every page load at dry-and-bare — so a driver
+      // pulling out ten minutes into a blizzard had clear tarmac while everybody else had snow.
+      // Unlike the two above this one is a real object every time, because it is a reading rather
+      // than a report of what happens to be overhead.
+      check('…and the ground those have already soaked, so a cab that has just opened starts where the world is',
+        !!cab?.wxGround && typeof cab.wxGround.snow === 'number' && typeof cab.wxGround.wet === 'number',
+        'wxGround=' + JSON.stringify(cab && cab.wxGround));
       // THE DOOR ONLY EXISTS IF YOU CAME OUT OF ONE. This suite's yard is a bare road tile
       // carrying the flag — the legacy apron shape, no shed — so the cab must be told there is no
       // roller door to lift. Getting this wrong is two and a half seconds of a player staring at
@@ -3932,6 +4158,26 @@ export default async function regress({ run, check, getPlayer }) {
           check("routes: the cab payload carries them, so the screen and the verb can't disagree",
             !!cab.routes?.dests?.length && cab.routes.dests.length === opts.dests.length,
             JSON.stringify(cab.routes && { n: cab.routes.dests?.length }));
+
+          // ⚠ …AND AN EMP TAKES THEM AWAY. This claim lives HERE rather than with
+          // the rest of the EMP cases at the end of the file, because this is the
+          // only fixture in the suite with a real fork on it: a city rig's
+          // `routeOptions` answers null anyway, so "the dead payload is null" is
+          // vacuous there and passes with the gating deleted. The rows are
+          // demonstrably present one line above, which is what makes their
+          // absence here mean something. Same for `aim`, which is null on a city
+          // leg by construction.
+          const { knockOutTruckElec: koEmp } = await import('./state.js');
+          const wasEmp = rig.empUntil || 0;
+          koEmp(rig, Date.now() + 60_000);
+          const dark = cabContext(rig, {});
+          check('routes: …and a cooked nav head sends none of them',
+            dark.routes === null && dark.aim === null && dark.elecOut === true,
+            JSON.stringify({ routes: dark.routes, aim: dark.aim, elecOut: dark.elecOut }));
+          clearTimeout(rig._empTimer);
+          rig.empUntil = wasEmp;
+          check('routes: …and they are back the moment the boards reboot',
+            cabContext(rig, {}).routes?.dests?.length === opts.dests.length);
         }
       }
 
@@ -5028,4 +5274,89 @@ export default async function regress({ run, check, getPlayer }) {
     check('road test: `roadtest` is declared in the manifest', verbs.includes('roadtest'));
     check('road test: the verbs it teaches are real', ['park', 'yard', 'haul', 'market'].every(v => verbs.includes(v)));
   }
+
+  // ── AN EMP PULSE TAKES THE DASH, NEVER THE DRIVELINE ────────────────────────
+  //
+  // The claim the whole feature rests on is that the engine keeps running and the
+  // two boxes that talk to the outside world do not. Each of these is silent when
+  // wrong: a rig whose GPS still answers looks exactly like a rig that was out of
+  // range, and a radio that still hears is a radio nobody notices is broken.
+  {
+    const { truckElecDead, knockOutTruckElec, crewedRigs, mountRig } = await import('./state.js');
+    const { cbTransmit, cbState } = await import('./cb.js');
+    const player = getPlayer();
+    // ⚠ MOUNT OUR OWN, the way the hijack and CB blocks above do. The crossing
+    // fixture is long gone by here (every later block restores `savedRig`, which
+    // is null, so it deletes) — a first cut read `rigs.get(player.id)` and failed
+    // on correct code.
+    const savedRig = rigs.get(player.id);
+    const savedInCab = player._inCab;
+    mountRig(player, { x: 900, y: 900, heading: 180 });
+    const rig = rigs.get(player.id);
+    check('emp/truck: there is a rig to test on', !!rig);
+    try {
+      if (!rig) throw new Error('no rig');
+      check('emp/truck: a live rig has a live dash', !truckElecDead(rig));
+      const before = cabContext(rig, {});
+      check('emp/truck: …and a live dash says so', before.elecOut === false, String(before.elecOut));
+      // ⚠ THE PAYLOAD MIRRORS `routeOptions`, WHICH IS THE CLAIM — not "there are
+      // rows". A city rig with one road out legitimately has no fork, so
+      // `routeOptions` answers null and a bare `routes !== null` check fails on
+      // correct code (it did). What the gating must never do is differ from the
+      // verb while the dash is alive.
+      const liveOpts = routeOptions(rig, { zoneId: rig.zoneId, forkAhead: atOrBeforeFork(rig) });
+      check('emp/truck: …and the GPS says exactly what the route verb would',
+        (before.routes === null) === (liveOpts === null),
+        JSON.stringify({ payloadNull: before.routes === null, verbNull: liveOpts === null }));
+
+      const speedBefore = rig.speed, fuelBefore = rig.fuel;
+      knockOutTruckElec(rig, Date.now() + 60_000);
+      check('emp/truck: the pulse kills the dash', truckElecDead(rig));
+      // THE CLAIM. Nothing about the driveline moved.
+      check('emp/truck: the engine and the tank are untouched',
+        rig.speed === speedBefore && rig.fuel === fuelBefore && rig.broken == null);
+
+      // (The rows and the destination going away is asserted against the corridor
+      // fixture up in the `routes:` block — the only one with a fork on it, and
+      // therefore the only place where their absence is evidence of anything.)
+      const after = cabContext(rig, {});
+      check('emp/truck: the payload says the dash is out', after.elecOut === true);
+      check('emp/truck: …and carries no rows or destination', after.routes === null && after.aim === null,
+        JSON.stringify({ routes: after.routes, aim: after.aim }));
+      // The windscreen is not a screen. A pulse must not take the road away.
+      check('emp/truck: the road out of the windscreen is unaffected', !!after.map && after.surface != null);
+
+      // The radio, both directions. 'dead' is carried BESIDE 'on' — collapsing
+      // them would show the driver a set somebody had switched off.
+      const s = cbState(rig);
+      check('emp/truck: the CB reports dead', s.dead === true);
+      check('emp/truck: …without lying about the squelch', s.on === true);
+      const sent = cbTransmit(player, rig, 'anybody out there');
+      check('emp/truck: transmitting is refused', sent?.type === 'error' && /cooked/i.test(sent.message || ''), sent?.message);
+      const routed = await run('route');
+      check('emp/truck: the route verb is refused', routed?.type !== 'output' || /black glass/i.test(routed.message || ''), routed?.message);
+
+      // It is the RIG's clock, not the driver's: the set is bolted to the truck.
+      check('emp/truck: the rig is offered to vehicle.crewed', crewedRigs().some(v => v.knockOut && v.x === rig.x));
+
+      clearTimeout(rig._empTimer);
+      rig.empUntil = Date.now() - 1;
+      check('emp/truck: an elapsed window reads as live again', !truckElecDead(rig));
+      const back = cabContext(rig, {});
+      check('emp/truck: …and the dash comes back',
+        back.elecOut === false && (back.routes === null) === (liveOpts === null),
+        JSON.stringify({ elecOut: back.elecOut, routesNull: back.routes === null }));
+    } catch (e) {
+      if (e?.message !== 'no rig') throw e;
+    } finally {
+      // ⚠ PUT THE FIXTURE BACK, and kill the timer with it. A rig left in `rigs`
+      // with a live `empUntil` would hand every later case a dead dash for
+      // reasons that look nothing like this feature, and an unfired timeout
+      // keeps the suite's process alive past the summary line.
+      if (rig) clearTimeout(rig._empTimer);
+      if (savedRig) rigs.set(player.id, savedRig); else rigs.delete(player.id);
+      player._inCab = savedInCab;
+    }
+  }
+
 }

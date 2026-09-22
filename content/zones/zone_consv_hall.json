@@ -1,0 +1,34 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A dock with a roof over it and next to no walls. The deck runs out both sides of a slot of open water wide enough to take three hulls abreast, and the roof stands above it on columns you can get both arms around and no more than that. Cradles down the south side, the travel hoist on its gantry overhead, and at the east end the slot stops being a building and becomes the Basin. West, the lobby doors. North, a working bay off the deck. East, a gangway onto the inner pontoon. Nothing here is ever locked and nothing here is ever dark. In a storm this is the most comfortable place on the shore.",
+  "exits": {
+    "down": "zone_util_zone_consv_hall",
+    "east": "zone_district_894_902",
+    "north": "zone_consv_bench",
+    "up": "zone_consv_loft",
+    "west": "zone_marina_lobby"
+  },
+  "flags": {
+    "boat_covered": 2,
+    "boat_dealer": true,
+    "building_name": "Fairweather Marina",
+    "building_type": "boathouse",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "There is no glass on this side of the building at all. The roof stops and the Basin carries on, and in weather the rain comes down past the edge of the slab in a sheet with none of it landing on you.",
+      "light": 0.9,
+      "name": "the open sides",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_893_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_consv_hall",
+  "map_id": "map_int_consv",
+  "name": "Fairweather Marina — The Dock Hall",
+  "parent_zone": "zone_district_893_902"
+}

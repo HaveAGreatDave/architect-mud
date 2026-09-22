@@ -14,6 +14,8 @@ import { glDraw, glHide, glShown, glAvailable } from './glview.js';
 import './glbench.js';
 // __street() — the real city at a grid coordinate, from a cab or a cockpit. See street.js.
 import './street.js';
+// __glWhere() / __glWheres() — where the frame goes in a REAL district. See districtcost.js.
+import './districtcost.js';
 import {
   shapeModelRegistry, renderModelPreview, shapeForModel, shapeWireList,
   shapeConstantWarnings, shapeAdornCost, shapeLinearityError, shapeIsSeedVariant,

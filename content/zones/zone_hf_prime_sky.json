@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The tenth floor, where the lifts change over, and the one room in Halcyon Fields that does what the brochure said it would: a full floor plate given to nothing, glazed on all four shearing sides, with benches down the middle and a view that includes the Spire, the Curtain, the basin and — on the north side, uncomfortably close — the top eight floors of Glass Ceiling. There is nobody up here. There is a rule that there is always somebody up here and there is nobody.",
+  "exits": {
+    "down": "zone_hf_prime_lobby"
+  },
+  "flags": {
+    "building_name": "Prime Location",
+    "building_type": "torque_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Halfway up the twist, so no two walls of this room are parallel with the streets below them, and you have to hunt for Cinder Lane even though you came up from it. On a clear day you can see the Reach.",
+      "light": 0.9,
+      "name": "the sheared glazing",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_903_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_prime_sky",
+  "map_id": "map_int_hf_prime",
+  "name": "Prime Location — The Sky Lobby",
+  "parent_zone": "zone_district_903_912"
+}

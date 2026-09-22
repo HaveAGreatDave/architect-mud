@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_deposit_counter",
+  "b": "zone_hf_deposit_racking",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_hf_deposit_counter_east",
+  "lockable": false,
+  "one_way": false
+}

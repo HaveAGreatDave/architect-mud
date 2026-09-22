@@ -601,7 +601,10 @@ async function cmdHackResolve(args, raw, player, broadcast) {
   // not just who's home) so an NPC-vendor owner holds a grudge whether or not
   // they witnessed it — they'll come back to a jimmied door and know.
   const owner = await burgledApartmentOwner(door);
-  emit('hololock.breached', { player, zoneId: player.current_zone, ...owner });
+  // The DOOR rides along, and it is not decoration. `zoneId` is where the HACKER
+  // is standing, which for a shopfront is the street: the premises breached are on
+  // the far side, and a listener holding only the zone id has no way to reach them.
+  emit('hololock.breached', { player, zoneId: player.current_zone, door, ...owner });
 
   // Burglary is no longer charged on breach. A resident NPC who hears the
   // intrusion (burglary plugin) must survive their panic cop-call — or flee the

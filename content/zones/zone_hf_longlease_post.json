@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow room behind the desk with a hundred and twenty brass boxes in it, twelve to a column, and a long shelf under them for parcels. Four of the boxes are full to the flap and have been for months. The rest are empty and have never been anything else. On the shelf there is a kettle, a chair, a radio, and a paperback face down at the halfway mark, and the whole arrangement is a great deal more lived-in than the hall.",
+  "exits": {
+    "south": "zone_hf_longlease_hall"
+  },
+  "flags": {
+    "building_name": "Long Lease",
+    "building_type": "bead_tower",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_longlease_post",
+  "map_id": "map_int_hf_longlease",
+  "name": "Long Lease — The Post Room",
+  "parent_zone": "zone_district_892_914"
+}

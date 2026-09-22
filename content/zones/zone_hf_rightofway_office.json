@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Behind the kiosk, and reached through it: a small square room with a sink, a chair, a two-ring burner, a bed made up on a couch that is clearly slept on, and a window into the passage rather than to the outside. It is not residential accommodation and it is not not. There is a calendar on the wall with the deliveries marked on it and nothing else.",
+  "exits": {
+    "down": "zone_util_zone_hf_rightofway_office",
+    "west": "zone_hf_rightofway_passage"
+  },
+  "flags": {
+    "building_name": "Right of Way",
+    "building_type": "atrium_court",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_894_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_rightofway_office",
+  "map_id": "map_int_hf_rightofway",
+  "name": "Right of Way — The Room Off The Passage",
+  "parent_zone": "zone_district_894_917"
+}

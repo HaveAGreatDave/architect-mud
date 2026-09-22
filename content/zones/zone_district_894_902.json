@@ -1,13 +1,16 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "Water works its way back under the dock and returns a beat late.",
+    "Something the colour of the bottom moves off and does not come back."
+  ],
   "ambient_theme": "coast",
   "color": "#7fd3ff",
-  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot: the channel beyond is deep, and impassable without a boat.",
+  "description": "Open water in the mouth of the marina, deep enough to take a hull and kept clear for one. West, the covered dock stands over the water on nothing at all, and the way in and out of Fairweather is straight through underneath it.",
   "exits": {
     "east": "zone_district_895_902",
     "north": "zone_district_894_901",
     "south": "zone_district_894_903",
-    "west": "zone_district_893_902"
+    "west": "zone_consv_hall"
   },
   "flags": {
     "district": "water",
@@ -19,6 +22,7 @@
   "grid_z": 0,
   "id": "zone_district_894_902",
   "map_id": "map_world",
+  "marker": "⚓",
   "name": "Coldwater Basin",
   "parent_zone": null
 }

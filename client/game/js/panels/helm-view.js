@@ -11,7 +11,7 @@
 // Public: openHelmChase(containerEl, opts) → controller { sail, setHour, setWeather,
 //   setPosition, isSailing, destroy }. opts: { gx, gy, hour, weather, onArrive(gx,gy) }.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx, navMarks } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx, navMarks, seaRideAt } from './windshield.js';
 import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 
 // Live world clock/weather via the shared (non-flight) env system — loaded OPTIONALLY so a
@@ -78,6 +78,20 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // screen-centred through all of it — the windshield's hideOwnShip horizon compensation re-solves the
 // framing for whatever pitch we hand it, so flattening never slides her out of frame.
 const FLAT_PITCH = 0.06;   // rad — camera almost level with the waterline: a broadside "side view" of the ship
+
+// ── THE BRIDGE ────────────────────────────────────────────────────────────────────────────────
+//
+// The other seat: not a camera watching her, but one ON her. The chase is the right view for
+// admiring a boat and the wrong one for being in a sea — from behind and above a wave is a texture
+// on the water, and from the bridge in the same sea it is a thing coming at you.
+//
+// ⚠ THE WHOLE POINT IS THAT THE EYE RIDES. A first-person seat on a boat that did not heave would
+// be a photograph of a storm; the horizon going up and down the window IS the feature, and it is
+// the one thing the chase view can never show, because there the horizon is nailed to the frame.
+//
+// The eye sits at the wheelhouse — a little aft of amidships, about a deck and a half up. ⚠ IN
+// WORLD-Z TILES, measured off her DRAWN size (she is drawn at YACHT_SCALE), not off a real hull.
+const BRIDGE_EYE = 0.115, BRIDGE_OY = 0.34;
 const HIGH_PITCH = 0.72;   // rad — the most top-down we lift to when the wheel dollies the camera all the way back
 const ZOOM_MIN = 0.6, ZOOM_MAX = 2.4;   // matches the zoom() clamp — the dolly's near (close to water) / far bounds
 function pitchForZoom(z) {
@@ -197,6 +211,7 @@ export function openHelmChase(container, opts = {}) {
 
     mapOffset: { x: 0, y: 0 },   // sub-tile world pan across a passage (yacht held centred by center.sub)
     serverField: null,   // the REAL weather field from the sim (setSky) — preferred over the synth
+    serverGround: null,  // how wet/snowed the ground already is, so the renderer starts where the world is
     contacts: [],        // airborne craft near the Echelon (absolute x,y), streamed by the server
     // Camera: extYaw/extPitch are the orbit (drag), extZoom the dolly (wheel). The windshield
     // clamps extPitch above the terrain, so the orbit can never dip the eye below the water.
@@ -298,11 +313,6 @@ export function openHelmChase(container, opts = {}) {
     const hdgN = ((st.heading % 360) + 360) % 360;   // heading winds unbounded; the renderer wants 0..360
     st.center.heading = hdgN;
     audio.update(st.spd);
-    // Waves + their crest lighting stay put — they only undulate in place (via the renderer's own time
-    // term), never translating with the hull. The old along-heading `seaScroll` drift slid the whole
-    // swell (and its specular glint) past like a conveyor belt, which read as fake. The REAL making-way
-    // cue is the shoreline/city sliding past her (mapOffset/center.sub below), so the sea itself holds.
-    st.seaScroll = 0;
     // Real passage progress: pan the whole world window sub-tile toward the destination (mapOffset)
     // AND lead the yacht cell by the same amount (center.sub) so she holds screen-centre while the
     // city/shoreline slide past her — she visibly crosses the Basin over the ten minutes, not a
@@ -353,10 +363,32 @@ export function openHelmChase(container, opts = {}) {
     st.extPitch = pitchForZoom(st.extZoom);
     freeCam.step(st.lastDt || 0.016);
 
+    // ── WHICH SEAT ──────────────────────────────────────────────────────────────────────────────
+    //
+    // The chase and the bridge are the same frame with a different camera, so this is one payload
+    // with three keys swapped rather than two render paths that would drift apart.
+    //
+    // ⚠ THE RIDE IS THE SAME CALL THE HULL AND THE HELIDECK MAKE. A bridge that integrated its own
+    // bob would be an eye riding a different sea from the one out of its own window — and it would
+    // look entirely plausible, because both would be moving.
+    //
+    // ⚠ AND `pitch`/`bank` ARE DEGREES. A view's `pitch` is the craft's ATTITUDE, which four other
+    // readers divide by 26 or multiply by pi/180; the one time it was read as radians every degree
+    // of climb tipped the camera fifty-seven and the city hung upside down. `seaRideAt` returns
+    // degrees for exactly that reason.
+    const bridge = !!st.bridge;
+    const ride = bridge ? seaRideAt(0, -BRIDGE_OY, hdgN, performance.now()) : null;
+
     paintWindshield(id, {
-      external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1, frameY: st.frameY,
+      external: !bridge, hideOwnShip: true, phase: 'cruise', worldBlend: 1, frameY: st.frameY,
       heading: hdgN, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: st.extZoom,
-      height: 0, speed: st.spd, hour, moon, weather, wxField: field, seaScroll: st.seaScroll || 0, contacts,
+      // On the bridge the eye is ON her: her heave IS the camera's height, and her attitude is the
+      // camera's. In the chase both are 0 and the payload is byte-for-byte the one that shipped.
+      height: bridge ? ride.heave : 0,
+      eyeH: bridge ? BRIDGE_EYE : undefined,
+      pitch: bridge ? ride.pitch : undefined,
+      bank: bridge ? ride.roll : undefined,
+      speed: st.spd, hour, moon, weather, wxField: field, wxGround: st.serverGround, contacts,
       map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: st.mapOffset,
       acX: st.gx, acY: st.gy, biomeBelow: 'water', airport: 'default',
       freeCam: freeCam.view(),
@@ -384,9 +416,18 @@ export function openHelmChase(container, opts = {}) {
   // input to release. That asymmetry is the reason the hold lives in the panels and not in the
   // shared module: three vehicles, three genuinely different sentences.
   function onHelmKey(e) {
-    if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
     const k = (e.key || '').toLowerCase();
     const down = e.type === 'keydown';
+    // ⚠ A PRESS ONLY COUNTS WHILE THIS VIEW HAS THE KEYBOARD, AND A RELEASE COUNTS WHEREVER IT IS
+    // DELIVERED. Right for a keydown — somebody writing a message must not be flying the camera —
+    // and catastrophic for a keyup: with W down, anything that moves the caret into the command box
+    // (a click, or input.js's auto-focus) addresses the release to an INPUT, it is dropped here, and
+    // the key is never taken out of the camera's held set. The camera then flies on its own with
+    // nothing held down and nothing on screen to say why. See freelook-view.js, where it was found.
+    if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) {
+      if (!down) freeCam.onKey(k, false);
+      return;
+    }
     if (k === 'o' && down && !e.repeat) {
       const on = freeCam.toggle({ yaw: st.heading || 0, z: 0.6 });
       const hint = container.querySelector('.helm-freecam-hint');
@@ -481,11 +522,17 @@ export function openHelmChase(container, opts = {}) {
     mapSnapshot() { return { rows: st.map, gx: st.gx, gy: st.gy, heading: st.heading, sub: st.center && st.center.sub || null, sailing: st.sailing, plannedPath: st.plannedPath, path: st.path }; },
     isBusy: busy,
     isSailing() { return st.sailing; },
+    // ── THE SEAT ────────────────────────────────────────────────────────────────────────────────
+    // false is the chase (the view that shipped); true puts the eye on her bridge, riding.
+    setBridge(on) { st.bridge = !!on; },
+    toggleBridge() { st.bridge = !st.bridge; return st.bridge; },
+    isBridge() { return !!st.bridge; },
     // Adopt the live sim sky (setSky): the REAL weather field + optional time/weather headline, so
     // the helm shows the same weather the flight sim does. Streamed by the server while open.
     setSky(sky) {
       if (!sky) return;
       st.serverField = sky.field || null;
+      st.serverGround = sky.ground || st.serverGround || null;
       if (typeof sky.hour === 'number') st.hour = sky.hour;
       if (sky.weather) st.weather = String(sky.weather).toLowerCase();
     },

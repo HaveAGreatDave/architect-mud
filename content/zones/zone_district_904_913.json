@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#101620",
+  "color": "#b6dcf7",
+  "description": "A low glazed drum between two curved wings, three floors, and the ground rent on it is one credit a year for a hundred and fifty years — which is a joke the developer made in a contract and will be honouring until long after everyone involved is dead. It is let to the estate's own security contractor. The door on the Cowslip Rise side is a glass one in a chrome frame with a keypad beside it that is not switched on, and there is a light burning behind the drum glazing at every hour of the day and night. The door on the Cowslip Rise side is a glass one in a chrome frame with a keypad beside it that is not switched on, and there is a light burning behind the drum glazing at every hour of the day and night. The door on the Cowslip Rise side is a glass one in a chrome frame with a keypad beside it that is not switched on, and there is a light burning behind the drum glazing at every hour of the day and night. The door on the Cowslip Rise side is a glass one in a chrome frame with a keypad beside it that is not switched on, and there is a light burning behind the drum glazing at every hour of the day and night. The door on the Cowslip Rise side is a glass one in a chrome frame with a keypad beside it that is not switched on, and there is a light burning behind the drum glazing at every hour of the day and night. The door on the Cowslip Rise side is a glass one in a chrome frame with a keypad beside it that is not switched on, and there is a light burning behind the drum glazing at every hour of the day and night.",
   "exits": {
     "east": "zone_district_905_913",
-    "north": "zone_district_904_912",
-    "south": "zone_district_904_914",
-    "west": "zone_district_903_913"
+    "west": "zone_hf_peppercorn_desk"
   },
   "flags": {
+    "building_name": "Peppercorn",
+    "building_type": "atrium_court",
     "district": "halcyon_fields",
+    "entrance": "east",
+    "facade": true,
+    "floors": 3,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_905_913"
   },
   "grid_x": 904,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_904_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "PA",
+  "name": "Peppercorn",
   "parent_zone": null
 }

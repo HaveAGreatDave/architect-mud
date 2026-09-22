@@ -30,7 +30,8 @@
 // you move inside a single tile — feeding that to a cached buffer would reintroduce all three
 // failures at once. A stream is the honest shape for it; make it cacheable by moving the culls
 // first, not by pretending they are not there.
-import { viewProjMatrix } from './camera.js';
+import { viewProjMatrix, mat4f } from './camera.js';
+import { makeVertexStream } from './stream.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 
 // pos3, colour3
@@ -44,6 +45,9 @@ const MAX_WET = 6;
 // states for the same reason. The GLSL one is inside a template literal and cannot be read from
 // here, so this is the second copy, kept adjacent so a change to one is a visible diff on both.
 const MAX_TRACK_PTS = 40;
+// ⚠ MUST MATCH `MAX_LID` IN THE SHADER, the same contract MAX_TRACK_PTS carries: the array is
+// declared a fixed size in GLSL and over-filling it from here writes past the uniform.
+const MAX_LID_N = 12;
 const WET_P = new Float32Array(MAX_WET * 3);
 const WET_C = new Float32Array(MAX_WET * 3);
 const WET_R = new Float32Array(MAX_WET);
@@ -170,6 +174,31 @@ uniform vec3  uWetP[MAX_WET];   // light ground point xy + its height
 uniform vec3  uWetC[MAX_WET];   // colour, 0-1
 uniform float uWetR[MAX_WET];   // reach in tiles
 uniform float uWet;             // how wet the ground is, 0-1
+// ── AND THE LAMP LIGHTS THE GROUND IT STANDS OVER ──────────────────────────────────────────────
+//
+// How hard, 0 being the street exactly as it shipped. Reported as street lights reading as "a ball
+// of bright light instead of spreading out a more gradual cone around their area", and the ball was
+// the whole of what a lamp was: a 12/f-pixel sprite at the highest alpha in the city, over tarmac
+// that took NOTHING from it. Every other thing a light does here is specular — the wet streak, the
+// glint, the mirror — and all three are gated on water, so on a dry night a street lamp lit nothing
+// at all and the only expression of it was the disc.
+//
+// ⚠ NOTHING NEW IS COLLECTED AND NOTHING IS AUTHORED. This is the SAME six lights the wet road
+// already ranks and uploads, read a second way: those terms ask what the surface REFLECTS toward
+// the eye, and this asks what lands on it. So a lit doorway spills onto its pavement and a neon
+// sign lays a wash on the road under it for free, and there is no second list to keep in step.
+//
+// ⚠ IT IS NOT THE WALL WASH WITH THE NORMAL TURNED OVER, which is the thing this renderer has
+// reverted five times (see LIGHT_TUNE.gain, parked at 0). That one flattened facades and drowned
+// their own lettering, because a wall is the SUBJECT of the shot and a light across it competes
+// with everything drawn on it. Tarmac is the one surface in a night city whose whole job is to
+// carry the pool a lamp throws on it: there is nothing on a road for it to drown.
+uniform float uPool;
+// The night, 0 by day. ⚠ THE LIST ITSELF CARRIES NO NIGHT TERM — 'rgbRaw' is deliberately
+// unweighted so a wet road goes on reflecting neon at four in the afternoon (see pickLights) — so
+// without this a lamp would lay its pool on sunlit tarmac at noon, which is the pink-cast-at-midday
+// bug the wall wash had, one surface over.
+uniform float uNight;
 // ── SNOW LYING ON THE STREET ───────────────────────────────────────────────────────────────────
 //
 // How deep it lies, 0-1 — see 'SNOW_NOW' in windshield.js. THIS pass and not the floor shader, for
@@ -195,6 +224,189 @@ uniform vec4  uTrack[MAX_TRACK];
 uniform float uTrackHalf;   // half the wheel track: the two marks sit this far either side
 uniform float uTrackW;      // half-width of ONE wheel mark
 uniform vec4  uTrackBox;    // the whole path bounded, padded — see the reject below
+
+// ── SEWER OPENINGS, STAMPED PER FRAGMENT ─────────────────────────────────────────────────────
+//
+// A manhole lid and a gully grating, drawn the way the wheel tracks are drawn: as a function of
+// world position inside this shader, rather than as quads handed to a layer.
+//
+// ⚠ IT IS HERE ON ITS MERITS AND NOT AS A BUG FIX, WHICH IS A CORRECTION. It was written on the
+// theory that an opening emitted as geometry never reached the near road, and that theory was a
+// misreading of a measurement: a mark stamped one tile ahead lands just under the horizon,
+// because from a seat 0.06 of a tile off the ground one tile ahead is halfway up the frame. The
+// decal path and the ground-paint path were both putting it where it belonged.
+//
+// What this path really buys is composition. Stamped into the surface before the fog, a casting
+// recedes into the haze, darkens when wet, holds water in its own collar and has snow scoured
+// off it by a tyre, and not one of those terms has to know it exists. As geometry each is a
+// separate argument with a separate place to go wrong.
+//// ⚠ AND IT IS WHAT LETS A GULLY SIT WHERE A GULLY GOES. A gully belongs in the channel against
+// the kerb, and where the kerb IS, is a thing only this shader knows: vKerb, per fragment. Every
+// other route has to guess a side and is wrong half the time.
+//
+// xy is the opening centre in world tiles, z is its radius, and w is the KIND: 0 a round lid out
+// in the carriageway, 1 a rectangular gully in the gutter.
+const int MAX_LID = 12;
+uniform int   uNLid;
+uniform vec4  uLid[MAX_LID];
+uniform vec4  uLidBox;      // every opening bounded, padded — the same reject the tracks use
+uniform vec3  uLidFace;     // cast iron, darker and browner than the road around it
+uniform vec3  uLidSlot;     // the hole, the only part of this that is really dark
+
+// ── WHAT IS CAST INTO THE LID ────────────────────────────────────────────────────────────────
+//
+// The relief on a manhole cover, in the casting's OWN units: 'u' is the offset from its centre
+// with 1 at the rim, so not one number below is a function of how big the lid is drawn and the
+// same pattern reads at any radius. It answers a SIGNED shade — plus where a rib catches the
+// light, minus where it loses it — because relief is a change of VALUE and not a change of
+// colour, and giving it a palette entry of its own would make it a sticker.
+//
+// ⚠ EVERY RIB IS LIT FROM ONE DIRECTION AND THE SHAPE'S OWN GRADIENT DECIDES WHICH FLANK IS
+// WHICH. Shading a rib by where it sits instead puts the highlight on the same side of every rib
+// whichever way that rib runs, which is what makes a pattern read as printed on rather than cast
+// in — and it is the whole difference this is here for.
+//
+// ⚠ AND IT CONSERVES INK AT RANGE, the rule trackCut and the gully bars both state. 'fu' is one
+// pixel in these units, so every band widens as the lid recedes and the relief fades out
+// together rather than breaking into crawling dots.
+const vec2 LID_KEY_DIR = vec2(-0.55, 0.84);
+float lidRib(float sd, float w, float fu, vec2 grad) {
+  float m = 1.0 - smoothstep(w - fu, w + fu, abs(sd));
+  return m * dot(normalize(grad + vec2(1e-5)), LID_KEY_DIR);
+}
+float lidRelief(vec2 u, float fu) {
+  float ru = length(u);
+  float e = 0.0;
+  // The two rings: a plain border band round the outside, and a smaller one closing the field in
+  // around the mark in the middle.
+  e += lidRib(ru - 0.88, 0.040, fu, u) * 1.05;
+  e += lidRib(ru - 0.46, 0.028, fu, u) * 0.85;
+  // The field between them is a diamond chequer, which is what a cover carries so that a boot and
+  // a tyre have something to hold on to.
+  vec2 gq = vec2(u.x + u.y, u.x - u.y) / 0.135;
+  vec2 fq = fract(gq) - 0.5;
+  float cell = 1.0 - smoothstep(0.23, 0.39, max(abs(fq.x), abs(fq.y)));
+  float band = (1.0 - smoothstep(0.84 - fu, 0.84 + fu, ru)) * smoothstep(0.48 - fu, 0.48 + fu, ru);
+  e += (fq.x * 1.30 + fq.y * 0.95) * cell * band * 1.10;
+  float ang = atan(u.y, u.x);
+  // Ticks round the rim, inside the border band. ⚠ A RIB THAT RUNS OUT FROM THE CENTRE IS LIT
+  // ACROSS ITSELF, so the direction handed to lidRib is the TANGENT and not the radius — pass the
+  // radius and every tick takes the same shade as the ring it is standing on and disappears into
+  // it. Measured as arc length, or the ticks are wedges that close up toward the middle.
+  float seg = 6.2831853 / 34.0;
+  float da = abs(fract(ang / seg + 0.5) - 0.5) * seg * ru;
+  e += lidRib(da, 0.011, fu, vec2(-u.y, u.x)) * 0.80
+     * smoothstep(0.90 - fu, 0.90 + fu, ru) * (1.0 - smoothstep(0.98 - fu, 0.98 + fu, ru));
+  // ── THE EYE ────────────────────────────────────────────────────────────────────────────────
+  //
+  // The mark in the middle, and it is a CALM one: level, symmetrical, open the same amount at
+  // both corners, and looking straight up at whoever is standing on it. That is the whole of the
+  // difference between a mark and a stare — an eye drawn with one corner tighter than the other,
+  // or with the pupil off centre, is watching you, and this one is not doing anything.
+  //
+  // ⚠ IT IS A LENS AND NOT AN ELLIPSE. The corners of an eye come to a POINT where the two lids
+  // meet, and a circle fitted into that outline rounds both of them off, which reads as a
+  // porthole with something in it. A parabola in x is pointed at both ends for nothing.
+  float ex = u.x / 0.40;
+  float lid = 0.175 * (1.0 - ex * ex);
+  // Clear of the corners, where the outline has closed and there is nothing left to draw.
+  float ends = smoothstep(-fu, fu, 0.40 - abs(u.x));
+  vec2 gn = vec2(u.x / 0.160, u.y / 0.031);   // the outline's own outward direction
+  e += lidRib(abs(u.y) - lid, 0.022, fu, gn) * ends * 1.25;
+  // The upper lid is the heavier of the two, as it is on a face.
+  e += lidRib(u.y - lid, 0.013, fu, gn) * ends * 0.55;
+  // The iris, with the fine radial lines inside it that an iris has, and the pupil sunk in the
+  // middle of it with its own rim standing round the edge.
+  e += lidRib(ru - 0.150, 0.019, fu, u) * 1.10;
+  float ir = abs(fract(ang / (6.2831853 / 18.0) + 0.5) - 0.5) * (6.2831853 / 18.0) * ru;
+  e += lidRib(ir, 0.006, fu, vec2(-u.y, u.x)) * 0.55
+     * smoothstep(0.070 - fu, 0.070 + fu, ru) * (1.0 - smoothstep(0.142 - fu, 0.142 + fu, ru));
+  e -= (1.0 - smoothstep(0.058 - fu, 0.058 + fu, ru)) * 0.80;
+  e += lidRib(ru - 0.058, 0.013, fu, u) * 0.95;
+  return e;
+}
+
+// How much of this fragment is sewer opening, and what part of one. x is the casting, y is the
+// slot or pick hole inside it.
+//
+// ⚠ IT CONSERVES INK AT RANGE, the rule trackCut and roadCoverage both state: a slot narrower
+// than the pixel it lands in is drawn faint rather than by a coin toss, or a grating a long way
+// off crawls as a dotted line.
+//
+// ⚠ z IS AN EMBOSS SHADE AND IT IS SIGNED. A casting is not a flat disc of paint: it carries a
+// raised pattern, and what makes that read is one side of every rib catching the light and the
+// other losing it. So it is a multiplier either side of 1, applied to the casting AFTER the face
+// colour and BEFORE the holes, and never a second palette entry.
+vec3 lidMark(vec2 gp, float fp) {
+  if (uNLid < 1) return vec3(0.0);
+  if (gp.x < uLidBox.x || gp.y < uLidBox.y || gp.x > uLidBox.z || gp.y > uLidBox.w) return vec3(0.0);
+  float face = 0.0, slot = 0.0, emb = 0.0;
+  for (int i = 0; i < MAX_LID; i++) {
+    if (i >= uNLid) break;
+    vec4 o = uLid[i];
+    vec2 d = gp - o.xy;
+    float r = o.z;
+    if (dot(d, d) > (r * 2.0) * (r * 2.0)) continue;
+    if (o.w < 0.5) {
+      // A ROUND LID. The collar of made-good surfacing around it is most of what says the road
+      // was opened here rather than that something was painted on it, so it is drawn first and
+      // wider, and the casting sits inside it.
+      float rad = length(d);
+      // ⚠ NO DARK COLLAR. It was a ring of the casting's own colour at 0.55 all the way out to
+      // 1.18r, on the theory that made-good surfacing is what says the road was opened here. On
+      // the near road it reads as a soft black halo painted round the lid — a wide ring nothing
+      // physical would cast — and it is the first thing anybody points at. What a patch actually
+      // is, is a SEAM: a hairline at the collar's own edge, and nothing at all inside it.
+      float fac = 1.0 - smoothstep(r - fp, r + fp, rad);
+      float seam = 1.0 - smoothstep(fp, fp * 2.0 + r * 0.012, abs(rad - r * 1.12));
+      face = max(face, max(fac, seam * 0.22));
+      // Two pick holes on the diameter. They are the whole reason this reads as a LID rather
+      // than as a dark circle — a patch has no holes in it.
+      // ⚠ AND THEY MOVED OUT AT 0.46 TO MAKE ROOM FOR THE MARK. A hole of that size on that
+      // radius spans 0.31 to 0.61 of the way out, which is straight through both the eye and the
+      // ring around it — so the mark would have been cast with a square bite taken out of either
+      // side of it. Out at 0.66 they fall in the chequer instead, which is where a real cover
+      // puts them and which the pattern survives being cut by.
+      float kr = r * 0.66, kh = max(r * 0.12, fp);
+      // ⚠ AND THEY ARE ON THE VERTICAL DIAMETER, WHICH IS THE MARK'S DOING. An eye is a wide
+      // shape, so a pair of holes either side of it sits at its two corners and reads as part of
+      // the drawing rather than as two holes in a casting. Above and below, they are clear of it.
+      vec2 k1 = abs(d - vec2(0.0, kr)), k2 = abs(d + vec2(0.0, kr));
+      float h1 = (1.0 - smoothstep(kh - fp, kh + fp, max(k1.x, k1.y)));
+      float h2 = (1.0 - smoothstep(kh - fp, kh + fp, max(k2.x, k2.y)));
+      slot = max(slot, max(h1, h2) * fac);
+      // The relief, in the casting's own units so nothing in it has to know how big this lid is
+      // being drawn. ⚠ 'ink' is what keeps it honest at range — a rib finer than the pixel it
+      // lands in is drawn faint rather than by a coin toss — and the multiply by 'fac' at the
+      // call site is what stops any of it reaching the road outside the rim.
+      float ink = min(1.0, (r * 0.10) / max(fp, 1e-5));
+      emb = clamp(emb + lidRelief(d / max(r, 1e-5), fp / max(r, 1e-5)) * 0.30 * ink, -0.85, 0.85);
+    } else {
+      // A GULLY. Longer along the channel than across it, with bars running ACROSS — water runs
+      // along a gutter and a bar laid parallel to it is a wheel trap.
+      //
+      // ⚠ AND IT LIES ALONG ITS OWN STREET, WHICH IS WHAT 'w' 1 AGAINST 2 IS FOR. The first cut
+      // took 'vec2(r * 1.5, r * 0.62)' against world x and y, so every gully in the city was
+      // long east-west: correct on an east-west street and laid ACROSS the channel on a
+      // north-south one, which is a grating turned ninety degrees into the traffic. The
+      // producer knows which way the road runs — it has the cross-section in hand — so it says
+      // so rather than leaving this to guess.
+      bool alongY = o.w > 1.5;
+      vec2 h = alongY ? vec2(r * 0.62, r * 1.5) : vec2(r * 1.5, r * 0.62);
+      vec2 q = abs(d);
+      float fac = (1.0 - smoothstep(h.x - fp, h.x + fp, q.x)) * (1.0 - smoothstep(h.y - fp, h.y + fp, q.y));
+      face = max(face, fac);
+      // The bars are pitched along the LONG axis and run across it, so they turn with the
+      // grating rather than staying in world x.
+      float alng = alongY ? d.y : d.x;
+      float pitch = r * 0.42, bw = max(r * 0.13, fp);
+      float bar = abs(fract(alng / pitch + 0.5) - 0.5) * pitch;
+      float ink = min(1.0, (r * 0.13) / max(fp, 1e-5));
+      slot = max(slot, (1.0 - smoothstep(bw - fp, bw + fp, bar)) * fac * ink);
+    }
+  }
+  return vec3(face, slot, emb);
+}
 
 // How much of the cover this fragment has had cut out of it, 0-1.
 //
@@ -364,7 +576,22 @@ void main() {
   // afterwards would have the neon reflecting in a road that has already receded into the haze.
   // ⚠ AND COMBINED AS TRANSMITTANCE: two fogs are two things the light has to get through.
   float gfog = 1.0 - (1.0 - vFog) * (1.0 - heightFog(uEyeH, 0.0, length(vWorld.xy - uEye), uFogH, uFogHScale));
-  vec3 c = mix(vColor, uFog, gfog);
+  // ⚠ THE OPENING IS FOLDED INTO THE SURFACE BEFORE THE FOG, for the reason stated over 'c'
+  // below: everything downstream reads it as the road, so a lid stamped afterwards would be a
+  // casting that never recedes into the haze, never darkens when wet, never holds water in its
+  // own collar and never has snow scoured off it by a tyre. On the surface pass only — the
+  // additive range is the headlight pool, which is light lying on a road rather than the road.
+  vec3 surf = vColor;
+  if (uSurface > 0.5 && uNLid > 0) {
+    vec3 lm = lidMark(vWorld.xy, max(fwidth(vWorld.x), fwidth(vWorld.y)) * 0.5);
+    surf = mix(surf, uLidFace, lm.x);
+    // ⚠ THE RELIEF GOES ON THE CASTING AND NOT ON THE ROAD, which is what scaling it by lm.x
+    // buys: a fragment that is only partly lid takes only that much of the shade, so the pattern
+    // cannot leak out past the rim into the tarmac the collar used to darken.
+    surf *= 1.0 + lm.z * lm.x;
+    surf = mix(surf, uLidSlot, lm.y);
+  }
+  vec3 c = mix(surf, uFog, gfog);
   // ⚠ AFTER THE FOG, because the fog is already folded into c above: a road that has receded into
   // the horizon has nothing left to reflect in, and adding light to it would put a streak on top of
   // the haze. The term's own distance falloff does the rest.
@@ -1024,6 +1251,62 @@ void main() {
     vec3 snowCol = mix(mix(vec3(0.90, 0.93, 0.98), uSkyTop, 0.20), uFog, vFog);
     c = mix(c, snowCol, snowW);
   }
+  // ── AND THE POOL A LAMP THROWS ON IT ───────────────────────────────────────
+  //
+  // See the ⚠ on 'uPool'. Light landing on the surface, so it goes after everything that decides
+  // what the surface IS — the water, the mirror, the snow — and before the shaft in the air, which
+  // never reached the surface at all.
+  //
+  // ⚠ THE SHAPE IS THE IRRADIANCE AND NOT A GAUSSIAN SOMEBODY FITTED. A point source at height h
+  // over a plane lands cos(theta)/r^2 on it, which normalised to 1 directly beneath is
+  // h^3 / (d^2 + h^2)^1.5 — and that is the whole of why this reads as a lamp rather than as a
+  // disc: it has no edge anywhere. It is 0.35 of its peak a lamp-height out, 0.09 at twice that
+  // and 0.014 at four times, so it terminates on its own and needs no cut-off to hide.
+  //
+  // ⚠ AND THE HEIGHT IS THE LIGHT'S OWN, WHICH IS WHAT MAKES IT DERIVED. 'uWetP[i].z' is already
+  // uploaded and the wet streak already reads it for exactly this reason ("a sign three storeys up
+  // throws further than a kerb lamp"). So a street lamp lays a pool about its own height across, a
+  // doorway lamp a small one at its threshold and a floodlight up a tower a broad one, with one
+  // expression and nothing per-light authored.
+  //
+  // ⚠ THE FLOOR UNDER IT IS NOT COSMETIC. A light sitting ON the ground has h ~ 0, and h^3/r^3 at
+  // d -> 0 is a singularity: a white pinhole on the tarmac, which is a worse version of the ball
+  // this exists to remove.
+  //
+  // ⚠ AND 'uSurface' GATES IT, for the reason set out on that uniform: the additive range through
+  // this shader is a HEADLIGHT POOL rather than a road, and laying a lamp's irradiance over a beam
+  // of light is the same category error as darkening one for being wet.
+  //
+  // ⚠ THIS PASS AND NOT THE FLOOR, WHICH IS A STATED LIMIT RATHER THAN AN OVERSIGHT. GROUND_FULL
+  // draws every road and pavement tile as an opaque quad ON TOP of the floor, so a pool painted
+  // into the floor is covered by exactly the surface a street lamp stands on — the same forcing
+  // the snow records two blocks up. What that leaves is a lamp at the edge of town lighting its
+  // own tarmac and not the grass beside it. The pool is about a lamp-height across and a lamp
+  // stands VERGE (0.38 tiles) off its own tile centre, so what reaches the next tile is a seventh
+  // of the peak; if that ever reads as an edge, the fix is to hand the floor the same list under
+  // its own name — 'seaLights' is the precedent — and not to widen anything here.
+  if (uPool > 0.001 && uNWet > 0 && uNight > 0.01 && uSurface > 0.5) {
+    vec3 pool = vec3(0.0);
+    for (int i = 0; i < MAX_WET; i++) {
+      if (i >= uNWet) break;
+      vec2 rel = vWorld.xy - uWetP[i].xy;
+      float h = max(0.14, uWetP[i].z);
+      float r2 = dot(rel, rel) + h * h;
+      pool += uWetC[i] * ((h * h * h) / (r2 * sqrt(r2)));
+    }
+    // ⚠ IT ADDS INTO THE HEADROOM RATHER THAN ONTO THE ROAD. 'c + k' saturates a pale kerb to
+    // white long before it saturates the tarmac beside it, so a pool crossing a painted line
+    // blows the line out and leaves a hard white bar lying across the middle of it. Scaling by
+    // what is left holds the ratio between the two, which is what keeps a road marking readable
+    // under a lamp — the one place in the city they are most needed.
+    // ⚠ AND IT RECEDES INTO THE HAZE, WHICH THE TERMS ABOVE IT DO NOT NEED TO. The fog is folded
+    // into 'c' on the first line of main, so everything added after it is added over the haze —
+    // and the wet streak gets away with that because its geometry is anchored to the EYE and it
+    // falls off with distance on its own. This one does not: its falloff is measured from the
+    // LIGHT, so a pool thirty tiles away under its own lamp is at full strength and would punch
+    // through a fog the road it is lying on has already dissolved into.
+    c += pool * (uPool * clamp(uNight, 0.0, 1.0) * (1.0 - gfog)) * max(vec3(0.0), 1.0 - c);
+  }
   // ── AND THE LIGHT IN THE AIR OVER THE ROAD ─────────────────────────────────
   //
   // The same integral the buildings take — see gl/fog.js — over the road's own six lights. ⚠ The
@@ -1086,6 +1369,8 @@ export function createGroundLayer(gl) {
     fogNear: gl.getUniformLocation(prog, 'uFogNear'),
     fogFar: gl.getUniformLocation(prog, 'uFogFar'),
     fogAmt: gl.getUniformLocation(prog, 'uFogAmt'),
+    pool: gl.getUniformLocation(prog, 'uPool'),
+    night: gl.getUniformLocation(prog, 'uNight'),
     nWet: gl.getUniformLocation(prog, 'uNWet'),
     wetP: gl.getUniformLocation(prog, 'uWetP'),
     wetC: gl.getUniformLocation(prog, 'uWetC'),
@@ -1099,6 +1384,11 @@ export function createGroundLayer(gl) {
     trackHalf: gl.getUniformLocation(prog, 'uTrackHalf'),
     trackW: gl.getUniformLocation(prog, 'uTrackW'),
     trackBox: gl.getUniformLocation(prog, 'uTrackBox'),
+    nLid: gl.getUniformLocation(prog, 'uNLid'),
+    lid: gl.getUniformLocation(prog, 'uLid'),
+    lidBox: gl.getUniformLocation(prog, 'uLidBox'),
+    lidFace: gl.getUniformLocation(prog, 'uLidFace'),
+    lidSlot: gl.getUniformLocation(prog, 'uLidSlot'),
     pudRoad: gl.getUniformLocation(prog, 'uPudRoad'),
     eye: gl.getUniformLocation(prog, 'uEye'),
     eyeH: gl.getUniformLocation(prog, 'uEyeH'),
@@ -1122,7 +1412,10 @@ export function createGroundLayer(gl) {
   };
 
   const vao = gl.createVertexArray();
-  const buf = gl.createBuffer();
+  // One stream, set up once: the attribute pointers are recorded into the VAO here and never
+  // touched again, and the storage grows by doubling instead of being reallocated every frame.
+  // See gl/stream.js.
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.color, 3, 12], [loc.alpha, 1, 24], [loc.road, 1, 28], [loc.lat, 1, 32], [loc.kerb, 1, 36]], 65536);
   let data = new Float32Array(0);
   let count = 0, splitA = 0, splitP = 0, splitB = 0;
 
@@ -1197,21 +1490,14 @@ export function createGroundLayer(gl) {
       // carry up to eight corners; a road quad is the four-point case of the same loop.
       for (let i = 1; i + 1 < p.length; i++) { put(p[0], 0); put(p[i], i); put(p[i + 1], i + 1); }
     }
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, count * STRIDE), gl.DYNAMIC_DRAW);
-    const S = STRIDE * 4;
-    const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
-    bind(loc.pos, 3, 0); bind(loc.color, 3, 12); bind(loc.alpha, 1, 24); bind(loc.road, 1, 28);
-    bind(loc.lat, 1, 32); bind(loc.kerb, 1, 36);
-    gl.bindVertexArray(null);
+    stream.write(data, count * STRIDE);
     return quads.length;
   }
 
   function draw(cam, H, opts = {}) {
     if (!count) return 0;
     gl.useProgram(prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, H)));
+    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, H)));
     const f = opts.fog || {};
     const c = f.col || [0.5, 0.5, 0.55];
     gl.uniform3f(loc.fog, c[0], c[1], c[2]);
@@ -1229,7 +1515,18 @@ export function createGroundLayer(gl) {
     // ⚠ WRITTEN EVERY FRAME, INCLUDING THE DRY ONES. A uniform holds its last value, so a pass that
     // only set these when it had reflections would leave the last wet frame's streaks lying on the
     // road long after it stopped raining — the same rule the sun strength in context.js follows.
-    const wl = (opts.wet > 0 ? opts.wetLights : null) || EMPTY_WET;
+    // ⚠ WRITTEN EVERY FRAME, LIKE THE WETNESS ABOVE, or a lamp goes on lighting the road after
+    // the pool is switched off — a uniform holds its last value.
+    gl.uniform1f(loc.pool, opts.pool > 0 ? opts.pool : 0);
+    gl.uniform1f(loc.night, opts.night == null ? 0 : opts.night);
+    // ⚠ AND THE LIGHTS ARRIVE ON A DRY NIGHT NOW, WHICH THEY NEVER DID. This read
+    // '(opts.wet > 0 ? opts.wetLights : null)', which is right for a term that is about water and
+    // is the ONLY hand-off the list has: with it, a clear night uploaded 'uNWet' 0 and every loop
+    // in this shader broke on its first iteration. The reflections do not care (they are gated on
+    // 'refl', which is 'uWet' times a coverage and is exactly 0 on a dry road), but two terms that
+    // are NOT about water were dying with them — the pool below, and the light shaft in the air,
+    // which is gated on HAZE and so was silently absent in every fog that came without rain.
+    const wl = (opts.wet > 0 || opts.pool > 0 || opts.scatter > 0 ? opts.wetLights : null) || EMPTY_WET;
     const nw = Math.min(MAX_WET, wl.length);
     // ⚠ NOT `nw ? wet : 0`, WHICH IS THE SAME MISTAKE AS THE CALLER'S AND WAS STILL HERE AFTER THAT
     // ONE WAS FIXED. Two gates, one layer apart, both saying "no lights means no wetness" — so
@@ -1296,6 +1593,21 @@ export function createGroundLayer(gl) {
         gl.uniform4fv(loc.track, tk.pts.subarray(0, tn * 4));
         gl.uniform1f(loc.trackHalf, tk.half); gl.uniform1f(loc.trackW, tk.w);
         gl.uniform4f(loc.trackBox, tk.box[0], tk.box[1], tk.box[2], tk.box[3]);
+      }
+    }
+    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NONE, for the reason the tracks above
+    // carry: a uniform holds its last value, so a pass that set these only when it had an
+    // opening would leave the last street's manholes stamped into open country for the rest of
+    // the session.
+    {
+      const ld = opts.lids;
+      const ln = ld && ld.pts ? Math.min(MAX_LID_N, ld.n | 0) : 0;
+      gl.uniform1i(loc.nLid, ln);
+      if (ln > 0) {
+        gl.uniform4fv(loc.lid, ld.pts.subarray(0, ln * 4));
+        gl.uniform4f(loc.lidBox, ld.box[0], ld.box[1], ld.box[2], ld.box[3]);
+        gl.uniform3f(loc.lidFace, ld.face[0] / 255, ld.face[1] / 255, ld.face[2] / 255);
+        gl.uniform3f(loc.lidSlot, ld.slot[0] / 255, ld.slot[1] / 255, ld.slot[2] / 255);
       }
     }
     gl.uniform1f(loc.pudRoad, opts.pudRoad == null ? 1 : opts.pudRoad);

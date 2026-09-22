@@ -1,0 +1,11 @@
+{
+  "description": "Set into the floor at the foot of the glass all the way round, aimed up the inside of each face so the whole point of the building glows from within after dark and the room itself stays almost unlit.",
+  "flags": {},
+  "id": "furn_light_zone_hf_overlooked_lookout",
+  "light_type": "uplight",
+  "lumen_output": 380,
+  "name": "a ring of floor uplights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_overlooked_lookout"
+}

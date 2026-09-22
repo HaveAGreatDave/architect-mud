@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_assets_hang",
+  "b": "zone_util_zone_hf_assets_hang",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_assets_hang_down_ckbe",
+  "lockable": false,
+  "one_way": false
+}

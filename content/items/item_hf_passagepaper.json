@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_passagepaper",
+  "name": "a folded evening paper",
+  "tags": {
+    "description": "Yesterday's, because the quarter is at the end of the round and nobody here has ever complained about it. Six pages of the Basin and two of the estate, and the two of the estate are an advertisement laid out to look like the other six.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 4,
+  "weight": 55
+}

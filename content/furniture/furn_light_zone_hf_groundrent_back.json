@@ -1,0 +1,11 @@
+{
+  "description": "Flat white panels in a grid, all of them on, at an intensity that makes the room feel like the middle of the afternoon at any hour. Two of them flicker on a cycle of about eleven seconds and have done since the fit-out.",
+  "flags": {},
+  "id": "furn_light_zone_hf_groundrent_back",
+  "light_type": "panel",
+  "lumen_output": 900,
+  "name": "a bank of ceiling panels",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_groundrent_back"
+}

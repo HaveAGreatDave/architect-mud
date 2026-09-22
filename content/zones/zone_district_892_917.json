@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#101620",
+  "color": "#b8d8ee",
+  "description": "Six floors in three steps, standing against the Curtain end of the row with its west flank blank all the way up — because the plot beyond it is the wall, and the estate went to the trouble of getting a party wall award for a boundary with nothing on the other side of it. The paperwork for that is framed in the estate office and is regarded there as a masterpiece. The door is at the east end of the bottom step, off Kerbstone Row, as far from the blank flank as the building can put it. The door is at the east end of the bottom step, off Kerbstone Row, as far from the blank flank as the building can put it. The door is at the east end of the bottom step, off Kerbstone Row, as far from the blank flank as the building can put it. The door is at the east end of the bottom step, off Kerbstone Row, as far from the blank flank as the building can put it. The door is at the east end of the bottom step, off Kerbstone Row, as far from the blank flank as the building can put it. The door is at the east end of the bottom step, off Kerbstone Row, as far from the blank flank as the building can put it.",
   "exits": {
     "north": "zone_district_892_916",
-    "south": "zone_district_892_918",
-    "west": "zone_district_891_917"
+    "south": "zone_hf_partywall_hall"
   },
   "flags": {
+    "building_name": "Party Wall",
+    "building_type": "cascade_block",
     "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 6,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_892_916"
   },
   "grid_x": 892,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_892_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "PW",
+  "name": "Party Wall",
   "parent_zone": null
 }

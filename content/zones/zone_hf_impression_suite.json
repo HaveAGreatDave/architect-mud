@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Pale carpet with the vacuum lines still in it and four desks that are never all occupied at once. The middle of the room is the model: the whole quarter at one inch to twenty feet, under a dust case, lit from inside by threads of fibre no thicker than hair. The built parts of it are exact down to the crane. The rest of it is finished, landscaped, and full of small brass people.",
+  "exits": {
+    "down": "zone_util_zone_hf_impression_suite",
+    "east": "zone_hf_impression_booth",
+    "west": "zone_district_894_913"
+  },
+  "flags": {
+    "building_name": "Artist's Impression",
+    "building_type": "atrium_court",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Curved glass the whole way round, out onto the mews on one side and open meadow on the other. The view from the desks is of the ground the model says is a boulevard.",
+      "light": 0.85,
+      "name": "the drum glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_894_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_impression_suite",
+  "map_id": "map_int_hf_impression",
+  "name": "Artist's Impression — The Sales Floor",
+  "parent_zone": "zone_district_894_913"
+}

@@ -70,6 +70,16 @@ const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x)
   // unforced berth is empty for a third of every cycle — and a census that silently draws no ship
   // is the vacuous control this file's own header is about. `RENDER_TUNE.shipForce` is pinned below.
   if (x === R - 7 && y === CROSS - 4) return { kind: 'land', biome: 'water', road: 0, mark: 'berth', bf: 'north', bq: 'west', flr: 0 };
+  // …AND A TENT CAMP, for the yacht's and the freighter's reason a third time. Old Coldwater's
+  // Pitch is a `mark` drawn INLINE from the world sweep — tarpaulin quads, guy lines, poles, a
+  // strung cable, lamps and a painted slogan, every one of them on a layer that is null until the
+  // sweep arms it — and no scene in this repo had ever contained one, so the only thing that ever
+  // ran `drawTentCamp` was a player flying over the south-east corner. That is the Battery Acid
+  // roaster's position exactly, one pass out: an exception in here takes the whole sim down.
+  // ⚠ TWO TILES, NOT ONE. The pitch count, the slogan and the brazier are all rolled off the TILE
+  // SEED, so a single camp tile exercises one arm of each gate and a census on it reports whichever
+  // way that one seed happened to fall.
+  if (y === CROSS - 5 && (x === R + 4 || x === R + 5)) return { kind: 'land', biome: 'ash', road: 0, mark: 'camp', flr: 0 };
   const near = Math.abs(x - R) <= 2 || Math.abs(y - CROSS) <= 2;
   return near
     ? { kind: 'land', biome: 'city', flr: 0, bt: 'shop', is_building: 1, floors: 4 }

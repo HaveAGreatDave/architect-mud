@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The one flat on this landing that is lived in, and it is lived in lightly: a bed made tight, a chair, a table with one place at it, and a shelf of ring binders that have no business in a flat and are here because there is nowhere else to put them. The kitchen has been used. The card with the phone number on it has been taken off the worktop and pinned, upside down, to the inside of a cupboard door.",
+  "exits": {
+    "east": "zone_hf_chainfree_landing"
+  },
+  "flags": {
+    "building_name": "Chain Free",
+    "building_type": "bead_tower",
+    "floor": "boards",
+    "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
+    "rent_cost": 200,
+    "window": {
+      "description": "West, straight at the Curtain, close enough here that it fills the glass from sill to head and there is no sky in this window at all. He says he chose it on purpose.",
+      "light": 0.5,
+      "name": "the curved window",
+      "visibility": 0.6
+    },
+    "world_exit_zone": "zone_district_900_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_chainfree_u4",
+  "map_id": "map_int_hf_chainfree",
+  "name": "Chain Free — Flat 3D",
+  "parent_zone": "zone_district_900_914"
+}

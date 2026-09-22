@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_impression_suite",
+  "id": "zone_hf_impression_booth",
+  "name": "Artist's Impression — The Negotiator's Booth",
+  "source_type": "junction_box"
+}

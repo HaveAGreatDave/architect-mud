@@ -1,0 +1,18 @@
+{
+  "description": "Under the hall: the pumps that keep the dock inside the building at the same level as the basin outside it, and the plant that keeps a glass box at twenty degrees through a Coldwater winter. It is the loudest room in the marina by a long way, which is why it is buried.",
+  "exits": {
+    "up": "zone_consv_hall"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_consv_hall",
+  "map_id": "map_int_consv",
+  "name": "Fairweather Marina — The Tank Room",
+  "parent_zone": "zone_district_893_902"
+}

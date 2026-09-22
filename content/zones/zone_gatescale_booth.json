@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1e2226",
+  "description": "One room, most of it window. A counting desk runs the length of the glass with the repeater board on it, a slate, a stamp, a tin of the stamp's ink and a mug. Pinned along the back wall: the plate ratings, a tariff of fines, and a curling notice about what may and may not be weighed on a public bridge, all three of them printed in the same municipal grey. It is very warm in here and the window is running with it.",
+  "exits": {
+    "east": "zone_district_916_918"
+  },
+  "flags": {
+    "building_name": "The Glacis Weigh",
+    "building_type": "weigh_station",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A long sheet of glass at cab height, angled down so the booth can read a windscreen without leaving the chair. Everything on the plates is in it, very close.",
+      "light": 0.8,
+      "name": "the booth glass",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_916_918"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_gatescale_booth",
+  "map_id": "map_int_gatescale",
+  "name": "The Glacis Weigh — Booth",
+  "parent_zone": "zone_district_916_918"
+}

@@ -1,20 +1,92 @@
 {
   "adorn": [
     {
+      "at": 1.9802,
       "cx": -0.3,
       "cy": 0,
-      "kind": "blinkLight",
-      "r": 1.4,
-      "rgb": "150,220,255",
-      "z": 0.7
+      "depth": 0.8,
+      "kind": "helixRunner",
+      "n": 14,
+      "period": 5200,
+      "r0": 0.3216,
+      "r1": 0.3046,
+      "rgb": "74,168,255",
+      "rgb2": "214,86,222",
+      "turns": -0.0818,
+      "waves": 1.5,
+      "z0": 0.15,
+      "z1": 0.74
     },
     {
+      "at": 1.1614,
       "cx": 0.3,
+      "cy": 0,
+      "depth": 0.8,
+      "kind": "helixRunner",
+      "n": 14,
+      "period": 5200,
+      "r0": 0.3216,
+      "r1": 0.3046,
+      "rgb": "74,168,255",
+      "rgb2": "214,86,222",
+      "turns": 0.0818,
+      "waves": 1.5,
+      "z0": 0.15,
+      "z1": 0.74
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "frame": "196,212,230",
+      "hz": 0.032,
+      "kind": "revolveRing",
+      "n": 10,
+      "period": 9000,
+      "r": 0.092,
+      "rgb": "150,220,255",
+      "s": 12,
+      "z": 1.105
+    },
+    {
+      "a": 0.5,
+      "at": 0,
+      "cx": 0,
+      "cy": 0.04,
+      "fall": 1.15,
+      "kind": "skyBeam",
+      "len": 2.4,
+      "period": 15000,
+      "r": 0.055,
+      "rgb": "150,215,255",
+      "s": 14,
+      "spread": 5,
+      "sweep": 0.52,
+      "tilt": 0.42,
+      "z": 1.17
+    },
+    {
+      "cx": -0.42,
       "cy": 0,
       "kind": "blinkLight",
       "r": 1.4,
       "rgb": "150,220,255",
-      "z": 0.7
+      "z": 0.945
+    },
+    {
+      "cx": 0.42,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.4,
+      "rgb": "150,220,255",
+      "z": 0.945
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "blinkLight",
+      "r": 1.3,
+      "rgb": "255,90,120",
+      "z": 1.18
     },
     {
       "cx": 0,
@@ -23,6 +95,22 @@
       "rgb": "90,180,255",
       "s": 22,
       "z": 0.02
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 20,
+      "z": 0.035
+    },
+    {
+      "cx": 0,
+      "cy": 0.1,
+      "kind": "glowPool",
+      "rgb": "120,200,255",
+      "s": 13,
+      "z": 0.7
     }
   ],
   "basis": {
@@ -40,72 +128,208 @@
       "cx": 0,
       "cy": 0,
       "half": 0.44,
-      "hh": 0.016,
+      "hh": 0.014,
       "kind": "parapet",
-      "pal": "ty_asc_gate",
-      "z": 0.88
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.93
     },
     {
-      "color": "#101820",
       "cx": 0,
-      "cy": 0.44,
-      "font": "block",
+      "cy": 0,
       "half": 0.3,
-      "hh": 0.045,
-      "ink": "#bfe4ff",
-      "kind": "signBoard",
-      "label": "ASCEND",
-      "z": 0.79
+      "hh": 0.011,
+      "kind": "parapet",
+      "pal": "ty_asc_chrome_dk",
+      "z": 1.04
+    },
+    {
+      "cap": true,
+      "cx": -0.3,
+      "cy": 0.3,
+      "glow": "#4fe8ff",
+      "glowFrom": 0.18,
+      "kind": "pilaster",
+      "n": 4,
+      "out": 0.011,
+      "pal": "ty_asc_chrome_dk",
+      "step": 0.052,
+      "w": 0.02,
+      "z0": 0.16,
+      "z1": 0.72
+    },
+    {
+      "cap": true,
+      "cx": 0.3,
+      "cy": 0.3,
+      "glow": "#4fe8ff",
+      "glowFrom": 0.18,
+      "kind": "pilaster",
+      "n": 4,
+      "out": 0.011,
+      "pal": "ty_asc_chrome_dk",
+      "step": 0.052,
+      "w": 0.02,
+      "z0": 0.16,
+      "z1": 0.72
     },
     {
       "cx": -0.3,
       "cy": 0.3,
-      "half": 0.12,
-      "hh": 0.1,
+      "half": 0.075,
+      "hh": 0.042,
       "kind": "louvreBank",
-      "n": 5,
-      "pal": "ty_asc_gate",
-      "z": 0.34
+      "n": 4,
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.085
     },
     {
       "cx": 0.3,
       "cy": 0.3,
-      "half": 0.12,
-      "hh": 0.1,
+      "half": 0.075,
+      "hh": 0.042,
       "kind": "louvreBank",
-      "n": 5,
-      "pal": "ty_asc_gate",
-      "z": 0.34
+      "n": 4,
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.085
+    },
+    {
+      "cx": 0,
+      "cy": 0.34,
+      "half": 0.24,
+      "hh": 0.01,
+      "kind": "canopy",
+      "out": 0.1,
+      "pal": "ty_asc_chrome_dk",
+      "soffit": "#1d9fd0",
+      "strip": "#bff4ff",
+      "z": 0.78
+    },
+    {
+      "color": "#4fe8ff",
+      "cx": 0,
+      "cy": 0.34,
+      "drop": 0.028,
+      "half": 0.4,
+      "kind": "neonRun",
+      "z": 0.905
+    },
+    {
+      "color": "#0b1420",
+      "cx": 0,
+      "cy": 0.34,
+      "font": "block",
+      "half": 0.26,
+      "hh": 0.038,
+      "ink": "#bfe4ff",
+      "kind": "signBoard",
+      "label": "ASCEND",
+      "z": 0.845
+    },
+    {
+      "bars": 5,
+      "cx": 0,
+      "cy": 0.23,
+      "depth": 0.014,
+      "glass": "#0a1420",
+      "glow": "#bff4ff",
+      "half": 0.22,
+      "hh": 0.03,
+      "kind": "windowBay",
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.985
+    },
+    {
+      "cx": -0.42,
+      "cy": 0.5,
+      "kind": "streetLamp",
+      "out": 0.06,
+      "pal": "ty_asc_chrome_dk",
+      "r": 0.012,
+      "rgb": "150,210,255",
+      "s": 11,
+      "z0": 0,
+      "z1": 0.075
+    },
+    {
+      "cx": 0.42,
+      "cy": 0.5,
+      "flip": true,
+      "kind": "streetLamp",
+      "out": 0.06,
+      "pal": "ty_asc_chrome_dk",
+      "r": 0.012,
+      "rgb": "150,210,255",
+      "s": 11,
+      "z0": 0,
+      "z1": 0.075
+    },
+    {
+      "cx": -0.17,
+      "cy": 0.4,
+      "kind": "bollard",
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.032
+    },
+    {
+      "cx": 0.17,
+      "cy": 0.4,
+      "kind": "bollard",
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.032
     },
     {
       "cx": -0.42,
       "cy": 0.34,
       "kind": "bollard",
-      "pal": "ty_asc_gate",
-      "z": 0.004
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.032
     },
     {
       "cx": 0.42,
       "cy": 0.34,
       "kind": "bollard",
-      "pal": "ty_asc_gate",
-      "z": 0.004
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.032
     }
   ],
   "id": "theascensiongate",
-  "note": "The one building in Coldwater with a HOLE in it. It is a gate and it was a solid block, which is the single most literal way a silhouette can be wrong — you cannot pass through the thing the whole quarter is named for walking through. Two piers carry a lintel now, so the opening is real geometry rather than something a description asks you to imagine. ⚠ THE GAP IS REAL TO EVERYTHING DOWNSTREAM, which is the point and also the thing to check before moving it: the mass primitives are what `modelSolid` builds CFIT collision from, what the truck ground probe reads and what the occluder hulls are cut from, so an aircraft can fly between the piers and a shadow falls in two pieces. Both piers are unyawed boxes, which is what lets the louvre banks and the lintel sign be bolted to something. RENDER_TUNE.legacyArms puts the asc_gate arm back.",
-  "pal": "ty_asc_gate",
+  "neon": "#4fe8ff",
+  "note": "The campus threshold, and the front door of the order that owns the Spire standing directly\nbehind it. The HOLE is the previous pass’s idea and it is kept whole — two piers carrying a\nlintel, so you can walk and fly through the thing the quarter is named for walking through.\n⚠ THE GAP IS REAL TO EVERYTHING DOWNSTREAM: the mass primitives are what `modelSolid` builds\nCFIT collision from, what the truck ground probe reads and what the occluder hulls are cut\nfrom, so an aircraft can fly between the piers and a shadow falls in two pieces.\n\nWhat this pass changes is that it did not look like it belonged to the Spire. It was faced in\n`ty_asc_gate` — a flat grey PLAIN_WALL key with no family and no material read — so the most\nadvanced building in the Basin was a concrete block with a louvre on it, which is what the\n\"quite advanced, and it should connect into the Spire\" report was about.\n\n⚠ THE MATERIAL IS THE TOWER’S OWN. `ty_asc_chrome` is CHROME_WALL — a mirror that paints the\nworld the panel reflects — and it is exactly what the Spire wears at its pod collars, its crown\nand its needle. Nothing else in the game reads as polished rather than merely pale.\n⚠ AND THE PIERS QUOTE THE SPIRE’S HELIX. Its shaft turns 1.80 rad over 22 plates — 0.0818 rad\na plate — and each pier here turns exactly one of those steps, in opposite senses, so the gate\nstarts the twist the tower finishes. A shared rhythm is what makes two buildings one campus;\na shared colour on its own never has.\n⚠ THE PIER BASE STAYS UNYAWED AND THAT IS LOAD-BEARING — `anchored` takes its wall planes from\nUNYAWED boxes only, so the louvre banks, the pilaster ranks and the lintel sign are all bolted\nto the lower half and only the upper block turns. Same finding thespire.json records.\n⚠ AND `at` IS THE RECTANGLE’S OWN CORNER BEARING, NEVER pi/4. `helixRunner` traces a CIRCLE of\nradius r0..r1, so the schema’s pi/4 example is the +x+y corner OF A SQUARE — the Spire’s shaft is\none and these piers are 0.128 by 0.295. At pi/4 the runner comes out at (0.228, 0.228), which is\nwell outside the pier in x: a light hanging in open air beside the building. The bearing is\natan2(hy, hx) and the radius hypot(hy, hx), which puts it ON the corner and keeps it there.\n\n⚠ THE RUNNERS ARE `helixRunner`, WHICH IS THE SPIRE’S OWN ADORNMENT, at its own colours,\nperiod, wave count and depth. That is the campus tie made literal rather than described: after\ndark the same magenta pulse travels the gate’s piers and the tower’s corners.\n⚠ THE SCANNER IS NIGHT-ONLY AND IS A MOVING PART. Its room says a scanline sweeps you head to\nfoot; `skyBeam` is the only sweeping thing the authored format has, so the apparatus is on the\ncrown rather than in the throat. RENDER_TUNE.motion 0 pins it at `at` — a beam standing still,\nnever a beam deleted — and it draws nothing at noon, which is not a fault.\n⚠ AND NOTHING MOUNTS BELOW THE LINTEL ON THE CENTRELINE. A canopy was authored at z 0.70 as a\nsoffit over the opening and `anchored` refused it: the lintel starts at 0.74 and below that the\nthroat is OPEN, so there is no wall there to bolt a hood to. It is on the lintel face now.\n\n⚠ AND THE PIERS CARRY NO BAND. `parapet` is SQUARE — one `half` — and a pier is 0.128 across by\n0.295 deep, so a base course authored at the width floats a stub in the middle of each flank and\none authored at the depth wraps it in a slab twice its width. There is no number that works, so\nthe plinth’s own step is the base course and the flanks stay plain mirror. That is the material\nread this building is for, and it is why the fins and the sign are all on the entrance face.\n\n⚠ AND THERE IS NO WALL ACROSS THE THROAT. A back wall was tried in this pass and taken out:\nit reads as a lit recess and it CLOSES THE GATE, because the mass primitives are the collision\nvolume. Whatever the opening gains from being darker, it is not worth being a gate you cannot\ngo through.\nRENDER_TUNE.legacyArms puts the asc_gate arm back.",
+  "pal": "ty_asc_chrome",
   "replaces": "asc_gate",
   "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.44,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.03
+    },
     {
       "cx": -0.3,
       "cy": 0,
       "fd": 0.3,
       "hw": 0.13,
       "kind": "box",
-      "roof": true,
-      "z0": 0,
-      "z1": 0.7
+      "pal": "ty_asc_spire",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.15
+    },
+    {
+      "cx": -0.3,
+      "cy": 0,
+      "fd": 0.295,
+      "hw": 0.128,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "yaw": 0,
+      "z0": 0.15,
+      "z1": 0.48
     },
     {
       "cx": 0.3,
@@ -113,38 +337,80 @@
       "fd": 0.3,
       "hw": 0.13,
       "kind": "box",
-      "roof": true,
-      "z0": 0,
-      "z1": 0.7
+      "pal": "ty_asc_spire",
+      "roof": false,
+      "z0": 0.03,
+      "z1": 0.15
+    },
+    {
+      "cx": 0.3,
+      "cy": 0,
+      "fd": 0.295,
+      "hw": 0.128,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "yaw": 0,
+      "z0": 0.15,
+      "z1": 0.48
     },
     {
       "cx": 0,
       "cy": 0,
+      "fd": 0.34,
       "hw": 0.44,
       "kind": "box",
+      "pal": "ty_asc_chrome",
       "roof": true,
-      "z0": 0.7,
-      "z1": 0.88
+      "z0": 0.74,
+      "z1": 0.93
     },
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.32,
+      "fd": 0.23,
+      "hw": 0.3,
       "kind": "box",
+      "pal": "ty_asc_chrome_dk",
       "roof": true,
-      "z0": 0.88,
-      "z1": 0.99
+      "z0": 0.93,
+      "z1": 1.04
     },
     {
       "cap": true,
       "cx": 0,
       "cy": 0,
       "kind": "drum",
-      "n": 8,
-      "rb": 0.09,
-      "rt": 0.05,
-      "z0": 0.99,
-      "z1": 1.12
+      "n": 12,
+      "pal": "ty_asc_chrome",
+      "rb": 0.085,
+      "rt": 0.055,
+      "z0": 1.04,
+      "z1": 1.17
+    },
+    {
+      "cx": -0.3,
+      "cy": 0,
+      "fd": 0.28,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": true,
+      "yaw": -0.0818,
+      "z0": 0.48,
+      "z1": 0.74
+    },
+    {
+      "cx": 0.3,
+      "cy": 0,
+      "fd": 0.28,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": true,
+      "yaw": 0.0818,
+      "z0": 0.48,
+      "z1": 0.74
     }
   ]
 }

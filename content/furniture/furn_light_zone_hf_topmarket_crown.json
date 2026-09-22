@@ -1,0 +1,11 @@
+{
+  "description": "One to a table, chrome, shaded down so hard that the light lands on the cloth and almost nowhere else. The room is deliberately darker than the view, which is the whole trick and the reason the glass does not become a mirror after dark.",
+  "flags": {},
+  "id": "furn_light_zone_hf_topmarket_crown",
+  "light_type": "table",
+  "lumen_output": 180,
+  "name": "low table lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_topmarket_crown"
+}

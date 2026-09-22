@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_deposit_racking",
+  "id": "zone_util_zone_hf_deposit_racking",
+  "name": "Deposit Taken — The Lower Bay",
+  "source_type": "junction_box"
+}

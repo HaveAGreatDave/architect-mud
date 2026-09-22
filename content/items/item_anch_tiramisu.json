@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_anch_tiramisu",
+  "name": "tiramisu",
+  "tags": {
+    "consumable": true,
+    "description": "Sponge, coffee, something strong, and a cream that has been beaten by hand because the machine is used for the bread. Dusted so heavily you cough on the first mouthful. Everybody does. They keep doing it that way.",
+    "restore_hp": 2,
+    "restore_hunger": 22,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 120,
+  "weight": 210
+}

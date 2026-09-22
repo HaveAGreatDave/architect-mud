@@ -1,0 +1,8 @@
+{
+  "description": "The quarter, floor by floor, pinned four deep and marked in red, green and a blue that has gone purple. The three colours are the architect, the contractor and the estate office, and there are at least six places where all three have drawn a different thing in the same spot and none of them have spoken about it.",
+  "flags": {},
+  "id": "furn_hf_snagging_drawings",
+  "name": "marked-up drawings",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_snagging_office"
+}

@@ -845,6 +845,94 @@ body.fsim-external .fsim { flex: 1 1 auto; min-height: 0; }
 body.fsim-external #output,
 body.fsim-external #look-resize-handle { display: none; }
 
+/* ─── BIG SCREEN: THE RUNG ABOVE FULLSCREEN ─────────────────────────────────
+   Every block above this one grows a 3-D seat inside the PAGE — the log folds away, the pane
+   takes the output column, and the header, the sidebar and the column border are all still
+   there. This one leaves the page: the seat is the window, and every piece of client furniture
+   round it goes. Driven by js/panels/bigscreen.js, which owns the lifecycle, Esc, the hint and
+   the browser's own fullscreen; what stays inside a seat's glass is one rule in that seat's own
+   stylesheet, keyed on the same class.
+
+   ⚠ THE !important ON height/max-height IS THE SAME TRAP THE BLOCK AT THE TOP OF THIS SECTION
+   IS WRITTEN UP FOR: the look-resize handle stores a dragged pane height as an INLINE style on
+   #area-pane, and an inline height beats every class rule here. Beaten rather than cleared —
+   that height is the player's own preference for ordinary rooms.
+
+   ⚠ AND #main IS A GRID, WHICH IS WHY HIDING THE SIDEBAR IS NOT ENOUGH. Its columns are declared
+   (240px 1fr, or 1fr 240px under [data-sidebar="right"]) and #output-container names the column
+   it sits in — so with the sidebar merely hidden the pane stays in a 1fr track beside an empty
+   240px one, or in a column that no longer exists. Both the track list and the placement have to
+   be restated. */
+body.bigscreen #header,
+body.bigscreen #sidebar,
+body.bigscreen #mobile-hud,
+body.bigscreen #esp-banner,
+body.bigscreen #output,
+body.bigscreen #look-resize-handle,
+body.bigscreen #bottom-input-wrap { display: none !important; }
+body.bigscreen #main { grid-template-columns: 1fr; }
+body.bigscreen #output-container { grid-column: 1; border-left: none; border-right: none; }
+body.bigscreen #area-pane {
+	max-height: none !important;
+	height: auto !important;
+	flex: 1 1 auto;
+	padding: 0;            /* reach every edge — the 12px inset is stolen picture */
+	overflow: hidden;
+}
+body.bigscreen #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
+/* ⚠ AND THE PHONE'S COLLAPSED-PANE CLASS HAS TO LOSE HERE. `.mob-pane-hidden` is
+   `display: none !important` on this same element, so a phone that still had the pane folded when
+   big screen was entered would get a black screen with a hint on it and no way to see what it was
+   hinting about. It cannot happen today — the button lives inside the seat, and a seat that mounts
+   fires `pane:claimed`, which is what unfolds the pane — but "cannot happen" is one refactor away
+   from "happens, and looks like the renderer died". */
+body.bigscreen #area-pane.mob-pane-hidden { display: flex !important; }
+/* The seat roots that do not already fill their parent. The cab and free look are height:100% in
+   their own sheets and need nothing; the flight sim, the wheelhouse and the charter cabin each
+   size themselves for the windowed pane, exactly as their own fullscreen rules above say. */
+body.bigscreen .fsim,
+body.bigscreen .helm-root,
+body.bigscreen #ck-hud-root { flex: 1 1 auto; min-height: 0; height: auto; }
+body.bigscreen .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
+
+/* ─── THE SIDEBAR SWITCH ────────────────────────────────────────────────────
+   The ⊟ / ⛶ ladder above folds the COLUMN — the log and the command box stacked under the pane —
+   and has never touched the 240px of status panels beside it, so a seat at fullscreen is still
+   looking through a picture a fifth narrower than the window. This is the other axis, and the two
+   compose: hide the sidebar with the log still up, or with it folded, or neither.
+   Driven by js/panels/bigscreen.js, which owns the page-level chrome; cleared when a seat closes,
+   because nothing else in the client can bring the panels back.
+   ⚠ #main IS A GRID, so hiding the sidebar is not enough on its own — the same trap the block
+   above is written up for. Its track list and #output-container's placement both have to be
+   restated, or the pane stays in a 1fr track beside an empty 240px one (sidebar left) or in a
+   column that no longer exists (sidebar right). */
+body.nosidebar #sidebar { display: none; }
+body.nosidebar #main { grid-template-columns: 1fr; }
+body.nosidebar #output-container { grid-column: 1; border-left: none; border-right: none; }
+
+/* ─── FREE LOOK: THE SAME TWO RUNGS EVERY OTHER SEAT HAS ────────────────────
+   Free look shipped without them, on the reasoning that "the pane was already all picture" — which
+   is true of the pane's CONTENTS (there is no cockpit out here to make room for) and says nothing
+   about its SIZE. #area-pane is capped at min(65%, --pane-cap) of the output column, so the camera
+   was looking through two thirds of a column that is itself 240px short of the window. The ladder
+   is the PAGE giving the pane more room, not the seat giving the picture more room inside it, and
+   free look wants it for exactly the reason the other four do.
+   ⊟ folds the scrollback and keeps the command box; ⛶ folds both. Cleared when the view closes. */
+body.fl-fullscreen #area-pane,
+body.fl-hidepanel #area-pane {
+	max-height: none !important;
+	height: auto !important;
+	flex: 1 1 auto;
+	padding: 0;            /* the 12px inset is stolen picture, and there is no cab trim to inset */
+}
+body.fl-fullscreen #area-content,
+body.fl-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
+body.fl-fullscreen #output,
+body.fl-fullscreen #look-resize-handle,
+body.fl-fullscreen #bottom-input-wrap,
+body.fl-hidepanel #output,
+body.fl-hidepanel #look-resize-handle { display: none; }
+
 /* Mobile-only hidden state — overrides any inline height styles */
 .mob-pane-hidden {
 	display: none !important;
@@ -2686,12 +2774,24 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 }
 
 /* Zone info */
+/* The name above the d-pad wraps to two lines at an intersection ("MARROW
+   STREET + MELTWATER ROW") and to one everywhere else, which used to move
+   every d-pad button down a line under the player's finger as they walked.
+   The box is a fixed two lines tall whatever it holds, so the pad never
+   moves; a longer name is clipped with an ellipsis rather than growing. */
 #zone-name-display {
 	font-size: 0.6875rem;
 	color: var(--accent);
 	text-transform: uppercase;
 	letter-spacing: 1px;
 	margin-bottom: 4px;
+	line-height: 1.25;
+	height: 2.5em; /* two lines at the line-height above */
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
 }
 
 /* Location d-pad — replaces the old exit buttons. Auto mode fills the section
@@ -7838,6 +7938,18 @@ body.ck-fullscreen #mob-hud-env {
 	color: var(--accent);
 	background: var(--accent-dim);
 	border-color: var(--accent);
+}
+
+/* …and unavailable: a 3-D seat is up and W/A/S/D are steering it, so the mode is
+   disarmed and the button says it cannot be armed rather than doing nothing. */
+.dpad-wasd-btn:disabled {
+	opacity: 0.22;
+	cursor: not-allowed;
+}
+.dpad-wasd-btn:disabled:hover {
+	opacity: 0.22;
+	color: var(--text-dim);
+	border-color: transparent;
 }
 
 .dpad-btn {
@@ -19735,4 +19847,52 @@ html[data-status-glyphs="on"] #output .combat-hit::before  { content: "✕\00a0"
   border: 1px solid var(--dim, #555);
   color: var(--fg, #ccc);
   background: rgba(255, 255, 255, 0.04);
+}
+
+
+/* ── Shop intruder alarm ──────────────────────────────────────────────────────
+   body.shop-alarm, pushed by plugins/shopalarm and cleared on every way out of
+   the room. esp-active's shape one system over, and deliberately QUIETER than
+   it: the ESP is the whole city declaring an emergency and this is one shop
+   shouting, so it takes the area pane and the minimap and leaves the log alone.
+
+   ⚠ NO STROBE, AT ANY RATE. The photosensitivity rule the drug FX are held to
+   applies to anything that flashes, and a real alarm strobe is precisely the
+   thing it forbids — this BREATHES on a 1.6s cycle, which is slow enough to
+   read as a rotating beacon rather than as a flicker. `prefers-reduced-motion`
+   drops the animation entirely and keeps a flat red wash, so the state is still
+   legible to somebody who cannot take the movement. */
+body.shop-alarm #area-pane {
+	animation: shop-alarm-pulse 1.6s ease-in-out infinite;
+	border-color: rgba(200, 30, 20, 0.55);
+}
+
+@keyframes shop-alarm-pulse {
+	0%, 100% { box-shadow: inset 0 0 40px rgba(150, 10, 0, 0.16); background-color: rgba(90, 8, 4, 0.10); }
+	50%       { box-shadow: inset 0 0 90px rgba(230, 30, 15, 0.34); background-color: rgba(140, 14, 6, 0.20); }
+}
+
+body.shop-alarm #minimap-grid,
+body.shop-alarm #minimap-grid-hud,
+body.shop-alarm #minimap-grid-mob {
+	animation: shop-alarm-map 1.6s ease-in-out infinite;
+}
+
+@keyframes shop-alarm-map {
+	0%, 100% { box-shadow: 0 0 5px rgba(180, 20, 0, 0.35); }
+	50%       { box-shadow: 0 0 18px rgba(255, 40, 20, 0.75); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	body.shop-alarm #area-pane {
+		animation: none;
+		box-shadow: inset 0 0 60px rgba(180, 20, 10, 0.22);
+		background-color: rgba(110, 10, 5, 0.14);
+	}
+	body.shop-alarm #minimap-grid,
+	body.shop-alarm #minimap-grid-hud,
+	body.shop-alarm #minimap-grid-mob {
+		animation: none;
+		box-shadow: 0 0 10px rgba(200, 25, 10, 0.5);
+	}
 }

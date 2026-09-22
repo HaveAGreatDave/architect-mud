@@ -1,0 +1,9 @@
+{
+  "description": "The quarter at one inch to twenty feet under a dust case. Every building that exists is on it and correct. Every building that does not exist is also on it, in the same material, at the same finish, with no line anywhere saying which is which — and the one on the corner of Kerbstone Row, which on the model is a concert terrace, is in fact a gasholder.",
+  "flags": {},
+  "id": "furn_hf_impression_model",
+  "name": "the estate model",
+  "object_type": "decoration",
+  "power_draw_kw": 0.2,
+  "zone_id": "zone_hf_impression_suite"
+}

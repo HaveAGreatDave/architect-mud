@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "Cut grass has been blown into a long ridge against the south kerb and left to go grey. It is the windrow the lane is named after, and it was an accident.",
   "exits": {
     "east": "zone_district_894_918",
     "south": "zone_district_893_919",
@@ -11,13 +10,15 @@
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 893,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_893_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Windrow Lane",
   "parent_zone": null
 }

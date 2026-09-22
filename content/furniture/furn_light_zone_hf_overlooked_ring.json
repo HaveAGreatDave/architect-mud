@@ -1,0 +1,11 @@
+{
+  "description": "One lamp in a wire cage over the hatch, on a switch with no plate on it, throwing a hard shadow of the cradle rails across the floor.",
+  "flags": {},
+  "id": "furn_light_zone_hf_overlooked_ring",
+  "light_type": "bulkhead",
+  "lumen_output": 180,
+  "name": "a caged bulkhead lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_overlooked_ring"
+}

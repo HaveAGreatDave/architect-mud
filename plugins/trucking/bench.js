@@ -44,6 +44,7 @@ import { HITCH_MPH } from '../../client/game/js/panels/flight-model.js';
 import { trucksAt, getTruck, setCondition, saveTruckData, setFuel } from './fleet.js';
 import { TUNE_PARAMS, KITS, bandOf, tuneRange, clampTune, installedKits, effTruckParams, repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, FINISHES, ARTS, PAINT_PRESETS, presetPaint, SPARES_ITEM, DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, trimCost, sanitizeCustomTrim, isTrimHex, CUSTOM_COL } from './rig.js';
 import { stockTrim } from '../../client/shared/cab-trim.js';
+import { TRINKETS, TRINKET_IDS, CAB_SLOTS, installedTrinkets, trinketIn, trinketsIn, trinketPrice } from '../../client/shared/cab-trinkets.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { rigOf, pumpAt, FUEL_FULL } from './state.js';
 import { wreckNear } from './corridor.js';
@@ -93,11 +94,12 @@ async function cmdRig(args, raw, player) {
   if (sub === 'paint') return await rigPaint(player, truck, cd, rest);
   if (sub === 'trim' || sub === 'interior') return await rigTrim(player, truck, cd, rest);
   if (sub === 'fit' || sub === 'fittings') return await rigFit(player, truck, cd, rest.join(' '));
+  if (sub === 'cab' || sub === 'inside') return await rigCab(player, truck, cd, rest);
   if (sub === 'unfit') return await rigUnfit(player, truck, cd, rest.join(' '));
   if (sub === 'wash') return await rigWash(player, truck, cd);
   if (sub === 'fuel') return await rigFuel(player, truck, bay, depot);
   if (sub === 'name') return await rigName(player, truck, rest.join(' '));
-  return say('<span class="text-dim">rig fit [&lt;fitting&gt;|&lt;place&gt;|all] | rig unfit &lt;fitting|place&gt; | rig wash | rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;|panel=… needle=… glow=…] | rig fuel | rig name &lt;plate&gt;</span>');
+  return say('<span class="text-dim">rig fit [&lt;fitting&gt;|&lt;place&gt;|all] | rig unfit &lt;fitting|place&gt; | rig cab [&lt;thing&gt;|&lt;place&gt;|all|off &lt;thing|place&gt;] | rig wash | rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;|panel=… needle=… glow=…] | rig fuel | rig name &lt;plate&gt;</span>');
 }
 
 // The counter. Cheap, heavy, and the thing everybody decides they do not need on the way out of the
@@ -357,6 +359,107 @@ function fitCatalogue(truck, cd, only) {
   const owned = FIT_IDS.filter((id) => !priceFor(cd, id) && !fitted.has(id)).length;
   return say(`${head}\n${sheet}\n`
     + `<span class="text-dim">A place at a time, or <b>rig fit all</b> for the whole shelf.`
+    + `${owned ? ` ${owned} thing${owned === 1 ? '' : 's'} of yours ${owned === 1 ? 'is' : 'are'} in the drawer.` : ''}</span>`);
+}
+
+// ── `rig cab` — the inside shelf ─────────────────────────────────────────────
+// The counterpart to `rig fit`, and it is a SEPARATE subcommand rather than four more places on
+// that one for the reason cab-trinkets.js gives at length: one catalogue would mean `fitSuffix`
+// filtering interior codes off the wire, and the day somebody forgets, a pair of fuzzy dice is
+// being broadcast to every aircraft in the basin with nothing anywhere to say so.
+//
+// ⚠ ONE SUBCOMMAND, NOT TWO. `rig fit`/`rig unfit` are a pair because they were written before
+// anybody had counted how many `rig` subcommands there would be; this does both through `off`,
+// which reads the way a person standing at a bench actually says it and costs the help line one
+// entry instead of two.
+async function rigCab(player, truck, cd, args) {
+  const first = (args[0] || '').toLowerCase();
+  if (first === 'off') return await rigCabOff(player, truck, cd, args.slice(1).join(' ').toLowerCase());
+  const key = args.join(' ').toLowerCase();
+  if (!key) return cabCatalogue(truck, cd, null);
+  if (key === 'all') return cabCatalogue(truck, cd, 'all');
+  // A PLACE IS A LEGAL ARGUMENT, and it is the one people type — the same rule `rig fit` records.
+  // ⚠ And an item id still wins over a place name, so a trinket added later can never silently turn
+  // into a listing.
+  if (!TRINKETS[key]) {
+    const asSlot = CAB_SLOTS.find((s) => s.id === key || s.label.toLowerCase() === key);
+    if (asSlot) return cabCatalogue(truck, cd, asSlot.id);
+  }
+  let id = TRINKETS[key] ? key
+    : TRINKET_IDS.find((k) => TRINKETS[k].name.toLowerCase() === key);
+  if (!id) return say('Nothing in the case by that name. <span class="text-dim">rig cab</span> lists it.');
+  const t = TRINKETS[id];
+  const already = trinketIn(cd, t.slot);
+  if (already === id) return say(`The ${t.name} is already up.`);
+  const cost = trinketPrice(cd, id);
+  if ((player.credits || 0) < cost) return say(`The ${t.name} is ${cost}₵ and you have ${player.credits || 0}₵.`);
+
+  // Owned once, put up whenever — rule 5. Recorded separately from what is actually in the cab, so
+  // taking something down and putting it back is free forever.
+  const owned = Array.isArray(cd.owned_cab) ? cd.owned_cab.slice() : [];
+  if (!owned.includes(id)) owned.push(id);
+  cd.owned_cab = owned;
+  cd.cab = [...installedTrinkets(cd).filter((k) => TRINKETS[k].slot !== t.slot), id];
+  await saveTruckData(truck.id, player.id, cd);
+  if (cost) {
+    player.credits -= cost;
+    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  }
+  const live = rigOf(player);
+  if (live?.truckId === truck.id) live.cd = cd;
+  await repush(player, 'bench');
+  const swapped = already ? ` <span class="text-dim">The ${TRINKETS[already].name} comes down and goes in the drawer.</span>` : '';
+  return say(`<span class="item-grant">In it goes: ${t.name}${cost ? ` — ${cost}₵` : ' — already yours, no charge'}.</span> `
+    + `<span class="text-dim">${t.desc}</span>${swapped}`
+    + `\n<span class="text-dim">You'll see it next time you climb in.</span>`);
+}
+
+async function rigCabOff(player, truck, cd, key) {
+  const up = installedTrinkets(cd);
+  if (!up.length) return say("There's nothing in it but the seat.");
+  if (!key) return say(`Take what down? <span class="text-dim">${up.map((k) => `rig cab off ${k}`).join(' · ')}</span>`);
+  const slot = CAB_SLOTS.find((s) => s.id === key || s.label.toLowerCase() === key);
+  const id = slot ? trinketIn(cd, slot.id)
+    : (TRINKETS[key] ? key : TRINKET_IDS.find((k) => TRINKETS[k].name.toLowerCase() === key));
+  if (!id || !up.includes(id)) return say("Nothing like that's in it.");
+  cd.cab = up.filter((k) => k !== id);
+  await saveTruckData(truck.id, player.id, cd);
+  const live = rigOf(player);
+  if (live?.truckId === truck.id) live.cd = cd;
+  await repush(player, 'bench');
+  return say(`<span class="item-grant">Down comes the ${TRINKETS[id].name}.</span> `
+    + '<span class="text-dim">It goes in the drawer — putting it back costs nothing.</span>');
+}
+
+// The same three answers `rig fit` gives, in the same shape and for the same reason: the sheet, one
+// place, or the wall. Three places rather than eight, so the wall is short — but the shape is kept
+// because the two shelves sit beside each other on one bench and a driver should not have to learn
+// a second set of words to browse the inside of their own truck.
+function cabCatalogue(truck, cd, only) {
+  const up = new Set(installedTrinkets(cd));
+  const head = '<span class="text-amber">The inside of the cab — ' + truck.type.name + '</span>\n'
+    + "<span class=\"text-dim\">Nobody sees any of it but you. One per place; swapping is free once it's yours.</span>";
+  const shelf = (sid) => CAB_SLOTS.filter((s) => !sid || s.id === sid).map((s) => {
+    const items = trinketsIn(s.id).map((t) => {
+      const on = up.has(t.id), price = trinketPrice(cd, t.id);
+      const line = `  <b>${on ? '●' : '○'}</b> <b>${t.name}</b> <span class="text-dim">— ${price ? `${price}₵` : 'in the drawer'} · `
+        + `${on ? `rig cab off ${t.id}` : `rig cab ${t.id}`}</span>`;
+      return sid ? `${line}\n     <span class="text-dim">${t.desc}</span>` : line;
+    }).join('\n');
+    return `<span class="text-amber">${s.label}</span> <span class="text-dim">${s.note}</span>\n${items}`;
+  }).join('\n');
+  if (only === 'all') return say(`${head}\n${shelf(null)}`);
+  if (only) return say(`${head}\n${shelf(only)}`);
+  const sheet = CAB_SLOTS.map((s) => {
+    const id = [...up].find((k) => TRINKETS[k].slot === s.id);
+    return `  <b>${id ? '●' : '○'}</b> <b>${s.label.padEnd(15)}</b> `
+      + (id ? `<span class="text-green">${TRINKETS[id].name}</span>` : '<span class="text-dim">empty</span>')
+      + `<span class="text-dim"> · rig cab ${s.id}</span>`;
+  }).join('\n');
+  const owned = TRINKET_IDS.filter((id) => !trinketPrice(cd, id) && !up.has(id)).length;
+  return say(`${head}\n${sheet}\n`
+    + '<span class="text-dim">A place at a time, or <b>rig cab all</b> for the lot.'
     + `${owned ? ` ${owned} thing${owned === 1 ? '' : 's'} of yours ${owned === 1 ? 'is' : 'are'} in the drawer.` : ''}</span>`);
 }
 

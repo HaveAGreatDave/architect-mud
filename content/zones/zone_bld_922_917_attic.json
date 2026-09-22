@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "Where the outside stair comes in under the roof. The ridge has given here and the ceiling follows it down in a long sag you can see from the street. Somebody has propped it with a length of scaffold tube and painted the tube.",
+  "description": "Where the outside stair comes in under the roof. The ridge has given here and the ceiling follows it down in a long sag you can see from the street. Somebody has propped it with a length of scaffold tube and painted the tube. The landing light works the way everything else in the building works, which is to say it is there.",
   "exits": {
     "east": "zone_bld_922_917_lobby"
   },

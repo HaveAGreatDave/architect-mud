@@ -1,0 +1,19 @@
+{
+  "description": "A gantry on rails the length of the hall with two broad slings hanging off it, wide enough to take a hull under the turn of the bilge without marking it. The controls are on a pendant on a coiled lead, and the pendant has exactly four buttons.",
+  "flags": {
+    "aliases": [
+      "hoist",
+      "gantry",
+      "crane",
+      "slings"
+    ],
+    "interactions": {
+      "examine": "The slings are webbing, not wire, and they are clean. Four buttons: up, down, and the two ends of the hall. Everything else about the machine has been taken out of the operator's hands."
+    },
+    "marina_hoist": true
+  },
+  "id": "furn_consv_hoist",
+  "name": "the travel hoist",
+  "object_type": "fixture",
+  "zone_id": "zone_consv_hall"
+}

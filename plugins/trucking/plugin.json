@@ -42,6 +42,7 @@
   "hooks": [
     "zone.describeRoom",
     "vehicle.contacts",
+    "vehicle.crewed",
     "hijack.target",
     "fuel.prices"
   ]

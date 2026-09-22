@@ -1,0 +1,8 @@
+{
+  "description": "Propped against the glass by the door and rewritten every morning. Today it says GROUNDS FOR CONCERN — ALSO FOR CELEBRATION, WHICH IS CHEAPER. It has been better and it has been much worse, and there are people on this estate who walk past specifically to read it.",
+  "flags": {},
+  "id": "furn_hf_grounds_board",
+  "name": "a chalkboard",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_grounds_room"
+}

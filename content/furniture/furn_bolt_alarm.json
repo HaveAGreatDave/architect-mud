@@ -1,0 +1,19 @@
+{
+  "description": "Cream plastic gone yellow at the top edge where the sun gets it, with a length of trunking running off it that does not match the trunking it joins. Somebody fitted this themselves out of stock and did a decent job of it, which is the most hardware-shop thing in the hardware shop.",
+  "flags": {
+    "alarm_panel": true,
+    "alarm_tier": 2,
+    "aliases": "alarm,panel,box,alarm panel,alarm box,intruder panel",
+    "click_cmd": "hack alarm"
+  },
+  "hp": 120,
+  "hp_max": 120,
+  "id": "furn_bolt_alarm",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the alarm box",
+  "object_type": "terminal",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bolt_shop"
+}

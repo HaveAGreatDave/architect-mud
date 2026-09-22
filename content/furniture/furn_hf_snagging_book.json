@@ -1,0 +1,8 @@
+{
+  "description": "A4, bound, a page per plot, ruled into date, defect, trade and sign-off. About a third of the pages have a line through them. Roughly a dozen have a defect written in one hand and, underneath in another, NOT A DEFECT — DESIGN. Those dozen are the interesting ones.",
+  "flags": {},
+  "id": "furn_hf_snagging_book",
+  "name": "the defects book",
+  "object_type": "container",
+  "zone_id": "zone_hf_snagging_office"
+}

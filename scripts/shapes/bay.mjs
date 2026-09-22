@@ -56,6 +56,24 @@ const BASE = {
 
 const clock = globalThis.performance;
 globalThis.performance = { ...clock, now: () => 1e6 };
+// ⚠ THE FLOCKS ARE PINNED OFF, AND ANY GATE THAT CENSUSES SPRITES NOW HAS TO DO THIS. A bird
+// past its species' `dotPx` is no longer a mesh -- it is one entry in the SPRITE layer, the same
+// layer this file reads to prove the depot's six lights reach the GPU. So a flock drifting over the
+// scene is counted as the depot's lighting, and the failure names neither birds nor the LOD: it
+// says the sprite list is not the depot's alone, which reads like the depot emitting something it
+// should not. Measured here as 9 stray sprites with the door shut and 14 with it open, varying with
+// the clock because the flocks move. `geese` is the one flag that takes every species down.
+//
+// ⚠ AND IT IS THE FLOCKS RATHER THAN `faunaDot`. Turning the LOD off puts the birds back as MESHES,
+// which then land in the face census instead -- a different check, wrong for the same reason.
+ws.RENDER_TUNE.geese = 0;
+// ⚠ AND THE STREET VENTS, FOR THE GEESE' REASON EXACTLY. A steam plume is four sprites off a road
+// tile with a building near it, which this scene is made of, so switching the vents on by default
+// put 14 strays in the shut-door frame and 18 in the open-door one and reddened this gate — a
+// depot check failing because somebody turned on the weather two files away. Anything that emits
+// sprites into a scene whose sprite list is meant to be one building's has to be pinned here, and
+// the list is only ever going to get longer.
+ws.RENDER_TUNE.glSteam = 0;
 const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor, bayWas = ws.RENDER_TUNE.glBay;
 const problems = [];
 

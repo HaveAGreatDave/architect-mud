@@ -1,0 +1,18 @@
+{
+  "description": "One slab of hardwood the length of the wall, scarred to a depth that took years and oiled often enough that the scars are darker than the surface. A vice at each end, one of them with a sailmaker's palm hanging off it.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "workbench",
+      "slab"
+    ],
+    "interactions": {
+      "examine": "The near end is set up for small work and the far end for long. Between them, burnt into the wood with a hot iron and not recently: IF IT GOES BACK IN THE WATER IT WAS DONE PROPERLY."
+    },
+    "marina_bench": true
+  },
+  "id": "furn_consv_bench_top",
+  "name": "the bench",
+  "object_type": "furniture",
+  "zone_id": "zone_consv_bench"
+}

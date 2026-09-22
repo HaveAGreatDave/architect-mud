@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The landing at the first pinch, which in this building is the one place you can see how the bright finish is actually made: the collar is not a band applied to the building, it is a structural ring, and up here the inside face of it is exposed and polished and you can put your hand on it. It is cold and it is perfect and there is a small plate on it giving the fabricator's name.",
+  "exits": {
+    "down": "zone_hf_wellappointed_lobby"
+  },
+  "flags": {
+    "building_name": "Well Appointed",
+    "building_type": "bead_tower",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_896_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_wellappointed_collar",
+  "map_id": "map_int_hf_wellappointed",
+  "name": "Well Appointed — The First Collar",
+  "parent_zone": "zone_district_896_917"
+}

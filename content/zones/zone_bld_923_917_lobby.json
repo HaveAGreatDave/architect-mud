@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A long low room with trestles down the middle and benches either side, and enough of them that the far end is in shadow. The serving hatch is at the near end so the queue never has to come inside. It is warm, and it smells of onions and steam and wet wool.",
+  "description": "A long low room with trestles down the middle and benches either side, and enough of them that the far end is in shadow. The serving hatch is at the near end so the queue never has to come inside. It is warm, and it smells of onions and steam and wet wool. The hall was wired for six lights. The box outside has been waiting on a call-out since the spring, and the queue has stopped mentioning it.",
   "exits": {
     "down": "zone_util_zone_bld_923_917_lobby",
     "east": "zone_bld_923_917_kitchen",

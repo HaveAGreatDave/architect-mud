@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A mezzanine along the hall's west flank at gantry height, railed in steel, with a bed at one end behind a curtain on a track and a desk at the other. From up here you look down the length of the roof glass and out through the open end at the basin. Somebody has hung a single photograph over the desk and it is of a boat, from the water, being driven hard by a person too far off to identify.",
+  "exits": {
+    "down": "zone_consv_hall"
+  },
+  "flags": {
+    "building_name": "Fairweather Marina",
+    "building_type": "boathouse",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole south pitch of the roof, from the inside. The Glasshouse stands over it and the Spire is a lit line up the corner of the frame.",
+      "light": 0.85,
+      "name": "the roof glass",
+      "visibility": 0.35
+    },
+    "world_exit_zone": "zone_district_893_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_consv_loft",
+  "map_id": "map_int_consv",
+  "name": "Fairweather Marina — The Gallery",
+  "parent_zone": "zone_district_893_902"
+}

@@ -303,9 +303,27 @@ export function uniqueMarkerFor(name, taken) {
   // map with two buildings answering to the same mark, which is what MARK-4 is for — so the
   // last resort widens to letters before it gives up. Twenty-six more per lead letter, in a
   // fixed order, so the assignment stays deterministic and order-independent.
-  for (const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') if (!used.has(lead + c)) return lead + c;
-  return first;
+  for (const c of ALPHA26) if (!used.has(lead + c)) return lead + c;
+  // ⚠ AND THE LEAD LETTER RUNS OUT TOO, WHICH IS THE SAME BUG ONE RUNG LOWER. The widening
+  // above bought thirty-four codes per lead letter, and forty-two more buildings in Halcyon
+  // Fields spent the last of `S`: with every authored marker stripped, Skeleton Crew and a
+  // Terminus tile were both handed `SC`, because the line below used to hand back `first` —
+  // a code another building is already wearing, which is precisely the MARK-4 duplicate this
+  // whole ladder exists to avoid. Falling back to a wrong answer is what made the previous
+  // rung necessary and it would have made the next one necessary too.
+  //
+  // The last rung is therefore the WHOLE two-character space in a fixed order: 884 codes
+  // against a world of 240 buildings, so it cannot be exhausted by anything this map could
+  // hold, and it is deterministic and order-independent like every rung above it.
+  //
+  // ⚠ It ends in `null` rather than in a duplicate. Nothing in this world reaches it — every
+  // one of the 240 world buildings carries an AUTHORED marker, so this ladder is only ever
+  // walked by the regress case that strips them to prove it can always produce a unique set —
+  // but a tile with no code draws nothing, and a tile with somebody else's code draws a lie.
+  for (const a of ALPHA26) for (const b of ALPHA26 + '23456789') if (!used.has(a + b)) return a + b;
+  return null;
 }
+const ALPHA26 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 // Astral-aware length: an emoji marker is one glyph, not two code units.
 const glyphLen = (s) => [...String(s ?? '')].length;
@@ -635,6 +653,12 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   fishmonger: 'bldg_fishmonger', cobbler: 'bldg_cobbler',
   photographer: 'bldg_photographer', locksmith: 'bldg_locksmith', tattooist: 'bldg_tattooist',
   vet: 'bldg_vet', off_licence: 'bldg_off_licence', museum: 'bldg_museum',
+  // Fairweather Marina, on the west shore. A vault with a hull under it and the sling coming down off
+  // the apex — deliberately NOT `bldg_wharf` or `bldg_warehouse`, because both of those are a shed
+  // with cargo in it and the whole of what makes this building itself is that the roof is over a
+  // BOAT. (`pontoon` gets no row and needs none: the lookup is facade-gated and a pontoon is a
+  // standable deck carrying a `building_type`, never a door.)
+  boathouse: 'bldg_boathouse',
   // The Basin quay (907,907 and 908,907), on what used to be the doubled stretch of Greenside
   // Row. Same rule as the infill above: the glyph ships with the tile and the model, never after.
   // Neither reuses `bldg_cold` or `bldg_wharf` — a snowflake in a box is a chiller unit and an
@@ -656,12 +680,25 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   chrome_tower: 'bldg_chrome_tower', chrome_slab: 'bldg_chrome_slab',
   pavilion: 'bldg_pavilion', sky_court: 'bldg_sky_court',
   vertical_farm: 'bldg_vertical_farm', transit_halt: 'bldg_transit_halt',
+  // Halcyon Fields, the third campaign — eight silhouettes for the ground the second campaign
+  // left as meadow. Same rule as every batch since the infill: the glyph ships with the tile and
+  // the arm, never after them, because an icon deferred is a building that is briefly wrong on
+  // the map. ⚠ `shell_tower` gets one like the rest even though it has no door — it is drawn as a
+  // building tile either way and a twenty-storey shell that is blank on the map reads as a bug.
+  torque_tower: 'bldg_torque_tower', bead_tower: 'bldg_bead_tower',
+  cascade_block: 'bldg_cascade_block', glass_prism: 'bldg_glass_prism',
+  atrium_court: 'bldg_atrium_court', lens_hall: 'bldg_lens_hall',
+  chrome_arch: 'bldg_chrome_arch', shell_tower: 'bldg_shell_tower',
   // Old Coldwater, the slums in the south-east corner (docs/proposals/old-coldwater.md). Five
   // trades, five glyphs, registered in the same build as the tiles and the arms. ⚠ THE RUINS GET
   // NONE AND MUST NOT: `ruin` carries no `facade` tag, so buildingIconSvg never reaches it — a
   // collapsed house is mass out the canopy and nothing at all on the map, which is correct.
   water_seller: 'bldg_water_seller', flophouse: 'bldg_flophouse',
   soup_kitchen: 'bldg_soup_kitchen', bonesetter: 'bldg_bonesetter', shebeen: 'bldg_shebeen',
+  // The inspection station inside the South Gate, and the lot a seized rig is taken to. The
+  // weighbridge DECK is not in here and must not be: it is paved ground with a flag on it, never a
+  // building, or it becomes a rig-shaped hole you cannot drive onto (see plugins/trucking/scale.js).
+  weigh_station: 'bldg_weigh_station', vehicle_pound: 'bldg_vehicle_pound',
 });
 
 // Gated on the `facade` tag so interior tiles (which also carry is_building) never

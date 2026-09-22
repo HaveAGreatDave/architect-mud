@@ -31,7 +31,8 @@
 // here: the two-circle cone the canvas gradient describes is solved per pixel, and the curdle tile
 // is a texture read. Same argument as the mesh capturing at ADORN_NEAR — the tier existed because a
 // canvas could not afford it.
-import { viewProjMatrix } from './camera.js';
+import { viewProjMatrix, mat4f } from './camera.js';
+import { makeVertexStream } from './stream.js';
 
 // pos3, corner2, half-extent px 2, alpha1, lit1, kind1
 const STRIDE = 10;
@@ -137,7 +138,29 @@ void main() {
   vec3 litCol = mix(col, lt, 0.4 * uLightStr);   // the side facing the sun warms toward the lit tint
   vec3 shadeCol = mix(col, bt, 0.5);             // the far edge falls into the puff's own form shadow
 
-  float t = clamp(coneT(p, vFocus, 0.14, 1.0), 0.0, 1.0);
+  // ⚠ AND IT HAS TO REACH 1 BY THE RIM, WHICH coneT ALONE DOES NOT ON A FLATTENED CARD. The card
+  // is clipped to the unit circle in corner space (the discard above), but the cone is evaluated
+  // on p, which is the corner with y scaled by vYs = aSize.y / max(1, aSize.x). A cumulus card is
+  // roughly square so vYs is about 1 and the two agree; a STRATUS card is wide and flat, vYs is
+  // well under 1, and the cone is still well short of 1 where the discard cuts — so the alpha is
+  // chopped off at a non-zero value and the puff presents as a hard-edged slab.
+  //
+  // ⚠ THIS IS A LATENT CORRECTNESS FIX AND NOT THE VISIBLE BUG IT WAS WRITTEN FOR. It went in
+  // while chasing a hard-edged translucent rectangle across the upper frame in snow, and it is
+  // NOT the cause: measured, the whole volumetric layer contributes 2-6 levels there with soft
+  // edges, while the rectangle is a 150-level step. So any clipping here is real arithmetic and
+  // invisible in practice. Kept because the geometry is wrong either way and gets more visible
+  // the denser the deck, but nobody should read this as explaining that rectangle.
+  //
+  // ⚠ WHAT THE RECTANGLE IS NOT, so the next person can skip four dead ends: not the haze band (a
+  // full-width gradient with zero end stops, which cannot make an edge), not the volumetric layer
+  // (measured above), not the weather field (identical with wxField null), and not a UI panel (it
+  // is inside the canvas pixels). It is snow-specific, inset symmetrically about 78 px from both
+  // sides of a 1038 px frame, occupies the upper half, and has hard edges on all four sides.
+  //
+  // Taking the max with rr forces the fade to complete at the rim whatever the aspect, and on a
+  // card with vYs >= 1 the cone already leads, so it is a no-op there by construction.
+  float t = clamp(max(coneT(p, vFocus, 0.14, 1.0), rr), 0.0, 1.0);
   // The four stops the baked sprite and the hero gradient both use: a dense core that holds opacity,
   // then a roll-off to a firm edge — a solid cloud mass rather than a wispy smoke ring.
   vec3 rgbv; float am;
@@ -195,7 +218,10 @@ export function createCloudLayer(gl) {
   };
 
   const vao = gl.createVertexArray();
-  const buf = gl.createBuffer();
+  // One stream, set up once: the attribute pointers are recorded into the VAO here and never
+  // touched again, and the storage grows by doubling instead of being reallocated every frame.
+  // See gl/stream.js.
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.corner, 2, 12], [loc.size, 2, 20], [loc.alpha, 1, 28], [loc.lit, 1, 32], [loc.kind, 1, 36]], 8192);
   let data = new Float32Array(0);
   let count = 0;
   let noiseTex = null, noiseRef = null;
@@ -232,21 +258,14 @@ export function createCloudLayer(gl) {
         o += STRIDE;
       }
     }
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, count * STRIDE), gl.DYNAMIC_DRAW);
-    const S = STRIDE * 4;
-    const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
-    bind(loc.pos, 3, 0); bind(loc.corner, 2, 12); bind(loc.size, 2, 20);
-    bind(loc.alpha, 1, 28); bind(loc.lit, 1, 32); bind(loc.kind, 1, 36);
-    gl.bindVertexArray(null);
+    stream.write(data, count * STRIDE);
     return cards.length;
   }
 
   function draw(cam, W, H, cssH, opts = {}) {
     if (!count) return 0;
     gl.useProgram(prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, cssH || H)));
+    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
     const L = opts.light || [W * 0.5, -H];
     gl.uniform2f(loc.light, L[0], L[1]);

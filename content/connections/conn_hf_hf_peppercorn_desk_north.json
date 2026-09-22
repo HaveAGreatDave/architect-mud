@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_peppercorn_desk",
+  "b": "zone_hf_peppercorn_wall",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_hf_peppercorn_desk_north",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,20 +1,70 @@
 {
   "adorn": [
     {
+      "color": "#dfeaf4",
+      "cx": 0,
+      "cy": 0.158,
+      "half": 0.3,
+      "kind": "marqueeBand",
+      "label": "THE WEAVE",
+      "z": 0.098
+    },
+    {
+      "at": 0.7854,
+      "cx": 0,
+      "cy": 0,
+      "depth": 0.8,
+      "kind": "helixRunner",
+      "n": 20,
+      "period": 5200,
+      "r0": 0.5091,
+      "r1": 0.4101,
+      "rgb": "74,168,255",
+      "rgb2": "214,86,222",
+      "turns": 1.9,
+      "waves": 1.5,
+      "z0": 0.17,
+      "z1": 0.92
+    },
+    {
+      "at": 3.927,
+      "cx": 0,
+      "cy": 0,
+      "depth": 0.8,
+      "kind": "helixRunner",
+      "n": 20,
+      "period": 5200,
+      "r0": 0.5091,
+      "r1": 0.4101,
+      "rgb": "74,168,255",
+      "rgb2": "214,86,222",
+      "turns": 1.9,
+      "waves": 1.5,
+      "z0": 0.17,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "mast",
+      "z0": 1.1,
+      "z1": 1.3
+    },
+    {
       "cx": 0,
       "cy": 0,
       "kind": "blinkLight",
       "r": 1.4,
-      "rgb": "120,220,255",
-      "z": 1.1
+      "rgb": "255,90,120",
+      "z": 1.3
     },
     {
-      "cx": -0.2,
-      "cy": 0.47,
-      "kind": "glowPool",
-      "rgb": "70,200,255",
-      "s": 16,
-      "z": 0.0239
+      "cx": -0.33,
+      "cy": -0.33,
+      "kind": "blinkLight",
+      "r": 1.1,
+      "rgb": "255,90,80",
+      "z": 0.3
     },
     {
       "cx": 0,
@@ -22,7 +72,7 @@
       "kind": "glowPool",
       "rgb": "74,168,255",
       "s": 12,
-      "z": 0.3946
+      "z": 0.3521
     },
     {
       "cx": 0,
@@ -30,7 +80,7 @@
       "kind": "glowPool",
       "rgb": "74,168,255",
       "s": 11,
-      "z": 0.6576
+      "z": 0.5664
     },
     {
       "cx": 0,
@@ -38,15 +88,65 @@
       "kind": "glowPool",
       "rgb": "74,168,255",
       "s": 10,
-      "z": 0.8967
+      "z": 0.7807
     },
     {
       "cx": 0,
       "cy": 0,
       "kind": "glowPool",
       "rgb": "74,168,255",
-      "s": 14,
+      "s": 15,
       "z": 0.13
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "kind": "glowPool",
+      "rgb": "74,168,255",
+      "s": 13,
+      "z": 0.975
+    },
+    {
+      "cx": 0,
+      "cy": 0.47,
+      "kind": "glowPool",
+      "rgb": "255,150,70",
+      "s": 16,
+      "z": 0.0239
+    },
+    {
+      "at": 2.3562,
+      "cx": 0,
+      "cy": 0,
+      "depth": 0.8,
+      "kind": "helixRunner",
+      "n": 20,
+      "period": 5200,
+      "r0": 0.5091,
+      "r1": 0.4101,
+      "rgb": "74,168,255",
+      "rgb2": "214,86,222",
+      "turns": 1.9,
+      "waves": 1.5,
+      "z0": 0.17,
+      "z1": 0.92
+    },
+    {
+      "at": 5.4978,
+      "cx": 0,
+      "cy": 0,
+      "depth": 0.8,
+      "kind": "helixRunner",
+      "n": 20,
+      "period": 5200,
+      "r0": 0.5091,
+      "r1": 0.4101,
+      "rgb": "74,168,255",
+      "rgb2": "214,86,222",
+      "turns": 1.9,
+      "waves": 1.5,
+      "z0": 0.17,
+      "z1": 0.92
     }
   ],
   "basis": {
@@ -67,7 +167,7 @@
       "hh": 0.0179,
       "kind": "parapet",
       "pal": "ty_asc_weave",
-      "z": 0.1315
+      "z": 0.13
     },
     {
       "bars": 7,
@@ -75,8 +175,8 @@
       "cy": 0.44,
       "depth": 0.023,
       "glass": "#101a24",
-      "glow": "#9fe0ff",
-      "half": 0.36,
+      "glow": "#ffb46a",
+      "half": 0.34,
       "hh": 0.0395,
       "kind": "windowBay",
       "pal": "ty_asc_weave",
@@ -95,6 +195,104 @@
       "z": 0.1052
     },
     {
+      "color": "#4fe8ff",
+      "cx": 0,
+      "cy": 0.44,
+      "drop": 0.03,
+      "half": 0.4,
+      "kind": "neonRun",
+      "z": 0.126
+    },
+    {
+      "cx": -0.34,
+      "cy": 0.44,
+      "half": 0.07,
+      "hh": 0.045,
+      "kind": "louvreBank",
+      "n": 4,
+      "pal": "ty_asc_weave",
+      "z": 0.055
+    },
+    {
+      "cx": 0.34,
+      "cy": 0.44,
+      "half": 0.07,
+      "hh": 0.045,
+      "kind": "louvreBank",
+      "n": 4,
+      "pal": "ty_asc_weave",
+      "z": 0.055
+    },
+    {
+      "bay": true,
+      "cx": 0.12,
+      "cy": -0.44,
+      "half": 0.16,
+      "hh": 0.048,
+      "kind": "shutter",
+      "pal": "ty_asc_weave",
+      "z": 0.052
+    },
+    {
+      "cx": -0.26,
+      "cy": -0.44,
+      "d": 0.05,
+      "drip": 0.4,
+      "hh": 0.028,
+      "kind": "acUnit",
+      "pal": "ty_asc_weave",
+      "w": 0.07,
+      "z": 0.075
+    },
+    {
+      "cx": 0.18,
+      "cy": -0.44,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_asc_weave",
+      "r": 0.016,
+      "z0": 0.02,
+      "z1": 0.125
+    },
+    {
+      "cx": -0.33,
+      "cy": -0.33,
+      "hh": 0.16,
+      "kind": "stack",
+      "pal": "ty_asc_chrome_dk",
+      "r": 0.035,
+      "z": 0.13
+    },
+    {
+      "cx": 0,
+      "cy": 0.31,
+      "half": 0.2,
+      "hh": 0.02,
+      "kind": "louvreBank",
+      "n": 6,
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.9475
+    },
+    {
+      "cx": 0,
+      "cy": -0.31,
+      "half": 0.2,
+      "hh": 0.02,
+      "kind": "louvreBank",
+      "n": 6,
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.9475
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.315,
+      "hh": 0.006,
+      "kind": "parapet",
+      "pal": "ty_asc_chrome_dk",
+      "z": 0.975
+    },
+    {
       "cx": -0.34,
       "cy": 0.46,
       "kind": "bollard",
@@ -107,10 +305,36 @@
       "kind": "bollard",
       "pal": "ty_asc_weave",
       "z": 0.0048
+    },
+    {
+      "cx": -0.44,
+      "cy": 0.5,
+      "kind": "streetLamp",
+      "out": 0.06,
+      "pal": "ty_asc_weave",
+      "r": 0.012,
+      "rgb": "150,210,255",
+      "s": 11,
+      "z0": 0,
+      "z1": 0.075
+    },
+    {
+      "cx": 0.44,
+      "cy": 0.5,
+      "flip": true,
+      "kind": "streetLamp",
+      "out": 0.06,
+      "pal": "ty_asc_weave",
+      "r": 0.012,
+      "rgb": "150,210,255",
+      "s": 11,
+      "z0": 0,
+      "z1": 0.075
     }
   ],
   "id": "theweave",
-  "note": "The building is called The Weave and it was two stacked boxes. It is four long slabs now, each rotated against the one below and crossing it — a stack you cannot read the corners of, which is the whole of what the name is asking for. ⚠ A ROTATED SLAB CARRIES NOTHING: `anchored` takes its wall planes from UNYAWED boxes, so every part authored here is on the podium and nothing is hung above z 0.11. The slabs are still BOXES though, so they keep their wall texture and their lit windows — which is why this reads as a woven tower after dark rather than as a dark sculpture. See thespire.json for what happens when the same shape is attempted with drums. RENDER_TUNE.legacyArms puts the asc_weave arm back.\n\n⚠ RESTORED TO THE HEIGHT OF ITS ARM (2026-09-17). The form above is unchanged and was\nnever the problem; what did not carry across from the asc_weave arm was how tall it stands. It was\nat 84% — 0.92x the storey stack against the arm's 1.10x — so every 'h'-tagged field\nhere was multiplied by 1.196 and every 'fh'-tagged one left alone. The silhouette is identical;\nonly the storeys are taller. Same regression as halcyontowers and thespire, same measurement.\n\n⚠ LIT AT THE JUNCTIONS, WHICH IS WHERE THE FORM IS. Each slab crosses the one below, so the\nplaces light belongs are the ledges those crossings leave — one glow at each, plus the podium.\nIt emitted two sprites before this. The accent is Ascendant blue rather than the arm’s\nwelding-spark orange: the arm was an open fab shed and this is not that building any more.",
+  "neon": "#9fe0ff",
+  "note": "THE WEAVE — the Ascendants’ body shop: a twisting chrome-banded works tower on the foundry floor\nit is named for. It extrudes chrome, and it is built to look like what it makes.\n\n⚠ THE STACK OF CROSSED SLABS IS GONE, AND THAT IS A REPLACEMENT RATHER THAN A RESTYLE. Four long\nslabs rotated against each other is a real idea and it read as a pile of boxes from every bearing:\na weave is corners you cannot follow, and stacked rectangles give you eight hard ones per slab. A\ncontinuous twist has none.\n\n⚠ THE SHAFT IS A CURTAIN WALL, NOT A BILLET, and that is the difference between a building and a\nsculpture. Each of seven storeys is a glazed band with a chrome spandrel RECESSED 0.024 behind it,\nso the tower carries a floor rhythm and a real shadow line at every level. It had to be done in\nGEOMETRY because a yawed plate can carry no bolted-on part at all — see the anchoring note below —\nand inset segments are the one kind of articulation that survives the twist.\n\n⚠ THE SECTION IS SQUARE, AND THAT IS CORRECTNESS RATHER THAN TASTE. `helixRunner` traces a CIRCLE\nof radius r0..r1, so it lands on a corner only where the corner sits at ONE radius — true of a\nsquare plate (hw·root2), false of every rectangle. The slabs this replaces were 0.42 by 0.15 and\ntheir runner hung in open air for most of its height; the Gate’s piers made the same mistake at\n0.128 by 0.295. A square plate makes it exact. All FOUR corners are run here, against the Spire’s\ntwo: that tower is tall enough that a corner is always in view and this one is not.\n\n⚠ IT HAS TO READ AS A PLACE SOMEBODY WORKS. Every vision band keeps a window grid, so it has\nfloors and lights itself after dark. There is a foundry podium with the works on show behind blast\nglass, a canopy, a lit name band and louvred plant; a SERVICE SIDE at the back with a roller\nshutter, a condenser and its drip; and a PLANT FLOOR under the crown, which every real tower has.\n\n⚠ EVERY BOLTED-ON PART IS ON AN UNYAWED BOX. `anchored` takes its wall planes from unyawed boxes\nonly, so a plate inside the twist can carry nothing — which is exactly why the plant floor is\nauthored square and why the whole street kit is on the podium.\n\n⚠ THE SHAFT IS `ty_asc_shaft` AND THE BANDS ARE `ty_asc_chrome`, THE SPIRE’S OWN SPLIT, AND IT IS\nNOT NEGOTIABLE. CHROME_WALL is a flat clad panel with no coursing and no window grid, so a whole\nshaft in it is an unlit obelisk every night — thespire.json records exactly that about its own\ntower. The mirror goes where there are no windows to lose: the podium collar, the spandrels, the\nplant floor and the cap. Lighting sits on the shaft the bands interrupt, never on the bands,\nbecause a mirror with nothing behind it is dark.\n\n⚠ THE TWIST IS 1.90 RAD OVER 0.75 OF THE HEIGHT, against the Spire’s 1.80 over 2.60 — about three\ntimes the rate. Two buildings on one campus sharing a move and disagreeing about the rate read as\nrelated; the same rate would read as a copy.\n⚠ A PANE IS THE PART’S OWN `glass` COLOUR AND NEVER A PALETTE KEY. A `ty_weave_glass` was added\nto windshield.js for this and taken straight back out: `windowBay` takes its surround from `pal`\nand its pane from `glass`, so the key had no reader at all.\nRENDER_TUNE.legacyArms puts the asc_weave arm back.",
   "pal": "ty_asc_weave",
   "replaces": "asc_weave",
   "segs": [
@@ -119,56 +343,206 @@
       "cy": 0,
       "hw": 0.44,
       "kind": "box",
-      "pal": "ty_dw_slate",
+      "pal": "ty_asc_spire",
       "roof": true,
       "z0": 0,
-      "z1": 0.1315
+      "z1": 0.13
     },
     {
       "cx": 0,
       "cy": 0,
-      "fd": 0.15,
-      "hw": 0.42,
+      "hw": 0.385,
       "kind": "box",
-      "roof": true,
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "z0": 0.13,
+      "z1": 0.17
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_asc_shaft",
+      "roof": false,
       "yaw": 0,
-      "z0": 0.1315,
-      "z1": 0.3946
+      "z0": 0.17,
+      "z1": 0.2407
     },
     {
       "cx": 0,
       "cy": 0,
-      "fd": 0.15,
-      "hw": 0.42,
+      "hw": 0.3294,
       "kind": "box",
-      "roof": true,
-      "yaw": 1.15,
-      "z0": 0.3946,
-      "z1": 0.6576
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "yaw": 0.1791,
+      "z0": 0.2407,
+      "z1": 0.2771
     },
     {
       "cx": 0,
       "cy": 0,
-      "fd": 0.14,
-      "hw": 0.37,
+      "hw": 0.35,
       "kind": "box",
-      "roof": true,
-      "yaw": 0.45,
-      "z0": 0.6576,
-      "z1": 0.8967
+      "pal": "ty_asc_shaft",
+      "roof": false,
+      "yaw": 0.2713,
+      "z0": 0.2771,
+      "z1": 0.3478
     },
     {
       "cx": 0,
       "cy": 0,
-      "fd": 0.13,
+      "hw": 0.3194,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "yaw": 0.4504,
+      "z0": 0.3478,
+      "z1": 0.3843
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "pal": "ty_asc_shaft",
+      "roof": false,
+      "yaw": 0.5429,
+      "z0": 0.3843,
+      "z1": 0.455
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3094,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "yaw": 0.722,
+      "z0": 0.455,
+      "z1": 0.4914
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.33,
+      "kind": "box",
+      "pal": "ty_asc_shaft",
+      "roof": false,
+      "yaw": 0.8142,
+      "z0": 0.4914,
+      "z1": 0.5621
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2994,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "yaw": 0.9933,
+      "z0": 0.5621,
+      "z1": 0.5986
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_asc_shaft",
+      "roof": false,
+      "yaw": 1.0858,
+      "z0": 0.5986,
+      "z1": 0.6693
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2894,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "yaw": 1.2649,
+      "z0": 0.6693,
+      "z1": 0.7057
+    },
+    {
+      "cx": 0,
+      "cy": 0,
       "hw": 0.31,
       "kind": "box",
-      "pal": "ty_marble_col",
+      "pal": "ty_asc_shaft",
+      "roof": false,
+      "yaw": 1.3571,
+      "z0": 0.7057,
+      "z1": 0.7764
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2794,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "yaw": 1.5362,
+      "z0": 0.7764,
+      "z1": 0.8129
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_asc_shaft",
+      "roof": false,
+      "yaw": 1.6287,
+      "z0": 0.8129,
+      "z1": 0.8836
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2694,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "yaw": 1.8078,
+      "z0": 0.8836,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.31,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "z0": 0.92,
+      "z1": 0.975
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.27,
+      "kind": "box",
+      "pal": "ty_asc_shaft",
       "roof": true,
-      "yaw": 1.5,
-      "z0": 0.8967,
+      "yaw": 1.9,
+      "z0": 0.975,
+      "z1": 1.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2,
+      "kind": "box",
+      "pal": "ty_asc_chrome",
+      "roof": true,
+      "yaw": 1.9,
+      "z0": 1.05,
       "z1": 1.1
     }
   ]
 }
-

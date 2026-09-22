@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The lowest of the four steps on the rear elevation, and one of the two that are still gravel. Beds marked out in timber edging, a hose reel, a stack of bagged compost gone hard at the corners, and a view over the yard walls of Meltwater Row into four back yards that are all being used for something. The two terraces above this one are planted and hanging over the edge, so you are standing under somebody else's garden.",
+  "exits": {
+    "down": "zone_hf_dualaspect_hall"
+  },
+  "flags": {
+    "building_name": "Dual Aspect",
+    "building_type": "cascade_block",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "No glass at all on this one — the balustrade is chrome rail, and the drop is nine metres onto the service strip. The nearest yard has a line out in it more days than not.",
+      "light": 0.9,
+      "name": "the terrace edge",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_906_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_dualaspect_terrace",
+  "map_id": "map_int_hf_dualaspect",
+  "name": "Dual Aspect — The Gravel Terrace",
+  "parent_zone": "zone_district_906_914"
+}

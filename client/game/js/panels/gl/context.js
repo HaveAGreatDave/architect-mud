@@ -17,7 +17,7 @@
 // `paintWindshield` composites this buffer every frame. The spike framing above is kept because the
 // discipline it describes still holds — this file knows how to put triangles on a screen and
 // nothing whatever about buildings — but the scope has not been "mass only" for a long time.
-import { viewProjMatrix } from './camera.js';
+import { viewProjMatrix, mat4f } from './camera.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { createSpriteLayer } from './sprites.js';
 import { createCurtainLayer } from './curtain.js';
@@ -26,12 +26,18 @@ import { createStrokeLayer } from './strokes.js';
 import { createBillboardLayer } from './billboards.js';
 import { createGroundLayer } from './ground.js';
 import { createSolidsLayer } from './solids.js';
+// The interior's own clip range, in tiles. A cab is about 0.10 of a tile end to end at a driver's
+// eye height, so this brackets it with room to spare — and because the pass clears depth first,
+// neither number has anything to do with the world's. See drawInterior.
+const INTERIOR_NEAR = 0.004, INTERIOR_FAR = 1.0;
 import { createFloorLayer } from './floor.js';
+import { createWaterLayer } from './water.js';
 import { createCloudLayer } from './clouds.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
 import { createSSAOLayer } from './ssao.js';
 import { createHDRLayer } from './hdr.js';
 import { createMirrorLayer } from './mirror.js';
+import { createSkylineStrip } from './skyline.js';
 // The clip range the matrix is built with. The SSAO pass inverts the depth buffer back to tiles and
 // has to use the same two constants the vertices went through.
 import { NEAR, zRow } from './camera.js';
@@ -41,7 +47,7 @@ import { NEAR, zRow } from './camera.js';
 const STRIDE = 21;
 
 // The material table's uniform budget, and the loop-free bound the shader's arrays are stamped
-// with. Nineteen families exist today (windshield.js's MAT_ORDER); the headroom is so that adding
+// with. Twenty families exist today (windshield.js's MAT_ORDER); the headroom is so that adding
 // one is a one-line change there rather than a shader edit here.
 // ⚠ AN INDEX PAST THIS IS UNDEFINED BEHAVIOUR IN GLSL ES, not a clamp — see the ⚠ on `wallMaterialId`.
 export const MAX_MATERIALS = 24;
@@ -154,6 +160,9 @@ flat in float vMat;
 in vec3 vWorld;
 in vec4 vEdge;
 uniform sampler2D uAtlas;
+uniform sampler2D uEnvStrip;   // one texel per bearing: rgb = the city there, a = how high it stands
+uniform float uEnvCity;        // 0 = two flat colours, the environment as it shipped
+uniform float uEnvDim;         // how far a reflected building is dimmed from its own palette
 uniform float uTextured;
 uniform vec3 uKeyDir;
 uniform vec3 uKey;
@@ -266,6 +275,7 @@ const float WET_NEON = 6.0;
 const float WET_LOBE = 28.0;
 uniform float uMatStr;
 uniform float uBumpStr;
+uniform float uMetalRefl;
 // How wide the shading bevel is, in tiles. 0 makes the whole term unreachable — the branch is on
 // this uniform, so at 0 not one of the four comparisons below is evaluated.
 uniform float uBevel;
@@ -280,6 +290,8 @@ uniform float uSsaoStr;
 uniform vec2 uViewport;
 uniform vec4 uMat[GLASS_MAX_MAT];
 uniform float uSheen[GLASS_MAX_MAT];
+uniform float uSpec[GLASS_MAX_MAT];
+uniform float uSpecStr;
 // The two ends of the sky, for a reflection to land on. GLASS's sky IS a vertical gradient, so two
 // colours and the reflected ray's elevation reproduce it without a cube map or a probe.
 uniform vec3 uEnvUp;
@@ -507,7 +519,17 @@ void main() {
   // adornments are made of are painted by the 2-D renderer as ONE fill — no wall texture, no light
   // ramp — so a shader that helpfully textured and shaded them would not be reproducing GLASS, it
   // would be improving on it, which is the one thing a port must not do.
-  vec3 surf = mix(vColor, texture(uAtlas, vUV).rgb, clamp(uTextured, 0.0, 1.0) * solid);
+  // ── ⚠ AND A HOLE IN THE ATLAS IS A HOLE IN THE CITY ────────────────────────
+  // Every other surface in the page is opaque, so this alpha is 1 everywhere except on a cut
+  // lattice, where 'matLattice' leaves the openings unfilled. Discarding there is what makes a
+  // truss see-through, and it is an ALPHA TEST rather than a blend on purpose: a discarded
+  // fragment writes no depth, so the sun-shadow and SSAO prepasses — which run this same program,
+  // the only one in this file — inherit the holes for free and no sorting changes.
+  // ⚠ IT IS GATED ON 'solid' AND ON THE TEXTURE MIX, or a flat-shaded adornment sampling an atlas
+  // entry it does not use would discard on somebody else's alpha.
+  vec4 atl = texture(uAtlas, vUV);
+  if (clamp(uTextured, 0.0, 1.0) * solid > 0.5 && atl.a < 0.5) discard;
+  vec3 surf = mix(vColor, atl.rgb, clamp(uTextured, 0.0, 1.0) * solid);
   // ⚠ HERE, AND NOT AFTER THE SHADING, WHICH IS THE WHOLE REASON THIS IS THREE LINES INSTEAD OF
   // THIRTY. Everything below composes a lit surface out of surf — the two overlays, the sun
   // shadow, the chamfer, both occlusion terms, the screen-space pass and then the point lights.
@@ -644,6 +666,30 @@ void main() {
     // ground, and the line between them moves as you drive. That gradient IS what glass looks like.
     vec3 R = reflect(-V, n);
     vec3 env = mix(uEnvDn, uEnvUp, smoothstep(-0.35, 0.55, R.z));
+    // ── AND THE CITY IN IT ────────────────────────────────────────────────────
+    //
+    // Two flat colours make a tower reflect the WEATHER. What every photograph of a curtain wall is
+    // mostly made of is other BUILDINGS — the skyline across the middle, the street below, sky only
+    // at the top. 'uEnvStrip' is one texel per bearing: rgb is the mass in that direction and alpha
+    // is how high it stands, as a bounded slope. See gl/skyline.js for why this is a probe rather
+    // than a planar mirror or a screen-space trace (both fail on a vertical wall, differently).
+    if (uEnvCity > 0.001) {
+      // ⚠ THE AZIMUTH IS THE RAY'S, AND THE TEXTURE WRAPS. atan is (-π,π]; mapping it to 0..1 puts
+      // the join at due west, and a CLAMPed strip would blend that bin into its opposite — a seam
+      // in the glass at one fixed compass bearing that does not move when you do.
+      float az = atan(R.y, R.x) * 0.1591549431 + 0.5;
+      vec4 sl = texture(uEnvStrip, vec2(az, 0.5));
+      float t = (sl.a - 0.5) * 2.0;
+      float skySlope = t / max(1e-3, 1.0 - abs(t));
+      // ⚠ SLOPE AGAINST SLOPE, NEVER HEIGHT AGAINST HEIGHT. A reflected ray has a direction and no
+      // distance, so the only comparable quantity is angular — which is also why a near low shed
+      // can stand higher in a reflection than a far tower.
+      float raySlope = R.z / max(1e-3, length(R.xy));
+      // Below the skyline is mass; below the ground horizon is ground, which 'env' already has.
+      float city = (1.0 - smoothstep(skySlope - 0.09, skySlope + 0.09, raySlope))
+                 * smoothstep(-0.03, 0.07, raySlope);
+      env = mix(env, sl.rgb * uEnvDim, clamp(city * uEnvCity, 0.0, 1.0));
+    }
     float ndv = clamp(dot(n, V), 0.0, 1.0);
     // Schlick. Near zero face-on, one at grazing, and the fifth power is what makes it hug the
     // silhouette instead of washing the whole wall.
@@ -658,7 +704,21 @@ void main() {
     // the wall recedes. The lobe does not: the note under the highlight below says why, and every
     // face in this city is planar, so a sharper lobe would simply paint a whole wall lighter.
     float refl = mix(M.z, min(1.0, M.z + WET_REFL), wetW);
-    float envAmt = clamp(refl * (0.045 + 0.955 * fres) * mk, 0.0, 1.0);
+    // ⚠ A METAL REFLECTS FACE-ON AND A DIELECTRIC DOES NOT, and for a long time this line said
+    // otherwise. Schlick is F = F0 + (1 - F0)·fres, where F0 is the surface's OWN reflectance at
+    // normal incidence: about 0.045 for glass, brick or render, and 0.8-0.95 for polished metal.
+    // Written as refl·(0.045 + 0.955·fres) every family got the dielectric's F0 and only reached
+    // its own value at a grazing angle — so chrome, whose entire identity is that it hands you the
+    // world, reflected 3.6% of it when you looked straight at it and was light grey paint with a
+    // rim on it. That is exactly the 'chrome does not look reflective' report.
+    //
+    // ⚠ AND IT IS SCALED BY 'metal' RATHER THAN APPLIED TO EVERYTHING, which is what keeps it from
+    // being a change to the whole city: at M.y = 0 the expression reduces to the old one TERM FOR
+    // TERM, so every brick, stone, stucco, timber, concrete and glass wall in Coldwater is
+    // bit-identical. Only the six metal rows move, and they move toward what they already claim to
+    // be. 'uMetalRefl' 0 is the picture that shipped.
+    float f0 = refl * mix(0.045, 1.0, M.y * uMetalRefl);
+    float envAmt = clamp((f0 + (refl - f0) * fres) * mk, 0.0, 1.0);
     // ⚠ AND THE DIFFUSE GOES DOWN AS THE METAL GOES UP, before the mix and not after. A conductor
     // has almost no diffuse — what you see IS the reflection — and leaving the diffuse standing is
     // what makes every attempt at chrome come out as light grey paint with a highlight on it.
@@ -685,7 +745,13 @@ void main() {
     // back uniformly brighter, which is precisely what "the wall got lighter" looks like. What
     // actually carries a material here is the RELIEF, which varies per texel; this is the small
     // second term that tells you the relief is wet rather than dry.
-    base += uKey * (sp * M.z * (0.15 + 0.30 * M.y) * mk * (1.0 - shK) * occ);
+    // ⚠ PER FAMILY NOW, AND 'uSpecStr' 0 IS EXACTLY THE EXPRESSION THAT SHIPPED. The note above
+    // is a fact about FLAT faces and it still governs every masonry row, all of which carry
+    // their old value in the table. What it was wrong about is the polished families: they live
+    // on drums and curtain walls, where the surface really does curve away from the light and a
+    // lobe really does travel across it.
+    float specK = mix(0.15 + 0.30 * M.y, uSpec[mi], uSpecStr);
+    base += uKey * (sp * M.z * specK * mk * (1.0 - shK) * occ);
     // ── SHEEN ─────────────────────────────────────────────────────────────────
     //
     // A broad view-facing lift with no lobe at all. It is what a surface does when it is so rough
@@ -715,7 +781,12 @@ void main() {
     // squared is a broad soft field: half way out it still carries a quarter of the peak, which
     // over the reach this pass used to be given was a quarter of the light seven storeys up a
     // facade. At uLightFocus 2.0 this line is exactly the term that shipped.
-    base += uLightC[i] * (pow(att, uLightFocus) * diff);
+    // ⚠ ONE FALLOFF, SPENT TWICE. 'pow(att, uLightFocus)' is the same number for this term and for
+    // the wet lobe below, and it was evaluated once for each — a second pow per light per fragment,
+    // over up to GLASS_MAX_LIGHTS lights, on every pixel of every wall in the city. The arithmetic
+    // is unchanged; it is the same value read twice instead of computed twice.
+    float fall = pow(att, uLightFocus);
+    base += uLightC[i] * (fall * diff);
     // ── AND THE SAME LIGHT AGAIN, IN THE WATER ON THE WALL ────────────────────
     //
     // The albedo darkening above is most of what says WET by day and almost nothing at night, and
@@ -740,8 +811,17 @@ void main() {
     // ⚠ IT IS NOT THE WALL WASH COMING BACK. That was reverted five times for flattening a facade,
     // and it flattened because it was DIFFUSE — a broad field over the whole wall. This is a tight
     // lobe gated on standing water, so it cannot reach a dry frame at all.
-    vec3 Hl = normalize(d / max(0.001, dist) + Vw);
-    base += uLightRaw[i] * (pow(max(0.0, dot(n, Hl)), WET_LOBE) * WET_NEON * wetW * pow(att, uLightFocus));
+    // ⚠ A UNIFORM BRANCH, NOT A PER-FRAGMENT ONE — which is the distinction the note above is
+    // drawing rather than a rule against branching here at all. What it forbids is branching on
+    // 'wetW', which varies per fragment; 'uWet' is a uniform, so this is the same shape as the
+    // 'uScatter' gate a few lines down and a dry frame simply does not run the lobe. Dry, the term
+    // was already zero BY ARITHMETIC — it was paying a normalize, a dot and a pow per light per
+    // fragment to arrive at that zero, on every pixel of every wall, which in a district of tall
+    // towers is most of the frame. The wet frame is unchanged to the bit.
+    if (uWet > 0.001) {
+      vec3 Hl = normalize(d / max(0.001, dist) + Vw);
+      base += uLightRaw[i] * (pow(max(0.0, dot(n, Hl)), WET_LOBE) * WET_NEON * wetW * fall);
+    }
   }
   // ⚠ AND THERE IS NO EMISSION TERM HERE, WHICH WAS MEASURED RATHER THAN ASSUMED. One sat on this
   // line and moved 0.0% of wall pixels at every seat: everything above IS light arriving at a wall,
@@ -899,6 +979,7 @@ export function createGLView(canvas, opts = {}) {
     fogHScale: gl.getUniformLocation(prog, 'uFogHScale'),
     scatter: gl.getUniformLocation(prog, 'uScatter'),
     bumpStr: gl.getUniformLocation(prog, 'uBumpStr'),
+    metalRefl: gl.getUniformLocation(prog, 'uMetalRefl'),
     bevel: gl.getUniformLocation(prog, 'uBevel'),
     bevelTilt: gl.getUniformLocation(prog, 'uBevelTilt'),
     ssao: gl.getUniformLocation(prog, 'uSsao'),
@@ -908,8 +989,13 @@ export function createGLView(canvas, opts = {}) {
     // one a shader in this file actually declares and gl:glsl has something to check it against.
     matTab: gl.getUniformLocation(prog, 'uMat'),
     sheenTab: gl.getUniformLocation(prog, 'uSheen'),
+    specTab: gl.getUniformLocation(prog, 'uSpec'),
+    specStr: gl.getUniformLocation(prog, 'uSpecStr'),
     envUp: gl.getUniformLocation(prog, 'uEnvUp'),
     envDn: gl.getUniformLocation(prog, 'uEnvDn'),
+    envStrip: gl.getUniformLocation(prog, 'uEnvStrip'),
+    envCity: gl.getUniformLocation(prog, 'uEnvCity'),
+    envDim: gl.getUniformLocation(prog, 'uEnvDim'),
     atlasTexel: gl.getUniformLocation(prog, 'uAtlasTexel'),
   };
 
@@ -923,6 +1009,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // rebuilding it per frame would be pure garbage on the hot path, and uploading it per frame is two
   // calls that cost nothing next to the 12-light arrays already going up beside it.
   const matTab = new Float32Array(MAX_MATERIALS * 4), sheenTab = new Float32Array(MAX_MATERIALS);
+  const specTab = new Float32Array(MAX_MATERIALS);
   let matSrc = null;
   // ⚠ A ROW NOBODY FILLED MUST STILL BE HARMLESS. The table is sized for headroom, so the tail is
   // zeros — and gloss 0 is pow(x, 0.0) = 1.0, a full mirror everywhere. `max(1.0, M.x)` in the
@@ -1014,14 +1101,28 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity, bz0 = Infinity, bz1 = -Infinity;
     for (const grp of groups) {
       const ox = grp.ox || 0, oy = grp.oy || 0;
+      // ── AND A GROUP MAY DISAGREE WITH THE FRAME ABOUT WHAT TIME IT IS ──────────────────────
+      //
+      // A face carries a day colour and a night one and the blend picks between them, so every
+      // surface that PAINTS ITSELF DIFFERENTLY AFTER DARK — a lit window bay, a canopy's strip
+      // light, a blade panel, a lit shopfront — is decided here. A building whose feed has failed
+      // has none of those lit, and asking the frame gives it all of them.
+      //
+      // ⚠ IT IS THE ONLY WAY TO REACH THEM. Those colours are baked into the captured mesh, which
+      // is memoised per MODEL and shared by every tile that draws it, so a dark building cannot be
+      // given its own faces — only its own blend.
+      // ⚠ AND `null` IS NOT 0. A group that has no opinion takes the frame's, and a group that
+      // wants day says so; writing `grp.nb || NB` turns the second into the first and the feature
+      // does nothing, quietly, on every building it is meant to reach.
+      const GNB = grp.nb == null ? NB : (grp.nb > 0 ? (grp.nb < 1 ? grp.nb : 1) : 0);
       for (const f of grp.faces) {
         // ⚠ A face with no `rgbN` keeps its one colour at every hour, which is right: a textured
         // wall's day/night lives in the atlas, and a piece of unpainted metalwork genuinely does not
         // change colour after dark — only the things that are LIT do.
         const cD = f.rgb || [128, 128, 128], cN = f.rgbN;
-        const r = cN ? cD[0] + (cN[0] - cD[0]) * NB : cD[0];
-        const g = cN ? cD[1] + (cN[1] - cD[1]) * NB : cD[1];
-        const b = cN ? cD[2] + (cN[2] - cD[2]) * NB : cD[2];
+        const r = cN ? cD[0] + (cN[0] - cD[0]) * GNB : cD[0];
+        const g = cN ? cD[1] + (cN[1] - cD[1]) * GNB : cD[1];
+        const b = cN ? cD[2] + (cN[2] - cD[2]) * GNB : cD[2];
         // ⚠ A ZERO-LENGTH NORMAL IS A NaN FACTORY, AND SOME CAPTURED FACES CARRY ONE. `f.n || …`
         // only catches a MISSING normal; `[0, 0, 0]` is a perfectly truthy array, and it comes out
         // of a degenerate face in the capture. `normalize(vec3(0.0))` is 0/0, and the NaN spreads
@@ -1034,7 +1135,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
         const n = (nn && (nn[0] || nn[1] || nn[2])) ? nn : [0, 0, 1];
         // The UV a face was given, mapped into its rect in the atlas. A face with neither keeps a
         // degenerate rect and samples one texel, which is what an untextured face wants.
-        const uv = f.uv || null, rc = (rectOf ? rectOf(f) : f.rect) || [0, 0, 0, 0];
+        // ⚠ THE GROUP GOES WITH IT. Which atlas entry a wall samples is a property of the TILE — a
+        // blacked-out block and a lit one share the same face objects and must not share an entry.
+        const uv = f.uv || null, rc = (rectOf ? rectOf(f, grp) : f.rect) || [0, 0, 0, 0];
         const u0 = rc[0], v0 = rc[1], du = rc[2] - rc[0], dv = rc[3] - rc[1];
         const cr = r / 255, cg = g / 255, cb = b / 255;
         const fa = f.alpha == null ? 1 : f.alpha;
@@ -1248,7 +1351,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.useProgram(prog);
     // The camera's own frame height (CSS px), never the canvas's (device px) — see the ⚠ in
     // world.js. Falls back to H so a caller that already works in one unit is unchanged.
-    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, opts.cssH || H)));
+    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, opts.cssH || H)));
     const k = opts.keyDir || [-0.7, 0.35, -0.7];
     gl.uniform3f(loc.keyDir, k[0], k[1], k[2]);
     // ⚠ `shadow` IS THE VERTEX-LIGHT BASE COLOUR AND `sunShadow` IS THE SUN. They were both called
@@ -1356,6 +1459,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.uniform1f(loc.bevelTilt, opts.bevelTilt == null ? 1 : opts.bevelTilt);
     if (matStr > 0) {
       gl.uniform1f(loc.bumpStr, opts.bumpStr == null ? 1 : opts.bumpStr);
+      gl.uniform1f(loc.metalRefl, opts.metalRefl == null ? 1 : opts.metalRefl);
       if (opts.mat !== matSrc) {
         matSrc = opts.mat;
         for (let i = 0; i < MAX_MATERIALS; i++) {
@@ -1367,10 +1471,15 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
           matTab[i * 4 + 2] = r ? r.fres : 0;
           matTab[i * 4 + 3] = r ? r.bump : 0;
           sheenTab[i] = r ? r.sheen : 0;
+          // ⚠ A ROW PAST THE END TAKES THE OLD EXPRESSION, never 0 — an unclassified surface must
+          // look ORDINARY, and 0 here is a material with no sun on it at all.
+          specTab[i] = r ? r.spec : 0.15;
         }
       }
       gl.uniform4fv(loc.matTab, matTab);
       gl.uniform1fv(loc.sheenTab, sheenTab);
+      gl.uniform1fv(loc.specTab, specTab);
+      gl.uniform1f(loc.specStr, opts.specStr == null ? 1 : opts.specStr);
       const eye = opts.eye || [0, 0, 0];
       gl.uniform3f(loc.eye, eye[0], eye[1], eye[2]);
       const eu = opts.envUp || skyC, ed = opts.envDn || sh;
@@ -1381,6 +1490,19 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // colours, and one that needs no second branch in the shader to say so.
       gl.uniform2f(loc.atlasTexel, atlasW ? 1 / atlasW : 0, atlasH ? 1 / atlasH : 0);
     }
+    // ── THE SKYLINE THE REFLECTION SAMPLES ──────────────────────────────────────────────────
+    //
+    // ⚠ OUTSIDE THE MATERIAL-TABLE GUARD, AND IT WAS INSIDE IT FIRST. That block is wrapped in
+    // `if (opts.mat !== matSrc)` — a cache so the table only re-uploads when it CHANGES — so a
+    // uniform written there is written on one frame and never again, and a texture bound there is
+    // bound once while every other pass goes on rebinding unit 3 underneath it. Measured: the
+    // reflection moved 0.00% of the frame with every part of it correctly wired. It is the same
+    // trap the shadow strength and the wet term below are each written around.
+    // ⚠ UNIT 3 IS FREE — 0 is the atlas, 1 the sun's depth, 2 the SSAO.
+    const strip = skyline ? skyline.tex : null;
+    gl.uniform1f(loc.envCity, strip ? (opts.envCity == null ? 1 : opts.envCity) : 0);
+    gl.uniform1f(loc.envDim, opts.envDim == null ? 0.62 : opts.envDim);
+    if (strip) { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, strip); gl.uniform1i(loc.envStrip, 3); }
     const textured = hasAtlas && opts.textured !== false;
     gl.uniform1f(loc.textured, textured ? 1 : 0);
     if (textured) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(loc.atlas, 0); }
@@ -1390,7 +1512,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // the city wearing yesterday afternoon's shadows all night.
     gl.uniform1f(loc.shadowStr, sun ? opts.sunShadow.str : 0);
     if (sun) {
-      gl.uniformMatrix4fv(loc.lightVP, false, new Float32Array(opts.sunShadow.lightVP));
+      gl.uniformMatrix4fv(loc.lightVP, false, mat4f(opts.sunShadow.lightVP));
       gl.uniform1f(loc.shadowTexel, sun.texel);
       gl.uniform1f(loc.shadowBias, opts.sunShadow.bias);
       const d = opts.sunShadow.sunDir;
@@ -1472,6 +1594,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     L.upload(list);
     return L.draw(cam, cssH || canvas.height, emitGain);
   }
+  // What that cost in BINDS, which is the figure that tracks the clock — see the ⚠ in decals.js.
+  const decalCost = () => (decals ? { batches: decals.batches, textures: decals.textures, minted: decals.minted } : { batches: 0, textures: 0, minted: 0 });
 
   // The wires, on the same depth buffer. Lazy like the others: a view with no mast, no rail and
   // no light-runner in it never compiles the program.
@@ -1512,6 +1636,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // uploads are a few hundred microseconds against a fill cost that is the real expense here.
   let mirror = null;
   const mirrorLayer = () => (mirror || (mirror = createMirrorLayer(gl)));
+  // The city in the glass. Lazy for the mirror's reason: a seat that never draws a reflective
+  // surface never allocates it, and a machine that refused the context never gets here at all.
+  let skyline = null;
+  const skylineLayer = () => (skyline || (skyline = createSkylineStrip(gl)));
   function drawMirror(cam, opts = {}) {
     const sp = opts.sprites, dc = opts.decals, cl = opts.clouds;
     // ⚠ THE RIG COUNTS AS SOMETHING TO REFLECT. This used to ask only whether there were lights or
@@ -1689,12 +1817,75 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return solidsLayer().draw(cam, cssH || canvas.height, opts || {});
   }
 
+  // ── THE INTERIOR: A VIEWMODEL PASS, AND IT HAS TO BE ONE ──────────────
+  //
+  // The room you are sitting in is the one solid object in this renderer that is INSIDE the near
+  // clip plane. NEAR is 0.06 tiles; a truck cab is 2.3 m across, which at the seat's own eye
+  // height is about 0.10 of a tile end to end — so the dash, the pillars, the roof and the floor
+  // are ALL nearer than the nearest thing the world camera is able to draw. Collected into the
+  // ordinary solids buffer it arrives, uploads, draws, and clips away to nothing: 72 faces on the
+  // GPU and not one pixel, which is the exact picture of the feature not existing.
+  //
+  // ⚠ THE NEAR PLANE CANNOT SIMPLY COME IN FOR EVERYBODY. `nearFor` already fits it to the seat
+  // and its own note is explicit that it ONLY EVER COMES IN, at a cost: the cockpit and the cab
+  // keep 0.06 and the depth budget that came with it, and the two seats that do move pay 1.3–1.6x
+  // coarser depth for it. A plane at 0.004 is fifteen times coarser again across a 400-tile city,
+  // which buys a cab by z-fighting the skyline.
+  //
+  // ⚠ SO IT GETS ITS OWN RANGE, AND THE DEPTH BUFFER IS CLEARED FOR IT. That is not a trick to
+  // get round the clip plane — it is the physical claim, stated: NOTHING IN THE WORLD CAN BE
+  // BETWEEN YOU AND YOUR OWN DASHBOARD. No building, truck, goose or weather can come inside the
+  // cab, so the interior never needs to sort against any of them, and a range of its own (0.004
+  // to 1 tile, for an object 0.1 of a tile deep) gives it far BETTER precision than the world pass
+  // has rather than worse. It still sorts against ITSELF — the dash in front of the seat behind
+  // it — which is the only ordering the object actually has.
+  //
+  // ⚠ AND IT IS A SECOND INSTANCE OF THE SAME LAYER, NOT A SECOND LAYER. One shader, one upload
+  // path, one set of state; what differs is the buffer and the clip range. A copy would be a
+  // second place for the flat-shaded triangle soup to be defined, and the first edit would land
+  // in one of them.
+  let intQuads = 0, intl = null;
+  const interiorLayer = () => (intl || (intl = createSolidsLayer(gl)));
+  function uploadInterior(list) {
+    intQuads = list && list.length ? interiorLayer().upload(list) : 0;
+    return intQuads;
+  }
+  function drawInterior(cam, cssH, opts) {
+    if (!intQuads) return 0;
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    return interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR });
+  }
+
   // The ground itself. Lazy, and only ever built when RENDER_TUNE.glFloor asks for it.
   let flr = null;
   const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
   function drawFloor(state, near) { return state ? floorLayer().draw(state, near) : 0; }
 
-  return { gl, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, drawMirror, mirrorPeak, uploadSolids, drawSolids, setAtlas, lost: () => gl.isContextLost(),
+  // ── THE DISPLACED SEA ───────────────────────────────────────────────────────────────────────
+  //
+  // Lazy like the rest, so a view that never sees water never compiles it — and it reads the
+  // FLOOR's LUT rather than being handed its own, because 'where is the coast' must have one
+  // answer. It therefore has to be drawn after the floor, which is also where it belongs: the
+  // mesh stands ON the flat sea the floor has just painted and hands back to it at the rim.
+  let wtr = null;
+  const waterLayer = () => (wtr || (wtr = createWaterLayer(gl)));
+  function drawWater(cam, state, cssH, refl) {
+    if (!state || !(state.seaRoll > 0) || !(state.swell > 0)) return 0;
+    const lut = flr && flr.lut;
+    if (!lut) return 0;   // the floor has not uploaded yet; there is nothing to agree with
+    // ⚠ THE SKY ARRIVES AS A CANVAS AND HAS TO BECOME A TEXTURE HERE. windshield.js may not import
+    // gl/, so it hands over the raw strip; this file owns the upload and the one cached texture
+    // that both the sea and the road read. The road uploads the same strip again a moment later —
+    // same 256x128 source into the same texture object, so it is a redundant call rather than a
+    // second texture, and only on frames where the sea is actually reflecting.
+    const r = refl ? { ...refl, sky: refl.sky ? uploadSkyStrip(refl.sky) : null } : null;
+    return waterLayer().draw(cam, state, cssH, lut, r);
+  }
+
+  // Handed the window's cells and the eye in the MESH frame; see gl/skyline.js and the ⚠ on 
+  // in world.js. Called before , because the strip is a uniform that draw reads.
+  function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
+  return { gl, setSkyline, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawMirror, mirrorPeak, uploadSolids, drawSolids, uploadInterior, drawInterior, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

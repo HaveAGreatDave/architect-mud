@@ -47,6 +47,7 @@ import { query } from '../../server/models/db.js';
 import { world, getZone, getLivePlayer, propsOf, getMinimapData } from '../../server/engine/world.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { gatherHookSync } from '../../server/engine/plugins.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { effectiveSkill, skillCheck, awardSkillUse } from '../../server/engine/skills.js';
@@ -219,6 +220,27 @@ const swimmers = new Set();
 // Recompute membership from the player's CURRENT zone. Sync and query-free — the
 // capability flags (`_hasBoat`, `_hasRebreather`) are set by the move handler,
 // which is the only thing that can afford to look them up.
+// ── ⚠ A HULL UNDER YOU IS NOT ALWAYS SOMETHING IN YOUR POCKETS ──────────────
+//
+// `_hasBoat` is an INVENTORY fact — a `boat`-tagged item you are carrying, or the flight mutation
+// — computed on the move that put you in the water and cached. That covers every way of being
+// afloat this plugin can see on its own, and it misses the obvious one: sitting in an actual boat.
+//
+// A powerboat is a `boats` row rather than a zone or an item (see plugins/powerboat), so a player
+// who climbs into one lying off Halcyon Quay is, to everything here, a body treading water — and
+// the tick goes on bleeding their stamina until they drown at the wheel of a working boat. The
+// same is true at the marina's own fuel float, which is a deck standing over water.
+//
+// So the question is ASKED rather than assumed. `swim.afloat` is a gather: any plugin that can put
+// somebody on top of the water answers true, and this file learns nothing about boats.
+//
+// ⚠ SYNC BY CONTRACT, AND THAT IS NOT NEGOTIABLE HERE. `syncSwimmer` is called on every move in
+// the game and once a second for every body in the water, and its own header is explicit that it
+// is "sync and query-free". A contributor answers out of its own RAM registry — powerboat's is one
+// `Map.has` — and `gatherHookSync` drops (and logs) any handler that returns a promise, so an
+// answer that becomes async fails loudly instead of quietly drowning somebody.
+const afloatByPlugin = (player) => gatherHookSync('swim.afloat', player).some(Boolean);
+
 function syncSwimmer(player) {
   if (!player) return false;
   const zone = getZone(player.current_zone);
@@ -228,7 +250,7 @@ function syncSwimmer(player) {
     swimmers.delete(player.id);
     return false;
   }
-  const submerged = isUnderwater(zone) || !player._hasBoat;
+  const submerged = isUnderwater(zone) || !(player._hasBoat || afloatByPlugin(player));
   player._submerged = submerged;
   // Riding a boat across the surface is not swimming: no tread, no breath, no
   // drowning. Nothing for the tick to do, so stay off the roster.

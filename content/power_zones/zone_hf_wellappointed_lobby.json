@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_wellappointed_lobby",
+  "id": "zone_hf_wellappointed_lobby",
+  "name": "Well Appointed — The Lobby",
+  "source_type": "junction_box"
+}

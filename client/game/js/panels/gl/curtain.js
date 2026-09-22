@@ -19,7 +19,8 @@
 // which is what makes this a faithful port rather than an impression: the four-stop body gradient,
 // the ten scan bands sliding down, the five rain streaks and the hot crown line are all rebuilt
 // from the same constants, and the pulse is the same `sin(now / 420)`.
-import { viewProjMatrix } from './camera.js';
+import { viewProjMatrix, mat4f } from './camera.js';
+import { makeVertexStream } from './stream.js';
 
 // pos3, uv2, alpha1
 const STRIDE = 6;
@@ -132,7 +133,10 @@ export function createCurtainLayer(gl) {
   };
 
   const vao = gl.createVertexArray();
-  const buf = gl.createBuffer();
+  // One stream, set up once: the attribute pointers are recorded into the VAO here and never
+  // touched again, and the storage grows by doubling instead of being reallocated every frame.
+  // See gl/stream.js.
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.uv, 2, 12], [loc.alpha, 1, 20]], 512);
   let data = new Float32Array(0);
   let count = 0;
 
@@ -151,20 +155,14 @@ export function createCurtainLayer(gl) {
       put(s.ax, s.ay, h, 0, 0, a); put(s.bx, s.by, h, 1, 0, a); put(s.bx, s.by, 0, 1, 1, a);
       put(s.ax, s.ay, h, 0, 0, a); put(s.bx, s.by, 0, 1, 1, a); put(s.ax, s.ay, 0, 0, 1, a);
     }
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, count * STRIDE), gl.DYNAMIC_DRAW);
-    const S = STRIDE * 4;
-    const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
-    bind(loc.pos, 3, 0); bind(loc.uv, 2, 12); bind(loc.alpha, 1, 20);
-    gl.bindVertexArray(null);
+    stream.write(data, count * STRIDE);
     return segs.length;
   }
 
   function draw(cam, H, now) {
     if (!count) return 0;
     gl.useProgram(prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, H)));
+    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, H)));
     gl.uniform1f(loc.time, now || 0);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);          // you see THROUGH it — it must never hide what is behind it

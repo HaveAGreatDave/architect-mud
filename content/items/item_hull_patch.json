@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hull_patch",
+  "name": "hull patch kit",
+  "tags": {
+    "description": "A flat tin holding pre-wetted cloth, a sachet of accelerator and a scraper. Slap it over a split and it will hold long enough to get you home, which is all it claims and all it does.",
+    "hull_patch": true
+  },
+  "type": "gear",
+  "value": 240,
+  "weight": 2
+}

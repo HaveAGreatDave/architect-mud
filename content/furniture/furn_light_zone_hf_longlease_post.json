@@ -1,0 +1,11 @@
+{
+  "description": "A single chrome batten the length of the shelf, angled at the brass so the numbers read from the door. It hums at a pitch you stop hearing after about a minute and start hearing again the moment you think about it.",
+  "flags": {},
+  "id": "furn_light_zone_hf_longlease_post",
+  "light_type": "overhead",
+  "lumen_output": 540,
+  "name": "a strip light over the boxes",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_longlease_post"
+}

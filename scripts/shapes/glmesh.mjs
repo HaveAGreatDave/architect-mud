@@ -215,9 +215,18 @@ for (const { key, m } of ws.shapeModelRegistry()) {
 // `f.flat != null ? !!f.flat : f.kind === 'flat'`, so a `kind: 'flat'` face is already unlit
 // without the field. Testing `f.flat` alone reports every adornment surface in the city — 854 of
 // them on the first run — which is a gate that fails on the thing it was written to protect.
+// ⚠ AND THIS CLAIM IS ASKED WITH `glDrumMat` OFF, WHICH IS NOT A WAY ROUND IT. The claim is that
+// the ARM'S OWN COLOUR reaches the mesh rather than the building's ambient wall texture, and that
+// is what the flag's 0 path does. With the flag ON a drum in a `DRUM_MAT` family deliberately takes
+// its own palette's texture and material instead — a different, opted-in answer to the same
+// question, and one this count cannot tell from the ambient-palette bug it exists to catch, because
+// both end with no override on the face. Asking it at 0 keeps the original protection exact; the
+// flag's own path is gated in `hftint.mjs`.
 const isFlat = (f) => (f.flat != null ? !!f.flat : f.kind === 'flat');
 const V = (p, fh, h) => (Array.isArray(p) ? p[0] * fh + p[1] * h + p[2] : p);
 const palettes = new Set(ws.wallPaletteInfo().map((r) => r.key));
+const savedDrumMat = ws.RENDER_TUNE.glDrumMat;
+ws.RENDER_TUNE.glDrumMat = 0;
 for (const { key, m } of ws.shapeModelRegistry()) {
   const mesh = ws.captureModelMesh(m, { fh: FH, h: H, seed: SEED });
   for (const f of mesh) {
@@ -235,6 +244,7 @@ for (const { key, m } of ws.shapeModelRegistry()) {
     if (!(V(d.wz1, FH, H) > V(d.wz0, FH, H))) problems.push(`${key}: a captured drum has no height`);
   }
 }
+ws.RENDER_TUNE.glDrumMat = savedDrumMat;
 
 // ── `face: 'x'` PUTS A PART ON A FLANK, AND NOT ON THE FRONT ────────────────
 //

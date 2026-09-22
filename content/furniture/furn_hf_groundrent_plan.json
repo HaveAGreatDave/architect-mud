@@ -1,0 +1,8 @@
+{
+  "description": "The quarter at a workable scale with coloured tacks in it. Green for let, red for in dispute, and a third colour — a sort of dull amber — on eleven plots, with no key anywhere. The eleven are the plots with cranes still standing on them, which anybody looking out of the window could work out in about four seconds.",
+  "flags": {},
+  "id": "furn_hf_groundrent_plan",
+  "name": "a tacked estate plan",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_groundrent_back"
+}

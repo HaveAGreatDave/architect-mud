@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "One round space under the lantern with the counter across the back of it and tables round the curve, and the light coming straight down through the middle so that at noon there is a bright disc on the floor everybody walks round rather than through. It smells of coffee and wet coats. It is the loudest room in Halcyon Fields by a distance and the sound of it carries out onto the green.",
+  "exits": {
+    "down": "zone_util_zone_hf_grounds_room",
+    "south": "zone_district_896_913",
+    "up": "zone_hf_grounds_gallery"
+  },
+  "flags": {
+    "building_name": "Grounds for Concern",
+    "building_type": "atrium_court",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole curve, with Vetch Green on one side and Sorrel Way on the other. From the tables on the green side you can watch the birches doing better than the trees on the street, which is a running argument in here.",
+      "light": 0.85,
+      "name": "the drum glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_896_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_grounds_room",
+  "map_id": "map_int_hf_grounds",
+  "name": "Grounds for Concern — The Room",
+  "parent_zone": "zone_district_896_913"
+}

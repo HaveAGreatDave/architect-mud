@@ -1,0 +1,11 @@
+{
+  "description": "Clamped to the bench and aimed at the patch field rather than the room, so the ports are lit from the side and every one of them reads. The room light is a second fitting nobody switches on.",
+  "flags": {},
+  "id": "furn_light_zone_hf_modcons_comms",
+  "light_type": "task",
+  "lumen_output": 500,
+  "name": "a bench light on an arm",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_modcons_comms"
+}

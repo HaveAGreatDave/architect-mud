@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_chainfree_landing",
+  "b": "zone_hf_chainfree_u4",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_hf_chainfree_landing_west",
+  "lockable": false,
+  "one_way": false
+}

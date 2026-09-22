@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#0f151e",
+  "color": "#bcd8ee",
+  "description": "A tower that turns as it climbs, so from the corner of Kerbstone Row and Kettle Lane you are looking at an edge that walks slowly round the building as you cross the junction. The flats start at the fourth floor. At the top, where the twist has come nearly a quarter turn, the crown floor is lit differently from everything under it — warmer, lower, and on when the rest of the tower is dark. That is the restaurant, and it has its own door at street level with its own lift.",
   "exits": {
-    "east": "zone_district_899_915",
-    "north": "zone_district_898_914",
+    "north": "zone_hf_topmarket_lift",
     "south": "zone_district_898_916"
   },
   "flags": {
+    "building_name": "Top of the Market",
+    "building_type": "torque_tower",
     "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 15,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_898_916"
   },
   "grid_x": 898,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_898_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "TE",
+  "name": "Top of the Market",
   "parent_zone": null
 }

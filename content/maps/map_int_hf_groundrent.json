@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_groundrent_counter",
+  "id": "map_int_hf_groundrent",
+  "name": "Ground Rent — Interior",
+  "parent_zone_id": "zone_district_901_915"
+}

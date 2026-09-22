@@ -18,13 +18,22 @@
 // ⚠ THE HAND-AUTHORED MESHES HAVE NO ROW AND MUST NEVER BE GIVEN ONE. The Mayfly, the Cub, both
 // helicopters and the wreck are meshes somebody drew, not proportions somebody set; a file naming
 // one of them would be authored data that changes nothing, which is worse than no file at all.
-export const VEHICLE_KINDS = ['fw', 'truck'];
+//
+// ⚠ A BOAT IS A VEHICLE AND NOT A FAMILY OF ITS OWN, which is the opposite call from the one
+// fauna-model-schema.js made, and for the reason that file states. It refused the vehicle family
+// because a goose filed as a vehicle would arrive at livery palettes, canopy glass, navigation
+// lamps and gear retraction — every one of which is nonsense on a bird. A race boat wants ALL of
+// them: it is painted like a dragster, it has a bubble canopy, it carries lamps, and it is drawn
+// by drawAircraftModel through the same contact feed as everything else on the map. The test is
+// not "does it fly", it is "does it want what this family gives you".
+export const VEHICLE_KINDS = ['fw', 'truck', 'boat'];
 
-// Which classes and truck types a file may claim. A row for anything else is a file the renderer
-// would never read, so it fails the build rather than sitting there looking authoritative.
+// Which classes, truck types and hulls a file may claim. A row for anything else is a file the
+// renderer would never read, so it fails the build rather than sitting there looking authoritative.
 export const VEHICLE_IDS = {
   fw: ['prop', 'gunship', 'heavy', 'locust', 'divebomber'],
   truck: ['scrapper', 'hauler', 'drayman', 'continental'],
+  boat: ['hydro'],
 };
 
 const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);

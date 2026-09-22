@@ -1,0 +1,19 @@
+{
+  "description": "A locksmith's alarm, and a locksmith's joke: an ordinary box, off the shelf, the same one she fits for everybody else, mounted where anybody can see it. She will tell you at length that the expensive ones are a tax on people who do not understand doors. She is mostly right and knows how right.",
+  "flags": {
+    "alarm_panel": true,
+    "alarm_tier": 2,
+    "aliases": "alarm,panel,box,alarm panel,alarm box,intruder panel",
+    "click_cmd": "hack alarm"
+  },
+  "hp": 120,
+  "hp_max": 120,
+  "id": "furn_skelcrew_alarm",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the alarm panel",
+  "object_type": "terminal",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_skelcrew_shop"
+}

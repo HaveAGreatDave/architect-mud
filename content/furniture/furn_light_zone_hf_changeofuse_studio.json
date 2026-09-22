@@ -1,0 +1,11 @@
+{
+  "description": "Angled at the boards rather than at the mirror, because a light aimed at a mirrored wall is a light aimed at everybody in the room. Whoever hung them worked that out on the second evening and moved all nine.",
+  "flags": {},
+  "id": "furn_light_zone_hf_changeofuse_studio",
+  "light_type": "overhead",
+  "lumen_output": 820,
+  "name": "a run of fittings on the mirror wall",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_changeofuse_studio"
+}

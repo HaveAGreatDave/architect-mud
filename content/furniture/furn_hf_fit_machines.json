@@ -1,0 +1,9 @@
+{
+  "description": "Identical, chrome, numbered, facing the glass. Every one has a card in a holder on the frame for logging your sets, and every card is blank except for the three nearest the door, which are full.",
+  "flags": {},
+  "id": "furn_hf_fit_machines",
+  "name": "ranks of machines",
+  "object_type": "furniture",
+  "power_draw_kw": 0.4,
+  "zone_id": "zone_hf_fit_floor"
+}

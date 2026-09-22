@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_grounds_room",
+  "b": "zone_hf_grounds_gallery",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_grounds_room_up",
+  "lockable": false,
+  "one_way": false
+}

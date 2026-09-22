@@ -1,0 +1,11 @@
+{
+  "description": "Set in a ring at the narrowest point of the floor, which puts all four of them within about two metres of each other and lights the landing very brightly and the four doorways not at all.",
+  "flags": {},
+  "id": "furn_light_zone_hf_chainfree_landing",
+  "light_type": "overhead",
+  "lumen_output": 600,
+  "name": "four downlights at the collar",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_chainfree_landing"
+}

@@ -1,0 +1,8 @@
+{
+  "description": "Black japanned tin with the owner painted on each lid in a thin yellow hand, most of them a company and four of them a person. They may not leave the building, which is written on the inside of the cupboard door rather than on the boxes, so you only find it out after you have got one down.",
+  "flags": {},
+  "id": "furn_hf_stampduty_deedbox",
+  "name": "a rank of deed boxes",
+  "object_type": "container",
+  "zone_id": "zone_hf_stampduty_records"
+}

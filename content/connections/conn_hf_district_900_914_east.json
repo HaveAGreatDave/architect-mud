@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_900_914",
+  "b": "zone_hf_chainfree_lobby",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_district_900_914_east",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,8 @@
+{
+  "description": "Third floor, four flats, two staircases, and a YOU ARE HERE dot at the collar. Somebody has written the occupants' names on it in pencil beside the flat numbers. Three of the four lines are blank and the fourth says LINDQVIST.",
+  "flags": {},
+  "id": "furn_hf_chainfree_fireplan",
+  "name": "a fire plan",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_chainfree_landing"
+}

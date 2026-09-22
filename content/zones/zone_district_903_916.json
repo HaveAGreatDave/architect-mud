@@ -4,7 +4,6 @@
   "description": "The surface changes here without ceremony: new stone gives out, old stone carries on, a shade darker and a hand's width lower.",
   "exits": {
     "east": "zone_district_904_916",
-    "north": "zone_district_903_915",
     "south": "zone_district_903_917",
     "west": "zone_district_902_916"
   },

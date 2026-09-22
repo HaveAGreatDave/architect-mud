@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "One room with a plank counter across it and the underside of the tank for a ceiling, close enough overhead that tall customers stoop without noticing. It is cool in here and always faintly damp, and the whole room ticks and shifts as the tank settles.",
+  "description": "One room with a plank counter across it and the underside of the tank for a ceiling, close enough overhead that tall customers stoop without noticing. It is cool in here and always faintly damp, and the whole room ticks and shifts as the tank settles. The overhead has not come on in two years. Nobody has taken it down.",
   "exits": {
     "down": "zone_util_zone_bld_919_917_lobby",
     "north": "zone_bld_919_917_tank",

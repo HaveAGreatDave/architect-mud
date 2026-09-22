@@ -1,0 +1,280 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Marchetti walks the long way round the model, which takes her past the window, which is where the light is.",
+    "She turns a display board a few degrees toward the door and steps back to check it.",
+    "The fibre lighting inside the model flickers on one street. She notices, and does not look at it again.",
+    "She writes something in the folder without opening it more than an inch.",
+    "Somewhere under the floor the air handling changes note, and the room gets very slightly colder."
+  ],
+  "description": "A composed woman in her forties in a charcoal suit cut better than anything else in the quarter, standing at the model rather than at a desk. She holds a folder she does not open. When she talks about the estate she talks about it in the present tense, and it takes a while to notice that half of what she is describing is not there.",
+  "dialogue_tree": {
+    "built": {
+      "options": [
+        {
+          "label": "When is phase three?",
+          "next": "phase3"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Phase one is complete and occupied.\" She counts it off on the folder. \"The boulevard frontage, the two towers at the west end, the halt. Phase two is structurally complete and awaiting fit-out, which is what you are looking at when you look at the ones with hoardings.\"\n\nA beat.\n\n\"Phase three is the meadow.\""
+    },
+    "buyers": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Two kinds.\" She holds up the folder. \"People who want to live here, which is a smaller number than the boards suggest, and people who want to own a thing in a quarter the Spire is expanding into, which is nearly everybody else.\"\n\n\"The second kind never see the flat. I post them a photograph of the door.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"The brochure is free and the site plan is not, which tells you which one is any use.\" She is already back at the model."
+    },
+    "corner": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She looks at the corner of the model for a moment longer than she needs to.\n\n\"The concert terrace,\" she says. \"Yes. That is a gasholder.\"\n\nShe does not explain it away and does not apologise for it either.\n\n\"The model was built to the consented scheme. The scheme changed. Rebuilding the model costs more than a plot is worth, so it stands, and I tell anyone who spots it, and about one person in thirty spots it.\" A pause. \"You are the first this month.\""
+    },
+    "phase3": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "built"
+        }
+      ],
+      "text": "\"When phase two is let.\" She does not soften it. \"That is not evasion, it is the actual mechanism. Nothing goes up until the last thing that went up has a tenant, because that is the covenant the money came with.\"\n\n\"So the honest answer is that the meadow depends on you, and on about four hundred other people, and I have said that to all of them.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is actually built?",
+          "next": "built"
+        },
+        {
+          "label": "What is for sale?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who is buying?",
+          "next": "buyers"
+        },
+        {
+          "label": "The model is wrong on the corner.",
+          "next": "corner"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Welcome to Halcyon Fields.\" She says it to the room as much as to you, then arrives at your elbow. \"Take your time with the model. Everybody does.\"",
+      "text_by_relation": {
+        "familiar": "She does not come over. She lifts the folder an inch in greeting and carries on with what she is doing, which after the fourth or fifth visit is the warmest thing she does.\n\n\"Kettle to the row is still not made up,\" she says, without preamble. \"I know. I have said.\"",
+        "first": "The woman at the model looks up before the doors have finished closing behind you, and is beside you a moment later without seeming to have hurried.\n\n\"Odile Marchetti. Welcome to Halcyon Fields.\" She gestures at the case with the folder. \"That is the whole quarter. Take as long as you like — people always want to find where they are standing, and it is there.\"\n\nShe points to a low curved building on the model. It is this one. On the model, the meadow outside it is a boulevard with trees down the middle.",
+        "known": "\"You came back.\" A small, real smile. \"Nobody comes back twice to look at a model. What is it you actually want to know?\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a charcoal suit, single-breasted, cut close and pressed that morning",
+      "a pale blouse with the collar outside the jacket",
+      "low heels kept for the carpet and changed at the door",
+      "a chrome estate badge at the lapel, the size of a thumbnail",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_impression_booth",
+  "hp": 32,
+  "hp_max": 32,
+  "id": "npc_hf_marchetti",
+  "name": "Odile Marchetti",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_brochure",
+      "price": 0
+    },
+    {
+      "item_id": "item_hf_siteplan",
+      "price": 18
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Artist's Impression",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_impression_suite"
+}

@@ -1,0 +1,8 @@
+{
+  "description": "One slab of dark stone across the back of the room with no join in it anywhere, and behind it a rack of bottles lit from underneath so the labels are the brightest thing in the room. Ice in a chrome well. A coffee machine that cost more than a hull patch and is used maybe nine times a day.",
+  "flags": {},
+  "id": "furn_anch_bar",
+  "name": "the stone bar",
+  "object_type": "furniture",
+  "zone_id": "zone_marina_anchovies"
+}

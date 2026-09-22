@@ -1,0 +1,9 @@
+{
+  "description": "Three hundred ports in twelve blocks, labelled by flat, and about forty of them carrying anything. The labelling is immaculate and it is not the estate's labelling — the estate's is underneath, in a different hand, and is wrong in two places that somebody has struck through and corrected.",
+  "flags": {},
+  "id": "furn_hf_modcons_patch",
+  "name": "the patch field",
+  "object_type": "fixture",
+  "power_draw_kw": 0.4,
+  "zone_id": "zone_hf_modcons_comms"
+}

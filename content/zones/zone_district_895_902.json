@@ -1,22 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "description": "A concrete apron down the east side of the inlet, ruled into bays and falling away at the north end into a slipway that carries on under the water at a grade you could back a trailer down. Across the water the marina stands with its roof out over the dock and its lights on. On this side there is a standpipe, a wash-down hose on a reel, and a drum for used oil that somebody actually empties.",
   "exits": {
     "east": "zone_district_896_902",
     "north": "zone_district_895_901",
     "west": "zone_district_894_902"
   },
   "flags": {
-    "district": "docks",
+    "district": "glasshouse",
+    "fishing_table_id": "fish_coldwater_bay",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "street_life": true,
+    "terrain": "concrete"
   },
   "grid_x": 895,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_895_902",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Slip",
   "parent_zone": null
 }

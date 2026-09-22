@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The last made stretch. Gravel thins toward the end of it, and the wind off the open ground comes straight up the lane with nothing to break it.",
+  "description": "The lane crosses Kettle Lane at the only junction in the quarter with a working streetlight over it. It comes on at dusk and goes off at two, and nobody has ever found out why two.",
   "exits": {
     "east": "zone_district_900_918",
     "north": "zone_district_899_917",
@@ -20,6 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_899_918",
   "map_id": "map_world",
-  "name": "Kettle Lane",
+  "name": "Kettle Lane + Windrow Lane",
   "parent_zone": null
 }

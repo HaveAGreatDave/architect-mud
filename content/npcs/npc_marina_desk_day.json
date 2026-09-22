@@ -1,0 +1,135 @@
+{
+  "banter": [],
+  "behaviour_graph": null,
+  "chitchat": [
+    "Quillon turns a page of the berth book and squares it up against the edge of the desk.",
+    "He answers the desk phone, says \"it does not lock\" twice, and puts it down.",
+    "He watches a hull come up the fairway and does not look away until it is past.",
+    "Quillon writes a bay number on a card, looks at it, and writes it again more clearly."
+  ],
+  "description": "A narrow man in a marina fleece two sizes too generous for him, standing rather than sitting because the stool is behind him and he has decided against it. He has the look of somebody who has answered the same four questions for six years and has got the answers down to one sentence each.",
+  "dialogue_tree": {
+    "root": {
+      "text": "\"Morning.\" He does not look at the clock. \"Dock is through the doors, east. It is open.\"",
+      "text_by_relation": {
+        "first": "The man behind the desk straightens up as the door goes, which is more than most desks manage.\n\n\"Ninian Quillon. Days.\" He says it like half a sentence and then supplies the other half. \"Odile has nights. Between us this desk is never empty, so whatever hour you come in, somebody is standing here.\"\n\nHe nods east, past the glass doors.\n\n\"Your boat is through there and it is through there at three in the morning as well. The dock does not lock and we do not have a key for it. The only thing in this building that shuts is the restaurant, and that is the restaurant's business.\"",
+        "known": "\"Back again.\" He is already reaching for the berth book. \"Dock is open. It is always open.\"",
+        "familiar": "\"There you are.\" He pushes the berth book aside without looking at it. \"Nothing has changed since Tuesday, and I would have told you if it had.\""
+      },
+      "options": [
+        {
+          "label": "What hours are you open?",
+          "next": "hours"
+        },
+        {
+          "label": "Can I get to my boat?",
+          "next": "access"
+        },
+        {
+          "label": "Who is Odile?",
+          "next": "odile"
+        },
+        {
+          "label": "What is through the north doors?",
+          "next": "anchovies"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ]
+    },
+    "hours": {
+      "text": "\"There are no hours.\" He seems to enjoy saying it. \"Two of us, twelve each, and the handover takes about a minute. I am here six to six and Odile is here six to six the other way round.\"\n\nHe taps the desk once.\n\n\"The dock is a separate question and the answer is also always. It does not lock. There is no lock on it to fail.\"",
+      "options": []
+    },
+    "access": {
+      "text": "\"Whenever you like.\" He points east without turning. \"Through the doors, down the deck, she is where you left her. Nobody has ever had to ask me to let them onto that dock and nobody ever will.\"\n\nA pause.\n\n\"If she is under cover, the hall is the same answer. The roof is a roof, not a door.\"",
+      "options": []
+    },
+    "odile": {
+      "text": "\"Nights.\" He considers whether that is enough and decides it is not. \"Odile Sabbatini. Came off a dredger. Knows more about this water than I do and says about a tenth as much about it.\"\n\nHe glances at the berth book.\n\n\"We share a flat, which sounds companionable and is mostly a note on the table.\"",
+      "options": []
+    },
+    "anchovies": {
+      "text": "\"Anchovies.\" He says the name flatly, as a man says the name of a thing he has never eaten. \"Twelve covers hanging out over the water. You want to have booked.\"\n\nHe straightens the card rack.\n\n\"That is the one part of this building that shuts. Everything else is on all night, including the light over your boat.\"",
+      "options": []
+    },
+    "bye": {
+      "text": "\"Right.\" He is back at the berth book before the door has closed.",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a marina fleece with the burgee on the chest, zipped to the throat",
+      "a shirt collar turned out over it, which he is aware of",
+      "trousers that have been in salt water and recovered",
+      "deck shoes gone grey"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_apt_10",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_marina_desk_day",
+  "name": "Ninian Quillon",
+  "npc_type": "clerk",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "fri": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_marina_lobby"
+}

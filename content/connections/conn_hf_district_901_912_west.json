@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_901_912",
+  "b": "zone_hf_fixedrate_lobby",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_district_901_912_west",
+  "lockable": true,
+  "one_way": false
+}

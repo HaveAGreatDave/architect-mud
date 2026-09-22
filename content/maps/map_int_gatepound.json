@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_gatepound_lot",
+  "id": "map_int_gatepound",
+  "name": "Long Stay — Interior",
+  "parent_zone_id": "zone_district_919_918"
+}

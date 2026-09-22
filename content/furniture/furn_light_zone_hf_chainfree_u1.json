@@ -1,0 +1,11 @@
+{
+  "description": "Estate standard: a chrome cone on a short drop over where the table would go, if there were a table.",
+  "flags": {},
+  "id": "furn_light_zone_hf_chainfree_u1",
+  "light_type": "pendant",
+  "lumen_output": 420,
+  "name": "a ceiling pendant",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_chainfree_u1"
+}

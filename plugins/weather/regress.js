@@ -270,4 +270,44 @@ export default async function regress({ check, getPlayer }) {
 
   await recomputeInsulation(p, [slicker, waders]);
   check('slicker + waders is full immunity', p.acidCover === 1, `${p.acidCover}`);
+
+  await regressEmpFootprint({ check });
+}
+
+// ── THE EMP PULSE HAS A PLACE, AND THE VEHICLES READ IT ──────────────────────
+//
+// `empReaches` is the one geometry function three separate consumers ask — the
+// junction boxes, the fry rule and every crewed vehicle — so a second opinion
+// about where the edge of the blast is would be visible to a player standing on
+// it. These are the claims that are silent when wrong.
+async function regressEmpFootprint({ check }) {
+  const { empReaches, EMP_RADIUS_TILES } = await import('../../server/engine/environment.js');
+  const at = (x, y) => ({ mapId: 'map_world', x, y, radius: EMP_RADIUS_TILES, wholeGrid: false });
+
+  check('emp: the epicentre is in its own blast', empReaches(at(900, 900), 900, 900));
+  // Chebyshev, so the CORNER of the square is in and a Euclidean circle would
+  // have dropped it — the difference is 5 tiles at the diagonal.
+  check('emp: the square corner is in', empReaches(at(900, 900), 900 + EMP_RADIUS_TILES, 900 + EMP_RADIUS_TILES));
+  check('emp: one tile past the edge is out', !empReaches(at(900, 900), 900 + EMP_RADIUS_TILES + 1, 900));
+  check('emp: another map is out', !empReaches(at(900, 900), 900, 900, 'map_under'));
+  check('emp: a whole-grid pulse reaches everything', empReaches({ wholeGrid: true }, 1e6, 1e6));
+  check('emp: no pulse reaches nothing', !empReaches(null, 900, 900));
+  // A pulse we could not place must not silently catch the world by treating a
+  // null coordinate as zero — (0,0) is a real-looking tile and would put the
+  // blast in the top corner of the map.
+  check('emp: a placeless pulse catches nobody', !empReaches({ mapId: 'map_world', x: null, y: null, radius: 12 }, 0, 0));
+  // The charge's own reach, which is one tile and must not inherit the sky's.
+  check('emp: a small radius is honoured', !empReaches({ mapId: 'map_world', x: 900, y: 900, radius: 1 }, 905, 900));
+
+  // ── The hook contract ──────────────────────────────────────────────────────
+  // Every answer has to carry a position AND the callable that applies the
+  // knockout. An entry missing either is a vehicle the pulse silently skips (or
+  // throws on), and nothing else in the game reads this hook to notice.
+  const { gatherHook } = await import('../../server/engine/plugins.js');
+  const crewed = await gatherHook('vehicle.crewed');
+  check('emp: vehicle.crewed answers a list', Array.isArray(crewed), typeof crewed);
+  const shaped = crewed.every(v => typeof v?.knockOut === 'function'
+    && Number.isFinite(v?.x) && Number.isFinite(v?.y));
+  check('emp: every crewed vehicle carries a position and a knockOut', shaped,
+    JSON.stringify(crewed.map(v => ({ x: v?.x, y: v?.y, k: typeof v?.knockOut }))));
 }

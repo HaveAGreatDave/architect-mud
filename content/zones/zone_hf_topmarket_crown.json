@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The top floor of the tower, and because the tower has turned nearly a quarter of the way round on its way up, the room is not aligned with the street grid at all — every window looks down a diagonal, and the effect from a table is of a city that has been rotated slightly and left that way. Fourteen tables. A bar along the core. The kitchen is behind the lift and is smaller than the smallest of the flats below.",
+  "exits": {
+    "down": "zone_hf_topmarket_lift"
+  },
+  "flags": {
+    "building_name": "Top of the Market",
+    "building_type": "torque_tower",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole perimeter, canted off the grid by the twist, so no window frames a street square-on. The Basin to the north, the Curtain to the south, and between them the quarter with its lights on in the wrong places.",
+      "light": 0.95,
+      "name": "the crown glazing",
+      "visibility": 1
+    },
+    "world_exit_zone": "zone_district_898_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_topmarket_crown",
+  "map_id": "map_int_hf_topmarket",
+  "name": "Top of the Market — The Crown Floor",
+  "parent_zone": "zone_district_898_915"
+}

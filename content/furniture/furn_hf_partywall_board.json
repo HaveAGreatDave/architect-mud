@@ -1,0 +1,8 @@
+{
+  "description": "Four notices: two about the terrace irrigation timings, one about not leaving bicycles in the flank corridor, and one that is the annual fire-alarm test date and has been out of date for seven months. The bicycle notice has been up longest and has the most pin holes in it.",
+  "flags": {},
+  "id": "furn_hf_partywall_board",
+  "name": "a noticeboard",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_partywall_hall"
+}

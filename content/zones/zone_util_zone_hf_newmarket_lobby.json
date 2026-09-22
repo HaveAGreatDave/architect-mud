@@ -1,0 +1,18 @@
+{
+  "description": "A ring-shaped room round the bottom of the lift drum, the same plan as the lobby above it and none of the finish, with the switchgear on the outer wall and a stack of the show home's spare cushions in a bin bag against the inner one.",
+  "exits": {
+    "up": "zone_hf_newmarket_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_907_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_newmarket_lobby",
+  "map_id": "map_int_hf_newmarket",
+  "name": "New to Market — The Core Base",
+  "parent_zone": "zone_district_907_915"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "Under the desk, where forty-one feeds come in and one goes out. Racked, cooled, and tidier than the building above it by a wide margin. There is a spare rack with nothing in it and a label on the front of it reading PHASE THREE.",
+  "exits": {
+    "up": "zone_hf_peppercorn_desk"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_904_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_peppercorn_desk",
+  "map_id": "map_int_hf_peppercorn",
+  "name": "Peppercorn — The Equipment Room",
+  "parent_zone": "zone_district_904_913"
+}

@@ -1,6 +1,6 @@
 # THE LONG HAUL — driving the void
 
-**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house is now also a PLACE — an inspection plaza out on the void highway, with a deceleration lane, an apron, a weighbridge deck you stop on, a scanner arch and a lit gantry over your own lane; holding your lane past a lit one is a four-star crime. Trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped, and so are the four things the build itself turned up: breakdowns with a roadside `fix`, the fork as a junction you can take (`route`), wipers, and a CB that reports real wrecks. The junction is now a fork you can SEE — the corridor synthesises the limbs you did *not* take, so the highway branches toward each region instead of ending in open waste — and the road signs its own bends in MILES. The road is laid in REAL WORLD COORDINATES, so a driver, a pilot and a walker all describe the same place with the same numbers, the world outside the windscreen is the actual world, and you can turn round and drive home. Distances are consequently the real gaps between regions and are pending a tuning pass. See [proposals](proposals/the-long-haul.md).**
+**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house is now also a PLACE — the Glacis Weigh, a drive-in station just inside the South Gate with a pull-in apron, a weighbridge deck, a booth and an impound lot, plus an inspection plaza out on the void highway, with a deceleration lane, an apron, a weighbridge deck you stop on, a scanner arch and a lit gantry over your own lane; holding your lane past a lit one is a four-star crime. Trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped, and so are the four things the build itself turned up: breakdowns with a roadside `fix`, the fork as a junction you can take (`route`), wipers, and a CB that reports real wrecks. The junction is now a fork you can SEE — the corridor synthesises the limbs you did *not* take, so the highway branches toward each region instead of ending in open waste — and the road signs its own bends in MILES. The road is laid in REAL WORLD COORDINATES, so a driver, a pilot and a walker all describe the same place with the same numbers, the world outside the windscreen is the actual world, and you can turn round and drive home. Distances are consequently the real gaps between regions and are pending a tuning pass. See [proposals](proposals/the-long-haul.md).**
 
 Freight hauling by road. You take a load at a depot in Coldwater, drive it through the city to the
 edge of the map, cross the waste on a highway that does not exist until you drive it, and back onto
@@ -1939,7 +1939,8 @@ are separate functions the cab simply does not call.
 `cls: 'truck'` selects `drawCabInterior` — flat two-pane screen with a centre post, A-pillars, a
 dash across the lower third, and **mirrors**. The mirrors are stubbed with a road-streak that
 scales with speed; they become a real instrument in phase 2, because the articulation angle is not
-visible from the driver's seat by any other means.
+visible from the driver's seat by any other means. (The shell is no longer flat — see
+[The cab is a box, not a frame](#the-cab-is-a-box-not-a-frame-2026-09-20) at the end of this file.)
 
 The steering wheel is [helm-wheel.js](../client/game/js/panels/helm-wheel.js) in a new **`absolute`
 mode**. The yacht's default reports the *change* in wheel rotation, because a boat sets a course.
@@ -2684,6 +2685,58 @@ surfaces, no overlap: one weighs the trailer, the other searches you.
 **The asymmetry was already in the content.** Buzzard Field is `lawless: true`, so the Reach end
 never scans — Coldwater→Reach is the smuggling run and the return is the one where you sweat.
 
+### The Glacis Weigh — the station you drive into
+
+The weighbridge used to be a flag on a tile twelve miles out on the Glacis, at **918,947**, where
+the paragraph arrived while you drove past it and there was nothing to pull into and nothing to look
+at. It is now a **place just inside the South Gate**, and the ground is laid out so that stopping is
+a decision:
+
+|       | 916 | 917 | 918 | 919 |
+|---|---|---|---|---|
+| **917** | open | the lane | Gate Road | Mains Squeeze |
+| **918** | **the booth** | **the deck** | Gate Road | **Long Stay** |
+| **919** | Curtain | Curtain | **SOUTH GATE** | Curtain |
+
+A rig coming north through the throat either carries straight on up 918 — the bypass — or bears
+left onto the deck at **917,918**, which is the tile carrying `flags.weigh_station`, and rejoins by
+the lane at 917,917. That is a deceleration lane, an apron and an acceleration lane in placed tiles:
+the same RUN_IN / PAD / RUN_OUT shape a plaza synthesises out on the highway, which is what makes
+the highway stations and the gate read as one institution rather than two mechanics.
+
+It works because in the **city leg** a rig's zone is just `surfaceAt(round(x), round(y))` — free
+roam, with buildings solid through the CFIT sweep — so the apron is somewhere you genuinely steer to
+and the mainline is a genuine way past it.
+
+> ⚠ **THE DECK IS NOT A BUILDING, AND MUST NEVER BECOME ONE.** A building tile joins the CFIT
+> collision sweep and leaves the walk graph, so a weighbridge authored as a building is a
+> rig-shaped hole you can fly into and cannot drive onto — the same rule the berth and the tent
+> camp are written around. The deck is ordinary paved ground with a flag on it. What is a building
+> is the **booth** beside it (`weigh_station`) and the **pound** across the road (`vehicle_pound`),
+> and both carry a map icon and a `drawTypeModel` arm, authored in the same build.
+
+> ⚠ **AND A SEIZED RIG NOW GOES TO A LOT RATHER THAN ONTO THE PLATES.** `impound` wrote the
+> inspection's own `zoneId` into `trucks.depot_zone` — which parks a forty-tonne truck on the
+> weighbridge it was caught on, the one piece of ground at any station that has to stay clear for
+> the next one. `flags.weigh_station.pound` names a lot, and **with none named the old behaviour is
+> exactly what happens**, so every station that never authored one is unchanged.
+
+**Long Stay** is that lot: 919,918, where the fence *Thumb On The Scale* stood until this build
+moved it to Rag Row. It is an ordinary building with an ordinary `truck_depot` yard, so buying the
+rig back is a walk to a gate rather than a line of prose about a low-loader.
+
+**And the plazas got the gate's treatment.** The office on a highway plaza was `building_type:
+'garage'` — a borrowed silhouette — and is `weigh_station` now, so a station in the waste and the
+station inside the wall wear the same shape. The other half is the pound: plaza.js's own header
+says a plaza cannot hold your truck (a corridor room is torn down with the crossing, so
+`depot_zone` pointing at one is an address that stops existing) and concluded *"held at its own
+yard"* because there was nowhere to send it. There is now — a plaza impound goes to whichever zone
+carries `flags.impound_pound`, looked up from content and memoised, and falls back to the old
+behaviour when nobody has authored one.
+
+**What is left at Ironpan** is two long scars in the rockcrete where the plates were lifted out and
+a plinth with four bolt stubs in it. The place keeps its name; the machine does not.
+
 Three answers, each a real trade: **`customs open`** eats the loss and carries *no charge* (the
 professional's move, and the reason being caught is not automatically a disaster), **`bribe`** is
 priced off the size of the lie and is worse than opening if it fails, **`bolt`** is free if you make
@@ -2909,6 +2962,53 @@ the same reason a truck's `whereName` is — the depot names live in zone flags 
 never seen them), the floor screen lists it under the deck read-out, and `textYard` prints the same
 list as **YOUR BOXES**. It is a list rather than a second turntable on purpose: a box is a capacity
 and a place, and neither of those is a thing you look at from three angles.
+
+### The depot stopped being four sets of buttons *(2026-09-20)*
+
+Reported as hunting for controls in different places, too much scrolling, and having to dig for
+common things like towing. All four of those are one panel and one pass.
+
+**The toolbar was below the fold on the screen it belongs to.** The yard's sidebar is the scroller
+and it held 1,360px of read-out, boxes and deck in about 350px of glass, with the action row second
+in the column — so Take it out, Tow it home and everything else opened roughly two hundred pixels
+*under* the visible area. The phone breakpoint had pinned that row since somebody reported not being
+able to tow a truck home, and the diagnosis written there — *"the toolbar sits under the read-out,
+and the read-out is taller than a phone"* — was never only true of phones. `.td-acts` is sticky at
+every width now, in a two-column grid, with the one `primary` key on a row of its own.
+
+**The pin is a first-class control, and a server-sent fact.** `hitch` was a row buried in the boxes
+list, nine hundred pixels down, wired to a **bare `hitch`** on every row — so "Back under it" on the
+third box coupled to whichever one was nearest — and `unhitch` was not offered anywhere at all. The
+payload carries **`hitchState`** now: which of the two verbs applies, the box's id and name, and, if
+the fifth wheel is not under the pin, `why` in the words the verb would use. ⚠ It runs **the verb's
+own `hitchReach`**, the test the cab's HITCH button already lights itself off, so the key is dim
+with a reason rather than present and refusing. ⚠ And it is gated on **`drivingId`** (also new), not
+on `driving`: the pin belongs to the rig under you, and beside a truck parked two regions away the
+key would couple a box to something else.
+
+**A verb appears once on screen.** The footer and the yard toolbar both carried drive, repair, fuel
+and wash, four inches apart, in two different costumes and without the explanation — and the bench's
+Condition tab carried all three of the latter a third time, with the choice spelled out. `footChips`
+drops a chip the screen in front of you already offers, and brings it back the moment you leave.
+
+**`.td-col` was two different rules and the collision broke two screens.** A 38×30 paint swatch and
+the column the freight board and the exchange stack themselves in shared a class name forty lines
+apart, so `height:30px` won over `flex:1` and both boards drew their column thirty pixels tall: every
+row spilled out of the panel, unpainted, with no scroll container to reach them in. The swatch is
+`.td-well` now.
+
+**And the biggest single win was `white-space`.** The client sets `pre-wrap` globally because the log
+is prose the server formatted with newlines in it — and this panel is markup built out of indented
+template literals, so **every line break between two tags rendered as a real one**. The box detail
+measured 246px for 76px of content; the same tax was on the read-out, the deck, every box row and
+both boards. `#td-root` asks for `normal`, and the yard sidebar went 1,360px → 780px on its own.
+
+The rest is sizing, and it is listed rather than argued: a head that no longer wraps its title, its
+balance or its fifth tab; three dealer cards to a row instead of two, with the price merged into the
+Buy key at the top of each card so the thing you came to press is not the thing furthest down; a
+one-line deck strip in place of a three-line block; one-line box rows; and a bench whose stacked
+keys are block flow, because "Put it through the shop · 980₵ — back to new, no roll" is a sentence
+and flex was laying it out as two columns.
 
 **Hitchhikers are seeded facts, not NPC rows** — a corridor node is transient, so an NPC whose home
 is deleted when the crossing ends is the wrong machinery. `hitcherAt` is a pure function of route
@@ -4053,6 +4153,535 @@ you cannot read is a bug report, not a mood), and painted on the **world** befor
 on, so the instruments stay legible while what is beyond the glass falls away.
 
 ---
+
+## The cab is a box, not a frame *(2026-09-20)*
+
+Reported against a screenshot of a 1990s truck sim: *"make the cockpit look quality wise more like
+this but keeping our controls/buttons"*. Nothing in the HTML chrome changed — this is all
+`drawCabInterior`.
+
+The shell was four rectangles: a bar across the top, a strip down each side, a slab along the
+bottom, each drawn straight-on and shaded by a gradient picked to look right on its own. That reads
+as a frame laid over a photograph. Three changes, none of them 3-D:
+
+- **One aperture, stated once.** The windscreen is a hole, and the header, the pillars, the dash
+  lip, the gasket, the corner mouldings and the interior clip are all edges OF it. ⚠ They were six
+  hand-placed numbers that happened to agree — `glassPath` carried a comment promising it was *"read
+  back rather than re-guessed"* while being a second copy of the coordinates, which would have gone
+  on clipping to a rectangle that no longer existed the moment the header became an arch.
+- **One light.** It comes in through the hole, so a surface's tone is decided by WHICH WAY IT FACES:
+  the dash top and the pillar returns look at the daylight and are the brightest things in the cab,
+  the roof lining and the fascia look at the driver and are the darkest, the corners see neither.
+  `shade(base, k)` is that whole relation, `k` running +1 (at the screen) to −1 (at the driver).
+- **Every edge is a solid.** A pillar with a lit return has thickness, a header meeting it on a
+  radius is moulded, a dash lip with a roll on it is padded.
+
+⚠ **NOTHING HERE ADDED A COLOUR KEY.** A colourway is fourteen values of which eleven are already
+derived ([cab-trim.js](../client/shared/cab-trim.js)), so a fifteenth would have to be authored
+seven times and taught to the custom picker as well. Every tone is a value the colourway already
+carries, moved along the light axis — so all seven interiors and every mixed one gained the volume
+at once and not one changed hue.
+
+⚠ **THE SHELL VALUES ARE ALREADY THE UNLIT TONE, AND DARKENING THEM AGAIN IS THE FIRST THING THAT
+GOES WRONG.** The first cut shaded the header at −0.44 and the pillars at −0.34, which is the
+obvious reading of "the roof is dark" — and `hdr`/`pil` are authored as an unlit interior, so it
+double-darkened them into a black void with the glass floating in it.
+
+⚠ **AND THE PILLAR FACE GETS DARKER ON THE WAY IN, WHICH LOOKS BACKWARDS.** Ramping it UP toward
+the lit return is the obvious version and it deletes the edge: face and return become one continuous
+gradient and the pillar is a painted stripe again. A solid is read from the DISCONTINUITY, and there
+is an honest one — the face rolls over into the return before the return catches the light, so it
+turns away from the screen and goes dark exactly where the bright strip starts.
+
+⚠ **THE DASH TOP IS DRAWN FULL WIDTH AND THE INSTRUMENT PLATES STAND ON IT.** The band is spoken
+for: section 4c's cluster plates start about a pixel under the lip, so a top plane sized to clear
+them would be a hairline. Drawn full width and left to be covered, it appears where a real one does
+— in the gap between the clusters, over the wheel. **Giving it more room costs either dial diameter
+or wheel height**, and both of those have reasons above them in this file.
+
+`litK` moved to the top of the function, because the shell shades against it as well as the
+instrument flood: two copies of a darkness term is how a cab ends up with a lit board inside an
+unlit box. The night look is unchanged by design — `outK` floors the outside light at 0.12, so
+after dark the cab is lit by its own lamps exactly as it was (measured: mean dash luminance 63.51
+before, 63.63 after; by day 34.73 → 39.20).
+
+⚠ **`framecost` CANNOT SEE ANY OF THIS.** The instrument layer is its own canvas found by
+`document.getElementById(id + '-dash')`, and **no headless gate registers one** — `stubCanvas` is
+called for the world canvas and nothing else — so `paintCabDash` returns on its first line in every
+one of them and the budget has never included a single dash pixel. What does cover it is
+`scripts/shapes/smoke.mjs`, which calls `drawCabInterior` directly (the `cab:t0`…`cab:dark` cases,
+84 interior passes). So the suite proves the cab RUNS and says nothing about what it costs; the cost
+was measured in a browser instead — **1,414 → 1,679 canvas calls and 50 → 56 gradients per frame**,
+with wall-clock differences straddling zero at a ±4 ms spread against a ~15 ms frame.
+
+### And you are sitting on one side of it *(2026-09-20)*
+
+The cab was symmetric about `W/2`, which is the view from a seat in the middle of the truck. It is a
+left-hand-drive tractor — the wheel has sat at `0.42W` since the panel was laid out — so what a
+driver actually sees is lopsided, and that lopsidedness is most of why a reference photograph reads
+as a cab rather than as a frame. The windscreen is centred on the TRUCK and you are not, so the hole
+sits right of your line of sight; the near A-pillar is a foot from your face and the far one is
+across the cab, so the near one subtends several times the angle; and the near one is a **door**,
+with a mirror hung off it, where the far one is a post.
+
+`PIL_L = 0.125W`, `PIL_R = 0.030W`, and **the axis is derived from the two of them**, never authored
+beside them — everything symmetric in the cab (the roof arch's crown, the dash's wrap, the centre
+post, the scuttle's bow) is symmetric about the SCREEN, and the screen is whatever the pillars leave.
+
+⚠ **THE GLASS IS REDISTRIBUTED, NOT SPENT.** 0.155 against the 0.150 the two symmetric pillars took,
+so the driver loses about half a per cent of the view and gains a side to the cab. Widening the left
+one further is the thing to resist: the reference gives it a fifth of the frame because it has a
+live mirror filling it, and **a fifth of the frame of flat trim is a worse picture than the one we
+started with**.
+
+⚠ **THE CURVES HAD TO STOP BEING BÉZIERS.** A quadratic with its control at `x = W/2` has
+`x(t) = tW` exactly, which is what made `lipAt` a closed form; move the control off centre and
+`x(t)` stops being linear in `t`, so a point query needs a root solve and the fill and the query can
+drift apart again. They are sampled parabolas now — one definition that both read, at a couple of
+dozen `lineTo`s on a path built a handful of times a frame.
+
+⚠ **NOTHING HERE MOVES THE WORLD CAMERA**, and the knob exists: `makeCam` takes `chase.fx`/`fy`, a
+world-space camera offset with an asserted identity default. A driver's eye genuinely does sit off
+the truck's centreline — but that offset is read by fourteen things downstream (the depth sorts, the
+backface culls, the occlusion tests, `worldFL`'s inverse, the GL matrix), and the cab can say which
+seat you are in on its own. If it is ever wanted, it is one line plus a `gl:parity` run.
+
+Two things the mirrors turned up on the way:
+
+⚠ **THEY WERE HANGING IN THE GLASS.** Both sat at a fixed `0.028W` inset and `0.062W` wide, which on
+a symmetric cab put each of them half on its pillar and half out over the windscreen — so the one
+instrument in the cab whose whole job is to be OUTSIDE the vehicle was floating in the middle of the
+view with nothing holding it up. They hang off the structure now, which is what decides how big each
+gets: the near one in the door frame, the far one **smaller and clipped by the frame**, because a
+passenger mirror is a thing you only ever see part of.
+
+⚠ **AND A MIRROR SHOWS THE OUTSIDE, SO BY DAY IT IS THE BRIGHTEST THING IN THE CAB.** The glass was
+four hardcoded near-blacks behind an `hour < 6 || hour >= 20` switch, and measured **darker at noon
+than the pillar it is bolted to** — a dark hole in a lit post, where the real article is a lit
+window in a dark door. That inversion is most of why they read as panels somebody forgot to fill in,
+and it is why they could sit floating in the windscreen for so long without looking obviously wrong.
+The colour comes off `skyAt` now, the same function the world outside is lit from, so it goes orange
+at sunset and grey under a storm with nothing authored and the night case falls out of it.
+
+⚠ **`drawCabMirror` TOOK ITS SIDE FROM `x < 100`**, which decides which way the trailer swings — true
+for a mirror inset a few pixels from the left edge, and a coin toss the moment either mirror moves or
+the pane is narrow. It is a parameter now, defaulted to the old test so nothing that does not pass
+one changes.
+
+⚠ **AND THE MIRROR ARM HAS TO CLEAR THE HOUSING.** Running it from inside the glass up to the header
+is the obvious way to draw a bracket, and the mirror is painted after it — so every pixel was
+covered: in the frame, correct, and invisible.
+
+### The split screen is a rung, and the rim is a tube *(2026-09-20)*
+
+**Only two trucks in the fleet have a centre post now.** It was drawn on all four, which put a dark
+bar down the middle of the view in a cab you had paid sixteen thousand credits for. A split screen
+is not a style, it is an **age**: the post is there because nobody could form a curved screen that
+size, and it went the moment they could. So it is `CAB_LADDER.split` — the Barrow and the Courier
+keep it, the Drayman and the Continental get one-piece glass — which makes it the first rung on that
+ladder a driver can see without reading an instrument.
+
+⚠ **IT BELONGS ON THE LADDER, NEVER ON A COLOURWAY.** [cab-trim.js](../client/shared/cab-trim.js)'s
+own rule is that the ladder is INSTRUMENTS and a trim job is SURFACE, and a windscreen post is
+neither — so it goes on the rung in windshield.js beside `lamps` and `charm`. In `DASH_COLOURWAYS` a
+paint shop could delete the glazing.
+
+**And the wheel.** My earlier note called it "a thin flat arc with no hub" — that was wrong, and read
+off a screenshot: it has three spokes, a hub boss with the horn push, thumb grips at ten and two and
+a centre mark, and the reason you see none of them is that `cabWheelGeom` puts the hub at `1.12H`, so
+about a third of the diameter is in frame. Two things were actually missing.
+
+⚠ **THE RIM WAS LIT AS A SPHERE.** The gradient ran from a point above the hub out to the edge —
+bright through the middle of the annulus, dark all the way round the outside, and no difference at
+all between the inner and outer lip. A rim is a **torus**, and what makes one read is that it turns
+through half a revolution ACROSS ITS OWN THICKNESS: dark where it curls in toward the hub, bright
+along the crest your palm sits on, dark again at the outer edge.
+
+⚠ **AND THE LIGHT ON IT MUST NOT TURN WITH IT.** That is why it was lit concentrically in the first
+place — a directional term inside `ctx.rotate(rot)` sweeps its highlight round the rim as you steer,
+which reads as the wheel glowing rather than as the wheel turning. The fix is not to avoid a
+direction but to spend it **outside** the rotation: same annulus, same clip, no rotate. Measured, the
+rim's left side reads **86.2 at steer 0, ±0.5 and ±0.9** — identical at full lock both ways — against
+78.5–79.2 on the right.
+
+Plus a tight contact shadow where the wheel meets the fascia. ⚠ It is a **halo just outside the rim**
+offset down-right of the light, not a broad wash: a wash darkens the instrument faces, which is the
+bug the binnacle notes above this section are written about.
+
+### The boss is a button, and it was off the screen *(2026-09-20)*
+
+The horn is a hit-test against `cabWheelHub` — *"tested against the renderer's own geometry rather
+than a second copy of it, so the horn can never end up an inch off the thing that looks like the
+horn"* — and that was true while being useless. At `y = 1.12H` and `hubR = 0.24R` the **top** of the
+hub circle sat at `1.03H`, entirely below the bottom of the canvas, so `hypot(dx, dy) < hub.r` could
+not be satisfied by any pointer in the view. The horn worked on `H` and on the touch rocker and
+nowhere else, and nothing said so — one definition feeding both the drawing and the hit-test cannot
+report that the thing it agrees about is off-screen.
+
+⚠ **RAISING IT ALONE DOES NOT FIX IT.** The strip above the rim carries the gear window and the
+tell-tales, and `bandBot` is `top − 0.010H`: the highest the wheel can go without the gear readout
+being drawn under its own rim is `y = 1.114H` — **three pixels** — and the boss is still under the
+frame there. The rim's SIZE is the free variable, because what decides the strip is `y − R` and what
+decides the horn is `y − 0.30R`. `0.375 → 0.315` buys 0.06H of boss for a wheel 16% smaller that is,
+because only the top arc was ever in frame, very slightly **taller** on screen.
+
+⚠ **AND THE DIALS GOT BIGGER, NOT SMALLER** — `bigR` is bounded by `(rimL − padL) / 3.4` and `rimL`
+is `colX − R`, so a narrower rim hands room back: 52.9 → 55.0 at 1000×560, and **10.0 → 16.9 on a
+600-wide pane**, where the old geometry had them pinned at their floor.
+
+⚠ **THE LABEL GOES IN THE PART YOU CAN SEE.** `HORN` sat at `−0.34` of the radius, which is below
+the cut at every pane size — a button with its caption outside the window, the same defect as the
+hit-test one layer up. Measured across six pane sizes, the target is now 40×11 px at 462×260 and
+140×36 at 1600×900, against **unreachable at every one of them** before.
+
+### The mirrors show the world *(2026-09-20)*
+
+`drawCabMirror` painted a stub — a sky-over-road gradient, five speed streaks and a schematic slab
+for the trailer. It renders the actual world behind you now, because `paintWindshield` is a pure
+function of a camera: the same renderer over the same map at `heading + 180`.
+
+**`bare` is the seam.** Every seat this renderer draws is a seat *inside* something, and there was no
+way to ask it for the world alone. It is a suppression, not a new path — one term on each of the four
+gates that already decide what interior gets drawn — so a caller that doesn't pass it takes
+byte-identical branches.
+
+⚠ **BEFORE THE FORWARD VIEW AND NEVER INSIDE IT.** `drawCabMirror` runs from `drawCabInterior` →
+`paintCabDash`, which `paintWindshield` calls near the end of its own frame — so rendering the rear
+view from in there is `paintWindshield` **re-entering itself** with every module-level sink
+(`FACE_SINK`, `MESH_SINK`, `SPRITE_SINK`, the decal and stroke sinks) already armed for the frame it
+is in the middle of. It wouldn't throw; it would quietly collect the mirror's geometry into the
+windscreen's buffers. The cab renders it first and hands the bitmap over as an ordinary view field.
+
+⚠ **THE MAP WINDOW IS THE ENTIRE COST.** Measured at 320×180 with GLASS 2 on, the full window the
+forward view uses costs **16.9 ms** — a whole frame, for a picture the size of a stamp — and the
+canvas size is almost irrelevant beside it. What the pass pays for is TILES: r14 16.9, r7 5.5, r6
+5.3, r5 4.4, r4 3.8. A wing mirror is a short instrument, so it takes a 13×13 slice of the window the
+cab already has, and the feature goes from a visible hitch every quarter second to about 2% of wall
+clock at `REAR_MS` 250.
+
+⚠ **AND GLASS 2 STAYS ON FOR IT.** The obvious saving is to draw a stamp on the CPU, and it isn't
+one: the 2-D painter costs **28.5 ms** at the same window against GL's 16.9, because what it saves in
+fill it spends walking the same tiles through the painter's queue.
+
+⚠ **ONE CANVAS, NOT TWO.** A canvas id is a scene, and with GLASS 2 a scene is a WebGL context — the
+browser caps those at 16 and starts force-losing the oldest, which is the seat you are driving. Both
+mirrors take overlapping crops of one rear render; what they disagree about is parallax across the
+width of a cab at stamp size. It is disposed with the cab, by id.
+
+⚠ **THE REAR VIEW'S LEFT IS THE TRUCK'S RIGHT, AND THEN THE MIRROR REVERSES IT AGAIN.** Turning the
+camera through 180° swaps the sides, so the near flank — the thing the driver's mirror is *for* — is
+on the far side of that image; and a plane mirror reverses what it shows, which is the second swap.
+Get either one wrong on its own and a trailer swinging left shows as swinging right, which is worse
+than no mirror: an instrument that lies about the one thing it exists to report.
+
+⚠ **THE HEADING IS THE RIG'S, TURNED ROUND** — not the camera's. A shoulder-check swings
+`st.viewYaw`, and a mirror that swung with your head would be a mirror bolted to your head.
+
+### The instruments belong to the dash *(2026-09-20)*
+
+Reported as the dials floating rather than being part of the truck, then — after a first pass at the
+shading — as the cluster *"not fitting into part of the truck dash but running over the top of it in
+a square way, the perspective is off"*. The second report is the one that mattered: it was never the
+shading, it was the shape.
+
+**The panel didn't stop where the cab does.** `padL` was a margin off the *canvas*, which is not a
+thing in the truck, so measured at 820×460 the outboard cluster's moulding began **45 px outside the
+inside face of the door**. It derives from `pilAt` at the lip now — the same function the shell draws
+the walls with — so it can't overrun them at any pane shape.
+
+⚠ **AN AXIS-ALIGNED RECTANGLE CANNOT LIE ON THIS BOARD.** `lipAt` is a parabola because the middle of
+a truck dash is further from the driver than its corners, and every edge of the board follows it —
+the lip, the fold, the scuttle. The binnacle was a plain rounded rect laid over all of them, so its
+straight top edge **crossed** the curved edges it sat between, at a different angle at each end. Its
+top and bottom are the dash's own curve now, offset, and the sides rake because the board is nearer
+you at the bottom. ⚠ One path serves the moulding and the opening (`grow` pushes it outward), or the
+two would disagree about the curve the moment either was retuned.
+
+⚠ **AND THE WHOLE ROW FOLLOWS IT, NOT JUST THE PANEL.** Fitting the binnacle and leaving the dials at
+one flat height is worse than leaving both flat — the plate's top edge drops toward its outboard end
+and the dials didn't, so the outermost instrument was clipped by the panel it is set into. Referenced
+to `AXIS`, never to each plate's own centre: two plates bowing about their own middles is two curves
+with a kink where they meet.
+
+⚠ **THE CLUSTER STAYS OFF THE LIGHT BAND, AND THAT IS A CAP ON `bigR`.** The scuttle is the dash's
+TOP and the fascia is the vertical face under it; a binnacle stands on the fascia and cannot reach up
+onto the top any more than a clock can be half on a shelf and half on the wall above it. Pushing the
+ROW down instead is the obvious fix and is not available — measured, it wants 30 px and the cluster
+is already within 20 px of the bottom edge — so the fascia's height joins the three caps `bigR`
+already takes. The 3.25 divisor is the PLATE (1.40r above the row, 1.44r below, ~0.19r of moulding
+each side), not the dial.
+
+⚠ **AND THE INBOARD CORNERS GO UNDER THE WHEEL.** The panel stopped short of the rim with clear dash
+between them, so the two sat side by side and nothing said which was in front. It costs nothing — the
+wheel is already drawn after the instruments — the corner just has to reach far enough in to be
+covered. ⚠ Solved against the rim **at the row's own height**, never as a fraction of `R`: the row
+crosses the wheel well below its centre, so the reach there is a chord and the band's thickness is a
+different chord again, and a fraction of `R` slides out from under the rim on a tall window.
+
+⚠ **AND THE GPS HAD A SECOND COPY OF THE OLD RECIPE.** `drawCabGps` drew its own housing — a rounded
+rect filled `T.face[1]` to `T.dash[2]` with a 1 px `T.lip` outline all the way round — which is
+character for character what the clusters used before they were rebuilt, and it failed for the same
+reason: a uniform bright outline is what a *raised* thing has, so the screen read as a panel stuck on
+the board beside the dials rather than an instrument set into it with them. The caller's own `plate`
+is passed in now, so there is **one recess recipe in the cab** and the screen cannot drift away from
+the dials it sits next to. Absent (the depot turntable, a bench, an older caller) it falls back to
+exactly what it always drew.
+
+⚠ **AND IT IS SPACED OFF THE CLUSTER'S REAL EDGE, NOT OFF THE DIAL INSIDE IT.** The screen sat at
+`smallR * 1.5` past the last small gauge while the cluster's own plate reaches `1.72` past it — and
+then both grew a moulding — so the two housings **overlapped by 7.6 px** and the screen read as
+having been dropped on top of the panel next door. Both rings have to fit between them. ⚠ Its far
+edge stops at the **cab wall** for the reason `padL` does: the old right margin was a fraction of the
+canvas, which is not a thing in the truck, and with the ring added the screen finished 3.5 px past
+the inside of the door. Measured after: 6.4 / 8.2 / 12.8 px of clear board at 640×360, 820×460 and
+1280×720, all three clearing the wall.
+
+⚠ **ONE MOULDING WIDTH, READ BY EVERYTHING THAT HAS TO CLEAR IT.** It was written out at `plate` and
+again at the control band's call, and nowhere at all where the GPS was placed — which is how that
+overlap happened. A ring each call site has its own idea of is a ring nothing can be spaced against.
+
+### The controls a truck actually has *(2026-09-20)*
+
+The dash had no room for any of them — the cluster filled the fascia to within **2.8 px**. Two things
+made the space.
+
+⚠ **MOST REAL TRUCK CONTROLS ARE NOT DASH FURNITURE, AND THOSE ONES COST NOTHING.** A wiper stalk is
+bolted to the COLUMN and crosses in *front* of the instruments, so it is a foreground object that
+overlaps what is already drawn rather than competing for board space. Measured, the tip lands inside
+the frame over the fascia at every pane size this view is used at — `434,409` on an 820×460 and
+`678,641` on a 1280×720. Wipers and the engine brake are stalks; range and split belong on the gear
+lever as a collar and a thumb toggle; the pedals stay on the floor. ⚠ They are drawn **before the
+wheel**, because the root is on the column and the column is behind the rim.
+
+⚠ **AND A STALK IS LIGHT AGAINST WHAT IT CROSSES.** The first cut shaded it off `T.pil` at −0.30 —
+the pillar's own unlit tone, right for a post in the roof and invisible here, because what a stalk is
+drawn over is the instrument face and that is near black.
+
+**`CAB_DASH` 0.33 → 0.42, and the note above it is rewritten rather than quietly exceeded.** It said
+*"past ~0.36 you are driving through a letterbox"*, which was true of what the dash WAS: an empty
+board where the only thing more of it bought was less road. The proportion it lands on is the
+reference photograph's own — that cab is about **41% dash to 50% glass**, and at 0.33 we were 33% to
+58%, so this moves toward the article rather than away from it.
+
+⚠ **THE CONTROL BAND COMES OFF THE FASCIA BEFORE THE INSTRUMENTS ARE SIZED.** `bigR` is capped at
+`fasciaH / 3.25`, so a taller dash makes the gauges bigger all by itself — which would have spent the
+whole point of growing it on instruments that were already the right size.
+
+⚠ **AND THE BAND CARRIES THE BOARD'S OWN DROP AS WELL AS THE CONTROL.** It bows with the dash like
+everything else on it, and the lip falls `0.0275H` between the axis and the frame edge — so a strip
+sized to the switch alone puts the *outboard* switches that far below the bottom of the picture,
+which is exactly what the first cut did: three rockers with their housings sawn off by the frame. The
+row is solved **from the bottom edge** — margin, ring, half a control, then the drop — rather than
+centred in its own band and hoped for.
+
+On it: a rocker bank (lights, cab lamp, cruise), an **ignition barrel** whose key slot turns when the
+engine is running, and the **park brake** — the yellow push-pull diamond, drawn standing proud rather
+than lit, because that is how you read one across a cab. Every housing is the cab's own `plate`, so a
+switch is a hole in the same board with the same moulding and the same lit lower lip. Every rect is
+recorded into `cabControlRects()` and never re-derived, the rule `cabGpsRect` already exists for.
+
+**The dial itself.** The bezel was a 1.4 px hairline of `T.ring`; it is a ring with a **section** now
+— a torus like the wheel's rim, dark curling in, bright along the crest, dark at the outer edge.
+⚠ Its directional term may live *inside* the ring because a dial does not turn, which is exactly what
+the wheel could not do. The face is recessed under it, the needle throws a shadow (it is a lever a
+millimetre above the dial and the one thing the eye tracks, so it buys more depth than anything else
+on the face for one stroke), the pivot is a turned dome, and the cover carries a curved-glass catch
+plus a rim arc — both hard-edged, per the house recipe, and clipped well inside the numerals.
+
+---
+
+### Nothing on the dash floats *(2026-09-20)*
+
+Three fittings were still sitting *on* the board instead of *in* it, and each read wrong for its own
+reason.
+
+**The gear window and the tell-tales were half on the lit plane.** The strip over the wheel started
+at `dash + 0.014H` — a step off the top of the dash box — and the dash is two surfaces: the scuttle
+is the horizontal top catching the sky, the fascia is the vertical face under it. Measured at
+820×460 that put the strip 19 px above the fold, so the gear number and the outer lamps straddled
+it. The strip starts from `scutAt` now. ⚠ **Taken at the strip's ENDS, not its middle** — the fold
+bows with the board and is lowest outboard, so clearing it at the gear window's own x still leaves
+the outermost tell-tale over the lit plane.
+
+**The GPS was a flat rectangle on a curved board.** It takes the cab's own `plate` and `platePath`
+now, and the whole unit — housing and glass together — is rotated by the board's measured slope at
+its own position (`atan2` over `rowY` a hair either side), which comes out about 3° out at the door
+and zero on the axis. ⚠ **A whole-unit tilt, never a shear on the screen.** Shearing the glass
+inside a raked frame is two different distortions on one rigid object: it pulled away from its own
+housing and left dark wedges in the corners. ⚠ **And the glass takes the housing's own path**
+rather than a rounded rect — the bezel bows and a straight screen does not, so the hole showed round
+the picture as four wedges, which reads exactly like the screen having come loose.
+
+**An unlit tell-tale was a grey dot.** Every other instrument up there is set into something; the
+lamps were six flat discs at 22% grey laid straight on the board. Lit that reads fine, because a
+light is its own explanation — dark it reads as a smudge, a hole with no hole drawn round it. The
+row gets one plate a side of the gear window and each lamp is a **bore** in it, read off its own
+section the way the bezels and the wheel's rim are: dark under the upper lip where the metal
+overhangs, bright on the lower inner wall where the windscreen reaches down into it. So the dot has
+depth before any current goes through it. ⚠ **The plate takes the lit lamps**, which is what
+`plate`'s fifth argument is for — a tell-tale that washes nothing around it is a sticker however
+well the bore is drawn. ⚠ **And the housing is solved from the lamp positions**, never written out
+again: the row's spacing is three expressions above it, and a second copy of them is a housing that
+slides off its own switches the first time anything is retuned.
+
+### The cab stops being a drawing *(2026-09-21)*
+
+Four passes, each of which turned out to be the same defect in a different costume: a flat surface
+pretending to be a lit solid.
+
+**The tell-tales got a housing.** Six discs at 22% grey laid straight on the board. Lit that reads
+fine, because a light is its own explanation; dark it reads as a smudge — no housing, no edge,
+nothing saying the panel is drilled there, which is what a ghosted lamp *is*. The row now takes one
+plate a side of the gear window and each lamp is a **bore**, read off its own section like the
+bezels and the rim: dark under the upper lip where the metal overhangs, bright on the lower inner
+wall where the windscreen reaches into it. ⚠ **The plate takes the lit lamps** — that is what
+`plate`'s fifth argument is for; a tell-tale that washes nothing around it is a sticker however
+well the bore is drawn. ⚠ **And the housing is solved from the lamp positions**, never written out
+again: the row's spacing is three expressions above it, and a second copy slides off its own
+switches the first time anything is retuned.
+
+**The moulded grain became paired.** `speck` scatters independent light and dark pixels, which is
+*noise* — it says a surface is mottled, not that it is bumpy. A bump is a lit face with its own
+shadow on the far side, so the two marks have to be a **pair** laid along the light's direction.
+Only the new `crinkle` material had that; the dash's own `plastic` and the wheel had neither.
+`pebble` is hoisted beside `speck` now and serves all five materials. ⚠ **The shadow wraps**, or a
+pair split by the tile edge leaves a lit mark with nothing under it — a hairline grid across the
+surface at every tile seam.
+
+**The wheel got a moulding.** It was the one surface in the cab with no texture at all. ⚠ **The
+grain is laid inside the rotation**: a canvas pattern is anchored to the canvas, so a grain applied
+after the turn is a texture the rim *slides through*. ⚠ **And clipped to the annulus**, not the
+disc — the spokes and boss are drawn after and carry their own shading.
+
+**And the interior is lit by the world outside it.** A street lamp you drive under now sweeps a pool
+of its own colour back across the board. ⚠ **It is a second reader of a census that already
+exists**: `RAIN_LIGHTS` is the biggest two dozen lights of the frame with screen position, field
+radius and colour, armed and filled every frame regardless of weather — the name is the only thing
+about it that is about rain. ⚠ **Handed over, not borrowed** (`CAB_LIGHTS`): the list is nulled to
+disarm collection once the near curtain is drawn, and the interior paints later still. ⚠ **Driven by
+how far above the glass line the lamp is**, which says where it is relative to you without a second
+projection. ⚠ **And the moulding catches it** — the same tile re-laid in `overlay` through a
+pool-shaped clip. `RENDER_TUNE.cabLit` is the A/B, and it exists because a screenshot of a night cab
+cannot settle whether the pass reached the frame: the first cut moved **1.34% of the board at a mean
+delta of 10 of 765** — wired, switched on and invisible — because **the census alphas are halo
+alphas, not brightnesses**.
+
+### The wheel is geometry *(2026-09-21)*
+
+`RENDER_TUNE.cabWheel3d`; 0 is the drawn one, which is kept.
+
+The 2-D wheel is concentric gradients, and its ceiling is that **a circle drawn flat-on is a circle
+at every angle**. A real wheel is raked, so its outline is an ellipse, its far side is narrower, its
+spokes foreshorten and the light sweeps round the rim rather than sitting in a ring. None of that is
+expressible as a gradient and all of it is what the eye uses to decide whether it is looking at an
+object or a picture of one.
+
+⚠ **This is GLASS 1, not a second renderer.** This file has been a CPU 3-D renderer since the city
+was built, and ~900 faces is a rounding error against the thousands it draws every frame. The GPU
+would have meant a second WebGL context for the dash canvas — 150 MB and a whole lifecycle — to draw
+less geometry than one building.
+
+Five things it cost to get right:
+
+- ⚠ **The banding was bands, not segments.** The silhouette is sub-pixel at 48 around — sagitta is
+  `R(1-cos(π/N))` = 0.31 px at this size — so going finer there buys nothing. What you *can* see is
+  that flat shading makes every band across the tube one flat tone, and five of them turning through
+  180° is five steps down the rim. `WHEEL_NV` 5 → 14 fixed it.
+- ⚠ **The dark end cannot go to nothing.** At 0.30 the unlit side landed on 17 of 255 against a
+  darker dash, and the rim read as a crescent. A cab has bounce in it; the floor is the ambient.
+- ⚠ **The marks are tinted faces, not extra geometry.** The twelve-o'clock stripe and the thumb grips
+  are properties of a stretch of rim, so they rake, foreshorten and light with it for zero faces.
+- ⚠ **Back faces are kept.** You can see through the middle of a steering wheel; culling leaves a
+  wheel with a bite out of it. The sort is what puts the far side behind.
+- ⚠ **Every face is stroked in its own fill.** Two antialiased polygons sharing an edge do not sum to
+  opaque, and the background shows through as a wireframe over the whole part.
+
+**And the shadow is cast by the geometry.** It was a radial gradient outside the rim — and a halo
+cannot know a wheel is a **ring**, so it filled its own middle and the spokes cast nothing. Now the
+silhouette loops are pushed along the light until they meet the board. ⚠ **The board is a plane, not
+a model** — a shadow only needs the surface it lands *on*. ⚠ **The light travels along −KEY**;
+`CTL_KEY` points *toward* it, so using it directly puts the shadow between the wheel and the driver.
+
+Measured against a **zero** noise floor (the interior is deterministic; the whole frame is 33,363 px
+of drifting cloud, which is why box measurements are the only usable instrument): **3-D vs drawn
+23.13% of the wheel region at mean delta 83.9**, and the grain **1.41% → 4.63%** once the rim was
+given headroom — `overlay` is `2·base·blend` below mid-grey, the same arithmetic as the dark
+aircraft board.
+
+### The head is not bolted to the cab *(2026-09-21)*
+
+`RENDER_TUNE.cabLean`. Corner hard and you are thrown toward the outside of the bend, and what that
+does to the picture is move the **near** things more than the far ones. ⚠ **That difference is the
+entire depth cue** — a single pan of the whole interior is a picture sliding about; two layers moving
+by different amounts is parallax, the only monocular cue a flat drawing can express honestly. So the
+wheel moves and the board behind it does not.
+
+⚠ **Derived from steer × speed, never steer.** A wheel wound over at a standstill throws nobody
+anywhere. Measured: **11,687 px of wheel moves at speed 0.9**, the far surround **68**, and **parked
+with the wheel hard over, 0**.
+
+### The switches take a click *(2026-09-21)*
+
+LAMPS, DOME, CRUISE, the ignition barrel and the park brake were readouts shaped like switches,
+which is worse than not drawing them — the one thing a switch says about itself is that it can be
+moved. ⚠ **The rects come from the drawer** (`cabControlRects`), never a second layout: everything in
+the band is at the end of a chain — dash depth, wheel radius, the fold, the bow at the strip's ends
+— and a copy here goes wrong the first time either side is tuned. Same rule the horn boss and the
+GPS already follow. ⚠ **And every one routes to the existing action**, so the sound, the power check
+and the persistence are unchanged; cruise refuses under exactly the conditions the keyboard refuses
+under rather than growing a second set of rules.
+
+### The cab has depth — the free look *(2026-09-21)*
+
+Middle mouse, held, leans the driver's head; let go and it springs back. `RENDER_TUNE.cabLean`.
+
+**A rotation reveals nothing, and that is the whole reason this is a translation.** The first cut
+yawed the camera through the `yawOff` seam a shoulder-check already uses, and it is the wrong shape:
+under a pure rotation every point in the frame swings by the same angle whatever its distance, so
+the A-pillar and the building behind it move together and nothing is uncovered. Leaning moves the
+EYE, and translation is the only thing that moves near objects more than far ones.
+
+**And for a plane facing you it is a pure horizontal shift, which is not an approximation.** Move the
+eye sideways by Δr and a point at forward distance F lands at `sx = cx + ((r − Δr)/F)·FL` — the F
+term is unchanged, because the motion is parallel to the image plane. No keystone, no
+foreshortening, no scale: a translation of `(Δr/F)·FL` pixels. Every layer takes the same arithmetic
+with a different F and that is the entire effect — no mesh, no second camera, no projection. The cab
+carries three distances (`CAB_GLASS_F` for the surround, the board nearer, the wheel nearer again),
+so they separate as you lean, which is the only cue a flat drawing has that says it has volume.
+
+⚠ **The camera is plumbed to the interior** (`CAB_CAM`), because the shift is derived from the
+camera's own focal length rather than picked in pixels — a seat with a wider fov moves its interior
+further for the same head movement, and three pixel constants would quietly disagree with each other.
+The stash is checked against the pane width before use: a stale camera places the interior against a
+world that has moved.
+
+⚠ **THE LEAN LIVES INSIDE `makeCam`, AND A SYNTHETIC `chase` OBJECT IS WHY.** The eye offset already
+existed as `chase.fx/fy` for the free camera, so the first attempt passed a stand-in rig carrying
+only those two fields. `EH` reads `chase.up` whenever chase is truthy, so it became
+`EHbase + undefined` — **NaN through every projection in the frame**. It draws a horizon, a sky and
+an empty green plain, which reads as the map failing to load rather than as arithmetic, and **no
+shape gate can see it** because every one of them builds its camera with `chase` null. It also
+resolves against `ownHdg` when there is one, or "lean left" swings round as you shoulder-check.
+
+⚠ **Absolute, not a delta** — the opposite of the steering rule and right here. Steering is relative
+because it must hold where you left it; a peek is spring-loaded, so the cursor's distance from the
+middle IS the angle. A delta would drift with no detent to drift back to.
+
+⚠ **Sliding a layer uncovers its own edge**, and "nothing" there is the WORLD — a slot of city down
+the inside of the door, which reads as the cab coming away from the frame. It is a column smear
+rather than a fill, because what belongs in that strip is pillar at the top, door card in the middle
+and dash at the bottom: stretching the adjacent column supplies all three for one `drawImage`, and
+carries the alpha, so a strip that is glass stays glass.
+
+⚠ **And the spring lives in the frame payload**, which already runs once a frame — no timer, no rAF
+of its own, nothing to cancel when the cab closes. Suppressed in the chase camera, where the middle
+button is the orbit.
+
+**What it is not:** Q and E are unchanged and still take the dash away with them, because a
+shoulder-check is looking out a DIFFERENT piece of glass. A lean is the same windscreen from a head
+that has moved, so the interior stays drawn — which is what makes the pillar something to lean
+around. The vertical half of the drag is parallax only: `makeCam` takes a `camPitch` and this does
+not use it, for the reasons in that function's own note.
 
 ## Testing
 

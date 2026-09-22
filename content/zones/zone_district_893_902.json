@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#101820",
+  "color": "#bfe3ee",
+  "description": "A tall glass slab on a chrome plinth, banded twice in champagne metal, with one recessed dark storey near the top that makes the upper block read as its own building and a shallow vault laid across the crown. Two storeys up, a plate runs east out of it the whole width of the fairway and is the roof over the dock, hung off a stayed mast with nothing standing in the water beneath it; at its outer end a blade closes the run, and the skirt under that stops well short of the surface so boats come in under cover. The slab is lit from inside at every hour and the light does not change colour after dark. Cut into the fascia over the doors, small: FAIRWEATHER MARINA. Underneath, smaller again: BERTHS, COVER AND A KITCHEN.",
   "exits": {
-    "east": "zone_district_894_902",
-    "north": "zone_district_893_901",
-    "south": "zone_district_893_903",
-    "west": "zone_district_892_902"
+    "north": "zone_marina_lobby",
+    "south": "zone_district_893_903"
   },
   "flags": {
-    "district": "docks",
+    "building_name": "Fairweather Marina",
+    "building_type": "boathouse",
+    "district": "glasshouse",
+    "entrance": "south",
+    "facade": true,
+    "floors": 9,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "world_exit_zone": "zone_district_893_903"
   },
   "grid_x": 893,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_893_902",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "FQ",
+  "name": "Fairweather Marina",
   "parent_zone": null
 }

@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow room with a chandlery down one side and a counter across the end of it, both in the same hardwood as the bench and by the same hand. Charts in a rack, rolled and labelled. Line on drums by diameter. Shackles, thimbles, fuel cards, fenders, and a shelf of things in boxes that cost more than the boxes suggest. A kettle, which is the single least Ascendant object within half a mile of here and is in plain view.",
+  "exits": {
+    "east": "zone_marina_lobby"
+  },
+  "flags": {
+    "building_name": "Fairweather Marina",
+    "building_type": "boathouse",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_consv_counter",
+  "map_id": "map_int_consv",
+  "name": "Fairweather Marina — The Counter",
+  "parent_zone": "zone_district_893_902"
+}

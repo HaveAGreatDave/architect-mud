@@ -433,7 +433,7 @@ export function applyBeacons() {
 
 export function setRoomBeacon(action, target, on, tries = 6) {
   if (!action || !target) return;
-  const key = (b) => `${b.action} ${String(b.target).toLowerCase()}`;
+  const key = (b) => `${b.action}\u0000${String(b.target).toLowerCase()}`;
   const me = key({ action, target });
   _beacons = _beacons.filter(b => key(b) !== me);
   if (!on) {

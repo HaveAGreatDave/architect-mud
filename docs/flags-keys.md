@@ -277,6 +277,8 @@ nothing, silently; wire a reader first.
 | `mundane` | describe (engine) | force this piece into the trailing scenery clause even when it affords verbs. The opposite override; wins over `notable` |
 | `vendor_npc_id` | vendor | vendor NPC whose shop this furniture belongs to |
 | `shop_unpaid` | storefront | *(player_inventory custom_data)* the shop zone this row was lifted from and not yet paid for; `buyware` clears it, carrying it out of the shop is `shoplifting` |
+| `alarm_panel` | shopalarm | this piece is a premises intruder alarm. Breaching a hackable lock with one on the far side arms a countdown; `hack alarm` opens the board. Pair with `click_cmd: hack alarm` (that is the whole of click-to-hack) and put the word *alarm* in `aliases`, or the verb cannot resolve to a piece named "the alarm box" |
+| `alarm_tier` | shopalarm | 1–5, the alarm MODEL. Picks the window AND the difficulty together (90s/diff 3 → 15s/diff 10), so a tier is one rung on one ladder rather than two knobs. Unset, junk or out of range clamps to 2. The tier is a statement about what the premises have to lose, never about how central they are |
 | `shop_display` | storefront | marks the display counter in a player-owned shop. Prose/affordance anchor only — listings are zone-scoped, not stored in this piece |
 | `shop_vault` | storefront | holds a player-owned shop's till; `hack`able via VAULT CRACK (`hack_difficulty`, default 6) |
 | `vendor_safe` | vendor-safe | crackable vendor safe / shop till. `vendor_npc_id` names the OWNER, and the owner's `vendor_credits` IS the money in the box |
@@ -290,3 +292,29 @@ nothing, silently; wire a reader first.
 | `washing_machine` | laundry | `launder` here — the only thing in the game that resets `hygiene_laundered_at`. **One player at a time**: a running machine is claimed for its whole cycle and reported to the room through `zone.furnitureOccupants`, so a bank of them must be one furniture row PER DRUM, never one row standing for several ([plugins/laundry/README.md](../plugins/laundry/README.md)) |
 | `wash_price` | laundry | credits a cycle costs (default `12`), charged at the END of it |
 | `wash_cycle_ms` | laundry | how long the drum runs (default `120000`, i.e. two minutes) |
+
+## generators.flags
+
+The power sim's own grab-bag, read in `recomputePower`'s Phase 1
+([server/engine/environment.js](../server/engine/environment.js)). It has never been
+listed here because for a long time it held exactly one authored key; a junction box
+that is out of service is a thing content can now say, so both are written down.
+
+⚠ **`destroyed` and `faulted` produce the SAME OUTCOME and are NOT interchangeable.**
+Both take the unit offline regardless of type and cut power to everything downstream of
+it. They are separate keys because they are repaired by different people and mean
+different things to a writer: a smashed box is replaced, a faulted one is a maintenance
+call nobody has answered. Nothing collapses them.
+
+⚠ **Neither of them touches `city_generator_id`, and a fault must not.** Cutting a
+building off its city plant expresses "the grid does not reach this district", which is a
+much larger claim than "the box on this wall is dead" and the wrong one for a maintenance
+backlog. The feed stays live to the wall.
+
+| key | owner | meaning |
+| --- | --- | --- |
+| `destroyed` | power | the unit's physical furniture was smashed apart. Permanently offline until something repairs it |
+| `faulted` | power | the unit is intact and does not work. A maintenance fault, authored as content, so it survives a restart and a deploy. Old Coldwater's five shops are the first users ([proposals/old-coldwater.md](proposals/old-coldwater.md)) |
+| `recover_after` | power | ISO timestamp a **storm** fault expires at. Rolled by the sim, never authored — the tick clears the key once the window lapses, so an authored one would be wiped |
+| `battery` / `battery_max` | power | portable player generators only: charge remaining, and the ceiling it recharges to. Drives the unit's work light |
+| `junction_box_id` | power | portable player generators only: the junction box this unit back-feeds when it is running |

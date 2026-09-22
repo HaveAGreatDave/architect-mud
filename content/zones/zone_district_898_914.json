@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "Sorrel Way meets Kettle Lane at a corner cut wide enough for an articulated lorry, which is the only part of the estate that has ever been tested and found adequate.",
   "exits": {
     "east": "zone_district_899_914",
-    "south": "zone_district_898_915",
     "west": "zone_district_897_914"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 898,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_898_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

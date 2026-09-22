@@ -1,10 +1,16 @@
 {
   "name": "freelook",
-  "version": "1.0.0",
-  "description": "Staff-only detached world camera: opens the GLASS renderer over any map_world tile with no vehicle under it, so the city can be looked at from anywhere instead of only from a cab, a cockpit or a wheelhouse.",
-  "commands": ["freelook"],
+  "version": "1.1.0",
+  "description": "The detached world camera, and the fixed vantages that stand on it. `freelook` is staff-only: it opens the GLASS renderer over any map_world tile with no vehicle under it, so the city can be looked at from anywhere instead of only from a cab, a cockpit or a wheelhouse. `telescope` is the same camera bolted down — furniture carrying flags.telescope is a place you stand, with mouse-look, WASD and a leash you cannot walk off, at an eye height the renderer owns rather than the server. One plugin because there is one camera-over-a-tile on the wire: one viewer set, one sky push, one close.",
+  "commands": ["freelook", "telescope"],
   "hooks": [],
   "actions": [],
+  "objectGatedCommands": {
+    "telescope": {
+      "discoverVia": "telescope",
+      "note": "Surfaced by the declaration-only specialized action registered under requiredFlag telescope, so examining the instrument advertises TELESCOPE. The verb itself self-resolves the vantage in the room."
+    }
+  },
   "events": {
     "emits": [],
     "consumes": ["player.logout"]

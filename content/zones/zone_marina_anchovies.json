@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Twelve covers and not one of them away from the glass. The room is not in the building: it hangs off the side of it, a glazed wing carried out north over the water on nothing you can see, so the pontoon and the whole bay are below you and there is no land in the window at all. White cloths, low light, and a bar across the back in a single slab of dark stone with the bottles behind it lit from underneath. The kitchen is a chrome pass you can see three pairs of hands working through and nothing else of. It smells of garlic, hot oil and rosemary, which on this shore is the most extravagant thing in the building. It is also the one room in the marina that shuts.",
+  "exits": {
+    "south": "zone_marina_lobby"
+  },
+  "flags": {
+    "building_name": "Fairweather Marina",
+    "building_type": "boathouse",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Glass on three sides and underfoot at the edges, looking north over the length of the marina and out into the Basin. At night the water under the dock is lit from below and the room is not, which is the trick the place is built around.",
+      "light": 0.9,
+      "name": "the wing glazing",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_893_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_marina_anchovies",
+  "map_id": "map_int_consv",
+  "name": "Fairweather Marina — Anchovies",
+  "parent_zone": "zone_district_893_902"
+}

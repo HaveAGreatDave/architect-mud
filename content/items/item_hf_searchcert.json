@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_searchcert",
+  "name": "a search certificate",
+  "tags": {
+    "description": "A single sheet confirming that a search of the estate's own records against a named plot found what it found. It is the shortest document in the building and the only one that can say nothing at all and still be worth paying for.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 20,
+  "weight": 40
+}

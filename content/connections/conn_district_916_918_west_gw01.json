@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_916_918",
+  "b": "zone_gatescale_booth",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_916_918_west_gw01",
+  "lockable": true,
+  "one_way": false
+}

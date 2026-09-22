@@ -1,0 +1,8 @@
+{
+  "description": "A counter across a recess with a roller shutter over it and a chrome canopy above, fitted out for about four hundred credits with materials off this estate. It sells papers, hot drinks, cigarettes and about eleven other things, and it is the only place in Halcyon Fields where you can buy something without an appointment.",
+  "flags": {},
+  "id": "furn_hf_rightofway_kiosk",
+  "name": "the kiosk",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_rightofway_passage"
+}

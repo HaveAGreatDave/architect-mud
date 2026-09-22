@@ -1,0 +1,14 @@
+{
+  "description": "One lantern for thirty bunks, hung dead centre so the argument about who gets the light cannot be won by anybody.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_gas_zone_bld_922_917_dorm",
+  "light_type": "gas",
+  "lumen_output": 400,
+  "name": "the hanging lantern",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": 40,
+  "zone_id": "zone_bld_922_917_dorm"
+}

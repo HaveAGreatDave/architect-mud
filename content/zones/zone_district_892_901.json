@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The float takes a swell from somewhere out in the channel and rolls it off along the walkway, one section at a time.",
+    "The pump ticks over on its own and stops again, with nothing plugged into it.",
+    "A rainbow works its way out from under the decking, spreads, thins and is gone.",
+    "Somewhere under the boards a fender squeaks against a pile and does not stop for a while."
+  ],
   "ambient_theme": "coast",
   "color": "#7fd3ff",
-  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot: the channel beyond is deep, and impassable without a boat.",
+  "description": "A floating walkway off the end of the hardstanding, six sections of ribbed decking on drums, ramped down off the concrete and moving very slightly the whole time you are on it. Three finger berths run out from it with lines coiled ready on the cleats. At the head of the walkway stands a single pump in Fairweather's grey, a cranked hose on a drum and a card reader with the paint worn off the keys, and the rate for race fuel is on a plate beside it in figures small enough that reading them is a decision you have to make on purpose.",
   "exits": {
     "east": "zone_district_893_901",
     "north": "zone_district_892_900",
@@ -10,8 +15,18 @@
     "west": "zone_district_891_901"
   },
   "flags": {
-    "district": "water",
+    "boat_fuel": true,
+    "building_type": "pier",
+    "district": "glasshouse",
+    "entrance": "south",
+    "floors": 1,
+    "liquid": false,
+    "marina_berths": 3,
+    "pier": true,
     "region_id": "region_coldwater",
+    "routable": true,
+    "street_life": true,
+    "swimmable": false,
     "terrain": "water"
   },
   "grid_x": 892,
@@ -19,6 +34,7 @@
   "grid_z": 0,
   "id": "zone_district_892_901",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "marker": "⛽",
+  "name": "Fairweather Marina — The Fuel Float",
   "parent_zone": null
 }

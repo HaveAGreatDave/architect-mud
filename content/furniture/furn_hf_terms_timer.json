@@ -1,0 +1,9 @@
+{
+  "description": "A neat chrome box on the terrace wall with a screen the size of a playing card. It shows two cycles a day, a soil-moisture reading, and a green tick. The moisture probe is in bed four. Bed four, like all of them, is soil and nothing else, and the probe is perfectly happy about it.",
+  "flags": {},
+  "id": "furn_hf_terms_timer",
+  "name": "an irrigation controller",
+  "object_type": "decoration",
+  "power_draw_kw": 0.1,
+  "zone_id": "zone_hf_terms_terrace"
+}

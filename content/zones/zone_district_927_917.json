@@ -1,12 +1,13 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "The Curtain, close enough to put a hand on if anybody ever did. It makes no sound worth calling a sound and throws no heat at all. Tents are pitched hard against it the whole length of the corner, because the ground is dry here and nothing can come at you from the east.",
+  "description": "The Curtain, close enough to put a hand on if anybody ever did. It makes no sound worth calling a sound and throws no heat at all. Tents are pitched hard against it the whole length of the corner, because the ground is dry here and nothing can come at you from the east. The men who work the wastes come back along the wall rather than up the lane, because what they are carrying is either meat or it is worth money, and either way it is nobody's business until it is weighed.",
   "exits": {
     "north": "zone_district_927_916",
     "south": "zone_district_927_918"
   },
   "flags": {
+    "camp": true,
     "curtain": true,
     "district": "slum",
     "region_id": "region_coldwater",

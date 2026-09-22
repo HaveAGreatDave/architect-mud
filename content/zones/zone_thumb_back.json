@@ -12,7 +12,7 @@
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_919_918"
+    "world_exit_zone": "zone_district_924_914"
   },
   "grid_x": 1,
   "grid_y": 0,
@@ -20,5 +20,5 @@
   "id": "zone_thumb_back",
   "map_id": "map_int_thumb",
   "name": "Thumb On The Scale — The Sorting Bench",
-  "parent_zone": "zone_district_919_918"
+  "parent_zone": "zone_district_924_914"
 }

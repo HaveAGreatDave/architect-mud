@@ -103,7 +103,14 @@ export function buildAtlas(tiles, maxSize = Infinity) {
       const tw = t.canvas.width, th = t.canvas.height;
       // The skirt: the tile drawn once oversized behind itself, then the tile on top. Cheaper than
       // four edge blits and gives the same result for a one-texel pad.
+      // ⚠ AND THE CELL IS CLEARED BETWEEN THE TWO, WHICH ONLY MATTERS ONCE A TILE HAS ALPHA IN IT.
+      // A cut lattice leaves its openings transparent, and an opaque tile laid over a stretched
+      // copy of itself hides that copy while a transparent one does not: the oversized ghost shows
+      // through every hole, and what should be sky is a smeared second lattice. Clearing the cell
+      // first keeps the one-texel skirt the sampler needs and leaves the holes empty. For an opaque
+      // tile — every other surface in the city — this is byte-for-byte what it always was.
       ctx.drawImage(t.canvas, cx - PAD, cy - PAD, tw + PAD * 2, th + PAD * 2);
+      ctx.clearRect(cx, cy, tw, th);
       ctx.drawImage(t.canvas, cx, cy);
       rect.set(t.key, [cx / W, cy / H, (cx + tw) / W, (cy + th) / H]);
     });

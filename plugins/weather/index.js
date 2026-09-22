@@ -14,7 +14,8 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { devTriggerWeatherEvent, registerWeatherEventCurrent, getEnvironmentState, seasonForDate } from '../../server/engine/environment.js';
+import { devTriggerWeatherEvent, registerWeatherEventCurrent, getEnvironmentState, seasonForDate, empReaches } from '../../server/engine/environment.js';
+import { gatherHook } from '../../server/engine/plugins.js';
 
 const SEASON_BASE_TEMP_C  = { winter: 2,    spring: 12, summer: 24, autumn: 11 };
 const SEASON_BASE_PRECIP  = { winter: 0.35, spring: 0.40, summer: 0.35, autumn: 0.45 };
@@ -1094,7 +1095,37 @@ async function fryCarriedElectronics(playerIds) {
 // faraday-bag exemption, same chrome blackout, same bench repair — rather than a
 // second implementation that would inevitably disagree about what a shielded
 // container does. A charge is a small storm; the sky is a large one.
-on('weather.empPulse', async ({ minutes, zoneId = null }) => {
+on('weather.empPulse', async (pulse) => {
+  const { minutes, zoneId = null } = pulse;
+
+  // ── WHAT A PULSE DOES TO A VEHICLE ─────────────────────────────────────────
+  //
+  // A third lifetime, and the reason it is a third rather than a case of one of
+  // the two above: a truck's GPS head is not in anybody's pockets (so the fry
+  // rule cannot see it) and it is not chrome (so the augment path cannot either).
+  // It is a box bolted to a thing at a grid coordinate, and the only question
+  // that decides its fate is whether that coordinate was inside the blast.
+  //
+  // ⚠ TRANSIENT, LIKE CHROME AND UNLIKE POCKET GEAR. Permanently bricking the
+  // nav head of a rig somebody paid sixteen thousand credits for — with no way
+  // to carry it to a bench, because it is welded into the dash — is the crueller
+  // game the chrome rule already refuses to play. The boards reboot.
+  //
+  // ⚠ AND THE ENGINE IS NEVER TOUCHED. A diesel needs no electronics to keep
+  // running and a piston aero engine needs a magneto; what dies is everything
+  // that was listening to the sky. Losing the drive would make this a hazard
+  // that kills you, and the whole point of it is the one that doesn't.
+  //
+  // The targets arrive by gather hook and carry their own `knockOut`, the same
+  // arrangement `tech.targets` uses: this file never learns what an aircraft is,
+  // and a fourth vehicle joins by answering the hook.
+  const vehUntil = Date.now() + (minutes || 1) * AUG_BLACKOUT_MS_PER_MIN;
+  for (const v of await gatherHook('vehicle.crewed')) {
+    if (!empReaches(pulse, v?.x, v?.y, v?.mapId || 'map_world')) continue;
+    try { v.knockOut?.(vehUntil); }
+    catch (e) { console.error(`[weather] EMP knockout failed: ${e.message}`); }
+  }
+
   const players = getAllLivePlayers().filter(p => !zoneId || p.current_zone === zoneId);
   if (!players.length) return;
   let fried;

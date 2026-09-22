@@ -1,0 +1,26 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A landing at the pinch between two bulges, which is the narrowest part of the floor it serves, because that is where the lifts are in a building shaped like this. Four doors off it, a window slot at the collar you can see straight down the lane from, and a fire plan on the wall with the four flats numbered. Whoever laid the carpet ran it into all four doorways and it stops cleanly at the threshold of the only one that gets used.",
+  "exits": {
+    "down": "zone_hf_chainfree_lobby",
+    "east": "zone_hf_chainfree_u2",
+    "north": "zone_hf_chainfree_u1",
+    "south": "zone_hf_chainfree_u3",
+    "west": "zone_hf_chainfree_u4"
+  },
+  "flags": {
+    "building_name": "Chain Free",
+    "building_type": "bead_tower",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_chainfree_landing",
+  "map_id": "map_int_hf_chainfree",
+  "name": "Chain Free — The Third Collar",
+  "parent_zone": "zone_district_900_914"
+}

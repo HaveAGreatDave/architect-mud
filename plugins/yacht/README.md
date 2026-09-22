@@ -101,3 +101,18 @@ What it does NOT do is open her up —
   which never sees a move gate;
 - the water tile under her hull is **closed to swimmers** (`swimming:vessel-hull`) — you stop at her
   waterline and climb, you don't swim under her.
+
+## ⚠ An EMP takes the plotter, and she can still be steered
+
+A pulse that lands within twelve tiles of her exterior tile kills the bridge for the duration: the
+radar plot goes **empty** (not stale — the helm client clears its plot off an empty list, so a
+skipped push would freeze traffic on the glass that is no longer there) and `sailto` refuses.
+
+⚠ **`sail <direction>` keeps working, and that split is the feature.** A ship is steered by eye off
+a compass and always has been; what the pulse took is the box that knows where things *are*.
+Refusing to let her move at all would strand everybody aboard for the length of the blackout, which
+is the "never fatal on its own" rule the hero events are built to — and it applies here with more
+force, because she is a building people live in. She joins by answering `vehicle.crewed`, and
+⚠ only when somebody is **aboard**: that list also decides where a pulse can land, so an empty ship
+at the quay would be an epicentre rolled onto furniture. See
+[systems-weather-extreme.md](../../docs/systems-weather-extreme.md).

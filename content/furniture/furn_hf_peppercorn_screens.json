@@ -1,0 +1,9 @@
+{
+  "description": "Forty-one tiles in a grid that is the quarter seen from above: the boulevard along the top, the mews on the left, the row along the bottom. Once you have understood that you cannot stop reading it as a map, and the eleven dark tiles stop being broken screens and become the eleven plots with cranes on them.",
+  "flags": {},
+  "id": "furn_hf_peppercorn_screens",
+  "name": "the camera wall",
+  "object_type": "fixture",
+  "power_draw_kw": 1.2,
+  "zone_id": "zone_hf_peppercorn_wall"
+}

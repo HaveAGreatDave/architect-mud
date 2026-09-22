@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#121620",
+  "color": "#c4d8e8",
+  "description": "A crescent of chrome and glass that bends along the lane, with drums at the joints and a coping band running the whole curve. Four of its five floors are dark and empty and the ground one is not: warm light, a lot of it, and the only door in Halcyon Fields with anybody standing outside it. The unit number is still on the glass in vinyl — UNIT 2 — and somebody has stuck a hand-cut chrome letter S in front of it so it reads SUNIT 2, which is a joke that has outlived its author.",
   "exits": {
-    "east": "zone_district_901_915",
-    "north": "zone_district_900_914",
-    "south": "zone_district_900_916",
+    "east": "zone_hf_sitting_bar",
     "west": "zone_district_899_915"
   },
   "flags": {
+    "building_name": "Sitting Tenant",
+    "building_type": "chrome_slab",
     "district": "halcyon_fields",
+    "entrance": "west",
+    "facade": true,
+    "floors": 5,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_899_915"
   },
   "grid_x": 900,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_900_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "IA",
+  "name": "Sitting Tenant",
   "parent_zone": null
 }

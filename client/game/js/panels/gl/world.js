@@ -25,6 +25,7 @@
 import { createGLView, MAX_LIGHTS } from './context.js';
 import { buildAtlas, faceUVs } from './atlas.js';
 import { lightMatrix, eyePos, nearFor } from './camera.js';
+import { createSkylineStrip } from './skyline.js';
 import { FOG_H_SCALE } from './fog.js';
 import { SHADOW_BIAS_TILES } from './shadow.js';
 
@@ -631,11 +632,35 @@ function sceneGL(id, w, h, msaa = 1) {
 // same set in a different order, and an order-sensitive key calls it a different city. That is a
 // full mesh rebuild on every frame of every turn, which is the whole cost the buffer exists to
 // avoid, and it is invisible: the picture is correct throughout.
+// ── A SURFACE, AND WHAT THE GRID IS DOING TO IT ────────────────────────────────────────────────
+//
+// A wall texture carries its own lit window grid, so a building with its feed down needs a second
+// bake of the same palette rather than a dimmer version of the same one. This is how that second
+// bake is named, and three things about it are load-bearing.
+//
+// ⚠ A ROOF NEVER VARIES. It has no windows in it, so letting a roof take a variant would double
+// every roof entry in the atlas for a texture that cannot differ — and the atlas page is the one
+// thing in this pass with a hard device ceiling.
+// ⚠ AND NEITHER DOES THE ORDINARY CASE. `win == null` is every building whose feed is up, and it
+// returns the key untouched — which is what keeps the atlas of a city with the lights on exactly
+// the atlas it has always been, entry for entry.
+// ⚠ THE SEPARATOR MUST NOT APPEAR IN A PALETTE KEY. They are identifiers (`ty_precast`,
+// `marquee`), so a bar is safe and a colon would not have been.
+const TEX_WIN_SEP = '|';
+function texVariant(key, win) {
+  return (win == null || key.charCodeAt(0) === 114 /* 'r' — a roof */) ? key : key + TEX_WIN_SEP + win;
+}
+
 function windowKey(cells) {
   // ⚠ bt/bn decide WHICH model this is and meshParams decides what that model was BUILT AS.
   // Both halves are needed: the first cannot see a reseeded variant, the second cannot see a
   // different building that happens to share a footprint and a height.
-  const parts = cells.map((it) => it.gx + ',' + it.gy + ':' + (it.c.bt || '') + ':' + (it.c.bn || '') + ':' + meshParams(it));
+  // ⚠ AND THE GRID STATE, WHICH IS THE ONE TERM HERE THAT IS NOT A PROPERTY OF THE BUILDING. Every
+  // other part of this key is geometry and changes when you drive somewhere else; this changes
+  // where you are standing, when a storm faults a junction box under your feet. Leave it out and
+  // the vertex buffer is not stale, so the blackout arrives at the next corner instead of now.
+  const parts = cells.map((it) => it.gx + ',' + it.gy + ':' + (it.c.bt || '') + ':' + (it.c.bn || '') + ':' + meshParams(it)
+    + ':' + (it.c.pw == null ? '' : it.c.pw) + (it.c.em ? 'e' : '') + (it.c.og ? 'o' : ''));
   parts.sort();
   return parts.join(';');
 }
@@ -724,14 +749,25 @@ const meshParams = (it) => it.fh + ':' + it.h + ':' + it.seed + ':' + it.E[0] + 
 // geometry to fit a projection to. Returning null is a full answer — `draw` puts the strength to 0
 // and the comparison in the shader never happens.
 //
-// ⚠ THE SUN GOING DOWN IS A HARD GATE AND NOT A FADE TO ZERO STRENGTH. `len` is 0 outside
-// 05:30-18:30, which makes the light direction straight down and the ortho box degenerate; more to
-// the point, the pass is a full re-render of the city and half of every day is night. Skipping it
-// is the difference between a feature that costs something after dark and one that costs nothing.
+// ⚠ NOTHING CASTING IS A HARD GATE AND NOT A FADE TO ZERO STRENGTH. `len` is 0 when there is no
+// caster, which would make the light direction straight down and the ortho box degenerate; more to
+// the point, the pass is a full re-render of the city. Skipping it is the difference between a
+// feature that costs something when nothing is throwing a shadow and one that costs nothing.
+//
+// ⚠ AND "NO CASTER" IS NO LONGER THE SAME AS "AFTER DUSK", which is what this note used to say. A
+// full moon high in a clear sky throws a real shadow, so `len` and `shadowDir` answer for the moon
+// once the sun is down (see `moonCast` where sunFx is built) and this function needed no gate of
+// its own to pick it up. The cost argument is untouched: the moon only casts when it is both bright
+// and high, so a crescent never reaches the threshold and the pass stays off for most of the month.
+//
+// ⚠ IT IS `castDir`, NOT `dir`. `dir` still means the sun, because the glint, the wall key and the
+// hillshade all read it — pointing the shadow map down the sun's below-horizon bearing would lay
+// every building's shadow the opposite way from the ground pre-pass, and nothing in the picture
+// would say which of the two was wrong.
 function sunShadowFor(g, opts) {
   const str = opts.glShadow || 0;
   const sun = opts.sun;
-  if (!(str > 0) || !sun || !(sun.len > 0) || !sun.dir) return null;
+  if (!(str > 0) || !sun || !(sun.len > 0) || !(sun.castDir || sun.dir)) return null;
   const b = g.view.bounds;
   if (!b) return null;
   // ⚠ THE BIAS IS CONVERTED FROM TILES INTO THIS BOX'S OWN DEPTH RANGE. The box is fitted to the
@@ -743,7 +779,8 @@ function sunShadowFor(g, opts) {
   // Toward the sun, in three dimensions — for the slope term in the bias only. `len` is cotangent
   // of the elevation in this renderer's own terms (see lightMatrix), so the vertical component is 1
   // before normalising and a low sun leans the vector over.
-  const sx = sun.dir[0] * sun.len, sy = sun.dir[1] * sun.len;
+  const cd = sun.castDir || sun.dir;
+  const sx = cd[0] * sun.len, sy = cd[1] * sun.len;
   const sl = Math.hypot(sx, sy, 1) || 1;
   return {
     str, lightVP: lightMatrix(sun, b), bias: SHADOW_BIAS_TILES / span,
@@ -1157,6 +1194,26 @@ function tileMesh(deps, it) {
           : 0,
       };
     });
+    // ── WHAT THIS BUILDING LOOKS LIKE FROM A LONG WAY OFF, FOR THE REFLECTION ─────────────────
+    //
+    // The skyline strip needs two numbers per tile: how high the mass stands and what colour it is.
+    // ⚠ BOTH GO IN THE MEMO, and the alternative is what makes it unaffordable — the strip rebuilds
+    // EVERY frame (the bearing to a building changes as the camera moves within a tile), so averaged
+    // at that point it would be a pass over every face of every building in the window per frame,
+    // 70 cells × a few hundred faces. Here it is paid once per model per parameter set.
+    // ⚠ WALLS ONLY. A roof is the one face a reflection off a vertical surface can almost never
+    // contain, and roofs in this city are pale gravel — averaging them in washes every reflected
+    // silhouette toward grey, which is exactly the thing the strip exists to stop.
+    {
+      let r = 0, g2 = 0, b = 0, n = 0, top = -1e9;
+      for (const f of faces) {
+        for (const p of f.p) if (p[2] > top) top = p[2];
+        if (f.kind !== 'wall' || !f.rgb) continue;
+        r += f.rgb[0]; g2 += f.rgb[1]; b += f.rgb[2]; n++;
+      }
+      if (n) faces.avgRgb = [r / n, g2 / n, b / n];
+      if (top > -1e8) faces.topZ = top;
+    }
     // ⚠ Inside the memo, so it is paid once per model per parameter set and never per rebuild. A
     // model whose shape will not capture gets no term at all rather than a wrong one.
     try {
@@ -1265,8 +1322,19 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     let nFaces = 0;
     for (const it of cells) {
       const faces = tileMesh(deps, it);
-      for (const f of faces) if (f.texKey) need.add(f.texKey);
-      groups.push({ ox: it.gx, oy: it.gy, jit: it.jit || 0, faces });
+      // ── AND WHAT THE GRID IS DOING TO IT ──────────────────────────────────────────────────
+      //
+      // `null` is every building whose feed is up, which is almost all of them almost always — so
+      // the ordinary city asks for exactly the atlas entries and the one blend it always did, and
+      // a blackout is additive rather than a branch over the whole pass.
+      //
+      // ⚠ THE MESH IS SHARED AND THE POWER IS NOT. `tileMesh` memoises per MODEL, so a lit and a
+      // dark copy of the same building hand back the same face objects — which is why the variant
+      // rides the GROUP and is resolved at fill time, and why `texKey` itself must never carry it.
+      const pwr = deps.glPowerForCell ? deps.glPowerForCell(it.c) : null;
+      const win = pwr ? pwr.win : null;
+      for (const f of faces) if (f.texKey) need.add(texVariant(f.texKey, win));
+      groups.push({ ox: it.gx, oy: it.gy, jit: it.jit || 0, faces, win, nb: pwr ? pwr.nb : null });
       nFaces += faces.length;
     }
     // The atlas is rebuilt on the SET OF SURFACES, not on the set of buildings. Driving down a
@@ -1278,7 +1346,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
       const tiles = [];
       for (const tk of need) {
         const roof = tk[0] === 'r';
-        const canvas = roof ? roofTex(tk.slice(2), opts.night || 0) : wallTexMixed(tk.slice(2), opts.nb || 0);
+        const bar = tk.indexOf(TEX_WIN_SEP);
+        const pal = bar === -1 ? tk.slice(2) : tk.slice(2, bar);
+        // undefined is the ordinary bake, which is what wallTexMixed's own default means — so a
+        // key with no variant on it produces byte-for-byte the canvas it always produced.
+        const win = bar === -1 ? undefined : +tk.slice(bar + 1);
+        const canvas = roof ? roofTex(pal, opts.night || 0) : wallTexMixed(pal, opts.nb || 0, win);
         if (canvas && canvas.width) tiles.push({ key: tk, canvas });
       }
       g.atlas = buildAtlas(tiles, g.view.maxTexture || 2048);
@@ -1294,7 +1367,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // ⚠ The dusk blend goes in HERE and not into `windowKey`/`meshParams`. It is already in
     // `epoch` (via `texEpoch`), which is what forces this rebuild in the first place, so the trim
     // colours cross dusk on the same 64 steps the wall textures do — one rebuild, not two.
-    g.view.uploadGroups(groups, (f) => (g.atlas && f.texKey ? g.atlas.rect.get(f.texKey) : null), opts.nb || 0);
+    // ⚠ THE GROUP IS THE SECOND ARGUMENT, AND IT HAS TO BE. The face list is shared between every
+    // tile of a building, so which atlas entry a wall samples is a property of the TILE and not of
+    // the face — without it a street where one block is dark and the next is lit would give both
+    // whichever entry was resolved first.
+    g.view.uploadGroups(groups, (f, grp) => (g.atlas && f.texKey ? g.atlas.rect.get(texVariant(f.texKey, grp && grp.win)) : null), opts.nb || 0);
     builds++;
     g.key = key;
     g.epoch = epoch;
@@ -1364,6 +1441,14 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const scatterNow = (opts.glScatter || 0) * Math.min(1, Math.max(0, opts.night || 0));
   const scatterOn = scatterNow > 0;
   const wallLights = (washOn || wetOn || scatterOn) ? lightList : null;
+  // ── THE CITY THE GLASS REFLECTS ───────────────────────────────────────────────────────────
+  //
+  // ⚠ BUILT FROM THE SAME `cells` THE MASS IS, AND FROM THE SAME EYE. It is one texel per bearing —
+  // how high the city stands in that direction and what colour it is — and it replaces the two flat
+  // environment colours a reflective surface has had since the material pass shipped. See
+  // gl/skyline.js for why this is a probe rather than a planar mirror or a screen-space trace.
+  // ⚠ AND IT IS BEFORE `draw`, because the strip is a uniform that `draw` binds and reads.
+  if ((opts.glEnvCity == null ? 1 : opts.glEnvCity) > 0 && g.view.setSkyline) g.view.setSkyline(cells, eyePos(camAt), (it) => tileMesh(deps, it));
   const drawOpts = { ...(opts.draw || {}), lights: wallLights, lightWrap: LIGHT_TUNE.wrap,
     lightFocus: LIGHT_TUNE.focus, cssH,
     ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),
@@ -1375,7 +1460,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // lights. Handing it the plain `cam` slides every highlight in the city by the window offset,
     // which does not read as a bug: it reads as the sun being somewhere else.
     eye: eyePos(camAt),
+    // The city in the glass. ⚠ REBUILT EVERY FRAME AND NOT WITH THE MASS BUFFER — the bearing to
+    // a building changes as the camera moves WITHIN a tile, so keyed to the buffer the reflection
+    // would snap a tile at a time. See gl/skyline.js.
+    envCity: opts.glEnvCity == null ? 1 : opts.glEnvCity, envDim: opts.glEnvDim,
     matStr: opts.glMat == null ? 1 : opts.glMat,
+    specStr: opts.glSpec == null ? 1 : opts.glSpec,
     // And the snow on top of it. The mass pass puts it on every up-facing surface in the city —
     // roofs, copings, parapets, sills, canopies — off the geometric normal; see the note in
     // context.js for why it is the geometric one and not the shaded one.
@@ -1387,6 +1477,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // The air near the ground. One density, three shaders — see gl/fog.js.
     fogH: opts.glFogH || 0, fogHScale: FOG_H_SCALE, scatter: scatterNow,
     bumpStr: opts.glBump == null ? 1 : opts.glBump,
+    metalRefl: opts.glMetalRefl == null ? 1 : opts.glMetalRefl,
     // The shading bevel. Defaults OFF here rather than to 1, because this function is reached by the
     // Modelshop bench and the preview as well as by the game, and a bench that silently got a
     // feature the caller did not ask for cannot measure it.
@@ -1430,9 +1521,24 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // ⚠ AND THE SHED GOES UP WITH IT, BEFORE THE MIRROR. Same argument as the rig one line above:
   // the reflection pass runs BEFORE the main one, so anything that is to appear in a puddle has to
   // be in the buffer by now. A depot standing over a wet apron is exactly the case.
-  if (g.view.uploadSolids) g.view.uploadSolids([opts.ship, opts.bay, opts.fauna]);
+  // ⚠ THE ROOM COMES OUT OF THE SOLIDS BUFFER HERE, AND NOT AT THE SOURCE. It is collected into
+  // OWNSHIP_SINK on purpose — it is a solid at the camera and it belongs in that layer — but it
+  // is the one member of it that is inside the near plane, so it is drawn by a pass with its own
+  // clip range. Splitting it in windshield.js instead would mean a new key on the options literal
+  // `installGL` hands over, which is an ALLOWLIST rather than a spread: a key added at one end and
+  // not the other is dropped one hop short of the shader, and the result is indistinguishable
+  // from a feature that does nothing. `gl:opts` exists because that has now happened three times.
+  const room = (opts.ship || []).filter((f) => f.interior);
+  const rig = room.length ? (opts.ship || []).filter((f) => !f.interior) : opts.ship;
+  if (g.view.uploadSolids) g.view.uploadSolids([rig, opts.bay, opts.fauna]);
+  if (g.view.uploadInterior) g.view.uploadInterior(room);
   const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
-  const reflTex = (mirrorGain > 0 && opts.glWet > 0 && g.view.drawMirror)
+  // ⚠ AND THE SEA WANTS IT TOO, WHICH IS WHY THIS GATE IS NO LONGER ONLY ABOUT WET TARMAC. The
+  // prepass was gated on 'glWet' because a puddle was its only client; over open water in clear
+  // weather that is 0, so the sea would have reflected nothing at all — and the failure is silent,
+  // because a sea with no reflection in it still looks like a sea.
+  const seaWants = opts.floor && opts.floor.swell > 0 && opts.floor.seaRefl > 0 && opts.floor.seaRoll > 0;
+  const reflTex = (mirrorGain > 0 && (opts.glWet > 0 || seaWants) && g.view.drawMirror)
     ? g.view.drawMirror(cam, { sprites: opts.sprites, decals: opts.decals, cssH, scale: opts.glMirrorRes,
         // ⚠ AND THE SKY, WHICH IS MOST OF WHAT A PUDDLE IS LOOKING AT. Measured on a city street
         // with grass verges: the mirror term moved 20.1% of the lower half of the frame and the
@@ -1490,6 +1596,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // beside it, because a diagnostic that cannot tell a shed that arrived from a rig that did is the
   // reason this was hard to see in the first place.
   const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand }) : 0;
+
   const fl = opts.floor;
   // ⚠ THE WET TERMS STAY OFF AND THE SNOW GOES ON, WHICH IS NOT AN INCONSISTENCY. The floor own
   // reflection uniforms are switched off here because GROUND_FULL covers every surface they are
@@ -1497,6 +1604,14 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // opposite case: it is gated to the ground GROUND_FULL does NOT draw, which is the open terrain
   // outside the city, so the floor is the only pass that can put it there.
   if (fl) { fl.wet = 0; fl.wetLights = null; fl.snow = opts.glSnow > 0 ? opts.glSnow : 0; }
+  // ── ⚠ AND THE SEA GETS ITS OWN, WHICH IS NOT THE LINE ABOVE BEING UNDONE ────────────────────
+  //
+  // 'wetLights' is nulled for a reason that is entirely about TARMAC: every surface that term is
+  // gated to (pavedW) is repainted by GROUND_FULL a moment later, so a streak drawn there is a
+  // streak drawn under an opaque road. None of that is true of water — nothing repaints the sea —
+  // so the sea takes the same list under its own name rather than reviving a field whose gate
+  // means something else. ⚠ It is the SAME list: nothing extra is collected and nothing authored.
+  if (fl) fl.seaLights = roadLights(lightList);
   // Where wheels have been. ⚠ ONE BUFFER, BOTH GROUND SHADERS — the floor draws the open terrain
   // and the ground pass draws the streets, but a track runs across the two without noticing the
   // join, so they are handed the identical points in the identical frame. Built once per frame in
@@ -1512,6 +1627,22 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // see FLOOR_STATE. Spread onto a copy, never written onto the caller's object: FLOOR_STATE is
   // read by __glass2() after the frame and by the 2-D floor beside it.
   const floor = g.view.drawFloor(opts.floor ? { ...opts.floor, fogHScale: FOG_H_SCALE } : opts.floor, cam.near);
+  // ── AND THE SEA STANDS UP OUT OF IT ─────────────────────────────────────────────────────────
+  //
+  // ⚠ AFTER THE FLOOR, NEVER BEFORE IT, AND THAT IS NOT A PREFERENCE. The floor writes depth for a
+  // FLAT plane, so in a trough the mesh is further from the eye than the flat sea and would lose
+  // every one of those fragments — the sea would grow crests and have no troughs, which reads as
+  // spikes rather than as waves. Drawn after, the mesh's own depth wins wherever it is nearer and
+  // its premultiplied alpha lays over the flat water wherever it is not.
+  //
+  // ⚠ AND IT TAKES THE SHIFTED CAMERA, for the same reason the road quads below do: its vertices
+  // are placed at map-window tiles, so the plain camera would slide the whole sea a fraction of a
+  // tile off the coast the floor painted.
+  const water = opts.floor && g.view.drawWater
+    ? g.view.drawWater(camAt, opts.floor, cssH, reflTex ? {
+        tex: reflTex, sky: opts.skyStrip || null,
+        w: g.canvas ? g.canvas.width : 1, h: g.canvas ? g.canvas.height : 1,
+      } : null) : 0;
   // ⚠ AFTER THE FLOOR AND IN THE WINDOW FRAME. The road quads are recorded at their map-window
   // tile exactly as the mesh is, so they take the SHIFTED camera; handing them the plain one
   // would slide the kerbs a fraction of a tile off the buildings standing on them. They also
@@ -1537,6 +1668,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // two terms: the first needs only water, the second needs something to reflect. The shader
     // skips the reflection loop on its own when `uNWet` is 0.
     wet: opts.glWet > 0 ? opts.glWet : 0,
+    // How hard a lamp lays its own light on the road under it, and the night that scales it. See
+    // the WARN on 'uPool' in ground.js. NOT GATED ON THERE BEING LIGHTS, for the reason the line
+    // above it carries: the shader has its own 'uNWet' test and a second one here is the mistake
+    // that made the road dry every afternoon it rained.
+    pool: opts.glPool > 0 ? opts.glPool : 0, night: opts.night || 0,
     fogH: opts.glFogH || 0, fogHScale: FOG_H_SCALE, scatter: scatterNow,
     // How much water is STANDING, which is what decides the puddle level — as opposed to how wet
     // the surface is, which decides the darkening and the mirror. See POND_RISE_S in windshield.js.
@@ -1549,6 +1685,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     snow: opts.glSnow > 0 ? opts.glSnow : 0,
     pudRoad: opts.glPudRoad,
     tracks: opts.tracks || null,
+    lids: opts.lids || null,
     // ⚠ THE ROAD PICKS ITS OWN SIX, AND HANDING IT `lightList` RAW MEANT WASHES NEVER REACHED IT.
     // `pickLights` satisfies `WASH_SLOTS` by replacing the WEAKEST sources, so a wash sits at
     // position 10 or 11 of the twelve — and `MAX_WET` in ground.js takes the FIRST SIX. A facade
@@ -1618,6 +1755,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // additive sprite in the frame, which is how it cost 21.2% of an aerial night frame to buy 0.1%
   // of bloom. A neon box says it is a neon box; a stone frieze says nothing and stays at 1.
   const decals = g.view.drawDecals(cam, opts.decals, cssH, opts.hdr > 0 ? SIGN_EMISSIVE_GAIN : 0);
+  const decalBinds = g.view.decalCost ? g.view.decalCost() : null;
   // The wires — masts, rails, braces, cables, light-runners. After the mass for the same reason
   // the Curtain and the signage are: depth-tested, writing none of its own.
   const strokes = g.view.drawStrokes ? g.view.drawStrokes(cam, opts.strokes, cssH) : 0;
@@ -1638,6 +1776,23 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // scatter alone, without turning the snow off underneath it.
   const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand,
     { depth: opts.snowBB > 0 ? opts.snowBB : 0, col: opts.snowCol });
+
+  // ── THE ROOM YOU ARE SITTING IN, AFTER EVERYTHING THE WORLD DRAWS ─────────
+  //
+  // ⚠ LAST OF ALL THE DEPTH-BUFFERED PASSES, AND IT HAS TO BE, because it CLEARS the depth buffer
+  // — see drawInterior. Anything depth-tested after it is tested against a cab a few centimetres
+  // from the lens, so it fails everywhere and is simply not drawn.
+  //
+  // It was first put beside `drawSolids`, which is where a solid object belongs and which is wrong
+  // for this one: the floor, the ground, the lights, the signage, the strokes and the scatter all
+  // run after that point, and every one of them painted over the interior. The frame reported 144
+  // triangles drawn and the cab had grass through the bottom of it — the door card was there, on
+  // the GPU, in the right place, and the road surface was drawn on top of it a moment later.
+  //
+  // ⚠ AND NO FOG. Fog is the atmosphere between you and a thing, and there is none between a driver
+  // and their own steering column. At this range the term is zero anyway, which is exactly why it
+  // is left out rather than passed: passing it would make the right answer a coincidence.
+  const interior = g.view.drawInterior ? g.view.drawInterior(camAt, cssH, {}) : 0;
   // ── AND THE FLOAT BUFFER COMES BACK DOWN TO EIGHT BITS ──────────────────────────────────────
   //
   // ⚠ LAST, AFTER EVERY LAYER, AND THAT IS THE WHOLE ORDERING RULE. `draw()` bound the target and
@@ -1675,6 +1830,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // product of three things that can each be zero for a different reason — the tune, the wetness,
   // and whether the framebuffer was accepted — and a reflection that silently never ran looks
   // exactly like one that ran and was too faint to see.
-  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, strokes, scatter, solids, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  return { interior, faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, decalBinds, strokes, scatter, solids, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 

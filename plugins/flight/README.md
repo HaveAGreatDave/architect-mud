@@ -75,3 +75,20 @@ one designed sub-system with no implementation at all), crew seats (gunner/nav),
 `drone_ops` as the unmanned scout, and the news/spy chopper camera feed. PvP
 air-to-air and the parts-as-items slot layer are both in. See the as-built doc for
 the boundary.
+
+## ⚠ The EMP avionics blackout is not a hazard, and used to be filed as one
+
+A pulse within twelve tiles kills the panel — gauges, radio, nav, and with them the lamps and the
+backlight, because the client's `F.powered` reads `avionicsOut`. It is **not damage**, nothing about
+it brings the aircraft down, and it clears itself on a timestamp (`live.empUntil`) rather than on a
+tick, so a machine caught parked recovers without the flight tick ever running for it. `chart` and
+`squawk` refuse while it holds; ⚠ `squawk` deliberately does **not** clear the code you were already
+squawking — a dead transponder is not one you switched off, and that difference is a crime.
+
+⚠ It used to occupy `live.hazard`, which is the FIRE slot. Every branch in `rollHazards` opens with
+`!live.hazard`, so for the whole of an ion storm an aircraft could not catch fire, could not be told
+it was overheating and could not escalate anything it already had — minutes of hazard immunity,
+handed out by the thing that was supposed to be the emergency. Dark panels *and* a fire in the same
+minute is the nightmare and is now reachable. The plugin answers `vehicle.crewed` with its crewed
+machines; the geometry is the engine's. See
+[systems-weather-extreme.md](../../docs/systems-weather-extreme.md).

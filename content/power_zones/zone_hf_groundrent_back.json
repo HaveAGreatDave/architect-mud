@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_groundrent_counter",
+  "id": "zone_hf_groundrent_back",
+  "name": "Ground Rent — The Back Office",
+  "source_type": "junction_box"
+}

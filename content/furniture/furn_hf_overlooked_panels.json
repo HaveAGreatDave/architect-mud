@@ -1,0 +1,8 @@
+{
+  "description": "One to each face, printed on backlit glass, naming what you can see on that bearing. Five of them are about the city. The sixth is about the Curtain, and it has plainly been written three times: you can see the ghost of the previous text where the backing has faded unevenly behind it.",
+  "flags": {},
+  "id": "furn_hf_overlooked_panels",
+  "name": "six interpretation panels",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_overlooked_lobby"
+}

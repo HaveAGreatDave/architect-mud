@@ -1,0 +1,280 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Culhane wraps both hands round the cup and watches somebody go through the passage without turning her head.",
+    "She squares the papers on the counter, which does not need doing, and looks up the passage at the row.",
+    "The wind gets up and goes straight through from end to end, and she pulls the scarf without seeming to notice she has.",
+    "She writes something short in a notebook and puts it back under the counter.",
+    "Someone comes through from the lane, nods at her, and does not stop. She nods back at exactly the right moment."
+  ],
+  "description": "A small, sharp woman in three layers behind a counter in a covered passage, with her hands round a cup most of the time because the passage funnels the wind straight through and nobody thought about that. She has the best information in Halcyon Fields and she has it because everybody walks past her and nobody notices a kiosk.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the wind at the lane end. It comes round the corner and takes the paper out of your hand.\" She is already looking past you."
+    },
+    "mind": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They cannot decide.\" A short laugh. \"I am not obstructing the path, because I am in a recess, and they checked. And the recess is a bin store on the drawing, and a bin store is not a shop, and that is at the land office along with everything else in this quarter.\"\n\n\"Eleven months. It will be eleven months and something by the time they get to it. Meanwhile there is nowhere else on this estate to buy a cup of tea, and half the estate office comes through here.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is the stone in the floor?",
+          "next": "stone"
+        },
+        {
+          "label": "What are you selling?",
+          "next": "__shop__"
+        },
+        {
+          "label": "You see everybody, then.",
+          "next": "sees"
+        },
+        {
+          "label": "On my way.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Tea is on. Paper is yesterday's and always will be.\" She lifts the cup an inch.",
+      "text_by_relation": {
+        "familiar": "The tea is already poured and on the counter, and she has not asked.\n\n\"There was a van in here at four this morning,\" she says. \"Not one of ours. I will tell you about it if you want.\"",
+        "first": "You are almost past the recess before you notice there is a counter in it, and the woman behind it is not at all surprised by that.\n\n\"Everybody does that.\" She nods at the passage running away from her in both directions. \"Four metres wide and nobody looks sideways in it. I have watched about eleven thousand people go through here and I would say four hundred have seen me.\"\n\nShe puts a hand on the papers.\n\n\"Imelda Culhane. Tea, papers, smokes. And before you ask — yes, in a bin store. It was drawn as one. I asked.\"",
+        "known": "\"You saw me the second time as well.\" She sounds genuinely pleased about it. \"Go on.\""
+      }
+    },
+    "sees": {
+      "options": [
+        {
+          "label": "Where does the van go?",
+          "next": "van"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I see everybody.\" No boast in it at all. \"Not because I am watching. Because this is the only way from the row to the lane without going round, and going round is four hundred metres, and nobody goes round.\"\n\nShe looks up the passage.\n\n\"The man from the security desk comes through at seven. The lettings man from Chain Free comes through at eight, and he walks up the lane and back down it before he opens, every day, which I have never mentioned to him. And there is a van on the last Thursday of the month that comes in from the lane end and does not come out of the row end.\""
+    },
+    "stone": {
+      "options": [
+        {
+          "label": "Do they mind the kiosk?",
+          "next": "mind"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"That is the whole building.\" She says it with some satisfaction. \"There was a path across this ground before there was a Halcyon Fields and before there was most of Coldwater, and it is written down, and the estate spent a year and a great deal of money finding out that they could not make it not be.\"\n\nShe taps the counter.\n\n\"So they built over it. Four metres, covered, lit, and they have to keep it open, and they have to keep it clean. They are also not allowed to put a door on either end. That is why it is cold in here and that is why I am wearing this.\""
+    },
+    "van": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It turns round.\" She says it a fraction too evenly. \"There is nowhere to turn round in the lane, so it comes in here, and it stops, and then it goes back the way it came.\"\n\nA pause.\n\n\"That is what I have decided it does. I mark it on the calendar. I have been marking it for nine months and I have not once gone and looked, and I would rather you did not tell me you have.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a quilted body warmer over two jumpers, the top one darned at one elbow",
+      "fingerless gloves that are actually gloves with the fingers cut off",
+      "a long skirt over boots, which is warmer than trousers and she will say so",
+      "a scarf wound twice and tucked in",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_rightofway_office",
+  "hp": 33,
+  "hp_max": 33,
+  "id": "npc_hf_culhane",
+  "name": "Imelda Culhane",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_passagepaper",
+      "price": 4
+    },
+    {
+      "item_id": "item_hf_kioskbrew",
+      "price": 3
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "The Passage Kiosk",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_rightofway_passage"
+}

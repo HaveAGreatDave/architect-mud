@@ -50,7 +50,12 @@ const cbLabel = (chan) => `Deadhead ${chan}`;
 export function applyCbContext(next) {
   if (!next) return;
   const before = { ...cb };
-  cb = { on: !!next.on, chan: Number(next.chan) || 19, spk: !!next.spk, mounted: true };
+  // ⚠ `dead` IS CARRIED SEPARATELY FROM `on`, and folding it into `on` here would
+  // undo the reason the server sends two fields: `on` is the squelch, a knob the
+  // driver turned, and a cooked set has not had its knobs moved. The widget shows
+  // both, and the difference is what stops somebody pressing the power button at
+  // an EMP for six minutes.
+  cb = { on: !!next.on, chan: Number(next.chan) || 19, spk: !!next.spk, dead: !!next.dead, mounted: true };
   if (!before.mounted || before.chan !== cb.chan) {
     if (before.mounted && before.chan !== cb.chan) dropLocalChannel(cbTabKey(before.chan));
     ensureCbTab(cb.chan);
@@ -233,9 +238,15 @@ export function wireCbRadio(container, { openDeadhead } = {}) {
       // The number alone reads as "19" with no unit; the text is what a screen reader actually
       // says, and it is the place the OFF state has to be said, since a dial that still reads
       // "channel 19" on a dead set is a lie told quietly.
-      dial.setAttribute('aria-valuetext', cb.on ? `Channel ${cb.chan}` : `Channel ${cb.chan}, set off`);
+      dial.setAttribute('aria-valuetext', cb.dead ? `Channel ${cb.chan}, set dead`
+        : cb.on ? `Channel ${cb.chan}` : `Channel ${cb.chan}, set off`);
       dial.style.setProperty('--cb-turn', String((cb.chan - CB_MIN) / (CB_MAX - CB_MIN)));
-      root.classList.toggle('off', !cb.on);
+      // Dark like an off set, and flagged as a DEAD one on top — the class is what
+      // the stylesheet uses to say the difference, and `aria-valuetext` above says
+      // it in words, because "the set is off" and "the set is cooked" lead to two
+      // different next actions and only one of them works.
+      root.classList.toggle('off', !cb.on || !!cb.dead);
+      root.classList.toggle('cb-dead', !!cb.dead);
       pwr.classList.toggle('on', cb.on);
       pwr.setAttribute('aria-pressed', String(cb.on));
       spk.classList.toggle('on', cb.spk);

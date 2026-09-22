@@ -76,10 +76,75 @@ let bad = 0;
 const check = (cond, what) => { if (!cond) { bad++; console.log(`  ✗ ${what}`); } };
 const results = [];
 
+// ⚠ PIN THE CLOCK AND THE DICE, WHICH THIS GATE NEVER DID AND EVERY OTHER BENCH HERE DOES. The
+// four passes below are the SAME scene rendered four ways and compared by call count, so anything
+// in the scene that rolls a die makes the comparison noise. It was latent for a fortnight and then
+// stopped being latent: measured on 2026-09-20 it failed **four runs in five** standalone, with
+// the fog delta swinging between −4,656 and +746 paths on a signal of about +750. Nothing was
+// wrong with the renderer — the scatter, the flocks, the meteors and the drifting cloud deck are
+// all unpinned, and the flock count alone moves thousands of fills.
+//
+// ⚠ AND IT IS RESEEDED PER PASS, not once at the top. Pinning at the top makes pass 1 differ from
+// pass 4 by however far the sequence has advanced, which is the same bug with a smaller number.
+// ⚠ AND `Date.now` IS A THIRD CLOCK, not a tidier spelling of the first two. The ambient bird
+// flocks run on it BY DESIGN (it is written down as such), so pinning `performance.now` alone
+// still leaves thousands of fills moving between passes — measured: five runs, deltas from −3,523
+// to +1,139, every one of them different from the last.
+const REAL_NOW = performance.now.bind(performance);
+const REAL_RND = Math.random;
+const REAL_DATE = Date.now;
+const pinDice = () => {
+  performance.now = () => 1e6;
+  Date.now = () => 1758000000000;
+  let s = 0x2545f49;
+  Math.random = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+};
+const unpinDice = () => { performance.now = REAL_NOW; Math.random = REAL_RND; Date.now = REAL_DATE; };
+
+// ⚠ AND ONE THROWAWAY PASS FIRST, OR THE FIRST REAL ONE IS MEASURING THE CACHES. Shapes, meshes,
+// wall textures and the moon face are all memoised on first sight, so pass 1 pays for every one of
+// them and pass 4 gets them free — a systematic bias between the very passes this gate subtracts
+// from each other. Same trap the motion sweep records: measuring both settings in one process
+// reports the cache, not the flag.
+// ── ⚠ AND A SCENE THE FOG CAN ACTUALLY REACH ─────────────────────────────────
+//
+// 'fogWeight' clamps to ZERO inside FOG_NEAR — 'clamp((f - 6) / 28, 0, 1)' — so a face nearer than
+// six tiles cannot fog AT ANY AMOUNT. This gate used to lean on whatever happened to be standing
+// past that line in the shared view smoke, and the whole fog signal was **56 fills out of 39,947**,
+// which is 0.14% of the frame resting on a handful of faces just over the boundary. When those
+// scenes changed the signal went to exactly zero and the gate reported the fog pass as "not
+// running" — while fog was demonstrably live (it still tinted nine ground colours) and the reuse it
+// exists to protect was still holding. A guard whose premise is an accident of somebody else's test
+// fixture will keep going off for reasons that have nothing to do with what it guards.
+//
+// So the fog branch gets geometry it can definitely see: a corridor of shopfronts running from two
+// tiles out to twenty, rendered onto the same tracked canvas in every pass so the deltas stay a
+// comparison of like with like. Measured, it carries 240 fog fills where the shared smoke now
+// carries none, and the count is identical at fog 20 and fog 200 — past a threshold every eligible
+// face is already fogging, which is what a saturated overlay count should do.
+const DEEP_R = 20, DEEP_N = DEEP_R * 2 + 1;
+const DEEP_BARE = { kind: 'land', biome: 'badlands', flr: 0 };
+const DEEP_MAP = Array.from({ length: DEEP_N }, (_, j) => Array.from({ length: DEEP_N }, (_, i) => {
+  const dy = j - DEEP_R, dx = i - DEEP_R;
+  return (dy < -1 && (dx === -2 || dx === 2))
+    ? { kind: 'land', biome: 'citycore', bt: 'shop', flr: 3 } : DEEP_BARE;
+}));
+const deepScene = () => ws.paintWindshield('__path-ws', {
+  cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12, speed: 0,
+  hour: 13, weather: 'clear', map: DEEP_MAP, heading: 0,
+  mapCenter: { x: 900, y: 900 }, mapOffset: { x: 0, y: 0 },
+  wxField: null, acX: 900, acY: 900, tune: { gl: 0 },
+});
+
+pinDice(); reset(); ws.viewRenderSmoke('__path-ws'); deepScene(); unpinDice();
+
 for (const p of PASSES) {
   reset();
+  pinDice();
   TUNE.wallLodPx = p.wallLodPx; TUNE.fog = p.fog;
   const views = ws.viewRenderSmoke('__path-ws');
+  deepScene();
+  unpinDice();
   const paths = T.counts.get('beginPath') || 0;
   // ⚠ A CLIP PATH IS NOT A PAINT PATH. texTri lays a triangle and clips to it before every
   // textured blit, so a perspective-corrected surface emits one beginPath per cell with no fill

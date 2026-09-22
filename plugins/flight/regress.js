@@ -107,12 +107,19 @@ export default async function regress({ run, check, getPlayer }) {
     check('flight model: releasing the stick recovers the stall', rec != null && rec < 12, rec && rec.toFixed(1));
   }
   // Every airframe must carry a real drag polar now — no per-type glideDrag special cases.
-  // Rotorcraft and GROUND vehicles are excluded on the same grounds: neither has a wing, so a
-  // best-glide speed is not a thing they can have. A ground type is not skipped silently, though —
-  // it gets its own invariants below, because a TYPES entry with no assertions at all is how a
-  // vehicle ends up shipping with numbers nobody ever checked.
+  // Rotorcraft, GROUND vehicles and HULLS are excluded on the same grounds: none of them has a
+  // wing, so a best-glide speed is not a thing they can have. A ground type is not skipped
+  // silently, though — it gets its own invariants below, because a TYPES entry with no assertions
+  // at all is how a vehicle ends up shipping with numbers nobody ever checked.
+  //
+  // ⚠ `water` WAS MISSING FROM THIS LIST AND THE BOAT WAS BEING ASKED TO GLIDE. It arrived in
+  // `TYPES` with the powerboat and this loop skips by CAPABILITY rather than by an allow-list, so
+  // it picked the hull up on its own and failed it for having no stall speed — which is true, and
+  // is a statement about aeroplanes rather than about the boat. Its own invariants are not missing:
+  // they are in plugins/powerboat/regress.js, which holds the verge rule on every water surface,
+  // the acceleration, the planing time, the turn, the hull and now the tabs.
   for (const [id, t] of Object.entries(FM_TYPES)) {
-    if (t.heli || t.ground) continue;
+    if (t.heli || t.ground || t.water) continue;
     check(`flight model: ${id} has a derived best-glide speed above its stall speed`,
       t.bestGlide > t.vs0 && t.bestGlide < t.cruise, t.bestGlide);
   }
@@ -1696,5 +1703,50 @@ export default async function regress({ run, check, getPlayer }) {
     const paved = [898, 899, 900, 901, 902, 903].map(y => der(925, y));
     check('a paved runway carries the flag but is never drum-marked',
       paved.every(d => d && d.mark !== 'strip'), paved.map(d => d?.mark).join(','));
+  }
+
+  // ── AN EMP PULSE TAKES THE PANELS, NEVER THE ENGINE, AND NEVER THE SLOT ─────
+  //
+  // Avionics used to live in live.hazard, which is the FIRE slot — so for the
+  // whole of an ion storm an aircraft could not catch fire, could not be warned
+  // it was overheating and could not escalate anything it already had. That is
+  // the failure these cases exist for; every one of them passes trivially on the
+  // old code except the ones that name the slot.
+  {
+    const { liveAircraft, avionicsDead, knockOutAvionics, crewedAircraft } = await import('./state.js');
+    const fake = { row: { grid_x: 900, grid_y: 900, damage: 0, engine_temp: 60 }, occupants: new Set(['p1']), hazard: null };
+    const id = '__regress_emp__';
+    liveAircraft.set(id, fake);
+    try {
+      check('emp: a fresh aircraft has live avionics', !avionicsDead(fake));
+      knockOutAvionics(fake, Date.now() + 60_000);
+      check('emp: the pulse kills the avionics', avionicsDead(fake));
+      // The whole point of the move off the hazard slot.
+      check('emp: …and does NOT occupy the hazard slot', fake.hazard === null, JSON.stringify(fake.hazard));
+      // The engine is untouched, by contract: this is the claim the prose makes
+      // to the player in the same breath ('the engine runs on').
+      check('emp: the engine is untouched', fake.row.engine_temp === 60 && fake.row.damage === 0);
+      // A hazard can still land on top of it, which is the point of freeing the slot.
+      fake.hazard = { type: 'FIRE', stage: 0 };
+      check('emp: a fire can start while the panels are dark', avionicsDead(fake) && fake.hazard.type === 'FIRE');
+      fake.hazard = null;
+      // Self-clearing on a TIMESTAMP, so a craft caught parked recovers without
+      // the flight tick ever running for it.
+      knockOutAvionics(fake, Date.now() - 1);       // a stale window must not revive it
+      check('emp: a past window is refused', avionicsDead(fake));
+      fake.empUntil = Date.now() - 1;
+      check('emp: an elapsed window reads as live again', !avionicsDead(fake));
+      clearTimeout(fake._empTimer);
+
+      // The hook only offers CREWED machines: an empty airframe has no HUD to
+      // blank and nobody to tell, and offering it would let a pulse roll its own
+      // epicentre onto a parked aeroplane nobody is in.
+      const withCrew = crewedAircraft().some(v => v.x === 900 && v.y === 900);
+      check('emp: a crewed aircraft is offered to vehicle.crewed', withCrew);
+      fake.occupants.clear();
+      check('emp: an empty one is not', !crewedAircraft().some(v => v.x === 900 && v.y === 900));
+    } finally {
+      liveAircraft.delete(id);
+    }
   }
 }

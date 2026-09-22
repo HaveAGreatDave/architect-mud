@@ -1,0 +1,14 @@
+{
+  "description": "In the window rather than the room, because the window is the advertising and the room can manage.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_gas_zone_bld_924_917_lobby",
+  "light_type": "gas",
+  "lumen_output": 400,
+  "name": "a gas lantern",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": 40,
+  "zone_id": "zone_bld_924_917_lobby"
+}

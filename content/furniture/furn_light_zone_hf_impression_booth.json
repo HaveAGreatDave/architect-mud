@@ -1,0 +1,11 @@
+{
+  "description": "A single recessed lamp centred exactly on the table, throwing a circle of light onto the folder and leaving the three faces round it in the dimmer edge of it. Somebody chose that.",
+  "flags": {},
+  "id": "furn_light_zone_hf_impression_booth",
+  "light_type": "overhead",
+  "lumen_output": 620,
+  "name": "a downlight over the table",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_impression_booth"
+}

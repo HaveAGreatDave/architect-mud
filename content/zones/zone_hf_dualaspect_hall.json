@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A through-hall in the bottom step, glazed at both ends, so from the door on Cowslip Rise you can see straight out the back of the building at the backs of Meltwater Row. That sightline is the building's entire argument and it is set up the moment you step in. There is a bench in the middle of it, side-on, so you can sit facing either way.",
+  "exits": {
+    "down": "zone_util_zone_hf_dualaspect_hall",
+    "up": "zone_hf_dualaspect_terrace",
+    "west": "zone_district_906_914"
+  },
+  "flags": {
+    "building_name": "Dual Aspect",
+    "building_type": "cascade_block",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Both ends of the hall at once: new estate on one side, the working backs of an older street on the other, with about nine metres of pale stone between them. Nobody who comes in here fails to look both ways.",
+      "light": 0.8,
+      "name": "the through-glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_906_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_dualaspect_hall",
+  "map_id": "map_int_hf_dualaspect",
+  "name": "Dual Aspect — The Entrance Hall",
+  "parent_zone": "zone_district_906_914"
+}

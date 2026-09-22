@@ -6,7 +6,7 @@
   "exits": {
     "down": "zone_util_zone_thumb_shop",
     "east": "zone_thumb_back",
-    "west": "zone_district_919_918"
+    "west": "zone_district_924_914"
   },
   "flags": {
     "building_name": "Thumb On The Scale",
@@ -20,7 +20,7 @@
       "name": "the shopfront window",
       "visibility": 0.9
     },
-    "world_exit_zone": "zone_district_919_918"
+    "world_exit_zone": "zone_district_924_914"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -28,5 +28,5 @@
   "id": "zone_thumb_shop",
   "map_id": "map_int_thumb",
   "name": "Thumb On The Scale — Shop",
-  "parent_zone": "zone_district_919_918"
+  "parent_zone": "zone_district_924_914"
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_aboveboard_lobby",
+  "b": "zone_util_zone_hf_aboveboard_lobby",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_aboveboard_lobby_down",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,8 @@
+{
+  "description": "Six metres of one continuous piece of wall with nothing in it whatever, and a pencil line at about chest height running the entire length dead level, which is a setting-out line the plasterers used and which nobody painted over because nobody comes down here. Three bicycles are leaning on it.",
+  "flags": {},
+  "id": "furn_hf_partywall_wall",
+  "name": "the blind flank",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_partywall_flank"
+}

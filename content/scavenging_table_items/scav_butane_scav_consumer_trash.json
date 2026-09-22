@@ -1,0 +1,8 @@
+{
+  "difficulty": 7,
+  "id": "scav_butane_scav_consumer_trash",
+  "item_id": "item_butane_canister",
+  "max_qty": 1,
+  "table_id": "scav_consumer_trash",
+  "weight": 6
+}

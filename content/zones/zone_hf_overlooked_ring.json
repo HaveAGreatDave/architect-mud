@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow ring around the lift head one level above the lookout floor, reached by a ladder through a hatch that is not locked and is not meant to be found. Winding gear, a window-cleaning cradle on its rails, and a door out onto the outside of the glass with a warning on it and a handle. Somebody has been eating up here.",
+  "exits": {
+    "down": "zone_hf_overlooked_lookout"
+  },
+  "flags": {
+    "building_name": "Overlooked",
+    "building_type": "glass_prism",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_overlooked_ring",
+  "map_id": "map_int_hf_overlooked",
+  "name": "Overlooked — The Machine Ring",
+  "parent_zone": "zone_district_903_911"
+}

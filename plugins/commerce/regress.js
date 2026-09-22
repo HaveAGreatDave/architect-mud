@@ -2,9 +2,11 @@
 // production). Zone-independent paths only (the fake player's zone may or may
 // not contain a vendor).
 import { vendorGrudgeRemaining, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
-import { isVendorClosed, hoursUntilOpen, openInPhrase, vendorClosedLine, isVendorOffHours, isVendorRole, vendorOffHoursLine, anotherVendorOnDuty } from '../../server/engine/ai-behaviour.js';
+import { isVendorClosed, hoursUntilOpen, openInPhrase, vendorClosedLine, isVendorOffHours, isVendorRole, vendorOffHoursLine, anotherVendorOnDuty, isVendorWorkTime } from '../../server/engine/ai-behaviour.js';
+import { blockHours, blockWraps, blockCells, workingAt } from '../../client/shared/work-schedule.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { getRegisteredMoveGates, getRegisteredShutProviders, shutStatus } from '../../server/engine/movement-gates.js';
+import { gatherHookSync } from '../../server/engine/plugins.js';
 import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory.js';
 import { getCrimeStars } from '../../server/engine/crimes.js';
 import { world, streetExitFrom, isStreetLanding, isEnterableFacade, getMinimapData } from '../../server/engine/world.js';
@@ -41,6 +43,53 @@ export default async function regress({ run, check, getPlayer }) {
   check('no grudge by default', clean === 0, `remaining=${clean}`);
   const refusal = grudgeRefusal({ name: 'Testvendor' }, 3 * 24 * 60 * 60 * 1000);
   check('grudge refusal names the vendor + a cooldown', /Testvendor/.test(refusal) && /day/.test(refusal), refusal.slice(0, 80));
+
+  // ── A BLOCK THAT CROSSES MIDNIGHT ──────────────────────────────────────────
+  //
+  // `{ from: 18, to: 6 }` is how anybody writes a night shift and it used to mean NO shift at all:
+  // `h >= 18 && h < 6` is false at every hour of the day, so the schedule read full and was empty
+  // and the NPC was simply never behind their counter. These run against a SYNTHETIC env rather
+  // than the live clock, because the whole question is what happens at 02:00.
+  {
+    // `isVendorWorkTime` takes (npc, env) and env is ISO 1=Mon…7=Sun, so 2 is Tuesday and its
+    // yesterday is `mon`.
+    const at = (sched, iso, h) => isVendorWorkTime({ vendor_schedule: sched }, { dayOfWeek: iso, hour: h });
+    const nights = { mon: [{ from: 18, to: 6 }] };
+
+    check('a wrapping block is on shift before midnight', at(nights, 1, 20).working);
+    check('…and after it, on the NEXT day', at(nights, 2, 2).working);
+    check('…and off in the gap between the two', !at(nights, 2, 12).working && !at(nights, 1, 12).working);
+    // ⚠ The end is exclusive at both ends of the wrap, exactly as it is for an ordinary block.
+    check('…exclusive at the far end', !at(nights, 2, 6).working && at(nights, 2, 5).working);
+    check('…and never two days later', !at(nights, 3, 2).working);
+
+    // ⚠ `dayHasSchedule` MUST NOT be widened by the spill — see the note on isVendorWorkTime. It
+    // says "today is a working day", and Tuesday is not one here.
+    const tue2 = at(nights, 2, 2);
+    check('a spill does not make the day a working day', tue2.working && tue2.dayHasSchedule === false);
+
+    // ⚠ THE ALL-DAY FORM IS THE ONE THIS COULD MOST EASILY HAVE BROKEN: ~120 authored vendors carry
+    // { from: 0, to: 24 }, and a `to <= from` wrap test would have made every `{ from: h, to: h }`
+    // a 24-hour shift into the bargain.
+    const allday = { mon: [{ from: 0, to: 24 }] };
+    check('the all-day block is untouched', at(allday, 1, 0).working && at(allday, 1, 23).working && !blockWraps({ from: 0, to: 24 }));
+    const empty = { mon: [{ from: 9, to: 9 }] };
+    check('an empty block stays empty', !at(empty, 1, 9).working && !at(empty, 2, 3).working && !blockWraps({ from: 9, to: 9 }));
+
+    // The two-block form every dev-panel save produces has to keep meaning what it means.
+    const split = { mon: [{ from: 18, to: 24 }], tue: [{ from: 0, to: 6 }] };
+    check('the split form still works', at(split, 1, 20).working && at(split, 2, 2).working && !at(split, 2, 8).working);
+
+    // The arithmetic itself, which the dev panel's grid reads through the same module.
+    check('a wrap is measured the long way round', blockHours({ from: 18, to: 6 }) === 12 && blockHours({ from: 9, to: 17 }) === 8);
+    const cells = blockCells({ from: 22, to: 2 });
+    check('a wrap paints cells on two days',
+      cells.length === 4 && cells.filter(([d]) => d === 0).length === 2 && cells.filter(([d]) => d === 1).length === 2,
+      JSON.stringify(cells));
+    check('an ordinary block paints only its own day', blockCells({ from: 9, to: 11 }).every(([d]) => d === 0));
+    // 0 = Sun, so a Sunday-night block spills into Monday, which is the index that wraps.
+    check('the spill wraps the week', workingAt({ sun: [{ from: 22, to: 3 }] }, 1, 1) && !workingAt({ sun: [{ from: 22, to: 3 }] }, 1, 12));
+  }
 
   // ── Shop hours ─────────────────────────────────────────────────────────────
   // Synthetic vendors keyed off the LIVE game clock, so the assertions hold at
@@ -156,7 +205,15 @@ export default async function regress({ run, check, getPlayer }) {
     const vendors = [...world.npcs.values()].filter(n =>
       n?.work_zone_id === zone.id && !n.flags?.covert && n.vendor_inventory?.length &&
       n.vendor_schedule && Object.keys(n.vendor_schedule).length);
-    const shouldBeShut = !!zone.flags?.is_interior && vendors.length > 0 && vendors.every(isVendorClosed);
+    // ⚠ AND THE ROOM MAY REFUSE TO HAVE HOURS AT ALL. `shop.neverShuts` is the fourth term in
+    // `shopClosedFor`, and this is a deliberate RESTATEMENT of that rule rather than a call to it
+    // (see the comment above — restating is what makes the provider's drift visible), so a term
+    // added there has to be added here or the two copies disagree and the restatement starts
+    // reporting the SHIPPING behaviour as the bug. Asked through the hook rather than by naming a
+    // flag, because what a room has to be for this to fire is the contributor's business and not
+    // commerce's: today it is a boat berth, and this file has never heard of boats.
+    const exempt = gatherHookSync('shop.neverShuts', zone).some(Boolean);
+    const shouldBeShut = !!zone.flags?.is_interior && vendors.length > 0 && vendors.every(isVendorClosed) && !exempt;
     if (isShut) shutZones.push(zone.id);
     if (isShut && !shouldBeShut) wrongShut.push(zone.id);
     if (!isShut && shouldBeShut) missedShut.push(zone.id);

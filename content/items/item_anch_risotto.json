@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_anch_risotto",
+  "name": "risotto in bianco",
+  "tags": {
+    "consumable": true,
+    "description": "Rice, stock, butter and hard cheese, and nothing else at all. It is the plainest thing on the menu and the most expensive thing on it per gram, and the kitchen will tell you why if you ask, at length.",
+    "restore_hp": 3,
+    "restore_hunger": 40,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 205,
+  "weight": 400
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_rightofway_office",
+  "b": "zone_util_zone_hf_rightofway_office",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_rightofway_office_down",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_898_915",
+  "b": "zone_hf_topmarket_lift",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_898_915_north",
+  "lockable": true,
+  "one_way": false
+}

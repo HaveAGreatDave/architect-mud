@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "description": "Gulls on the wall of the plant yard, eleven or twelve of them, facing the same way. Something in one of these bins is worth the wait.",
   "exits": {
     "east": "zone_district_899_918",
-    "north": "zone_district_898_917",
     "south": "zone_district_898_919",
     "west": "zone_district_897_918"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 898,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_898_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Windrow Lane",
   "parent_zone": null
 }

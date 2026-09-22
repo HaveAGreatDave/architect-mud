@@ -150,6 +150,7 @@ export const OFFROAD_R = CORRIDOR_R * 4;
 // plan. Every test that passed no plan built no signs and never touched it.
 export { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
 import { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
+import { highTerrainAt } from '../../client/shared/landform.js';   // the same field the floor shades off — see HIGH_OFF below
 import { plazaOn, plazaCell, plazaRoadFlags } from './plaza.js';
 // ⚠ ONE DEFINITION OF WHERE THE TRAIL RUNS. voidwalking lays its rooms at this offset and the road
 // names the band it crosses, so the two would disagree the first time either was tuned if this were
@@ -738,6 +739,10 @@ const SIGN_APART = 40;       // tiles — two boards closer than this are one bo
 // Lateral offset: clear of the shoulder (2.4) with enough margin that rounding the post onto a tile
 // centre can never push it back onto the graded dirt, and inboard of the structure band (off ≥ 4).
 export const SIGN_OFF = 3.4;
+// How far off the centreline the country is allowed to stand up. See the ⚠ at the call site:
+// this is the half-width of the open corridor the highway and the foot trail (at 6) keep for
+// themselves, not a look. Raising it flattens the drive; lowering it eventually walls the road.
+export const HIGH_OFF = 7;
 
 // Compass bearing of a corridor-space vector, in degrees, matching corridorFor's heading convention
 // (ux = sin θ, uy = −cos θ — so +y is due south).
@@ -1329,6 +1334,44 @@ export function corridorAt(route, x, y) {
         flags.entrance = compassOf(-Math.sign(t) * leg.uy, Math.sign(t) * leg.ux);
         name = b.name;
       }
+    }
+  }
+  // ── HIGH GROUND, AND THEREFORE VALLEYS ─────────────────────────────────────
+  //
+  // The void was flat. Not "gently rolling" — actually flat: every tile out here answered with
+  // the band's terrain and nothing else, so the only things with any height in them for a
+  // hundred miles were the wrecks and the sheds. The country itself is a landform field now
+  // (client/shared/landform.js), the same one the floor shades its hillshade off, so the ground
+  // is built where it is drawn high rather than the two being separately invented.
+  //
+  // ⚠ NOTHING NEW RENDERS THIS. `flags.terrain` of cliff/plateau is what `isHighCell` already
+  // reads, which `deriveSurfaceCell` turns into `hi` plus `cf` — the run of sides the landform
+  // continues on — and the windshield caps every high tile and walls only the open sides, so a
+  // blob of them comes out as ONE massif with a continuous rim rather than a field of separate
+  // blocks. Real faces, real occlusion, real collision. See drawCliffMass.
+  //
+  // ⚠ IT IS PLACED LAST, AFTER EVERY OTHER BRANCH HAS HAD ITS SAY, and that is what makes it
+  // safe rather than tidy: reaching this line means no plaza, trail, camp, sign, wreck, pylon or
+  // roadside shed claimed the tile, so high ground can only ever replace PLAIN VERGE. Put it
+  // earlier and a mesa swallows the one shed on that milepost, or stands a cliff on the foot
+  // trail, and the tile that vanished is invisible from here.
+  //
+  // ⚠ AND `HIGH_OFF` IS A CORRIDOR THE ROAD AND THE WALKER KEEP WHATEVER THE FIELD SAYS. The
+  // carriageway is under 1.2, the shoulder reaches 2.4, a sign stands at 3.4 and the foot trail
+  // runs at 6 — so 7 clears all of it and no more. It was 9 first and measured as a distant ridge
+  // rather than as country you drive through: the difference between terrain and scenery out here is
+  // whether it is close enough to have a near edge. Without the clearance at all
+  // the field would eventually put a cliff across the highway, and a road you cannot drive is a
+  // worse bug than a flat one. It also means a breakdown can always be walked out of: `cliff` is
+  // impassable underfoot, and a rim that closed round the trail would strand somebody there.
+  //
+  // ⚠ The odometer fields stay. A cliff tile is still corridor ground and still knows how far
+  // along the road it is — stripping them here would be the sibling-branch bug pointed inward.
+  if (at >= HIGH_OFF) {
+    const ht = highTerrainAt(x, y);
+    if (ht) {
+      flags.terrain = ht;
+      return { id, name: ht === 'plateau' ? 'High Ground' : 'A Broken Rim', danger, flags };
     }
   }
   return { id, name, danger, flags };

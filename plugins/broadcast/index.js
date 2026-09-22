@@ -10013,7 +10013,7 @@ export const _test = {
   staffCallSlot: _staffCallSlot, staffCallLeadGameSec: _staffCallLeadGameSec, STAFF_CALL_LEAD_REAL_MIN,
   morningPlug: _morningPlug, RUNTIME_TOKENS,
   channelRuntime, recordBeat: _recordBeat, sendCatchUp,
-  pickDailySlot: _pickDailySlot, filmDayMask,
+  filmDayMask,
   // The call-sheet graph an actor is actually given. Exposed because the only other
   // way to see an actor performing off-shift is to watch a channel at 08:00 and
   // notice a line from a show that airs at midnight.

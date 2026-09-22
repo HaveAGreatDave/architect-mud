@@ -1,0 +1,8 @@
+{
+  "description": "Four unit sizes, four monthly rates, and a line at the bottom about minimum terms. The rates are in a printed column and there is a second column beside it in biro, and the biro column is higher, and the date beside it is recent.",
+  "flags": {},
+  "id": "furn_hf_deposit_ratecard",
+  "name": "a rate card",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_deposit_counter"
+}

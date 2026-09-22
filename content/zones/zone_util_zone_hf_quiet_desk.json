@@ -1,0 +1,18 @@
+{
+  "description": "The bottom of the spine, where every service in the building arrives and is labelled. Somebody has written the date beside four of the labels and a question mark beside a fifth.",
+  "exits": {
+    "up": "zone_hf_quiet_desk"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_quiet_desk",
+  "map_id": "map_int_hf_quiet",
+  "name": "Quiet Enjoyment — The Riser Base",
+  "parent_zone": "zone_district_892_913"
+}

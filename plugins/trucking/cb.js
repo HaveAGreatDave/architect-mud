@@ -32,7 +32,7 @@
 //     hear at the log rung would be a radio for some players only.
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer } from '../../server/engine/world.js';
-import { rigs } from './state.js';
+import { rigs, truckElecDead } from './state.js';
 
 export const CB_MIN = 1;
 export const CB_MAX = 40;
@@ -56,10 +56,16 @@ export const clampChan = (n) => {
 
 // The set's state, all of it, derived from the rig it is bolted into. `cbOff` is the field that
 // already existed (the squelch), and it keeps its polarity so nothing that reads it changes.
+// ⚠ `dead` IS NOT `on: false`, AND COLLAPSING THEM WOULD BE A LIE ABOUT A SWITCH.
+// `on` is the squelch — a knob the driver turned — and the panel paints it, so a
+// pulse reported as `on: false` would show a set somebody had switched off and
+// invite them to switch it back on, which does nothing. A cooked set keeps the
+// position of every control it has and simply cannot answer.
 export const cbState = (rig) => ({
   on: !rig.cbOff,
   chan: clampChan(rig.cbChan ?? CB_DEFAULT),
   spk: !!rig.cbSpeaker,
+  dead: truckElecDead(rig),
 });
 
 // Who is listening on a channel, right now. Sync, no queries, and one pass over a Map that is
@@ -70,6 +76,12 @@ function listeners(chan, exceptPlayerId = null) {
   for (const rig of rigs.values()) {
     if (rig.playerId === exceptPlayerId) continue;
     if (rig.cbOff) continue;
+    // ⚠ THE ONE CHOKEPOINT FOR RECEPTION, which is why the EMP test belongs here
+    // and nowhere else. `cbAudience` counts this list and `cbTransmit` delivers to
+    // it, so a cooked set drops off the air in both directions from one line —
+    // and the count somebody else sees drops with it, which is the honest answer:
+    // that rig genuinely is not listening any more.
+    if (truckElecDead(rig)) continue;
     if (clampChan(rig.cbChan ?? CB_DEFAULT) !== chan) continue;
     const p = getLivePlayer(rig.playerId);
     if (p) out.push({ player: p, rig });
@@ -99,6 +111,9 @@ function deliver(playerId, { chan, from, message, self = false, kind = 'voice' }
 export function cbTransmit(player, rig, text) {
   const msg = String(text || '').trim().slice(0, MAX_LEN);
   if (!msg) return { type: 'error', message: 'Say what? <span class="text-dim">cb &lt;what you want to say&gt;</span>' };
+  if (truckElecDead(rig)) {
+    return { type: 'error', message: 'You key the mic and get nothing — not even a hiss. The set is cooked.' };
+  }
   if (rig.cbOff) {
     return { type: 'error', message: 'The set is off. <span class="text-dim">cb on</span> first.' };
   }

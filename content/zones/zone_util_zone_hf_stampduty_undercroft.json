@@ -1,0 +1,18 @@
+{
+  "description": "Under the undercroft, reached by a flush hatch between two of the legs that everybody on Kerbstone Row has stood on and nobody has noticed. Switchgear on one wall, a sump on the other, and about four inches of leaf litter in the corner that has come down through the hatch grating over two autumns and that nobody has ever been sent to sweep out.",
+  "exits": {
+    "up": "zone_hf_stampduty_undercroft"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_902_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_stampduty_undercroft",
+  "map_id": "map_int_hf_stampduty",
+  "name": "Stamp Duty — The Pit Below the Paving",
+  "parent_zone": "zone_district_902_917"
+}

@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "description": "Crushed rubble rolled flat, newer and meaner than the lane it continues. A line of stub posts marks where a fence was started and thought better of.",
   "exits": {
-    "east": "zone_district_900_912",
     "north": "zone_district_899_911",
     "south": "zone_district_899_913",
     "west": "zone_district_898_912"

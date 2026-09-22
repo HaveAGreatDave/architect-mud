@@ -1,0 +1,8 @@
+{
+  "description": "Fourteen numbered hooks behind the desk. Eleven of them have keys on. That is not eleven empty flats: three of the eleven are let to people who have never collected a key, and the concierge knows which three and does not say.",
+  "flags": {},
+  "id": "furn_hf_quiet_hooks",
+  "name": "the key board",
+  "object_type": "container",
+  "zone_id": "zone_hf_quiet_desk"
+}

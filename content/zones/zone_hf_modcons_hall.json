@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow entrance hall running under the first terrace, lit from a slot at the top of one wall, with the residents' lift at the end of it and a glazed door halfway along into the comms room. The eleven-line specification is repeated in here, engraved rather than printed, at eye height, where everybody who lives in the building walks past it twice a day. Lines one to ten are about the building. Line eleven is about the estate.",
+  "exits": {
+    "north": "zone_hf_modcons_comms",
+    "west": "zone_district_903_914"
+  },
+  "flags": {
+    "building_name": "Mod Cons",
+    "building_type": "cascade_block",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A long thin light at the top of the wall where the terrace meets the block, giving a strip of sky and the undersides of the planting on the step above. When it rains you can hear the terrace drain before you can hear the rain.",
+      "light": 0.5,
+      "name": "the clerestory slot",
+      "visibility": 0.3
+    },
+    "world_exit_zone": "zone_district_903_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_modcons_hall",
+  "map_id": "map_int_hf_modcons",
+  "name": "Mod Cons — The Specification Hall",
+  "parent_zone": "zone_district_903_914"
+}

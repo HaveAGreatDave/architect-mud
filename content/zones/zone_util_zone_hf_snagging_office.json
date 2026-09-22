@@ -1,0 +1,18 @@
+{
+  "description": "A lean-to under the first terrace with the compressor, the welder and a bottle store that is chained, padlocked and, on inspection, entirely empty.",
+  "exits": {
+    "up": "zone_hf_snagging_office"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_904_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_snagging_office",
+  "map_id": "map_int_hf_snagging",
+  "name": "Snagging List — The Compressor Room",
+  "parent_zone": "zone_district_904_917"
+}

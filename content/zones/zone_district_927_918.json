@@ -8,6 +8,7 @@
     "west": "zone_district_926_918"
   },
   "flags": {
+    "camp": true,
     "curtain": true,
     "district": "slum",
     "region_id": "region_coldwater",

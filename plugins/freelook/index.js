@@ -36,7 +36,7 @@
 // not walked to, and in a game where finding a place IS the content, that is a spoiler with a verb
 // attached.
 
-import { getZone, getLivePlayer } from '../../server/engine/world.js';
+import { getZone, getLivePlayer, getZoneFurniture } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
@@ -96,8 +96,79 @@ export function tileUnder(player) {
 //
 // The sky is sampled at the tile BEING LOOKED AT rather than at the caller: a camera pointed across
 // the Basin would otherwise show the weather over the room its owner is standing in.
-function viewPayload(gx, gy) {
-  return { type: 'freelook_open', gx, gy, map: mapWindow({ grid_x: gx, grid_y: gy }, RADIUS), sky: skyState(gx, gy) };
+//
+// ⚠ AND A VANTAGE CLEARS `self` ON ITS OWN TILE. `mapWindow` stamps the centre cell `self: 1`,
+// which is what stops a cab being drawn inside its own building — right for a camera in a vehicle
+// and exactly wrong for a camera standing ON something, because the thing under your feet is then
+// the one thing in the window that is not drawn. This is `yachtHelmWindow`'s own line, and the
+// helm needs it for the same reason: you are looking at the ship you are on.
+function viewPayload(gx, gy, stand) {
+  const map = mapWindow({ grid_x: gx, grid_y: gy }, RADIUS);
+  if (stand && map[RADIUS]?.[RADIUS]) map[RADIUS][RADIUS].self = undefined;
+  return { type: 'freelook_open', gx, gy, map, sky: skyState(gx, gy), stand };
+}
+
+// ── A VANTAGE: THE SAME CAMERA, BOLTED DOWN ──────────────────────────────────
+//
+// Furniture carrying `flags.telescope` is a place you can stand and look from. It is the free
+// camera with three constraints — feet on something, an eye height that is not yours to set, and a
+// leash — and the reason it lives in THIS plugin rather than a new one is that there is exactly one
+// camera-over-a-tile on the wire: one viewer set, one sky push, one close. A second plugin sending
+// `freelook_open` would be a second owner of a pane whose `freelook close` reached only one of them.
+//
+// ⚠ AND IT IS DELIBERATELY NOT BEHIND THE STAFF GATE. `freelook` is staff-only because it is a way
+// to look at ground you have not walked to; a telescope is a thing in a room you already got into,
+// pointed at ground you can already see from it. The gate on a vantage is the door you came
+// through.
+//
+// The flag is an object, so the furniture says what KIND of vantage it is:
+//   { mount: 'yacht_scope', leash: 0.09, yaw: 200, label: 'TELESCOPE' }
+// `mount` names a fixture the RENDERER knows how to find — a deck whose height is a property of a
+// model and whose position is a function of the swell, neither of which this process knows or
+// should. Anything standing on ground that does not move authors a plain `eye` instead.
+const VANTAGE_DEFAULTS = { leash: 0.09, yaw: 0, label: 'VANTAGE' };
+
+function vantageIn(zoneId) {
+  return getZoneFurniture(zoneId).find((f) => f.flags?.telescope);
+}
+
+// What goes on the wire, normalised here rather than trusted off a content row: a leash is a
+// distance and a yaw is a bearing, and a string in either would reach the camera as NaN, which
+// draws nothing and says nothing.
+function standBlock(furn) {
+  const f = furn.flags.telescope;
+  const raw = (f && typeof f === 'object') ? f : {};
+  const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
+  return {
+    mount: raw.mount ? String(raw.mount) : null,
+    eye: raw.eye != null ? num(raw.eye, null) : null,
+    x: num(raw.x, 0), y: num(raw.y, 0),
+    leash: Math.max(0.02, Math.min(4, num(raw.leash, VANTAGE_DEFAULTS.leash))),
+    yaw: num(raw.yaw, VANTAGE_DEFAULTS.yaw),
+    label: String(raw.label || furn.name || VANTAGE_DEFAULTS.label),
+  };
+}
+
+function cmdTelescope(args, raw, player) {
+  const a0 = String(args[0] || '').toLowerCase();
+  // Closing FIRST, and ahead of everything — the same rule `freelook close` is written on. The
+  // client's ✕ fires this, and a view you cannot shut because you have since walked out of the room
+  // is a pane nobody can get out of.
+  if (a0 === 'close' || a0 === 'off' || a0 === 'stop') {
+    viewers.delete(player.id);
+    sendToPlayer(player.id, { type: 'freelook_close' });
+    return { type: 'noop' };
+  }
+  const furn = vantageIn(player.current_zone);
+  // ⚠ NO HINT AS TO WHAT WOULD HAVE WORKED. A refusal that named the flag, the room or the fitting
+  // would turn a verb anybody can type into a detector for vantages they have not found.
+  if (!furn) return { type: 'error', message: "There's nothing here to look through." };
+  const at = tileUnder(player);
+  if (!at) return { type: 'error', message: `${furn.name} looks out on nothing — this room isn't placed on the map.` };
+  const stand = standBlock(furn);
+  sendToPlayer(player.id, viewPayload(at.gx, at.gy, stand));
+  viewers.set(player.id, at);
+  return { type: 'system', message: `You put your eye to ${furn.name.toLowerCase()}. <b>O</b> or <b>✕</b> steps back.` };
 }
 
 function cmdFreelook(args, raw, player) {
@@ -112,11 +183,12 @@ function cmdFreelook(args, raw, player) {
   }
   if (!ROLES.includes(player.role)) return DENIED;
 
-  let at;
+  let at, follow = false;
   if (args.length >= 2) {
     const gx = Number(args[0]), gy = Number(args[1]);
     if (!Number.isFinite(gx) || !Number.isFinite(gy)) return { type: 'error', message: USAGE };
     at = { gx: Math.round(gx), gy: Math.round(gy) };
+    follow = String(args[2] || '').toLowerCase() === 'follow';
   } else if (args.length === 1) {
     return { type: 'error', message: USAGE };
   } else {
@@ -127,6 +199,12 @@ function cmdFreelook(args, raw, player) {
   const moving = viewers.has(player.id);
   sendToPlayer(player.id, viewPayload(at.gx, at.gy));
   viewers.set(player.id, at);
+  // ⚠ THE CAMERA ASKS FOR THIS TOO, AND IT MUST NOT NARRATE. The view re-centres its own window as
+  // the camera flies out of it (see RECENTER_R in freelook-view.js) — every 18 tiles, which at the
+  // fast ladder is a couple of seconds — so the ordinary confirmation would be a line in the log
+  // for something nobody did. `follow` is the camera saying the move is its own; a person typing a
+  // tile still gets told the window moved.
+  if (follow) return { type: 'noop' };
   return { type: 'system', message: moving
     ? `Window re-centred on ${at.gx},${at.gy}.`
     : `Camera up over ${at.gx},${at.gy}. <b>O</b> or <b>✕</b> puts it away; <b>freelook &lt;x&gt; &lt;y&gt;</b> moves the window.` };
@@ -154,8 +232,16 @@ on('player.logout', ({ id }) => { if (id) viewers.delete(id); });
 
 export const commands = {
   freelook: cmdFreelook,
+  telescope: cmdTelescope,
 };
+
+// Declaration-only (handler: null) — `telescope` is an ordinary command-map verb that self-resolves
+// the vantage in the room. This row exists purely so `availableActions()` advertises TELESCOPE when
+// you examine the instrument; see plugins/instrument for the same arrangement and the same reason.
+export const specializedActions = [
+  { verb: 'telescope', requiredFlag: 'telescope', handler: null },
+];
 
 // The viewer set is the only state this plugin owns — handed to the regress suite so it can assert
 // that opening registers and closing does not leave a row behind.
-export const _test = { viewers, RADIUS, ROLES };
+export const _test = { viewers, RADIUS, ROLES, standBlock, vantageIn, VANTAGE_DEFAULTS };

@@ -1,0 +1,11 @@
+{
+  "description": "A single reflector on a swan neck bolted to the top of the partition and bent over the bench, aimed at where a docket is signed. The rest of the slice of drum is lit by the glazing and, after dark, by whatever Sorrel Way is doing.",
+  "flags": {},
+  "id": "furn_light_zone_hf_deposit_counter",
+  "light_type": "overhead",
+  "lumen_output": 460,
+  "name": "a light over the counter",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_deposit_counter"
+}

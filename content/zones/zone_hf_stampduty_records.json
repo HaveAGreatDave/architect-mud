@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Inside the disc: one round room, glazed the whole way round, thickest through the middle so the ceiling is high at the centre and comes down to head height at the glass. Shelving radiates from a core in the middle like spokes, so every aisle is wider at the outside than the inside, and the whole of the estate's paper that is not at the land office is in here in date order. It is warm, it smells of paper, and it is the quietest room in the quarter.",
+  "exits": {
+    "down": "zone_hf_stampduty_undercroft"
+  },
+  "flags": {
+    "building_name": "Stamp Duty",
+    "building_type": "lens_hall",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The full circumference at first-floor height, and because the disc is thickest through the middle the glass leans out at the top, so standing at it you are looking slightly down at the pavement and slightly out from the building at the same time.",
+      "light": 0.85,
+      "name": "the lens glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_902_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_stampduty_records",
+  "map_id": "map_int_hf_stampduty",
+  "name": "Stamp Duty — The Records Office",
+  "parent_zone": "zone_district_902_917"
+}

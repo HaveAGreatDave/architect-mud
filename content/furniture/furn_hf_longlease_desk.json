@@ -1,0 +1,8 @@
+{
+  "description": "Chrome and pale stone, curved to the room, with a chair behind it and a sightline down the whole hall to the door. Under the lip, where nothing shows, somebody has taped a list of the four occupied flats and what time each of them usually comes in.",
+  "flags": {},
+  "id": "furn_hf_longlease_desk",
+  "name": "the porter's desk",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_longlease_hall"
+}

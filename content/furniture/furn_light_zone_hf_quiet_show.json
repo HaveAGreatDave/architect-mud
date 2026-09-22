@@ -1,0 +1,11 @@
+{
+  "description": "Hidden in the shadow gap where the ceiling meets the curve, throwing light up and back so the room has no visible fitting in it anywhere. It is on a timer and the timer is set for showing rather than for living.",
+  "flags": {},
+  "id": "furn_light_zone_hf_quiet_show",
+  "light_type": "cove",
+  "lumen_output": 780,
+  "name": "a run of concealed cove lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_quiet_show"
+}

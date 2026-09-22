@@ -3495,6 +3495,53 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     removeTransientZone(dreamId);
   }
 
+  // ── Where a zone IS, for the one question that needs it: which city plant feeds it ──
+  //
+  // `installGenerator` picks a junction box's city plant, and for months it picked the
+  // wrong one for every building whose utility room is an interior — which is all of them.
+  // It tested `grid_x != null`, 0 passes that, every interior sits at 0,0, and two of the
+  // four city plants are interiors too; both scored distance 0, a strict `d < minDist`
+  // gave the tie to whichever row Postgres returned first, and 52 buildings ended up on
+  // another REGION's plant (49 Coldwater buildings drawing from Terminus, 3 Reach ones
+  // from Coldwater). Power still flowed, so nothing looked broken.
+  //
+  // These pin the rule rather than the outcome, because the outcome is content and moves.
+  {
+    const { powerAnchorOf } = await import('../server/engine/environment.js');
+
+    // The headline: 0,0 is UNSET. An interior must never answer with a coordinate.
+    const util = getZone('zone_util_zone_bld_922_917_lobby');
+    const anchor = util && powerAnchorOf(util);
+    check('a utility room at 0,0 anchors to its building\'s facade, not the origin',
+      !!anchor && anchor.x === 922 && anchor.y === 917, JSON.stringify(anchor));
+    check('…and carries the facade\'s region, which is what picks the plant',
+      anchor?.region === 'region_coldwater', String(anchor?.region));
+
+    // ⚠ The near-miss rule. Rejecting 0,0 alone is NOT enough: 251 zones carry non-zero
+    // coordinates on a map that is not the world (apartments laid out at (1,0) on
+    // `map_interior_*`, the Leviathan's flight deck at (0,-1)). Those are local layout
+    // positions, and measuring a distance to one is the original bug with a new number.
+    check('a non-zero coordinate on an interior map is not a place',
+      powerAnchorOf({ id: 'x', map_id: 'map_interior_zone_residential_lobby', grid_x: 1, grid_y: 0 }) === null);
+    check('…and neither is the Leviathan\'s flight deck at (0,-1)',
+      powerAnchorOf({ id: 'x', map_id: 'map_aircraft_leviathan', grid_x: 0, grid_y: -1 }) === null);
+
+    // A world tile is its own anchor, and an unplaceable zone says so instead of guessing.
+    const street = getZone('zone_district_922_917');
+    check('a world tile is its own anchor',
+      powerAnchorOf(street)?.x === 922 && powerAnchorOf(street)?.id === 'zone_district_922_917');
+    check('an interior naming no facade anchors to nothing at all',
+      powerAnchorOf({ id: 'x', map_id: 'map_int_nowhere', grid_x: 0, grid_y: 0, flags: {} }) === null);
+    check('…and so does a zone that is not there', powerAnchorOf(null) === null);
+
+    // Every city plant must resolve, or no box can be placed against it.
+    for (const g of ['gen_zone_powerplantnew_1782069598190', 'gen_region_region_terminus']) {
+      const { rows } = await query('SELECT zone_id FROM generators WHERE id=$1', [g]);
+      const a = rows[0] && powerAnchorOf(getZone(rows[0].zone_id));
+      check(`city plant ${g} anchors to a real world tile`, !!a && a.region, JSON.stringify(a));
+    }
+  }
+
   // ── Vehicle cabins: climate control that belongs to a person, not a room ───
   {
     const env = await import('../server/engine/environment.js');
@@ -5266,7 +5313,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 // are pure, which is the entire reason they live in scripts/content/ beside derive.
 {
   const { readContentTree, canonicalJson } = await import('../scripts/content/lib.mjs');
-  const { planRotate, planMove, rotateDir, rotatePoint } = await import('../scripts/content/transform.mjs');
+  const { planRotate, planMove, rotateDir, rotatePoint, isBuildingish } = await import('../scripts/content/transform.mjs');
 
   const tree = {};
   for (const { entry, files } of readContentTree().entries) {
@@ -5392,8 +5439,16 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 
   // A facade is not standable, so anything left on the cell is sealed inside a
   // building nobody can enter — and nothing else in the pipeline reports it.
+  // ⚠ THE FILTER HAS TO BE `isBuildingish`, AND IT WAS TWO OF ITS FIVE TERMS. `planMove` refuses a
+  // buildingish destination FIRST and returns before it ever looks at what is standing there, so a
+  // cell this filter lets through on `is_interior`, `is_apartment` or `building_type` reaches the
+  // check above's refusal instead of this one — a true answer to a different question, reported
+  // here as a missing guard. Found by the marina's fuel float, which is a `building_type: pier`
+  // deck with a fuel pump standing on it; the forecourt at 923,907 is the same shape and escaped
+  // only by not being in the first twelve. Two copies of "is this a building" is the bug, and the
+  // fix is to stop keeping the second one.
   const withStuff = [...tree.zones.values()].filter(z => z.map_id === 'map_world'
-    && !z.flags?.facade && !z.flags?.is_building
+    && !isBuildingish(z)
     && [...tree.furniture.values()].some(fu => fu.zone_id === z.id));
   for (const z of withStuff.slice(0, 12)) {
     const near = facades.find(f => f.map_id === z.map_id

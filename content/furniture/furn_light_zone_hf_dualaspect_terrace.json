@@ -1,0 +1,11 @@
+{
+  "description": "Set along the timber edging at the beds that have nothing in them, on a photocell, so they come on at dusk over bare gravel every evening of the year and have done for two.",
+  "flags": {},
+  "id": "furn_light_zone_hf_dualaspect_terrace",
+  "light_type": "bollard",
+  "lumen_output": 220,
+  "name": "four bollard lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_dualaspect_terrace"
+}

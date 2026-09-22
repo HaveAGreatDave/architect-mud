@@ -48,9 +48,12 @@ const COOL = ['citycore', 'uptown', 'civic', 'marquee'];
 const WARM = ['freight', 'industrial', 'docks', 'infra', 'ruins', 'oldcoldwater', 'badlands', 'parkland'];
 // What shipped before the split, to the byte. A lamp outside the cool set must be bit-identical to
 // the one that has always been there — this is the claim that keeps the change to the city alone.
-// ⚠ ONE LAMP IS TWO SPRITES: the pool it throws down the road and, past `night > 0.2`, the tighter
-// wash at its own foot. Both are pushed, both end up in `uWetC`, and a check that knows about only
-// the first one fails a street that has not moved.
+// ⚠ ONE LAMP IS ONE SPRITE NOW, AND WAS TWO. It used to push the halo at the fitting AND a tighter
+// wash at its own foot, and both ended up in `uWetC`. The second one was a screen-space disc
+// standing in for light lying on a plane seen almost edge-on, which is what `uPool` in gl/ground.js
+// does properly — so with the pool on it is not pushed at all (see LAMP_HALO_S0). Both tones are
+// still listed here, because at `glPool` 0 the foot wash comes back and this claim is that the
+// reserved half of the city is bit-identical either way.
 const SODIUM = ['255,206,132', '255,198,120'];
 
 const clock = globalThis.performance;

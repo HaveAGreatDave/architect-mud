@@ -53,6 +53,12 @@ import {
   getNullOperation, getNullOperations, operationsFor,
 } from '../../server/engine/nullcraft-ops.js';
 import { getReputation } from '../../server/engine/ideologies.js';
+import { getZone } from '../../server/engine/world.js';
+
+// How far a hand charge reaches for anything that is not standing in the room:
+// one tile, which is the street you cracked it in and whatever is parked on it.
+// Deliberately nothing like the storm's twelve — a satchel is not the sky.
+const EMP_CHARGE_R = 1;
 
 // How long a transient operation holds. Scaled by how well the check went, so a
 // squeaked jam is a moment and a clean one buys you the room. The floor matters
@@ -442,7 +448,29 @@ async function cmdEmp(args, raw, player, broadcast) {
   // faraday-bag exemption, same chrome blackout, same bench repair. It takes the
   // thrower's own gear too unless it is shielded, and that is the entire tactical
   // decision rather than an oversight.
-  emit('weather.empPulse', { minutes: 1, zoneId: player.current_zone });
+  //
+  // ⚠ AND IT HAS A FOOTPRINT, BECAUSE A VEHICLE IS NOT IN A ROOM. `zoneId` is
+  // what scopes the fry to the people standing here, and a rig at the kerb is
+  // not in anybody's `players` set — it is at a grid coordinate. So the charge
+  // also names a place and a reach, which is one tile: the street you cracked it
+  // in and the ones you could touch from it. Same shape the storm sends, so the
+  // vehicle law is one rule reading one payload rather than two special cases.
+  // ⚠ 0,0 IS UNSET, NEVER A TILE. Interior zones carry grid 0,0 — cracking a
+  // charge in a back room would otherwise put a one-tile blast at the top corner
+  // of the map and cook whatever happened to be driving past it. An unplaceable
+  // charge sends no coordinates at all, and `empReaches` answers false to that,
+  // so the pulse stays exactly what it was: scoped to the room, by `zoneId`.
+  const here = getZone(player.current_zone);
+  const placed = here?.grid_x != null && here?.grid_y != null && !(here.grid_x === 0 && here.grid_y === 0);
+  emit('weather.empPulse', {
+    minutes: 1,
+    zoneId: player.current_zone,
+    mapId: placed ? here.map_id : null,
+    x: placed ? here.grid_x : null,
+    y: placed ? here.grid_y : null,
+    radius: EMP_CHARGE_R,
+    wholeGrid: false,
+  });
   addTrace(player.id, 6, 30);
 
   return { type: 'output', message:

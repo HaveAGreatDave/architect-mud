@@ -1,0 +1,19 @@
+{
+  "description": "Bolted to the frame above the door, angled down, with a run of armoured conduit going up into the ceiling and not coming back. The casing is newer than anything else in the shop including the shop. A pawnbroker sleeps badly for a living and this is what he bought instead of sleeping.",
+  "flags": {
+    "alarm_panel": true,
+    "alarm_tier": 4,
+    "aliases": "alarm,panel,box,alarm panel,alarm box,intruder panel",
+    "click_cmd": "hack alarm"
+  },
+  "hp": 120,
+  "hp_max": 120,
+  "id": "furn_hock_alarm",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the alarm box",
+  "object_type": "terminal",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hock_pawn"
+}

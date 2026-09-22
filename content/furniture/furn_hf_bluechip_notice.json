@@ -1,0 +1,8 @@
+{
+  "description": "The only object on any wall in the room: a chrome-framed card giving the assembly point, which is the pavement outside, and the responsible person, which is a company rather than a name. Underneath, in the box for the last drill, the date is the day the building was handed over.",
+  "flags": {},
+  "id": "furn_hf_bluechip_notice",
+  "name": "a fire notice",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_bluechip_lobby"
+}

@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "description": "The top of the Rise, against the back of The Dead Pigeon: a windowless flank in soot-black brick with a cellar hatch and a stack of empty kegs. The estate's plan does not show this building at all.",
   "exits": {
     "south": "zone_district_905_912",
     "west": "zone_district_904_911"
@@ -10,14 +9,15 @@
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 905,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_905_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Cowslip Rise",
   "parent_zone": null
 }

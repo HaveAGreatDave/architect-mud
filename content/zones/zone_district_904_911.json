@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#0d151e",
+  "color": "#cae4ff",
+  "description": "Twenty storeys of six-sided glass tapering to an actual point, the tallest building in the quarter and the only one with no plant on the roof — because there is no roof, only the place where the six faces run out. The top four floors are a single unit that has never been let and has no internal walls in it whatsoever. The way in is on the Cowslip Rise face, a full-height slot with a revolving door in it, and the tint of the glass over the door is a shade lighter than the rest of the building so that the entrance reads from the boulevard. The way in is on the Cowslip Rise face, a full-height slot with a revolving door in it, and the tint of the glass over the door is a shade lighter than the rest of the building so that the entrance reads from the boulevard. The way in is on the Cowslip Rise face, a full-height slot with a revolving door in it, and the tint of the glass over the door is a shade lighter than the rest of the building so that the entrance reads from the boulevard. The way in is on the Cowslip Rise face, a full-height slot with a revolving door in it, and the tint of the glass over the door is a shade lighter than the rest of the building so that the entrance reads from the boulevard. The way in is on the Cowslip Rise face, a full-height slot with a revolving door in it, and the tint of the glass over the door is a shade lighter than the rest of the building so that the entrance reads from the boulevard. The way in is on the Cowslip Rise face, a full-height slot with a revolving door in it, and the tint of the glass over the door is a shade lighter than the rest of the building so that the entrance reads from the boulevard.",
   "exits": {
     "east": "zone_district_905_911",
-    "south": "zone_district_904_912",
-    "west": "zone_district_903_911"
+    "west": "zone_hf_glassceiling_lobby"
   },
   "flags": {
+    "building_name": "Glass Ceiling",
+    "building_type": "glass_prism",
     "district": "halcyon_fields",
+    "entrance": "east",
+    "facade": true,
+    "floors": 20,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_905_911"
   },
   "grid_x": 904,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_904_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "GX",
+  "name": "Glass Ceiling",
   "parent_zone": null
 }

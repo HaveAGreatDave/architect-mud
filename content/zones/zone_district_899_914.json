@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Chain-link sags between its posts along the west side, fencing off a plot with nothing on it. East of the road the grass comes right up to the kerb.",
+  "description": "The chain-link that used to fence off the plot on the west side has been rolled up and stood against a post, and the new street runs in through the gap it left. East of the lane the grass still comes right up to the kerb.",
   "exits": {
     "east": "zone_district_900_914",
     "north": "zone_district_899_913",
@@ -20,6 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_899_914",
   "map_id": "map_world",
-  "name": "Kettle Lane",
+  "name": "Kettle Lane + Sorrel Way",
   "parent_zone": null
 }

@@ -1,0 +1,11 @@
+{
+  "description": "One fitting down the centre of each radiating aisle, which puts them all within a foot of each other at the core and a long way apart at the glass, so the middle of the room is bright and the outside of it is lit by the windows and not much else.",
+  "flags": {},
+  "id": "furn_light_zone_hf_stampduty_records",
+  "light_type": "overhead",
+  "lumen_output": 560,
+  "name": "a light at every aisle",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_stampduty_records"
+}

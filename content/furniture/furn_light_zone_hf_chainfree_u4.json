@@ -1,0 +1,11 @@
+{
+  "description": "Not estate standard — a proper lamp, brought in, clamped to the shelf of binders and aimed at the chair. It is the only warm light in the building.",
+  "flags": {},
+  "id": "furn_light_zone_hf_chainfree_u4",
+  "light_type": "lamp",
+  "lumen_output": 300,
+  "name": "a reading lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_chainfree_u4"
+}

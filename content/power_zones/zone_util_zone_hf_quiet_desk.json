@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_quiet_desk",
+  "id": "zone_util_zone_hf_quiet_desk",
+  "name": "Quiet Enjoyment — The Riser Base",
+  "source_type": "junction_box"
+}

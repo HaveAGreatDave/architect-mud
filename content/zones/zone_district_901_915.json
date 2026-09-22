@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#101820",
+  "color": "#b8dcf0",
+  "description": "Two short curved wings round a glazed drum, low and wide and considerably less grand than anything it manages. The name is on the drum in chrome letters, and under it, in a smaller and much newer typeface, HALCYON FIELDS ESTATE MANAGEMENT LTD — which is a different company from the one on the hoardings, as several people have noticed and none have been able to do anything about.",
   "exits": {
     "east": "zone_district_902_915",
-    "south": "zone_district_901_916",
-    "west": "zone_district_900_915"
+    "west": "zone_hf_groundrent_counter"
   },
   "flags": {
+    "building_name": "Ground Rent",
+    "building_type": "atrium_court",
     "district": "halcyon_fields",
+    "entrance": "east",
+    "facade": true,
+    "floors": 3,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_902_915"
   },
   "grid_x": 901,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_901_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "GR",
+  "name": "Ground Rent",
   "parent_zone": null
 }

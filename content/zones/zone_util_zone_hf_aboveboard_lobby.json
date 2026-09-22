@@ -1,0 +1,18 @@
+{
+  "description": "The bottom of the only part of this building that does not turn. Switchgear, a water booster set, and the lift motor room, which sits dead square in a footprint that by the top of the building has rotated a quarter turn away from it.",
+  "exits": {
+    "up": "zone_hf_aboveboard_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_aboveboard_lobby",
+  "map_id": "map_int_hf_aboveboard",
+  "name": "Above Board — The Core Base",
+  "parent_zone": "zone_district_900_911"
+}

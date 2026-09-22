@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_modcons_hall",
+  "b": "zone_hf_modcons_comms",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_hf_modcons_hall_north",
+  "lockable": false,
+  "one_way": false
+}

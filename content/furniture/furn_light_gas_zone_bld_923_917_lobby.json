@@ -1,0 +1,14 @@
+{
+  "description": "One at the hatch and one halfway down, which leaves the far end of the hall in the dark it was already in.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_gas_zone_bld_923_917_lobby",
+  "light_type": "gas",
+  "lumen_output": 400,
+  "name": "two gas lanterns",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": 40,
+  "zone_id": "zone_bld_923_917_lobby"
+}

@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The second floor, floor to ceiling in mirror down the inside wall and glass down the outside one, which means the room contains the street twice. Sprung boards laid over an office screed by somebody who knew what they were doing, a barre the whole length of the mirror, and a stack of chairs in the corner for the evenings when it is something else. There is chalk dust in the corners and the windows are permanently a little misted at the bottom.",
+  "exits": {
+    "down": "zone_hf_changeofuse_lobby"
+  },
+  "flags": {
+    "building_name": "Change of Use",
+    "building_type": "chrome_slab",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole outside of the crescent at second-floor height, and reflected in the mirror opposite, so from the middle of the floor Kerbstone Row is in front of you and behind you at once. People stop dancing and look at that and then carry on.",
+      "light": 0.8,
+      "name": "the curved glazing",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_897_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_changeofuse_studio",
+  "map_id": "map_int_hf_changeofuse",
+  "name": "Change of Use — The Dance Studio",
+  "parent_zone": "zone_district_897_917"
+}

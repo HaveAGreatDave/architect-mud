@@ -1,0 +1,14 @@
+{
+  "description": "Bracketed over the range where the cook needs it. The mantle has been replaced so often the bracket is polished.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_gas_zone_bld_923_917_kitchen",
+  "light_type": "gas",
+  "lumen_output": 400,
+  "name": "a gas lantern",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": 40,
+  "zone_id": "zone_bld_923_917_kitchen"
+}

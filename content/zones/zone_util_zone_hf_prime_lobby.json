@@ -1,0 +1,18 @@
+{
+  "description": "Behind the lobby wall the name is cut into, and about eleven times the volume of anything you can walk into upstairs. Chillers, a transformer chamber, and the lift pit for a bank of four, of which two have been isolated since the summer for a reason recorded as USAGE.",
+  "exits": {
+    "up": "zone_hf_prime_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_prime_lobby",
+  "map_id": "map_int_hf_prime",
+  "name": "Prime Location — The Podium Plant",
+  "parent_zone": "zone_district_903_912"
+}

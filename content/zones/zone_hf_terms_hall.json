@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A low wide room the full width of the bottom step, glazed on the mews side and open to the stair on the other, with the four terrace levels named on a chrome board and a bootscraper set into the floor that has never scraped a boot. It smells faintly of wet soil, which comes down the stair from the planting and is the only thing about the hall that is not immaculate.",
+  "exits": {
+    "down": "zone_util_zone_hf_terms_hall",
+    "up": "zone_hf_terms_terrace",
+    "west": "zone_district_894_912"
+  },
+  "flags": {
+    "building_name": "Terms Agreed",
+    "building_type": "cascade_block",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Floor to ceiling along the mews, so the hall is bright and entirely visible from outside. The view is Vetch Mews, which is a made road with nothing on the far side of it yet.",
+      "light": 0.8,
+      "name": "the mews glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_894_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_terms_hall",
+  "map_id": "map_int_hf_terms",
+  "name": "Terms Agreed — The Entrance Hall",
+  "parent_zone": "zone_district_894_912"
+}

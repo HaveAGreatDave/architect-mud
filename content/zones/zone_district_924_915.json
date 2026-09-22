@@ -4,11 +4,11 @@
   "description": "A row of pitches down one side and open churned ground on the other, where a cart gets turned round. That turning circle is the only piece of ground in the Shingles nobody has built on, and it isn't an accident.",
   "exits": {
     "east": "zone_district_925_915",
-    "north": "zone_district_924_914",
     "south": "zone_district_924_916",
     "west": "zone_district_923_915"
   },
   "flags": {
+    "camp": true,
     "district": "slum",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",

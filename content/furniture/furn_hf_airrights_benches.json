@@ -1,0 +1,8 @@
+{
+  "description": "Chrome, facing outward, one at each end of the span. They are the right height and the right rake and nobody sits on them. People come up, walk to the glass, and stand.",
+  "flags": {},
+  "id": "furn_hf_airrights_benches",
+  "name": "two benches",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_airrights_key"
+}

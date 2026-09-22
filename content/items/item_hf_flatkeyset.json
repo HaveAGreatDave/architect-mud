@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_flatkeyset",
+  "name": "a set of viewing keys",
+  "tags": {
+    "description": "Three keys on a chrome fob with a paper tag, signed out and signed back in, and sold rather than lent to anybody who has been in more than twice. The tag has had four names on it and three of them are crossed out.",
+    "stackable": false
+  },
+  "type": "misc",
+  "value": 15,
+  "weight": 30
+}

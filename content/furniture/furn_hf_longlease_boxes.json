@@ -1,0 +1,8 @@
+{
+  "description": "A hundred and twenty of them, numbered by floor and flat, every lock working and every key handed over at completion. Four are in use. The brass on those four is brighter round the keyhole than on the other hundred and sixteen, which is the only measurement anybody in this building has of how many people actually live in it.",
+  "flags": {},
+  "id": "furn_hf_longlease_boxes",
+  "name": "a wall of brass mailboxes",
+  "object_type": "container",
+  "zone_id": "zone_hf_longlease_post"
+}

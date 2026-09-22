@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#20221f",
+  "description": "Inside the palisade: a strip of oil-black hardstanding and then the rows, rigs nose-in under a sky cut into squares by the fence tops. Nothing is running. There is a hut by the gate with a hatch and a bell push, a laminated card of the release fees screwed to the wall beside it, and a yard dog on a running line who has long ago worked out that the people who come here are not the people worth barking at.",
+  "exits": {
+    "west": "zone_district_919_918"
+  },
+  "flags": {
+    "building_name": "Long Stay",
+    "building_type": "vehicle_pound",
+    "floor": "concrete",
+    "impound_pound": true,
+    "is_building": true,
+    "is_interior": true,
+    "truck_depot": {
+      "name": "Long Stay",
+      "yard": "zone_district_918_918"
+    },
+    "world_exit_zone": "zone_district_919_918"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_gatepound_lot",
+  "map_id": "map_int_gatepound",
+  "name": "Long Stay",
+  "parent_zone": "zone_district_919_918"
+}

@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#121620",
+  "color": "#c4d8e8",
+  "description": "A crescent of chrome and glass bending along the row, consented as offices, built as offices, and let floor by floor to a dance studio, a company that stores paper for other companies, a clinic, and two floors of nothing. The application to regularise all that is at the land office and has been for eleven months. The entrance is in the middle of the crescent facing Kerbstone Row, and there are four separate name plates screwed to the chrome beside it at four different heights in four different styles, which is the whole building in one glance. The entrance is in the middle of the crescent facing Kerbstone Row, and there are four separate name plates screwed to the chrome beside it at four different heights in four different styles, which is the whole building in one glance. The entrance is in the middle of the crescent facing Kerbstone Row, and there are four separate name plates screwed to the chrome beside it at four different heights in four different styles, which is the whole building in one glance. The entrance is in the middle of the crescent facing Kerbstone Row, and there are four separate name plates screwed to the chrome beside it at four different heights in four different styles, which is the whole building in one glance. The entrance is in the middle of the crescent facing Kerbstone Row, and there are four separate name plates screwed to the chrome beside it at four different heights in four different styles, which is the whole building in one glance. The entrance is in the middle of the crescent facing Kerbstone Row, and there are four separate name plates screwed to the chrome beside it at four different heights in four different styles, which is the whole building in one glance.",
   "exits": {
-    "east": "zone_district_898_917",
     "north": "zone_district_897_916",
-    "south": "zone_district_897_918",
-    "west": "zone_district_896_917"
+    "south": "zone_hf_changeofuse_lobby"
   },
   "flags": {
+    "building_name": "Change of Use",
+    "building_type": "chrome_slab",
     "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 6,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_897_916"
   },
   "grid_x": 897,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_897_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "CK",
+  "name": "Change of Use",
   "parent_zone": null
 }

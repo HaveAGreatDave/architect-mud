@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_aspect_lobby",
+  "b": "zone_hf_aspect_landing",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_aspect_lobby_up",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "Ducting comes up out of the ground here and goes into a wall, lagged and taped, with a cage round the bottom three feet of it that somebody has already been into.",
   "exits": {
     "east": "zone_district_897_918",
-    "north": "zone_district_896_917",
     "south": "zone_district_896_919",
     "west": "zone_district_895_918"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 896,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_896_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Windrow Lane",
   "parent_zone": null
 }

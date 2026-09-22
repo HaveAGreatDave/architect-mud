@@ -14,7 +14,7 @@ import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/s
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
-import { invalidateCoordIndex } from './state.js';
+import { invalidateCoordIndex, crewedAircraft } from './state.js';
 
 // A DEV-PANEL TILE EDIT MOVES THE WORLD, and `surfaceAt` is an index OVER positions rather than
 // a read THROUGH them — so without this it answers with the world as it stood at boot, for the
@@ -189,6 +189,11 @@ async function cmdBoard(args, raw, player, broadcast) {
     // the `board` backup still delegates to poker's community-board.
     const vessel = await tryVesselAction('VESSEL_EMBARK', player, broadcast);
     if (vessel) return vessel;
+    // …and then a boat of your own tied up where you are standing. A third rung on the same ladder,
+    // offered AFTER the vessel one on purpose: swimming's vessel is a zone you are treading water
+    // beside, so a swimmer alongside the Echelon should still get the Echelon.
+    const boat = await tryVesselAction('BOAT_EMBARK', player, broadcast);
+    if (boat) return boat;
     const verb = (raw || '').trim().toLowerCase().split(/\s+/)[0];
     if (verb === 'board') return gametableCommands.board(args, raw, player, broadcast);
     return { type: 'emote', message: "There's no aircraft here to embark." };
@@ -323,8 +328,8 @@ async function boardFound(found, player, broadcast) {
 // play. A null means "not applicable here" — fall through to the aircraft answer. The
 // action registry answers an unregistered type with an error rather than a null, so a
 // world booted without the swimming plugin must not eat our own message.
-async function tryVesselAction(type, player, broadcast) {
-  const r = await dispatchAction({ type, actor: player, context: { broadcast } });
+async function tryVesselAction(type, player, broadcast, params = {}) {
+  const r = await dispatchAction({ type, actor: player, params, context: { broadcast } });
   if (!r || (r.type === 'error' && /^Unknown action/.test(r.message || ''))) return null;
   return r;
 }
@@ -334,6 +339,8 @@ async function cmdDisembark(args, raw, player, broadcast) {
   if (!live) {
     const vessel = await tryVesselAction('VESSEL_DISEMBARK', player, broadcast);
     if (vessel) return vessel;
+    const boat = await tryVesselAction('BOAT_DISEMBARK', player, broadcast);
+    if (boat) return boat;
     return { type: 'emote', message: "You're not aboard anything." };
   }
   // A continuous heli sets down off-field without sending a `land` event — the client
@@ -878,6 +885,13 @@ async function cmdRefuel(args, raw, player, broadcast) {
     // types it and gets told there is no generator deployed has been failed by a router, not by a
     // rule. Trucking's own verb re-checks the pump — this only decides WHOSE question it is.
     if (truckingCommands.fuel && rigOfPlayer(player)) return truckingCommands.fuel(args, raw, player, broadcast);
+    // …and a boat of theirs lying at a fuel float. A FOURTH claimant on the word, added the way
+    // the vessel rungs above are rather than as a fifth import: `tryVesselAction` already knows
+    // that a null means "not applicable, carry on" and that an unregistered action answers with an
+    // error rather than a null, so a world booted without powerboat falls through to the generator
+    // exactly as it does today. The action re-checks that the asker is at the yard the hull is in.
+    const boat = await tryVesselAction('BOAT_FUEL', player, broadcast, { want: (args || []).join(' ').trim() });
+    if (boat) return boat;
     return generatorCommands.refuel(args, raw, player, broadcast);
   }
   const res = await refuelAt(args, raw, player);
@@ -2218,6 +2232,12 @@ export const commands = {
 
 export const hooks = {
   'zone.describeRoom': describeAirfield,
+  // Where our crewed machines are, for anything that needs to reach a vehicle at
+  // a coordinate rather than a player in a zone. One consumer today — the EMP
+  // pulse, which lands somewhere and takes the electronics of whatever was in
+  // it — and the entry carries its own `knockOut`, so the weather plugin never
+  // learns what an aircraft is. See state.js: crewedAircraft.
+  'vehicle.crewed': () => crewedAircraft(),
 };
 
 // ── Dev-panel routes ────────────────────────────────────────────────────────

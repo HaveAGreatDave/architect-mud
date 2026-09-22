@@ -432,6 +432,72 @@ ck(ft.view().z < u0, 'F still drops');
 console.log(`  ${cbad ? '✗' : '✓'} freecam turn-in-place — ${cbad} problem(s) total`);
 if (cbad) process.exit(1);
 
+// ── STANDING UP ─────────────────────────────────────────────────────────────
+// The same camera under three constraints — feet on something, an eye height that is handed in,
+// and a leash. Every one of them is silent when it is wrong: a standing camera that quietly flies
+// looks exactly like one that does not until somebody presses W with their head tipped back, and
+// by then they are over the water with no way of getting back onto the deck.
+//
+// ⚠ AND THE FIRST CHECK IS THAT `stand: false` IS THE CAMERA THAT ALWAYS SHIPPED. Three seats fly
+// this thing and none of them passes the flag, so the whole safety of the change is that the
+// ordinary path is the expression it was — which is the same argument `makeCam`'s own fx/fy/ez
+// identity above is written on.
+{
+  const fly = createFreeCam();
+  fly.open({ yaw: 0, z: 1, pitch: 0.8 });
+  fly.onKey('w', true); for (let i = 0; i < 10; i++) fly.step(0.1);
+  ck(fly.view().z > 1.05, 'flying, W with the nose up still climbs');
+  ck(fly.standing === false, '…and a camera nobody stood up is not standing');
+  fly.close();
+
+  const st1 = createFreeCam();
+  st1.open({ stand: true, yaw: 0, x: 2, y: -3, z: 0.19, eye: 0.19, leash: 0.09, pitch: 0.8 });
+  const s0 = { ...st1.view() };
+  ck(s0.x === 2 && s0.y === -3 && s0.z === 0.19, 'it is put down exactly where it was told to stand');
+  // ⚠ THE WHOLE OF "FPS CONTROLS". Flying, W carries the pitch and the camera takes off; standing,
+  // you look up at the sky and walk forward.
+  st1.onKey('w', true); for (let i = 0; i < 20; i++) st1.step(0.1);
+  const s1 = st1.view();
+  ck(s1.z === 0.19, 'standing, W with the head tipped back does not climb');
+  ck(Math.hypot(s1.x - 2, s1.y + 3) > 0.02, '…it walks');
+  // The leash. Twenty seconds of holding W is far past it from any starting point.
+  ck(Math.hypot(s1.x - 2, s1.y + 3) <= 0.09 + 1e-9, '…and it cannot walk off the leash');
+  st1.onKey('w', false);
+  // Up and down are inert rather than guarded — `place` overwrites z, so R/F cost a clamp.
+  st1.onKey('r', true); for (let i = 0; i < 10; i++) st1.step(0.1);
+  ck(st1.view().z === 0.19, 'R does not lift a standing camera');
+  st1.onKey('r', false);
+  // Roll is a camera's move and not a head's; the orbit MOVES the eye, so it would walk the leash.
+  st1.onKey('z', true); for (let i = 0; i < 10; i++) st1.step(0.1);
+  ck(st1.view().roll === 0, 'standing, Z does not dutch the horizon');
+  st1.onKey('z', false);
+  ck(st1.orbit(40, 0) === false, 'standing, the turntable is refused');
+  // ⚠ AND THE BUTTON IS REFUSED TOO, WHICH IS A DIFFERENT CLAIM. The pointer binder reads
+  // `cam.orbiting` to decide whether a drag aims or swings, so a middle button that reached the set
+  // would send every delta to an orbit that says no — and the mouse would stop LOOKING while it
+  // was held, which is a dead camera rather than a refused gesture.
+  ck(st1.setButton('orbit', true) === false && st1.orbiting === false, '…and never claims the button');
+  // The mouse still looks, which is the half that must keep working.
+  const y0 = st1.view().yaw;
+  ck(st1.look(50, 0) === true && st1.view().yaw !== y0, 'the mouse still aims a standing camera');
+  // The deck under it can move. That is what makes a ship's own swell reach the shot.
+  ck(st1.setEye(0.24) === true && st1.view().z === 0.24, 'the ground under it can be raised');
+  ck(fly.setEye(0.5) === false, '…and a flying camera owns its own height');
+  // ⚠ AND THE LEASH ANCHOR FOLLOWS A RE-CENTRE. `rebase` moves the origin out from under the
+  // camera; leave the anchor behind and the whole re-centre is spent dragging the shot to the edge
+  // of a tether that is now somewhere else.
+  const b0 = st1.view();
+  st1.rebase(10, -10);
+  const b1 = st1.view();
+  ck(Math.abs(b1.x - (b0.x + 10)) < 1e-9 && Math.abs(b1.y - (b0.y - 10)) < 1e-9, 'a rebase carries a standing camera with the world');
+  st1.onKey('a', true); for (let i = 0; i < 20; i++) st1.step(0.1);
+  ck(Math.hypot(st1.view().x - 12, st1.view().y + 13) <= 0.09 + 1e-9, '…and the leash goes with it');
+  st1.close();
+}
+
+console.log(`  ${cbad ? '✗' : '✓'} freecam standing — ${cbad} problem(s) total`);
+if (cbad) process.exit(1);
+
 // ── THE PITCH TERM ──────────────────────────────────────────────────────────
 // GLASS grew an optical axis that can tilt. Two things have to be true about it, and the first is
 // the one this file exists for.
@@ -933,10 +999,23 @@ if (cbad) process.exit(1);
     sk(f2.lookPush.x > 0.9, 'a cursor in the right-hand rim pushes right');
     const turned = spin(f2, 40);
     sk(turned > 400, '…and the turn runs past what a whole screen width could give (' + turned.toFixed(0) + '°)');
-    // ⚠ AND IT SATURATES OUTSIDE THE GLASS RATHER THAN FALLING OFF IT. A cursor the window has
-    // stopped following is a cursor still being pushed, which is precisely the case this is for.
+    // ⚠ AND OFF THE GLASS IS NOT OUT OF DESK, WHICH IS WHAT THIS USED TO SAY. The rule was that a
+    // cursor past the edge saturates — "the window has stopped following it, so it is still being
+    // pushed" — and that is true of a view filling the screen and false of every view that does not
+    // fill it. Free look is a panel in a page: the command box the player just typed `freelook`
+    // into is a few hundred pixels below this rect, the log is beside it, and so is everything else
+    // on the desk. Under the old rule the first twitch of the mouse anywhere out there read as a
+    // hand pressed into the rim, and the camera turned at 136°/s until somebody happened to put the
+    // cursor back in the middle of the view. Reported as the camera turning on its own.
     park(5000, 300);
-    sk(Math.abs(f2.lookPush.x - 1) < 1e-12, 'a cursor past the edge of the glass pushes hardest');
+    sk(f2.lookPush.x === 0 && spin(f2, 20) === 0, 'a cursor away from the glass pushes nothing');
+    park(400, -900);
+    sk(f2.lookPush.y === 0, '…and that is both axes, not just the one that was reported');
+    // …and the last strip of the glass is still the whole gesture at full strength, which is what
+    // makes the reachable turn unbounded: pressed into the edge, the turn goes on for as long as
+    // the cursor is held there.
+    park(RECT.right - 1, 300);
+    sk(f2.lookPush.x > 0.98 && spin(f2, 20) > 200, 'the last pixel of the glass pushes hardest');
     park(1, 300);
     sk(f2.lookPush.x < -0.9 && spin(f2, 20) < -200, 'the left-hand rim turns the other way');
     // The vertical half, and that it stops where the arrows stop rather than running to the pole.

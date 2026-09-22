@@ -1,23 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "color": "#8fd08a",
+  "description": "Planting in raised chrome beds, laid out in a pattern you can only read from about the eighth floor. From the ground it is a lot of low shrubs with gravel between them and a hose reel chained to a post.",
   "exits": {
     "east": "zone_district_897_912",
-    "south": "zone_district_896_913",
     "west": "zone_district_895_912"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "flowerbeds",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 896,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_896_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Vetch Green",
   "parent_zone": null
 }

@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "Half a room, because the front wall stops at waist height and the rest is a tarpaulin on a frame. You drink standing in the lane with your elbows inside. When the weather comes in from the south everybody shuffles two feet left and carries on.",
+  "description": "Half a room, because the front wall stops at waist height and the rest is a tarpaulin on a frame. You drink standing in the lane with your elbows inside. When the weather comes in from the south everybody shuffles two feet left and carries on. Nothing electric in here has worked since the box went, which the regulars will tell you makes no difference to the drink.",
   "exits": {
     "down": "zone_util_zone_bld_926_917_lobby",
     "east": "zone_bld_926_917_still",

@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "description": "The mews crosses Sorrel Way at a junction with no markings on it, the two roads simply meeting and carrying on. Somebody has spray-painted a give-way triangle onto the stone, freehand, roughly where one ought to go.",
   "exits": {
     "east": "zone_district_894_913",
     "north": "zone_district_893_912",
@@ -12,13 +11,15 @@
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 893,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_893_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Vetch Mews",
   "parent_zone": null
 }

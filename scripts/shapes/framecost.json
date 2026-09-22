@@ -1,5 +1,5 @@
 {
- "total": 324540,
+ "total": 339825,
  "cases": {
   "cockpit:0:day": {
    "calls": 21308,
@@ -72,21 +72,21 @@
    "blur": 0
   },
   "cockpit:200:night": {
-   "calls": 21529,
+   "calls": 21535,
    "path": 13828,
    "paint": 2259,
    "blit": 1078,
    "state": 4196,
-   "grad": 165,
+   "grad": 171,
    "other": 3,
    "blur": 14
   },
   "cab:0:day": {
-   "calls": 21310,
-   "path": 15284,
-   "paint": 2556,
+   "calls": 21689,
+   "path": 15607,
+   "paint": 2610,
    "blit": 644,
-   "state": 2646,
+   "state": 2648,
    "grad": 177,
    "other": 3,
    "blur": 0
@@ -102,9 +102,9 @@
    "blur": 14
   },
   "cab:45:day": {
-   "calls": 20549,
-   "path": 14249,
-   "paint": 2169,
+   "calls": 20574,
+   "path": 14271,
+   "paint": 2172,
    "blit": 776,
    "state": 3184,
    "grad": 168,
@@ -112,9 +112,9 @@
    "blur": 0
   },
   "cab:45:night": {
-   "calls": 20551,
-   "path": 13993,
-   "paint": 2322,
+   "calls": 20576,
+   "path": 14015,
+   "paint": 2325,
    "blit": 825,
    "state": 3216,
    "grad": 192,
@@ -122,42 +122,42 @@
    "blur": 16
   },
   "cab:90:day": {
-   "calls": 17644,
-   "path": 12623,
-   "paint": 2148,
+   "calls": 23547,
+   "path": 17693,
+   "paint": 2943,
    "blit": 538,
-   "state": 2228,
-   "grad": 104,
+   "state": 2260,
+   "grad": 110,
    "other": 3,
    "blur": 0
   },
   "cab:90:night": {
-   "calls": 17610,
-   "path": 12367,
-   "paint": 2288,
-   "blit": 581,
-   "state": 2250,
-   "grad": 121,
+   "calls": 18213,
+   "path": 12915,
+   "paint": 2327,
+   "blit": 587,
+   "state": 2254,
+   "grad": 127,
    "other": 3,
    "blur": 18
   },
   "cab:200:day": {
-   "calls": 19929,
-   "path": 13316,
-   "paint": 2146,
+   "calls": 28267,
+   "path": 20422,
+   "paint": 3334,
    "blit": 848,
-   "state": 3462,
+   "state": 3506,
    "grad": 154,
    "other": 3,
    "blur": 0
   },
   "cab:200:night": {
-   "calls": 19979,
+   "calls": 19985,
    "path": 13129,
    "paint": 2259,
    "blit": 910,
    "state": 3506,
-   "grad": 172,
+   "grad": 178,
    "other": 3,
    "blur": 14
   }

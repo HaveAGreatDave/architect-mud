@@ -1,0 +1,8 @@
+{
+  "description": "One slab of stone with a back down the middle of it, so it seats people facing opposite ways. Sit on the estate side and you look at Cowslip Rise. Sit on the other and you look at somebody's washing. The estate side is noticeably less worn.",
+  "flags": {},
+  "id": "furn_hf_dualaspect_bench",
+  "name": "a double-sided bench",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_dualaspect_hall"
+}

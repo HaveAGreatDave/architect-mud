@@ -1,5 +1,6 @@
 import { query, logActivity, getQueryMeter, getClient } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
+import { apiFaunaCensus, apiFaunaTile } from './fauna-dev.js';
 import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, propsOf, loadZoneRender, getAllRegions } from '../engine/world.js';
 import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
 import { readPalette } from '../../scripts/content/lib.mjs';
@@ -405,6 +406,25 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/recipes' && method==='POST') return requireDev(auth, ()=>apiCreateRecipe(body));
   if (path.startsWith('/recipes/') && method==='PUT') return requireDev(auth, ()=>apiUpdateRecipe(path.split('/')[2],body));
   if (path.startsWith('/recipes/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteRecipe(path.split('/')[2]));
+  // ── THE BIRD CENSUS ─────────────────────────────────────────────────────────
+  // Read-only, RAM-only and dev-gated. A flock is arithmetic rather than an entity, so there is no
+  // table to read and the only way to know what is in the world has been to fly to it and look —
+  // which is exactly the thing that hid four silent fauna bugs. See server/api/fauna-dev.js.
+  // ⚠ DEV-GATED AND IT MUST STAY SO: the unrest system settled for the whole codebase that a sim
+  // with a player-facing readout becomes a dashboard to optimise, so the line is the client
+  // boundary rather than the data.
+  if (path==='/fauna-census' && method==='GET') {
+    return requireDev(auth, () => {
+      const p = new URLSearchParams(url.replace(/^[^?]*\??/,''));
+      return { status:200, body: apiFaunaCensus(Object.fromEntries(p)) };
+    });
+  }
+  if (path==='/fauna-tile' && method==='GET') {
+    return requireDev(auth, () => {
+      const p = new URLSearchParams(url.replace(/^[^?]*\??/,''));
+      return { status:200, body: apiFaunaTile(Object.fromEntries(p)) };
+    });
+  }
   if (path==='/scavenging-tables' && method==='GET') return requireDev(auth, apiGetScavengingTables);
   if (path==='/scavenging-tables' && method==='POST') return requireDev(auth, ()=>apiCreateScavengingTable(body));
   if (path.startsWith('/scavenging-tables/') && path.endsWith('/zone-stock') && method==='GET') return requireDev(auth, ()=>apiGetScavengingZoneStock(path.split('/')[2]));

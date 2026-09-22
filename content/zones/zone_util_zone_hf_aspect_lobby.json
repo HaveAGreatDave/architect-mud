@@ -1,0 +1,18 @@
+{
+  "description": "Directly under the wide floor, and the same shape, so it is the only plant room in Halcyon Fields with a curved wall and it has caused every contractor who has worked in it to say the same sentence.",
+  "exits": {
+    "up": "zone_hf_aspect_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_aspect_lobby",
+  "map_id": "map_int_hf_aspect",
+  "name": "Aspect Ratio — The Base Plant",
+  "parent_zone": "zone_district_903_915"
+}

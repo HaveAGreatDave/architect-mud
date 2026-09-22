@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A public room in the drum with a chest-high chrome counter across it and four chairs against the wall which, unlike the ones at the sales suite, are all in use. On the counter: a bell, a pad of complaint forms, and a laminated card of what the service charge covers. The card is one side. The list of what it does not cover is not printed anywhere and is delivered verbally, at the counter, by somebody who has it by heart.",
+  "exits": {
+    "down": "zone_util_zone_hf_groundrent_counter",
+    "east": "zone_district_901_915",
+    "north": "zone_hf_groundrent_back"
+  },
+  "flags": {
+    "building_name": "Ground Rent",
+    "building_type": "atrium_court",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Curved glass onto Cinder Lane and Kerbstone Row. The one thing everybody at the counter does while they wait is look out of it at the estate they are complaining about.",
+      "light": 0.8,
+      "name": "the drum glazing",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_901_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_groundrent_counter",
+  "map_id": "map_int_hf_groundrent",
+  "name": "Ground Rent — The Counter",
+  "parent_zone": "zone_district_901_915"
+}

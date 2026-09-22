@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#0e151d",
+  "color": "#b0d6f0",
+  "description": "A tower that shears as it rises — each floor turned a few degrees on the one below, so the corner you are looking at walks round the building as you drive past it and the whole thing looks slightly wrung out. The entrance is a chrome drum canopy on the lane side with one door in it, and the door is thicker than a door needs to be. The name is cut into the canopy fascia, small, in letters about four inches high.",
   "exits": {
     "east": "zone_district_902_911",
-    "north": "zone_district_901_910",
-    "south": "zone_district_901_912",
-    "west": "zone_district_900_911"
+    "west": "zone_hf_safe_hall"
   },
   "flags": {
+    "building_name": "Safe as Houses",
+    "building_type": "torque_tower",
     "district": "halcyon_fields",
+    "entrance": "east",
+    "facade": true,
+    "floors": 16,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_902_911"
   },
   "grid_x": 901,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_901_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "HB",
+  "name": "Safe as Houses",
   "parent_zone": null
 }

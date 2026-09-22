@@ -1,0 +1,11 @@
+{
+  "description": "Concealed the whole length of the gallery rail, washing the ceiling rather than the floor, so the light in here has no source you can point at and no shadow under anything.",
+  "flags": {},
+  "id": "furn_light_zone_hf_aboveboard_mezz",
+  "light_type": "cove",
+  "lumen_output": 480,
+  "name": "a cove running the balustrade",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_aboveboard_mezz"
+}

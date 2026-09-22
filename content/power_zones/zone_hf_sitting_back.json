@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_sitting_bar",
+  "id": "zone_hf_sitting_back",
+  "name": "Sitting Tenant — The Back Room",
+  "source_type": "junction_box"
+}

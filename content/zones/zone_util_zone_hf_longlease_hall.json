@@ -1,0 +1,18 @@
+{
+  "description": "The bottom of the spine, where everything that goes up the building starts: water, power, data, and a lift pit with about four inches of standing water in it that has been reported three times.",
+  "exits": {
+    "up": "zone_hf_longlease_hall"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_longlease_hall",
+  "map_id": "map_int_hf_longlease",
+  "name": "Long Lease — The Riser Base",
+  "parent_zone": "zone_district_892_914"
+}

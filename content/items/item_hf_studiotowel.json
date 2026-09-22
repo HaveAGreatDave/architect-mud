@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_studiotowel",
+  "name": "a studio towel",
+  "tags": {
+    "description": "Plain, grey, and laundered so often it has gone soft all the way through. Sold rather than lent since the summer, when the stack went from forty to eleven inside a month and nobody would say anything about it.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 7,
+  "weight": 200
+}

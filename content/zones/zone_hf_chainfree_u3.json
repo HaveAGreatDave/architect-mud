@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The south flat, and the one the cutaway on the office wall has had coloured amber and rubbed back to white twice. It is identical to the other two except that somebody moved in for eleven days and then did not, and the marks their table left in the floor finish are still there in a rectangle by the window, four of them, very faint.",
+  "exits": {
+    "north": "zone_hf_chainfree_landing"
+  },
+  "flags": {
+    "building_name": "Chain Free",
+    "building_type": "bead_tower",
+    "floor": "boards",
+    "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
+    "rent_cost": 200,
+    "window": {
+      "description": "South down Kettle Lane to the row, with the Curtain closing the view off at the end of it. On a clear evening the whole lane is in shadow and the top of the wall is not.",
+      "light": 0.7,
+      "name": "the curved window",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_900_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_chainfree_u3",
+  "map_id": "map_int_hf_chainfree",
+  "name": "Chain Free — Flat 3C",
+  "parent_zone": "zone_district_900_914"
+}

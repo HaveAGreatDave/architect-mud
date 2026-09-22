@@ -1,0 +1,280 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Ostrow turns a letter over, looks at the postmark, and puts it back in the same hole.",
+    "She glances at the lift indicator. It has said 7 for some time.",
+    "The crane on the plot behind takes a load up, and the whole lobby hums for about four seconds.",
+    "She writes a time in a ruled book without appearing to check a clock.",
+    "A key on the board swings very slightly, and she reaches over and stills it."
+  ],
+  "description": "A short, unhurried woman of about sixty behind the desk, in a grey uniform jacket with the building crest on the pocket and her own cardigan over the back of the chair. She has the manner of somebody who was hired to be decorative and has quietly become the only person in the building who knows how anything works.",
+  "dialogue_tree": {
+    "bother": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "let"
+        }
+      ],
+      "text": "\"It bothers the four.\" She tips her head at the ceiling. \"A building with four people in it is not a building, it is four people each on their own in a very expensive tube. They have started leaving their doors open when they are in. All four of them, without discussing it.\"\n\n\"I think that is the saddest thing I have ever watched happen and I would not dream of mentioning it to them.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mind the chip by the lift. Everybody finds it with their foot.\" She goes back to the book."
+    },
+    "let": {
+      "options": [
+        {
+          "label": "Doesn't that bother you?",
+          "next": "bother"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Eleven let.\" A pause exactly long enough to be a correction. \"Four lived in.\"\n\n\"The rest are owned by people who have never been up the stair. I take their post, I run their taps once a month so the traps do not dry out, and I have never met one of them. That is not a complaint. It is a quieter building than the ones with people in.\""
+    },
+    "lift": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Nothing is wrong with the lift.\" She says it with the flatness of the eleventh telling. \"The lift is a very good lift. What is wrong is that it is one lift for fourteen floors because a second one came out of the scheme at the costing stage, and when it is serviced there is no lift at all.\"\n\n\"It is being serviced. It has been being serviced since a week last Tuesday.\""
+    },
+    "quiet": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She lets that one sit for a second.\n\n\"It is called Quiet Enjoyment because that is a thing written into the lease. It means nobody may interfere with your use of the flat.\" A very small movement of the mouth. \"It does not mean quiet.\"\n\n\"The crane behind starts at six. Not six-thirty. Six. I have the notice about it in a drawer and I am not putting it up, because the ones who are here already know and the ones who are not here are not here.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is wrong with the lift?",
+          "next": "lift"
+        },
+        {
+          "label": "Anything for sale?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Eleven of fourteen?",
+          "next": "let"
+        },
+        {
+          "label": "Is it quiet?",
+          "next": "quiet"
+        },
+        {
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Afternoon.\" She does not get up. \"If you are viewing, the show flat is two up and the stair is quicker than the lift. If you are delivering, leave it on the end of the desk.\"",
+      "text_by_relation": {
+        "familiar": "She has the stair door on the latch before you are across the lobby.\n\n\"Lift is still the lift,\" she says. \"Tea is in the pot and the pot is mine, but there is a cup.\"",
+        "first": "The woman behind the desk finishes writing a time in a book before she looks up, which somehow does not read as rude.\n\n\"Quiet Enjoyment. Fourteen floors, eleven let, concierge till eight.\" A short pause. \"That is the whole of the sales talk and I am not paid for the sales talk, so.\"\n\nShe nods at the stair.\n\n\"Show flat is two up. Take the stair. I will explain the lift if you want the lift explained.\"",
+        "known": "\"Back again.\" She pushes the visitors' book an inch toward you, which is as close as she comes to a greeting."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey concierge jacket with the building crest embroidered at the pocket",
+      "a plain skirt and thick tights, because the lobby glazing is cold at the ankles",
+      "her own cardigan, navy, not part of the uniform and never remarked on",
+      "flat shoes with the heels worn on the outside edge",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_quiet_desk",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_hf_ostrow",
+  "name": "Berenike Ostrow",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_lobbycoffee",
+      "price": 6
+    },
+    {
+      "item_id": "item_hf_earplugs",
+      "price": 9
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Quiet Enjoyment",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_quiet_desk"
+}

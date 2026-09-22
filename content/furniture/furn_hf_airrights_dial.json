@@ -1,0 +1,9 @@
+{
+  "description": "A chrome dial the size of a dinner plate over the lift door, marked from 0 to 54 in metres. It is the first thing that tells you this was designed by people who think in structures rather than in storeys, and the second thing is that there is no button for a floor, only UP.",
+  "flags": {},
+  "id": "furn_hf_airrights_dial",
+  "name": "the position dial",
+  "object_type": "fixture",
+  "power_draw_kw": 0.05,
+  "zone_id": "zone_hf_airrights_foot"
+}

@@ -19,7 +19,8 @@
 // vertices and the CPU never has to know which way the camera is facing. That is also what keeps
 // the sizes identical to the 2-D renderer's: `r` is the same `clamp(k / f, lo, hi)` the painter
 // computes, handed over rather than re-derived.
-import { viewProjMatrix, zRow, NEAR } from './camera.js';
+import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
+import { makeVertexStream } from './stream.js';
 
 // The z row of the projection, from the ONE place NEAR and FAR are named. NDC depth is A + B/f,
 // which is what lets the shader express its nudge as a distance instead of as a depth-buffer step.
@@ -152,7 +153,10 @@ export function createSpriteLayer(gl) {
   };
 
   const vao = gl.createVertexArray();
-  const buf = gl.createBuffer();
+  // One stream, set up once: the attribute pointers are recorded into the VAO here and never
+  // touched again, and the storage grows by doubling instead of being reallocated every frame.
+  // See gl/stream.js.
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.center, 3, 0], [loc.corner, 2, 12], [loc.radius, 1, 20], [loc.color, 3, 24], [loc.alpha, 1, 36], [loc.hard, 1, 40]], 4096);
   let data = new Float32Array(0);
   let count = 0, split = 0;
 
@@ -190,14 +194,7 @@ export function createSpriteLayer(gl) {
         o += STRIDE;
       }
     }
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, count * STRIDE), gl.DYNAMIC_DRAW);
-    const S = STRIDE * 4;
-    const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
-    bind(loc.center, 3, 0); bind(loc.corner, 2, 12); bind(loc.radius, 1, 20);
-    bind(loc.color, 3, 24); bind(loc.alpha, 1, 36); bind(loc.hard, 1, 40);
-    gl.bindVertexArray(null);
+    stream.write(data, count * STRIDE);
     return count / 6;
   }
 
@@ -206,7 +203,7 @@ export function createSpriteLayer(gl) {
   function draw(cam, W, H, cssH, intensity) {
     if (!count) return 0;
     gl.useProgram(prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, cssH || H)));
+    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
     const zr = zRow((cam && cam.near) || NEAR);
     gl.uniform2f(loc.ab, zr[0], zr[1]);

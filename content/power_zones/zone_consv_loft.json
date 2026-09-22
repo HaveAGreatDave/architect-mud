@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_consv_hall",
+  "id": "zone_consv_loft",
+  "name": "Fairweather Marina — The Gallery",
+  "source_type": "junction_box"
+}

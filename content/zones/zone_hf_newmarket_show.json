@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A flat on the fourth that has been dressed rather than furnished: everything in it is the right size and nothing in it is quite real. Books chosen for their spines, a fruit bowl with three apples in it that are changed on a rota, a wardrobe with four shirts in it and nothing else, and a bed made so tight the cover has a pressed crease down the middle. There is a faint smell of the diffuser on the hall table and under it, very faintly, of a flat nobody cooks in.",
+  "exits": {
+    "down": "zone_hf_newmarket_lobby"
+  },
+  "flags": {
+    "building_name": "New to Market",
+    "building_type": "chrome_tower",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The outside of the drum at fourth-floor height, looking south over Kerbstone Row and the Curtain beyond it. The blind is always at exactly the same height, and there is a pencil mark on the frame where the blind is meant to stop.",
+      "light": 0.75,
+      "name": "the curved glazing",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_907_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_newmarket_show",
+  "map_id": "map_int_hf_newmarket",
+  "name": "New to Market — The Show Home",
+  "parent_zone": "zone_district_907_915"
+}

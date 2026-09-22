@@ -291,6 +291,16 @@ const PANELS = {
     fetch: misFitFetch,
     columns: [],
   },
+  // ⚠ READ-ONLY, AND THERE IS NOTHING TO EDIT BY CONSTRUCTION. A flock is a pure function of its
+  // anchor tile and the wall clock, so there is no row behind any of this — the panel is the only
+  // way to ask the arithmetic what is in the world without flying to it and counting.
+  fauna: {
+    title: 'Birds',
+    description: 'What the fauna arithmetic says is out there: every species, where it lives, how many birds, and what the season and the evening are doing to a starling flock. A flock is derived rather than stored, so nothing here is editable — and the Hour / Day-of-year boxes move the question rather than the world.',
+    noEdit: true,
+    fetch: fetchFauna,
+    render: renderFauna,
+  },
   scavenging: {
     title: 'Scavenging Tables',
     description: 'Reusable loot templates for the scavenge action. Attach one to a zone from the zone editor (Scavenging section); per-zone stock is tracked automatically.',
@@ -514,7 +524,15 @@ const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests
 // instead of a button firing into a 403.
 const OPS_WRITABLE_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timeweather', 'players',
                                      'games', 'gossip', 'validator', 'power', 'emergency', 'bank',
-                                     'flight', 'cards']);
+                                     'flight', 'cards',
+                                     // ⚠ 'fauna' IS HERE TO SUPPRESS A BANNER, NOT TO GRANT A WRITE.
+                                     // It has no save and no delete — a flock is derived, so there is
+                                     // nothing behind it to edit — and it is a live observation
+                                     // surface like power and flight. Left out, prod would show it
+                                     // the world-content banner: "edited on your local dev panel and
+                                     // reaches prod through the CODEX deploy", which is untrue of
+                                     // every line on it and would send somebody looking for a file.
+                                     'fauna']);
 function opsPanelReadOnly(name) {
   if (!window.OPS_MODE) return false;
   // Per PANEL, never per nav row — see the ⚠ on NAV_ALIASES below.

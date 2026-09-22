@@ -1,0 +1,8 @@
+{
+  "difficulty": 9,
+  "id": "scav_butane_scav_roadside_junk",
+  "item_id": "item_butane_canister",
+  "max_qty": 1,
+  "table_id": "scav_roadside_junk",
+  "weight": 3
+}

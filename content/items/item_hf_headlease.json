@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_headlease",
+  "name": "a copy of the headlease",
+  "tags": {
+    "description": "A hundred and twenty-five years, one purchaser, and a schedule of covenants that runs to nine pages. The ninth page is the one worth the twelve credits: it lists what the leaseholder may not do, and the list is longer than the one for what they may.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 12,
+  "weight": 45
+}

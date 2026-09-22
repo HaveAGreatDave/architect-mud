@@ -38,9 +38,11 @@
 //  • NOTHING HERE IS PERSISTED. A plaza is a function of (route, window) exactly as a sign is, so
 //    it costs no rows, no tick and no teardown; and the impound it can hand you deliberately does
 //    NOT park your truck at the plaza, because a transient void room is torn down with the crossing
-//    and a rig held in one would be a row pointing at nothing. It is held at its own yard instead.
+//    and a rig held in one would be a row pointing at nothing. It goes to the pound the world names
+//    instead (see poundZone), and with none named it is left homed where it already was.
 
 import { sendToPlayer } from '../../server/engine/messaging.js';
+import { world } from '../../server/engine/world.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { milesOf, pavedAt, corridorPos, SHOULDER_W } from './corridor.js';
 import { weighAt, cabCheckAt, chargeAt } from './scale.js';
@@ -255,7 +257,7 @@ export function plazaCell(route, plaza, s, t, x, y, ctx) {
   // here it would quietly delete the office's walls and leave a lit sign standing in open ground.
   // The office is an ordinary building; the light on this apron comes off the arch and the plates.
   if (is('booth')) {
-    return cell(`${plaza.name} — the office`, { ...base, building_type: 'garage',
+    return cell(`${plaza.name} — the office`, { ...base, building_type: 'weigh_station',
       building_name: plaza.name, floors: 1, entrance: ctx.entrance });
   }
   // Everything else in the footprint is the gore island and the apron's outer verge: the plaza's
@@ -431,7 +433,7 @@ export async function weighHere(player, rig, plaza) {
   // came in by.
   const st = rig._plaza || (rig._plaza = { key: plaza.key, from: rig.s <= (plaza.s0 + plaza.s1) / 2 ? 0 : 1, weighed: false });
   st.weighed = true;
-  const cfg = { name: plaza.name, plaza: true };
+  const cfg = { name: plaza.name, plaza: true, pound: poundZone() };
   sendToPlayer(player.id, { type: 'emote', message:
     `<span class="ambient">You bring it over the joint in the tarmac and the plate takes the weight with a sound you feel through the seat. Ahead, the arch wakes up: a curtain of pale light drops the width of the apron and holds there, waiting for you to be entirely inside it.</span>` });
   // THE ARCH — the contraband half, and the reason this is not just the weighbridge outdoors.
@@ -454,6 +456,31 @@ export async function weighHere(player, rig, plaza) {
   // officer opening the passenger door has nothing to do with what the plate says.
   await cabCheckAt(player, rig, cfg);
   return weighAt(player, rig, cfg);
+}
+
+// ── WHERE A PLAZA'S IMPOUND ACTUALLY GOES ────────────────────────────────────
+//
+// The header's third rule says a plaza cannot hold your truck, and it is still true: a corridor
+// room is registered per crossing and torn down with it, so `depot_zone` pointing at one is an
+// address that stops existing. What it concluded from that — "left homed where it already was" —
+// was a compromise made when there was nowhere else to send it, and there is now. Long Stay sits
+// inside the South Gate and is an ordinary building with an ordinary yard, so the low-loader in
+// that comment has somewhere to unload.
+//
+// ⚠ CONTENT NAMES IT, exactly as content names a weigh station. A zone id written into this file
+// would be Architect leaking into a plugin that knows nothing else about Coldwater, and it would be
+// wrong the first time a second region authored a pound. With nothing flagged this answers null and
+// `impound` falls straight back to the behaviour the header describes.
+//
+// Memoised on the zone set's own size so a full `world.reload` re-answers, because this is read on
+// the drive and a scan of every zone in the game is not a per-inspection cost.
+let _pound = { n: -1, id: null };
+function poundZone() {
+  if (_pound.n === world.zones.size) return _pound.id;
+  let id = null;
+  for (const z of world.zones.values()) if (z.flags?.impound_pound) { id = z.id; break; }
+  _pound = { n: world.zones.size, id };
+  return id;
 }
 
 // Is this rig standing in a plaza right now, and which one — for the `weigh` verb and for anything

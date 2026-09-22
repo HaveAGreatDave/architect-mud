@@ -11,8 +11,7 @@ import {
 	facadeStreetTile,
 	getZoneFurniture,
 	propsOf,
-	resolveLanding,
-} from "../world.js";
+	resolveLanding, tileSurroundings } from "../world.js";
 import { shutStatus } from "../movement-gates.js";
 import { OPPOSITE } from "../directions.js";
 import {
@@ -45,8 +44,8 @@ import { getPhantomsInZone, applyTransforms, applyNpcTransforms, applyPlayerTran
 import { bodyTell } from "../dreamscape.js";
 import { signalLamp, junctionOffset, isJunction, LAMP_WORD } from "../../../client/shared/traffic.js";
 // The geese, on exactly the same footing as the signals above: one answer, two surfaces.
-import { flockAt, flockState, gooseHabitat, gooseDaylight, skeinForm } from "../../../client/shared/goose.js";
-import { getZonePowerStatus, getGameHour } from "../environment.js";
+import { flockAt, flockState, gooseHabitat, gooseDaylight, birdDaylight, speciesAt, placeOf, habitatState, skeinForm, perchedNow, FORM_WORDS, SPECIES, doyOf } from "../../../client/shared/birds.js";
+import { getZonePowerStatus, getGameHour, getGameDate, getEnvironmentState } from "../environment.js";
 import { mobStatusLabels } from "../effects.js";
 import { sectionFurniture } from "../classify.js";
 import { loggedPanelsSync } from "../presentation.js";
@@ -968,7 +967,7 @@ function junctionSignalLine(zone) {
  * The geese on this tile, as a sentence.
  *
  * The windshield paints a flock working the grass; this is the same flock for somebody who is
- * reading rather than looking. Both call `flockAt`/`flockState` out of client/shared/goose.js, so
+ * reading rather than looking. Both call `flockAt`/`flockState` out of client/shared/birds.js, so
  * the sentence and the picture cannot disagree — a player who reads that a dozen geese are on the
  * lawn and then drives past an empty one has been lied to by whichever copy drifted. Exactly the
  * arrangement `junctionSignalLine` above is in, and for the same reason.
@@ -992,28 +991,220 @@ const GOOSE_WATER_LINES = [
 	(n) => `${n === 1 ? "A goose rafts" : `${n} geese raft`} a little way out, turning slowly with the current.`,
 ];
 // ⚠ THE SHAPE IS THE ONE THE WINDSCREEN IS DRAWING, not a word picked for flavour. The formation
-// lives in goose.js with the rest of the cycle, so a reader standing in the field and a driver
+// lives in birds.js with the rest of the cycle, so a reader standing in the field and a driver
 // looking up at the same flock are told the same thing about it. A word chosen here would be one
 // more place for the sentence and the picture to drift apart, which is what this module is for.
-const SKEIN_SHAPE = { v: "a loose V", j: "a lopsided V, one arm longer than the other", ech: "one long ragged line" };
+// ⚠ THE WORDS MOVED TO birds.js, beside the formations they name — see FORM_WORDS there. Kept as
+// an alias because the name reads better at the call site and because it is what the ⚠ above the
+// old table was really saying: the shape is the one the windscreen is drawing, so it is not this
+// file's to choose.
+const SKEIN_SHAPE = FORM_WORDS;
 const GOOSE_AIR_LINES = [
 	() => `Somewhere overhead the flock is up and turning, complaining about it the whole way.`,
 	(n, shape) => `A skein of geese goes over in ${shape}, low enough to hear, and comes round again.`,
 ];
 
+// ── THE GULLS ────────────────────────────────────────────────────────────────
+// Bolder than the geese and worse company. The dock lines assume you are holding something.
+const GULL_GROUND_LINES = [
+	(n) => `${n === 1 ? "A gull works" : `${n} gulls work`} the edge of the quay, going through what the tide left.`,
+	(n) => `${n === 1 ? "A gull has" : `${n} gulls have`} the bollards. They watch your hands, not your face.`,
+	(n) => `${n === 1 ? "A gull picks" : `${n} gulls pick`} along the wall, unbothered, stepping over things you would rather not look at.`,
+];
+const GULL_WATER_LINES = [
+	(n) => `${n === 1 ? "A gull rides" : `${n} gulls ride`} the swell out past the wall, going up and down with it.`,
+	(n) => `${n === 1 ? "A gull sits" : `${n} gulls sit`} on the water, facing the wind, not doing much.`,
+];
+const GULL_AIR_LINES = [
+	() => `Gulls are up over the water, going round and screaming about it.`,
+	(n, shape) => `${n} gulls go over in ${shape}, low, loud, and gone.`,
+];
+// ⚠ THE ONE LINE THAT SAYS WHAT THE MECHANIC IS, without saying it. Gulls inland means the sea has
+// got too rough to sit on, and a player who reads this twice and then looks at the sky has learnt
+// to forecast the weather off a bird. Nothing anywhere explains the connection, and nothing should.
+const GULL_PERCH_LINES = [
+	(n) => `${n === 1 ? "A gull has" : `${n} gulls have`} the roofline above, facing into the weather, complaining about it.`,
+	(n) => `${n === 1 ? "A gull stands" : `${n} gulls stand`} on the ridge up there, dead still except for the head.`,
+];
+const GULL_INLAND_LINES = [
+	(n) => `${n === 1 ? "A gull is" : `${n} gulls are`} down in the street, this far from the water, which they only ever are when it is about to turn.`,
+	(n) => `${n === 1 ? "A gull stands" : `${n} gulls stand`} about on the wet tarmac, facing the same way, waiting out whatever is coming in off the sea.`,
+];
+
+// ── THE PIGEONS ──────────────────────────────────────────────────────────────
+// The only bird in the game that lives where the players do. They are never remarked on as
+// unusual, because they are not.
+const PIGEON_GROUND_LINES = [
+	(n) => `${n === 1 ? "A pigeon works" : `${n} pigeons work`} the paving, walking that walk, in and out of your way without ever quite leaving it.`,
+	(n) => `${n === 1 ? "A pigeon is" : `${n} pigeons are`} down on the flags going over the same square foot of nothing.`,
+	(n) => `${n === 1 ? "A pigeon picks" : `${n} pigeons pick`} about underfoot. One is missing most of a foot and gets on with it regardless.`,
+];
+// ── AND UP ON THE BUILDING ───────────────────
+// ⚠ THESE SAY WHAT IS BEING STOOD ON WITHOUT EVER SAYING WHICH BUILDING OR HOW FAR UP. Only the
+// renderer knows that — it reads the captured mass and picks an actual setback — and a sentence
+// naming a storey here would be a second answer to a question this file has no geometry to see.
+const PIGEON_PERCH_LINES = [
+	(n) => `${n === 1 ? "A pigeon sits" : `${n} pigeons sit`} along the ledge above, watching the street the way pigeons do, which is to say barely.`,
+	(n) => `${n === 1 ? "A pigeon is" : `${n} pigeons are`} lined up on a cornice out of reach, shuffling sideways and settling again.`,
+	(n) => `Up on the stonework ${n === 1 ? "a pigeon has" : `${n} pigeons have`} found somewhere out of the wind, and ${n === 1 ? "it is" : "they are"} not moving for anybody.`,
+];
+const PIGEON_AIR_LINES = [
+	() => `Something puts the pigeons up in a clatter, and they go round once and come straight back down.`,
+	(n) => `${n} pigeons come off the ground all at once, wings cracking, and start to circle.`,
+];
+
+// ── THE SONGBIRDS ────────────────────────────────────────────────────────────
+// ⚠ THE ONLY BIRD HERE WHOSE LINES ARE MOSTLY ABOUT SOUND, because that is what the species is.
+// You hear them across a park at first light and never once see one, so the prose says what you
+// can hear rather than what is standing where.
+const SONG_GROUND_LINES = [
+	(n) => `${n === 1 ? "A small bird works" : `A loose ${n} of them work`} the grass in short runs, stopping dead between each one.`,
+	(n) => `${n === 1 ? "A starling picks" : `${n} starlings pick`} over the turf, oil-slick green where the light catches them.`,
+	(n) => `${n === 1 ? "A small speckled bird" : `${n} small speckled birds`} go over the ground in that stabbing walk, finding things.`,
+];
+const SONG_AIR_LINES = [
+	(n) => `${n} of them are up over the trees, turning together and coming apart again.`,
+	() => `A cloud of small birds goes over, folds in on itself, and is somewhere else.`,
+];
+// The dawn half. Keyed on the hour rather than on the flock's state, because at first light the
+// point is that you cannot see them at all.
+const SONG_PERCH_LINES = [
+	(n) => `${n} small birds are strung along a gutter overhead, all facing the same way.`,
+	(n) => `A parapet above you has ${n} starlings on it, close together, going off like a shortwave set.`,
+	(n) => `${n} of them are up on the ledges, dropping off one at a time and coming straight back.`,
+];
+const SONG_DAWN_LINES = [
+	() => `It is barely light, and the hedges are already deafening.`,
+	() => `Somewhere in the dark the birds have started, all of them at once, and it carries a long way.`,
+	() => `The whole park is singing and there is not enough light yet to see a single bird doing it.`,
+];
+
+// ── THE HAWK ─────────────────────────────────────────────────────────────────
+// ⚠ ALWAYS ONE BIRD, so these lines never count. Every other species here opens with an n and a
+// plural branch; a hawk is minFlock 1, maxFlock 1, and a sentence built to say "3 hawks" is a
+// sentence waiting for a day somebody retunes the row and does not notice the prose followed.
+//
+// ⚠ AND NOTHING HERE SAYS IT IS HUNTING. The stoop is derived on both surfaces and either it is
+// happening at this moment or it is not; a room description that announced a kill every time you
+// walked in would be claiming an event that did not occur. What these say is that it is UP THERE,
+// which is the true and much better sentence.
+// ⚠ AND THE PERCH IS WHERE THE HUNT HAPPENS, which is the one thing these lines may imply and
+// still never assert. A perched hawk’s stoop is scheduled in the perch phase (PERCH_STOOP_AT in
+// birds.js) and is derived on both surfaces, so either it is going in at this instant or it is not.
+// What a room may say is that the bird is up there with a view, because that is true whenever it
+// is true. See the ⚠ on the ground pool: nothing here announces a kill.
+const HAWK_PERCH_LINES = [
+	() => `A hawk is up on the parapet with the whole street in front of it, and it has not moved since you came round the corner.`,
+	() => `There is a hawk on a ledge four floors up. Everything smaller than it has gone quiet and stayed where it is.`,
+	() => `Something is sitting very still on the corner of the roofline, looking down, and it is not a pigeon.`,
+];
+const HAWK_GROUND_LINES = [
+	() => `A hawk is down on a post, mantling over something, and does not look up as you pass.`,
+	() => `A hawk stands out in the open with its back to you, doing nothing at all with great attention.`,
+];
+const HAWK_AIR_LINES = [
+	() => `A hawk is up in a long slow spiral, not beating its wings, going nowhere in particular and getting higher while it does.`,
+	() => `Something big turns overhead on a fixed pair of wings. The smaller birds have gone quiet.`,
+	() => `A hawk hangs a long way up, circling. It has been there a while.`,
+];
+
+// ── THE VULTURES ─────────────────────────────────────────────────────────────
+// The hawk's opposite, and the split is worth keeping in mind when writing for either: a hawk is
+// something you watch go over, and this is something you walk up to. So the ground pool is the
+// larger one here, which is the reverse of every other species in this file.
+//
+// ⚠ AND THE GROUND LINES SAY WHAT THEY ARE STANDING ON. No carcass is modelled and none needs to
+// be, because the flock itself is the evidence: the species clusters at 0.09 tiles where a goose
+// spreads to 0.34, so several birds crowded onto one spot in open waste already reads as a kill.
+// The prose names the thing the picture is already describing. It never names WHAT died beyond
+// the one line that says nobody can tell any more, because a vulture cannot tell either.
+//
+// ⚠ TONE: matter-of-fact, never gory and never funny. This is the most ordinary thing in the
+// world happening to somebody, and the horror is entirely in it being ordinary. A punchline here
+// would be the one thing that makes it cheap.
+const VULTURE_GROUND_LINES = [
+	(n) => `${n === 1 ? "A vulture has" : `${n} vultures have`} something down in the dirt and ${n === 1 ? "is" : "are"} taking ${n === 1 ? "its" : "their"} time about it.`,
+	(n) => `${n} of them are hunched over the same patch of ground, shoulder to shoulder, working.`,
+	(n) => `${n === 1 ? "A vulture stands" : `${n} vultures stand`} in a knot out on the flat. Whatever is under them has been there a while.`,
+	(n) => `There is a dark crowd of ${n} on the ground ahead. Boots, maybe. It is hard to say from here and it will not be any easier close up.`,
+	(n) => `${n} vultures lift off a few feet as you come on, settle again behind you, and carry on.`,
+];
+const VULTURE_AIR_LINES = [
+	(n) => `${n} vultures are turning a long way up, not flapping, going round and round over the same piece of ground.`,
+	() => `Something is circling very high and in no hurry. There are several of them, and they are all circling the same thing.`,
+	(n) => `A ring of ${n} hangs over the waste ahead, wheeling. They have found something, or they are about to.`,
+];
+
+const BIRD_LINES = {
+	goose: { walk: GOOSE_GROUND_LINES, raft: GOOSE_WATER_LINES, air: GOOSE_AIR_LINES },
+	gull: { walk: GULL_GROUND_LINES, raft: GULL_WATER_LINES, air: GULL_AIR_LINES, inland: GULL_INLAND_LINES, perch: GULL_PERCH_LINES },
+	// ⚠ NO `inland` FOR A PIGEON, and it would be meaningless if there were: the inland pool exists
+	// to say a bird is somewhere it does not belong, and a pigeon on tarmac is a pigeon at home.
+	pigeon: { walk: PIGEON_GROUND_LINES, raft: PIGEON_GROUND_LINES, air: PIGEON_AIR_LINES, perch: PIGEON_PERCH_LINES },
+	songbird: { walk: SONG_GROUND_LINES, raft: SONG_GROUND_LINES, air: SONG_AIR_LINES, dawn: SONG_DAWN_LINES, perch: SONG_PERCH_LINES },
+	// ⚠ NO `raft` FOR A HAWK, and unlike the pigeon's missing `inland` this one can never be
+	// reached rather than merely being meaningless: nothing in its habitat table is water, so
+	// `habitatState` only ever answers 'walk' for it.
+	hawk: { walk: HAWK_GROUND_LINES, air: HAWK_AIR_LINES, perch: HAWK_PERCH_LINES },
+	// ⚠ NO `raft`, for the hawk's reason: nothing in the habitat table is water, so
+	// `habitatState` only ever answers 'walk' and a water pool could never be reached.
+	vulture: { walk: VULTURE_GROUND_LINES, air: VULTURE_AIR_LINES },
+};
+// The grounds a gull is only on because the weather drove it there — see GULL_WEATHER in birds.js.
+const INLAND_GROUND = new Set(["concrete", "asphalt", "citycore", "marquee", "freight"]);
+
 function gooseLine(zone) {
 	const t = zone?.flags?.terrain;
 	if (!t) return "";
-	const habitat = gooseHabitat(t);
-	if (!habitat) return "";
 	const gx = zone.grid_x, gy = zone.grid_y;
 	if (gx == null || gy == null || (gx === 0 && gy === 0)) return "";
 	if (zone.flags?.is_building || zone.flags?.building_type) return "";
-	if (!gooseDaylight(getGameHour())) return "";
-	const flock = flockAt(gx, gy);
+	// ⚠ THE WEATHER IS THE DAY'S HEADLINE AND IS PASSED IN, exactly as the hour is. The renderer
+	// gets the same single value over the wire, which is what lets a gull be ashore in the picture
+	// and ashore in this sentence at the same moment — a per-cell reading could not promise that.
+	const weather = getEnvironmentState()?.weatherType || "";
+	// ⚠ THE PLACE, NOT THE PAINT. `flags.terrain` says what the ground is made of and says nothing
+	// about whether anybody lives on it — Coldwater's streets are painted redrock, so asking the
+	// terrain put the pigeon on ONE tile in the entire world and left the gull unable to do
+	// anything but float. The city is where the buildings are and the dock is the water's edge
+	// among them; `tileSurroundings` counts those two facts off the map and `placeOf` — shared
+	// with the windscreen, so both surfaces answer the same — turns them into a place.
+	const sur = tileSurroundings(zone);
+	const sid = speciesAt(placeOf(t, sur.bld, sur.shore), gx, gy, { weather });
+	if (!sid) return "";
+	const habitat = habitatState(sid, placeOf(t, sur.bld, sur.shore));
+	if (!habitat) return "";
+	if (!birdDaylight(sid, getGameHour())) return "";
+	const flock = flockAt(gx, gy, 1, sid);
 	if (!flock) return "";
-	const st = flockState(flock, Date.now());
-	const pool = st.airborne ? GOOSE_AIR_LINES : habitat === "raft" ? GOOSE_WATER_LINES : GOOSE_GROUND_LINES;
+	// ⚠ THE YEAR AND THE HOUR REACH THE SIZE, AND THIS SURFACE MUST HAND OVER THE SAME PAIR THE
+	// WINDOW DOES. A starling's flock is two orders of magnitude bigger at a midwinter dusk than on
+	// a July afternoon — see BIRD_TUNE in birds.js — so handing one surface the season and not the
+	// other is the room saying a cloud of hundreds is going up over a park the windscreen has drawn
+	// with a party of nine on it, which is the disagreement this whole module exists to prevent.
+	const st = flockState(flock, Date.now(), null, { hour: getGameHour(), doy: doyOf(getGameDate()) });
+	const set = BIRD_LINES[sid] || BIRD_LINES.goose;
+	// ⚠ THE DAWN POOL OUTRANKS THE FLOCK'S OWN STATE, which no other species needs. For the other
+	// three the sentence describes what the birds are doing; at first light the whole point is that
+	// you cannot see them, so what they happen to be doing is not the fact worth reporting.
+	const hr = getGameHour();
+	const dawn = set.dawn && SPECIES[sid]?.song
+		&& Math.abs(hr - SPECIES[sid].song.peak) < SPECIES[sid].song.span * 0.6;
+	// ⚠ THE BUILDING NEXT DOOR IS THE MOST THIS SIDE CAN KNOW, and it is deliberately a weaker test
+	// than the renderer’s. `perchedNow` is shared and both surfaces get the same answer out of it;
+	// what differs is what counts as somewhere to stand, because a LEDGE is a captured mass segment
+	// and this process has no geometry at all. So the room asks whether there is a building against
+	// this tile — `sur.bld` is already counted for `placeOf` — and the window asks whether that
+	// building actually yielded a ledge. They part company only on a building carrying no ledge
+	// anywhere, which is 11 of the city’s 375 (`npm run gl:perch` prints the count), and there the
+	// room says the birds are up while the window leaves them on the deck. Closing it would mean
+	// shipping the shape capture to the server, which is a lot of machinery for eleven buildings.
+	const perched = set.perch && !st.airborne && sur.bld > 0 && perchedNow(flock, Date.now());
+	const pool = dawn ? set.dawn
+		: st.airborne ? set.air
+			: perched ? set.perch
+				: (!st.airborne && set.inland && INLAND_GROUND.has(t)) ? set.inland
+					: habitat === "raft" ? set.raft : set.walk;
 	// Deterministic off the tile, so a field keeps its own sentence rather than rerolling one every
 	// time somebody walks back into it.
 	const line = pool[(gx * 7 + gy * 13) % pool.length](st.n, SKEIN_SHAPE[skeinForm(flock).form]);

@@ -1,23 +1,29 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_events": [
+    "Wind gets under a cover, lifts it the length of a hull, and lets it down.",
+    "A tag turns on its wire and turns back.",
+    "The fence hums once in the wind and stops."
+  ],
+  "ambient_theme": "coast",
+  "color": "#b9c0c4",
+  "description": "An apron of concrete behind a mesh fence, marked out in bays with paint that is still the colour it was mixed. Six cradles, four of them holding hulls under fitted covers with the owner's name on a tag at the bow. The covers are immaculate. Two of the tags have gone brittle enough to read as old.",
   "exits": {
-    "east": "zone_district_893_902",
     "north": "zone_district_892_901",
     "south": "zone_district_892_903",
     "west": "zone_district_891_902"
   },
   "flags": {
-    "district": "docks",
+    "boat_hardstanding": 2,
+    "district": "glasshouse",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "street_life": true,
+    "terrain": "concrete"
   },
   "grid_x": 892,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_892_902",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Hardstanding",
   "parent_zone": null
 }

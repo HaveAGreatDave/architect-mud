@@ -1,0 +1,11 @@
+{
+  "description": "Long, dim, colour-corrected tubes clipped to every gantry, at a level that would be miserable to read by and is exactly what the insurers specify. They come on rack by rack as you walk and go off behind you.",
+  "flags": {},
+  "id": "furn_light_zone_hf_assets_strong",
+  "light_type": "strip",
+  "lumen_output": 240,
+  "name": "a rack of low-UV strips",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_assets_strong"
+}

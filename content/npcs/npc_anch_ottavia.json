@@ -1,0 +1,285 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Renzi reads the dock through the north glass, counts something, and goes back to the pass.",
+    "She turns a glass up to the light, finds nothing wrong with it, and polishes it anyway.",
+    "Two words go through the pass in Italian. Something in the kitchen changes note.",
+    "She moves a fork a quarter of an inch and the table is finished."
+  ],
+  "description": "A tall woman of about sixty in a charcoal jacket with no name on it anywhere, which on this shore is a statement. She watches the room rather than the door. Her hands are a cook's hands and she has not cooked in this kitchen for eleven years, which she will tell you if the room is quiet.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Piano.\" She is already looking past you at a table that needs something."
+    },
+    "fish": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Off the boats, in the morning, from people I know by name.\" A small shrug. \"You are going to ask me about the water. Everybody asks me about the water. The clams are cleaned for three days in tanks under this floor and I have eaten them every week since we opened. That is the whole answer and it is the only one I have.\""
+    },
+    "kitchen": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Three of them, and they have been three of them for nine years.\" She does not name them. \"You see the hands and not the faces, and that is on purpose. The room looks north. There is nothing to look at behind the pass.\""
+    },
+    "marina": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"We are inside their building and we do not work for them.\" She lets that sit. \"They put the roof up, we took the east end of it, and the arrangement has been good for both of us. The people who keep a hull here eat here. The people who eat here look at the hulls and start wanting one. It runs itself.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What are you serving?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who's in the kitchen?",
+          "next": "kitchen"
+        },
+        {
+          "label": "Where does the fish come from?",
+          "next": "fish"
+        },
+        {
+          "label": "Do you run the marina too?",
+          "next": "marina"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not tonight.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Buonasera.\" A glance at the north glass. \"There is a table. There is always a table, that is the point of twelve of them.\"",
+      "text_by_relation": {
+        "familiar": "She sees you through the glass before you are through the doors, and by the time you are in, the corner table on the north side has a second glass on it.\n\n\"Sit down. The brodetto, and do not argue with me about it.\"",
+        "first": "The woman at the pass finishes watching something in the kitchen, and then turns round and gives you her whole attention, which is disconcerting.\n\n\"Ottavia Renzi.\" She does not offer a hand and does not need to. \"This is mine. The building is not, the dock is not, the roof is very much not. The twelve tables are.\"\n\nShe looks at what you are wearing without appearing to.\n\n\"You can eat here. Everyone can eat here. That is not the same as everyone doing it.\"",
+        "known": "\"You.\" She is already moving toward the north side, which is where the good tables are. \"Sit. I will tell you what is worth having.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a charcoal jacket, cut properly, with no badge or name on it anywhere",
+      "a white shirt with the cuffs turned back exactly twice",
+      "flat black shoes worn soft, because she is on this floor nine hours a night",
+      "a thin steel watch on the inside of the wrist"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_marina_anchovies",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_anch_ottavia",
+  "name": "Ottavia Renzi",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_anch_vongole",
+      "price": 240
+    },
+    {
+      "item_id": "item_anch_brodetto",
+      "price": 265
+    },
+    {
+      "item_id": "item_anch_risotto",
+      "price": 205
+    },
+    {
+      "item_id": "item_anch_tiramisu",
+      "price": 120
+    },
+    {
+      "item_id": "item_spirit_wine",
+      "price": 140
+    }
+  ],
+  "vendor_restock_rate": 4,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 18,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 18,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 17,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 12,
+        "to": 16
+      }
+    ],
+    "thu": [
+      {
+        "from": 18,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 18,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 18,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Anchovies",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_marina_anchovies"
+}

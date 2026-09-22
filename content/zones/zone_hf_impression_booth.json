@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A glazed cubicle off the floor with a round table, three chairs and no window to the outside, so the only view is back across the model. On the table: a leather folder, a good pen, and a printed schedule of plots with a second price written beside each one in pencil. The pencil column is lower than the printed one on every line.",
+  "exits": {
+    "west": "zone_hf_impression_suite"
+  },
+  "flags": {
+    "building_name": "Artist's Impression",
+    "building_type": "atrium_court",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A pane onto the sales floor, so whoever is sitting here can see the model and be seen not looking at it.",
+      "light": 0.6,
+      "name": "the internal glazing",
+      "visibility": 0.5
+    },
+    "world_exit_zone": "zone_district_894_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_impression_booth",
+  "map_id": "map_int_hf_impression",
+  "name": "Artist's Impression — The Negotiator's Booth",
+  "parent_zone": "zone_district_894_913"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_snagging_office",
+  "b": "zone_hf_snagging_store",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_hf_snagging_office_east",
+  "lockable": false,
+  "one_way": false
+}

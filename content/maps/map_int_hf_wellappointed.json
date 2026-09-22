@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_wellappointed_lobby",
+  "id": "map_int_hf_wellappointed",
+  "name": "Well Appointed",
+  "parent_zone_id": "zone_district_896_917"
+}

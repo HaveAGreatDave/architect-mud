@@ -1,45 +1,44 @@
 {
   "adorn": [
     {
-      "color": "#b070ff",
-      "cx": 0,
-      "cy": 0.045,
-      "half": 0.42,
-      "kind": "marqueeBand",
-      "label": "AURELIA",
-      "z": 0.093
-    },
-    {
-      "cx": -0.2,
-      "cy": 0.47,
-      "kind": "glowPool",
-      "rgb": "170,110,255",
-      "s": 18,
-      "z": 0.03
-    },
-    {
-      "cx": 0.2,
-      "cy": 0.47,
-      "kind": "glowPool",
-      "rgb": "255,90,200",
-      "s": 16,
-      "z": 0.03
-    },
-    {
-      "cx": 0,
-      "cy": 0.29,
+      "cx": -0.22,
+      "cy": 0.45,
       "kind": "glowPool",
       "rgb": "176,112,255",
-      "s": 9,
-      "z": 0.3
+      "s": 19,
+      "z": 0.022
+    },
+    {
+      "cx": 0.18,
+      "cy": 0.45,
+      "kind": "glowPool",
+      "rgb": "255,120,210",
+      "s": 16,
+      "z": 0.022
+    },
+    {
+      "cx": 0,
+      "cy": 0.33,
+      "kind": "glowPool",
+      "rgb": "246,230,255",
+      "s": 15,
+      "z": 0.195
+    },
+    {
+      "cx": 0.265,
+      "cy": 0.27,
+      "kind": "glowPool",
+      "rgb": "226,194,255",
+      "s": 12,
+      "z": 0.8
     },
     {
       "cx": 0,
       "cy": 0,
       "kind": "glowPool",
-      "rgb": "176,112,255",
+      "rgb": "206,164,255",
       "s": 12,
-      "z": 1.14
+      "z": 1.3
     }
   ],
   "basis": {
@@ -56,118 +55,326 @@
     {
       "cx": 0,
       "cy": 0,
-      "half": 0.44,
-      "hh": 0.0225,
+      "half": 0.4,
+      "hh": 0.007,
       "kind": "parapet",
-      "pal": "ty_aurelia",
-      "z": 0.15
+      "pal": "ty_aur_chrome",
+      "z": 0.04
     },
     {
-      "bars": 4,
       "cx": 0,
-      "cy": 0.44,
-      "depth": 0.023,
-      "glass": "#150f1f",
-      "glow": "#e0c8ff",
-      "half": 0.36,
-      "hh": 0.045,
+      "cy": 0.02,
+      "half": 0.385,
+      "hh": 0.009,
+      "kind": "parapet",
+      "pal": "ty_aur_chrome",
+      "z": 0.4
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.385,
+      "hh": 0.01,
+      "kind": "parapet",
+      "pal": "ty_aur_chrome",
+      "z": 1.235
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.315,
+      "hh": 0.008,
+      "kind": "parapet",
+      "pal": "ty_aur_chrome_dk",
+      "z": 1.445
+    },
+    {
+      "bars": 1,
+      "cx": 0,
+      "cy": 0.395,
+      "depth": 0.026,
+      "glass": "#170f24",
+      "glow": "#f6e6ff",
+      "half": 0.235,
+      "hh": 0.095,
       "kind": "windowBay",
-      "pal": "ty_aurelia",
-      "z": 0.063
+      "pal": "ty_aur_chrome",
+      "z": 0.19
+    },
+    {
+      "bars": 3,
+      "cx": 0,
+      "cy": -0.355,
+      "depth": 0.018,
+      "glass": "#170f24",
+      "glow": "#dcc4ff",
+      "half": 0.22,
+      "hh": 0.085,
+      "kind": "windowBay",
+      "pal": "ty_aur_chrome",
+      "z": 0.19
     },
     {
       "cx": 0,
-      "cy": 0.44,
-      "half": 0.32,
-      "hh": 0.0165,
+      "cy": 0.395,
+      "half": 0.185,
+      "hh": 0.008,
       "kind": "canopy",
-      "out": 0.105,
-      "pal": "ty_aurelia",
-      "soffit": "#6a2ea8",
-      "strip": "#d8a8ff",
-      "z": 0.12
+      "out": 0.13,
+      "pal": "ty_aur_chrome",
+      "soffit": "#5c2a96",
+      "strip": "#eed6ff",
+      "z": 0.072
     },
     {
-      "cx": -0.34,
-      "cy": 0.46,
-      "kind": "bollard",
-      "pal": "ty_aurelia",
-      "z": 0.006
+      "cx": 0,
+      "cy": 0.36,
+      "glow": "#cda4ff",
+      "kind": "pilaster",
+      "n": 7,
+      "out": 0.01,
+      "pal": "ty_aur_chrome",
+      "step": 0.088,
+      "w": 0.011,
+      "z0": 0.4,
+      "z1": 1.16
     },
     {
-      "cx": 0.34,
-      "cy": 0.46,
-      "kind": "bollard",
-      "pal": "ty_aurelia",
-      "z": 0.006
+      "cx": 0,
+      "cy": 0.345,
+      "face": "x",
+      "glow": "#b98cf0",
+      "kind": "pilaster",
+      "n": 8,
+      "out": 0.009,
+      "pal": "ty_aur_chrome",
+      "step": 0.082,
+      "w": 0.01,
+      "z0": 0.4,
+      "z1": 1.16
     },
     {
-      "color": "#1a1020",
-      "cx": 0.15,
-      "cy": 0.33,
+      "cx": 0,
+      "cy": -0.345,
+      "face": "x",
+      "glow": "#b98cf0",
+      "kind": "pilaster",
+      "n": 8,
+      "out": 0.009,
+      "pal": "ty_aur_chrome",
+      "step": 0.082,
+      "w": 0.01,
+      "z0": 0.4,
+      "z1": 1.16
+    },
+    {
+      "color": "#b070ff",
+      "cx": 0,
+      "cy": 0.395,
+      "drop": 0.014,
+      "half": 0.33,
+      "kind": "neonRun",
+      "z": 0.325
+    },
+    {
+      "color": "#e08bff",
+      "cx": 0,
+      "cy": 0.36,
+      "half": 0.31,
+      "kind": "neonRun",
+      "z": 1.14
+    },
+    {
+      "bare": true,
+      "cx": 0,
+      "cy": 0.42,
       "font": "script",
-      "half": 0.055,
-      "ink": "#d9a8ff",
-      "kind": "bladePanel",
+      "half": 0.25,
+      "hh": 0.021,
+      "ink": "#f4e6ff",
+      "kind": "signBoard",
       "label": "AURELIA",
-      "out": 0.035,
-      "pal": "ty_aurelia",
-      "z0": 0.3,
-      "z1": 1.02
+      "z": 0.37
+    },
+    {
+      "color": "#1a1024",
+      "cx": 0.29,
+      "cy": 0.395,
+      "font": "hanzi",
+      "half": 0.045,
+      "ink": "#ff8ce0",
+      "kind": "bladePanel",
+      "label": "$trade",
+      "out": 0.045,
+      "pal": "ty_aur_chrome_dk",
+      "z0": 0.115,
+      "z1": 0.3
+    },
+    {
+      "cx": -0.22,
+      "cy": -0.18,
+      "d": 0.045,
+      "hh": 0.015,
+      "kind": "acUnit",
+      "pal": "ty_aur_chrome_dk",
+      "w": 0.055,
+      "z": 1.235
+    },
+    {
+      "cx": 0.24,
+      "cy": -0.36,
+      "kind": "pipe",
+      "pal": "ty_aur_chrome_dk",
+      "r": 0.01,
+      "z0": 0.42,
+      "z1": 1.14
+    },
+    {
+      "cx": -0.29,
+      "cy": 0.44,
+      "kind": "bollard",
+      "pal": "ty_aur_chrome",
+      "z": 0.004
+    },
+    {
+      "cx": 0.29,
+      "cy": 0.44,
+      "kind": "bollard",
+      "pal": "ty_aur_chrome",
+      "z": 0.004
+    },
+    {
+      "cx": -0.39,
+      "cy": 0.47,
+      "kind": "streetLamp",
+      "out": 0.055,
+      "pal": "ty_aur_chrome_dk",
+      "r": 0.01,
+      "rgb": "190,150,255",
+      "s": 11,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cx": 0.39,
+      "cy": 0.47,
+      "flip": true,
+      "kind": "streetLamp",
+      "out": 0.055,
+      "pal": "ty_aur_chrome_dk",
+      "r": 0.01,
+      "rgb": "190,150,255",
+      "s": 11,
+      "z0": 0,
+      "z1": 0.04
     }
   ],
   "id": "aurelia",
   "neon": "#b070ff",
-  "note": "A boutique on the swanky west side, and the one form on this list that needs no rotation and no curve: the storeys are CANTILEVERED, each shifted off the one below so the stack overhangs itself on alternating sides. It is the cheapest way to break a silhouette — the mass stays square, unyawed and fully trimmed by derivedTrim, and only `cx` moves. ⚠ THE TOP BOX CARRIED A SMALL YAW AND HAD TO LOSE IT: a segment that is both OFFSET and ROTATED puts the derived kit somewhere its own solid does not cover, and the pull that keeps a decal off its surface then drags it out through the building — glself.mjs caught four such points here, and zeroing either the offset or the yaw cleared them. The offset is the whole idea of this building, so the yaw is what went. A cantilever and a rotation are each safe on their own; together on one segment they are not. RENDER_TUNE.legacyArms puts the atelier arm back.\n\n⚠ RESTORED TO THE HEIGHT OF ITS ARM (2026-09-17). The form above is unchanged and was\nnever the problem; what did not carry across from the atelier arm was how tall it stands. It was\nat 67% — 0.80x the storey stack against the arm's 1.20x — so every 'h'-tagged field\nhere was multiplied by 1.500 and every 'fh'-tagged one left alone. The silhouette is identical;\nonly the storeys are taller. Same regression as halcyontowers and thespire, same measurement.\n\n⚠ THE NAME-BLADE IS BACK TOO. The atelier arm hung a slim full-height violet blade by the door\nand lit one restrained vitrine glow; the port kept neither, and ty_aurelia is [38,32,50], so the\nbuilding emitted two sprites and read as an unlit block after dark. A couture house with an\nunlit vitrine is the one thing it cannot be. ⚠ THE BLADE IS A bladePanel AND NOT THE ARM’S\nneonBlade: that kind takes its half-width in SCREEN PIXELS, so it holds one thickness at every\ndistance, never foreshortens, and at a close camera fills the frame as a violet slab with the\nname on it. The Modelshop README says to prefer a panel for anything hung on a building, and a\npanel is cheaper as well — a blade sets shadowBlur.",
-  "pal": "ty_aurelia",
+  "note": "Rebuilt 2026-09-20, three times, and the two failed attempts are the useful part of this note.\n\nTHE FIRST PASS fixed the reported sign bug — the name band was at z 0.093 with a canopy at 0.12\nreaching out over it and a glazed bay spanning 0.018 to 0.108, so it was behind both. On the\npainter a marquee sorts forward of its own wall and drew anyway; on a depth buffer it is simply\nnot there. That half stands, and `sign:stand` and `signband.mjs` are the two gates for it.\n\nTHE SECOND PASS answered \"too boxy\" by making the tower ROUND — three tapering drums with a\nmirrored ring and a dark cap. It stopped being boxy and started being a LIGHTHOUSE. A tapering\ncylinder with a lid on it is one of about four things in the world, and none of them sells\nclothes; the podium under it read as the shed at the foot of it.\n\nSO THE THIRD PASS PUTS THE SHOPFRONT BACK IN CHARGE, which is what \"it does not feel like a\nboutique\" was actually about. A boutique IS its frontage: the building is a display case you are\nallowed to walk into, so the massing has to say that rather than being a tower with a shop under\nit. Four moves, none of which is a silhouette gimmick:\n\n  · ONE SLENDER SHAFT, taller than it is wide, instead of a stack of setbacks. Setbacks are what\n    an office does because its floor plates shrink; a shop has no reason to and looks like an\n    office the moment it pretends to.\n  · A FASCIA AT EYE LEVEL, oversailing the glass, carrying the name in script. That band is the\n    single most recognisable thing a shop has and the old model did not have one at all.\n  · A DEEP CORNICE at the top, oversailing again, with a set-back attic above it. The building\n    ends with a brim rather than a lid.\n  · A CURVED CORNER ORIEL — one slim full-height drum at the front-right corner. That is the\n    round element the second pass wanted, at the size where it reads as a bay window instead of\n    as a chimney.\n\n⚠ THE ORIEL IS PEARL AND NOT `ty_aur_frost`, AND THAT IS NOT A COLOUR PREFERENCE. An authored\ndrum is flat-shaded off WALL_COL — `drawAuthoredModel` builds its skin from the raw RGB and never\nreaches `wallTex` — so the milky pane `matFrost` makes of a dark violet key exists only on a BOX.\nOn a drum the same key is the dark violet it literally is. `ty_aur_pearl` is that answer\npre-mixed, and it is in FROST_WALL all the same because that is what the GL pass shades it by.\n\n⚠ AND EVERY FACE-MOUNTED PART IS ON A BOX. `anchored.mjs` only counts BOX faces as walls, and it\nis right to — a flat slab hung off a cylinder stands in air at every point but one — so the oriel\ncarries no signage, no glazing and no canopy. It is structure, and the boxes either side of it do\nthe talking.\n\n⚠ THE COLONNADE IS A PILASTER RANK AND THE GLAZING IS NOT. A `windowBay` draws its own bars; a\nrank of fins standing proud draws the frame. Both on one face is two sets of mullions a hand\napart, so the shopfront gets the pane and the shaft above it gets the colonnade.\n\n⚠ AND THE ROOF HOARDING IS DECLINED IN `KIT_DECLINE`, by the entry `atelier: [signRoof]`. The\nderived kit finds the highest deck on a building and stands a backlit advertising board on legs\non it, which is wrong on this building whoever built it — that is the test for an entry there.\n\nRENDER_TUNE.legacyArms puts the atelier arm back.",
+  "pal": "ty_aur_chrome",
   "replaces": "atelier",
   "segs": [
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.44,
+      "fd": 0.4,
+      "hw": 0.4,
       "kind": "box",
+      "pal": "ty_aur_chrome_dk",
       "roof": true,
       "z0": 0,
-      "z1": 0.15
+      "z1": 0.04
     },
     {
-      "cx": -0.07,
+      "cx": 0,
+      "cy": 0.02,
+      "fd": 0.375,
+      "hw": 0.355,
+      "kind": "box",
+      "pal": "ty_aur_frost",
+      "roof": true,
+      "z0": 0.04,
+      "z1": 0.34
+    },
+    {
+      "cx": 0,
+      "cy": 0.02,
+      "fd": 0.4,
+      "hw": 0.385,
+      "kind": "box",
+      "pal": "ty_aur_chrome",
+      "roof": true,
+      "z0": 0.34,
+      "z1": 0.4
+    },
+    {
+      "cx": 0,
       "cy": 0,
-      "hw": 0.33,
+      "fd": 0.36,
+      "hw": 0.345,
       "kind": "box",
+      "pal": "ty_aur_frost",
       "roof": true,
-      "z0": 0.15,
-      "z1": 0.48
+      "z0": 0.4,
+      "z1": 1.16
     },
     {
-      "cx": 0.09,
+      "cx": 0,
       "cy": 0,
-      "hw": 0.31,
+      "fd": 0.4,
+      "hw": 0.385,
       "kind": "box",
+      "pal": "ty_aur_chrome",
       "roof": true,
-      "z0": 0.48,
-      "z1": 0.78
+      "z0": 1.16,
+      "z1": 1.235
     },
     {
-      "cx": -0.06,
-      "cy": 0.05,
-      "hw": 0.27,
-      "kind": "box",
-      "roof": true,
-      "z0": 0.78,
-      "z1": 1.02
-    },
-    {
-      "cx": 0.04,
+      "cx": 0,
       "cy": 0,
-      "hw": 0.2,
+      "fd": 0.3,
+      "hw": 0.29,
       "kind": "box",
-      "pal": "ty_archive_col",
+      "pal": "ty_aur_frost",
       "roof": true,
-      "z0": 1.02,
-      "z1": 1.2
+      "z0": 1.235,
+      "z1": 1.4
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.325,
+      "hw": 0.315,
+      "kind": "box",
+      "pal": "ty_aur_chrome_dk",
+      "roof": true,
+      "z0": 1.4,
+      "z1": 1.445
+    },
+    {
+      "cap": true,
+      "cx": 0.265,
+      "cy": 0.27,
+      "kind": "drum",
+      "n": 14,
+      "pal": "ty_aur_pearl",
+      "rb": 0.105,
+      "rt": 0.105,
+      "z0": 0.4,
+      "z1": 1.16
+    },
+    {
+      "cap": true,
+      "cx": 0.265,
+      "cy": 0.27,
+      "kind": "drum",
+      "n": 12,
+      "pal": "ty_aur_chrome",
+      "rb": 0.125,
+      "rt": 0.115,
+      "z0": 1.16,
+      "z1": 1.21
     }
   ]
 }
-

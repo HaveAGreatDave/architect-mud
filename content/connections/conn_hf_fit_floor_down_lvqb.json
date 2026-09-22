@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_fit_floor",
+  "b": "zone_util_zone_hf_fit_floor",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_fit_floor_down_lvqb",
+  "lockable": false,
+  "one_way": false
+}

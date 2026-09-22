@@ -46,6 +46,12 @@ const SEATS = {
   cab: { cls: 'truck', height: 0, eyeH: 0.12, speed: 0.15, r: 14 },
   street: { cls: 'truck', height: 0, eyeH: 0.06, speed: 0, r: 14 },
   air: { cls: 'prop', height: 0.5, eyeH: undefined, speed: 0.4, r: 36 },
+  // ⚠ AND ONE WITH NOTHING IN FRONT OF IT, WHICH IS THE ONE TO JUDGE A BUILDING FROM. The three
+  // above are SEATS: each frames a vehicle, so a third of every shot is cab pillar, dash, canopy
+  // frame or bonnet, and a reviewer comparing two facades is comparing them through a windscreen.
+  // This is `freelook`'s camera — `external` + `hideOwnShip` + a `freeCam` view, the same shape the
+  // staff camera hands the renderer — so the frame is all world and nothing else changes.
+  free: { cls: 'prop', free: true, height: 0, eyeH: undefined, speed: 0, r: 22 },
 };
 
 // ── ⚠ AND A SKY TO GO WITH THE WEATHER WORD ────────────────────────────────────────────────────
@@ -153,6 +159,23 @@ export async function street(opts = {}) {
       // is here because a 3/4 view is how you read a whole terrace, and it is named `eyeH` rather
       // than `zoom` so nobody mistakes it for one.
       height: opts.height ?? S.height, eyeH: opts.eyeH ?? S.eyeH, speed: S.speed,
+      // ── THE FREE CAMERA ────────────────────────────────────────────────────────────────────
+      // ⚠ `freeCam.x/y` IS AN OFFSET FROM THE MAP CENTRE AND NOT A TILE. Handing it a world
+      // coordinate puts the camera four hundred tiles off the window and paints an empty desert,
+      // which reads exactly like the seat not working. `off` is the sub-tile nudge for every other
+      // seat, so it means the same thing here and `mapCenter` still carries the tile.
+      // ⚠ AND `pitch` IS DEGREES HERE, because every other angle this tool takes is. `camPitch`
+      // inside the renderer is radians; conflating the two tips the city fifty-seven times too far,
+      // which is the trap `makeCam`'s own ⚠ is written about.
+      ...(S.free ? {
+        external: true, hideOwnShip: true,
+        freeCam: {
+          x: (opts.off && opts.off.x) || 0, y: (opts.off && opts.off.y) || 0,
+          z: opts.eyeH ?? opts.height ?? 0.12,
+          yaw: (heading || 0) * Math.PI / 180, pitch: (opts.pitch || 0) * Math.PI / 180,
+          roll: 0, fov: opts.fov || 1,
+        },
+      } : {}),
       hour, weather, map, heading,
       // ⚠ THE CENTRE IS A TILE AND THE OFFSET IS WHERE YOU STAND INSIDE IT. A fractional `y` would
       // miss every cell (the snapshot is keyed on integers) and paint an empty world, so standing

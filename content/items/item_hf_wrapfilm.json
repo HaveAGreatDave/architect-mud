@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_wrapfilm",
+  "name": "a roll of pallet wrap",
+  "tags": {
+    "description": "Two hundred metres of it on a cardboard core, clear, and clingy enough that the first three turns are the hardest part of any job it is used for. Sold from behind the counter to anybody who asks and to a number of people who did not.",
+    "stackable": true
+  },
+  "type": "material",
+  "value": 9,
+  "weight": 350
+}

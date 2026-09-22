@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_changeofuse_lobby",
+  "b": "zone_hf_changeofuse_studio",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_changeofuse_lobby_up",
+  "lockable": false,
+  "one_way": false
+}

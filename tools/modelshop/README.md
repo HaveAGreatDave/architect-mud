@@ -734,6 +734,67 @@ back when reach was derived from it) picks whatever is drawn biggest rather than
 most wall: the same frame went from 25.6% of its wall pixels moved to **43%** on the fix, at the same
 twelve lights and the same cost.
 
+### Does a street lamp light the road? — `__glPool()`
+
+Reported from the game as street lights being *"a bit harsh, almost a ball of bright light instead
+of spreading out a more gradual cone around their area"*. Both halves of that turned out to be
+arithmetic, and neither was visible from a screenshot.
+
+⚠ **A LAMP LIT NOTHING AT ALL, WHICH IS EASY TO MISS BECAUSE THE PICTURE LOOKS DELIBERATE.**
+Everything else a light does to the ground here is SPECULAR — the wet streak, the glint, the mirror
+— and all three are gated on water, so a dry night had no term putting a lamp's light on the tarmac
+under it. What you were looking at was the lamp's own disc over a road that had never heard of it.
+`uPool` in `gl/ground.js` is the diffuse half, off the SAME six lights the wet road already ranks
+and uploads: nothing new is collected and nothing is authored.
+
+⚠ **AND THE SECOND HALF IS THE FLOOR UNDER A GLOW'S RADIUS.** `glowPool` draws
+`clamp(s0 / f, 3, 60)` pixels, so past four tiles a lamp stops shrinking while its alpha stays what
+it is at arm's length — at sixteen tiles the disc covers sixteen times the area it should, at full
+strength. Survivable for a building glow, which is one light on one facade; a street lamp is the
+only light in the city that appears in a RECEDING ROW, so a dozen of them land on each other at the
+end of a street and composite into one saturated blob over a dark road. That blob is the report.
+
+⚠ **AND `__street` CANNOT MEASURE THIS, WHICH IS ITS OWN RULE AND WORTH RESTATING.** A first
+attempt to A/B the gain there came back with the control — the same setting rendered twice — moving
+**5.47% of the frame against an effect of 3.93%**. That file freezes no clock and pins no dial on
+purpose, so it is the instrument for the PICTURE and never for the number. `__glPool()` settles the
+fade and then pins `performance.now`, `Date.now` and `Math.random`, and its own control reads 0.00%.
+
+Four columns, and the fourth is the one the wall wash was reverted five times for:
+
+| glPool | moved | mean Δ | peak | road flat |
+|---|---|---|---|---|
+| 0 (control) | 0.00% | 0.000 | 1 | 62.4% |
+| 0.40 | 0.09% | 0.150 | 71 | 59.3% |
+| 0.85 | 0.76% | 0.327 | 71 | 60.2% |
+| **1.20 (ships)** | **1.46%** | **0.471** | **71** | **61.0%** |
+| 1.80 | 2.58% | 0.701 | 70 | 58.9% |
+| 2.40 | 4.17% | 0.938 | 88 | 58.2% |
+
+`road flat` is what share of the road's own pixels sit inside eight levels of each other. It wants
+to hold: past about 2 the pools stop being pools and the carriageway comes up as one sheet, which is
+the failure mode one surface over. `peak` is the other half of the same reading and is FLAT at 71
+from 0.4 to 1.8, because the term adds into the headroom left on the surface rather than onto it —
+**a gain that raises the peak without raising `moved` is growing the ball back**.
+
+⚠ **THE 13:00 ROWS ARE THE CONTROL AND READ 0.00% AT EVERY GAIN.** The light list carries no night
+term by design (`rgbRaw` is unweighted so a wet road goes on reflecting neon at four in the
+afternoon), so `uNight` is the only thing between this and a pink cast on sunlit tarmac — which is
+the bug the wall wash had, and the reason that row is in the table rather than assumed.
+
+⚠ **AND THE FRAME COST IS BELOW THIS MACHINE'S NOISE FLOOR, WHICH IS A STATEMENT AND NOT AN
+OMISSION.** Six iterations of a dot product, a divide and a square root, on ground fragments only,
+in a shader that already runs a six-light streak loop and a six-light scatter loop. Timed with
+`gl.finish()` over three alternating rounds of six frames on a 960×540 street, the minimum with the
+pool ON came back **faster than with it off in two rounds of the three** — 54.1 / 21.6 / 18.6 ms
+against 39.3 / 25.5 / 28.3. A negative reading is the tell. Same rule the sea's own cost table
+carries: a difference inside the run-to-run spread is not a finding.
+
+The picture beside it is `__street({ x: 905, y: 909, heading: 90, hour: 23 })`. ⚠ **Every lamp in
+the baked snapshot is OFF** — `sl` comes from `furniture.light_on`, which the content import
+deliberately leaves at 0 — so a street rendered from it has 84 lamp posts and no lamps. Patch them
+on for the render: `cells` merges onto the snapshot for that one frame and cannot reach the file.
+
 ### Does anything show through a building? — `__glLeak()`
 
 The question the depth-buffer port exists to answer, as a number rather than a screenshot somebody
@@ -1298,6 +1359,86 @@ is where it was finally reported.
 its own words in its own colour and read as a blank rectangle. `ink` is now its own field and
 defaults to whichever of dark/bone can actually be read against the board.
 
+## The searchlight, and the one adornment that leaves the building
+
+`skyBeam` is the twelfth adornment kind and the first whose geometry is not on the building at all:
+a shaft of light off a roof deck, sweeping. A destination nightclub has one instead of a bigger
+sign — you can see it from the far side of the basin and you cannot read it, so the only way to
+find out what it is is to go.
+
+| field | what it is |
+|---|---|
+| `z` | the deck the lamp stands on |
+| `len` | how far the shaft carries, in storeys |
+| `r` / `spread` | half-width at the lamp, and the multiple of that at the far end |
+| `at` / `sweep` | centre bearing in the MODEL's own frame, and the half-angle it swings through |
+| `tilt` | elevation off the horizontal |
+| `period` | one full there-and-back, in ms |
+| `rgb` / `s` | the colour, and the lamp glow at the foot |
+
+⚠ **It is `lightBeam`, and its first cut was a STROKE — which is the whole lesson.** A stroke has a
+length in the world and a width in SCREEN PIXELS, so a beam drawn as one is the same thickness from
+the next street and from ten tiles up, and the only way to make it fade is to cut it into pieces and
+step each one down. That is the exact reasoning `lightBeam`'s own header sets out for the beacon,
+and it applied here word for word: the defect was reported as *"the spotlights are just lines"*.
+
+A cone of light is a line of GLOWS whose radius grows along it, the widths are in TILES, and the
+sprite layer draws them additively and depth-tested — so the club's own drum cuts its beam per pixel
+instead of an all-or-nothing probe. **Nothing new was written for it.** The primitive had existed
+since the beacon was built; reaching for a stroke was reaching past it.
+
+⚠ **It is the lighthouse's beam at a third of the width.** The beacon leaves its lantern 0.31 of a
+tile across and opens to 1.36 over a 6.6-tile throw, because it is a sea light and its whole job is
+to be seen from the water. A rooftop searchlight is a smaller instrument pointed up — see `r`,
+`spread` and `len` in voltage.json.
+
+⚠ **Its duty is 1, the only cycle in the motion layer that never parks.** Everything else there is
+mostly idle, because what makes a crane read as machinery is that it stops; a searchlight that
+stopped for twenty seconds reads as broken. `RENDER_TUNE.motion` 0 still pins it at `at` — a beam
+standing still, never a beam deleted — and `scripts/shapes/moving.mjs` gates both halves.
+
+⚠ **It is night-only, and `moving.mjs` had to be told.** A searchlight at noon is a lamp nobody can
+see, so it draws nothing in daylight; that gate's sweep runs at `night: 0` because machinery works
+in daylight, and `AT_NIGHT` is the per-entry exception rather than a change to all of them.
+
+⚠ **And it starts outside its own lamp**, which is the beacon's note and a depth-buffer fact rather
+than a nicety: a node rooted ON the deck is half inside real geometry, and the buffer takes that
+half — a beam coming out of a dark notch the shape of its own housing.
+
+⚠ **A sprite can declare itself a moving part now, and that is what the rewrite cost.**
+`scripts/shapes/moving.mjs` hashed `canvasResidue`'s default return, which is COUNTS — and every
+entry in it passed by luck, because a slewing crane's own backface culling changes how many quads
+survive. A `lightBeam` cone's node count is a property of the CONE, so it is the same number at
+every bearing: the beams swept perfectly and the gate reported ONE POSE. `pushLight` takes a `tag`
+the way `emitWire` and `emitDecoFill` already did, the digest hashes POSITIONS, and it hashes only
+the parts carrying `MOTION_TAG` — a building drifts smoke, strikes an arc, breathes a vat and pulses
+a beacon on clocks that are not this flag.
+
+## Chrome, and the family that was missing
+
+`ty_hf_chrome` and its neighbours live in `PLAIN_WALL`, whose own comment is exact about what they
+are — a seamless clad panel, flat fill, no coursing, "the difference between chrome and pale stone".
+Pale stone's opposite is not a mirror: that row is `metal: 0.00` with no environment term, so a
+building faced in it reads as pale render at any RGB, and nothing in the city had ever actually
+looked like polished metal.
+
+`CHROME_WALL` is the family that does. The texture carries the WORLD the panel is reflecting — sky
+above, ground below, a hard dark line where they meet — because the specular lobe cannot say it: a
+lobe needs an eye and a texture has none. ⚠ **It tiles, and that is the look rather than a
+compromise**: a mirrored curtain wall is a grid of panels each holding its own copy of the skyline,
+and the joints are what make the repeat read as panels instead of banding. ⚠ **Its `bump` is near
+zero for `lattice`'s reason and not because chrome is smooth** — the relief term reads the albedo's
+own gradient as geometry, and this albedo's biggest gradient by far is the horizon line.
+
+⚠ **A new family rather than a retune of `PLAIN_WALL`.** That set carries 40 keys — every soffit,
+painted kerb, kiosk flank, lighthouse shell and crane body in the game — so giving it a horizon ramp
+and `metal: 0.88` would turn every painted kerb in Coldwater into polished steel to get two
+buildings right.
+
+`FROST_WALL` grew the same way and for the same reason. It held exactly one key for as long as it
+existed, which made it a coolant tank rather than a material; etched glass is what a nightclub's
+dance hall and a couture vitrine are lit through, and neither of those is a vat.
+
 ## Authoring versus the derived kit
 
 `RENDER_TUNE.derivedKit` generates windows, a riser, roof plant and a ground floor for the **127
@@ -1829,3 +1970,55 @@ guards in those helpers are all `if (p.f <= 0.1) return`, and `NaN <= 0.1` is fa
 sailed past its own bailout and painted at NaN coordinates — which a canvas draws as nothing
 at all, with no error. The model rendered perfectly with its neon, beacons and mast silently
 missing, and it had already reached the committed skyline bake that way.
+
+### Does a street with its feed down look like one? — `__glPower()` / `__powerShot()`
+
+The power sim has produced scattered per-building blackouts since it shipped — a severe storm faults
+individual junction boxes offline, and an EMP takes the lot — and until 2026-09-21 the buildings
+never read it. `npm run gl:power` proves the mechanism headlessly (a blackout takes every light to
+0, keeps the lettering, leaves the ironwork standing) and it cannot see the picture, because every
+harness in the repo installs a GL hook that answers null and never reaches a draw call. This is the
+picture.
+
+`__glPower()` paints one night street five ways — the grid up, browning out, dark, dark on an
+emergency circuit, and never wired at all — and reports how much of the BUILDINGS moved, masked
+against a render with no buildings in it. Measured on a 640×360 cab seat at 23:00, 9,312 wall px:
+
+| state | % of wall moved | mean | worst |
+|---|---|---|---|
+| control (lit twice) | 0 | — | 0 |
+| brownout | 8.0 | 7.4 | 59 |
+| dark | 21.6 | 7.0 | 62 |
+| emergency | 25.3 | 5.9 | 62 |
+| off-grid | **0** | — | 0 |
+| emergency vs dark | 10.2 | 6.8 | 37 |
+
+At 13:00 every one of them collapses to the control, which is the design rather than a weak result:
+the day bake is shared by every grid state on purpose, because a building with its feed down looks
+exactly like its neighbours at noon.
+
+⚠ **THE SCENE MUST CARRY PLAIN TYPE BUILDINGS AS WELL AS NAMED ONES, AND A FIRST CUT CARRIED ONLY
+NAMED ONES.** A named model binds its own arm and PAINTS ITS OWN FACADE, so the shared biome wall
+texture — which is where the lit window grid lives, and the grid is most of what a blackout takes
+away — is never reached at all. On a street of landmarks, `dark` and `emergency` came back byte
+identical at 90.8% and worst 60, which reads exactly like the emergency bake not being wired up.
+With plain `bt` buildings in the same scene the pair separates by 2,670 px. The named half still
+earns its place: it is the only half carrying neon, blades and lettering, which is the other thing a
+blackout has to take out.
+
+⚠ **AND THE EMERGENCY PAIR IS COMPARED TO EACH OTHER, NEVER TO THE LIT STREET.** An emergency
+circuit is a small thing beside a blackout, so against `lit` both land on the same figure to a tenth
+of a per cent and the row says nothing about whether the stairwell is drawn. The feature is the
+difference between two dark streets.
+
+⚠ **AND THE CLOCK IS SETTLED, THEN FROZEN.** `fadeLights` ramps over ELAPSED time, so under a clock
+that never advances no light ever reaches its slot and every state comes back identical — a
+correctly wired feature looking exactly like one that is switched off. Same trap, in the same words,
+as the one recorded on `settleFade`.
+
+`__powerShot({state, hour})` paints one of them at 900×500 and leaves it on the canvas, bottom
+right, because "does a blacked-out block read as a blacked-out block" is not a percentage. It is the
+sibling of `__glSeaShot` and exists for the same reason. What it should show: the lit windows, the
+signage and the glows gone, and the buildings still standing — a dark city, not a deleted one. The
+emergency state adds one cold vertical line per facade, which is the stair lit at every landing and
+the one thing a battery is there for.

@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset="utf-8"><title>cab shots</title>
+<style>html,body{margin:0;background:#000}#a{width:820px;height:460px}
+#rearA{position:absolute;left:0;top:0;width:320px;height:180px;visibility:hidden}</style></head>
+<body><div id="a"></div><canvas id="rearA"></canvas>
+<script type="module">
+import * as NEW from './js/panels/windshield.js';
+import { installGL } from './js/panels/gl/install.js';
+NEW.ensureWindshieldStyles();
+document.getElementById('a').innerHTML = NEW.windshieldHTML('shotA','FWD VIEW');
+installGL(() => document.getElementById('shotA'));
+const w = await (await fetch('./flightsim-world.json')).json();
+const W=820,H=460;
+const build=(x,y,r)=>{const N=r*2+1,bare={kind:'land',biome:'badlands',flr:0};
+  return Array.from({length:N},(_,j)=>Array.from({length:N},(_,i)=>w.cells[(x+i-r)+','+(y+j-r)]||bare));};
+const base=(o={})=>{const{x=919,y=912,hour=13,weather='clear',ox=0,oy=0}=o;
+  return {map:build(x,y,14),mapCenter:{x,y},mapOffset:{x:ox,y:oy},hour,weather,
+    wxField:null,acX:x+ox,acY:y+oy,height:0,eyeH:0.12,worldBlend:1,cls:'truck',phase:'cruise'};};
+window.__rear=(o={})=>{const b=base(o);
+  NEW.paintWindshield('rearA',{...b,bare:true,speed:0.15,fovMul:0.62,heading:180,wipers:0,tune:{gl:1}});
+  return document.getElementById('rearA');};
+const view=(o={})=>({...base(o),speed:0.45,heading:0,tier:o.tier??2,hitched:true,phi:14,
+  tune:{gl:1},mph:48,gearLabel:'6',rpmFrac:0.55,fuel:0.62,legFrac:0.4,brakeTemp:0.2,
+  lamps:{trail:true,jake:true,wipe:true},steer:o.steer??0,rearImg:o.rearImg||null,
+  landingLight:true,dome:true,cruise:true,park:false,engineOn:true,wipers:2,jake:true,...(o.view||{})});
+const flatten=(id)=>{const wc=document.getElementById(id),dc=document.getElementById(id+'-dash');
+  const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
+  g.fillStyle='#04070c';g.fillRect(0,0,W,H);g.drawImage(wc,0,0,W,H);if(dc&&dc.width)g.drawImage(dc,0,0,W,H);return c;};
+const save=async(c,n)=>{const b=await new Promise(r=>c.toBlob(r,'image/png'));await fetch('/save?name='+n,{method:'POST',body:b});};
+window.__grab=flatten;
+window.__shot=async(o,n)=>{const v=view({...o,rearImg:window.__rear(o)});
+  NEW.paintWindshield('shotA',v);await new Promise(r=>setTimeout(r,60));
+  NEW.paintWindshield('shotA',v);await save(flatten('shotA'),n);return n;};
+window.__crop=async(o,n,sx,sy,sw,sh,k)=>{await window.__shot(o,'_t.png');const s=flatten('shotA');
+  const c=document.createElement('canvas');c.width=sw*(k||2);c.height=sh*(k||2);const g=c.getContext('2d');
+  g.imageSmoothingEnabled=false;g.drawImage(s,sx,sy,sw,sh,0,0,c.width,c.height);await save(c,n);return n;};
+window.__plane=async(o={},n='plane.png')=>{const b=base(o);
+  const v={...b,cls:o.cls||'prop',hud:true,speed:0.4,heading:o.hdg??42,pitch:o.pitch??-4,bank:o.bank??12,
+    ias:118,alt:2450,vsi:520,vne:160,vs0:48,rpmFrac:0.72,oilTemp:0.52,fuel:0.62,hull:0.88,
+    throttle:0.78,flapNotch:1,rudder:0.25,gearFixed:false,gearDown:true,
+    stall:false,bingo:false,powered:true,altOn:true,landingLight:true,panelLight:false,
+    height:0.3,eyeH:0.5,tune:{gl:1},...(o.view||{})};
+  NEW.paintWindshield('shotA',v);await new Promise(r=>setTimeout(r,60));
+  NEW.paintWindshield('shotA',v);await save(flatten('shotA'),n);return n;};
+window.__ready=1;
+</script></body></html>

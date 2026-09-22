@@ -1,0 +1,8 @@
+{
+  "description": "Laminated, taped over the lower third of the building board, apologising for the lift and giving a date by which it will be resolved. The date has passed. Under the lamination somebody has slid a second, handwritten slip that reads: AND AGAIN.",
+  "flags": {},
+  "id": "furn_hf_quiet_notice",
+  "name": "a printed notice about the lift",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_quiet_desk"
+}

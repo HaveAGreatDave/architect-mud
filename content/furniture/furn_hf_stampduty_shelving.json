@@ -1,0 +1,8 @@
+{
+  "description": "Sixteen runs off a central core, every one of them a different length because the room is round and the core is not in the exact middle. Filed by date rather than by plot, which is the estate's system and not anybody else's, and which means finding a single building means knowing when something happened to it.",
+  "flags": {},
+  "id": "furn_hf_stampduty_shelving",
+  "name": "radiating shelving",
+  "object_type": "container",
+  "zone_id": "zone_hf_stampduty_records"
+}

@@ -8,7 +8,7 @@
   "flags": {
     "floor": "concrete",
     "is_interior": true,
-    "world_exit_zone": "zone_district_919_918"
+    "world_exit_zone": "zone_district_924_914"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -16,5 +16,5 @@
   "id": "zone_util_zone_thumb_shop",
   "map_id": "map_int_thumb",
   "name": "Thumb On The Scale — Utility Room",
-  "parent_zone": "zone_district_919_918"
+  "parent_zone": "zone_district_924_914"
 }

@@ -1,0 +1,19 @@
+{
+  "description": "Screwed to the wall above the change machine, at an angle, with one of the two mounting screws missing and the hole still there. The casing has gone the colour every white plastic thing in a laundromat goes. It has been beeping about its battery on and off for a year and a half.",
+  "flags": {
+    "alarm_panel": true,
+    "alarm_tier": 1,
+    "aliases": "alarm,panel,box,alarm panel,alarm box,intruder panel",
+    "click_cmd": "hack alarm"
+  },
+  "hp": 120,
+  "hp_max": 120,
+  "id": "furn_loadbearing_alarm",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the alarm box",
+  "object_type": "terminal",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_loadbearing_floor"
+}

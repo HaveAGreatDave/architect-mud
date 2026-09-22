@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A round lobby, immaculate, lit, heated, and empty — not empty of people, empty of things. There is a lift. There is a fire notice. There is nothing else: no desk, no chairs, no board, no bin, no plant, nothing on any wall anywhere. It is cleaned on a contract and the contract is honoured, and the stone has the deep even shine of a floor that has been polished a great many times and walked on almost never.",
+  "exits": {
+    "down": "zone_util_zone_hf_bluechip_lobby",
+    "north": "zone_district_901_917"
+  },
+  "flags": {
+    "building_name": "Blue Chip",
+    "building_type": "chrome_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The full circumference, giving the emptiest room in Halcyon Fields the best view of the street in it. From outside after dark the lobby is lit and visible and there is never anybody in it, and that is the single most unsettling thing on Kerbstone Row.",
+      "light": 0.8,
+      "name": "the podium glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_901_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_bluechip_lobby",
+  "map_id": "map_int_hf_bluechip",
+  "name": "Blue Chip — The Lobby",
+  "parent_zone": "zone_district_901_917"
+}

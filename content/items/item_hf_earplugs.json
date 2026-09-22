@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_earplugs",
+  "name": "a pair of wax earplugs",
+  "tags": {
+    "description": "In a little chrome tin with the building crest on the lid, which is not a thing a concierge is supposed to sell and is the single most useful object in the building. She buys them herself and sells them at cost.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 9,
+  "weight": 4
+}

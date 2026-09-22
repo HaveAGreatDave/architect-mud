@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A single round room with the glass sloping away on every side and the floor a polished disc of pale stone. The walls are free-standing panels arranged in a loose spiral, and on them is a great deal of very good work hung four inches too close together. Each piece carries a card with a title, a date, and a six-digit reference number. None of the cards carry a name.",
+  "exits": {
+    "down": "zone_util_zone_hf_assets_hang",
+    "north": "zone_hf_assets_strong",
+    "south": "zone_district_895_913"
+  },
+  "flags": {
+    "building_name": "Fixed Assets",
+    "building_type": "lens_hall",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole perimeter, sloping out and then back in, so the view is of the quarter through about four feet of tinted glass. From in here the towers look shorter than they are.",
+      "light": 0.8,
+      "name": "the lens glazing",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_895_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_assets_hang",
+  "map_id": "map_int_hf_assets",
+  "name": "Fixed Assets — The Hang",
+  "parent_zone": "zone_district_895_913"
+}

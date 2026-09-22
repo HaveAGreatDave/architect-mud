@@ -30,6 +30,7 @@ import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { accrueGrime, grimeBand } from './filth.js';
 import { fitSuffix } from './fittings.js';
+import { installedTrinkets } from '../../client/shared/cab-trinkets.js';
 import { routeOptions } from './routes.js';
 // The crossing's own shape, read rather than reconstructed. ⚠ voidwalking imports nothing from
 // this plugin, so this is a one-way edge and not the load-order tangle routes.js warns about.
@@ -1200,7 +1201,10 @@ const CB_CHATTER = [
   'Somebody sings four bars, thinks better of it, and clicks off.',
 ];
 export function cbLine(player, rig) {
-  if (!rig || rig.cbOff || rig.leg !== 'corridor' || !rig.route) return false;
+  // A cooked set hears nothing, including the ambient voices — and especially the
+  // wreck-ahead warning below, which is the one line on this channel that is
+  // information rather than flavour. Losing it is most of what a dead radio costs.
+  if (!rig || rig.cbOff || truckElecDead(rig) || rig.leg !== 'corridor' || !rig.route) return false;
   // A wreck ahead outranks flavour every time — it is the one thing on this channel that is about
   // where you are going rather than about who else is out here.
   const w = wreckAhead(rig.route, rig.s);
@@ -1362,6 +1366,69 @@ const TRAFFIC_MPH = 6;
 // hundred tiles off the map, drawn confidently, with nothing to say it was wrong.
 const inWorldFrame = (rig) =>
   rig.leg === 'city' || (rig.leg === 'corridor' && !!rig.route?.anchored);
+
+// ── THE DASH ELECTRONICS, AND WHAT AN EMP PULSE DOES TO THEM ─────────────────
+//
+// One timestamp on the rig, RAM-only — a per-tick transient with a durable
+// residue of exactly nothing, which is the persistence tiers' own answer. A
+// restart gives you your GPS back, and that is correct: so does time.
+//
+// ⚠ THE ENGINE IS NEVER TOUCHED. A diesel is compression and fuel; you can pull
+// every fuse in the cab and it will still pull a grade. What dies is the nav
+// head and the radio — the two boxes whose whole job is to be in contact with
+// something that isn't the truck. A pulse that stopped the drive would strand a
+// player four hundred tiles into the void with no recourse, which is a
+// different and much worse feature.
+//
+// ⚠ AND IT IS THE RIG'S CLOCK, NOT THE DRIVER'S. The set is bolted to the truck,
+// so climbing out and back in does not reboot it, and a passenger who takes the
+// wheel inherits a dead dash. `dismountRig` deliberately does not clear it.
+export const truckElecDead = (rig) => Date.now() < (rig?.empUntil || 0);
+
+// Called by the weather plugin's pulse loop, through `vehicle.crewed`.
+export function knockOutTruckElec(rig, until) {
+  if (!rig || until <= Date.now()) return;
+  const already = truckElecDead(rig);
+  rig.empUntil = Math.max(rig.empUntil || 0, until);
+  const player = getLivePlayer(rig.playerId);
+  if (!already && player) {
+    sendToPlayer(player.id, { type: 'output', message:
+      '<span class="text-red">⚡ The dash goes out in one flat crack — the nav head, the CB, the whole lit half of the cab. '
+      + 'The engine never misses a beat, which somehow makes it worse.</span>' });
+  }
+  clearTimeout(rig._empTimer);
+  rig._empTimer = setTimeout(() => {
+    if (truckElecDead(rig)) return;            // a later pulse owns it now
+    rig.empUntil = 0;
+    const p = getLivePlayer(rig.playerId);
+    if (!p) return;
+    sendToPlayer(p.id, { type: 'output', message:
+      '<span class="text-cyan">The nav head strikes, hunts, and finds itself. The CB comes back on a hiss. You have a dash again.</span>' });
+    // ⚠ ONLY IF THEY ARE STILL IN IT. Six minutes is long enough to park, climb
+    // out and walk away, and `pushCab` builds a whole cab payload — a map window,
+    // a traffic scan, a route derivation — and sends it to somebody standing in a
+    // bar, where the panel is not mounted to receive it.
+    if (rigs.get(p.id) === rig) pushCab(rig, {});
+  }, rig.empUntil - Date.now() + 250);
+  rig._empTimer.unref?.();
+}
+
+// Where every crewed rig is, for anything that reaches a vehicle at a coordinate
+// rather than a player in a zone. ⚠ `inWorldFrame` GATES IT, the same test the
+// traffic picture uses: an unanchored legacy route's x/y are perfectly good
+// numbers in a coordinate system nothing else uses, and handing them over as
+// world tiles would have a pulse in Coldwater kill a dash a hundred tiles off
+// the map — or, worse, land its own epicentre out there.
+export function crewedRigs() {
+  const out = [];
+  for (const rig of rigs.values()) {
+    if (!inWorldFrame(rig)) continue;
+    if (rig.x == null || rig.y == null) continue;
+    out.push({ mapId: 'map_world', x: rig.x, y: rig.y, knockOut: (until) => knockOutTruckElec(rig, until) });
+  }
+  return out;
+}
+
 export function truckContactsNear(x, y, range = 26) {
   const out = [];
   for (const rig of rigs.values()) {
@@ -1442,6 +1509,7 @@ function hitchableFor(rig) {
 export function cabContext(rig, extra = {}) {
   const cx = Math.round(rig.x), cy = Math.round(rig.y);
   const city = rig.leg === 'city';
+  const elecOut = truckElecDead(rig);
   return {
     type: 'truck_ctx',
     leg: rig.leg,
@@ -1547,6 +1615,11 @@ export function cabContext(rig, extra = {}) {
     // renderer merges it over the tier row and can reach nothing else (see cabTrim), so a truck
     // that has never been to the bench renders exactly as it always did.
     trim: rig.cd?.trim || null,
+    // And what's hanging off the header, standing on the dash and bolted to the wheel — the ids,
+    // filtered against the catalogue so a retired one wears nothing rather than reaching a renderer
+    // that has never heard of it. This is the ONLY time they're sent: the inside of a cab is the
+    // driver's alone, so unlike `fits` there's no suffix on any contact string.
+    cab: installedTrinkets(rig.cd),
     cargo: rig.cargo ? { name: rig.cargo.name, kg: rig.cargo.kg, to: rig.cargo.toName } : null,
     // The client model owns φ and the brake temperature between frames — it simulates them at
     // 60fps and nothing here could improve on that. What the server owns is WHETHER there is a
@@ -1562,13 +1635,21 @@ export function cabContext(rig, extra = {}) {
     // `destKey` — the exact field the `route` verb sets — so the screen can never say one
     // destination while the tarmac runs to another. Naming only: the aiming, the fork rules and the
     // range check all stay in the verb.
-    aim: city ? null : (rig.route?.destKey || null),
+    aim: city || elecOut ? null : (rig.route?.destKey || null),
     // THE FORK, AS THE VERB SEES IT. Not a second opinion: routeOptions is the one function that
     // answers where this rig can go, and `route` prints the very rows the GPS paints. Distance and
     // whether the tank reaches are the whole value of the screen — a picker that only listed names
     // would be a slower way of typing — and both move (a tune changes the tank, the fork passes
     // behind you), so a copy here would go stale in the one place staleness is dangerous.
-    routes: routeOptions(rig, { zoneId: rig.zoneId, forkAhead: atOrBeforeFork(rig) }),
+    //
+    // ⚠ AND A DEAD SCREEN SENDS NO ROWS AT ALL, rather than sending them and asking the client not
+    // to draw them. A payload the panel is trusted to ignore is a payload something else will read
+    // — the pop-out window, the damage app, a future surface nobody has written yet — and the
+    // whole claim of this feature is that the information is GONE. Same reason `aim` goes with it.
+    routes: elecOut ? null : routeOptions(rig, { zoneId: rig.zoneId, forkAhead: atOrBeforeFork(rig) }),
+    // THE DASH IS DEAD, as one flag the panel skins. The road, the mirrors and the weather are
+    // unaffected — those are the windscreen, not a screen.
+    elecOut,
     node: city ? 0 : rig.node, nodes: city ? 0 : rig.chain.length,
     surface: surfaceUnder(rig),
     // The other half of the traffic picture: aircraft near the truck, so a driver sees a Mule come
@@ -1620,7 +1701,7 @@ export function cabContext(rig, extra = {}) {
     // since it was built — it was waiting for these the whole time.
     ...(() => {
       const s = skyState(rig.x, rig.y);
-      return { hour: s.hour, weather: s.weather, moon: s.moon, wind: s.wind, wxField: s.field, wxEvent: s.event };
+      return { hour: s.hour, weather: s.weather, moon: s.moon, wind: s.wind, wxField: s.field, wxGround: s.ground, wxEvent: s.event };
     })(),
     pump: pumpAt(rig) ? { full: FUEL_FULL, credits: getLivePlayer(rig.playerId)?.credits || 0 } : null,
     ...extra,

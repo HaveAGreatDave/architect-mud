@@ -38,6 +38,7 @@ import { allExits } from '../../server/engine/exits.js';
 import { isResidentOf, getBuildingName } from '../../server/engine/apartments.js';
 import { isVendorClosed, isVendorAbsent, isVendorOffHours, openInPhrase } from '../../server/engine/ai-behaviour.js';
 import { schedule } from '../../server/engine/scheduler.js';
+import { gatherHookSync } from '../../server/engine/plugins.js';
 import { getLockTagPublic } from '../../server/engine/commands/doors.js';
 
 // ── WHICH SHOPS, AND WHO KEEPS THEM ──────────────────────────────────────────
@@ -71,11 +72,41 @@ export function shopVendorsFor(zoneId) {
 // The vendor to quote when this room is shut, or null if it isn't a shop room /
 // someone is still trading. Interiors only: a stallholder standing on a street
 // tile must never lock the street.
+// ── ⚠ A ROOM CAN BE A SHOP AND STILL NOT BE SHUTTABLE ────────────────────────
+//
+// A shop is derived — an NPC with stock and a timetable whose shift is HERE — and that derivation
+// is right almost everywhere and has one failure mode: it cannot tell a shopfront from a room that
+// merely has a trader working in it. Fairweather's covered dock is the case that found it. Marit
+// Colvane sells chandlery, so the hall indexes as her shop and locks at six; the hall is also where
+// players keep their boats, and her shift is in there because `refit` needs a shipwright in the
+// same room as a covered berth, so moving her to fix the door would make a refit unreachable
+// instead. The building's own note has said "the dock does not lock — there is no lock on it" since
+// it was written, against a door that locked every evening and all day Sunday.
+//
+// So the room is asked whether it may be shut at all. ⚠ ASKED HERE AND NOWHERE ELSE, because all
+// three surfaces — the move gate's refusal, the shut provider the room description and minimap
+// paint from, and the closing sweep that puts people out — go through this one function, and a
+// carve-out added to any one of them is a door that says open and refuses, or says shut and lets
+// you through.
+//
+// ⚠ SYNC BY CONTRACT. The move gate and the shut provider are both sync and query-free (the shut
+// provider's own registration says so), and the provider is asked for every cardinal side of every
+// interior tile in the minimap window. A contributor answers out of flags or its own RAM;
+// `gatherHookSync` drops and logs a promise.
+//
+// ⚠ AND IT IS A PROPERTY OF THE ROOM, NOT OF THE PLAYER — which is what makes it different from
+// `livesHere` beside it. That one is "the hours are not about YOU"; this is "this room does not
+// have hours", and the dock is the second kind: a public marina whose slot is open water somebody
+// else's boat is floating in. A player-scoped exemption would lock strangers out of a dock that
+// has no door on it.
+const roomNeverShuts = (zone) => gatherHookSync('shop.neverShuts', zone).some(Boolean);
+
 export function shopClosedFor(zone) {
   if (!zone?.flags?.is_interior) return null;
   const vendors = shopVendorsFor(zone.id);
   if (!vendors.length) return null;
   if (vendors.some(n => !isVendorClosed(n))) return null;
+  if (roomNeverShuts(zone)) return null;
   return vendors[0];
 }
 

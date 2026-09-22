@@ -1,0 +1,11 @@
+{
+  "description": "Run along the top of the wall inside the slot itself, so the hall is lit from the same line the daylight comes in on and there is no fitting anywhere visible from standing height. It fades up on a photocell rather than switching, which is the most expensive thing about the hall.",
+  "flags": {},
+  "id": "furn_light_zone_hf_modcons_hall",
+  "light_type": "cove",
+  "lumen_output": 380,
+  "name": "a light in the clerestory slot",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_modcons_hall"
+}

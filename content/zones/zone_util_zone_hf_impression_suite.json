@@ -1,0 +1,18 @@
+{
+  "description": "Under the drum, where the air handling that keeps the sales floor at one temperature all year actually lives. It is louder down here than the whole rest of the building is quiet.",
+  "exits": {
+    "up": "zone_hf_impression_suite"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_894_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_impression_suite",
+  "map_id": "map_int_hf_impression",
+  "name": "Artist's Impression — The Plant Room",
+  "parent_zone": "zone_district_894_913"
+}

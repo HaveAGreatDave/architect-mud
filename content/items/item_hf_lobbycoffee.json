@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_lobbycoffee",
+  "name": "a cup of lobby coffee",
+  "tags": {
+    "description": "Out of a machine that cost more than the chairs, into a cup with the building crest on it. It is genuinely good, which surprises everybody, because the machine is on the service contract and the service contract was written by the same people who took out the second lift.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 6,
+  "weight": 120
+}

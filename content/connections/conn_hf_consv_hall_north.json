@@ -1,0 +1,9 @@
+{
+  "a": "zone_consv_hall",
+  "b": "zone_consv_bench",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_consv_hall_north",
+  "lockable": false,
+  "one_way": false
+}

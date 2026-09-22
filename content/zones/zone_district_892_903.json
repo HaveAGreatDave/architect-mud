@@ -1,7 +1,12 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_events": [
+    "A cover lifts on a hull up on its cradle, drops back, and lies still.",
+    "The gun on the rise traverses a few degrees and settles again.",
+    "Grit comes off the flats and goes across the clean stone in a thin line."
+  ],
+  "ambient_theme": "coast",
+  "color": "#c6ced4",
+  "description": "The west end of the quay, where the stone stops and the ground goes back to salt and rubble. The Curtain stands up out of the flats a little way off, and the gun nest on the rise above has its barrel pointed out over the water rather than down at you. Between the two, the hardstanding: a fenced apron of concrete with hulls up on cradles under covers.",
   "exits": {
     "east": "zone_district_893_903",
     "north": "zone_district_892_902",
@@ -9,15 +14,16 @@
     "west": "zone_district_891_903"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "glasshouse",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 892,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_892_903",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Halcyon Quay",
   "parent_zone": null
 }

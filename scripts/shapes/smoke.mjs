@@ -462,6 +462,10 @@ async function main() {
   let vehicleLine = 'Vehicle rows: none.';
   try {
     const { bakeVehicles, readVehicleFiles, renderModule } = await import('./bake-vehicles.mjs');
+    // ⚠ WALK THE SCHEMA'S OWN KIND LIST. Both loops below used to spell ['fw','truck'], so a third
+    // kind baked, validated and shipped while neither the orphan check nor the NaN check ever
+    // looked at it — a gate that silently stops covering the newest thing in the family.
+    const { VEHICLE_KINDS } = await import('../../client/shared/vehicle-model-schema.js');
     const { rows, errors } = bakeVehicles(readVehicleFiles());
     for (const e of errors) problems.push(`vehicle row — ${e}`);
     if (!errors.length) {
@@ -476,8 +480,8 @@ async function main() {
       // authored for a class nothing builds — so ask the renderer for the row it would use and
       // fail if it is not the one on disk. This is the vehicle half of the orphan check.
       const veh = await import('../../client/game/js/panels/aircraft3d.js');
-      for (const kind of ['fw', 'truck']) {
-        for (const id of Object.keys(rows[kind])) {
+      for (const kind of VEHICLE_KINDS) {
+        for (const id of Object.keys(rows[kind] || {})) {
           const live = veh.vehicleParamBase(kind, id);
           if (JSON.stringify(live) !== JSON.stringify(rows[kind][id])) {
             problems.push(`vehicle row ${kind}/${id} is authored but the renderer builds from something else`);
@@ -488,14 +492,17 @@ async function main() {
       // a number belongs is legal JSON and legal content, and it reaches the builder as NaN,
       // which paints nothing and throws nothing. Same rule as the adornments' NaN gate: build
       // every authored vehicle and fail on a single non-finite vertex.
-      for (const [kind, id] of [...Object.keys(rows.fw).map((k) => ['fw', k]), ...Object.keys(rows.truck).map((k) => ['truck', k])]) {
+      // ⚠ A TRUCK'S ID IS A VARIANT AND EVERY OTHER KIND'S ID IS THE CLASS. That is the only thing
+      // the kinds disagree about here, so it stays one ternary rather than a table of builders.
+      for (const [kind, id] of VEHICLE_KINDS.flatMap((k) => Object.keys(rows[k] || {}).map((id) => [k, id]))) {
         const faces = kind === 'truck' ? veh.aircraftFaces('truck', 1, false, id) : veh.aircraftFaces(id, 1);
         if (!faces.length) { problems.push(`vehicle row ${kind}/${id} builds no faces at all`); continue; }
         const bad = faces.some((f) => f.p.some((pt) => pt.some((n) => !Number.isFinite(n))));
         if (bad) problems.push(`vehicle row ${kind}/${id} builds a mesh with non-finite vertices — a field is the wrong type`);
       }
-      const n = Object.keys(rows.fw).length + Object.keys(rows.truck).length;
-      vehicleLine = `Vehicle rows: ${n} authored (${Object.keys(rows.fw).length} fixed-wing, ${Object.keys(rows.truck).length} truck); bake current.`;
+      const counts = VEHICLE_KINDS.map((k) => `${Object.keys(rows[k] || {}).length} ${k}`);
+      const n = VEHICLE_KINDS.reduce((a, k) => a + Object.keys(rows[k] || {}).length, 0);
+      vehicleLine = `Vehicle rows: ${n} authored (${counts.join(', ')}); bake current.`;
     }
   } catch (e) {
     problems.push(`vehicle rows — ${e.message}`);
@@ -513,13 +520,13 @@ async function main() {
   let faunaLine = 'Fauna rows: none.';
   try {
     const { bakeFauna, readFaunaFiles, renderModule: renderFaunaModule } = await import('./bake-fauna.mjs');
-    const { rows, errors } = bakeFauna(readFaunaFiles());
+    const { rows, lods, errors } = bakeFauna(readFaunaFiles());
     for (const e of errors) problems.push(`fauna row — ${e}`);
     if (!errors.length) {
       // 1. STALE BAKE, compared as the rendered MODULE rather than row by row.
       const { readFileSync: rf } = await import('node:fs');
       const onDisk = rf(new URL('../../client/shared/fauna-models.js', import.meta.url), 'utf8');
-      if (onDisk.replace(/\r\n/g, '\n') !== renderFaunaModule({ rows }).replace(/\r\n/g, '\n')) {
+      if (onDisk.replace(/\r\n/g, '\n') !== renderFaunaModule({ rows, lods }).replace(/\r\n/g, '\n')) {
         problems.push('stale fauna bake — client/shared/fauna-models.js differs from content/fauna_models/. Run: npm run fauna:bake');
       }
       // 2. THE ROW ACTUALLY REACHES THE MESH — the fauna half of the orphan check.

@@ -298,13 +298,25 @@ const ARCS = {
     phases: { comeup_seconds: 30, peak_seconds: 290 },   // was 20/300, onset is 30
   },
 
-  // ═══ SKIN: where a row's own chemistry disagrees with its family ═════════
-  //
-  // `skinPermeability()` in drugs.js derives this from `drug_family`, which is
-  // right for most of the corpus and wrong for these seven. An override is only
-  // ever worth authoring when the MOLECULE parts company with its family — which
-  // is the whole reason the axis exists, since without it any two drugs in one
-  // carrier are delivered identically.
+};
+
+// ═══ SKIN: where a row's own chemistry disagrees with its family ═══════════════
+//
+// `skinPermeability()` in drugs.js derives this from `drug_family`, which is
+// right for most of the corpus and wrong for these seven. An override is only
+// ever worth authoring when the MOLECULE parts company with its family — which
+// is the whole reason the axis exists, since without it any two drugs in one
+// carrier are delivered identically.
+//
+// ⚠ ITS OWN TABLE, AND IT HAS TO BE. This was written as a section INSIDE `ARCS`,
+// which is one object literal — so `drug_coffee`, `drug_cigarettes`, `drug_ether`
+// and `drug_toluene` were each declared twice and the later, flag-only row won
+// outright. Their whole arcs above — phases, tolerance, withdrawal — never reached
+// the apply loop at all. Nothing said so: JavaScript takes the last key without a
+// word, the script reported success, and the rows it had silently skipped already
+// carried the right numbers from a run made before this section was appended. A
+// rebuild from scratch would not have. Merged below, so a row can have both.
+const SKIN = {
   drug_alcohol: {
     // Ethanol crosses a little and evaporates faster than it crosses, so a
     // systemic dose off the skin is not a thing that happens. Belt and braces
@@ -322,7 +334,6 @@ const ARCS = {
   // toluene has no family at all and ether is filed as a dissociative.
   drug_ether: { flags: { skin_permeability: 0.90 } },
   drug_toluene: { flags: { skin_permeability: 0.90 } },
-  drug_blacktar: { flags: { skin_permeability: null } },
   // ⚠ NO drug_blacktar OVERRIDE, and the first draft had one. Filing it at the
   // morphine end (0.15) reads well and is self-defeating: `item_blacktar` is one
   // of the fourteen liquid vials this pass exists to un-break, and 0.5 × 0.15 is
@@ -332,7 +343,10 @@ const ARCS = {
   // was nearby. An override has to be checked against the CARRIERS it will meet,
   // not just against the pharmacology.
 
-  // ═══ HABITS: rows where repeat use meant nothing ═════════════════════════
+};
+
+// ═══ HABITS: rows where repeat use meant nothing ══════════════════════════════
+const HABITS = {
   drug_joint: {
     tolerance: { gain_per_dose: 0.08, max_reduction: 0.5, recovery_per_sec: 0.000006 },
   },
@@ -340,6 +354,21 @@ const ARCS = {
     tolerance: { gain_per_dose: 0.1, max_reduction: 0.5, recovery_per_sec: 0.00001 },
   },
 };
+
+// ─── fold the side tables in ─────────────────────────────────────────────────
+//
+// A row may appear in more than one table — that is the point of having them. The
+// merge is per-key and `flags` is merged one level deeper, because two tables
+// authoring two different flags on one drug both have to survive.
+for (const side of [SKIN, HABITS]) {
+  for (const [id, extra] of Object.entries(side)) {
+    const base = ARCS[id] || {};
+    ARCS[id] = {
+      ...base, ...extra,
+      ...(base.flags || extra.flags ? { flags: { ...(base.flags || {}), ...(extra.flags || {}) } } : {}),
+    };
+  }
+}
 
 // ─── apply ───────────────────────────────────────────────────────────────────
 const problems = [];

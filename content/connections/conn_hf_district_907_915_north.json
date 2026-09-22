@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_907_915",
+  "b": "zone_hf_newmarket_lobby",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_907_915_north",
+  "lockable": true,
+  "one_way": false
+}

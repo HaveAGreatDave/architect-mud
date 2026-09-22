@@ -1,0 +1,76 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Cab Trinkets</title>
+<!-- A look at the inside of a cab with things in it. Not a gate — scripts/shapes/cabtrinkets.mjs is
+     the gate — this is the surface that answers the question arithmetic cannot: does it look right.
+     Served by the Modelshop's own server so it reaches client/game/js and client/shared. -->
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #14161a; color: #cfd6de; font: 12px/1.4 'DejaVu Sans Mono', monospace; }
+  header { padding: 8px 12px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  select, button { background: #232830; color: #cfd6de; border: 1px solid #39414c; padding: 4px 7px; font: inherit; }
+  .stage { position: relative; width: 760px; height: 428px; margin: 0 12px 12px; }
+  .stage canvas { position: absolute; inset: 0; width: 760px; height: 428px; }
+  label { opacity: .75 }
+  .row { padding: 0 12px 10px; opacity: .7 }
+</style>
+<header>
+  <label>header <select id="hang"></select></label>
+  <label>dash <select id="dash"></select></label>
+  <label>wheel <select id="wheel"></select></label>
+  <label>tier <select id="tier"><option>0</option><option>1</option><option selected>2</option><option>3</option></select></label>
+  <label>hour <input id="hour" type="range" min="0" max="23" value="13" style="width:90px"></label>
+  <button id="drive">drive a bend</button>
+  <button id="brake">stand on the brakes</button>
+</header>
+<div class="stage">
+  <canvas id="cab" width="760" height="428"></canvas>
+  <canvas id="cab-dash" width="760" height="428"></canvas>
+</div>
+<div class="row" id="read"></div>
+<script type="module">
+import { paintWindshield } from '/client/game/js/panels/windshield.js';
+import { TRINKETS, TRINKET_IDS, CAB_SLOTS } from '/client/shared/cab-trinkets.js';
+
+for (const s of CAB_SLOTS) {
+  const sel = document.getElementById(s.id);
+  sel.innerHTML = '<option value="">— nothing —</option>'
+    + TRINKET_IDS.filter((id) => TRINKETS[id].slot === s.id)
+      .map((id) => `<option value="${id}">${TRINKETS[id].name}</option>`).join('');
+  sel.value = TRINKET_IDS.find((id) => TRINKETS[id].slot === s.id);
+}
+
+const R = 12, N = R * 2 + 1;
+const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
+  x === R ? { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 }
+    : { kind: 'land', biome: 'citycore', bt: (x + y) % 5 === 0 ? 'shop' : undefined, flr: (x + y) % 5 === 0 ? 3 : 0 }
+)));
+
+// The g-load, driven the way the cab drives it — a bend held for a while, a brake stab — so the
+// swing and the nod are being watched under the same numbers the sim produces rather than a slider.
+let lat = 0, lon = 0, latT = 0, lonT = 0, tEnd = 0;
+document.getElementById('drive').onclick = () => { latT = 0.30; lonT = 0; tEnd = performance.now() + 2600; };
+document.getElementById('brake').onclick = () => { latT = 0; lonT = -0.55; tEnd = performance.now() + 900; };
+// A way to pin the load and let it settle, for measuring rather than watching. The browser pane
+// throttles requestAnimationFrame when it isn't on screen, so anything timed off the ramp above
+// reads whatever the throttle felt like — this holds a value until it's changed.
+window.__setG = (a, b, ms = 1e9) => { lat = latT = a; lon = lonT = b; tEnd = performance.now() + ms; };
+
+function frame(now) {
+  if (now > tEnd) { latT = 0; lonT = 0; }
+  lat += (latT - lat) * 0.06; lon += (lonT - lon) * 0.10;
+  const cab = CAB_SLOTS.map((s) => document.getElementById(s.id).value).filter(Boolean);
+  paintWindshield('cab', {
+    map, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12, fovMul: 1.22,
+    hour: +document.getElementById('hour').value, weather: 'clear', speed: 0.42, mph: 29,
+    heading: 0, tier: +document.getElementById('tier').value, variant: 'rigid', make: 'VACHON DRAYMAN',
+    mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0, y: 0 },
+    steer: Math.max(-1, Math.min(1, lat * 2.2)), rpm: 1400, gear: 6, console: true,
+    cab, gee: { lat, lon },
+  });
+  document.getElementById('read').textContent =
+    `lat ${lat.toFixed(3)} g · lon ${lon.toFixed(3)} g · ${cab.join(', ') || 'bare cab'}`;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

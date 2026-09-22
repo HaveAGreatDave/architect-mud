@@ -1,0 +1,17 @@
+{
+  "description": "A pigeonhole rack of rolled charts, labelled along the edge. The Basin, the fairway, the approaches, the wrecks.",
+  "flags": {
+    "aliases": [
+      "charts",
+      "rack",
+      "chart"
+    ],
+    "interactions": {
+      "examine": "The wreck chart is the one that has been handled. It is also the only one anybody has bothered to keep up to date, and the newest marks on it are in biro."
+    }
+  },
+  "id": "furn_consv_charts",
+  "name": "the chart rack",
+  "object_type": "furniture",
+  "zone_id": "zone_consv_counter"
+}

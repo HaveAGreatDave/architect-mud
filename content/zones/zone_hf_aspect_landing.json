@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The first collar, and a fair advertisement for every other landing in the building: a pinch about two and a half metres across with a lift on one side and three doors on the other, and no window, because at the collar there is no outside wall to put one in. The brochure has a photograph of this landing taken with a very wide lens from inside the lift.",
+  "exits": {
+    "down": "zone_hf_aspect_lobby"
+  },
+  "flags": {
+    "building_name": "Aspect Ratio",
+    "building_type": "bead_tower",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_aspect_landing",
+  "map_id": "map_int_hf_aspect",
+  "name": "Aspect Ratio — The Narrowest Landing",
+  "parent_zone": "zone_district_903_915"
+}

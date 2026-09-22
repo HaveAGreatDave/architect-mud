@@ -914,6 +914,56 @@ from under it is how teardown gets skipped), and closes each one **by clicking i
 own close control** — never by removing a node. A panel with no close control is
 left alone, exactly as with Escape.
 
+### Seat keys — which surface the keyboard belongs to
+
+The other half of the same question, and the one a focus trap deliberately stays out of.
+A 3-D seat reads its controls off the **window** and steps aside for a focused text field,
+which is the right rule and is also how a driver ends up typing "aaazzzxc" into the command
+bar: the bar sits a few inches under the windscreen, it is where every other part of this
+client wants focus, and nothing about a truck ever asked for it back. So a seat takes the
+keyboard when it mounts and again on any press inside its own pane, and says on the glass
+which of the two has it. Nothing is trapped — clicking the command bar hands it straight back,
+because a driver who wants to say something to the room has to be able to.
+
+That is [seat-keys.js](../client/game/js/panels/seat-keys.js), and it is one implementation of
+something three seats already had. ⚠ **Three of the five carried their own copy and two carried
+none**: the cab (`grabKeys`), the flight sim (`focusSim`) and the charter cabin (`focusPax`) each
+had the same dozen lines, while **free look and the wheelhouse never took the keyboard at all** —
+so in those two it stayed in the command bar for the session and clicking the picture did nothing
+about it. Two of the three copies had no readout either, so the one thing that tells you which
+surface has the keys existed only in the truck.
+
+⚠ **And every copy was bound on the BUBBLE, which the free camera silently beats.**
+`bindFreeCamPointer` binds `pointerdown` on the **capture** phase of the glass and calls
+`stopImmediatePropagation` on what it consumes — deliberately, because the cab has a second
+handler on the same node whose middle-button branch is the chase orbit. Capture on a descendant
+runs before bubble on its ancestor, so with the camera off its mount the press never reached the
+pane and clicking the picture stopped giving the keyboard back, **in the one mode where the
+keyboard is the whole control scheme.** The shared one binds on the document, in capture.
+
+Three rules worth knowing before touching it:
+
+- **`seatHoldsKeyboard()` is derived, never stored** — a seat is mounted and the caret is not in
+  something you type into. That is the same test every seat’s own key handler already makes, so
+  it cannot drift from what actually happens to a key, which is what makes it the right thing for
+  `input.js` to hang its auto-focus on. ⚠ The hand-written list of `isXActive()` calls above that
+  line was already wrong: the **helm is not on it**, so a letter pressed at the wheel pulled focus
+  into the command bar and typed itself.
+- ⚠ **Not every `INPUT` is somewhere you type.** The private copies tested `/^(INPUT|TEXTAREA)$/`,
+  which counts a range slider — and the flight sim’s ⚙ tune panel is two dozen of them.
+- ⚠ **A text field inside a seat is still a text field.** Grabbing on any press inside the pane is
+  right for a picture and wrong for a box somebody is clicking into: the grab blurs it on the way
+  down and the browser’s own default focuses it again, so the caret jumps, a selection is lost and
+  an IME composition is dropped, every click. Nothing in a seat has one today, which is exactly why
+  it is written down rather than left to be discovered.
+
+The gate is [seatkeys-smoke.mjs](../scripts/client/seatkeys-smoke.mjs) (in `client:smoke` **and**
+in the `pretest:regress` chain), mutation-tested 10 of 10. ⚠ Its DOM is a small purpose-built one
+rather than the shared stub, because `seat-harness.mjs` answers `addEventListener` with a no-op —
+right for a panel whose behaviour under test is what it paints, useless for a module whose
+behaviour under test **is** event propagation. ⚠ And the seat list is derived from who calls
+`windshieldHTML(`, the rule `bigscreen-smoke.mjs` already runs on, so a sixth seat arrives as a
+failure rather than as a gap nobody notices.
 ### Naming what the observer promotes
 
 Two more sweeps ride the same per-frame observer, for the same reason it exists:

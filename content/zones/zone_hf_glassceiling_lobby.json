@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Six-sided at the bottom of a building that is six-sided all the way up, and taller than it is wide, which is a thing people notice with their shoulders before they notice it with their eyes. Stone, a desk with nobody at it, and a lift indicator over the doors with twenty numbers on it of which four ever light. It is very quiet and the quiet has a ring to it, because there is no soft surface anywhere in the room.",
+  "exits": {
+    "down": "zone_util_zone_hf_glassceiling_lobby",
+    "east": "zone_district_904_911",
+    "up": "zone_hf_glassceiling_apex"
+  },
+  "flags": {
+    "building_name": "Glass Ceiling",
+    "building_type": "glass_prism",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Five sides of it, out onto the boulevard end of Cowslip Rise and, through the tint, most of the north half of the quarter. The glass is dark enough that the lobby lights are visible in it from inside, layered over the street.",
+      "light": 0.6,
+      "name": "the tinted faces",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_904_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_glassceiling_lobby",
+  "map_id": "map_int_hf_glassceiling",
+  "name": "Glass Ceiling — The Lobby",
+  "parent_zone": "zone_district_904_911"
+}

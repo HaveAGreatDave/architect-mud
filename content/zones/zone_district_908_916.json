@@ -4,7 +4,6 @@
   "description": "The road firms up toward the east end, more used, gritted deeper. Somebody comes this way often enough to keep it open.",
   "exits": {
     "east": "zone_district_909_916",
-    "north": "zone_district_908_915",
     "south": "zone_district_908_917",
     "west": "zone_district_907_916"
   },

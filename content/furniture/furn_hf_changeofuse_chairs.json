@@ -1,0 +1,8 @@
+{
+  "description": "Forty of them in the corner, stacked eight high, because the studio is a meeting room three evenings a week and a residents' association two more. Putting them out takes eleven minutes and putting them away takes six, which Adeyemi has timed.",
+  "flags": {},
+  "id": "furn_hf_changeofuse_chairs",
+  "name": "a stack of chairs",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_changeofuse_studio"
+}

@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A round room with a bright chrome band running round it at head height, continuing the collar through the wall and out the other side, so the building's one piece of vanity does not stop at the front door. Pale stone, three chairs that match each other, and a floor laid in a spiral rather than in bands, which took a fortnight and which nobody has ever remarked on to the people who live here.",
+  "exits": {
+    "down": "zone_util_zone_hf_wellappointed_lobby",
+    "north": "zone_district_896_917",
+    "up": "zone_hf_wellappointed_collar"
+  },
+  "flags": {
+    "building_name": "Well Appointed",
+    "building_type": "bead_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The curve of the lowest bead, out onto Kerbstone Row and, at the east side, a slice of Sorrel Way. In the evening the light comes in off the bright collar outside and lands on the ceiling.",
+      "light": 0.8,
+      "name": "the bulge glazing",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_896_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_wellappointed_lobby",
+  "map_id": "map_int_hf_wellappointed",
+  "name": "Well Appointed — The Lobby",
+  "parent_zone": "zone_district_896_917"
+}

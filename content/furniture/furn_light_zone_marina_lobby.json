@@ -1,0 +1,11 @@
+{
+  "description": "A single continuous cove round the head of the walls, throwing everything at the ceiling and letting the room have what comes back. There is no fitting anywhere in here you could point at, which is the effect being paid for.",
+  "flags": {},
+  "id": "furn_light_zone_marina_lobby",
+  "light_type": "ceiling",
+  "lumen_output": 2600,
+  "name": "the lobby cove",
+  "object_type": "light",
+  "power_draw_kw": 0.24,
+  "zone_id": "zone_marina_lobby"
+}

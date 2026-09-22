@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_longlease_hall",
+  "b": "zone_util_zone_hf_longlease_hall",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_longlease_hall_down",
+  "lockable": false,
+  "one_way": false
+}

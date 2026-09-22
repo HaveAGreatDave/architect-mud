@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A single room and a bathroom off it, curved on the outside wall because the whole building is, with a kitchen run along the flat side and a bed space at the window end. Everything in it is new and nothing in it has been chosen: the units are the estate standard, the floor is the estate standard, and the tap makes a noise on first opening that the brochure did not mention. It is a good flat. Nobody has ever slept in it.",
+  "exits": {
+    "south": "zone_hf_chainfree_landing"
+  },
+  "flags": {
+    "building_name": "Chain Free",
+    "building_type": "bead_tower",
+    "floor": "boards",
+    "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
+    "rent_cost": 200,
+    "window": {
+      "description": "The outside of the bead, north-facing, looking up Kettle Lane toward the boulevard and over the top of the low buildings on Sorrel Way. Cold light, even light, and the glass is triple-glazed so the lane is silent.",
+      "light": 0.7,
+      "name": "the curved window",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_900_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_chainfree_u1",
+  "map_id": "map_int_hf_chainfree",
+  "name": "Chain Free — Flat 3A",
+  "parent_zone": "zone_district_900_914"
+}

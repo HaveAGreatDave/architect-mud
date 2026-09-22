@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Below the hall, and the only straight line in the building: a corridor the whole depth of the plot with boxes floor to ceiling on both sides, all of them the same chrome, all of them numbered, none of them labelled. Every twelve feet there is a shelf that folds down out of the wall and a light over it. There are no cameras in here and a sign at the door says so.",
+  "exits": {
+    "down": "zone_util_zone_hf_safe_corridor",
+    "up": "zone_hf_safe_hall"
+  },
+  "flags": {
+    "building_name": "Safe as Houses",
+    "building_type": "torque_tower",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_safe_corridor",
+  "map_id": "map_int_hf_safe",
+  "name": "Safe as Houses — The Box Corridor",
+  "parent_zone": "zone_district_901_911"
+}

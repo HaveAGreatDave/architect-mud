@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#101820",
+  "color": "#bfe4d8",
+  "description": "Seven floors in four steps down to Cinder Lane, terraced, planted, and fitted to a specification that is listed on a chrome plate beside the door in eleven lines. The eleventh line is the only one anybody reads and it says: CONNECTED TO THE ESTATE NETWORK. What that means in practice is a topic the whole quarter has an opinion about. The door is at the bottom step, under the first terrace, with the chrome plate beside it and a smaller steel one below that which was added later and reads CONNECTIONS — GROUND FLOOR, PLEASE RING. The door is at the bottom step, under the first terrace, with the chrome plate beside it and a smaller steel one below that which was added later and reads CONNECTIONS — GROUND FLOOR, PLEASE RING. The door is at the bottom step, under the first terrace, with the chrome plate beside it and a smaller steel one below that which was added later and reads CONNECTIONS — GROUND FLOOR, PLEASE RING. The door is at the bottom step, under the first terrace, with the chrome plate beside it and a smaller steel one below that which was added later and reads CONNECTIONS — GROUND FLOOR, PLEASE RING. The door is at the bottom step, under the first terrace, with the chrome plate beside it and a smaller steel one below that which was added later and reads CONNECTIONS — GROUND FLOOR, PLEASE RING. The door is at the bottom step, under the first terrace, with the chrome plate beside it and a smaller steel one below that which was added later and reads CONNECTIONS — GROUND FLOOR, PLEASE RING.",
   "exits": {
-    "east": "zone_district_904_914",
-    "north": "zone_district_903_913",
-    "south": "zone_district_903_915",
+    "east": "zone_hf_modcons_hall",
     "west": "zone_district_902_914"
   },
   "flags": {
+    "building_name": "Mod Cons",
+    "building_type": "cascade_block",
     "district": "halcyon_fields",
+    "entrance": "west",
+    "facade": true,
+    "floors": 7,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_902_914"
   },
   "grid_x": 903,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_903_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "MB",
+  "name": "Mod Cons",
   "parent_zone": null
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_906_915",
+  "b": "zone_hf_airrights_foot",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_906_915_north",
+  "lockable": true,
+  "one_way": false
+}

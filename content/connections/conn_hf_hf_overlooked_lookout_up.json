@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_overlooked_lookout",
+  "b": "zone_hf_overlooked_ring",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_overlooked_lookout_up",
+  "lockable": false,
+  "one_way": false
+}

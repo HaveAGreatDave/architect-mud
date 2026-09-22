@@ -15,6 +15,8 @@ import { isPianoKeysLive } from './panels/piano.js';
 // as 'aaaaaaaaazzzzzzzz'. Every other panel that owns the keyboard is already listed here; the cab
 // was the one that never was.
 import { isCabActive } from './panels/cab-view.js';
+import { isFreelookActive } from './panels/freelook-view.js';
+import { seatHoldsKeyboard } from './panels/seat-keys.js';
 import { toggleAutoWalk, startAutoWalk, cancelAutoWalk, isAutoWalkPromptPending, answerAutoWalkPrompt } from './panels/minimap.js';
 import { runMacroByName, runMacroByKey, runMacro, abortMacros } from './panels/smartbar-macros.js';
 import { runAccessibilityCommand } from './a11y-command.js';
@@ -320,6 +322,14 @@ export function initInput({ saveOrigin, notify } = {}) {
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     if (document.getElementById('auth-screen').style.display !== 'none') return;
+    // ⚠ THE DERIVED ONE, AND IT IS WHY THE WHEELHOUSE WAS NEVER ON THE LIST BELOW. Every entry
+    // under this line is a panel somebody remembered to name here, which is a list that is wrong
+    // the day a sixth seat ships — and it already was: the helm reads Esc and O off the window and
+    // is not named, so a letter pressed at the wheel pulled focus into the command box and typed
+    // itself. `seatHoldsKeyboard()` asks the live page instead — a 3-D seat is mounted and the
+    // caret is not in something you type into — which is exactly the test every seat's own key
+    // handler makes, so it cannot disagree with what actually happens to the key. See seat-keys.js.
+    if (seatHoldsKeyboard()) return;
     // The flight sim owns the keyboard (A/Z throttle, Q/E/S views, R/F flaps, …) — don't
     // yank focus into the command box on those single-key presses.
     if (isFlightSimActive()) return;
@@ -334,6 +344,14 @@ export function initInput({ saveOrigin, notify } = {}) {
     if (isTruckDepotWalkActive()) return;
     // …and driving the thing is the same claim as walking round it.
     if (isCabActive()) return;
+    // The detached camera owns the same letters the cab does — W/A/S/D fly it, Q/E turn it — and it
+    // is the one seat that opens on a SERVER MESSAGE rather than on a keypress, so nothing about it
+    // announces itself to this list the way the others did.
+    // ⚠ AND THE COST IS NOT THE MISSING FOCUS. The press is delivered to the body and flies the
+    // camera; the focus then moves here, and the RELEASE for that key is addressed to an INPUT and
+    // dropped by the panel's own typing guard. The key is never let go of: the shot swings at 62°/s
+    // for the rest of the session with nothing held down and nothing on screen to say why.
+    if (isFreelookActive()) return;
     // WASD keyboard movement owns the keys while armed — don't pull focus into
     // the command box (the window-capture handler in main.js drives movement).
     if (state.wasdMove) return;

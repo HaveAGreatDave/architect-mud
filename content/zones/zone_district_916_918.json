@@ -1,24 +1,28 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "city",
+  "color": "#b6b9be",
+  "description": "A single-storey booth on a concrete plinth, raised about four feet so the window is at cab height, with a canopy running out from it over the plates. Grey plate, no windows on three sides, and on the fourth a long sheet of glass with the board's repeater inside it and somebody behind that. A steel stair goes up the side to a door nobody uses from the road.",
   "exits": {
     "east": "zone_district_917_918",
-    "north": "zone_district_916_917",
-    "south": "zone_district_916_919",
-    "west": "zone_district_915_918"
+    "west": "zone_gatescale_booth"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "The Glacis Weigh",
+    "building_type": "weigh_station",
+    "district": "ashway",
+    "entrance": "east",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_917_918"
   },
   "grid_x": 916,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_916_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "GW",
+  "name": "The Glacis Weigh — Booth",
   "parent_zone": null
 }

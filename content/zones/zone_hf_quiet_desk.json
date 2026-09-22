@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A round lobby in the thick of the first bulge, with the spine coming up through the middle of it and the desk built round the spine. Six chairs nobody uses, a rack of post going soft at the edges, and a board of fourteen numbered hooks with eleven keys on it. The floor is very good stone, laid by somebody good, and there is a chip out of it by the lift doors the size of a fist.",
+  "exits": {
+    "down": "zone_util_zone_hf_quiet_desk",
+    "east": "zone_district_892_913",
+    "up": "zone_hf_quiet_show"
+  },
+  "flags": {
+    "building_name": "Quiet Enjoyment",
+    "building_type": "bead_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Curved glass all round at head height, looking out at the mews on one side and, on the other, the hoarding of the plot behind. The glass is good enough that you can hear the crane rather than the traffic.",
+      "light": 0.7,
+      "name": "the bulge glazing",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_892_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_quiet_desk",
+  "map_id": "map_int_hf_quiet",
+  "name": "Quiet Enjoyment — The Concierge Desk",
+  "parent_zone": "zone_district_892_913"
+}

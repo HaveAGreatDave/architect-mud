@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow ground-floor lobby with one lift in it and nothing else: no desk, no cloakroom, four feet of stone floor and a pair of doors. On the wall, a single framed card with the name on it and no menu, no prices and no hours. The lift has two buttons. The upper one does not light until somebody upstairs decides it does.",
+  "exits": {
+    "down": "zone_util_zone_hf_topmarket_lift",
+    "south": "zone_district_898_915",
+    "up": "zone_hf_topmarket_crown"
+  },
+  "flags": {
+    "building_name": "Top of the Market",
+    "building_type": "torque_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The glass of the street doors, and through it the junction: Kerbstone Row going west, Kettle Lane going north, and the tower you are standing in going up out of the frame.",
+      "light": 0.5,
+      "name": "the door glazing",
+      "visibility": 0.6
+    },
+    "world_exit_zone": "zone_district_898_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_topmarket_lift",
+  "map_id": "map_int_hf_topmarket",
+  "name": "Top of the Market — The Restaurant Lobby",
+  "parent_zone": "zone_district_898_915"
+}

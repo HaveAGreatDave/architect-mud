@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_fixedrate_lobby",
+  "id": "map_int_hf_fixedrate",
+  "name": "Fixed Rate",
+  "parent_zone_id": "zone_district_901_912"
+}

@@ -52,6 +52,16 @@ export const TYPE_FLOORS = {
   // A compact harbour crane stands about seven storeys to the slew house, which is what every
   // fraction in its arm — the boom height, the counterweight, the hook travel — is measured against.
   quay_crane: 7,
+  // Fairweather Marina. A pontoon is ONE storey of nothing, exactly as the pier deck is, and every
+  // fraction in its arm is measured against that — the floats and the deck together come to less
+  // than a tenth of it, which is what "freeboard you could step over" means in these units.
+  // A boathouse is 2, matching what the Conservatory's own tile authors: it is a single-volume
+  // hall, but a hall with a gantry over a hull in it and a mezzanine at gantry height is two
+  // storeys TALL even though it has one floor in it, and the arm's barrel roof is measured
+  // against that. Both of these are the fallback for a tile carrying no `flags.floors` (see the
+  // note at the top) — the Conservatory declares its own, so this row only decides the height of
+  // the next one somebody drops without thinking about it.
+  pontoon: 1, boathouse: 2,
 };
 
 // World-z height of one storey, in tile units. Vertically stretched (taller

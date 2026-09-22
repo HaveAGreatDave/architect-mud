@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_919_918",
+  "b": "zone_gatepound_lot",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_919_918_east_pn01",
+  "lockable": true,
+  "one_way": false
+}

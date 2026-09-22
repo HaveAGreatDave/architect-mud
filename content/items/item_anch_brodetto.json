@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_anch_brodetto",
+  "name": "brodetto of basin fish",
+  "tags": {
+    "consumable": true,
+    "description": "Whatever came off the boats that morning, in a broth the colour of rust, with a slab of grilled bread standing in it going slowly soft. Served in the pan it was made in. The waiter tells you what is in it and does not write any of it down.",
+    "restore_hp": 6,
+    "restore_hunger": 52,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 265,
+  "weight": 520
+}

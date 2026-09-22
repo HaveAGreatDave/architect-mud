@@ -1,0 +1,18 @@
+{
+  "description": "Tanks, a pump, a controller with a small screen, and a printed schedule taped beside it that has been followed without exception for two years. The controller reports the health of a planting scheme that does not exist and reports it as good.",
+  "exits": {
+    "up": "zone_hf_terms_hall"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_894_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_terms_hall",
+  "map_id": "map_int_hf_terms",
+  "name": "Terms Agreed — The Irrigation Plant",
+  "parent_zone": "zone_district_894_912"
+}

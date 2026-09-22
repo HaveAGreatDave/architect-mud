@@ -1,0 +1,18 @@
+{
+  "description": "A section of hull sawn clean through and mounted on a stand, showing the lay-up: skin, core, skin, and a stringer let in where the load goes.",
+  "flags": {
+    "aliases": [
+      "cutaway",
+      "section",
+      "moulds",
+      "mould"
+    ],
+    "interactions": {
+      "examine": "A card under it names the layers and their thicknesses. Somebody has written on the card in pencil, in a different hand: \"and this is the one that lets go\"."
+    }
+  },
+  "id": "furn_consv_moulds",
+  "name": "the cutaway",
+  "object_type": "decoration",
+  "zone_id": "zone_consv_bench"
+}

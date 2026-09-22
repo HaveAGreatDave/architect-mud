@@ -1,0 +1,17 @@
+{
+  "description": "An electric kettle with a limescale ring in it, standing on a tray with two mugs and a tin. It is the least Ascendant object within half a mile and it is in plain view of the door.",
+  "flags": {
+    "aliases": [
+      "kettle",
+      "tin",
+      "mugs"
+    ],
+    "interactions": {
+      "examine": "Two mugs. One of them gets used."
+    }
+  },
+  "id": "furn_consv_kettle",
+  "name": "the kettle",
+  "object_type": "appliance",
+  "zone_id": "zone_consv_counter"
+}

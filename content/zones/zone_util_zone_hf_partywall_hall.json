@@ -1,0 +1,18 @@
+{
+  "description": "Below the flank corridor and the same shape, which makes it long and narrow and a genuinely awkward room to get switchgear into. The panel is at the far end. Whoever installed it had to walk the whole length of the building underground to do it and left a mark on the wall with their shoulder the entire way.",
+  "exits": {
+    "up": "zone_hf_partywall_hall"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_partywall_hall",
+  "map_id": "map_int_hf_partywall",
+  "name": "Party Wall — The Cupboard Under",
+  "parent_zone": "zone_district_892_917"
+}

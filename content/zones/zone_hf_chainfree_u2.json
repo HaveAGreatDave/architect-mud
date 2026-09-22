@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The same room as 3A turned a quarter of the way round the bulge, so the curve of the wall runs the other way and the bed space is at the narrow end rather than the wide one. The protective film is still on the kitchen fronts. There is a folded card on the worktop with a phone number on it and a line reading ANY QUESTIONS AT ALL, and it has been there long enough to have curled.",
+  "exits": {
+    "west": "zone_hf_chainfree_landing"
+  },
+  "flags": {
+    "building_name": "Chain Free",
+    "building_type": "bead_tower",
+    "floor": "boards",
+    "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
+    "rent_cost": 200,
+    "window": {
+      "description": "East over Sorrel Way and the backs of the Cinder Lane towers, with a slice of the green between two of them. In the afternoon this room is the warmest in the building and there is nobody in it.",
+      "light": 0.75,
+      "name": "the curved window",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_900_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_chainfree_u2",
+  "map_id": "map_int_hf_chainfree",
+  "name": "Chain Free — Flat 3B",
+  "parent_zone": "zone_district_900_914"
+}

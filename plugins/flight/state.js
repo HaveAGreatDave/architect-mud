@@ -20,7 +20,7 @@ import { streetActors } from '../../server/engine/street-actors.js';
 import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
 import { setDownCompanions, killCompanions } from './companions.js';
 import { isResidentOf } from '../../server/engine/apartments.js';
-import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZonePowerStatus } from '../../server/engine/environment.js';
+import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZonePowerStatus, getZoneEmergencyLighting, getZoneOnGrid, groundAccum } from '../../server/engine/environment.js';
 import { gatherHookSync } from '../../server/engine/plugins.js';
 
 export const TICK_MS = 3000;
@@ -1237,8 +1237,34 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // GRID POWER, and the streetlight standing on this tile.
   //
   // `pw` is the tile's power status straight off the live power sim — an O(1) Map read, no query.
-  // The windshield's traffic signals go dark on it, so a plant failure blacks out the junctions
-  // along with the room lights and the ATMs instead of them cycling away over a dead city.
+  // The windshield's traffic signals go dark on it, and so does every light on the building
+  // standing here, so a plant failure blacks out the junctions and the skyline along with the room
+  // lights and the ATMs instead of them cycling away over a dead city.
+  //
+  // ⚠ THREE STATES, BECAUSE THE SIM HAS THREE AND COLLAPSING TWO OF THEM MADE THE CANOPY LIE.
+  // `offline` cuts every fixture in the zone; `overloaded` is a BROWNOUT — applyPowerLightEffects
+  // keeps the cheap lights on, sheds the expensive ones and flickers whatever is marginal, and
+  // streetlights are explicitly held up as infrastructure that never competes for the pool. This
+  // read was `=== 'powered' ? 1 : 0` for as long as it has existed, so a browning-out block was
+  // reported to the renderer as a full blackout: the junction went dark out of the windscreen
+  // while the room description said the lights were flickering. 1 powered, 2 browning out, 0 dark.
+  //
+  // ⚠ `pw === 0` STILL MEANS EXACTLY WHAT IT MEANT — dark — which is why the signal test that
+  // already reads it needed no change. What moved is that a brownout is no longer one.
+  //
+  // `em` is the EMERGENCY CIRCUIT, and it is only ever set on a dark tile: a zone with
+  // `has_emergency_lighting` keeps a few cold lamps when the grid drops, which the sim has costed
+  // indoors (EMERGENCY_LIGHT_LEVEL) since it shipped and nothing has ever drawn. Asked only when
+  // the answer can matter, because this function runs for every cell of a ~73x73 window.
+  //
+  // ⚠ AND `og` IS THE ONE THAT STOPS THIS BREAKING TWO WHOLE REGIONS. Deadwater is dark BY
+  // CONSTRUCTION — 4,836 orphan `power_zones` rows, one per tile, offline from the first cycle —
+  // and so is the Under. Their arms are lit by flame, oil and carbide, and a renderer that put
+  // those out because the grid said 'offline' would have blacked out the Null's powerhouse for a
+  // fault it has never been capable of having. `getZoneOnGrid` tells a feed that FAILED from a
+  // connection that never existed; the two are identical to the sim and opposites out of a cockpit.
+  // A tile with no `power_zones` row at all answers no too, which is the safe direction: it is
+  // drawn exactly as it was before any of this existed.
   //
   // `sl` is the STREETLIGHT: 1 when this tile has one and it is lit, 0 when it has one that is
   // dark, absent when there is no lamp here. Three states rather than a boolean on purpose — an
@@ -1303,7 +1329,15 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     // feature. These two are the real grid position, because they are what indexed the lookup.
     ? gatherHookSync('wall.tags', cell, x, y).filter((t) => t && t.t && Array.isArray(t.n))
     : undefined;
-  const pw = getZonePowerStatus(cell.id) === 'powered' ? 1 : 0;
+  const pwStatus = getZonePowerStatus(cell.id);
+  const pw = pwStatus === 'powered' ? 1 : pwStatus === 'overloaded' ? 2 : 0;
+  // ⚠ BOTH ARE GATED ON `bt`, AND THAT IS AN EGRESS DECISION RATHER THAN A TIDY-UP. The only
+  // reader of either is `winModeForCell`, which the renderer consults for a BUILDING and nothing
+  // else — the world pass has already `continue`d on a tile with no `bt` before it asks. Sent on
+  // every cell, `og` alone would ride 4,836 Deadwater tiles at about eight bytes each: roughly
+  // 40 KB on a window that already carries `pw`, for an answer about fifteen buildings.
+  const og = pw === 0 && cell.flags?.building_type && !getZoneOnGrid(cell.id) ? 1 : undefined;
+  const em = pw === 0 && !og && cell.flags?.building_type && getZoneEmergencyLighting(cell.id) ? 1 : undefined;
   // `sgn` carries the board's ROWS and its facing, the same way `brd` carries a forecourt's prices:
   // the words are worked out where the road is (which limb, how far, which way the arrow points)
   // and the renderer only paints them. Nothing in the client computes a distance.
@@ -1323,7 +1357,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // an author can get wrong here is a ship sitting inside a quay wall.
   const bf = mark === 'berth' ? (cell.flags?.berth?.fair || 'north') : undefined;
   const bq = mark === 'berth' ? (cell.flags?.berth?.quay || 'west') : undefined;
-  return { kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, plz, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
@@ -1520,9 +1554,11 @@ export function gaugePayload(live) {
     // vtol_only renders correctly without extra art data.
     ground: a.airborne ? null : { theme: groundTheme(parkedZone), field: fieldName(parkedZone), helipad: vtolOnlyField(parkedZone) },
     sky: skyState(a.grid_x, a.grid_y),
-    // Avionics dead (EMP hazard). The client blanks the gauges off this rather
-    // than deriving it — the server owns whether your instruments work.
-    avionicsOut: live.hazard?.type === 'EMP',
+    // Avionics dead (an EMP pulse caught her). The client blanks the gauges off
+    // this rather than deriving it — the server owns whether your instruments
+    // work. It used to read `live.hazard?.type === 'EMP'`; see the note on
+    // knockOutAvionics for why that slot was the wrong place to keep it.
+    avionicsOut: avionicsDead(live),
   };
 }
 
@@ -1551,6 +1587,15 @@ export function skyState(cx = null, cy = null) {
       // itself between packets. `tick` is the field's advect interval (s) — `vx/vy` are per that
       // tick — so the client can extrapolate positions forward and needn't be re-sent every frame.
       field: weatherFieldForClient(env, cx, cy),
+      // How wet the ground already is, how much is standing in it and how deep the snow lies, so a
+      // client that has only just opened its eyes starts where everybody else already is rather
+      // than at dry-and-bare. The renderer adopts it ONCE and integrates from there — see the ⚠ on
+      // `groundAccum` in server/engine/environment.js and the seed in windshield.js.
+      //
+      // ⚠ ON THE SKY, NOT ON `field`. The field packet is nullable — it is omitted outright on a
+      // day with no cells at all, which is exactly the quiet morning after a blizzard when there
+      // is the most lying snow to report — and it is cropped to the viewer, which this is not.
+      ground: groundAccum(),
     };
   } catch { return { hour: 12, weather: 'clear', wind: 0 }; }
 }
@@ -1887,6 +1932,62 @@ export function aircraftNearCoord(x, y, range = 26) {
 export function closeHud(pid) { sendToPlayer(pid, { type: 'cockpit_close' }); }
 export function out(pid, message) { sendToPlayer(pid, { type: 'output', message }); }
 export function toOccupants(live, message) { for (const pid of live.occupants) out(pid, message); }
+
+// ── THE AVIONICS, AND WHAT AN EMP PULSE DOES TO THEM ─────────────────────────
+//
+// One timestamp on the live aircraft. Three things follow from it being here
+// rather than in `live.hazard`, where it lived until an ion storm turned out to
+// grant several minutes of fire immunity (see the note in hazards.js):
+//
+//  • THE SLOT STAYS FREE, so dark panels and an engine fire can happen at once.
+//  • IT IS SELF-CLEARING WITHOUT A TICK. A parked aircraft does not run the
+//    flight tick, so a countdown in ticks would leave a craft that was caught on
+//    the ramp dark until somebody took off in it. A timestamp is true whether
+//    anything is looking, and the "panels come back" line rides a timeout — the
+//    same arrangement the chrome blackout uses, for the same reason.
+//  • THE ENGINE IS UNTOUCHED, deliberately and permanently. A magneto needs no
+//    bus. What dies is the instruments, the radio and the nav — everything that
+//    was listening to something. `F.powered` on the client already reads
+//    `avionicsOut`, so the lamps and the backlight go with them.
+export function avionicsDead(live) { return Date.now() < (live?.empUntil || 0); }
+
+// Called by the weather plugin's pulse loop, through `vehicle.crewed` below.
+export function knockOutAvionics(live, until) {
+  if (!live || until <= Date.now()) return;
+  const already = avionicsDead(live);
+  live.empUntil = Math.max(live.empUntil || 0, until);
+  if (!already) {
+    toOccupants(live, '<span class="text-red">⚡ Every panel in the cockpit dies at once. Gauges, radio, nav — black. The engine runs on, which is the only reason this is survivable. You\'re flying this thing by eye and by feel.</span>');
+  }
+  clearTimeout(live._empTimer);
+  live._empTimer = setTimeout(() => {
+    if (avionicsDead(live)) return;            // a later pulse owns it now
+    live.empUntil = 0;
+    toOccupants(live, '<span class="text-cyan">The panels flicker, stutter, and come back one by one. You have instruments again.</span>');
+  }, live.empUntil - Date.now() + 250);
+  live._empTimer.unref?.();
+}
+
+// Where every CREWED aircraft is, so a pulse can land near one and knock it out.
+//
+// ⚠ OCCUPANTS, NOT AIRBORNE. A pulse that rolls over a field should take the
+// panels of the machine sitting on it with somebody in the seat, exactly as it
+// takes the lights of the hangar behind it — and an aircraft with nobody aboard
+// has no HUD to blank and nobody to tell, so it is left alone rather than
+// silently carrying a dead clock somebody inherits when they climb in.
+export function crewedAircraft() {
+  const out = [];
+  for (const live of liveAircraft.values()) {
+    if (!live.occupants.size) continue;
+    const a = live.row;
+    if (a?.grid_x == null || a?.grid_y == null) continue;
+    out.push({
+      mapId: 'map_world', x: a.grid_x, y: a.grid_y,
+      knockOut: (until) => knockOutAvionics(live, until),
+    });
+  }
+  return out;
+}
 
 // ── Walkable aircraft cabins ──────────────────────────────────────────────────
 // A craft type whose interior is authored as coordinate-free MUD rooms

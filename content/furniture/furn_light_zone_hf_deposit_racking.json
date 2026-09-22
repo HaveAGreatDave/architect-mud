@@ -1,0 +1,11 @@
+{
+  "description": "Corrugated reflectors on a chain, one per bay, wired along the top rail of the racking in a way an inspector would have opinions about. They come on together with a thump you feel through the floor.",
+  "flags": {},
+  "id": "furn_light_zone_hf_deposit_racking",
+  "light_type": "industrial",
+  "lumen_output": 900,
+  "name": "a run of bay lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_deposit_racking"
+}

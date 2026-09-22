@@ -45,6 +45,8 @@ import { openTextHololock, isTextHololockActive, command as textHololockCommand 
 import { openTextVault, isTextVaultActive, command as textVaultCommand } from './panels/textvault.js';
 import { openBombRig, openBombDefuse } from './panels/demolition.js';
 import { openTextBombRig, openTextBombDefuse, isTextDemolitionActive } from './panels/textdemolition.js';
+import { openAlarmPanel } from './panels/alarmpanel.js';
+import { openTextAlarm, isTextAlarmActive } from './panels/textalarm.js';
 import { openTextSignal, isTextSignalActive, command as textSignalCommand } from './panels/textsignal.js';
 import { openTextFishing, isTextFishingActive, command as textFishingCommand } from './panels/textfishing.js';
 import { openTextRead, isTextReadActive } from './panels/textread.js';
@@ -64,6 +66,8 @@ import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, 
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/cab-view.js';
+import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/boat-view.js';
+import { openMarina, closeMarina, marinaSetData, isMarinaActive } from './panels/marina-panel.js';
 import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky } from './panels/freelook-view.js';
 import { receiveCbMsg, applyCbContext, clearCbContext } from './panels/cb-radio.js';
 import { airHorn } from './panels/engine-audio.js';
@@ -82,6 +86,7 @@ import { showAccoladeUnlock } from './panels/accolades-banner.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel, tvSpeak, renderTvSchedule, renderTvDeck, tvViewsForChannel, tvOpenViews } from './panels/tv.js';
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
+import { handleAlarmChirp, applyAlarmState, clearAlarmState } from './alarm.js';
 import { playPokerSfx } from './poker-sfx.js';
 import { showConfirmDialog, showAmountDialog } from './panels/confirm.js';
 import { openSiftPanel, closeSiftPanel } from './panels/sift-select.js';
@@ -340,11 +345,11 @@ function setSleepBar(sleeping, dreaming) {
 // would otherwise wipe the whole application mid-purchase.
 function paneFreeForRoom() {
   return !isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()
-    && !isCabActive() && !isTruckDepotActive() && !isFreelookActive()
+    && !isCabActive() && !isBoatActive() && !isTruckDepotActive() && !isFreelookActive()
     && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
     && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()
     && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive()
-    && !isTextDemolitionActive();
+    && !isTextDemolitionActive() && !isTextAlarmActive();
 }
 
 function autoResolved(msg, onResult) {
@@ -471,6 +476,12 @@ const handlers = {
     if (msg.toLog) appendHtml(msg.logMessage || msg.message, 'look');
     setPaneSilent(!!msg.toLog && free);
     if (state.echoNextLook) { appendMsg('You look around.', 'system'); state.echoNextLook = false; }
+    // The alarm red belongs to a ROOM, so changing rooms drops it and the server
+    // re-asserts it on zone.entered if the place you walked into is still going
+    // off. Clearing optimistically and letting the authority put it back is what
+    // stops a missed clear becoming a red screen for the rest of the session —
+    // there is no timeout behind that class.
+    if (msg.zone && msg.zone !== state.currentZone) clearAlarmState();
     if (msg.zone) { notifyZoneChanged(msg.zone); state.currentZone = msg.zone; }
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
     parseZoneInfo(msg.message);
@@ -561,6 +572,8 @@ const handlers = {
     closeTrade();
     closeAtmPanel();
     closeLootPanel();
+    // Whatever the room you died in was doing, you are not in it any more.
+    clearAlarmState();
     setTimeout(() => { sendCmd('look'); }, 1500);
   },
 
@@ -1459,18 +1472,39 @@ const handlers = {
     // and a truck being driven by nobody. Tearing one down instead is worse — it would strand a rig
     // mid-haul over a camera.
     //
+    // ⚠ AND THE BOAT SEAT WAS MISSING FROM THIS LIST, WHICH IS WHY FREE LOOK HAD A V8 IN IT. The
+    // pilothouse keeps a rAF loop and a WINDOW-CAPTURE key handler, so a camera opened over it did
+    // not merely leave the engine idling — W and S were still reaching the throttle, so the boat
+    // revved and fell away as the free camera moved and it read as audio belonging to the camera.
+    // A seat is a seat: the list is every predicate in paneFreeForRoom that owns #area-content.
+    //
     // The server cannot ask this question (it would have to know about trucking, flight and the
-    // yacht to answer it) and the client already has all three predicates for `paneFreeForRoom`. So
+    // yacht to answer it) and the client already has every one of those predicates for `paneFreeForRoom`. So
     // the refusal is here, and it points at the camera that IS reachable: every one of those seats
     // has this same camera on O. `freelook close` drops the viewer row the server just added, so a
     // refused open leaves nothing behind being pushed sky.
-    if (isFlightSimActive() || isCabActive() || isHelmActive()) {
-      appendHtml('You are in a seat, and a seat keeps the view. Press <b>O</b> for the free camera from here, or get out first.', 'msg-system');
+    if (isFlightSimActive() || isCabActive() || isHelmActive() || isBoatActive()) {
+      // ⚠ THE BOAT HAS NO O CAMERA, so it does not get the other three seats' hint. Pointing a
+      // player at a key that does nothing is worse than the bare refusal.
+      appendHtml(isBoatActive()
+        ? 'You are at the helm, and a seat keeps the view. Get out first.'
+        : 'You are in a seat, and a seat keeps the view. Press <b>O</b> for the free camera from here, or get out first.', 'msg-system');
       sendCmdSilent('freelook close');
       return;
     }
     closeTruckDepot();
-    openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, sky: msg.sky, onExit: () => sendCmdSilent('freelook close') });
+    // ⚠ AND THE SAME MESSAGE CARRIES A VANTAGE. `msg.stand` is a telescope (or whatever else gets
+    // bolted down later) saying "put the camera HERE, on its feet, and leash it" — the same window,
+    // the same sky and the same way out, which is exactly why it is not a second message type. The
+    // close it fires is still `freelook close`, because the viewer row it has to drop is the same
+    // row the staff camera registers.
+    // ⚠ AND THE CAMERA CAN ASK FOR GROUND. The window is 36 tiles around where it opened and the
+    // camera flies anywhere, so past that edge the buildings, lights, signs and the Curtain simply
+    // stop being in the payload — see RECENTER_R in freelook-view.js. It fires the same verb a
+    // person types, which is what keeps the re-centre one path on both sides of the wire.
+    openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, sky: msg.sky, stand: msg.stand || null,
+      onRecenter: (x, y) => sendCmdSilent('freelook ' + x + ' ' + y + ' follow'),
+      onExit: () => sendCmdSilent('freelook close') });
   },
   freelook_close: () => { closeFreelook(); sendCmdSilent('look'); },
   freelook_sky: (msg) => { if (isFreelookActive()) freelookSetSky(msg.sky); },
@@ -1495,6 +1529,20 @@ const handlers = {
   // it sounds: a warning that fires constantly is a warning nobody reads when it matters.
   noop: () => {},
   truck_sim: (msg) => { closeTruckDepot(); openCab(msg); },
+  // The water seat. Same shape as the cab's route above and for the same reason: `openBoat` writes
+  // #area-content directly, so whatever owned the pane has to be told first.
+  boat_sim: (msg) => { closeTruckDepot(); openBoat({ ...msg, onSend: (c) => sendCmdSilent(c), onExit: () => sendCmdSilent('disembark') }); },
+  boat_ctx: (msg) => boatSetWorld(msg),
+  // A fill, on the same beat the credits move. ⚠ THE SAME ADOPTER AS THE WHOLE CONTEXT rather
+  // than a second one: `boatSetWorld` already takes `fuel` off the server and only touches the
+  // keys a message carries, which is exactly what a one-number push wants. A private setter here
+  // would be a second place the gauge can be written and a second place it can be forgotten.
+  boat_fuel: (msg) => boatSetWorld(msg),
+  boat_sim_close: () => closeBoat(),
+  // The yard screen. ⚠ NEVER OVER A SEAT — you can be standing in the marina with the helm open,
+  // and a shop window blowing across the windscreen is the trap `truck_depot` already guards.
+  marina: (msg) => { if (isBoatActive()) return; if (isMarinaActive()) marinaSetData(msg); else openMarina({ ...msg, onSend: (c) => sendCmdSilent(c) }); },
+  marina_close: () => { if (isMarinaActive()) closeMarina(); },
   truck_ctx: (msg) => { cabContext(msg); applyCbContext(msg.cb); },
   // THE CB. Handled here rather than inside the cab panel because the radio has to work at every
   // rung of Display Mode: a driver reading the text run has the same set, on the same channel, and
@@ -1618,6 +1666,28 @@ const handlers = {
     openBombDefuse(args);
   },
 
+  // The shop alarm behind a breached shutter. `seconds` is what is LEFT of the
+  // server's own window, never a per-game constant — see plugins/shopalarm's
+  // header. A board that runs out reports nothing: the server trips it.
+  // The shop alarm behind a breached shutter. 'seconds' is what is LEFT of the
+  // server's own window, never a per-game constant — see plugins/shopalarm's
+  // header. A board that runs the clock out reports NOTHING: the server's sweep
+  // is the only authority on whether the alarm tripped, and a client claiming a
+  // loss there would also cost the player their deck for a race it never lost.
+  alarm_disarm: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'alarmresolve';
+    const args = {
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'ALARM',
+      seconds: msg.seconds ?? 30,
+      onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.alarmId} ${won ? 1 : 0}`),
+    };
+    if (autoResolved(msg, args.onResult)) return;
+    if (msg.render === 'text' && openTextAlarm(args)) return;
+    openAlarmPanel(args);
+  },
+
   synth_minigame: (msg) => {
     // This family has no character board, so at `textgames` it falls back UP to the
     // graphical one — correct, that rung's audience can see it. At `log` the server
@@ -1663,6 +1733,9 @@ const handlers = {
 
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },
+
+  alarm_chirp: (msg) => { handleAlarmChirp(msg); },
+  alarm_state: (msg) => { applyAlarmState(msg); },
 
   // `owner` (set by the broadcast plugin on TV playback) says which surface asked
   // for this song, so closing that surface can stop it without silencing a zone

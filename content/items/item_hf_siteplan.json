@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_siteplan",
+  "name": "a stamped site plan",
+  "tags": {
+    "description": "A proper drawing rather than a picture: plot boundaries, levels, the service runs and the phasing, stamped and dated by somebody with a licence number. It is the only document in the building that distinguishes what is built from what is drawn, which is why it costs eighteen credits and the brochure costs nothing.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 18,
+  "weight": 30
+}

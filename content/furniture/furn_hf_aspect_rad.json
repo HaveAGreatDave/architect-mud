@@ -1,0 +1,8 @@
+{
+  "description": "Eleven straight lengths of chrome set end to end round the curve, close enough to read as one continuous piece from across the room and not from beside it. The joints are at different spacings because the eleventh piece was cut on site.",
+  "flags": {},
+  "id": "furn_hf_aspect_rad",
+  "name": "a segmented radiator",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_aspect_lobby"
+}

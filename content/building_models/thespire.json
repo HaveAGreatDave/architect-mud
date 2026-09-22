@@ -4,12 +4,16 @@
       "at": 0.7854,
       "cx": 0,
       "cy": 0,
+      "depth": 0.8,
       "kind": "helixRunner",
       "n": 22,
+      "period": 5200,
       "r0": 0.5445,
       "r1": 0.2722,
       "rgb": "74,168,255",
+      "rgb2": "214,86,222",
       "turns": 1.8,
+      "waves": 1.5,
       "z0": 0.24,
       "z1": 2.84
     },
@@ -17,12 +21,16 @@
       "at": 3.927,
       "cx": 0,
       "cy": 0,
+      "depth": 0.8,
       "kind": "helixRunner",
       "n": 22,
+      "period": 5200,
       "r0": 0.5445,
       "r1": 0.2722,
       "rgb": "74,168,255",
+      "rgb2": "214,86,222",
       "turns": 1.8,
+      "waves": 1.5,
       "z0": 0.24,
       "z1": 2.84
     },
@@ -34,6 +42,45 @@
       "kind": "marqueeBand",
       "label": "THE SPIRE",
       "z": 0.105
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "frame": "196,212,230",
+      "hz": 0.0687,
+      "kind": "revolveRing",
+      "n": 16,
+      "period": 60000,
+      "r": 0.505,
+      "rgb": "255,206,150",
+      "s": 14,
+      "z": 1.1264
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "frame": "196,212,230",
+      "hz": 0.0687,
+      "kind": "revolveRing",
+      "n": 16,
+      "period": 60000,
+      "r": 0.4343,
+      "rgb": "255,206,150",
+      "s": 14,
+      "z": 2.0718
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "frame": "196,212,230",
+      "hz": 0.0687,
+      "kind": "revolveRing",
+      "n": 16,
+      "period": 60000,
+      "r": 0.3636,
+      "rgb": "255,206,150",
+      "s": 14,
+      "z": 2.6627
     },
     {
       "cx": 0,
@@ -73,22 +120,6 @@
       "rgb": "74,168,255",
       "s": 16,
       "z": 3.06
-    },
-    {
-      "cx": 0,
-      "cy": 0,
-      "kind": "glowPool",
-      "rgb": "74,168,255",
-      "s": 13,
-      "z": 2.0127
-    },
-    {
-      "cx": 0,
-      "cy": 0,
-      "kind": "glowPool",
-      "rgb": "74,168,255",
-      "s": 13,
-      "z": 1.0673
     },
     {
       "cx": 0,
@@ -240,8 +271,8 @@
   ],
   "id": "thespire",
   "neon": "#4fe8ff",
-  "note": "The Ascendant landmark and the tallest thing in Coldwater: thirty floors of blue glass on a hard\nhelix — twenty-two plates over 1.80 radians, about 103 degrees, against Halcyon’s 77. Brushed-metal\ncollars at two mechanical floors, a chamfered crown, a lit lantern, a needle and a mast. Two\nAscendant-blue light-runners trace opposite corners, and the calm-eye seal glows on the plaza at\nits foot.\n\n⚠ IT WAS AT 47% OF ITS ARM, THE WORST OF THE SEVENTEEN AUTHORED MODELS. The asc_spire arm draws\nthe mass to 3.22x the storey stack and the mast to 3.6x; the first authored model stopped at 1.50x\nand dropped the twist and both runners with it — a taper of six plain boxes where the arm had a\nchrome helix. At this tile that is 8.4 against 18.1 in world-z. The heights below are the arm’s own\nfigures to two decimals. The shaft is wider than the arm’s (0.385 against 0.312 at the foot):\nthirty floors on a one-tile footprint is a 26:1 needle at the arm’s proportion, and this is a\nlandmark before it is a spike.\n\n⚠ legacyArms CANNOT REVERT THIS MODEL, and that is worth knowing before trusting the flag on it.\nThe registry merge only records an arm in LEGACY_MODELS when the NAMED slug already held one; this\nmodel binds by name and replaces a TYPE arm, so nothing was displaced and nothing was recorded.\nSeven of the fourteen models that declare `replaces` are in the same position.\n\n⚠ A YAWED BOX STILL LIGHTS ITSELF — the reason this can be a helix at all. A rotated segment goes\nthrough draw3DBoxAt and keeps its wall texture and its lit windows; an authored drum is a flat\npalette shade with no night term, so a round shaft is a black obelisk after dark. What a yawed box\ndoes NOT get is trim: derivedTrim and anchored.mjs both take their wall planes from unyawed boxes\nonly, so the podium carries every part of the detail list and the drum is kept for the needle,\nwhere there is nothing to hang and nothing to light. That was the first model’s finding and it\nstill holds — only the height and the twist were wrong.\n\n⚠ ty_asc_spire IS IN NO *_WALL SET, which is correct here: it falls through to the default window\ngrid, so the shaft is lit by its own windows after dark. Halcyon is GLASS_WALL and reads as floor\nplates instead, which is what keeps the two rivals apart at a distance.",
-  "pal": "ty_asc_spire",
+  "note": "The Ascendant landmark and the tallest thing in Coldwater: thirty floors of mirrored curtain wall\non a hard helix — twenty-two plates over 1.80 radians, about 103 degrees, against Halcyon’s 77.\nThree glass restaurant drums bulge off it at the mechanical floors and turn, a chamfered crown, a\nlit lantern, a needle and a mast. Two Ascendant-blue light-runners trace opposite corners, and the\ncalm-eye seal glows on the plaza at its foot. After dark a magenta pulse travels the runners.\n\n⚠ THE SHAFT IS PALE AND STILL HAS A WINDOW GRID, and those two are one decision. `ty_asc_shaft`\nis in no *_WALL set, which the earlier note below is right about and which is exactly why the\ntower could not simply be re-keyed to CHROME_WALL to make it chrome: that family is a flat clad\npanel with no coursing and no grid, so the whole shaft would go dark every night. What changed is\nthe COLOUR — [30,50,78] poured concrete to [148,172,198] — and the mirror went where there are no\nwindows to lose: the pod collars, the crown and the needle, which are `ty_asc_chrome` and are the\nparts that now swing as you drive past.\n\n⚠ A DRUM IS MASS AND A RESTAURANT TURNS, which is the one thing the pods could have got wrong.\nMass is captured ONCE at a frozen clock and cached on the model’s identity, so a drum whose facet\nangles read the wall clock is animated by GLASS 1, frozen by GLASS 2 and collided with as a third\nshape again, silently. So the glazing never moves: each pod is four ordinary `drum` segments — a\ncollar out, two glass halves meeting at the widest point so it reads as a saucer rather than a\ncan, a collar back in — and the turn is a `revolveRing`, which is strokes and is collected fresh\nevery frame. That is the whole read anyway: a cylinder rotating about its own axis looks exactly\nlike one standing still, and what tells you the restaurant is moving is the window frames going\npast the collar.\n\n⚠ THE BULGE GROWS AS THE TOWER NARROWS, and that is arithmetic rather than taste. A yawed square\nplate’s corners are hw·√2 from the axis, so the lowest pod only clears its own shaft by 6% and\nthe highest by 21%. A drum is NOT clamped to the tile the way `draw3DBoxAt` clamps a half-width,\nso the bottom one is held at 0.50 — the tile edge — rather than given the flare the top one gets.\n\nThe Ascendant landmark and the tallest thing in Coldwater: thirty floors of blue glass on a hard\nhelix — twenty-two plates over 1.80 radians, about 103 degrees, against Halcyon’s 77. Brushed-metal\ncollars at two mechanical floors, a chamfered crown, a lit lantern, a needle and a mast. Two\nAscendant-blue light-runners trace opposite corners, and the calm-eye seal glows on the plaza at\nits foot.\n\n⚠ IT WAS AT 47% OF ITS ARM, THE WORST OF THE SEVENTEEN AUTHORED MODELS. The asc_spire arm draws\nthe mass to 3.22x the storey stack and the mast to 3.6x; the first authored model stopped at 1.50x\nand dropped the twist and both runners with it — a taper of six plain boxes where the arm had a\nchrome helix. At this tile that is 8.4 against 18.1 in world-z. The heights below are the arm’s own\nfigures to two decimals. The shaft is wider than the arm’s (0.385 against 0.312 at the foot):\nthirty floors on a one-tile footprint is a 26:1 needle at the arm’s proportion, and this is a\nlandmark before it is a spike.\n\n⚠ legacyArms CANNOT REVERT THIS MODEL, and that is worth knowing before trusting the flag on it.\nThe registry merge only records an arm in LEGACY_MODELS when the NAMED slug already held one; this\nmodel binds by name and replaces a TYPE arm, so nothing was displaced and nothing was recorded.\nSeven of the fourteen models that declare `replaces` are in the same position.\n\n⚠ A YAWED BOX STILL LIGHTS ITSELF — the reason this can be a helix at all. A rotated segment goes\nthrough draw3DBoxAt and keeps its wall texture and its lit windows; an authored drum is a flat\npalette shade with no night term, so a round shaft is a black obelisk after dark. What a yawed box\ndoes NOT get is trim: derivedTrim and anchored.mjs both take their wall planes from unyawed boxes\nonly, so the podium carries every part of the detail list and the drum is kept for the needle,\nwhere there is nothing to hang and nothing to light. That was the first model’s finding and it\nstill holds — only the height and the twist were wrong.\n\n⚠ ty_asc_spire IS IN NO *_WALL SET, which is correct here: it falls through to the default window\ngrid, so the shaft is lit by its own windows after dark. Halcyon is GLASS_WALL and reads as floor\nplates instead, which is what keeps the two rivals apart at a distance.",
+  "pal": "ty_asc_shaft",
   "replaces": "asc_spire",
   "segs": [
     {
@@ -335,15 +366,52 @@
       "z1": 1.0673
     },
     {
+      "cap": false,
       "cx": 0,
       "cy": 0,
-      "hw": 0.3432,
-      "kind": "box",
-      "pal": "ty_cold",
-      "roof": true,
-      "yaw": 0.5727,
-      "z0": 1.0673,
-      "z1": 1.1855
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_chrome",
+      "rb": 0.4702,
+      "rt": 0.45,
+      "z0": 1.0223,
+      "z1": 1.0577
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_pod",
+      "rb": 0.45,
+      "rt": 0.5,
+      "z0": 1.0577,
+      "z1": 1.1264
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_pod",
+      "rb": 0.5,
+      "rt": 0.45,
+      "z0": 1.1264,
+      "z1": 1.1951
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_chrome",
+      "rb": 0.45,
+      "rt": 0.4455,
+      "z0": 1.1951,
+      "z1": 1.2305
     },
     {
       "cx": 0,
@@ -416,15 +484,52 @@
       "z1": 2.0127
     },
     {
+      "cap": false,
       "cx": 0,
       "cy": 0,
-      "hw": 0.269,
-      "kind": "box",
-      "pal": "ty_cold",
-      "roof": true,
-      "yaw": 1.2273,
-      "z0": 2.0127,
-      "z1": 2.1309
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_chrome",
+      "rb": 0.3712,
+      "rt": 0.387,
+      "z0": 1.9677,
+      "z1": 2.0031
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_pod",
+      "rb": 0.387,
+      "rt": 0.43,
+      "z0": 2.0031,
+      "z1": 2.0718
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_pod",
+      "rb": 0.43,
+      "rt": 0.387,
+      "z0": 2.0718,
+      "z1": 2.1405
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_chrome",
+      "rb": 0.387,
+      "rt": 0.3465,
+      "z0": 2.1405,
+      "z1": 2.1759
     },
     {
       "cx": 0,
@@ -467,14 +572,52 @@
       "z1": 2.6036
     },
     {
+      "cap": false,
       "cx": 0,
       "cy": 0,
-      "hw": 0.21,
-      "kind": "box",
-      "roof": true,
-      "yaw": 1.6364,
-      "z0": 2.6036,
-      "z1": 2.7218
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_chrome",
+      "rb": 0.3093,
+      "rt": 0.324,
+      "z0": 2.5586,
+      "z1": 2.594
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_pod",
+      "rb": 0.324,
+      "rt": 0.36,
+      "z0": 2.594,
+      "z1": 2.6627
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_pod",
+      "rb": 0.36,
+      "rt": 0.324,
+      "z0": 2.6627,
+      "z1": 2.7314
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_asc_chrome",
+      "rb": 0.324,
+      "rt": 0.2845,
+      "z0": 2.7314,
+      "z1": 2.7668
     },
     {
       "cx": 0,
@@ -491,7 +634,7 @@
       "cy": 0,
       "hw": 0.1848,
       "kind": "box",
-      "pal": "ty_cold",
+      "pal": "ty_asc_chrome",
       "roof": true,
       "yaw": 1.8,
       "z0": 2.84,
@@ -502,7 +645,7 @@
       "cy": 0,
       "hw": 0.1578,
       "kind": "box",
-      "pal": "ty_cold",
+      "pal": "ty_asc_chrome",
       "roof": true,
       "yaw": 2.585,
       "z0": 2.84,
@@ -525,7 +668,7 @@
       "cy": 0,
       "kind": "drum",
       "n": 10,
-      "pal": "ty_cold",
+      "pal": "ty_asc_chrome",
       "rb": 0.09,
       "rt": 0.05,
       "z0": 3.14,
@@ -533,4 +676,3 @@
     }
   ]
 }
-

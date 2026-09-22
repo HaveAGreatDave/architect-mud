@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A square room at the bottom of a building that stops being square about four floors up, which is a thing you can feel rather than see: the core is dead centre and the lift doors face you squarely, and everything above the ceiling is quietly going somewhere else. Pale stone, a long bench, a single chrome sculpture that the planning consent calls public art and everybody in the building calls the corkscrew.",
+  "exits": {
+    "down": "zone_util_zone_hf_aboveboard_lobby",
+    "up": "zone_hf_aboveboard_mezz",
+    "west": "zone_district_900_911"
+  },
+  "flags": {
+    "building_name": "Above Board",
+    "building_type": "torque_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole square, floor to soffit, out onto Kettle Lane on one side and the undeveloped strip behind on the other. Looking straight up through it you can see the second floor overhanging the first by about a foot, and the third overhanging the second.",
+      "light": 0.8,
+      "name": "the ground-floor glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_900_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_aboveboard_lobby",
+  "map_id": "map_int_hf_aboveboard",
+  "name": "Above Board — The Lobby",
+  "parent_zone": "zone_district_900_911"
+}

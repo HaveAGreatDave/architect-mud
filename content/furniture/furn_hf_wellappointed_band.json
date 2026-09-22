@@ -1,0 +1,8 @@
+{
+  "description": "Head height, continuous, carried straight through the glass at two points with a joint so fine you have to look for it. It reflects the whole room back at you slightly compressed, and everybody who waits for the lift in here ends up looking at themselves in it and then looking away.",
+  "flags": {},
+  "id": "furn_hf_wellappointed_band",
+  "name": "the chrome band",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_wellappointed_lobby"
+}

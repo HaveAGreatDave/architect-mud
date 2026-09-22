@@ -1,0 +1,280 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Pardoe writes a reference number on a form, tears off the top copy, and files the other two without looking.",
+    "He glances at the ceiling panel that flickers, which he does about once an hour and has never mentioned to anyone.",
+    "Somebody at the counter starts a sentence with \"I appreciate it is not your fault, but\" and he nods before they finish it.",
+    "He straightens the laminated card, which is screwed down and does not move.",
+    "He drinks about a third of a cup of tea and puts it down out of reach of the counter edge."
+  ],
+  "description": "A heavyset man in his fifties at the counter in a shirt and tie with the tie loosened exactly one inch, no more. He has the specific patience of somebody who has explained the same distinction four thousand times and has never once let it show. When he says he is sorry he means it, and when he says there is nothing he can do he means that too.",
+  "dialogue_tree": {
+    "amber": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He looks at the plan through the doorway for a second, then back at you.\n\n\"Green is let. Red is in dispute.\" He leaves a gap. \"Amber is not a status. Amber is a note to me.\"\n\n\"Every one of those has a crane on it and a completion date that has moved twice. I mark them so I know which ones to ring about before somebody at this counter asks me a question I cannot answer.\" He straightens the pad. \"It has stopped working. There are eleven of them now.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\" The pad comes back under his hand."
+    },
+    "company": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A different company from the one on the hoardings, yes.\" He says it as though confirming the weather. \"Same building, same money, different registration. There is a reason and the reason is the reason you think it is.\"\n\n\"If a claim ever lands, it lands on this one, and this one is me, four desks and a basement.\""
+    },
+    "covers": {
+      "options": [
+        {
+          "label": "That sounds like most of it isn't covered.",
+          "next": "covers2"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Common parts.\" He taps the card. \"Every line on there has the word in it. Cleaning of common parts, lighting of common parts, maintenance of common parts.\"\n\n\"What that means in practice is that if a thing is inside your front door it is yours, and if it is outside your front door it is common, and if it is the front door itself we have had four separate opinions on that and none of them in writing.\""
+    },
+    "covers2": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "covers"
+        }
+      ],
+      "text": "\"Most of it is covered.\" A pause. \"Most of what goes WRONG is not, because what goes wrong in a new building is the fit-out and the fit-out is inside your door.\"\n\nHe does not enjoy this part and does not hide that either.\n\n\"I have written it up three times. The answer that came back was that the schedule was agreed at purchase and the purchasers had the benefit of advice. Which they did. It was our advice.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What does the charge actually cover?",
+          "next": "covers"
+        },
+        {
+          "label": "Can I have a copy of anything?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who is Estate Management Ltd?",
+          "next": "company"
+        },
+        {
+          "label": "The amber tacks on your plan.",
+          "next": "amber"
+        },
+        {
+          "label": "Nothing today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Afternoon.\" He takes his hand off the pad. \"If it is the charge, I can tell you what it covers. If it is a repair, I will need the plot number.\"",
+      "text_by_relation": {
+        "familiar": "He has the pad out and a reference number already written on the top sheet.\n\n\"Go on then,\" he says. \"And before you ask, yes, I did put it up the line, and no, they have not come back.\"",
+        "first": "The man at the counter finishes a form, squares it, and gives you the whole of his attention, which after the first second is slightly unnerving.\n\n\"Ellery Pardoe, estate office.\" He turns the laminated card a few degrees toward you. \"That is what the charge covers. Anything not on that is not covered, and I would rather say so now than at the end.\"\n\nHe says it without a shred of defensiveness. It is not his list.",
+        "known": "\"Back.\" He reaches for the pad before you have said anything, then stops himself. \"Sorry. Habit. Go on.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a white shirt, ironed, with the cuffs turned back one fold each",
+      "a dark tie loosened by exactly one inch",
+      "grey trousers and a belt on the fourth hole",
+      "shoes polished on the toe and not on the sides",
+      "a plain vest and shorts"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_groundrent_back",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_hf_pardoe",
+  "name": "Ellery Pardoe",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_chargecopy",
+      "price": 4
+    },
+    {
+      "item_id": "item_hf_planprint",
+      "price": 25
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Ground Rent",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_groundrent_counter"
+}

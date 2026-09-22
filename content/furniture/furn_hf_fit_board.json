@@ -1,0 +1,8 @@
+{
+  "description": "A chrome frame with slots for a hundred and twenty name cards. There are nineteen cards in it. Four of them are in the same handwriting, which is the manager filling in the corners so the board does not look like what it is.",
+  "flags": {},
+  "id": "furn_hf_fit_board",
+  "name": "a members' board",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_fit_floor"
+}

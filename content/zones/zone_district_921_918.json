@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "Peg Lane comes out here and the camp opens in front of you, a few hundred tents on flat ground with lanes between them barely wide enough to walk. Somebody is always sitting at this end, and they always look up.",
+  "description": "Peg Lane comes out here and the camp opens in front of you, a few hundred tents on flat ground with lanes between them barely wide enough to walk. Somebody is always sitting at this end, and they always look up. Half the people sat out here have been up at the Gate Road since first light with a cup, and the other half went out through it after something with a bounty on its parts. Which half anybody is in changes week to week.",
   "exits": {
     "east": "zone_district_922_918",
     "north": "zone_district_921_917",

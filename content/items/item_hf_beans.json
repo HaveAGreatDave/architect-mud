@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_beans",
+  "name": "a bag of roasted beans",
+  "tags": {
+    "description": "A kilo in a foil bag with a hand-stamped label and a roast date written on in pen. The stamp is a chalkboard with nothing on it, which took her three goes to get right and is the only piece of graphic design she has ever paid for.",
+    "stackable": true
+  },
+  "type": "food",
+  "value": 46,
+  "weight": 250
+}

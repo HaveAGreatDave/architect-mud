@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The top of the shaft, where the six faces have come in far enough that the room is barely wider than the lift and the point is another two storeys above your head with nothing in it. The glass leans inward on every side, so you stand with your forehead nearly on it and the ground directly below you, which is a thing very few buildings let you do. There is a rail. Nobody uses the rail.",
+  "exits": {
+    "down": "zone_hf_overlooked_lobby",
+    "up": "zone_hf_overlooked_ring"
+  },
+  "flags": {
+    "building_name": "Overlooked",
+    "building_type": "glass_prism",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Six inward-sloping faces, so the view is straight down as much as out: the whole quarter, the Basin beyond it, and the Curtain running away east and west with the light going up it.",
+      "light": 1,
+      "name": "the leaning glass",
+      "visibility": 1
+    },
+    "world_exit_zone": "zone_district_903_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_overlooked_lookout",
+  "map_id": "map_int_hf_overlooked",
+  "name": "Overlooked — The Lookout",
+  "parent_zone": "zone_district_903_911"
+}

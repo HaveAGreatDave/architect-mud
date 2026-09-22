@@ -1,0 +1,19 @@
+{
+  "description": "Under the washing lines on an upturned crate, lit, with nothing on it. It is doing the job a fire would do if anybody here were allowed a fire.",
+  "flags": {
+    "aliases": "stove,burner,camping stove",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_camp_stove_zone_district_925_915",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a camping stove",
+  "object_type": "appliance",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_district_925_915"
+}

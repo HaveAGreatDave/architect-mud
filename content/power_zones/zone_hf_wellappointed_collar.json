@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_wellappointed_lobby",
+  "id": "zone_hf_wellappointed_collar",
+  "name": "Well Appointed — The First Collar",
+  "source_type": "junction_box"
+}

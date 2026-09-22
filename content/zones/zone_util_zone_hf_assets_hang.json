@@ -1,0 +1,18 @@
+{
+  "description": "In the stair core under the floor of the lens: the chillers, the humidifiers and the monitoring that keeps the strongroom inside a band half a degree wide. There is a paper chart on the wall with a pen tracing it, which is a redundancy nobody has ever removed.",
+  "exits": {
+    "up": "zone_hf_assets_hang"
+  },
+  "flags": {
+    "floor": "metal",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_assets_hang",
+  "map_id": "map_int_hf_assets",
+  "name": "Fixed Assets — The Conditioning Plant",
+  "parent_zone": "zone_district_895_913"
+}

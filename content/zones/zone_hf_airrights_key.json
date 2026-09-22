@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The room in the top of the arch: a glazed box thirty feet long with the floor of it a single sheet of something you can see straight down through, out over the road, out over the quarter, and on a clear day out to where the Basin stops being water. It is free to come up and there is nothing to buy. Two benches face outward. Nobody sits on them; everyone stands at the glass with their hands behind their back.",
+  "exits": {
+    "down": "zone_hf_airrights_foot"
+  },
+  "flags": {
+    "building_name": "Air Rights",
+    "building_type": "chrome_arch",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Three sides and the floor. The Curtain runs west to east across the bottom of the view, the city stacks up to the north, and the whole of Halcyon Fields lies underneath you looking, from here, considerably emptier than it does from the street.",
+      "light": 1,
+      "name": "the span glazing",
+      "visibility": 1
+    },
+    "world_exit_zone": "zone_district_906_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_airrights_key",
+  "map_id": "map_int_hf_airrights",
+  "name": "Air Rights — The Key",
+  "parent_zone": "zone_district_906_915"
+}

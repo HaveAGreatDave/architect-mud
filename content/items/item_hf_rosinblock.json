@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_rosinblock",
+  "name": "a block of rosin",
+  "tags": {
+    "description": "Amber, brittle, and kept in a tin tray by the barre for anybody whose shoes are slipping on boards that were laid over an office floor and have never quite stopped being slightly too fast.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 5,
+  "weight": 40
+}

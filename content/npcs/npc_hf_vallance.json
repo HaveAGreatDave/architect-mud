@@ -1,0 +1,267 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Vallance writes a time in the book, turns the book a quarter turn, and squares it to the counter edge.",
+    "He watches one tile on the wall for a while, then goes back to the counter without doing anything about it.",
+    "He refills the sweet bowl from a box under the counter and shakes the box afterwards to hear how much is left.",
+    "A pass comes back on its lanyard and he hangs it on its own numbered hook rather than the nearest one.",
+    "One of the dark tiles flickers, briefly shows a crane, and goes dark again. He does not look up."
+  ],
+  "description": "A broad, still man behind a high counter in a dark contractor's jacket with no company name on it, who watches you come up Cowslip Rise on a screen before you reach the door and is standing at the counter by the time you do. He is polite in the specific way of somebody who has decided in advance that he is going to be.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Take a sweet. Nobody takes the sweets.\" He squares the book to the counter edge again."
+    },
+    "dark": {
+      "options": [
+        {
+          "label": "Does the map bother you?",
+          "next": "map"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Plots with cranes on them.\" He does not turn round to look. \"Camera goes up when the hoarding does, because the hoarding is what gets stolen. Then the plot stops and the camera stops with it, and the estate will not pay a line rental on a feed of a building site nobody is working.\"\n\nHe taps the counter once.\n\n\"So there are eleven black squares on that wall and they are all in the right place, and after a while you stop seeing eleven broken screens and start seeing the map.\""
+    },
+    "map": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It is a good wall.\" A pause that is longer than it needs to be. \"Somebody laid it out to match the ground. Took a weekend. It was me.\"\n\nHe almost shrugs.\n\n\"What bothers me is that when one of the black ones comes back on, I will notice from across the room. I have thought about that. There is no version of this job where you get to not notice.\""
+    },
+    "rent": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"One credit a year, hundred and fifty years.\" He says the numbers like a man who has checked them. \"A peppercorn. It is a real thing in a lease — you put a nominal rent in so that there is a rent, because a lease with no rent in it is a different document.\"\n\n\"The developer thought it was funny. It is in the contract. And every year somebody in the estate office raises an invoice for one credit and somebody here pays it, and they will both be dead long before it runs out.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What are the dark screens?",
+          "next": "dark"
+        },
+        {
+          "label": "What can I get from you?",
+          "next": "__shop__"
+        },
+        {
+          "label": "One credit a year?",
+          "next": "rent"
+        },
+        {
+          "label": "Just passing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Signing in?\" He has the book turned round and the pen on top of it.",
+      "text_by_relation": {
+        "familiar": "He has the pass off the hook before you reach the counter and the sweet bowl pushed a little way toward you, which from him is a considerable amount.\n\n\"Nothing on the wall today,\" he says. \"Which I am telling you because you are one of about four people who asks.\"",
+        "first": "The man behind the counter is already standing when you come through the door, which means he saw you coming, which is the whole of what this building is.\n\n\"Vallance. Front desk.\" He turns the book round. \"You do not have to sign. Everybody does, because I put the book there, and putting the book there does most of my job for me.\"\n\nHe nods at the glass partition and the wall of screens behind it.\n\n\"That is the rest of it. Forty-one cameras, eleven of them looking at nothing yet. Take a pass if you are going to be on the estate a while. It is free and it saves you being asked.\"",
+        "known": "\"You are in the book already.\" He says it as a greeting. \"Pass is on its hook.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a dark contractor's softshell with the company patch unpicked from the sleeve",
+      "a plain shirt buttoned to the collar",
+      "cargo trousers with nothing in most of the pockets",
+      "boots with the toes scuffed pale and the rest kept black",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_peppercorn_wall",
+  "hp": 44,
+  "hp_max": 44,
+  "id": "npc_hf_vallance",
+  "name": "Hektor Vallance",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_visitorpass",
+      "price": 0
+    },
+    {
+      "item_id": "item_hf_cylinder",
+      "price": 40
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Peppercorn Front Desk",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_peppercorn_desk"
+}

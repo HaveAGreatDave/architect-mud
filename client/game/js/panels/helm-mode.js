@@ -12,6 +12,8 @@
 
 import { openHelmChase } from './helm-view.js';
 import { createHelmWheel } from './helm-wheel.js';
+import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
+import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 
 // The passage length is now the server's authoritative `ms` (distance × the throttle bell), streamed
 // on helm_underway; the telegraph derives a local placeholder timer from the same bell math and the
@@ -109,6 +111,19 @@ export function ensureHelmStyles() {
     body.helm-freecam .helm-chips, body.helm-freecam .helm-freecam-hint{ transition:opacity .5s ease; }
     body.helm-freecam.freecam-idle .helm-chips,
     body.helm-freecam.freecam-idle .helm-freecam-hint{ opacity:0; pointer-events:none; }
+    /* ── BIG SCREEN: THE SAME QUESTION, A SHORTER ANSWER ─────────────────────
+       The two blocks above ask what is still a CONTROL while the camera is off its mount, and
+       keep the chips because two of them are ways out. This asks what is in the PICTURE, and the
+       answer is everything — the way out of big screen is Esc and the mode's own hint says so, so
+       the chips go with the console and the placard.
+       ⚠ AN ALLOW-LIST, the same shape and for the same reason as the rules above it: the next
+       thing somebody hangs over this chase view is out of the shot the day it is added.
+       '.ws-label' is 'ECHELON · AFT' in the corner, which is a caption, and '.ws-frame''s ::after
+       is glazing on a wheelhouse the camera is not inside. */
+    body.bigscreen .helm-root > *:not(.helm-chase){ display:none !important; }
+    body.bigscreen .helm-root .ws-label,
+    body.bigscreen .helm-root .ws-frame::after{ display:none; }
+    body.bigscreen .helm-root{ border-radius:0; }
     .helm-console, .helm-console-face{ pointer-events:none; }
     .helm-left, .helm-right, .helm-tele, .helm-nav-bezel{ pointer-events:auto; }
     /* The console is now a single machined BLACK-GLASS station in every state — an expensive slab of
@@ -373,8 +388,10 @@ export function openHelm(opts = {}) {
         <span class="helm-chip"><b data-wx>CLEAR</b></span>
         <span class="helm-chip"><b data-time>--:--</b></span>
         <button class="helm-icon" data-chart title="chart a course">🗺</button>
+        <button class="helm-icon" data-seat title="the bridge — stand at the wheel and ride her">⌖</button>
         <button class="helm-icon" data-hide title="collapse the panel — hide the log">⊟</button>
         <button class="helm-icon" data-fs title="fullscreen — hide the log + command bar">⛶</button>
+        <button class="helm-icon" data-big title="${BIGSCREEN_TITLE}">${BIGSCREEN_GLYPH}</button>
         <button class="helm-icon exit" data-exit title="leave the helm">✕</button>
       </div>
       <div class="helm-dash">
@@ -793,6 +810,22 @@ export function openHelm(opts = {}) {
   mapClearBtn.addEventListener('click', clearCourse);
   mapGoBtn.addEventListener('click', () => engageCourse(Math.max(knobP, 0.6)));
   root.querySelectorAll('[data-chart]').forEach(el => el.addEventListener('click', openChart));
+  // ── THE SEAT ────────────────────────────────────────────────────────────────────────────────
+  //
+  // Chase or bridge. The chase is the right view for admiring a boat and the wrong one for being in
+  // a sea: from behind and above, a wave is a texture on the water and the horizon is nailed to the
+  // frame. On the bridge the eye is ON her, so the horizon goes up and down the window — which is
+  // the whole reason the ride exists and the one thing the chase can never show.
+  //
+  // ⚠ IT REFLECTS THE CONTROLLER RATHER THAN KEEPING ITS OWN FLAG. `ctrl.toggleBridge()` returns
+  // the seat it landed on, so the button cannot get out of step with the view even if something
+  // else moves it.
+  root.querySelectorAll('[data-seat]').forEach((el) => el.addEventListener('click', () => {
+    const on = ctrl && ctrl.toggleBridge ? ctrl.toggleBridge() : false;
+    el.classList.toggle('on', on);
+    el.textContent = on ? '⎈' : '⌖';
+    el.title = on ? 'the bridge — back to the chase camera' : 'the bridge — stand at the wheel and ride her';
+  }));
 
   // Orbit / zoom on the sea — the chase cam stays fixed on the boat and arcs around it.
   let drag = false, lx = 0, ly = 0;
@@ -817,6 +850,16 @@ export function openHelm(opts = {}) {
     if (on) { document.body.classList.remove('helm-fullscreen'); fsBtn.classList.remove('on'); }   // collapse supersedes fullscreen
     fitCamera();
   });
+  // ⤢ big screen — the rung above ⛶, and a different layer rather than a third mutually-exclusive
+  // one: it takes the PAGE (header, sidebar, log, command bar) and the wheelhouse's own chrome with
+  // it, and leaves whatever ⛶/⊟ were set to for when Esc brings you back. bigscreen.js keeps the
+  // lit state, since Esc can leave the mode without this button being touched.
+  bindBigScreenButton(q('[data-big]'));
+  // ⌨ …and the keyboard, which this seat has never taken. Esc leaves the helm and O takes the
+  // camera off its mount, and both of them are read off the WINDOW and dropped the moment a text
+  // field has focus — so a player who had clicked the command bar once was standing at a wheel
+  // whose two keys did nothing, with nothing on screen saying why. See seat-keys.js.
+  claimSeatKeyboard(root, { label: 'HELM' });
   q('[data-exit]').addEventListener('click', () => { closeHelm(); onExit(); });
 
   // Default to the hide-panel view: fold the scrollback log so the helm fills the whole column
@@ -861,7 +904,7 @@ export function openHelm(opts = {}) {
     if (env) { q('[data-time]').textContent = env.time; q('[data-wx]').textContent = (env.weather || 'clear').toUpperCase(); }
   }, 100);
 
-  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, fitRO, stopChart: closeChart, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); stripAlive = false; cancelAnimationFrame(stripRaf); } };
+  _helm = { mount, root, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, fitRO, stopChart: closeChart, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); stripAlive = false; cancelAnimationFrame(stripRaf); } };
   return { ctrl, wheel, close: () => { closeHelm(); onExit(); }, setPosition: (gx, gy) => ctrl.setPosition(gx, gy), setHeading: (h) => ctrl.setHeading(h), setSky: (sky) => ctrl.setSky(sky) };
 }
 
@@ -878,6 +921,8 @@ export function closeHelm() {
   try { h.stopNav?.(); } catch {}
   try { h.stopChart?.(); } catch {}
   document.body.classList.remove('helm-fullscreen', 'helm-hidepanel');
+  exitBigScreen();   // …and the rung above them, which owns the page rather than the pane
+  endSeatKeyboard(h.root);   // the keyboard goes back to the command bar with the wheelhouse
   try { h.wheel?.destroy(); } catch {}
   try { h.ctrl?.destroy(); } catch {}
   try { if (window.__helmCtrl === h.ctrl) delete window.__helmCtrl; } catch {}

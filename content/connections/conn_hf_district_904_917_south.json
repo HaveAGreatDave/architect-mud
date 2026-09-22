@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_904_917",
+  "b": "zone_hf_snagging_office",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_district_904_917_south",
+  "lockable": true,
+  "one_way": false
+}

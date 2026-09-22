@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#101a24",
+  "color": "#bfe2ff",
+  "description": "Two low curved wings folded round a glass drum, all of it lit from inside at a level that does not change between noon and midnight. The doors are automatic and open at eight feet, which is further out than anyone expects. Across the drum, in chrome letters spaced wide enough to read from the boulevard: HALCYON FIELDS — A NEW QUARTER. Under it, much smaller, a line of legal type nobody has ever stood close enough to finish.",
   "exits": {
-    "east": "zone_district_895_913",
-    "north": "zone_district_894_912",
-    "south": "zone_district_894_914",
+    "east": "zone_hf_impression_suite",
     "west": "zone_district_893_913"
   },
   "flags": {
+    "building_name": "Artist's Impression",
+    "building_type": "atrium_court",
     "district": "halcyon_fields",
+    "entrance": "west",
+    "facade": true,
+    "floors": 3,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_893_913"
   },
   "grid_x": 894,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_894_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "AI",
+  "name": "Artist's Impression",
   "parent_zone": null
 }

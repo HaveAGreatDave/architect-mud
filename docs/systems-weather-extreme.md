@@ -257,8 +257,15 @@ Two changes to the pulse, both about it being an event you are inside rather tha
   the dark is the building-level distribution failing in a block — the same layer ordinary storm faults
   take one box at a time. A quarter of the map goes out **with an edge you can walk to**, which makes
   *where was it centred* a question worth asking. `{ all: true }` restores the old whole-grid behaviour,
-  and an epicentre that can't be placed (or whose blast is empty) falls back to it rather than no-op:
-  a hero event that announces itself and then does nothing is worse than one that overreaches.
+  and an epicentre that **can't be placed at all** falls back to it rather than no-op: a hero event that
+  announces itself and then does nothing is worse than one that overreaches.
+  ⚠ **An empty blast is no longer that case.** It used to be — "no junction boxes in reach" also fell
+  back to the whole grid — and that stopped being right the moment a pulse could do something other
+  than take lights. A pulse centred on a rig four hundred tiles out in the void holds a crewed vehicle
+  and no buildings; blacking out every generator in the world because of it is exactly the light-switch
+  behaviour the radius exists to end. It returns `generators: 0` with an empty `darkened`, and
+  ⚠ **an empty `darkened` announces nothing** — the peak line a minute earlier was the beat, and telling
+  the city its lights had died while they were plainly still on is worse than saying nothing.
 - **Two announce lines, because the blackout now has an outside.** In it: *"Every light around you dies
   at once."* Out of it, with a view: *"Across the rooftops a whole quarter of the city goes out at once."*
   Sealed or buried outside the blast hear nothing — nothing happened to their lights.
@@ -269,6 +276,65 @@ Two changes to the pulse, both about it being an event you are inside rather tha
 
 Player generators are still spared throughout — the unplugged genset in the back room is preparation
 that should visibly pay off.
+
+### And it takes the electronics out of whatever was driving through it
+
+*(built 2026-09-21)* An aeroplane, a truck and the Echelon all lose their instruments, their navigation
+and their radios when a pulse lands on them. **The engine never stops.** Five things shape it.
+
+- **The pulse carries its own footprint.** `weather.empPulse` used to carry a duration and nothing else,
+  so every subscriber's only possible rule was *everybody, everywhere* — which is why a pilot on the far
+  side of the Basin lost their avionics to a storm that took a quarter of Coldwater's lights. It now
+  carries `{ minutes, mapId, x, y, radius, wholeGrid }`, and ⚠ **`empReaches` in
+  [environment.js](../server/engine/environment.js) is the ONE function that reads them**. Three
+  consumers ask it — the junction boxes, the fry rule and every vehicle — and a second copy of the
+  Chebyshev test anywhere would be a second opinion about where the edge is, which is precisely the
+  number a player standing on that edge can see.
+- ⚠ **The epicentre can land on a vehicle, and it has to.** `getOccupiedZones` reads `current_zone`, and
+  for anybody in a vehicle that field is a lie about where they are: an airborne pilot's is the field
+  they left, a trucker's is the void room they are notionally still in. Rolled from zones alone the pulse
+  could never land near the three surfaces this feature exists for. So `pulseEpicentre` also gathers
+  **`vehicle.crewed`** (sync — three RAM registries) and those positions join the pool.
+- **Targets arrive by gather hook and carry their own `apply()`** — the same arrangement `tech.targets`
+  uses. Each entry is `{ mapId, x, y, knockOut(untilMs) }`, so the weather plugin runs one loop and never
+  learns what an aircraft is; a fourth vehicle joins by answering the hook. ⚠ **CREWED, not merely
+  existing**: this list also decides where a pulse can *land*, so offering an empty airframe would be
+  rolling the storm's epicentre onto furniture.
+- ⚠ **Transient, like chrome, unlike pocket gear.** Carried electronics are fried DURABLY and want a
+  bench; a nav head welded into a dash cannot be carried anywhere, so permanently bricking it is the
+  crueller game the chrome rule already refuses to play. One timestamp per vehicle, RAM only, and the
+  "it comes back" line rides a `setTimeout` rather than a tick — a parked aircraft and a stopped truck
+  both have to recover without anything ticking for them. Same `minutes` as the chrome blackout: one
+  clock for "a semiconductor that survived the pulse needs this long to come back".
+- ⚠ **The engine is never touched, at any of the three.** A magneto needs no bus and a diesel is
+  compression and fuel. What dies is everything that was *listening to something*. A pulse that stopped
+  the drive would strand a trucker four hundred tiles into the void and would make a hero event whose
+  stated rule is "never fatal on its own" exactly that.
+
+Per vehicle:
+
+| | goes | stays |
+|---|---|---|
+| **Aircraft** | the whole panel (`avionicsOut` → the client already blanks the gauges and drops `F.powered`, so the lamps and backlight go too), `chart`, `squawk` | engine, controls, the view out of the canopy |
+| **Truck** | the nav head (the dash unit AND the tablet's three apps), the `route` verb, the CB in both directions, the ambient CB chatter *including the wreck-ahead warning* | engine, gearbox, brakes, the road out of the windscreen, the mirrors |
+| **Echelon** | the radar plot, the chart plotter (`sailto`) | the engines, and **`sail <direction>`** — a ship is steered by eye off a compass, and refusing to let her move would strand everybody aboard |
+
+⚠ **The aircraft's blackout moved OFF `live.hazard`, and that was a real bug rather than a tidy-up.**
+It used to occupy that slot, and every branch in `rollHazards` opens with `!live.hazard` — so for the
+whole of an ion storm an aircraft could not catch fire, could not be told it was overheating, and could
+not escalate anything it already had. Minutes of hazard immunity, handed out by the thing that was
+supposed to be the emergency. Dark panels *and* a fire in the same minute is the nightmare, and it is
+now reachable.
+
+⚠ **The hand-thrown charge is the same pulse with a one-tile reach.** `plugins/nullcraft`'s `emp` verb
+already fired `weather.empPulse` scoped by `zoneId`, and a zone id cannot catch a vehicle — a rig at the
+kerb is not in anybody's `players` set, it is at a grid coordinate. The charge now names a place and a
+radius of 1 alongside its `zoneId`, so the vehicle law is one rule reading one payload rather than two
+special cases. A satchel is not the sky, hence 1 against the storm's 12.
+
+⚠ **The powerboat is deliberately not wired.** `plugins/powerboat`'s `rigs` registry has no producers yet
+(its own header says so) — contributing an always-empty list would be code that looks tested and is not
+exercised by anything. It joins by answering `vehicle.crewed` when the drive verb lands.
 - **Field integration:** `currentBaseSeverity() = max(field.baseSeverity, eventSeverity())` feeds both
   `sampleWeatherAt` and the snapshot's `baseSeverity`, so **all four channels + the telegraph light up with
   zero new wiring**. At peak, an acid event stamps `precipType: 'acid'` on any tile already under precip
@@ -288,6 +354,129 @@ that should visibly pay off.
     random arc-zaps (sparkle); **acid rain** = caustic hiss. Route-overridable
     (`weather.event.ion`/`weather.event.acid`) with synth fallbacks; gain full at peak, softer in
     approach/passing; late joiners topped up in `reconcilePlayerWeatherAmbient`.
+
+## What a strike looks like *(built)*
+
+The engine has been the single strike authority since `stormTick` shipped: it picks the tile, tells
+the room, and emits `weather.lightningStrike` with world coordinates, which the flight sim turns
+into a bolt through `pushLightningStrike`. None of that changed. What changed is everything
+downstream of it.
+
+**There were three bolt generators and they were three different phenomena.** windshield.js grew one
+for the world channel and a second for the on-glass one; hangar-ambience.js grew a third for the
+doorway. Each was a nine-ish-node zigzag with its own jitter constant, its own width and its own
+colour, so a storm looked like one thing through the canopy, a slightly different thing on the glass
+in front of it, and a third thing from the hangar. There is now one channel in
+[client/shared/lightning.js](../client/shared/lightning.js), one painter in
+[lightning-draw.js](../client/shared/lightning-draw.js), and three readers that differ only in how
+they project it — the world camera, the pane, and the door rect.
+
+**The channel is a recursive tree.** A stepped leader forks, and the forks fork: four generations,
+about twenty branches, each thinner and fainter than its parent. Three rules keep it from reading as
+a bush. A branch carries a bearing away from its parent and **holds** it, descending more slowly
+than the channel it left, which is what draws the long tendrils reaching out across the sky —
+re-jittering about the vertical instead gives every fork the trunk's own shape at a shorter length.
+⚠ **A child whose bearing points back at the channel is mirrored about the axis** — a pure rotation
+turns half of them round and the tips hook home, which in a still frame reads as legs rather than as
+lightning. And ⚠ **a branch stops in the air where the channel does not**: the leader that connects
+carries the return stroke and the rest run out of charge wherever they happen to be. Left to ground
+freely, 4.7 forks a bolt arrive and the bottom of every strike is a bush.
+
+**The brightness is a restrike schedule, not a fade.** A cloud-to-ground flash is a return stroke and
+then two or three more up the same channel over a couple of hundred milliseconds. ⚠ **A later stroke
+barely touches the side branches** — they belong to the stepped leader, and the first stroke is what
+lit them — so the channel stammers while the tree behind it fades once and stays faded. That is most
+of what makes a bolt read as flickering rather than as blinking. It is rolled at birth and
+deterministic; the old one multiplied by a per-frame coin flip, so a fast machine flickered, a slow
+one did not, and neither could be photographed twice.
+
+**The bolt comes out of the cloud the clouds are drawn at.** `topZ` was `max(3.5, cam.EH + 1.5)` — a
+fixed 3.5 tiles that followed the eye at altitude — while `cloudBaseZ('storm')` is 5.66. So every
+channel began well below the deck it was supposed to be leaving, at about two thirds the height it
+should have been, and it was ⚠ **shorter than the buildings**: a thirty-storey tower is 5.9 tiles, so
+a strike over the city read as a spark between two roofs. Above the deck the bolt is now below you,
+which is right — flying over the top of a storm you should be looking down at the strikes inside it.
+Lateral offsets are in channel units and scale with `topZ`, so a taller channel is a proportionally
+wider tree and altitude works without a second number.
+
+### ⚠ And it was drawn underneath every grade that could flatten it
+
+A channel is painted very nearly white, and additive white cannot clip past 255 before a wash. It
+was drawn inside the world block, and after it ran: `applyStormGrade`, the fog wash, the G-grey, and
+the truck's own headlamps-off wash at `rgba(6,8,14,0.62)` **over the whole world**. Measured out of a
+real cab frame with `__glBoltLum()`, the hottest pixel in the channel reached a luminance of **102
+against a night sky of 15** — a pale grey wire. It is **255** with the draw moved after them.
+
+The headlamps wash is right and its reach was wrong. It exists so a driver who never found the light
+switch cannot see FAR, and lightning is the one thing in this game you can see without headlamps; a
+strike that got dimmer because the driver forgot the lamps is the feature pointed at the wrong
+target. The storm grade is the same argument in the same words, since a storm is the light going out
+of the world and this is the light coming back for a quarter of a second. ⚠ **The flood always was
+drawn after the grade** — so the renderer already said the LIGHT from a strike is not subject to the
+storm's own murk, while the channel that produced it was not. One event, two treatments, and the one
+that lost was the one you look at.
+
+Both are now one block, after every grade and still under the glass: the cab trim, the windscreen
+post, the dash and the water running down the outside of the pane are in front of **you**, not in
+front of the weather. ⚠ The flood is drawn first and the channel over it, or the channel gives away
+half its contrast to the light it is itself the source of. The channel is drawn through `bankInto`,
+a named closure with two callers, because it is world geometry and has to bank and shudder with
+everything else.
+
+### What a strike lights up
+
+Three additive lights, all under the channel and all riding the same envelope, so a restrike lands
+on the whole scene at once.
+
+- **The area** — a broad pool centred on the channel, so the street, the buildings and the rain
+  within a few tiles brighten more than the far corners. ⚠ Its radius is a **world reach through the
+  lens** (`BOLT_LIGHT_TILES`), never a number of pixels: a strike two streets away lights two
+  streets, where a fixed disc lights the whole frame from any range and reads as a filter. The flat
+  white flood came down from 0.5 to 0.3 when this arrived — a full-frame fill has no position, so it
+  cannot light one end of a street more than the other, and the two together blew a night street to
+  paper white. What it is genuinely for is the strikes that happen outside the frame, which is most
+  of them.
+- **The ground it lands on** — a pool lying on the ground plane at the strike point, its ellipse
+  solved from four projected points rather than assumed (the lateral world axis is `(cosh, sinh)`
+  and the forward one `(sinh, -cosh)`; `cam.proj` says so in the two lines that build `f` and `l`).
+  Only when the trunk actually arrived: a branch that ran out of leader in the air must not lay a
+  pool of light under it. ⚠ **The flattening is capped**, and it is the one place this light is
+  deliberately not honest — an eye 0.12 tiles off the deck looking at a pool ten tiles away sees 1.1
+  pixels of height against a hundred of width, which draws as a hard bright bar lying across the
+  road. What is being drawn is light scattering in the air above the contact, which has real height.
+- **The cloud it came out of** — lit from inside over an area far wider than the channel that lit
+  it. ⚠ A **cluster**, not a disc: three concentric circles read as a lamp hanging in the overcast,
+  so the blobs scatter off the bolt's own seed and the patch is wider than it is tall, because a
+  cloud base is.
+
+⚠ None of the three is `glowPool`, which is the obvious reach and would draw nothing: that helper
+gates on `ADORN_TIER` and on `POWER_DUTY` — frame state left wherever the last building put it — so
+a bolt after a blacked-out tower would have had its own light switched off by the city's power grid,
+and its canvas path goes through a queue that flushed with the world pass two hundred lines earlier.
+
+### Seams
+
+- `RENDER_TUNE.boltDetail` (0–1) is how deep the tree grows. 1 is four generations; 0 is a bare
+  trunk, which is very close to what shipped for years. A dial rather than a switch because there is
+  a real seat for every value — a storm over the far side of the basin is a dozen strikes a minute
+  that are four pixels wide. ⚠ Read at **grow** time, so it takes effect on the next strike and
+  never on one already in the air: an A/B is two strikes, not two paints of one.
+- `RENDER_TUNE.boltForce` pins the age of every live bolt in ms and suspends the life cull. The
+  sibling of `snowForce` and `hourForce`, and ⚠ it is an **age** rather than a seed because every
+  bench pins `performance.now` — a bolt drained under a pinned clock is for ever nought milliseconds
+  old, which is the one moment of its life showing neither the decay nor the flicker.
+- `__glBolt()` in the Modelshop is the picture: one canvas per case, cropped and magnified, left on
+  the page for a screenshot. ⚠ It crops rather than rendering bigger, unlike `__glSeaShot` —
+  `paintWindshield` sizes its backing store from `clientWidth`, so a CSS width of 2× renders at 2×
+  and the shot is the same picture again.
+- `__glBoltLum()` is the number, against a control frame with the strike pushed past
+  `BOLT_MAX_DIST`. ⚠ It needs that control, because the brightest pixel in a storm frame is a lit
+  raindrop or the weather badge about nine times out of ten.
+- `npm run gl:bolt` ([scripts/shapes/bolt.mjs](../scripts/shapes/bolt.mjs)) is the gate, in the
+  `pretest:regress` chain **and** in `shapes:smoke`. 22 claims, mutation-tested 14 of 14. ⚠ Its
+  ordering claim reads **raw** source where every other scan blanks comments first, because `blank`
+  wipes a template literal whole and the wash it looks for is one — so every anchor there has to be
+  a shape only the code takes: a call with its arguments, never a function name.
 
 ## Build order
 

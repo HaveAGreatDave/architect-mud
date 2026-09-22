@@ -1,0 +1,11 @@
+{
+  "description": "A single string of lamps run up one arris on cable hooks by whoever last showed the unit, plugged into a socket on the slab and left. It lights the bottom eight feet of a forty-foot room and does nothing at all above that, so the point of the building is in the dark from underneath it.",
+  "flags": {},
+  "id": "furn_light_zone_hf_glassceiling_apex",
+  "light_type": "festoon",
+  "lumen_output": 260,
+  "name": "a temporary festoon",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_glassceiling_apex"
+}

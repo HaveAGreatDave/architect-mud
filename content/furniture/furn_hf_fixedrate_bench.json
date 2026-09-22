@@ -1,0 +1,8 @@
+{
+  "description": "One of six, each a triangle, each made specially because nothing rectangular fits anywhere in this room. The invoice for them is the third-largest line in the building's fit-out and is filed under joinery, and there is a note against it in the estate office in a different hand reading SIX BENCHES.",
+  "flags": {},
+  "id": "furn_hf_fixedrate_bench",
+  "name": "a made-to-fit bench",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_fixedrate_lobby"
+}

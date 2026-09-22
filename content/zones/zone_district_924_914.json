@@ -1,24 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Kessler Street's kerbs stop dead and Rag Row starts: unmade ground, ruts, and the backs of the Nine Elms blocks looking down into it. This is where the residents put the things they don't want collected.",
+  "color": "#9a7d4a",
+  "description": "A lock-up at the top end of Rag Row with the shutter up about three feet and a counter run across the gap, so the trade happens at knee height and nobody comes inside. A brass hanging-scale is bolted to the frame, big enough to weigh a person, and the pan swings gently whether or not there's wind. THUMB ON THE SCALE is burned into the board over the shutter, and under it, much smaller, NO QUESTIONS EITHER WAY.",
   "exits": {
-    "north": "zone_district_924_913",
-    "south": "zone_district_924_915",
+    "east": "zone_thumb_shop",
     "west": "zone_district_923_914"
   },
   "flags": {
+    "building_name": "Thumb On The Scale",
+    "building_type": "junkyard",
     "district": "slum",
+    "entrance": "west",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true,
-    "terrain": "dirt"
+    "world_exit_zone": "zone_district_923_914"
   },
   "grid_x": 924,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_924_914",
   "map_id": "map_world",
-  "name": "Rag Row",
+  "marker": "TB",
+  "name": "Thumb On The Scale",
   "parent_zone": null
 }

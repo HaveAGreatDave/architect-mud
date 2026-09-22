@@ -1,0 +1,19 @@
+{
+  "description": "Every bunk that can afford one has a single-burner stove on the shelf above it, and every stove has a name on the base in different handwriting. The house stove is for heat. These are for eating.",
+  "flags": {
+    "aliases": "stove,burner,camping stove",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_camp_stove_zone_bld_922_917_dorm",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a shelf of camping stoves",
+  "object_type": "appliance",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_922_917_dorm"
+}

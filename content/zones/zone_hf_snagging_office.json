@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "One room with a counter, three hard hats on pegs, and every wall carrying a drawing. The drawings are marked up in three colours by three different people and the marks do not agree. On the counter is a bound book of defects with a plot number at the head of each page, and about a third of the pages have a line ruled through them and a date, which means somebody actually came back.",
+  "exits": {
+    "down": "zone_util_zone_hf_snagging_office",
+    "east": "zone_hf_snagging_store",
+    "north": "zone_district_904_917"
+  },
+  "flags": {
+    "building_name": "Snagging List",
+    "building_type": "cascade_block",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A wide band onto Kerbstone Row, dusty on the outside and clean on the inside, with a strip of tape at eye level somebody put up to stop people walking into it.",
+      "light": 0.7,
+      "name": "the office glazing",
+      "visibility": 0.7
+    },
+    "world_exit_zone": "zone_district_904_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_snagging_office",
+  "map_id": "map_int_hf_snagging",
+  "name": "Snagging List — The Site Office",
+  "parent_zone": "zone_district_904_917"
+}

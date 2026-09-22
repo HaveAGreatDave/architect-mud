@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The highest of the four steps, open to the sky, with a pool along the outer edge of it that finishes in a lip you can see over the side of. The water is heated and the air is not, so on a cold morning the whole terrace is inside a cloud of its own making and you can hear the Curtain but cannot see it. Six loungers. Planting on three sides. Nobody up here but you, most of the time.",
+  "exits": {
+    "down": "zone_hf_fit_floor"
+  },
+  "flags": {
+    "building_name": "Fit for Purpose",
+    "building_type": "cascade_block",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "No glass at all — a lip, a rail, and the whole of Halcyon Fields from seven storeys, with the Spire away to the north and the wall shut across the south.",
+      "light": 1,
+      "name": "the open edge",
+      "visibility": 1
+    },
+    "world_exit_zone": "zone_district_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_fit_pool",
+  "map_id": "map_int_hf_fit",
+  "name": "Fit for Purpose — The Top Terrace",
+  "parent_zone": "zone_district_897_913"
+}

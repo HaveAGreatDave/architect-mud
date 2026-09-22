@@ -1,0 +1,8 @@
+{
+  "description": "Chrome on stone, recording that the building was named in a year when the ground it stands on was a field. It gives the name, the year, and the developer, and it does not give a completion date, which by the time it was cast had already stopped being a thing anybody was casting into stone.",
+  "flags": {},
+  "id": "furn_hf_prime_plaque",
+  "name": "a foundation plaque",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_prime_lobby"
+}

@@ -4,7 +4,6 @@
   "description": "A stack of kerbstones waits at the verge, banded and labelled, for a stretch of road nobody has dug yet.",
   "exits": {
     "east": "zone_district_902_916",
-    "north": "zone_district_901_915",
     "south": "zone_district_901_917",
     "west": "zone_district_900_916"
   },

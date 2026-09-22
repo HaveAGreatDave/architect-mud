@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#0e151e",
+  "color": "#b4d8f2",
+  "description": "Six sides of tinted glass drawn to a point, with a chrome fin up each arris and nothing on the top at all. From Cinder Lane it reads as a wedge; from the boulevard it reads as a blade; from directly underneath it reads as almost nothing, which is a trick the architect has not been able to repeat since. The door is cut into one of the six faces, off Cinder Lane, and it is the only break anywhere in the glass — no hood, no canopy, no lettering, just a line in the tint and a chrome pull. The door is cut into one of the six faces, off Cinder Lane, and it is the only break anywhere in the glass — no hood, no canopy, no lettering, just a line in the tint and a chrome pull. The door is cut into one of the six faces, off Cinder Lane, and it is the only break anywhere in the glass — no hood, no canopy, no lettering, just a line in the tint and a chrome pull. The door is cut into one of the six faces, off Cinder Lane, and it is the only break anywhere in the glass — no hood, no canopy, no lettering, just a line in the tint and a chrome pull. The door is cut into one of the six faces, off Cinder Lane, and it is the only break anywhere in the glass — no hood, no canopy, no lettering, just a line in the tint and a chrome pull. The door is cut into one of the six faces, off Cinder Lane, and it is the only break anywhere in the glass — no hood, no canopy, no lettering, just a line in the tint and a chrome pull.",
   "exits": {
     "east": "zone_district_902_912",
-    "north": "zone_district_901_911",
-    "south": "zone_district_901_913",
-    "west": "zone_district_900_912"
+    "west": "zone_hf_fixedrate_lobby"
   },
   "flags": {
+    "building_name": "Fixed Rate",
+    "building_type": "glass_prism",
     "district": "halcyon_fields",
+    "entrance": "east",
+    "facade": true,
+    "floors": 16,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_902_912"
   },
   "grid_x": 901,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_901_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "FR",
+  "name": "Fixed Rate",
   "parent_zone": null
 }

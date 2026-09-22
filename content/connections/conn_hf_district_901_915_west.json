@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_901_915",
+  "b": "zone_hf_groundrent_counter",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_district_901_915_west",
+  "lockable": true,
+  "one_way": false
+}

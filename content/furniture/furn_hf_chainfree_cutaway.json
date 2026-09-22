@@ -1,0 +1,8 @@
+{
+  "description": "The whole tower drawn in section with every flat on it, coloured green, amber or white by hand. The paper is soft at the pin holes from being taken down and put back. Count the colours rather than reading the board outside and the building is not a third occupied, it is a fifth.",
+  "flags": {},
+  "id": "furn_hf_chainfree_cutaway",
+  "name": "a cutaway of the building",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_chainfree_lobby"
+}

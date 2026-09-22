@@ -1,24 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
-  "exits": {
-    "east": "zone_district_901_917",
-    "north": "zone_district_900_916",
-    "south": "zone_district_900_918",
-    "west": "zone_district_899_917"
-  },
+  "ambient_theme": "urban",
+  "description": "Ten floors, clad to the eighth, and the shell that has been standing longest — near enough finished to look like a building until you notice there is no glass in the top two storeys and never has been. The crane went back to the hire yard two winters ago. Grass has got into the hoarding line at the base and somebody mows it, which is the only work anybody has done on this plot since.",
+  "exits": {},
   "flags": {
+    "building_name": "Sunk Costs",
+    "building_type": "shell_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "entrance": "north",
+    "floors": 10,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 900,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_900_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "SZ",
+  "name": "Sunk Costs",
   "parent_zone": null
 }

@@ -6,6 +6,9 @@ import { allExits, neighborZoneIds, exitTargets } from './exits.js';
 import { findPath as findPathRaw, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy, pressingAttacker, mobFleeRoll } from './combat.js';
 import { getEnvironmentState } from './environment.js';
+// The block arithmetic, shared with the dev panel rather than spelled out in both — and the home
+// of the rule that a block may cross midnight. See the header there.
+import { DAY_KEYS as WS_DAY_KEYS, hourInBlock, workingAt } from '../../client/shared/work-schedule.js';
 import { gameMsToReal } from './gametime.js';
 import { dispatchAction } from './actions.js';
 import { isNpcScheduledNow, getNpcStudioZone, isZoneWatched, npcNextShiftInMins } from './broadcast-bridge.js';
@@ -221,7 +224,10 @@ const VENDOR_CLOSE_WHINE = [
 
 // ── Vendor schedule helpers ──────────────────────────────────────────────────
 
-const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+// ⚠ THE DAY KEYS AND THE BLOCK ARITHMETIC ARE THE DEV PANEL'S TOO. It had its own copy of both and
+// now reads one — see client/shared/work-schedule.js for the rule that a block whose `to` is less
+// than its `from` runs past midnight, which until now meant no shift at all.
+const DAY_KEYS = WS_DAY_KEYS;
 
 // Zones an NPC advances toward its workplace per wander tick while commuting.
 // >1 keeps far-flung workers from spending most of the morning in transit.
@@ -248,8 +254,12 @@ const LATE_CATCHUP_GRACE_MINUTES = 240;
 /**
  * Check whether a vendor NPC should be working right now.
  * Returns { working, dayHasSchedule, referenceRange }
- *   working        — true if current hour falls in a scheduled block today
- *   dayHasSchedule — true if today has any scheduled blocks at all
+ *   working        — true if the current hour falls in a block filed under today, OR in the part
+ *                    after midnight of one filed under yesterday (a block whose `to` is less than
+ *                    its `from` runs past midnight — see client/shared/work-schedule.js)
+ *   dayHasSchedule — true if today has any scheduled blocks at all. NOT widened by the spill: it
+ *                    means "today is a working day", and a night shift ending this morning does
+ *                    not make today one
  *   referenceRange — on a day-off, the first block of the most recent scheduled day
  *                    (used for HAVE_LIFE hours on off-days); null if none found
  */
@@ -265,11 +275,19 @@ export function isVendorWorkTime(npc, env) {
 
   const dayHasSchedule = todayBlocks.length > 0;
 
-  const inBlock = (blocks, h) => blocks.some(b => h >= (b.from ?? 0) && h < (b.to ?? 24));
+  // ⚠ YESTERDAY'S BLOCKS COUNT NOW, because a block that crosses midnight is filed under the day it
+  // STARTS on — so at 02:00 on a Tuesday, somebody on a six-to-six night shift is working a block
+  // that lives under `mon`. `workingAt` is the one place those two questions are put together.
+  const working = workingAt(schedule, todayIdx, hour);
 
   if (dayHasSchedule) {
-    return { working: inBlock(todayBlocks, hour), dayHasSchedule: true, referenceRange: null };
+    return { working, dayHasSchedule: true, referenceRange: null };
   }
+
+  // ⚠ AND A SPILL CAN LAND ON A DAY WITH NO BLOCKS OF ITS OWN — a Sunday night shift finishing on a
+  // Monday they are otherwise off. `dayHasSchedule` stays FALSE on purpose: it means "today is a
+  // working day", its one consumer is the day-off branch below, and `working` short-circuits that.
+  if (working) return { working: true, dayHasSchedule: false, referenceRange: null };
 
   // Day off — look back up to 6 days for the most recent scheduled day
   for (let i = 1; i <= 6; i++) {
@@ -286,8 +304,10 @@ export function isVendorWorkTime(npc, env) {
 // True when a scheduled vendor is currently off-shift and should refuse to trade.
 // Vendors with no `vendor_schedule` trade around the clock (returns false).
 // Covert dealers are exempt outright: their trading window is owned by the dealer
-// plugin's deal_from/deal_to (which wraps midnight, unlike vendor_schedule), so a
-// schedule left on one would silently close the shop mid-window. Reads the live
+// plugin's deal_from/deal_to, so a schedule left on one would be a second timetable
+// over the top of the first. (This note used to add "which wraps midnight, unlike
+// vendor_schedule" — that difference is gone; a vendor_schedule block wraps too now,
+// and the exemption is about ownership rather than about grammar.) Reads the live
 // game clock so a manual clock jump takes effect immediately.
 export function isVendorClosed(npc) {
   if (npc?.flags?.covert) return false;
@@ -2161,10 +2181,10 @@ async function execAction(node, entity, ctx) {
       }
 
       // Day off — use reference range to decide have-life vs off-work hours
-      if (!dayHasSchedule && referenceRange) {
-        const { from = 0, to = 24 } = referenceRange;
-        if (hour >= from && hour < to) return 'haveLife';
-      }
+      // ⚠ THROUGH THE SHARED TEST, or a night worker's day off is spent shut indoors: the reference
+      // range is their own most recent block, and read as `hour >= 18 && hour < 6` that is false at
+      // every hour of the day — so the one NPC this window exists to give a life to never gets one.
+      if (!dayHasSchedule && referenceRange && hourInBlock(referenceRange, hour)) return 'haveLife';
 
       return 'offWork';
     }

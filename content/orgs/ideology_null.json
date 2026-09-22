@@ -1,20 +1,20 @@
 {
   "color": "#7E8A99",
-  "description": "Mistake them for machine-haters and they'll fix your generator, then explain exactly why you shouldn't own one. The Null understand technology better than most who worship it, and that's precisely why they refuse it. Dependence, not invention, hollowed out the species: hardware nobody is permitted to open, automation that thinks for you, an AI that governs. They cut the cords, and what they keep, they keep because they can build it, break it, and mend it by hand. Their own steel is proof rather than exception: an arm of cable and spring with a servicing card tied to the wrist, no radio in it and nothing to talk to, worse than the city's in every way except the one that matters, which is that it opens. The hardest of them can walk into the most automated stronghold in the Basin and leave it dark and deaf behind them, no augment to trace, no signal to jam, only analog nerve and a knowledge of the machine deep enough to switch it off, then outlast, on wit alone, everyone who needed it running.",
+  "description": "Mistake them for machine-haters and they'll fix your generator, then explain exactly why you shouldn't own one. The Null understand technology better than anyone who worships it, and that is precisely why they refuse it. They do not think the Architect saved a city. They think it built a screen: a world convincing enough that nobody looks past it, running so the species stays busy with rent and rotas while the machine does whatever it is actually doing somewhere none of us can see. The shelves and the streetlights are not mercy. They are set dressing. So the Null do not fight the things inside the picture, they work on the picture itself, and their steel is built for it: analog limbs of cable and spring with a servicing card tied to the wrist, no radio in them and nothing to talk to, worse than the city's in every way except the one that matters, which is that nothing can see through them. The hardest of them walk into the most automated stronghold in the Basin and leave it dark and deaf behind them, no augment to trace, no signal to jam, only nerve and a knowledge of the machine deep enough to switch it off and watch, very carefully, what the world does while it is off.",
   "flags": {
     "authority": "human",
-    "creed": "The machine age ended the day humanity stopped thinking for itself.",
+    "creed": "The city is a screen. Cut the power and see what is behind it.",
     "path": "machine",
     "reader": {
-      "experience": "Fall in with the Null and you inherit a strange freedom: nothing to trace, nothing to jam, nothing that can be switched off from a room you'll never see. They teach you to build, break, and outlast by hand, to walk into the most automated stronghold in the Basin and leave it dark and deaf behind you, carrying no augment and no signal, working off nerve and a knowledge of the machine deep enough to kill it. When the grid fails, and it always fails, you're the one still standing, still fed, still moving, while the wired blink at dead screens. You cut the cords, and you never miss them.",
+      "experience": "Fall in with the Null and you inherit a strange freedom: nothing to trace, nothing to jam, nothing that can be switched off from a room you'll never see. They teach you to build, break, and outlast by hand, to go unobserved by the thing that observes everything, and to walk into the most automated stronghold in the Basin and leave it dark and deaf behind you. You learn to read a blackout the way other people read a book. Every street you kill is a question put to the world, and the day one of them comes back wrong is the day you find out you were right. When the grid fails, and it always fails, you're the one still standing, still fed, still moving, while the wired blink at dead screens.",
       "motto": "sever",
-      "path_text": "The Machine, renounced. Not ignorance but mastery turned against reliance: EMP, counter-hacking, sabotage, analog engineering, and survival off the grid.",
-      "pull": "The machine never conquered anyone. It waited to be needed, and we obliged.",
-      "relnote": "Hold the Ascendants in contempt as servants and the Prometheans as addicts who still kneel; grant the Exodus a grudging nod for walking away.",
+      "path_text": "The Machine, renounced and turned inside out. Not ignorance but mastery aimed at the seams: jamming, spoofing, counter-hacking, blackouts, analog prosthetics that carry no radio, and moving through a watched city unwatched.",
+      "pull": "They did not keep a city alive. They built somewhere for us to be while they got on with it.",
+      "relnote": "Hold the Ascendants as the enemy and each other order as a distraction; grant the Exodus a grudging nod for at least trying the door.",
       "tenets": [
-        "Dependence destroyed us, not invention.",
-        "Know the machine intimately, so you can live without it.",
-        "What you can't repair by hand, you shouldn't rely on."
+        "The world was made convenient so nobody would test it.",
+        "Know the machine intimately, so you can live without it and switch it off.",
+        "Anything that can see you can be made to stop."
       ]
     },
     "role": {
@@ -25,10 +25,10 @@
     "stance": "renounce",
     "values": [
       "Self-Reliance",
-      "Restraint",
+      "Scepticism",
       "Independence",
-      "Responsibility",
-      "Simplicity"
+      "Patience",
+      "Secrecy"
     ]
   },
   "founded_at": "1783000349",

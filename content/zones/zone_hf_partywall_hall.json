@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A short hall in the bottom step with the lift at the end of it and a noticeboard beside the lift that has four things on it, three of which are about the terraces. Glazed on the row side. The west wall of this room is the blank flank, and it is the only wall in Halcyon Fields with no glass, no chrome and no opening anywhere in its entire height.",
+  "exits": {
+    "down": "zone_util_zone_hf_partywall_hall",
+    "north": "zone_district_892_917",
+    "west": "zone_hf_partywall_flank"
+  },
+  "flags": {
+    "building_name": "Party Wall",
+    "building_type": "cascade_block",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Onto Kerbstone Row, with the Curtain closing the view about thirty metres to the west. At this end of the street the wall is close enough that the light in here is grey until about two in the afternoon and then very briefly is not.",
+      "light": 0.55,
+      "name": "the row glazing",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_892_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_partywall_hall",
+  "map_id": "map_int_hf_partywall",
+  "name": "Party Wall — The Entrance Hall",
+  "parent_zone": "zone_district_892_917"
+}

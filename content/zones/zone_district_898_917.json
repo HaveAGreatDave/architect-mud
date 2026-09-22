@@ -1,24 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
-  "exits": {
-    "east": "zone_district_899_917",
-    "north": "zone_district_898_916",
-    "south": "zone_district_898_918",
-    "west": "zone_district_897_917"
-  },
+  "ambient_theme": "urban",
+  "description": "Eleven floors, clad to the sixth, and the crane on it belongs to a different contractor from all the others — a different colour, a different profile, and a jib noticeably shorter. The first contractor left. What everybody on this street knows and the estate office will not confirm is the reason, and it is on a page of the defects book with a line ruled through it.",
+  "exits": {},
   "flags": {
+    "building_name": "Rent Review",
+    "building_type": "shell_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "entrance": "north",
+    "floors": 11,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 898,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_898_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "RR",
+  "name": "Rent Review",
   "parent_zone": null
 }

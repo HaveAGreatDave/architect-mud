@@ -1,0 +1,11 @@
+{
+  "description": "Set into the pool wall below the line, throwing light up through the water so that after dark the terrace is lit entirely from the pool and everything on it has moving light on its underside. It is the best-looking thing in the quarter and it was, on the drawings, value-engineered out twice.",
+  "flags": {},
+  "id": "furn_light_zone_hf_fit_pool",
+  "light_type": "submerged",
+  "lumen_output": 460,
+  "name": "underwater lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_fit_pool"
+}

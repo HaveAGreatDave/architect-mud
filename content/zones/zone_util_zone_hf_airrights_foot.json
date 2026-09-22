@@ -1,0 +1,18 @@
+{
+  "description": "Below the lift pit at the bottom of the west leg: the winding gear, the counterweight track, and the load cells that somebody reads once a week. On the wall, a chart of how much the arch is allowed to move and how much it actually does. The two lines have never crossed.",
+  "exits": {
+    "up": "zone_hf_airrights_foot"
+  },
+  "flags": {
+    "floor": "metal",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_906_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_airrights_foot",
+  "map_id": "map_int_hf_airrights",
+  "name": "Air Rights — The Leg Base",
+  "parent_zone": "zone_district_906_915"
+}

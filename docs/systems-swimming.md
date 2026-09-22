@@ -29,6 +29,17 @@ A **sleeping** swimmer is skipped but **stays on the roster** — the mind is of
 ## Boat perk
 Carry an **uncontained `boat`-tagged item** and you're *riding*, not swimming: no stroke cost, no tread, no submersion (so no wetness/cold), no drowning. Underwater tiles ignore this — you're under the water regardless.
 
+### …and the boats this plugin cannot see — the `swim.afloat` gather *(as built)*
+The perk above is an **inventory** fact, and inventory is all this plugin can see on its own. That misses the obvious way to be on top of the water: **actually being in a boat.**
+
+A [powerboat](../plugins/powerboat/README.md) is a `boats` **row** — never an item, never a zone — so a player who climbed into one lying off Halcyon Quay was, to every rule here, a body treading water. The tick went on bleeding their stamina until they **drowned at the wheel of a working boat**. The same was true standing at the marina's own fuel float, which is a deck over water.
+
+So the question is **asked** rather than assumed. `swim.afloat` is a gather fired inside `syncSwimmer`: any plugin that can put somebody on top of the water answers truthy, and this file learns nothing about boats. It composes with `_hasBoat` rather than replacing it — a jerry-rigged raft and a race boat are the same answer to the same question.
+
+⚠ **Sync by contract, and it is not negotiable here.** `syncSwimmer` is called on every move in the game and once a second for every body in the water, and its own header is explicit that it is sync and query-free. A contributor answers out of its own RAM registry — powerboat's is one `Map.has`. `gatherHookSync` drops **and logs** a handler that returns a promise, so an answer that becomes async fails loudly instead of quietly drowning somebody.
+
+⚠ **It is not a fifth reader of `_hasBoat`.** That flag is written on the move path from two DB queries and cached; a plugin setting it from outside would be a second writer of a cache whose whole contract is that `syncSwimmer` is the only reader and the move handler the only writer.
+
 ## Vessels — swimming up to a boat *(as built)*
 A zone flagged **`flags.vessel`** is a boat sitting on the map: it shares its coordinates with the ordinary water zone beneath it, and the two are **not joined by an exit** — they can't be, because a vessel sails, so any link between hull and water would have to be re-derived from her position on every passage (which is exactly what the yacht plugin's `dockTo` gangway does for a *pier*). Boarding is therefore a **verb, not a step**:
 

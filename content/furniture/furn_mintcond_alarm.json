@@ -1,0 +1,19 @@
+{
+  "description": "Mounted beside the door under a taped-up print of somebody's own artwork, so the panel is the second most defended thing on that wall. The light is green. There is a small handwritten note beside it that says, without any further explanation, THE BOARD IS NOT A TOY.",
+  "flags": {
+    "alarm_panel": true,
+    "alarm_tier": 2,
+    "aliases": "alarm,panel,box,alarm panel,alarm box,intruder panel",
+    "click_cmd": "hack alarm"
+  },
+  "hp": 120,
+  "hp_max": 120,
+  "id": "furn_mintcond_alarm",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the alarm panel",
+  "object_type": "terminal",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mintcond_floor"
+}

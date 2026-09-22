@@ -1,0 +1,19 @@
+{
+  "description": "Two burners going under a windbreak made of a car door. Whatever is in the pan has been in it a while.",
+  "flags": {
+    "aliases": "stove,burner,camping stove",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_camp_stove_zone_district_924_918",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a camping stove",
+  "object_type": "appliance",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_district_924_918"
+}

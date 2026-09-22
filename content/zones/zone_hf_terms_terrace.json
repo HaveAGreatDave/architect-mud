@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long planted step with a glass balustrade down the open side and the protective film still on every pane of it — gone milky, lifting at the corners, and left because the contractor who was to strip it was engaged on the terraces above and never came down again. The beds are irrigated on a timer, four minutes at six and four minutes at seven, into soil that has had nothing planted in it. The timer works perfectly.",
+  "exits": {
+    "down": "zone_hf_terms_hall"
+  },
+  "flags": {
+    "building_name": "Terms Agreed",
+    "building_type": "cascade_block",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Glass from the deck to waist height the whole way along, through a milky film that softens the mews and the green beyond it into shapes. Wipe a hand across it and nothing changes, because the film is on the outside.",
+      "light": 0.7,
+      "name": "the balustrade",
+      "visibility": 0.4
+    },
+    "world_exit_zone": "zone_district_894_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_terms_terrace",
+  "map_id": "map_int_hf_terms",
+  "name": "Terms Agreed — The Second Terrace",
+  "parent_zone": "zone_district_894_912"
+}

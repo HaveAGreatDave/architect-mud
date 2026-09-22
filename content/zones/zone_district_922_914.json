@@ -14,6 +14,7 @@
     "district": "residential",
     "entrance": "east",
     "facade": true,
+    "floors": 4,
     "is_building": true,
     "region_id": "region_coldwater",
     "street_life": true,

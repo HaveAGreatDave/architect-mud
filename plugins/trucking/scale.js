@@ -143,7 +143,12 @@ export async function weighAt(player, rig, cfg, zoneId = null) {
   }
 
   const inspection = {
-    zoneId, name: cfg.name,
+    // ⚠ `pound` IS WHERE A SEIZED RIG GOES, AND IT IS NOT `zoneId`. `impound` used to write the
+    // weighbridge tile itself into `depot_zone`, which parks a forty-tonne truck on the plates it
+    // was caught on — the one piece of ground at any inspection that has to stay clear for the next
+    // one. Content names a lot (`flags.weigh_station.pound`); with none named the old behaviour is
+    // exactly what happens, so every station that never authored one is unchanged.
+    zoneId, pound: cfg.pound || null, name: cfg.name,
     declared, actual, over, overRated,
     stash: (t.stash || []).slice(),
     fine: Math.round(overRated * FINE_PER_KG),
@@ -337,8 +342,11 @@ async function impound(rig, i) {
   // a void room. With no zone the fee is set and the truck is left homed where it already was: a
   // low-loader takes it back to its own yard and it sits there until you pay, which is the same
   // ending by a longer road.
-  await (i.zoneId
-    ? query('UPDATE trucks SET depot_zone = $1, impound_fee = $2 WHERE id = $3', [i.zoneId, fee, rig.truckId])
+  //
+  // The lot the station names wins over the station's own tile, for the reason on `pound` above.
+  const held = i.pound || i.zoneId;
+  await (held
+    ? query('UPDATE trucks SET depot_zone = $1, impound_fee = $2 WHERE id = $3', [held, fee, rig.truckId])
     : query('UPDATE trucks SET impound_fee = $1 WHERE id = $2', [fee, rig.truckId])).catch(() => {});
   // Anything behind the bulkhead is gone. It was never on the paper, so there is nothing to give
   // back and nobody to complain to.

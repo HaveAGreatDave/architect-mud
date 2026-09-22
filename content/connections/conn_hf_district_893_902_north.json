@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_893_902",
+  "b": "zone_marina_lobby",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_893_902_north",
+  "lockable": true,
+  "one_way": false
+}

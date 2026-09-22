@@ -1,22 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
-  "exits": {
-    "east": "zone_district_902_913",
-    "north": "zone_district_901_912"
-  },
+  "ambient_theme": "urban",
+  "description": "Fourteen storeys, clad to the seventh, and the only shell in the quarter where nothing at all moves. The crane is up, inspected and rigged, and nobody has been on it since spring. The frame is sheeted at the top against the weather and the sheeting has been renewed at least twice, which somebody is paying for and nobody is talking about.",
+  "exits": {},
   "flags": {
+    "building_name": "Break Clause",
+    "building_type": "shell_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "entrance": "east",
+    "floors": 14,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 901,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_901_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "BC",
+  "name": "Break Clause",
   "parent_zone": null
 }

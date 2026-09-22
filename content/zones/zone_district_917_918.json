@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "color": "#8d8f93",
+  "description": "Rockcrete laid in one pour, wide enough for two rigs and canted very slightly to the drain. Two steel plates the width of a trailer are set into the middle of it, worn bright, with a painted box round them and STOP ON THE PLATES stencilled at the near end in letters you read from a cab rather than from the ground. A board on a pole over the box reads out in numbers a foot high, and it is showing nothing at all until something is standing on them. The booth is west. The Gate Road, and the option of not doing any of this, is east.",
   "exits": {
     "east": "zone_district_918_918",
     "north": "zone_district_917_917",
@@ -10,15 +10,22 @@
     "west": "zone_district_916_918"
   },
   "flags": {
-    "district": "wasteland",
+    "artery": [
+      "The Gate Road"
+    ],
+    "district": "ashway",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "road",
+    "weigh_station": {
+      "name": "the Glacis Weigh",
+      "pound": "zone_gatepound_lot"
+    }
   },
   "grid_x": 917,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_917_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Glacis Weigh",
   "parent_zone": null
 }

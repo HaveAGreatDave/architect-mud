@@ -230,11 +230,17 @@ export function projectThrough(m, x, y, z, W, H) {
 // `bounds` is the mesh's own axis-aligned box, in the same frame the vertices are in. It comes from
 // the buffer rather than from the window, so a caster can never be outside the box that is supposed
 // to contain every caster.
+// ⚠ AND IT TAKES `castDir`, NOT `dir`, BECAUSE AFTER DARK THEY ARE DIFFERENT BODIES. `dir` still
+// means the sun — the water glint, the wall key and the terrain hillshade all read it and all have
+// their own answer for the night — while `castDir` is whatever is actually throwing the shadow this
+// frame, which is the moon once the sun is down. Falling back to `dir` keeps every existing caller
+// (and every harness that hands in a bare `{dir, len}`) on exactly the matrix it had.
 export function lightMatrix(sun, b) {
   const len = Math.max(0.05, sun.len || 1);
-  // Travel: from the sun toward the ground. `(-dir * len, -1)` before normalising, which is exactly
-  // the vector `drawBuildingShadow` walks when it offsets a roof corner onto the ground.
-  let lx = -sun.dir[0] * len, ly = -sun.dir[1] * len, lz = -1;
+  const cd = sun.castDir || sun.dir;
+  // Travel: from the caster toward the ground. `(-dir * len, -1)` before normalising, which is
+  // exactly the vector `drawBuildingShadow` walks when it offsets a roof corner onto the ground.
+  let lx = -cd[0] * len, ly = -cd[1] * len, lz = -1;
   const ll = Math.hypot(lx, ly, lz) || 1; lx /= ll; ly /= ll; lz /= ll;
   // ⚠ THE UP REFERENCE HAS TO DODGE THE LIGHT, AND AT NOON IT NEARLY DOES NOT. A high sun makes
   // the travel vector almost world -z, so crossing it with world +z gives a zero-length vector and
@@ -273,4 +279,18 @@ export function lightMatrix(sun, b) {
     rz * sx, uz * sy, lz * sz, 0,
     tx, ty, tz, 1,
   ];
+}
+
+// ── The matrix a uniform is set from, without minting a typed array per draw call ────────────
+// `gl.uniformMatrix4fv` wants a Float32List and `viewProjMatrix` returns a plain Array, so every
+// layer wrote `new Float32Array(viewProjMatrix(cam, H))` — eight allocations a frame, in the
+// hottest part of it, all of them dead the instant the call returns. One scratch serves the lot,
+// because a uniform is READ by the driver during the call and nothing holds the array afterwards.
+// ⚠ NEVER RETAIN WHAT THIS HANDS BACK. It is the same object every time, so storing it stores a
+// reference that the next layer overwrites; anything that needs to keep a matrix takes the plain
+// Array from `viewProjMatrix` itself.
+const _mat4 = new Float32Array(16);
+export function mat4f(m) {
+  for (let i = 0; i < 16; i++) _mat4[i] = m[i];
+  return _mat4;
 }

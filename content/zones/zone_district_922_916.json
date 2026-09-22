@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Bed Rock leans out over this stretch, four storeys of it, close enough that the lane is in shadow by mid-afternoon. Rain comes off the eaves in one place and has dug itself a trench. A cat has the dry part.",
+  "description": "Bed Rock leans out over this stretch, four storeys of it, close enough that the lane is in shadow by mid-afternoon. Rain comes off the eaves in one place and has dug itself a trench. A cat has the dry part. A woman works the lane most mornings with a cup and a folded coat, and gets more out of the queue at No Such Thing than she does out of anybody on Kessler Street.",
   "exits": {
     "east": "zone_district_923_916",
     "north": "zone_district_922_915",

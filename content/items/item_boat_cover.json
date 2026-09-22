@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_boat_cover",
+  "name": "fitted hull cover",
+  "tags": {
+    "description": "A tailored cover in pale technical cloth with a tag at the bow for a name that has not been written on it yet. It is the single most expensive way there is to stop something getting wet."
+  },
+  "type": "gear",
+  "value": 310,
+  "weight": 5
+}

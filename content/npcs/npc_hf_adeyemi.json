@@ -1,0 +1,267 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Adeyemi walks the length of the barre with one hand on it, not holding it, just touching.",
+    "He looks at the misted bottom of the glass, wipes a hand across it, and leaves the mark.",
+    "He puts a foot flat on a board near the middle of the floor and rocks his weight onto it, listening.",
+    "Somewhere below, a lift arrives and does not open, and he glances at the door.",
+    "He takes two chairs off the stack, looks at the room, and puts them both back."
+  ],
+  "description": "A lean man in his thirties in soft clothes, barefoot on a sprung floor, who moves round a room the way somebody does when they have worked out where everything in it is. He teaches four classes a day in a building consented for offices and has been waiting eleven months to find out whether he is allowed to.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Take the stair if the lift is slow. It is quicker and nobody uses it.\" He is back at the barre before you reach the door."
+    },
+    "floors": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Ground is the lobby, and nobody is on the desk because there are four of us and the desk is one desk.\" He counts up with his chin. \"I am second. Third is a company that stores paper for other companies, which is exactly as quiet a neighbour as it sounds. Fourth is a clinic, two days a week.\"\n\n\"Fifth and sixth are nothing. Empty, unlit, never let. The lift goes there and the call button works and I have been up once, and there is nothing at all.\""
+    },
+    "problem": {
+      "options": [
+        {
+          "label": "What happens if it is refused?",
+          "next": "refused"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The building is consented as offices.\" He says it the way you say something you have said to a great many people. \"Every floor in it. A dance studio is not an office. Nor is a clinic, nor is a warehouse full of other people's paper.\"\n\nHe rocks his weight onto a board and it gives, very slightly.\n\n\"So there is an application in, to regularise the lot of us at once, which the landlord made and which is the right way round — one application, four tenants. It has been at the land office eleven months. In the meantime we are all here and nobody has told us to stop, and everybody in this building has worked out that being told to stop and being told nothing look identical from the inside.\""
+    },
+    "refused": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I lift a floor.\" A small shrug that is not small. \"The boards are mine. I laid them over their screed on battens so that I could take them up again, and I did that on the first day, before I taught a single class, because I am not stupid.\"\n\nHe looks down at them.\n\n\"It took four weekends. It would take me two to get them out. I have thought about that more than is good for me and I have decided that laying a floor you can take up is not the same as expecting to.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is the problem?",
+          "next": "problem"
+        },
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What is on the other floors?",
+          "next": "floors"
+        },
+        {
+          "label": "I will let you work.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in — mind the boards, they are faster than they look.\" He is already moving out of your way.",
+      "text_by_relation": {
+        "familiar": "He is at the barre when you come in and finishes what he is doing before he turns round, which is the compliment.\n\n\"Still nothing from the land office,\" he says. \"Eleven months and something.\"",
+        "first": "The room contains the street twice, and it takes a moment to work out that half of it is a mirror. The man crossing it toward you does not hurry.\n\n\"Roshan Adeyemi. Second floor.\" He puts a hand out and there is chalk on it, and he notices and wipes it on the towel first. \"Four classes a day, three evenings of something else, and a stack of forty chairs for when the residents want to argue about the terraces.\"\n\nHe nods at the floor.\n\n\"This was an office. That is the only interesting thing about the building and unfortunately it is also the problem.\"",
+        "known": "\"You came up.\" He sounds pleased, and slightly surprised. \"Nobody comes up unless they are coming to something.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a loose grey top with the sleeves pushed past the elbow",
+      "soft wide trousers gathered at the ankle",
+      "a towel over one shoulder more often than not",
+      "bare feet, with a pair of soft shoes left by the barre",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_changeofuse_studio",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_hf_adeyemi",
+  "name": "Roshan Adeyemi",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_rosinblock",
+      "price": 5
+    },
+    {
+      "item_id": "item_hf_studiotowel",
+      "price": 7
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "The Second Floor Studio",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_changeofuse_studio"
+}

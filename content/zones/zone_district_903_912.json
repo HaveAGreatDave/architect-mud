@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#0f1721",
+  "color": "#c6e8ff",
+  "description": "The tallest thing in Halcyon Fields that is not the Spire, nineteen floors of shearing glass on a chrome podium, with a lit collar at every fifth level. It was named before the streets round it were laid, which means it has spent four years being the prime location in a field. The entrance is a double-height slot in the chrome podium on the Cinder Lane side, with the name cut into the stone above it in letters a foot high and a lit collar directly overhead that makes the doorway the brightest thing on the lane. The entrance is a double-height slot in the chrome podium on the Cinder Lane side, with the name cut into the stone above it in letters a foot high and a lit collar directly overhead that makes the doorway the brightest thing on the lane. The entrance is a double-height slot in the chrome podium on the Cinder Lane side, with the name cut into the stone above it in letters a foot high and a lit collar directly overhead that makes the doorway the brightest thing on the lane. The entrance is a double-height slot in the chrome podium on the Cinder Lane side, with the name cut into the stone above it in letters a foot high and a lit collar directly overhead that makes the doorway the brightest thing on the lane. The entrance is a double-height slot in the chrome podium on the Cinder Lane side, with the name cut into the stone above it in letters a foot high and a lit collar directly overhead that makes the doorway the brightest thing on the lane. The entrance is a double-height slot in the chrome podium on the Cinder Lane side, with the name cut into the stone above it in letters a foot high and a lit collar directly overhead that makes the doorway the brightest thing on the lane.",
   "exits": {
-    "east": "zone_district_904_912",
-    "north": "zone_district_903_911",
-    "south": "zone_district_903_913",
+    "east": "zone_hf_prime_lobby",
     "west": "zone_district_902_912"
   },
   "flags": {
+    "building_name": "Prime Location",
+    "building_type": "torque_tower",
     "district": "halcyon_fields",
+    "entrance": "west",
+    "facade": true,
+    "floors": 19,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_902_912"
   },
   "grid_x": 903,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_903_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "PL",
+  "name": "Prime Location",
   "parent_zone": null
 }

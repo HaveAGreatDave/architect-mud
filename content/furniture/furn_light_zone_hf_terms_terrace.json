@@ -1,0 +1,11 @@
+{
+  "description": "Set into the paving at the foot of the balustrade, every two metres, throwing light up through the film so that after dark the whole open side of the terrace glows evenly and shows you nothing at all.",
+  "flags": {},
+  "id": "furn_light_zone_hf_terms_terrace",
+  "light_type": "uplight",
+  "lumen_output": 340,
+  "name": "a line of deck uplighters",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_terms_terrace"
+}

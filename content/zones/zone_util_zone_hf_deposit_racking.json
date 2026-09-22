@@ -1,0 +1,18 @@
+{
+  "description": "A half-level under the racking that was drawn as a cycle store and is used for the things nobody will sign for: two pallets of cladding panel, a drum of sealant gone solid, and the switchgear, which is the only thing down here anybody looks at.",
+  "exits": {
+    "up": "zone_hf_deposit_racking"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_deposit_racking",
+  "map_id": "map_int_hf_deposit",
+  "name": "Deposit Taken — The Lower Bay",
+  "parent_zone": "zone_district_895_915"
+}

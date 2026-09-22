@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_deedcopy",
+  "name": "a certified copy of a deed",
+  "tags": {
+    "description": "Stamped, dated and signed across the fold, which is what makes it worth thirty-five credits rather than the cost of the paper. Which deed depends on what you asked for, and Quillon will make a copy of anything in the room for anybody who can name it.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 35,
+  "weight": 60
+}

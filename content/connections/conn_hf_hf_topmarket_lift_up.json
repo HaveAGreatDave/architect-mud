@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_topmarket_lift",
+  "b": "zone_hf_topmarket_crown",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_topmarket_lift_up",
+  "lockable": false,
+  "one_way": false
+}

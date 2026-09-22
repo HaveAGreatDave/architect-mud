@@ -1,0 +1,14 @@
+{
+  "description": "Lashed to the frame over the counter where the tarpaulin starts. It sways when the weather comes in from the south and everybody has stopped noticing.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_gas_zone_bld_926_917_lobby",
+  "light_type": "gas",
+  "lumen_output": 400,
+  "name": "a gas lantern",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": 40,
+  "zone_id": "zone_bld_926_917_lobby"
+}

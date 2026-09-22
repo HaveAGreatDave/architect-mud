@@ -35,7 +35,8 @@
 // antialiased edge texel between the two cuts from the picture. So the colour pass is byte-for-byte
 // the one that always shipped, and a second draw with `colorMask` off lays the board's silhouette
 // into the depth buffer ahead of it. With no batch asking, the prepass is the absence of a code path.
-import { viewProjMatrix } from './camera.js';
+import { viewProjMatrix, mat4f } from './camera.js';
+import { makeVertexStream } from './stream.js';
 
 // pos3, uv2, alpha1, emit1
 const STRIDE = 7;
@@ -46,10 +47,49 @@ const STRIDE = 7;
 // this shader has always discarded at, so the colour pass is unchanged.
 const DEPTH_CUT = 0.5;
 const COLOUR_CUT = 0.002;
-// A cap on the texture cache. Signs are keyed by their own appearance (label, colour, night), so
-// the working set is the signs you can see; the cap is a backstop against a key that varies
-// continuously, which would otherwise leak a texture per frame.
-const MAX_TEX = 192;
+// ── ⚠ THE CAP HAS TO CLEAR THE WORKING SET OR IT IS NOT A CACHE ─────────────────────────────────
+//
+// It was 192, sized when a decal meant a SIGN — a few dozen baked name boards, each a real canvas.
+// It does not mean that any more: `emitDecoFill` files every flat coloured quad in the city here,
+// keyed on its own CSS string, and the derived kit put trim, plinths, crown courses, window bands,
+// pilaster ranks and recessed bays on most of the registry. Measured from a cab in Halcyon Fields,
+// one frame wanted **426 distinct textures** — and the tell that it was pathological rather than
+// merely large is that `batches` and `textures` came back EQUAL, at every district over the cap:
+// the cache held exactly this frame's set and nothing else, because `evict` had deleted everything
+// the previous frame had left in it.
+//
+// That is the worst state a cache can be in. Every frame it deleted ~230 textures and immediately
+// re-created them with a `texImage2D` apiece, for artwork that had not changed — the cost of a
+// cache with none of the benefit, and it grows with how much trim the city gains.
+//
+// ⚠ AND IT COSTS ALMOST NOTHING TO FIX, WHICH IS WHY THE NUMBER IS THIS MUCH BIGGER RATHER THAN A
+// LITTLE. The overwhelming majority of these are `solidTex` at **8×8** and `rampTex` at **4×32** —
+// 256 and 512 bytes — so a thousand of them is well under a megabyte, against the 156 MB a single
+// GL scene already holds. The cap is here to stop an unbounded key (a colour that slides with the
+// clock, a camera term in a key) eating the machine, and it still does that job at 1024; what it
+// must not do is throw away artwork the very next frame is going to ask for again.
+let MAX_TEX = 1024;
+// ── AND A WAY TO PROVE IT, BECAUSE THE STOPWATCH CANNOT ─────────────────────
+//
+// The cap is a module constant rather than a `RENDER_TUNE` knob, so there is nothing to A/B it
+// with — and a frame time on this renderer swings further than the change is worth, which is how a
+// real fix gets reverted for looking like noise. `minted` is the deterministic quantity: how many
+// textures this layer had to CREATE this frame. At a cap under the working set it is hundreds
+// every frame for ever; at a cap over it, it is hundreds on the first frame and **zero** after.
+// That is the whole claim, and it is a count rather than a duration.
+let MINTED = 0;
+if (typeof window !== 'undefined') window.__decalCap = (n) => { if (n) MAX_TEX = n; return MAX_TEX; };
+// A tally of decal keys by producer prefix, filled only while somebody is asking. See the census
+// block in `upload`. `__decalCensus()` starts one and returns the last, so a console can read it
+// without the layer carrying a per-frame allocation for everybody else.
+let KEYCENSUS = null;
+if (typeof window !== 'undefined') {
+  window.__decalCensus = (on = true) => {
+    const was = KEYCENSUS;
+    KEYCENSUS = on ? {} : null;
+    return was && Object.entries(was).sort((a, b) => b[1] - a[1]);
+  };
+}
 
 const VERT = `#version 300 es
 in vec3 aPos;
@@ -165,7 +205,10 @@ export function createDecalLayer(gl) {
   };
 
   const vao = gl.createVertexArray();
-  const buf = gl.createBuffer();
+  // One stream, set up once: the attribute pointers are recorded into the VAO here and never
+  // touched again, and the storage grows by doubling instead of being reallocated every frame.
+  // See gl/stream.js.
+  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.uv, 2, 12], [loc.alpha, 1, 20], [loc.emit, 1, 24]], 1024);
   let data = new Float32Array(0);
   const texes = new Map();          // key → WebGLTexture
   let batches = [];                 // { tex, first, count, cull, solid }
@@ -205,7 +248,7 @@ export function createDecalLayer(gl) {
   function textureFor(key, img, smooth) {
     let t = texes.get(key);
     if (t) return t;
-    t = gl.createTexture();
+    t = gl.createTexture(); MINTED++;
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
@@ -232,6 +275,7 @@ export function createDecalLayer(gl) {
   // ⚠ GROUPED BY TEXTURE, because a bind is the expensive part and two signs reading the same
   // baked canvas — every branch of the same chain, every "HOTEL" in the city — are one draw call.
   function upload(list) {
+    MINTED = 0;
     const byKey = new Map();
     for (const d of list) {
       if (!d || !d.img || !d.p || d.p.length !== 4) continue;
@@ -252,6 +296,21 @@ export function createDecalLayer(gl) {
     // Which TEXTURES this frame draws — `a.key`, never the grouping key. See the ⚠ on evict.
     const liveTex = new Set();
     for (const a of byKey.values()) liveTex.add(a.key);
+    // ── WHICH PRODUCER IS MINTING THEM, WHEN THE CACHE IS OVER ITS CAP ────────
+    //
+    // `textures` can sit at more than twice MAX_TEX with `batches` exactly equal to it, which says
+    // two things at once: nothing is sharing artwork, and the whole set turned over since the last
+    // frame — so every one of them is a `createTexture` plus a `texImage2D` this frame. A count
+    // cannot say WHOSE, and a key is `producer|…`, so the prefix is the answer. Off by default and
+    // it allocates nothing when off.
+    if (KEYCENSUS) {
+      const t = KEYCENSUS;
+      for (const a of byKey.values()) {
+        const k = String(a.key), i = k.indexOf('|');
+        const pre = i > 0 ? k.slice(0, i) : k.slice(0, 12);
+        t[pre] = (t[pre] | 0) + 1;
+      }
+    }
     evict(liveTex);
     let quads = 0;
     for (const a of byKey.values()) quads += a.items.length + a.deep.length;
@@ -284,13 +343,7 @@ export function createDecalLayer(gl) {
       for (const d of a.deep) quad(d);
       if (a.deep.length) { const n = a.deep.length * 6; batches.push({ tex, first, count: n, cull: a.cull, solid: true }); first += n; }
     }
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, verts * STRIDE), gl.DYNAMIC_DRAW);
-    const S = STRIDE * 4;
-    const bind = (l, n, off) => { if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); } };
-    bind(loc.pos, 3, 0); bind(loc.uv, 2, 12); bind(loc.alpha, 1, 20); bind(loc.emit, 1, 24);
-    gl.bindVertexArray(null);
+    stream.write(data, verts * STRIDE);
     return quads;
   }
 
@@ -302,7 +355,7 @@ export function createDecalLayer(gl) {
     if (!batches.length) return 0;
     gl.useProgram(prog);
     gl.uniform1f(loc.emitGain, emitGain > 0 ? emitGain : 0);
-    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, H)));
+    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, H)));
     // Whether this camera reflects the world — see the ⚠ on `uFlip`. Read off the camera itself so
     // a caller cannot hand over a mirrored matrix and forget to say so.
     gl.uniform1f(loc.flip, cam.mirrorZ == null ? 0 : 1);
@@ -349,5 +402,12 @@ export function createDecalLayer(gl) {
     return n;
   }
 
-  return { upload, draw, get textures() { return texes.size; } };
+  // ⚠ A DECAL COUNT SAYS NOTHING ABOUT WHAT THIS LAYER COSTS, AND THAT COST A WRONG DIAGNOSIS.
+  // Quads are grouped by texture, so a thousand decals sharing one baked canvas are ONE draw call
+  // and a thousand carrying their own artwork are a thousand — two frames reporting the identical
+  // 'decals' number and an order of magnitude apart in binds. 'batches' is the number that tracks
+  // the clock, and until it was published the only figure a bench could read was the one that does
+  // not. 'textures' beside it is how near the cache is to MAX_TEX, which is where it stops merely
+  // filling and starts evicting something every frame.
+  return { upload, draw, get textures() { return texes.size; }, get batches() { return batches.length; }, get minted() { return MINTED; } };
 }

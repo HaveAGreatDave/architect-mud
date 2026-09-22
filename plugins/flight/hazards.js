@@ -11,7 +11,6 @@
 import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { getZoneSeverity, getZonePrecip, getGameHour } from '../../server/engine/environment.js';
-import { on } from '../../server/engine/events.js';
 import { fireSpecializedAction } from '../../server/engine/specializedActions.js';
 import { applyTopical } from '../../server/engine/topical.js';
 import { getZonePlayers } from '../../server/engine/world.js';
@@ -19,21 +18,12 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { carriedFluids } from './hangars.js';
 // ⚠ THE SAME MODULE THE WINDSHIELD DRAWS FROM. A bird strike has to come from a flock the pilot
 // could see, so both surfaces read one answer — see the header on flockOnThePath below.
-import { flockOnSegment, gooseHabitat, gooseDaylight } from '../../client/shared/goose.js';
+import { flockOnSegment, gooseHabitat, gooseDaylight } from '../../client/shared/birds.js';
 
-// The ion storm's peak, mirrored locally off the weather-event signal so the
-// hazard roll never has to reach into the weather plugin. `weather.event` fires
-// once per phase transition, so this is three assignments an event, not a poll.
-let empUntil = 0;
-const EMP_WINDOW_MS = 90_000;
-on('weather.event', ({ type, phase }) => {
-  if (type === 'ion_storm' && phase === 'peak') empUntil = Date.now() + EMP_WINDOW_MS;
-  else if (phase !== 'peak') empUntil = 0;
-});
-function empActive() { return Date.now() < empUntil; }
 import {
   liveAircraft, surfaceAt, pilotOf, persist, crash, toOccupants, out, sendToZone,
   BANDS, effStats, getLivePlayer, detach, getZone, fieldFor as fieldOf, PILOT_IP,
+  avionicsDead,
 } from './state.js';
 // `eject` also belongs to broadcast (eject a cassette); flight wins it by load
 // order and hands back when you're not bailing out of an aircraft.
@@ -48,7 +38,7 @@ import { commands as broadcastCommands } from '../broadcast/index.js';
 // clock. So the same question the renderer asks, this asks: was there a flock on the path you just
 // flew? If there was, you hit it. If there was not, nothing happens, however long you loiter.
 //
-// ⚠ THE GEOMETRY IS IN client/shared/goose.js, NOT HERE, and that is the point rather than tidiness.
+// ⚠ THE GEOMETRY IS IN client/shared/birds.js, NOT HERE, and that is the point rather than tidiness.
 // A copy of it in this file would be a strike that fires over empty sky, or a flock you can watch a
 // wing pass through. This function's whole job is to hand that one answer the two things only the
 // server knows: where the aircraft has been, and what the ground underneath is made of.
@@ -169,15 +159,25 @@ export async function rollHazards(live) {
     live._acidTicks = 0;
   }
 
-  // ION STORM — the pulse takes the avionics with it. This is deliberately NOT
-  // damage: nothing about it will bring the aircraft down on its own. It takes
-  // the instruments away and hands you the aircraft, which for most pilots is
-  // considerably worse. Self-clearing, so it ends without a verb.
-  if (!live.hazard && empActive() && Math.random() < 0.5) {
-    live.hazard = { type: 'EMP', stage: 0 };
-    toOccupants(live, '<span class="text-red">⚡ Every panel in the cockpit dies at once. Gauges, radio, nav — black. You\'re flying this thing by eye and by feel.</span>');
-    return;
-  }
+  // ── ⚠ THE ION STORM USED TO BE ROLLED HERE, AND IT IS A PULSE, NOT A HAZARD ──
+  //
+  // It was `!live.hazard && empActive() && Math.random() < 0.5` against a 90s
+  // mirror of the peak, and it was wrong in two ways that both mattered.
+  //
+  // It had NO PLACE IN IT. The blast has had an epicentre and a twelve-tile
+  // reach since the pulse stopped taking the whole grid, and this ignored both:
+  // a pilot on the far side of the Basin lost their panels to a storm that took
+  // a quarter of Coldwater's lights, while the whole point of an edge is that
+  // you can be outside it. It is `vehicle.crewed` + `empReaches` now (state.js),
+  // so the aircraft, the rig and the ship are caught by one rule.
+  //
+  // And it OCCUPIED `live.hazard`, which is the fire slot. Every branch here
+  // opens with `!live.hazard`, so for as long as the panels were dark the
+  // aircraft could not catch fire, could not be told it was overheating, and
+  // could not escalate anything — minutes of hazard immunity handed out by the
+  // thing that was supposed to be the emergency. Dark panels and a fire in the
+  // same minute is the nightmare, and it is now reachable: avionics ride their
+  // own clock (`live.empUntil`) and the slot stays free.
 
   // BIRD STRIKE — you flew through a flock that was there.
   const struck = flockOnThePath(live);
@@ -217,18 +217,10 @@ async function escalate(live) {
     toOccupants(live, `<span class="text-red">🔥 The fire spreads — hull ${Math.round((1 - a.damage) * 100)}%. <b>extinguish</b> / <b>cut fuel</b>!</span>`);
     return;
   }
-  // EMP counts DOWN instead of up: the avionics come back on their own once the
-  // boards finish rebooting. It's the one hazard you survive by waiting.
-  if (h.type === 'EMP') {
-    h.stage++;
-    if (h.stage < EMP_HAZARD_TICKS) return;
-    live.hazard = null;
-    toOccupants(live, '<span class="text-cyan">The panels flicker, stutter, and come back one by one. You have instruments again.</span>');
-  }
+  // (EMP used to count DOWN here, occupying the slot while it did. It has its own
+  // clock now — see the note where it used to be rolled, and `knockOutAvionics`
+  // in state.js. A hazard is something that gets worse; this one only waits.)
 }
-
-// ~3s per flight tick, so this is the better part of a minute flying blind.
-const EMP_HAZARD_TICKS = 18;
 
 // ── Emergency verbs ───────────────────────────────────────────────────────────
 // (No `recover` verb — a stall is recovered by flying: nose down, unload, add power, and the
@@ -523,6 +515,9 @@ function bearing(from, to) {
 
 async function cmdChart(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
+  // The plot is a box doing arithmetic, and the box is dead. Refused rather than
+  // degraded: half a nav fix is worse than none, because you would fly it.
+  if (avionicsDead(live)) return { type: 'emote', message: '<span class="text-amber">The nav head is dark. No fix, no fuel figure, no field — you have a compass, a watch and the ground.</span>' };
   const a = live.row, eff = effStats(live);
   // Nearest airfield (by chebyshev distance over coords).
   const { rows: fields } = await query(
@@ -546,6 +541,13 @@ async function cmdChart(args, raw, player) {
 
 async function cmdSquawk(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
+  // ⚠ A DEAD TRANSPONDER IS NOT THE SAME AS ONE SWITCHED OFF, and the difference
+  // is a crime. `squawk off` is a deliberate act in controlled airspace; this is
+  // the set being unable to answer, so the code it was already squawking is left
+  // exactly where it is rather than silently cleared — if the pulse is going to
+  // make you look like a ghost to the cameras, that is the storm's doing and
+  // nothing here should tidy it into something you chose.
+  if (avionicsDead(live)) return { type: 'emote', message: '<span class="text-amber">You thumb the transponder and nothing answers. The whole stack is cooked.</span>' };
   const arg = (args[0] || '').toLowerCase();
   if (arg === 'off' || arg === 'dark') {
     live.squawk = null;

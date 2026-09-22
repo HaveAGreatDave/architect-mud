@@ -1,0 +1,18 @@
+{
+  "description": "Off the lobby, behind an unmarked door: the gear for the restaurant lift, which is a separate machine from the residents' lift on the other side of the core and, unlike the residents' lift, has never once been out of service.",
+  "exits": {
+    "up": "zone_hf_topmarket_lift"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_898_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_topmarket_lift",
+  "map_id": "map_int_hf_topmarket",
+  "name": "Top of the Market — The Lift Motor Room",
+  "parent_zone": "zone_district_898_915"
+}

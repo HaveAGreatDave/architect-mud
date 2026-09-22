@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#0e1820",
+  "color": "#c6e6d8",
+  "description": "Four steps of falling height coming down toward the mews, each terrace planted and each one behind a glass balustrade with the protective film still on it. The film has been on long enough to have gone milky and to have started lifting at the corners. From the green you can see the irrigation running on a timer into beds that nobody has yet put anything in. The way in is a glazed slot at the bottom of the lowest step, off the mews, with a chrome plate beside it reading TERRACES OPEN TO VIEW and an arrow that points at nothing in particular. The way in is a glazed slot at the bottom of the lowest step, off the mews, with a chrome plate beside it reading TERRACES OPEN TO VIEW and an arrow that points at nothing in particular. The way in is a glazed slot at the bottom of the lowest step, off the mews, with a chrome plate beside it reading TERRACES OPEN TO VIEW and an arrow that points at nothing in particular. The way in is a glazed slot at the bottom of the lowest step, off the mews, with a chrome plate beside it reading TERRACES OPEN TO VIEW and an arrow that points at nothing in particular. The way in is a glazed slot at the bottom of the lowest step, off the mews, with a chrome plate beside it reading TERRACES OPEN TO VIEW and an arrow that points at nothing in particular. The way in is a glazed slot at the bottom of the lowest step, off the mews, with a chrome plate beside it reading TERRACES OPEN TO VIEW and an arrow that points at nothing in particular.",
   "exits": {
-    "east": "zone_district_895_912",
-    "south": "zone_district_894_913",
+    "east": "zone_hf_terms_hall",
     "west": "zone_district_893_912"
   },
   "flags": {
+    "building_name": "Terms Agreed",
+    "building_type": "cascade_block",
     "district": "halcyon_fields",
+    "entrance": "west",
+    "facade": true,
+    "floors": 8,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_893_912"
   },
   "grid_x": 894,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_894_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "TA",
+  "name": "Terms Agreed",
   "parent_zone": null
 }

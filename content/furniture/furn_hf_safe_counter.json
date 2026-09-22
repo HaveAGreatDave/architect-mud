@@ -1,0 +1,8 @@
+{
+  "description": "One continuous piece of brushed chrome the width of the room with a walk-through gap in the middle of it. There is no glass, no grille and no till. What there is, set into the top at the gap, is a brass plate worn concave by a great many hands resting in the same spot while somebody checked something.",
+  "flags": {},
+  "id": "furn_hf_safe_counter",
+  "name": "the chrome counter",
+  "object_type": "furniture",
+  "zone_id": "zone_hf_safe_hall"
+}

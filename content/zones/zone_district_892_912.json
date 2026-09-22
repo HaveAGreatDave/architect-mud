@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
-  "exits": {
-    "east": "zone_district_893_912",
-    "south": "zone_district_892_913",
-    "west": "zone_district_891_912"
-  },
+  "ambient_theme": "urban",
+  "description": "Eighteen storeys of it, clad to about the tenth and bare floor plates above that, with the crane still standing off the north-west corner and tied in at three levels. The hoarding round the base is printed with the finished building, at dusk, from an angle that would put you in mid-air over the mews. Somebody has added the name in marker across the bottom of the hoarding and it has been scrubbed at rather than removed.",
+  "exits": {},
   "flags": {
+    "building_name": "Rising Damp",
+    "building_type": "shell_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "entrance": "east",
+    "floors": 18,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 892,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_892_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "RB",
+  "name": "Rising Damp",
   "parent_zone": null
 }

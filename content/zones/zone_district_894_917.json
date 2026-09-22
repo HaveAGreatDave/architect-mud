@@ -1,23 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#101a1e",
+  "color": "#c4e2d6",
+  "description": "A low drum between two wings with a covered passage cut straight through the middle of it at ground level, from Kerbstone Row to the lane behind. The passage is not a courtesy: it is an ancient footpath the estate could not extinguish, and the building was designed round it after a year of trying not to. The passage mouth on Kerbstone Row is the way in and there is no door on it at all, because a door on it would be the one thing the award specifically forbids. The passage mouth on Kerbstone Row is the way in and there is no door on it at all, because a door on it would be the one thing the award specifically forbids. The passage mouth on Kerbstone Row is the way in and there is no door on it at all, because a door on it would be the one thing the award specifically forbids. The passage mouth on Kerbstone Row is the way in and there is no door on it at all, because a door on it would be the one thing the award specifically forbids. The passage mouth on Kerbstone Row is the way in and there is no door on it at all, because a door on it would be the one thing the award specifically forbids. The passage mouth on Kerbstone Row is the way in and there is no door on it at all, because a door on it would be the one thing the award specifically forbids.",
   "exits": {
-    "east": "zone_district_895_917",
     "north": "zone_district_894_916",
-    "south": "zone_district_894_918"
+    "south": "zone_hf_rightofway_passage"
   },
   "flags": {
+    "building_name": "Right of Way",
+    "building_type": "atrium_court",
     "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 4,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_894_916"
   },
   "grid_x": 894,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_894_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "RW",
+  "name": "Right of Way",
   "parent_zone": null
 }

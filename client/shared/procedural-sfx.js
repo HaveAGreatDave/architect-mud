@@ -1018,6 +1018,517 @@
     ], 3), LOCK_LEVEL);
   }
 
+  // ── ALARM ────────────────────────────────────────────────────────────────────
+  //
+  // An intruder alarm has two voices and they are not the same sound at two
+  // volumes. The ENTRY CHIRP is the box being polite: it knows somebody has come
+  // through the door and it is giving the keyholder their window. The SIREN is
+  // what happens when that window closes. Everything about the first is designed
+  // to be ignorable and everything about the second is designed not to be, so
+  // they are built separately rather than as one cue with a gain on it.
+  //
+  // ⚠ NO TREMOLO FASTER THAN ~20 Hz AND NO GATE. The photosensitivity rule the
+  // drug FX are held to is about LIGHT, but the siren drives a screen pulse at
+  // the other end of this feature, and a cue that stutters invites a visual that
+  // stutters with it. The siren SWEEPS — a continuous two-tone climb and fall,
+  // which is also what the real article does.
+  //
+  // `intensity` is the alarm's own model, 0 for a bell box somebody's cousin
+  // fitted and 1 for the thing a bonded courier's depot wears. It buys pitch and
+  // bite, never duration: how long you have is the SERVER's business and this
+  // file must not imply an answer to it.
+  const ALARM_LEVEL = 4.2;   // as lock, from a thing built to be heard
+
+  function alarm({ state = 'warn', intensity = 0.5 } = {}) {
+    const i = clamp01(intensity);
+    const siren = state === 'siren';
+
+    // The chirp. One short square blip with a hard edge — the cheapest sound a
+    // panel can make, and deliberately a little bit nasty, because it is counting.
+    if (!siren) {
+      const f = vary(lerp(1750, 2450, i), 0.04);
+      return atLevel(def('alarm_warn', 0.34, [
+        { waveform: 'square', freq: f,
+          filter: { type: 'bandpass', freq: f, q: 7 },
+          adsr: { a: 0.002, d: 0.055, s: 0.55, r: 0.05 },
+          gain: vary(0.045 * (0.6 + 0.4 * i), 0.1) },
+        // Its own second harmonic, quietly — what stops it reading as a test tone.
+        { waveform: 'sine', freq: f * 2,
+          filter: { type: 'bandpass', freq: f * 2, q: 9 },
+          adsr: { a: 0.003, d: 0.05, s: 0.3, r: 0.04 },
+          gain: vary(0.014 * i, 0.15) },
+        // The relay behind the fascia. A physical click under an electronic
+        // sound is the whole difference between a panel and a phone.
+        { noiseMix: 1,
+          filter: { type: 'bandpass', freq: vary(3200, 0.2), q: 2.4 },
+          adsr: { a: 0.001, d: 0.012, s: 0, r: 0.02 },
+          gain: vary(0.018, 0.2) },
+      ], 4), ALARM_LEVEL);
+    }
+
+    // The siren. Two tones a fifth apart sweeping up and back down together, so
+    // the interval holds while the pitch moves — that fixed interval is why a
+    // real siren sounds urgent rather than merely loud.
+    const lo = vary(lerp(620, 820, i), 0.05);
+    const hi = lo * 1.5;
+    const sweep = vary(lerp(0.85, 0.52, i), 0.1);   // a better box cycles faster
+    return atLevel(def('alarm_siren', sweep * 2 + 0.5, [
+      { waveform: 'sawtooth', freq: lo,
+        pitchBend: { to: lo * 1.9, time: sweep },
+        filter: { type: 'bandpass', freq: lo * 1.6, q: 3.2 },
+        adsr: { a: 0.02, d: sweep, s: 0.85, r: 0.3 },
+        gain: vary(0.055 * (0.7 + 0.3 * i), 0.1) },
+      { waveform: 'square', freq: hi,
+        pitchBend: { to: hi * 1.9, time: sweep },
+        filter: { type: 'bandpass', freq: hi * 1.4, q: 4.0 },
+        adsr: { a: 0.02, d: sweep, s: 0.8, r: 0.3 },
+        gain: vary(0.038 * (0.7 + 0.3 * i), 0.1) },
+      // The room it is in. A siren indoors is mostly the walls giving it back,
+      // and without this it sounds like a siren on headphones.
+      { noiseMix: 1, delay: 0.04,
+        filter: { type: 'bandpass', freq: vary(1500, 0.25), q: 1.1 },
+        tremolo: { rate: vary(6.5, 0.2), depth: 0.5 },
+        adsr: { a: 0.05, d: sweep * 1.6, s: 0.5, r: 0.4 },
+        gain: vary(0.020 * i, 0.2) },
+    ], 8), ALARM_LEVEL);
+  }
+
+  // ── BIRDS ────────────────────────────────────────────────────────────────────
+  //
+  // ⚠ THIS FILE MAKES THE SOUND AND DOES NOT OWN HOW OFTEN IT PLAYS. That belongs
+  // to the behaviour layer (client/shared/birds.js and the species table beside it),
+  // and it is a DESIGN CONSTRAINT rather than a tuning preference: bird calls must
+  // stay rare. The rule this file already states for footsteps applies harder here,
+  // because a bird is ambient and a footstep is something you did — "a quiet sound
+  // repeated identically is more irritating than a loud one that varies", and no
+  // amount of vary() rescues a cue that fires every six seconds for as long as you
+  // stand in a park.
+  //
+  // ⚠ AND THE BUDGET IS SHARED ACROSS EVERY SPECIES, NOT HELD PER SPECIES. Five
+  // birds each independently "uncommon" is a bird calling constantly — the same
+  // arithmetic error as five per-species face caps summing past one face budget.
+  // One allowance, spent nearest-first, is the only version that holds.
+  //
+  // ⚠ AND RARE MEANS BURSTS SEPARATED BY SILENCE, NOT AN EVEN TRICKLE. A flock
+  // calls in a flurry and then shuts up for a minute, which is both what geese
+  // actually do and the thing that keeps a rare sound an EVENT: a metronomic call
+  // at the same low rate is heard as background noise within about a minute, and
+  // background noise is exactly the fatigue this is avoiding.
+  //
+  // ⚠ A CALL PAST ITS BUDGET IS DROPPED, NEVER QUEUED — the footstep rule, for the
+  // footstep reason: a queue turns a busy moment into a burst that runs on after
+  // the thing that caused it has gone.
+  //
+  // A bird call is a THROAT, and that is the whole reason it is generated rather
+  // than sampled: a syrinx is a resonant tube driven by a rough, unstable source,
+  // which is the one thing FM through a formant bank is genuinely good at. The
+  // failure mode to design against is not "it sounds cheap" — it is that every
+  // synthesised animal drifts toward the same brassy blat, and a goose, a gull
+  // and a pigeon then differ only in pitch.
+  //
+  // ⚠ THE FORMANTS ARE THE SPECIES, NOT THE FUNDAMENTAL. Transposing one voice up
+  // and down gives you a small goose and a big goose. What separates a nasal honk
+  // from a mournful mew from a soft coo is WHERE the resonances sit and how hard
+  // the source is driven through them — so `f0` is the least interesting number
+  // in each row, and two species may share it.
+  //
+  // ⚠ AND THE PITCH MUST NOT BE STABLE. An oscillator holding a note reads as an
+  // instrument however good the timbre is. Every voice here falls through the
+  // call and carries a little jitter, because what a bird is doing is expelling
+  // air through a tube that is changing shape, and the fall is the tell.
+  //
+  // One row per voice; the other four species land here as rows, not as code.
+  const BIRD_VOICES = {
+    // The Canada goose. Loud, nasal, brassy and slightly ugly — the brief was
+    // "if someone hears it without being told, they should think: that's a
+    // goose", which rules out anything clean, tuned or pretty.
+    goose: {
+      // ⚠ EVERY NUMBER HERE IS MEASURED OFF FIVE REFERENCE RECORDINGS, not chosen.
+      // scripts/audio/birdfit.mjs re-runs the measurement; the notes below say what
+      // each one was before and why the reference disagreed, because four of the
+      // six were wrong in a way that sounded deliberate.
+      f0: 150,          // references cluster at 133 and 169; 205 was well above both
+      drop: 0.35,       // MEASURED FLAT (133->135, 167->169). The 2.1 semitones here
+                        // before came from the brief, and no reference does it.
+      dropTime: 0.12,
+      // ⚠ RATIO 1, AND THIS IS THE WHOLE 'IT SOUNDS METALLIC' BUG. At ratio 3 the
+      // modulator sits three times the carrier, so the sidebands land on harmonics
+      // 1, 4, 7, 10, 13 and NOTHING BETWEEN — a sparse comb, which is exactly what
+      // a struck bell is. Every reference has all twenty harmonics present. At
+      // ratio 1 a sideband lands on every one.
+      ratio: 1,
+      // ⚠ HIGH, AND MEASURED SO. The reference carries real energy out to h16 (h10 is
+      // 0.32 of the peak, h16 is 0.20), and an index only spreads sidebands about
+      // index+1 harmonics either side — at 4.2 the call died by h8 and read as dull
+      // and small. This is the number that fills the top of the spectrum.
+      index: 11,          // enough spread to reach h16; the formants do the shaping
+      indexEnd: 6,
+      op2: 2,           // integer, and low — a second sparse comb is the same bug again
+      op2Index: 1.1, op2End: 0.35,
+      modWave: 'sine',
+      drive: 0.34,
+      // Measured: the peak harmonic is h5-h6 with h1 at 0.08-0.14, which puts the
+      // resonances at roughly 800, 1400 and 2080 Hz. The 2550 and 3700 bands that
+      // were here are above anything the references carry — 5k-8k is under 1% of
+      // their energy.
+      // ⚠ DO NOT DELETE THE TOP BAND. It was cut once on the grounds that the
+      // references carry nothing up there, and that reading was wrong: reference 01
+      // has 31% of its energy in 2-5 kHz. Cutting it dropped the spectral centroid
+      // to 862 Hz against the references' 1343, which is audible as the call being
+      // BASSIER than a goose - reported by ear before it was measured.
+      // ⚠ THE BANK TILTS UPWARD — F1 IS NOT THE LOUDEST BAND. With the gains falling
+      // 1/.85/.72/.5 the first formant dominated and held the spectral centroid at
+      // 853 Hz against the references' 1343, which is what 'it sounds bassier than it
+      // should' measures as. Tilting the weight onto F2/F3 moves it to 1416 without
+      // touching a single frequency.
+      formants: [{ freq: 670, q: 3.0, gain: 1 }, { freq: 1420, q: 3.2, gain: 0.9 },
+        { freq: 2150, q: 2.6, gain: 1 }, { freq: 3050, q: 2.2, gain: 0.8 }],
+      // ⚠ THE HONK SWELLS — the loudest moment is 44-72% of the way THROUGH it, so
+      // the attack is 75-115 ms and not the 11 ms that was here. This is the other
+      // half of 'metallic': a step into a resonator bank is a STRIKE, and a struck
+      // resonator is a bell however well the spectrum is tuned.
+      adsr: { a: 0.075, d: 0.02, s: 0.88, r: 0.03 },
+      // ⚠ BREATHINESS IS NOISE THROUGH THE SAME THROAT, not a burst in front of it.
+      // A separate noise layer at the attack is a CLICK; what makes a voice breathy
+      // is noise mixed with the harmonic source and shaped by the same resonances,
+      // which is what noiseMix on the tone layer does. Measured: the references leak
+      // 25.3% of their energy between the harmonics and a pure oscillator leaks none.
+      // ⚠ HALF THE LAYER IS NOISE, and that is not a typo. Measured against the
+      // references it takes 0.5 to reach their 25% inter-harmonic energy; at 0.16 the
+      // call measured 9% and was reported by ear as not breathy enough. A goose is
+      // not a clean oscillator with a puff in front of it.
+      breathMix: 0.5,
+      // ⚠ SHORT, BECAUSE A GAP IS WORSE THAN NO ASPIRATION. At 0.055 the breath had
+      // finished before the voice started and the envelope measured a HOLE in the middle
+      // of its own attack (0.37, 0.21, 0.09, 0.49 where the references climb 0.27, 0.48,
+      // 0.77, 0.84) - breath, silence, honk. The breath has to still be sounding when the
+      // voice arrives. Closing this was the single largest improvement in the fit.
+      onset: 0.012,     // how long the breath has to itself before the voice starts
+      breath: 1100,
+      grunt: 0.30,
+      jitter: 18,
+      vibRate: 6,       // Hz. 4-7 is a voice; anything near 20 is an LFO and sounds like one.
+      // ⚠ THE CUE IS SHORTER THAN THE SOUND, and that is not a mistake. A Q-3
+      // resonator bank RINGS after its source stops, so the audible tail runs well
+      // past the note: at dur 0.21 the call measured 348 ms against a reference of
+      // 161. Fit the MEASURED length, never the authored one.
+      dur: 0.03,        // measures ~175 ms; references are 145-170 ms of sound
+    },
+
+    // The gull. Measured off a reference recording the same way the goose was, and it is a
+    // genuinely different animal rather than the goose transposed: shorter (104 ms against 161),
+    // peaking earlier (45% through against 59%), and with 83% of its energy inside ONE band
+    // against the goose's 45% — a far narrower throat.
+    //
+    // ⚠ THE REFERENCE HAD TO BE HIGH-PASSED BEFORE IT COULD BE READ AT ALL. An outdoor gull
+    // recording carries wind on the microphone, and on this one the rumble was so large that the
+    // raw file measured 99.7% of its energy below 100 Hz with its loudest partial at 12 Hz — a
+    // spectrum that says "not a bird" while the zero-crossing rate says 2,266 a second. Four
+    // cascaded biquads at 300 Hz is what it took; a single pole only got it to 91%.
+    gull: {
+      f0: 585,          // the reference clusters at 385 and 585 — two birds, and this is the upper
+      drop: 1.2,
+      dropTime: 0.07,
+      ratio: 1,         // a full harmonic series, for the reason the goose's ⚠ gives
+      // ⚠ A LOWER INDEX THAN THE GOOSE, WHICH IS THE OPPOSITE OF WHAT A HARSHER BIRD SOUNDS LIKE.
+      // The cry is CONCENTRATED, not wide: one band holds 83% of it, so spreading sidebands out to
+      // h16 the way the goose does would be spending energy exactly where the reference has none.
+      index: 5,
+      indexEnd: 2.5,
+      op2: 2, op2Index: 0.9, op2End: 0.3,
+      modWave: 'sine',
+      drive: 0.30,
+      // Measured: the peak sits at 1095-1336, with smaller shelves near 2.2k and 3.2k. Narrower
+      // than the goose's bank because the measured concentration is more than twice as tight.
+      formants: [{ freq: 1200, q: 7.0, gain: 1 }, { freq: 2200, q: 3.6, gain: 0.34 },
+        { freq: 3250, q: 3.0, gain: 0.28 }],
+      // ⚠ THREE NUMBERS THAT ONLY WORK TOGETHER, and the coordinate search could not find them.
+      // Shortening the attack, the hold and the release each moved the distance by LESS than the
+      // measurement's own noise floor, so each was rejected on its own; all three at once take the
+      // call from 160 ms to 100 against a reference of 104, and the distance from 0.99 to 0.73.
+      // A one-parameter-at-a-time search cannot see a group like that, which is worth remembering
+      // before trusting the next plateau it reports.
+      adsr: { a: 0.032, d: 0.015, s: 0.82, r: 0.015 },
+      breathMix: 0.22,
+      onset: 0.008,
+      breath: 1600,
+      // ⚠ NO GRUNT. The "a-" onset is a goose leading into its own honk; a gull cry starts at
+      // roughly half level and goes straight up, which the envelope measurement shows plainly
+      // (0.517 at the first sample against the goose's 0.265).
+      grunt: 0,
+      jitter: 22,
+      vibRate: 7,
+      dur: 0.015,       // measures ~100 ms; references are ~104 ms of sound
+    },
+
+    // The feral pigeon. The acoustic opposite of the gull in every way that matters: dark where
+    // the gull is bright, soft where it is harsh, and long where it is clipped.
+    //
+    // ⚠ THIS ONE IS NOT FITTED. The goose and the gull were each measured off reference recordings
+    // and searched onto them; this is authored from what a rock pigeon's coo is known to be, and
+    // the numbers below are a considered guess rather than a result. Treat it as a first draft: if
+    // a recording turns up, the same harness fits it in twenty minutes and will almost certainly
+    // move several of these.
+    pigeon: {
+      f0: 300,
+      drop: 2.2,        // a coo falls away at the end, which is most of its shape
+      dropTime: 0.22,
+      ratio: 1,
+      // ⚠ A LOW INDEX, AND LOWER THAN ANYTHING ELSE HERE. A coo is very nearly a pure tone with a
+      // couple of harmonics under it — almost all its energy is in the fundamental and the second.
+      // Spread it the way a goose is spread and you get a dove-shaped kazoo.
+      index: 1.8,
+      indexEnd: 0.9,
+      op2: 2, op2Index: 0.25, op2End: 0.1,
+      modWave: 'sine',
+      drive: 0.06,      // barely any: nothing about this sound is broken or driven
+      // Two bands and nothing above them. The silence up top IS the sound — a coo is the one bird
+      // call here you would describe as dark.
+      formants: [{ freq: 520, q: 4.5, gain: 1 }, { freq: 1040, q: 3.2, gain: 0.22 }],
+      // Slow in, held, slow out. Nothing in a coo is punchy.
+      adsr: { a: 0.09, d: 0.05, s: 0.88, r: 0.12 },
+      breathMix: 0.3,   // breathy, which is most of what stops it reading as an organ note
+      onset: 0.03,
+      breath: 700,      // and the breath is LOW, unlike either of the others
+      grunt: 0,
+      jitter: 14,
+      vibRate: 5,
+      dur: 0.3,
+    },
+
+    // The songbird. A starling's call, which is the one in this table that is not a CRY at all —
+    // it is a whistle with a rattle in it, and the two halves need different mechanisms.
+    //
+    // ⚠ HIGH RATIO, WHICH NOTHING ELSE HERE USES. The other three are all ratio 1: a full harmonic
+    // series through a throat, which is what a honk, a cry and a coo are. A whistle is nearly a
+    // pure tone an octave or two up with very little under it, and a starling then drags a metallic
+    // rattle across the top. Ratio 1 with the formants moved up gives a small goose; the character
+    // is in the modulator sitting well above the carrier.
+    //
+    // ⚠ AND IT IS NOT FITTED. Like the pigeon, this is authored from what the bird is known to
+    // sound like rather than measured off a recording. The harness fits it in twenty minutes if one
+    // turns up, and several of these will move when it does.
+    songbird: {
+      f0: 2600,         // far above everything else here — a whistle, not a throat
+      drop: -3.5,       // ⚠ NEGATIVE: it RISES. A starling's whistle sweeps upward, which is most
+                        // of what stops it reading as a tiny goose.
+      dropTime: 0.09,
+      ratio: 3,
+      index: 2.2,
+      indexEnd: 5.5,    // opening rather than collapsing — the rattle arrives after the whistle
+      op2: 7, op2Index: 1.4, op2End: 2.6,
+      modWave: 'square',   // the grit that makes it metallic rather than flutey
+      drive: 0.22,
+      // One band, high, and nothing below it. A bird this size has no chest to speak of.
+      formants: [{ freq: 3100, q: 5, gain: 1 }, { freq: 5200, q: 3, gain: 0.45 }],
+      adsr: { a: 0.012, d: 0.02, s: 0.7, r: 0.04 },
+      breathMix: 0.12,
+      onset: 0.006,
+      breath: 4200,
+      grunt: 0,
+      jitter: 40,       // the most unstable pitch in the table, which is what a starling is
+      vibRate: 11,
+      dur: 0.07,
+    },
+
+    // The hawk. The one call in this table that is mostly NOISE with a pitch in it, rather than a
+    // pitch with some noise in it — a red-tail's scream is a rasp, and what makes it recognisable
+    // is that it tears rather than rings.
+    //
+    // ⚠ AND IT IS NOT FITTED, like the pigeon and the songbird. Authored from what the bird is
+    // known to be; the harness in scripts/audio/birdfit.mjs measures a recording onto it in twenty
+    // minutes and several of these will move when one turns up.
+    hawk: {
+      f0: 900,
+      // ⚠ A FAST FALL INTO A LONG HELD RASP, and the second half of that sentence was authored
+      // wrong. It read "slides down through most of its length" at dropTime 0.55, and the carrier
+      // measured the bend COMPLETE IN ABOUT 120 ms with the remaining 600 flat. The number is what
+      // the generator actually does now rather than what the comment wished it did — which is also
+      // the right shape for the bird: a red-tail screams "keee-aaahrr", a quick drop and then a
+      // held tear, not a slide whistle.
+      drop: 5.5,
+      dropTime: 0.14,
+      ratio: 1,
+      // Wide, because the rasp is broadband: the energy has to reach a long way up to read as torn
+      // rather than as a tone somebody put a filter on.
+      index: 8,
+      indexEnd: 9,      // ⚠ OPENING, not collapsing — it gets ROUGHER as it falls, which is the
+                        // opposite of every other row here and is what stops the tail going pure.
+      op2: 3, op2Index: 2.2, op2End: 3.0,
+      modWave: 'sawtooth',
+      drive: 0.55,      // the hardest-driven voice in the table
+      // ⚠ TWO NARROW BANDS, AND THE THIRD BROAD ONE WAS DELETING THE DESCENT. This is the trap
+      // the whole table is prone to and it took a CONTROL to see: a formant bank is FIXED while
+      // the carrier slides through it, so if the bank is broad and high the spectrum does not move
+      // when the pitch does. Measured as spectral centroid over the call, the authored bank fell
+      // 0.39 semitones — against a control with `drop: 0` that fell −0.13. The bend was inaudible,
+      // and every reading that did not include the control looked like it was working.
+      //
+      // Narrowing to two bands the carrier travels THROUGH takes it to 1.88 against that control's
+      // 0.64. The cost is level — losing the 4.2k shelf took the peak from 0.53 to 0.28, which is
+      // in line with the goose's 0.39 and fine for a bird that is a long way up.
+      formants: [{ freq: 1500, q: 5.0, gain: 1 }, { freq: 2600, q: 4.0, gain: 0.5 }],
+      // Straight in, held for a long time, and it stops rather than decaying — a scream ends
+      // because the bird shuts its beak.
+      adsr: { a: 0.02, d: 0.03, s: 0.9, r: 0.04 },
+      // ⚠ THE MOST BREATH OF ANY ROW, past even the goose's half. The rasp IS the noise; take it
+      // out and what is left is a long descending tone, which is a slide whistle.
+      breathMix: 0.6,
+      onset: 0.01,
+      breath: 2400,
+      grunt: 0,
+      jitter: 26,
+      vibRate: 8,
+      // ⚠ LONG, AND DELIBERATELY SO. Every other call here is a syllable; this one is a held
+      // scream, and shortening it to match the others deletes the tear that most of the character
+      // is in. Measures 750-820 ms against the goose's 154 and the gull's 84.
+      dur: 0.72,
+    },
+
+    // The vulture. The only row here that is not a CALL, and the only one whose defining fact is
+    // anatomical rather than acoustic: a vulture has no syrinx. It physically cannot make a note.
+    // Everything else in this table is a voice with noise mixed into it; this is noise with barely
+    // enough voice under it to have a throat at all.
+    //
+    // ⚠ SO THE TONE LAYER IS ALMOST ENTIRELY NOISE, AND THE FORMANTS ARE WHAT MAKE IT AN ANIMAL.
+    // Noise through a bandpass is a hiss from a pipe. Noise through a resonator BANK is a hiss from
+    // something with a mouth, which is the whole difference and costs nothing — the bank is already
+    // there, it just has almost no harmonic source behind it for once.
+    //
+    // ⚠ AND THE GRUNT IS BACK ON, for the first time since the goose. It is the goose's own field —
+    // a low sawtooth leading into the main layer — and it does a completely different job here: a
+    // vulture's two sounds are a hiss and a grunt, so the thing that reads as "a goose leading into
+    // its honk" reads here as the other half of the animal's entire vocabulary.
+    //
+    // ⚠ NOT FITTED, like the pigeon, the songbird and the hawk. Authored from what the bird is
+    // known to be; scripts/audio/birdfit.mjs measures a recording onto it if one turns up.
+    vulture: {
+      f0: 220,          // low, and mostly buried — what little of it you hear is the grunt
+      drop: 1.5,
+      dropTime: 0.2,
+      ratio: 1,
+      // As low as anything here bar the pigeon. There is no harmonic structure to spread: sidebands
+      // on a source that is 5% of the sound are sidebands on nothing.
+      index: 1.6,
+      indexEnd: 0.8,
+      op2: 2, op2Index: 0.3, op2End: 0.12,
+      modWave: 'sine',
+      drive: 0.18,
+      // ⚠ BROAD AND DELIBERATELY UNFOCUSED. Every other bank here has a dominant band that carries
+      // the call's pitch; a hiss has no pitch to carry, so what these do is give the noise a mouth
+      // shape rather than a note. A high-Q band on a hiss reads as a kettle.
+      formants: [{ freq: 700, q: 1.8, gain: 1 }, { freq: 1500, q: 1.6, gain: 0.85 },
+        { freq: 2600, q: 1.4, gain: 0.6 }],
+      // Slow in, held, slow out. A hiss is something a body does for as long as it has breath.
+      adsr: { a: 0.07, d: 0.04, s: 0.9, r: 0.14 },
+      // ⚠ THE HIGHEST IN THE TABLE BY A LONG WAY, and it is the species. At the goose's 0.5 this is
+      // a small angry goose; at 0.95 it is an animal with no voice, which is the point.
+      breathMix: 0.95,
+      onset: 0.02,
+      breath: 1400,
+      // ⚠ THE SECOND-EVER NON-ZERO GRUNT. See the note above: this is not the goose's "a-" onset
+      // borrowed, it is the other thing a vulture can actually do.
+      grunt: 0.6,
+      jitter: 30,
+      vibRate: 4,
+      dur: 0.45,
+    },
+  };
+
+  const birdVoice = (v) => BIRD_VOICES[v] || BIRD_VOICES.goose;
+  const SEMI = (n) => Math.pow(2, n / 12);
+
+  /**
+   * One call from one bird.
+   *
+   * `size` is the individual rather than the species — a big goose is the same
+   * voice with a longer tube, so it drops the fundamental and the formants
+   * TOGETHER. Scaling the fundamental alone is the transposed-sample mistake
+   * this file exists to avoid.
+   *
+   * ⚠ THE BREATH IS A SEPARATE LAYER AND HAS TO BE. The transient is broadband
+   * noise and the honk is a driven oscillator; one layer is one source, so the
+   * only way to have both is two. It is also what stops the attack reading as a
+   * synth note — an animal opens its mouth before it makes the sound.
+   */
+  function birdCall({ voice = 'goose', intensity = 0.7, size = 0.5, seed } = {}) {
+    // ⚠ IT SEEDS ITS OWN GENERATOR, like buildActionCue and for the same reason this
+    // file's header states: the server decides WHEN a bird calls and the client renders
+    // it, so without a seed the two build different sounds from the same event — and
+    // nothing would report it, because both are plausible honks. It also makes the cue
+    // reproducible, which is the difference between tuning it and guessing at it.
+    const prev = rnd;
+    rnd = Number.isFinite(seed) ? mulberry32(seed) : Math.random;
+    try { return birdCallInner({ voice, intensity, size }); }
+    finally { rnd = prev; }
+  }
+
+  function birdCallInner({ voice, intensity, size }) {
+    const b = birdVoice(voice);
+    const i = clamp01(intensity);
+    // A bigger bird is a longer tube: down about a fifth across the range, and
+    // the formants come with it.
+    const tube = lerp(1.18, 0.84, clamp01(size));
+    const f0 = vary(b.f0 * tube, 0.06);
+    const end = f0 / SEMI(vary(b.drop, 0.25));
+    const fShift = tube * vary(1, 0.04);
+    const fm = b.formants.map((f) => ({ freq: f.freq * fShift, q: f.q, gain: f.gain }));
+    // Loud is not just louder. A bird calling hard drives its own throat harder,
+    // so intensity opens the modulation index as well as the gain — the same
+    // thing `bright` does for a struck instrument, and most of why a distant
+    // contact call and an alarm call are recognisably the same animal.
+    const idx = b.index * lerp(0.62, 1.22, i);
+
+    const layers = [
+      // The breath. Very short, and gone before the honk is at full level.
+      // ⚠ IT LEADS, AND IT IS LOUD. Measured, the references START at 0.40 of their
+      // peak level and this was starting at 0.10 — which is the difference between a
+      // call that leads with an H and one that simply arrives. A quiet 38 ms tick under
+      // the attack is not an aspiration; the breath has to be audible ON ITS OWN before
+      // the voiced part comes in, which is what the honk's own delay below leaves room
+      // for.
+      { noiseMix: 1,
+        filter: { type: 'bandpass', freq: vary(b.breath * fShift, 0.18), q: 1.1 },
+        adsr: { a: 0.004, d: vary(0.085, 0.25), s: 0.25, r: 0.05 },
+        gain: vary(0.30 * (0.5 + i), 0.18) },
+
+      // The "a-" onset — the low grunt a goose leads with. Quiet and almost
+      // over before the honk starts, and without it the call is a one-syllable
+      // blare that sounds like a car.
+      b.grunt > 0 && { waveform: 'sawtooth', freq: vary(f0 * 0.62, 0.06),
+        fm: { ratio: 2, index: 1.8, indexEnd: 0.4, time: 0.05 },
+        formants: fm,
+        drive: b.drive * 0.7,
+        adsr: { a: 0.006, d: vary(0.045, 0.25), s: 0, r: 0.03 },
+        gain: vary(0.05 * b.grunt * (0.5 + i), 0.2) },
+
+      // The honk itself.
+      { waveform: 'sine', freq: f0, delay: vary(b.onset ?? 0.032, 0.2), noiseMix: b.breathMix ?? 0,
+        pitchBend: { to: end, time: vary(b.dropTime, 0.2) },
+        // Cents, not Hz — the wobble has to mean the same thing on a sparrow as
+        // on a goose, and `vibrato.depth` is a detune in cents.
+        // ⚠ A FAST, PERFECTLY PERIODIC LFO IS THE MOST SYNTH-SOUNDING THING A VOICE
+        // CAN HAVE. This was a hardcoded 19 Hz, which sits in the roughness band where a
+        // regular modulation stops reading as a voice and starts reading as an EFFECT —
+        // reported by ear as 'sounds like a synth keyboard'. Real vibrato is 4-7 Hz. It
+        // is a row field now, because a sparrow's flutter and a goose's wobble are not
+        // the same rate, and the whole point of the table is that nothing about a
+        // species is welded into the builder.
+        vibrato: { rate: vary(b.vibRate ?? 6, 0.3), depth: vary(b.jitter, 0.3) },
+        fm: { ratio: b.ratio, index: idx, indexEnd: b.indexEnd, time: vary(0.13, 0.2), wave: b.modWave,
+          op2: { ratio: b.op2, index: b.op2Index * lerp(0.7, 1.15, i), indexEnd: b.op2End, time: 0.1 } },
+        drive: b.drive,
+        // ⚠ FORMANTS OVERRIDE `filter` — a parallel resonator bank, so it does
+        // the band emphasis, the sub-bass roll-off and the throat in one move,
+        // and a bandpass beside it would be dead configuration.
+        formants: fm,
+        adsr: { a: vary(b.adsr.a, 0.3), d: vary(b.adsr.d, 0.18), s: b.adsr.s, r: vary(b.adsr.r, 0.25) },
+        gain: vary(0.20 * (0.45 + 0.75 * i), 0.12) },
+    ];
+
+    return def('bird_' + voice, vary(b.dur, 0.12), layers, 5);
+  }
+
   // ── COMBAT ───────────────────────────────────────────────────────────────────
   //
   // Combat was the largest silent surface in the game: one authored cue on crits
@@ -1138,6 +1649,9 @@
       // `state` carries the note name and `surface` the instrument, so a note
       // reaches the same one-argument entry point as everything else. Callers
       // that know they want a note should use buildNoteCue below instead.
+      // `state` is 'warn' (the entry chirp) or 'siren'; `intensity` is the alarm
+      // MODEL, never how urgent the situation is.
+      case 'alarm':   return alarm({ state, intensity });
       case 'note':    return note({ instrument: surf, note: state, velocity: intensity });
       default:        return null;
     }
@@ -1202,8 +1716,8 @@
     // Kept as an alias: the system started as cooking-only and the name is in
     // the regression suite and the docs. Same function.
     buildCookingCue: buildActionCue,
-    MATERIALS, SURFACES, STATES, STREAM_SURFACES, FLATUS_STYLES, INSTRUMENTS, FOOTSTEPS, DOORS, LOCKS,
-    chop, impact, scrape, stir, pour, sizzle, boil, stream, flatus, microwave, note, footstep, door, lock,
+    MATERIALS, SURFACES, STATES, STREAM_SURFACES, FLATUS_STYLES, INSTRUMENTS, FOOTSTEPS, DOORS, LOCKS, BIRD_VOICES,
+    chop, impact, scrape, stir, pour, sizzle, boil, stream, flatus, microwave, note, footstep, door, lock, birdCall,
     // Musical notes have their own entry point rather than riding buildActionCue:
     // there is no seed (nothing is random) and the argument names are the ones a
     // caller actually has — instrument, note, velocity.

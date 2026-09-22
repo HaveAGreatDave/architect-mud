@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_892_917",
+  "b": "zone_hf_partywall_hall",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_district_892_917_south",
+  "lockable": true,
+  "one_way": false
+}

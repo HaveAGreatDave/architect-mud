@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A lobby that was drawn for one tenant and is used by four, which shows: there is one desk and nobody has ever sat at it, four separate signing books on the sill instead, and a lift whose call button has a laminated card taped beside it listing which floor is which. The card has been redone twice. Somebody has left a rack of coat hooks by the stair that the landlord did not install.",
+  "exits": {
+    "down": "zone_util_zone_hf_changeofuse_lobby",
+    "north": "zone_district_897_917",
+    "up": "zone_hf_changeofuse_studio"
+  },
+  "flags": {
+    "building_name": "Change of Use",
+    "building_type": "chrome_slab",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Curved along the row, so the view bends: the east end of Kerbstone Row one way, and the Curtain the other, and from the middle you get both in the same pane.",
+      "light": 0.75,
+      "name": "the crescent glazing",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_897_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_changeofuse_lobby",
+  "map_id": "map_int_hf_changeofuse",
+  "name": "Change of Use — The Shared Lobby",
+  "parent_zone": "zone_district_897_917"
+}

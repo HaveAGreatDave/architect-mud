@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A range along one wall with four pots on it, none smaller than a bucket. Everything in here is scrubbed to the grain. A list on the wall says what is being served for the next eleven days, in pencil, with corrections.",
+  "description": "A range along one wall with four pots on it, none smaller than a bucket. Everything in here is scrubbed to the grain. A list on the wall says what is being served for the next eleven days, in pencil, with corrections. The ceiling light is dead and the list gets written by lantern, which is why the corrections.",
   "exits": {
     "west": "zone_bld_923_917_lobby"
   },

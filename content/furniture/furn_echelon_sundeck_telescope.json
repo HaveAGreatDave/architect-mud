@@ -1,0 +1,23 @@
+{
+  "description": "A brass-and-steel deck telescope on a short tapered pedestal at the forward edge of the sun deck, trained out over the port bow. The barrel turns on its yoke with the weight of something machined rather than assembled, and the eyepiece is polished smooth by somebody's cheek.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ],
+    "telescope": {
+      "label": "TELESCOPE",
+      "leash": 0.055,
+      "mount": "yacht_scope"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_sundeck_telescope",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "deck telescope",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_echelon_sundeck"
+}

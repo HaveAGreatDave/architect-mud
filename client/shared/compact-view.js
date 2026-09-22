@@ -17,6 +17,19 @@
 // landscape still does not.
 export const COMPACT_MQ = '(max-width:760px) and (pointer:coarse)';
 
+// ── A TOUCH DEVICE, AT ANY SIZE ──────────────────────────────────────────────
+//
+// COMPACT_MQ above is "a phone", and it carries a width because what it decides is how much fits.
+// This one carries NO width, because what it decides is whether the player has a mouse at all —
+// a tablet in landscape is not a phone and still has nothing to hover, drag a wheel with, or press
+// a key on. The truck cab is the caller that needed the distinction: its painted dash can be
+// operated by pointing at it, and on a touch screen the on-screen buttons are the only way in.
+export const TOUCH_MQ = '(pointer:coarse)';
+
+export const isTouchView = () => {
+  try { return matchMedia(TOUCH_MQ).matches; } catch { return false; }
+};
+
 export const isCompactView = () => {
   try { return matchMedia(COMPACT_MQ).matches; } catch { return false; }
 };

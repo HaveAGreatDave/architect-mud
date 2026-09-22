@@ -1,22 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#141a1e",
+  "color": "#c0cfd8",
+  "description": "A low stepped block with its terraces given over to racked material rather than planting: board, ducting, coils of cable and a stack of the estate's own chrome cladding panels under a tarpaulin. The ground floor is the site office. A whiteboard is bolted to the outside wall by the door, wiped and rewritten daily, and the column headed OUTSTANDING has always been the longest one on it.",
   "exits": {
     "north": "zone_district_904_916",
-    "south": "zone_district_904_918"
+    "south": "zone_hf_snagging_office"
   },
   "flags": {
+    "building_name": "Snagging List",
+    "building_type": "cascade_block",
     "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 3,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_904_916"
   },
   "grid_x": 904,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_904_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "NG",
+  "name": "Snagging List",
   "parent_zone": null
 }

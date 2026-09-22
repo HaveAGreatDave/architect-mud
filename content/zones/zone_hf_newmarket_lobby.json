@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A round room at the bottom of a round building, which sounds obvious and is rarer than it should be — the lift core is a drum inside a drum and the floor is laid in concentric bands out from it. There is a desk, unattended, and beside the lift a chrome sign with an arrow and the words SHOW HOME — FOURTH FLOOR, and the arrow is pointing at the lift rather than upward, which somebody clearly argued about.",
+  "exits": {
+    "down": "zone_util_zone_hf_newmarket_lobby",
+    "south": "zone_district_907_915",
+    "up": "zone_hf_newmarket_show"
+  },
+  "flags": {
+    "building_name": "New to Market",
+    "building_type": "chrome_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole circumference bar the service side, giving a continuous view that turns through most of a full circle as you walk round the core: the row, the Curtain, the back of Priced to Sell, the row again.",
+      "light": 0.8,
+      "name": "the podium glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_907_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_newmarket_lobby",
+  "map_id": "map_int_hf_newmarket",
+  "name": "New to Market — The Podium Lobby",
+  "parent_zone": "zone_district_907_915"
+}

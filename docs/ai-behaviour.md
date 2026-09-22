@@ -322,6 +322,46 @@ for slugs rather than checking a list.
 
 ---
 
+### A schedule block, and the night shift
+
+`vendor_schedule` is `{ mon: [{ from, to }, …], … }` in **game hours**, carried by every employed
+NPC rather than only by shopkeepers — it is the commute timetable as much as it is the opening
+hours. `from` is inclusive and `to` is exclusive, so `{ from: 9, to: 17 }` is nine until five and
+`{ from: 0, to: 24 }` is all day.
+
+**A block may cross midnight, and `to < from` is how it says so.** `{ from: 18, to: 6 }` is six in
+the evening until six the next morning. The arithmetic lives in one place —
+[client/shared/work-schedule.js](../client/shared/work-schedule.js) — which the engine, the dev
+panel's grid and its status column all read, because a second copy is how the grid and the engine
+end up disagreeing about whether somebody is at work.
+
+⚠ **It could not wrap until 2026-09-22, and the failure was the worst shape available.** The test
+was `h >= from && h < to`, which for `{ from: 18, to: 6 }` is false at **every hour of the day** —
+so a night shift written the obvious way meant *no shift at all*. Not an error and not a warning: a
+schedule that reads full and is empty, on an NPC who is then never behind their counter, which from
+the outside is indistinguishable from an NPC who is late.
+
+⚠ **A wrapping block is filed under the day it STARTS on.** `mon: [{ from: 18, to: 6 }]` covers
+Monday evening and **Tuesday** morning, so the work test asks today's blocks for the part before
+midnight and *yesterday's* for the part after it. That is the whole of why this is more than one
+comparison.
+
+⚠ **The wrap test is strictly `to < from`, never `to <= from`.** About 120 authored vendors carry
+`{ from: 0, to: 24 }`, and `{ from: h, to: h }` is an empty block — both would become something
+else under `<=`, rewriting schedules nobody edited.
+
+⚠ **`dayHasSchedule` still means "today has blocks of its own"** and is not widened by the spill.
+Its one consumer is `CHECK_VENDOR_WORK`'s day-off branch, which only runs when `working` is already
+false — so during a spill the NPC is working and never reaches it, and once the spill ends a day
+with no blocks of its own is a day off, exactly as before.
+
+⚠ **The dev panel's grid can only express per-day runs**, so loading a wrapping block and saving
+gives back the two-block form (`mon: [{18,24}], tue: [{0,6}]`). Same shift, same hours — which is
+why the wrap is an accepted **input** form rather than a canonical storage one, and why the split
+form goes on meaning what it always meant.
+
+---
+
 ### The commute build
 
 The gate above is only half the answer — a home is worth having only if you can leave it.

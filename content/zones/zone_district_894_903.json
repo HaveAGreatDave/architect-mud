@@ -1,23 +1,31 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_events": [
+    "Water moves under the pontoon and comes back up against the stone.",
+    "The rail is cold enough to take the skin off your palm and is polished anyway.",
+    "A gull lands on the plinth, finds nothing, and leaves.",
+    "Somewhere behind you a climate curtain sighs across a doorway."
+  ],
+  "ambient_theme": "coast",
+  "color": "#cfd8de",
+  "description": "The boulevard stops being a boulevard here and becomes a quay, without anything marking where one ends and the other starts. Pale slabs laid dead flat, a kerb of the same stone, and a rail of brushed steel along the water with a gap in it where the pontoon goes down. Everything is very clean and very empty. A lit glass plinth stands where a harbourmaster would stand if there were one.",
   "exits": {
     "north": "zone_district_894_902",
     "south": "zone_district_894_904",
     "west": "zone_district_893_903"
   },
   "flags": {
-    "district": "docks",
+    "district": "glasshouse",
+    "fishing_table_id": "fish_coldwater_bay",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
-    "terrain": "sand"
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 894,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_894_903",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Halcyon Quay",
   "parent_zone": null
 }

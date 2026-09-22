@@ -1,0 +1,8 @@
+{
+  "description": "A printed list of every plot in Halcyon Fields with its price, and a pencil column beside it that is lower on every line. At the bottom, in the same pencil, a note that reads simply: AUTHORISED TO 12%.",
+  "flags": {},
+  "id": "furn_hf_impression_schedule",
+  "name": "a schedule of plots",
+  "object_type": "container",
+  "zone_id": "zone_hf_impression_booth"
+}

@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#0f1922",
+  "color": "#c6e8ff",
+  "description": "Two chrome legs that lean in and meet, with a glazed room slung across the top of them and nothing underneath but the road. The legs are hollow and one of them has a lift in it; the other has a stair nobody is encouraged to use. Standing under it you can hear the whole thing move — not sway, exactly, but change note, the way a bridge does. There is no sign. Everyone calls it the Arch.",
   "exits": {
-    "east": "zone_district_907_915",
-    "north": "zone_district_906_914",
-    "south": "zone_district_906_916",
-    "west": "zone_district_905_915"
+    "north": "zone_hf_airrights_foot",
+    "south": "zone_district_906_916"
   },
   "flags": {
+    "building_name": "Air Rights",
+    "building_type": "chrome_arch",
     "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 9,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_906_916"
   },
   "grid_x": 906,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_906_915",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "AH",
+  "name": "Air Rights",
   "parent_zone": null
 }

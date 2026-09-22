@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_reservation",
+  "name": "a reservation form",
+  "tags": {
+    "description": "Two sides, estate crest, and a box at the bottom for a deposit figure that is left blank so that it can be agreed. The small print gives fourteen days to withdraw and does not say what happens on the fifteenth, which Lindqvist will tell you if you ask and will not volunteer.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 0,
+  "weight": 20
+}

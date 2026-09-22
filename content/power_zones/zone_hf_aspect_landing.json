@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_aspect_lobby",
+  "id": "zone_hf_aspect_landing",
+  "name": "Aspect Ratio — The Narrowest Landing",
+  "source_type": "junction_box"
+}

@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_anch_vongole",
+  "name": "spaghetti alle vongole",
+  "tags": {
+    "consumable": true,
+    "description": "Clams out of the Basin, which everyone at the table has decided not to think about, and which are the best thing in the dish. Garlic, white wine, oil, chilli and parsley, and no cheese anywhere near it. The pasta is cut on the premises and is not the same object as the boxed stuff.",
+    "restore_hp": 4,
+    "restore_hunger": 44,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 240,
+  "weight": 340
+}

@@ -64,6 +64,27 @@ function makeEl(tag) {
 // else does. Registered through `stubCanvas` below rather than by making every id resolve, because
 // a stub that answers every lookup hides the "this element isn't there" bugs.
 const STUB_ELS = new Map();
+// ── THE RIG, OUT OF A BUFFER THAT HAS MORE THAN THE RIG IN IT ────────────
+//
+// OWNSHIP_SINK had exactly one producer when `ownship`, `yacht` and `groundcontact` were written,
+// so each of them counts the whole buffer and calls the answer "the rig". That was true by
+// construction and it is not true any more: the depot shed, the fauna and the INTERIOR SHELL all
+// go through the same depth-writing layer, which is how each of them ends up sorted against the
+// city and visible in a puddle.
+//
+// ⚠ IT IS HERE RATHER THAN IN EACH GATE BECAUSE THERE ARE THREE OF THEM. Adding the shell broke
+// all three at once, in three different costumes — a rig collected from inside its own cab, a
+// yacht hull that changes size between two headings, and a rig that moves when the camera moves
+// within its tile. Every one of those is the same sentence: something else is in the buffer. A
+// fourth census that filters nothing would report the same nonsense again, so the filter lives
+// where a gate already looks.
+//
+// ⚠ AND IT FILTERS ON A TAG THE RENDERER IGNORES. `gl/solids.js` reads `p`, `rgb` and `a`; the
+// tag is carried for exactly this and for nothing else. A census that had to INFER which object
+// a face belongs to from where it sits in the buffer breaks the first time anything joins it —
+// which is the lesson the bird faces already carry their own label for.
+export const rigOnly = (faces) => (faces || []).filter((f) => !f.interior);
+
 export function stubCanvas(id, w = 640, h = 360) {
   const el = makeEl('canvas');
   el.clientWidth = w; el.clientHeight = h; el.width = w; el.height = h;

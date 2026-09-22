@@ -1,22 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#101a20",
+  "color": "#c2e2d8",
+  "description": "Nine floors stepping down to Cowslip Rise in four terraces, with the planting on the top two established well enough to hang over the edge and the bottom two still gravel. The rear elevation, which faces the backs of Meltwater Row, has exactly the same terraces and exactly the same glass, and that is where the name comes from and it is not a boast. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE — OPEN. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE — OPEN. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE — OPEN. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE — OPEN. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE — OPEN. The entrance is in the bottom step facing Cowslip Rise, glazed, with the terrace levels listed beside it on a chrome plate and a second plate under that reading LOWER TERRACE — OPEN.",
   "exits": {
-    "south": "zone_district_906_915",
+    "east": "zone_hf_dualaspect_hall",
     "west": "zone_district_905_914"
   },
   "flags": {
+    "building_name": "Dual Aspect",
+    "building_type": "cascade_block",
     "district": "halcyon_fields",
+    "entrance": "west",
+    "facade": true,
+    "floors": 9,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_905_914"
   },
   "grid_x": 906,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_906_914",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "DA",
+  "name": "Dual Aspect",
   "parent_zone": null
 }

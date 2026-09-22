@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_deposit_racking",
+  "b": "zone_util_zone_hf_deposit_racking",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hf_deposit_racking_down",
+  "lockable": false,
+  "one_way": false
+}

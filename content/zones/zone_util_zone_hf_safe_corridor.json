@@ -1,0 +1,18 @@
+{
+  "description": "Under the box corridor: the power, the door gear, and the pumps that keep the water table where it belongs. The one thing in the building that does not have a key on it is the door down here, which somebody noticed once and nobody has done anything about.",
+  "exits": {
+    "up": "zone_hf_safe_corridor"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_safe_corridor",
+  "map_id": "map_int_hf_safe",
+  "name": "Safe as Houses — The Sub-Basement",
+  "parent_zone": "zone_district_901_911"
+}

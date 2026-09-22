@@ -1,0 +1,18 @@
+{
+  "description": "Under the hall, with the irrigation, the terrace drainage and a sump that takes everything four planted steps shed in a storm. It is the loudest room in the building for about ninety seconds after it stops raining.",
+  "exits": {
+    "up": "zone_hf_dualaspect_hall"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_906_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_dualaspect_hall",
+  "map_id": "map_int_hf_dualaspect",
+  "name": "Dual Aspect — The Terrace Plant",
+  "parent_zone": "zone_district_906_914"
+}

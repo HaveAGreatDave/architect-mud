@@ -1,0 +1,267 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Fenwick takes the pencil from behind her ear, writes a number on the back of her hand, and puts the pencil back.",
+    "She goes through to the racking, moves one carton six inches, and comes back satisfied.",
+    "A bay light out in the third row flickers and she looks at it for a long moment without doing anything about it.",
+    "She rewinds a length of pallet wrap onto the roll by hand, which takes a while and is clearly a thing she does to be doing something.",
+    "Somewhere behind the partition the stack of kitchen units settles, one carton, with a sound like a door closing."
+  ],
+  "description": "A wiry woman in a padded gilet over a boiler suit, with a pencil behind one ear and a pair of gloves tucked into the waistband at the small of her back. She came with the racking, which she bought, and she has the look of somebody who took on a unit as a sideline and found herself running the building.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the extinguisher on the way out. It is holding the door.\" She has the pencil back out already."
+    },
+    "fourth": {
+      "options": [
+        {
+          "label": "Has anybody opened one?",
+          "next": "opened"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Kitchens.\" She says it like a diagnosis. \"Four hundred of them, chrome fronts, flat-packed, ordered for the towers on the mews. They have been here nineteen months and they were meant to be here six weeks.\"\n\nShe taps the counter once.\n\n\"I do not charge for them because they own the building. But I am the one who has to walk round them, and every time a completion date moves I get another pallet.\""
+    },
+    "offices": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It was. Two floors of it above us still are, on paper, and there is nobody in them.\" She shrugs, and the gilet does most of it. \"The drum is the nicest room in this quarter that anybody can afford, which is why it has racking in it. If it had desks in it the rent would be four times what I pay and I would be somewhere with no windows.\"\n\n\"Change of Use, on the row, is going through all this with the land office. Eleven months so far. I am watching how they get on.\""
+    },
+    "opened": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I opened one.\" No hesitation at all. \"Second month. I wanted to know whether we were storing something good or storing something they could not sell.\"\n\nA beat.\n\n\"It is good. Better than mine. That is the part that annoys me.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is in the fourth bay?",
+          "next": "fourth"
+        },
+        {
+          "label": "What are you selling?",
+          "next": "__shop__"
+        },
+        {
+          "label": "This was meant to be offices.",
+          "next": "offices"
+        },
+        {
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Storing or collecting?\" She has the pencil out before you answer.",
+      "text_by_relation": {
+        "familiar": "\"Third bay has space from the end of the month,\" she says, before anything else. \"I am telling you first because you will not mess me about.\"",
+        "first": "The woman behind the counter looks up, takes in the fact that you are not carrying anything, and puts the pencil down again.\n\n\"Not storing, then.\" She says it without disappointment. \"Ottilia Fenwick. This is a storage unit in a building that was sold as offices, before you ask, and yes, I know what it was drawn for. So does everybody.\"\n\nShe nods at the partition, and the racking visible past the end of it.\n\n\"Four bays. Three of them are let. The fourth one is the estate's and the estate does not pay.\"",
+        "known": "\"Back.\" She reaches under the counter and puts a crate on top of it without being asked, which is either a joke or an offer."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a navy padded gilet with the estate crest picked off the breast",
+      "a boiler suit worn soft at the knees and elbows",
+      "a pair of rigger gloves tucked into the waistband at the back",
+      "steel-capped boots with the laces doubled round the ankle",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_deposit_racking",
+  "hp": 36,
+  "hp_max": 36,
+  "id": "npc_hf_fenwick",
+  "name": "Ottilia Fenwick",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_stackcrate",
+      "price": 22
+    },
+    {
+      "item_id": "item_hf_wrapfilm",
+      "price": 9
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Deposit Taken Storage",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_deposit_counter"
+}

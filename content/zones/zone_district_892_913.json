@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#10161f",
+  "color": "#b6dcf7",
+  "description": "A chrome spine with six glazed bulges threaded on it, each one pinched to a collar between, so the tower reads from the mews as a stack of rooms rather than as a stack of floors. The doors are at the foot of the spine under a shallow chrome hood. A small board beside them lists fourteen floors, a concierge, and a telephone number for out of hours, and somebody has stuck a printed notice over the bottom third of it about the lift.",
   "exits": {
     "east": "zone_district_893_913",
-    "north": "zone_district_892_912",
-    "south": "zone_district_892_914",
-    "west": "zone_district_891_913"
+    "west": "zone_hf_quiet_desk"
   },
   "flags": {
+    "building_name": "Quiet Enjoyment",
+    "building_type": "bead_tower",
     "district": "halcyon_fields",
+    "entrance": "east",
+    "facade": true,
+    "floors": 14,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_893_913"
   },
   "grid_x": 892,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_892_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "QE",
+  "name": "Quiet Enjoyment",
   "parent_zone": null
 }

@@ -1,0 +1,11 @@
+{
+  "description": "The same cone in the same place, still wearing the small paper tag the electrician left on the flex.",
+  "flags": {},
+  "id": "furn_light_zone_hf_chainfree_u2",
+  "light_type": "pendant",
+  "lumen_output": 420,
+  "name": "a ceiling pendant",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_chainfree_u2"
+}

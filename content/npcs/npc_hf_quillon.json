@@ -1,0 +1,267 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Quillon takes a file down an aisle, reads the spine, and puts it back without opening it.",
+    "She writes a date on a slip and puts the slip in a wooden tray that already has four in it.",
+    "She goes to the glass, looks straight down at the undercroft, and comes back.",
+    "The heating ticks somewhere behind the shelving and she counts, silently, and stops at eleven.",
+    "She squares a stack of paper by tapping it on the desk three times, which in this room is a loud noise."
+  ],
+  "description": "A narrow, precise woman of about sixty at a desk in the middle of a round room, in a cardigan the colour of the shelving, who looks up when the stair sounds and not before. She has the estate's entire paper history in sixteen radiating aisles behind her and she can find any of it, provided you can tell her roughly when.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the stair. It turns tighter at the top than it does at the bottom, because it is inside a leg that tapers.\" She has the glasses off again already."
+    },
+    "date": {
+      "options": [
+        {
+          "label": "Can it not be re-filed?",
+          "next": "refile"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"By date.\" She says it without complaint, which takes effort. \"The estate's system, from when the estate was one field and four drawings and everything that happened to it happened in order. It worked perfectly for about three years.\"\n\nShe puts a hand flat on the desk.\n\n\"It stopped working when the same plot started having things happen to it four times. Vacant Possession has a file in nine different years. If you do not know which of the nine you want, you are going to be here a while, and I will help, and we will both be here a while.\""
+    },
+    "nobody": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The undercroft is the busiest room in the quarter.\" She nods at the floor. \"Forty people under there when it rains. The stair is in the leg on the corner, it is signed, and it is lit, and in two years I have had perhaps ninety people up it.\"\n\n\"They stand out of the rain and they look at the six legs and they never once wonder what the disc is for. I used to find that irritating. I have come round to it — it is the only privacy in a building made entirely of glass.\""
+    },
+    "refile": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It can.\" A very small pause. \"It would take one person about two years, and at the end of it the estate would have a records office filed by plot and a person who knew where nothing was, because I would be finished.\"\n\nShe puts the glasses back on.\n\n\"I have written that down twice and sent it twice. The second time I took out the last part.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Filed by date?",
+          "next": "date"
+        },
+        {
+          "label": "What can you do for me?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Nobody comes up?",
+          "next": "nobody"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You came up.\" She marks her place before she looks at you. \"Not many do.\"",
+      "text_by_relation": {
+        "familiar": "There is a file already out on the corner of the desk with a slip in it, and she does not mention it until you do.\n\n\"I found the other one,\" she says. \"It is not what you thought and it is better.\"",
+        "first": "The stair comes up inside one of the legs and puts you out at the edge of a round room, and the woman at the desk in the middle of it has heard you the whole way.\n\n\"Elspeth Quillon.\" She takes her glasses off rather than putting them on. \"Records. Everything the estate has that the land office has not got, which at the moment is rather more than usual.\"\n\nShe indicates the sixteen aisles running away from her in every direction.\n\n\"Filed by date. Not by plot. I did not choose that and I have stopped arguing about it, and it means that if you want a building you must first tell me a year.\"",
+        "known": "\"Back.\" She reaches for the tray of slips without looking at it. \"Which year?\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a long cardigan in a brown that matches the shelving, pockets stretched",
+      "a plain blouse buttoned high",
+      "a tweed skirt and thick stockings, because the glass is cold at ankle height",
+      "flat shoes that make no sound on boards",
+      "plain underthings"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hf_stampduty_records",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_hf_quillon",
+  "name": "Elspeth Quillon",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hf_deedcopy",
+      "price": 35
+    },
+    {
+      "item_id": "item_hf_searchcert",
+      "price": 20
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "The Records Office",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hf_stampduty_records"
+}

@@ -1,24 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
-  "exits": {
-    "east": "zone_district_904_913",
-    "north": "zone_district_903_912",
-    "south": "zone_district_903_914",
-    "west": "zone_district_902_913"
-  },
+  "ambient_theme": "urban",
+  "description": "Clad on the north and west elevations and bare on the other two, which is what happens when the cladding is bought in lots and a lot does not arrive. The exposed floor plates go up eleven levels with the services already run on them, capped and labelled. At night the whole east face is nothing at all and the building has a hole in the skyline.",
+  "exits": {},
   "flags": {
+    "building_name": "Vacant Possession",
+    "building_type": "shell_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "entrance": "west",
+    "floors": 17,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 903,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_903_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "VA",
+  "name": "Vacant Possession",
   "parent_zone": null
 }

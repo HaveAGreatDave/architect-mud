@@ -2,7 +2,7 @@
 
 **Status — BUILT.**
 
-**Purpose** — the detached camera, with nothing under it.
+**Purpose** — the detached camera, with nothing under it, and the fixed vantages that stand on it.
 
 GLASS's free camera (`client/game/js/panels/freecam.js`) has always had one precondition nobody
 argued for: you had to be in a **seat**. There are three mounts — a cab, a cockpit, a wheelhouse —
@@ -18,6 +18,8 @@ is bound to it.
 - `freelook` — open the camera over the tile you are standing on.
 - `freelook <x> <y>` — open it, or re-centre an open one, over any `map_world` tile.
 - `freelook close` — put it away. (The view's own <kbd>O</kbd> and ✕ fire this.)
+- `telescope` — put your eye to the vantage in this room. Not staff-gated; see below.
+- `telescope close` — step back. (Also fired by the view's <kbd>O</kbd> and ✕.)
 
 Staff only: `admin`, `dev`, `builder`, `designer` — the same roster `fireworks` takes, and
 deliberately wider than the helm console's `admin`, because the helm steers a boat and this looks at
@@ -69,3 +71,48 @@ and the waypoint ring / Home marker — are **off for the whole of this view**, 
 camera in a seat too. They are built around the seat (pinned on a ring at `(W/2, 0.46H)`, answering
 *which way do I turn*) and a detached camera is not in the seat. The switch is `navMarks()` in
 `windshield.js`; <kbd>N</kbd> throws it by hand from a cab, a cockpit or a wheelhouse.
+
+## Vantages — the same camera, bolted down
+
+Furniture carrying `flags.telescope` is a **place you can stand and look from**. `telescope` opens
+the identical view the staff camera opens — same window, same sky, same way out — with the camera on
+its feet instead of flying: mouse-look and WASD inside a leash, no up-down, no orbit, no roll, and
+an eye height that is not the camera's to set.
+
+```jsonc
+"telescope": {
+  "mount": "yacht_scope",   // a fixture the RENDERER knows how to find
+  "leash": 0.09,            // tiles you may step, from where you were put down
+  "label": "TELESCOPE",     // the corner of the view
+  "yaw": 200                // opening bearing — only for a vantage with no mount
+}
+```
+
+**It lives in this plugin because there is one camera-over-a-tile on the wire.** One viewer set, one
+15s sky push, one `freelook close`. A second plugin sending `freelook_open` would be a second owner
+of a pane whose close reached only one of them.
+
+**It is deliberately not behind the staff gate.** `freelook` is staff-only because it is a way to
+look at ground you have not walked to; a telescope is a fitting in a room you already got into,
+pointed at ground you can already see from it. The gate on a vantage is the door you came through.
+
+⚠ **A vantage names a MOUNT rather than an eye height** whenever it stands on something whose shape
+the server does not know. The Echelon's sun deck is a height that is a property of her **model** and
+a position that is a function of the **swell**, so `mount: 'yacht_scope'` is answered by
+`yachtScopeMount()` in `windshield.js` — the same function that decides where the instrument is
+drawn, so what you look through and where you look from cannot drift apart. It is asked **every
+frame**, which is what carries the shot up and down with her. Anything standing on ground that does
+not move authors a plain `eye` instead, in world tiles.
+
+⚠ **`self` is cleared on the centre cell.** `mapWindow` stamps it, which is what stops a cab being
+drawn inside its own building — right for a camera in a vehicle and exactly wrong for a camera
+standing **on** something, because the thing under your feet is then the one thing in the window
+that is not drawn. This is `yachtHelmWindow`'s own line, for the same reason.
+
+⚠ **The refusal names nothing.** `telescope` in a room with no vantage in it says only that there is
+nothing here to look through — naming the flag, the fitting or the room would turn a verb anybody
+may type into a detector for vantages they have not found.
+
+⚠ **A vantage is not a re-centre.** The two arrive down the same wire, and `freelook <x> <y>` keeps
+the shot while sliding the world under it — exactly wrong for somebody who has walked up to a
+different telescope. The view tells them apart on the mount.

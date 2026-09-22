@@ -1,0 +1,8 @@
+{
+  "description": "A two-man cradle on rails that run right round the ring, with its harness points, its winch and a tin under the seat holding a flask, a sandwich box and a paperback. Whoever cleans the outside of this building takes their lunch four hundred feet up on the wrong side of the glass.",
+  "flags": {},
+  "id": "furn_hf_overlooked_cradle",
+  "name": "a cleaning cradle",
+  "object_type": "fixture",
+  "zone_id": "zone_hf_overlooked_ring"
+}

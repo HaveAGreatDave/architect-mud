@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A covered way cut clean through the middle of a building, lit from a slot in the soffit down its whole length, paved in the same stone at both ends as the pavements it joins. It is four metres wide, which is three and a half more than the footpath legally needed and is what the estate agreed to in exchange for being allowed to build over it at all. Halfway along, on the east side, there is a kiosk in a recess that was drawn as a bin store.",
+  "exits": {
+    "east": "zone_hf_rightofway_office",
+    "north": "zone_district_894_917"
+  },
+  "flags": {
+    "building_name": "Right of Way",
+    "building_type": "atrium_court",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Two openings, one at each end, framing Kerbstone Row one way and Windrow Lane the other. Standing in the middle you can see both streets at once, which is the only place in the quarter you can.",
+      "light": 0.6,
+      "name": "the passage ends",
+      "visibility": 0.7
+    },
+    "world_exit_zone": "zone_district_894_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_rightofway_passage",
+  "map_id": "map_int_hf_rightofway",
+  "name": "Right of Way — The Passage",
+  "parent_zone": "zone_district_894_917"
+}

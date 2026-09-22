@@ -14,6 +14,20 @@
 // no per-operator feedback path, and a DelayNode self-loop only gives a quantum-delayed artifact —
 // the saw blend is the stable way to get the brightening a DX feedback operator produces). Voices
 // steal the oldest when the 8-voice budget is full. Nothing here uses recorded samples.
+//
+// ⚠ THE WATER ITSELF IS NOT IN THIS FILE. `sea-audio.js` owns the surf bed, the breaking waves and
+// the hull creak, because all three are functions of the SEA STATE — the same wind-to-wave law the
+// renderer draws the water with — and none of them is a property of the Echelon. A quay has them
+// too. What is left here is the HARBOUR: the birds, the iron, the rope and the traffic, which is
+// everything that is near the water rather than the water. `naval` starts both.
+//
+// ⚠ AND THE LAPPING MOVED WITH IT. There used to be a `water` entry in SCHED firing tiny splashes
+// every 2-8 seconds whatever the weather; sea-audio's `lap()` is the same idea with a rate and a
+// size that come off the sea, clustered on the crest of the swell. Two owners for the sound of
+// water against a hull is one of them quietly contradicting the other about how rough it is.
+
+import { startSea, stopSea, KPH_TO_KT } from './sea-audio.js';
+import { getEnvSnapshot } from './environment.js';
 
 const AE = () => window.AudioEngine;
 
@@ -309,34 +323,36 @@ function hullImpact() {
   v.play(t, end);
 }
 
-// 7. WATER — many tiny FM splashes (never a noise loop): C(1.00)+M(2.00), very short attack, ~80ms
-//    decay, random 100–350 Hz, plus a 20ms noise chip.
-function splash() {
-  if (!harborOut) return;
-  const t = ctx.currentTime + 0.005;
-  const f0 = rnd(100, 350), dist = rnd(2, 25);
-  const v = makeVoice(dist, rnd(-1, 1), 0.15);
-  const C = makeOp(f0), M = makeOp(f0 * 2);
-  fm(M, C); C.g.connect(v.in);
-  M.g.gain.setValueAtTime(f0 * 1.5, t); M.g.gain.setTargetAtTime(f0 * 0.3, t, 0.03);
-  C.g.gain.setValueAtTime(0, t); C.g.gain.linearRampToValueAtTime(vary(0.05, 0.15), t + 0.004); C.g.gain.setTargetAtTime(0, t + 0.004, 0.028);
-  const n = ctx.createBufferSource(); n.buffer = noiseBuf; n.loop = true;
-  const nbp = ctx.createBiquadFilter(); nbp.type = 'bandpass'; nbp.frequency.value = f0 * 4; nbp.Q.value = 2;
-  const ng = ctx.createGain(); ng.gain.setValueAtTime(0.03, t); ng.gain.setTargetAtTime(0, t, 0.008);
-  n.connect(nbp).connect(ng).connect(v.in); v.add(n);
-  v.play(t, t + 0.2);
-}
-function water() { const n = 1 + (chance(0.3) ? 1 + Math.floor(Math.random() * 2) : 0); for (let i = 0; i < n; i++) setTimeout(splash, i * rnd(60, 200)); }
+// 7. WATER — moved to sea-audio.js (`lap`), where its rate and size come off the sea state and its
+//    timing clusters on the crest of the swell. What stood here fired 1-3 splashes every 2-8
+//    seconds at a fixed size in any weather, which is the flat-intensity problem this whole change
+//    is about, and leaving it in place would have meant two files disagreeing about how rough it
+//    is with the louder one winning.
 
 // 8. WIND — persistent base: filtered noise (LP 3–6 kHz) + faint sine drone, a 0.08 Hz triangle LFO
 //    doing amplitude (15%) + filter (20%) modulation. Gusts brighten/swell for a few seconds.
-let wind = null;
+// ⚠ IT TRACKS THE LIVE WIND, AND IT READS THE WIND RATHER THAN THE SEA. This bed was a fixed 0.05
+// at a fixed 4.5 kHz whatever the weather, which mattered little on its own and matters a lot now
+// that there is a sea under it: a constant air wash sits right on top of the quiet half of the
+// sea's range, so a calm and a fresh breeze sounded identical because the loudest thing in both was
+// this. It is now a function of `windKph`, centred on the numbers that shipped.
+//
+// ⚠ AND IT DELIBERATELY DOES NOT GO THROUGH THE SEA'S RESERVOIR. `sea-audio` integrates knots over
+// minutes because a sea takes minutes to build; air does not. Reading `seaNow()` here for
+// tidiness would put the sound of the wind minutes behind the wind — so a squall gets up in the
+// rigging first and the water follows it, which is the right way round and is free.
+let wind = null, windTimer = null;
+const WIND_BASE = (kt) => 0.012 + 0.115 * Math.min(1, kt / 45);
+const WIND_CUT = (kt) => 2600 + 4400 * Math.min(1, kt / 45);
+const liveKt = () => Math.max(0, (getEnvSnapshot()?.windKph || 0) * KPH_TO_KT);
+
 function startWind() {
   if (wind) return;
   const t = ctx.currentTime;
+  const kt = liveKt(), base = WIND_BASE(kt), cutoff = WIND_CUT(kt);
   const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
-  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4500; lp.Q.value = 0.4;
-  const g = ctx.createGain(); g.gain.value = 0; g.gain.linearRampToValueAtTime(0.05, t + 2.5);
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = cutoff; lp.Q.value = 0.4;
+  const g = ctx.createGain(); g.gain.value = 0; g.gain.linearRampToValueAtTime(base, t + 2.5);
   src.connect(lp).connect(g).connect(harborOut);
   const wSend = ctx.createGain(); wSend.gain.value = 0.25; g.connect(wSend).connect(reverb);   // modest wet
   const drone = ctx.createOscillator(); drone.type = 'sine'; drone.frequency.value = 70;
@@ -344,10 +360,28 @@ function startWind() {
   drone.connect(dg).connect(harborOut);
   // 0.08 Hz triangle LFO → amplitude (±15%) and filter cutoff (±20%)
   const lfo = ctx.createOscillator(); lfo.type = 'triangle'; lfo.frequency.value = 0.08;
-  const amDepth = ctx.createGain(); amDepth.gain.value = 0.05 * 0.15; lfo.connect(amDepth).connect(g.gain);
-  const fmDepth = ctx.createGain(); fmDepth.gain.value = 4500 * 0.2; lfo.connect(fmDepth).connect(lp.frequency);
+  const amDepth = ctx.createGain(); amDepth.gain.value = base * 0.15; lfo.connect(amDepth).connect(g.gain);
+  const fmDepth = ctx.createGain(); fmDepth.gain.value = cutoff * 0.2; lfo.connect(fmDepth).connect(lp.frequency);
   src.start(t); drone.start(t); lfo.start(t);
-  wind = { src, drone, lfo, lp, g, base: 0.05, cutoff: 4500 };
+  wind = { src, drone, lfo, lp, g, dg, amDepth, fmDepth, base, cutoff };
+  // Slow: this is weather, and a gust is a separate thing that must stay audible over it.
+  windTimer = setInterval(windAim, 4000);
+}
+
+// Walk the bed to the current wind. `windGust` reads `base`/`cutoff` back off this object, so a gust
+// during a rising wind still departs from and returns to the right place.
+function windAim() {
+  if (!wind || !ctx) return;
+  const kt = liveKt();
+  wind.base = WIND_BASE(kt); wind.cutoff = WIND_CUT(kt);
+  const t = ctx.currentTime;
+  try {
+    wind.g.gain.setTargetAtTime(wind.base, t, 3);
+    wind.lp.frequency.setTargetAtTime(wind.cutoff, t, 3);
+    wind.amDepth.gain.setTargetAtTime(wind.base * 0.15, t, 3);
+    wind.fmDepth.gain.setTargetAtTime(wind.cutoff * 0.2, t, 3);
+    wind.dg.gain.setTargetAtTime(0.008 + 0.020 * Math.min(1, kt / 45), t, 3);
+  } catch {}
 }
 function windGust() {
   if (!wind) return;
@@ -362,6 +396,7 @@ function windGust() {
   wind.lp.frequency.linearRampToValueAtTime(wind.cutoff, t + dur);
 }
 function stopWind() {
+  if (windTimer) { clearInterval(windTimer); windTimer = null; }
   if (!wind) return;
   const w = wind; wind = null; const t = ctx.currentTime;
   try { w.g.gain.cancelScheduledValues(t); w.g.gain.setTargetAtTime(0, t, 0.4); } catch {}
@@ -371,7 +406,6 @@ function stopWind() {
 // ── Weighted-random scheduler (self-rescheduling timers, ±jitter, occasional clusters) ────────
 // [meanMin, meanMax] seconds; the range already carries the spread, ±0.5 jitter widens it further.
 const SCHED = {
-  water:  [2, 8,   water],
   gust:   [20, 40, windGust],
   gull:   [20, 75, () => gullEvent()],
   creak:  [40, 120, () => cluster(creak)],
@@ -396,12 +430,14 @@ function schedule(key) {
 function startHarbor() {
   if (!audio()) return;
   startWind();
+  startSea({ wind: liveKt });   // the water: surf bed, breakers, and the hull working — see sea-audio.js
   timers.forEach(clearTimeout); timers = [];
   for (const key of Object.keys(SCHED)) schedule(key);
 }
 function stopHarbor() {
   timers.forEach(clearTimeout); timers = [];
   stopWind();
+  stopSea();
   if (harborOut) { const t = ctx.currentTime; try { harborOut.gain.cancelScheduledValues(t); harborOut.gain.setTargetAtTime(0, t, 0.4); } catch {} }
   // Tear the bus chain down after tails ring out so a re-enter rebuilds cleanly.
   setTimeout(() => {

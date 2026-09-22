@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A six-sided room at the foot, narrowing overhead, with the lift in the middle of it and a turnstile that has been chocked open with a folded card since the day it was installed. The walls carry six panels, one to a side, about the view: what you can see from the top, at what bearing, in what weather. The last panel is about the Curtain and has been rewritten at least twice.",
+  "exits": {
+    "down": "zone_util_zone_hf_overlooked_lobby",
+    "up": "zone_hf_overlooked_lookout",
+    "west": "zone_district_903_911"
+  },
+  "flags": {
+    "building_name": "Overlooked",
+    "building_type": "glass_prism",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Six tall lights, one to a face, each one looking down a different line of the quarter. From in here you can see Cinder Lane, Cowslip Rise and about half of Kerbstone Row without moving.",
+      "light": 0.7,
+      "name": "the base glazing",
+      "visibility": 0.75
+    },
+    "world_exit_zone": "zone_district_903_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_overlooked_lobby",
+  "map_id": "map_int_hf_overlooked",
+  "name": "Overlooked — The Lobby",
+  "parent_zone": "zone_district_903_911"
+}

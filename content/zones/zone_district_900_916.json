@@ -4,8 +4,6 @@
   "description": "Fresh grit lies in the ruts, not yet flattened. Two sets of tyre tracks run the length of it and nothing else has been along since.",
   "exits": {
     "east": "zone_district_901_916",
-    "north": "zone_district_900_915",
-    "south": "zone_district_900_917",
     "west": "zone_district_899_916"
   },
   "flags": {

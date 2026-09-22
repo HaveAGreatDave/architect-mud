@@ -140,7 +140,16 @@ export async function authorBuilding(store, spec) {
     // way out. Only OUTSIDE tiles can hold a second door. (Matters on a re-run.)
     if (z.parent_zone === facadeId || z.map_id === mapId) continue;
     const links = Object.entries(z.exits || {}).filter(([, t]) => t === facadeId);
-    if (!links.length) continue;
+    // ⚠ THE STREET IS NOT EXEMPT FROM THIS LOOP JUST BECAUSE IT HAS NOTHING TO STRIP.
+    // This block does two jobs that read as one — it removes every door the author did not
+    // choose, and it GRANTS the one they did — and skipping a tile with no existing link
+    // silently drops the second. It never showed while every plot came in off open ground,
+    // because a road tile always already pointed at its neighbour; it shows the moment a
+    // plot arrives SEALED, which is every building batch8 built (that file strips every
+    // neighbour exit on purpose, so the street has no link left to find). The symptom is a
+    // facade you can enter from inside and not from the pavement, and the only thing that
+    // reports it is content:lint, as "zone_edges would invent an exit".
+    if (!links.length && z.id !== streetId) continue;
     const exits = { ...z.exits };
     if (z.id === streetId) {
       const want = OPPOSITE[spec.entrance];          // the street's link back at the door
@@ -204,6 +213,15 @@ export async function authorBuilding(store, spec) {
     if (r !== entry && r.from === anchorKey && r.dir === 'down') {
       throw new Error(`${spec.name}: room "${r.key}" is down from "${anchorKey}", which is where the utility room goes — set utilityAnchor to a deeper room`);
     }
+    // ⚠ AND THE OTHER DIRECTION, WHICH IS THE ONE THAT ACTUALLY SHIPPED BROKEN. A room reached
+    // by `up` holds its way BACK on `down` — so anchoring the utility room in an upstairs room
+    // claims the slot that is already the stair home, and because the utility room is written
+    // last it wins. The anchor keeps a one-way exit down into a plant room and loses the only
+    // link to the floor below it. The guard above looks for a room hung BELOW the anchor and
+    // cannot see this, because the offending room is the anchor's own PARENT.
+    if (r.key === anchorKey && r.dir === 'up') {
+      throw new Error(`${spec.name}: "${anchorKey}" is up from "${r.from}", so its own "down" is the way back — the utility room would overwrite it; anchor it in a ground-level room`);
+    }
   }
   const util = await authorUtilityRoom(store.sql(), { anchorId: roomId(anchorKey) });
   conn(store, roomId(anchorKey), util.utilityRoomId, 'down');
@@ -217,6 +235,16 @@ export async function authorBuilding(store, spec) {
 
   // A light per room past the anchor (authorUtilityRoom only lights the anchor and
   // the utility room). A room with no fixture is not dark, it reads as open air.
+  //
+  // ⚠ "THE ANCHOR" IS NOT "THE ENTRY ROOM", AND THE DEFAULT MAKES THEM LOOK LIKE ONE THING.
+  // `anchorKey` falls back to the entry, so for most buildings the free light lands in the
+  // lobby and a `lights` map covering every other room is complete. Set `utilityAnchor` and
+  // the free light moves with it — and the entry room, which is the first room any player
+  // ever stands in, quietly has no fixture. Nothing downstream complains: a lit building
+  // with one unlit room in it is a valid world, it just reads as open air indoors.
+  const unlit = spec.rooms.map((r) => r.key).filter((k) => k !== anchorKey && !(spec.lights || {})[k]);
+  if (unlit.length) throw new Error(`${spec.name}: no light authored for room(s) ${unlit.join(', ')} — only "${anchorKey}" gets one free`);
+
   for (const [key, l] of Object.entries(spec.lights || {})) {
     const zid = roomId(key);
     store.patch('furniture', `furn_light_${zid}`, {

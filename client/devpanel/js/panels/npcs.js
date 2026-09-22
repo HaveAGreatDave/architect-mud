@@ -49,7 +49,12 @@ async function deleteNpcRow(id) {
 
 // Mirrors server isVendorWorkTime() (ai-behaviour.js) closely enough for a status badge —
 // today's schedule blocks vs. current hour. Broadcast actors and the unemployed are excluded.
-const _WS_DAYS = ['sun','mon','tue','wed','thu','fri','sat'];
+// ⚠ THE ENGINE'S OWN TABLE AND THE ENGINE'S OWN ARITHMETIC, through the global the shared module
+// stamps on its way out (index.html loads it as a module; these panel scripts are classic and
+// cannot import). A second copy here is how the grid and the engine end up disagreeing about
+// whether somebody is at work — which is exactly what happened to a block that crosses midnight:
+// the engine calls it a night shift and a hand-written `h >= from && h < to` calls it nothing.
+const _WS = () => window.WorkSchedule;
 function _npcWorkStatus(npc, env) {
   if (!npc || npc.npc_type === 'unemployed' || npc.studio_zone_id) return '';
   if (!npc.work_zone_id) return '<span style="color:var(--text-dim)">not scheduled</span>';
@@ -57,9 +62,7 @@ function _npcWorkStatus(npc, env) {
   const hasAnySchedule = Object.values(schedule || {}).some(blocks => Array.isArray(blocks) && blocks.length);
   if (!hasAnySchedule) return '<span style="color:var(--text-dim)">not scheduled</span>';
   if (!env || env.dayOfWeek == null || env.hour == null) return '<span style="color:var(--text-dim)">unknown</span>';
-  const todayKey = _WS_DAYS[env.dayOfWeek % 7];
-  const blocks = schedule[todayKey] || [];
-  const working = blocks.some(b => env.hour >= (b.from ?? 0) && env.hour < (b.to ?? 24));
+  const working = _WS().workingAt(schedule, env.dayOfWeek % 7, env.hour);
   if (!working) return '<span style="color:var(--text-dim)">off shift</span>';
   return npc.zone_id === npc.work_zone_id
     ? '<span style="color:var(--safe-zone,#4caf50)">working</span>'
@@ -633,13 +636,28 @@ const _VS_DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
 const _VS_DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const _vs = { cells: {}, dragging: false, dragValue: null, readonly: false, original: null };
 
+// ⚠ A WRAPPING BLOCK PAINTS CELLS ON TWO DAYS, and without that it paints NONE: the grid would
+// draw an empty week for a schedule that is not empty, and `_vsToSchedule` would then write that
+// empty week back on the next save. A silent deletion of somebody's night shift, performed by a
+// panel that was only being looked at. `blockCells` returns (dayOffset, hour) for exactly this.
+//
+// ⚠ AND A ROUND TRIP NORMALISES: a grid can only express per-day runs, so loading
+// `mon: [{from:18,to:6}]` and saving gives back `mon: [{18,24}], tue: [{0,6}]`. Same shift, same
+// hours, two blocks instead of one — which is fine, and is why the wrap is an accepted INPUT form
+// rather than a canonical storage form.
 function _vsFill(schedule) {
   _vs.cells = {};
   const sched = typeof schedule === 'object' ? schedule : JSON.parse(schedule || '{}');
+  const days = _WS().DAY_KEYS;
   for (const [day, blocks] of Object.entries(sched)) {
     if (!Array.isArray(blocks)) continue;
+    const di = days.indexOf(day);
     for (const b of blocks) {
-      for (let h = (b.from ?? 0); h < (b.to ?? 24); h++) _vs.cells[`${day}_${h}`] = true;
+      for (const [dayOffset, h] of _WS().blockCells(b)) {
+        // An unknown day key keeps its own cells and spills nowhere, rather than throwing.
+        const key = dayOffset === 0 || di < 0 ? day : days[(di + dayOffset) % 7];
+        _vs.cells[`${key}_${h}`] = true;
+      }
     }
   }
 }

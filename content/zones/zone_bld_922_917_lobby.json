@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A hallway wide enough for two people if neither is carrying anything, with a desk jammed across the end of it and a pigeonhole rack behind that. The stairs go up outside the building, so the noise of everyone arriving comes through the wall rather than past the desk.",
+  "description": "A hallway wide enough for two people if neither is carrying anything, with a desk jammed across the end of it and a pigeonhole rack behind that. The stairs go up outside the building, so the noise of everyone arriving comes through the wall rather than past the desk. The ceiling fitting over the desk has not been switched on in the time anybody currently in the building has been here.",
   "exits": {
     "down": "zone_util_zone_bld_922_917_lobby",
     "east": "zone_bld_922_917_dorm",

@@ -1,0 +1,11 @@
+{
+  "description": "One to a table, chrome, shaded down hard so the light lands on the cloth and almost nowhere else, and a warm line under the bottle rack. The room is kept darker than the water outside it so the north glass never turns into a mirror.",
+  "flags": {},
+  "id": "furn_light_zone_marina_anchovies",
+  "light_type": "table",
+  "lumen_output": 2100,
+  "name": "shaded table lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.12,
+  "zone_id": "zone_marina_anchovies"
+}

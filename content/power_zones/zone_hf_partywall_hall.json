@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hf_partywall_hall",
+  "id": "zone_hf_partywall_hall",
+  "name": "Party Wall — The Entrance Hall",
+  "source_type": "junction_box"
+}

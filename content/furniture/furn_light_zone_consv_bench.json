@@ -1,0 +1,11 @@
+{
+  "description": "Two long tubes on swing arms over the bench, set so close to the work that they throw almost nothing onto the rest of the room.",
+  "flags": {},
+  "id": "furn_light_zone_consv_bench",
+  "light_type": "overhead",
+  "lumen_output": 2400,
+  "name": "the bench lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_consv_bench"
+}

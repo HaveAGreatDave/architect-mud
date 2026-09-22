@@ -1,0 +1,18 @@
+{
+  "description": "Under the kiosk — the actual bin store, relocated downstairs when the recess above it became a shop, which is why the bins have to come up a ramp. The switchgear shares it with them and there is a line painted on the floor that the bins are meant to stay behind.",
+  "exits": {
+    "up": "zone_hf_rightofway_office"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_894_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_rightofway_office",
+  "map_id": "map_int_hf_rightofway",
+  "name": "Right of Way — The Bin Store That Was",
+  "parent_zone": "zone_district_894_917"
+}

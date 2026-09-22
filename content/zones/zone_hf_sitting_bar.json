@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long curved room following the bend of the building, boarded out in something warm over a floor that was laid for desks, with a bar down the inside of the curve made of scaffold board and chrome offcuts. Nothing matches. The chairs came from four fit-outs. On the wall behind the optics, framed, is a lease with a clause highlighted in yellow, and that clause is why this room is allowed to exist.",
+  "exits": {
+    "down": "zone_util_zone_hf_sitting_bar",
+    "north": "zone_hf_sitting_back",
+    "west": "zone_district_900_915"
+  },
+  "flags": {
+    "building_name": "Sitting Tenant",
+    "building_type": "chrome_slab",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole outside of the bend, floor to ceiling, looking up Kettle Lane. At night the room is the brightest thing on the street and everyone walking past looks in, which the regulars have long since stopped noticing.",
+      "light": 0.6,
+      "name": "the curved glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_900_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_sitting_bar",
+  "map_id": "map_int_hf_sitting",
+  "name": "Sitting Tenant — The Bar",
+  "parent_zone": "zone_district_900_915"
+}

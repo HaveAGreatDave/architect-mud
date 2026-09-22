@@ -525,6 +525,116 @@ throttle, yoke, pedals, flap detent lever, trim):
   the same night. Omitting `moon` yields a plain full disc, i.e. the old behaviour.
   Coverage: `viewRenderSmoke` sweeps the phase across a full month, because three of
   the four terminator sweep-flag cases are unreachable at full.
+  ⚠ **AND THE PHASE IS ALSO THE RISE TIME** (`moonArc`) — it was not, and the two were
+  unrelated numbers for as long as there has been a phase to draw. The arc was pinned
+  at 18:30-05:30 every night whatever the phase said, so a thin crescent rode high at
+  midnight, which is a thing the sky cannot do. A phase IS the sun-moon angle, so the
+  moon lags the sun by `phase` of a whole day and transits at `12 + phase*24`; a full
+  moon then rises at sunset and is up all night, a first quarter is overhead at dusk
+  and gone by midnight, a new moon is up with the sun and **never at night at all**,
+  and an old crescent comes up in the east just before dawn. ⚠ **A full moon is exactly
+  the arc that shipped**, and `moonPh` defaults to 0.5, so every harness and every
+  caller that sends no moon draws the sky it drew before. ⚠ **"It is night" is not
+  "there is a moon up"** — the disc gate is `mArc.up`, and without it the code fell
+  through to the SUN branch, which at 2 a.m. is a sun disc in the middle of the night.
+  The **horns are now solved** (`limbTilt`) rather than defaulted to straight-down,
+  against the sun on its own unclamped arc; ⚠ the solve is **spherical, not planar**,
+  because a (Δaz, Δel) reading lands ~48° out at full moon where the azimuth difference
+  is a degenerate ±180. Gate: [scripts/shapes/moonarc.mjs](scripts/shapes/moonarc.mjs).
+  ⚠ **AND TWO SEATS NEVER GOT A MOON AT ALL.** The paragraph above says the phase is
+  "server-derived … on the HUD payload", and it reached the flight sim that way and
+  nowhere else: `getEnvSnapshot()` in the client's `environment.js` **never carried
+  `moonPhase`**, while helm-view.js and freelook-view.js have both built
+  `{ moon: s.moonPhase }` off that snapshot since they shipped — under a comment in
+  helm-view asserting the opposite ("moonPhase rides the same snapshot, so the yacht
+  helm gets the same moon as the cockpit for free"). So `v.moon` was `undefined`, the
+  documented 0.5 fallback took over, and the **yacht helm and free look drew a full moon
+  on a fixed 18:00-06:00 arc on every clear night** — measured at 23:10 on 2087-03-14,
+  azimuth 167.55 / elevation 53.71 against the real phase's 232.04 / 33.83, wrong disc
+  and wrong key bearing for the whole night city with it. ⚠ **The 0.5 default is exactly
+  what hid it**: it is deliberate and documented, so nothing could tell a caller that
+  legitimately has no moon from a seat that should have one and never got it — every
+  check in `moonarc.mjs` takes the phase as an argument and passes perfectly while none
+  arrives. ⚠ **THE FIX IS TO DERIVE IT, NOT TO RETAIN THE WIRE FIELD**, and that is
+  forced rather than tidier: `moonPhase` rides `environment.sync`, `environment.daily`
+  and the REST route and **NOT `environment.clockTick`**, which is the per-minute
+  broadcast and the one that carries the DATE — so a retained field is whatever the last
+  daily tick said while the date moves on underneath it. The arithmetic moved to
+  [client/shared/moon.js](../client/shared/moon.js) (`moonPhaseOf`, the
+  `ground-accum.js` arrangement), the server's `getMoonPhase` delegates to it, and both
+  sides derive from the date they both already have — so the cockpit and the helm agree
+  **by construction** rather than by two field names matching, which is what helm-view's
+  comment claimed all along. ⚠ **One copy only**: the note on the season table in that
+  same file records a verbatim duplicate living in the weather plugin until 2026-08-20,
+  and the moon had quietly become the same shape of problem. Bit-identical to the
+  expression that shipped over 660 dates — ⚠ except that a **malformed date now falls
+  back instead of propagating `NaN`** into `drawMoon`'s gradient stops, where it throws
+  inside a frame. The hand-off claims are in the same gate, mutation-tested 8 of 8.
+- **The night is lit from the moon** (`keyDir`). Three passes shade off a key bearing —
+  the per-wall Gouraud light (`LIGHT_STATE`, which GLASS 2's mass shader reads too), the
+  Mode-7 terrain hillshade, and the cliff mass's own copy — and each carried its own
+  hard-coded north-west fill for the half of every day the sun is down, so a tower
+  modelled identically at 19:00 and at 04:00 with a full moon crossing the sky between
+  them. Measured on a nine-storey tower at midnight, full moon against new: **64.5% of
+  its own pixels move, mean delta 7.6**, against a 66.8% control for the whole vertex
+  light. ⚠ **The caller hands in its own fill and the moon arrives scaled to match**, so
+  the night is as bright as it was and only the bearing moves; at no moon the fill comes
+  back untouched, which is what keeps a moonless night looking like every night did.
+  ⚠ **It is a ROTATION, and both obvious mixes fail** — summing the two as real lights
+  comes out short in between, which is not a dimmer night but a flat one (`wallLit`
+  reads `0.5 + (n · key) · 0.5`, so a short key puts every wall at 0.5 whichever way it
+  faces: measured at 0.13 of the fill's length for a half moon halfway up); summing and
+  renormalising is an nlerp, which degenerates when the two are opposite, and they do
+  reach opposite, because the fill is north-west and the moon's arc runs through
+  south-east — **33° of swing in one quarter-hour step** on a last quarter, heading for
+  a 180° flip at the crossing. So the bearing is interpolated at the caller's own length
+  and ⚠ **the branch is chosen rather than shortest**, which puts the one discontinuity
+  at the fill's own north-west bearing, one the moon can never have.
+- **The moon as a shadow caster is BUILT AND SWITCHED OFF** (`RENDER_TUNE.moonShadow`, 0).
+  `sunShadowFor` gated the shadow pass on the sun being up, and the world half of that
+  is wrong — a full moon high in a clear sky throws a real shadow. So `castDir`,
+  `shadowDir`, `len` and `alpha` now answer for the moon, and the 2-D ground pre-pass,
+  the aircraft shadow and the GL shadow map each inherit it **without a line of their
+  own**: `len > 0` was already the "is anything casting" switch in both places that ask.
+  `castDir` is the single addition, because `dir` still has to mean the sun (the glint,
+  the wall key and the hillshade all read it and all have their own night answer), and
+  ⚠ **`lightMatrix` reads `castDir` or nothing works** — aimed down the sun's
+  below-horizon bearing it lays every GPU shadow the opposite way from the ground
+  pre-pass, with nothing in the picture to say which is wrong.
+  ⚠ **AND IT CHANGES NOTHING YOU CAN SEE, WHICH IS WHY IT IS OFF.** A shadow is the
+  absence of light and nothing lights the ground at night. The ink is `rgba(8,10,14,a)`
+  and a moonlit night's ground samples `[10,14,19]`, so the ink *is* the ground:
+  A/B'd against a pinned clock and pinned dice (noise floor **0** moved pixels), at the
+  shipping alpha and again at the **sun's own maximum of 0.34**, the whole frame moves
+  by at most **3 of 255** on one channel. No alpha can make a near-black shadow show on
+  near-black ground, which is also why `moonShadowA` is untuned — every value from 0.10
+  to 0.60 measured identically. The precondition is **moonlight on LAND**, which does
+  not exist: `drawMode7Floor`'s `mAdd` and floor.js's `uMoonElev` branch are both inside
+  the WATER path, so the sea has a glitter track and the ground has nothing. ⚠ **0 is
+  the cost argument, not an unfinished flag**: at 1 the pass — a full second render of
+  the city — runs for **36% of dark hours over a synodic month** (0% new and at every
+  crescent, 28% quarter, 69% gibbous, 100% full) for a frame nobody can tell apart.
+  ⚠ And `moonShadowMin` is **0.25, not 0.02**: elevation is at most 1, so a phase can
+  never exceed its own illum, which makes "a crescent throws no shadow" true *by
+  arithmetic at every elevation*. At 0.02 it was not, and the gate's crescent cases
+  passed vacuously because every phase they tested was below the horizon at every hour
+  they tested.
+- **How accurate the two discs actually are.** The moon is placed and sized as an
+  angle (`moonRadiusPx` off `skyFL`) and holds **3.00° of radius at every canvas
+  width**; ⚠ **the sun was never converted and is still a literal 15px core**, so its
+  angular radius swings **7.49° at a 320px pane to 1.51° at 1600** — and the moon/sun
+  size ratio runs **0.54 → 1.99** across that range, where the real two are within 2%
+  of each other at ~0.26°. It is the same bug `moonRadiusPx`'s ⚠ was written about,
+  still live on the other body. Both are deliberately ~12× oversize, which is a
+  stylistic choice and stated as one. ⚠ **The sky dome is not the camera under it**:
+  `projSky` is rectilinear across (`tan`) and a compressed dome down
+  (`horizonY * (1 - sin(el) * 0.86)`), so a body at the sun's own noon elevation of 62°
+  is drawn where a rectilinear camera puts **30.9°** — half as high as it claims, with
+  the error growing from −1.6° at 5° to −31° at 62°. `skyColumnP` was explicitly fixed
+  so the ridge pans in lockstep with the ground; the vertical axis never was.
+  Elevation is also clamped to −6°, sun azimuth is linear in time (a constant 15°/h,
+  where the real thing loiters at the horizons and sweeps through noon), and the two
+  peak elevations (sun 62°, moon 55°) are authored rather than derived.
 - **PFD** (`paintPFD`, cockpit.js:4186): a canvas primary flight display — banking/
   pitching attitude ball with a ±30° pitch ladder, **airspeed and altitude tapes**
   flanking it (airspeed marked with Vr/Vne/Vs0), a VSI bar, a digital heading box, a
@@ -1145,6 +1255,143 @@ small-arms fire (light hull damage); AA sites engage via `combat.js`. Per-class
 timbre also drives the pilot's own audio (idle/power/spool) in `engine-audio.js`.
 Fly high, fast, and you're quiet; low and slow over a hostile tile and everyone
 below knows exactly what you are and where you're headed.
+
+## The flight panel *(2026-09-21)*
+
+Before this the forward view had a **cowl** and nothing else — a dark shape along the bottom with two
+ribs on it — and every number you fly by floated on the glass as a HUD glyph with nothing behind it.
+The truck had a dash and the plane was a windscreen with subtitles.
+
+### What it is, and what it deliberately is not
+
+⚠ **The panel is flat and the coaming wraps, which is not a compromise between the two.** A cab's
+dash genuinely wraps round the driver and a light aircraft's panel genuinely does not — it is a flat
+board bolted across the cockpit, which is why every instrument in one is square to every other. What
+curves is the glareshield, and that is the part next to the glass where a curve reads. The wrap kit
+stays switched off for the face on purpose and the character comes from density instead.
+
+⚠ **And it does not take the glass.** FS98 panels occupy 55–60% of the frame and copying that number
+would cost the one thing the view is for. The panel grows into the space the cowl already had (0.17)
+rather than into the windscreen. `PANEL_DEPTH` is the whole interior including the footwell, it sits
+at **0.48**, and **every layout term is derived from it** — so it is the one knob to move if the view
+ever feels tight.
+
+⚠ **The depth is solved backwards from the gauges.** Two rows of instruments need about 4.3 radii
+between the coaming and the switch row; at 0.34 that left 79 px — **a gauge radius of seventeen
+pixels**, a six-pack the size of the words under it. The coaming and the switch strip were taking a
+quarter of the board before an instrument was placed, and the strip is now taken off *before* the
+gauges are sized, so a switch can never be the thing that runs out of room.
+
+⚠ **And nothing on the HUD was removed.** The panel adds instruments, so nothing a pilot flies by can
+be lost by a panel being wrong about it. Retiring a HUD element is a later decision, one at a time.
+
+### The instruments
+
+The standard six-pack in the standard T, because a pilot's eye goes to the middle of the top row for
+attitude and reads outward — an arrangement that looks tidier is one somebody has to learn. Four of
+the six are new drawers: a real gyro horizon with a pitch ladder and a bank scale fixed to the
+**case**; a **three-pointer** altimeter, because a single needle on a 0–3000 scale is a fuel gauge
+with the wrong label; a rotating compass card; a turn coordinator with an inclinometer.
+
+⚠ **The card moves and the aeroplane does not**, on both the AI and the DG — draw either the other
+way round and you have an instrument that reads backwards to every pilot who has seen one, while
+looking perfectly plausible in a still.
+
+⚠ **The VSI is centre-zero and a fraction is not.** `drawCabDial` runs 0..1 bottom-left round to
+bottom-right, so a climb rate has to be mapped with its zero in the **middle** or level flight parks
+the needle on the bottom stop.
+
+⚠ **The six-pack is dead centre, because the HUD is.** It sat on the pilot's eye line at 0.355W,
+which is where a left-hand seat's instruments really are — and it fought the HUD, whose tape and
+boxes are centred on the canvas. Two centres a seventh of the frame apart do not read as a cockpit
+offset from the middle, they read as a panel that has slipped. ⚠ **Centring emptied the left third**,
+which is worse than off-centre — it reads as a panel nobody finished — so the engine cluster and a
+V-speeds placard fill it.
+
+### It reads the sim, and only what the sim has
+
+⚠ **The panel shipped reading a dozen fields that were never on the payload**, so it fell back to the
+authored value for every one: the engine cluster, the annunciators, the gear lever, the flap gate and
+the pedals were parked at constants and looked exactly as if they were working. A gauge that cannot
+be wrong is not an instrument.
+
+⚠ **And only what the sim actually has is sent.** There is no manifold pressure, no oil pressure, no
+ammeter, no prop governor, no mixture and no airframe ice in this flight model:
+
+- **Engine cluster 6 → 4** (RPM / TEMP / FUEL / HULL). A cluster is where a pilot scans for something
+  being *wrong*, so a needle that cannot move is worse than an empty hole.
+- **Annunciators lost ICE and VOLT** — lamps dark for ever are indistinguishable from lamps dark
+  because everything is fine, which is exactly the information a warning panel carries.
+- **Switches 6 → 4** (BAT / ALT / LAND / PANEL). A switch is the one control where "it cannot move"
+  becomes obvious the moment somebody reaches for it.
+- **Only the throttle moves.** Prop and mixture stay drawn but set — the radio stack's own rule:
+  equipment may be present without pretending to read anything. What it may not do is animate a value
+  nothing computes.
+
+⚠ **A fixed-gear aeroplane gets no gear lever**, and the flap gate takes the whole block. A handle for
+a leg that cannot retract is a control with nothing behind it.
+
+### The controls are the right kind of thing
+
+⚠ **A toggle is right for the electrics and wrong for everything else.** Gear is a shaft in a slot
+with a **wheel** on it and flaps is a paddle in a **gate** — the knob shapes are not decoration, they
+are so a hand finds the right one without the eyes leaving the windscreen. Flaps are *selected to a
+position*, so a continuous slider would say something false about the aeroplane. The engine controls
+are push-pull knobs, black / blue / red, a colour code fixed by regulation rather than taste.
+
+⚠ **Gear was the worst of it and not for the obvious reason:** it was an annunciator **lamp** — the
+thing that tells you the gear is down, not the thing that puts it there. Both exist now, which is
+also how you can be shown the two disagreeing.
+
+⚠ **The pedals needed their own band.** Everything else is bolted to a board in front of you; pedals
+are on the floor *under* it. The footwell comes out of the interior's depth rather than out of the
+glass, and the pedals **move differentially** on one bar — a pair that merely both tilted would be
+two plates on a floor.
+
+### Solids, and the click
+
+`RENDER_TUNE.cabCtl3d`; 0 is the drawn ones, which are kept — ⚠ **this repo's own rule rather than
+caution.** `LEGACY_MODELS` keeps every hand-written building arm beside its authored port so the
+claim is re-checked on every push; an interior that deleted its 2-D path would be solid-only with
+nothing to compare against. The kept toggle still leans by rotating the context — which is *why* it
+was replaced — and is kept exactly as it was, because a fallback that has been improved is a third
+thing nobody has looked at.
+
+⚠ **The switch mesh leans; the context does not.** Tilting the context tilts the shading with it, so
+a switch thrown one way would be lit from a different direction to its neighbour thrown the other.
+⚠ **The regulated colour is the albedo**, not a stop in a ramp — a solid shades its own colour toward
+black at the terminator, which is what a red knob does. ⚠ **Sphere poles are triangles**; a uniform
+quad grid gives quads with two coincident corners, which stroke as a starburst.
+
+And the panel takes a click: ⚠ **capture phase, swallowing only a hit**, because the windshield
+element already carries the camera drag. ⚠ **The master routes to the start button's own click**
+rather than reimplementing it — starting an engine is a spool, a nose visor, a throttle reset, a
+server event and a lights resync, five things that button already owns. ⚠ **The flap gate is two
+halves, not a toggle**: four positions against one bit of click, so the half you press is the
+direction, which is how the real one is used.
+
+**Not yet done:** no tap has been clicked in the real client (the shot harness renders the windshield
+directly and never mounts the cockpit chrome), there is no trustworthy frame cost for the solids, and
+`ultralight` and `heli` get a scaled-down prop board rather than their own.
+
+## The free look from the seat *(2026-09-21)*
+
+Middle mouse, held, leans the pilot's head; released, it springs back. The same mechanism the truck
+cab uses and written up in full there — see **The cab has depth** in
+[systems-trucking.md](systems-trucking.md). Behind the aircraft the middle drag still orbits it;
+inside there is nothing to orbit, so the button was free.
+
+Two things specific to this side:
+
+⚠ **The panel inherits the parallax with nothing wired for it.** `makeCam` reads `lookLean` directly
+and the interior shift is applied around the dash-layer call, which serves the cab and the flight
+panel alike — so the cockpit only had to send the field. The HUD does not move, and should not: it
+is screen furniture rather than something in the cockpit.
+
+⚠ **A middle press is still a press, and the panel's hit test did not ask which button.** Beginning a
+lean with the cursor over a switch threw it — starting near the ignition shut the engine down. It
+tests `e.button === 0` now. A hit test that does not ask which button will be fired by every other
+thing ever bound to the same element.
 
 ## Verb-collision routers
 

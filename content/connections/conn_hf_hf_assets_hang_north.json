@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_assets_hang",
+  "b": "zone_hf_assets_strong",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_hf_assets_hang_north",
+  "lockable": false,
+  "one_way": false
+}

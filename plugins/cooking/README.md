@@ -1222,13 +1222,42 @@ cookbook is a record and a small edge (`KNOWN_RECIPE_BONUS`, a sub-band nudge),
 not a permission system. That is what keeps discovery alive — a player who has
 never heard of a chowder can still make one, and doing so is what writes it down.
 
-Three ways in:
+Four ways in:
 
 | Path | How | Pays |
 |---|---|---|
+| Starter | you already knew it — `STARTER_RECIPES`, five of them | — |
 | Discovery | plate the same combination at **good or better, 3 times** | `DISCOVERY_IP` |
 | Recipe card | `read` an item tagged `recipe_card: <key>` | — |
 | NPC taught | a dialogue node fires the `TEACH_RECIPE` Action | — |
+
+### The five you already know
+
+Everybody woke up somewhere, and everybody there ate. A survivor who cannot boil
+water is not a blank slate — it is a joke on a new player, because discovery
+costs three good plates and three good plates of a dish whose measures you have
+never seen is a long walk before the cookbook does anything at all. So the book
+opens on **broth, soup, porridge, a toastie and a cheese sandwich**.
+
+Between them they cost under ~₵15 a plate at Coldwater prices, need no meat, no
+eggs and no dry starch, and cover **three of the five vessels** — pot, pan and
+bread — so a new cook learns that the vessel is part of the recipe before buying
+anything. The three pot dishes are not redundancy: broth is liquid + aromatic,
+soup is liquid + soft vegetable, porridge is liquid + starch, which is the whole
+profile system taught in three plates with one pot. Nothing with a **masterful**
+ceiling is in the set — a starter is a floor under a new cook, and handing one
+the top of the ladder free would undercut both discovery and `RECIPE_MASTERY_IP`.
+
+⚠ **Derived at read, never seeded at registration.** `cookbookState` unions the
+set in, so every character that already existed got them the day this shipped
+with no one-shot against prod, and a sixth starter added later reaches everyone
+rather than only accounts created after it. The consequence is the trap: a
+starter is known **with no flag row behind it**, so `improveRecipe` — UPDATE-only
+by design, so that raising a band can never mint a row for a recipe you don't
+know — had to learn one exception, or `plate` would print *"best you've ever made
+it"* and record nothing, for ever. `learnRecipe` carries the mirror of it: a card
+or an NPC offering a starter mints the row and reports `learned: false`, because
+you already knew.
 
 Discovery is by REPETITION, not luck: one good plate proves nothing, and a plate
 below `DISCOVERY_MIN_BAND` teaches you nothing at all, so you cannot stumble into

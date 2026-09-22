@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A round chamber in the base of the leg, barely wider than the lift, with the curve of the outside wall coming in overhead. There is a bench, a fire notice, and a plate listing the engineers and the year. Above the lift door a dial the size of a dinner plate shows the car's position on a scale marked in metres rather than floors, which is the first clue that this is not really a building.",
+  "exits": {
+    "down": "zone_util_zone_hf_airrights_foot",
+    "south": "zone_district_906_915",
+    "up": "zone_hf_airrights_key"
+  },
+  "flags": {
+    "building_name": "Air Rights",
+    "building_type": "chrome_arch",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A vertical slit of glass a hand wide running the height of the chamber, giving you a sliver of Kerbstone Row and about four feet of sky.",
+      "light": 0.4,
+      "name": "the slot",
+      "visibility": 0.5
+    },
+    "world_exit_zone": "zone_district_906_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_airrights_foot",
+  "map_id": "map_int_hf_airrights",
+  "name": "Air Rights — The West Foot",
+  "parent_zone": "zone_district_906_915"
+}

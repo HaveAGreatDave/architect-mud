@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A quarter of the drum, partitioned in glass rather than plasterboard so that you can see the camera wall from the door and are meant to. A high counter, a signing-in book that is genuinely used, and a rack of visitor passes on hooks numbered one to forty of which four are gone. On the counter, a bowl of the estate's own boiled sweets, which is somebody's attempt at warmth in a room with nothing else soft in it.",
+  "exits": {
+    "down": "zone_util_zone_hf_peppercorn_desk",
+    "east": "zone_district_904_913",
+    "north": "zone_hf_peppercorn_wall"
+  },
+  "flags": {
+    "building_name": "Peppercorn",
+    "building_type": "atrium_court",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The curve, out onto Cowslip Rise and up it toward the boulevard, which is a sightline that takes in the entrances of four other buildings. That is not an accident and the drum was not drawn for it.",
+      "light": 0.75,
+      "name": "the drum glazing",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_904_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_peppercorn_desk",
+  "map_id": "map_int_hf_peppercorn",
+  "name": "Peppercorn — The Front Desk",
+  "parent_zone": "zone_district_904_913"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "Under the lowest bead, where the water is boosted to the top of the tower. It runs at four in the morning and it is audible in the flats on the lower three floors, which is one of two facts about this building that the brochure leaves out.",
+  "exits": {
+    "up": "zone_hf_chainfree_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_chainfree_lobby",
+  "map_id": "map_int_hf_chainfree",
+  "name": "Chain Free — The Pump Room",
+  "parent_zone": "zone_district_900_914"
+}

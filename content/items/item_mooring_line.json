@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_mooring_line",
+  "name": "coil of mooring line",
+  "tags": {
+    "description": "Twelve metres of braided line with a spliced eye in one end, stiff enough to be new. It smells faintly of the drum it came off."
+  },
+  "type": "gear",
+  "value": 95,
+  "weight": 3
+}

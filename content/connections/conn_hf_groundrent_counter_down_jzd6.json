@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_groundrent_counter",
+  "b": "zone_util_zone_hf_groundrent_counter",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_groundrent_counter_down_jzd6",
+  "lockable": false,
+  "one_way": false
+}

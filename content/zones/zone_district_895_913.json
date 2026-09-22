@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#0e1a22",
+  "color": "#cfeaff",
+  "description": "A glazed disc on six chrome legs, thickest through the middle and drawn to an edge all round, with nothing underneath it but a paved circle and the light coming down out of the soffit. You go up into it through a chrome stair core on the street side. There is no name on the building anywhere: the only lettering is a plate beside the door at chest height, engraved, four words long.",
   "exits": {
-    "east": "zone_district_896_913",
-    "north": "zone_district_895_912",
-    "south": "zone_district_895_914",
-    "west": "zone_district_894_913"
+    "north": "zone_hf_assets_hang",
+    "south": "zone_district_895_914"
   },
   "flags": {
+    "building_name": "Fixed Assets",
+    "building_type": "lens_hall",
     "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 4,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_895_914"
   },
   "grid_x": 895,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_895_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "FA",
+  "name": "Fixed Assets",
   "parent_zone": null
 }

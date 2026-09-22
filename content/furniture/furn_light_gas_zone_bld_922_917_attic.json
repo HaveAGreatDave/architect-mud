@@ -1,0 +1,14 @@
+{
+  "description": "Wired to the propped tube at head height. Everybody coming up the stair ducks it and nobody has moved it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_gas_zone_bld_922_917_attic",
+  "light_type": "gas",
+  "lumen_output": 400,
+  "name": "a gas lantern",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": 40,
+  "zone_id": "zone_bld_922_917_attic"
+}

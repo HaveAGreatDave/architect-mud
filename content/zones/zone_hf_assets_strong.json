@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Racking, floor to ceiling, in the thick part of the lens where the glass is furthest away. Everything is in shallow slotted frames with the faces inward, spaced by a hand, at a temperature and a humidity the plant downstairs holds to a decimal place. There is more in here than on the walls outside by a factor of about nine.",
+  "exits": {
+    "south": "zone_hf_assets_hang"
+  },
+  "flags": {
+    "building_name": "Fixed Assets",
+    "building_type": "lens_hall",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_assets_strong",
+  "map_id": "map_int_hf_assets",
+  "name": "Fixed Assets — The Strongroom",
+  "parent_zone": "zone_district_895_913"
+}

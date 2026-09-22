@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_planprint",
+  "name": "a print of the estate plan",
+  "tags": {
+    "description": "The quarter at a workable scale, plot boundaries and numbers, run off the office machine. It shows every plot including the ones that are still meadow, which makes it the only drawing available to the public that does not lie about how much of Halcyon Fields exists.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 25,
+  "weight": 35
+}

@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "urban",
+  "bg_color": "#0f1a24",
+  "color": "#cce8ff",
+  "description": "Eleven floors in four bulges with the collars picked out in a brighter chrome than the estate standard, which is the one place in Halcyon Fields where somebody was allowed to spend money on something that is purely how it looks. From Kerbstone Row at dusk it is the building people point at without knowing why. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have.",
   "exits": {
-    "east": "zone_district_897_917",
     "north": "zone_district_896_916",
-    "south": "zone_district_896_918",
-    "west": "zone_district_895_917"
+    "south": "zone_hf_wellappointed_lobby"
   },
   "flags": {
+    "building_name": "Well Appointed",
+    "building_type": "bead_tower",
     "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 11,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_896_916"
   },
   "grid_x": 896,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_896_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "WB",
+  "name": "Well Appointed",
   "parent_zone": null
 }

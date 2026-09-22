@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_gatescale_booth",
+  "id": "map_int_gatescale",
+  "name": "The Glacis Weigh — Interior",
+  "parent_zone_id": "zone_district_916_918"
+}

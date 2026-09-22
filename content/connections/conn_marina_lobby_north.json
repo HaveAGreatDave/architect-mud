@@ -1,0 +1,9 @@
+{
+  "a": "zone_marina_lobby",
+  "b": "zone_marina_anchovies",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_marina_lobby_north",
+  "lockable": false,
+  "one_way": false
+}

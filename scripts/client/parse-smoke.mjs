@@ -1,4 +1,4 @@
-// Parse every client-side .js file, and fail if any of them is not valid JavaScript.
+// Parse every hand-written .js file in the repo, and fail if any of them is not valid JavaScript.
 //
 // This is the cheapest possible test and it exists because there was no build
 // step: nothing between an editor and a player's browser ever PARSED these
@@ -31,6 +31,20 @@ const DIR = join(ROOT, 'client');
 // Modelshop's client builds form markup out of template literals, which is precisely
 // where the backtick-in-a-comment failure above lives.
 const TOOL_DIRS = [join(ROOT, 'tools', 'modelshop')];
+// ⚠ AND THE SERVER, WHICH NOTHING PARSED UNTIL A BOOT TRIED TO. This check has covered `client/`
+// since it was written, for the good reason in its header — there is no build step, so nothing
+// between an editor and a browser ever parses those files. Exactly the same is true of the server,
+// and the only thing that noticed a syntax error there was `tests/regress.js` failing to boot:
+// which DOES block a push, but presents as "Regression suite FAILED" over a stack trace, two
+// minutes into a run, looking like a broken test rather than a broken file.
+//
+// ⚠ AND IT IS NOT MERELY A NICER ERROR. The suite boots the world and the plugins, so it parses
+// only what is REACHABLE from that boot — a lazily-imported command module, a script nothing
+// requires yet, a plugin file behind a flag, all get to the push gate unread.
+//
+// Safe to parse as modules: package.json is `"type": "module"` and neither tree has a CommonJS
+// file in it (the one `module.exports` in plugins/ is a word in a comment).
+const SERVER_DIRS = [join(ROOT, 'server'), join(ROOT, 'plugins')];
 const CONCURRENCY = 8;
 
 async function walk(dir) {
@@ -85,7 +99,11 @@ async function pluginPanelScripts() {
 }
 
 const toolFiles = (await Promise.all(TOOL_DIRS.map((d) => walk(d)))).flat();
-const files = [...(await walk(DIR)), ...toolFiles, ...(await pluginPanelScripts())].sort();
+const serverFiles = (await Promise.all(SERVER_DIRS.map((d) => walk(d)))).flat();
+// A Set, because the plugin dev-panel scripts are inside plugins/ and would otherwise be read
+// twice — harmless, and it would make the printed count a number that means nothing.
+const files = [...new Set([...(await walk(DIR)), ...toolFiles, ...serverFiles,
+  ...(await pluginPanelScripts())])].sort();
 const failures = [];
 let next = 0;
 
@@ -106,7 +124,7 @@ for (const { file, err } of failures.sort((a, b) => a.file.localeCompare(b.file)
 }
 
 if (failures.length) {
-  console.error(`\nclient parse smoke FAILED — ${failures.length} of ${files.length} file(s) will not parse.`);
+  console.error(`\nparse smoke FAILED — ${failures.length} of ${files.length} file(s) will not parse.`);
   process.exit(1);
 }
-console.log(`  ✓ client parse smoke — ${files.length} files parse`);
+console.log(`  ✓ parse smoke — ${files.length} files parse`);

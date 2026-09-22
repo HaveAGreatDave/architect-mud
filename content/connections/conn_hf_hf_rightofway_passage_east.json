@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_rightofway_passage",
+  "b": "zone_hf_rightofway_office",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_hf_rightofway_passage_east",
+  "lockable": false,
+  "one_way": false
+}

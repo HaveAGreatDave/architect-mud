@@ -1,0 +1,8 @@
+{
+  "description": "Eleven lines, engraved, each one a thing the building has. Ten of them are heating, glazing, acoustic separation and so on and nobody reads them. The eleventh is CONNECTED TO THE ESTATE NETWORK, and it is the only line with no qualifying detail after it anywhere on the plate or in the brochure.",
+  "flags": {},
+  "id": "furn_hf_modcons_plate",
+  "name": "the specification plate",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_modcons_hall"
+}

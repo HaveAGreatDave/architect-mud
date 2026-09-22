@@ -562,6 +562,40 @@ export const HEAT_CURVE_WEIGHT = 0.9 * BAND_SCALE;   // max score for following 
 export const DISCOVERY_ATTEMPTS = 3;
 export const DISCOVERY_MIN_BAND = 'good';
 
+// THE FIVE YOU ALREADY KNOW. Everybody woke up somewhere, and everybody there
+// ate. A survivor who cannot boil water is not a blank slate, they are a joke
+// the game is playing on a new player: discovery costs three good plates, and
+// three good plates of a dish you have never seen the measures for is a long
+// way to walk before the cookbook does anything at all.
+//
+// DERIVED, NEVER SEEDED. These are unioned into the cookbook at READ (see
+// cookbookState) rather than written as flag rows at registration, for two
+// reasons. Every character who already exists gets them the moment this ships,
+// with no one-shot against prod; and this list is balance data, so a sixth
+// starter added next month reaches everyone rather than only the accounts
+// created after it. The flag row is still what records the best band ever
+// cooked — a starter simply starts at `untried` with no row behind it, which is
+// the state a recipe card already produces.
+//
+// THE SELECTION RULE IS CHEAP AND BROAD, NOT EASY. Between them these cost
+// under ~15 credits a plate at Coldwater prices, need no meat, no eggs and no
+// dry starch, and cover THREE of the five vessels — pot, pan and bread — so a
+// new cook has learned that the vessel is part of the recipe before they have
+// bought anything. Three pot dishes is not redundancy: broth is liquid plus
+// aromatic, soup is liquid plus soft vegetable, porridge is liquid plus starch,
+// which is the profile system taught in three plates with one pot.
+//
+// What is deliberately NOT here: anything with a masterful ceiling. A starter
+// is a floor under a new player, and handing one the top of the ladder for free
+// would undercut both the discovery loop and RECIPE_MASTERY_IP.
+export const STARTER_RECIPES = new Set([
+  'broth',            // water and salt. The cheapest thing anyone can cook.
+  'soup',             // "Vegetables, liquid, patience. The first thing anyone learns."
+  'porridge',         // grim, warm, keeps you upright
+  'toastie',          // the one pan dish that doesn't assume you own meat
+  'cheese_sandwich',  // bread and cheese, no heat, no stove, no vessel to buy
+]);
+
 // IP: the per-use roll is the main award (probabilistic, margin-shaped, so
 // grinding the same trivial cook has poor odds by construction). These are the
 // flat bonuses on top for actually excelling.

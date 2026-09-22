@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_quiet_desk",
+  "b": "zone_hf_quiet_show",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_quiet_desk_up",
+  "lockable": false,
+  "one_way": false
+}

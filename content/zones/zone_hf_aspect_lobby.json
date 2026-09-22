@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The fattest part of the lowest bead, which makes it the biggest room in the tower by a long way and gives it a wall that curves continuously through three hundred and sixty degrees with one flat piece in it, and the flat piece is the lift. A brochure stand, four chairs against the curve, and a long chrome radiator following the wall that had to be made in eleven segments.",
+  "exits": {
+    "down": "zone_util_zone_hf_aspect_lobby",
+    "up": "zone_hf_aspect_landing",
+    "west": "zone_district_903_915"
+  },
+  "flags": {
+    "building_name": "Aspect Ratio",
+    "building_type": "bead_tower",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole way round except behind the lift core, looking out onto Cinder Lane, the backs of Kerbstone Row and, if you walk far enough round, the green. It is the only lobby in the quarter you can see three streets from without moving your feet, only your head.",
+      "light": 0.85,
+      "name": "the full curve",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_903_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_aspect_lobby",
+  "map_id": "map_int_hf_aspect",
+  "name": "Aspect Ratio — The Wide Floor",
+  "parent_zone": "zone_district_903_915"
+}

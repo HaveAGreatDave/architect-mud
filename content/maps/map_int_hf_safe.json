@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_safe_hall",
+  "id": "map_int_hf_safe",
+  "name": "Safe as Houses — Interior",
+  "parent_zone_id": "zone_district_901_911"
+}

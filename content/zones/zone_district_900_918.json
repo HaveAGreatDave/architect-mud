@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "description": "East of Kettle Lane the surfacing changes and the lane narrows by a foot without any sign saying so. Wing mirrors have been taking the corner of the plant yard for a year.",
   "exits": {
     "east": "zone_district_901_918",
-    "north": "zone_district_900_917",
     "south": "zone_district_900_919",
     "west": "zone_district_899_918"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 900,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_900_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Windrow Lane",
   "parent_zone": null
 }

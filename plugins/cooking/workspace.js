@@ -893,6 +893,9 @@ async function buildAssistant(player, reachableFood, ctx) {
   const { known } = await cookbookState(player.id);
   const mine = await savedRecipes(player.id);
   const total = Object.keys(DISHES).length;
+  // ⚠ UNREACHABLE while STARTER_RECIPES is non-empty — every cookbook holds at
+  // least the five (cooking/knowledge.js). Kept as the honest answer for a
+  // starter set emptied to nothing, which is a tuning change away.
   if (!known.size && !mine.size) {
     return {
       groups: [],

@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "urban",
+  "bg_color": "#0e1620",
+  "color": "#b8dcf6",
+  "description": "A tower that shears as it rises, each floor turned a few degrees on the one below, so walking up Kettle Lane you watch a corner of it travel slowly round the building. The turn is a quarter of a revolution over seventeen storeys and it costs about nine per cent of the floor area, which was argued about for a year and won by whoever wanted it. At the bottom, where the twist has not started yet, the ground floor is square to Kettle Lane and glazed the whole way round, and the revolving door in the middle of it turns whether or not anybody is going through it. At the bottom, where the twist has not started yet, the ground floor is square to Kettle Lane and glazed the whole way round, and the revolving door in the middle of it turns whether or not anybody is going through it. At the bottom, where the twist has not started yet, the ground floor is square to Kettle Lane and glazed the whole way round, and the revolving door in the middle of it turns whether or not anybody is going through it. At the bottom, where the twist has not started yet, the ground floor is square to Kettle Lane and glazed the whole way round, and the revolving door in the middle of it turns whether or not anybody is going through it. At the bottom, where the twist has not started yet, the ground floor is square to Kettle Lane and glazed the whole way round, and the revolving door in the middle of it turns whether or not anybody is going through it. At the bottom, where the twist has not started yet, the ground floor is square to Kettle Lane and glazed the whole way round, and the revolving door in the middle of it turns whether or not anybody is going through it.",
   "exits": {
-    "east": "zone_district_901_911",
-    "north": "zone_district_900_910",
-    "south": "zone_district_900_912",
+    "east": "zone_hf_aboveboard_lobby",
     "west": "zone_district_899_911"
   },
   "flags": {
+    "building_name": "Above Board",
+    "building_type": "torque_tower",
     "district": "halcyon_fields",
+    "entrance": "west",
+    "facade": true,
+    "floors": 17,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_899_911"
   },
   "grid_x": 900,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_900_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "AB",
+  "name": "Above Board",
   "parent_zone": null
 }

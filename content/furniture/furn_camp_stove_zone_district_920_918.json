@@ -1,0 +1,19 @@
+{
+  "description": "Set on a paving slab outside the oldest tent, with the canister sat in a tin of water to stop it frosting up and cutting out. Somebody has done this before.",
+  "flags": {
+    "aliases": "stove,burner,camping stove",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_camp_stove_zone_district_920_918",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a camping stove",
+  "object_type": "appliance",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_district_920_918"
+}

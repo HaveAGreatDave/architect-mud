@@ -1,0 +1,18 @@
+{
+  "description": "Down a ladder rather than a stair, because the stair was in phase two of a fit-out that stopped. Barrels, a cooler, and a run of line that goes up through a hole somebody drilled in a floor slab they were definitely not allowed to drill.",
+  "exits": {
+    "up": "zone_hf_sitting_bar"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_sitting_bar",
+  "map_id": "map_int_hf_sitting",
+  "name": "Sitting Tenant — The Cellar",
+  "parent_zone": "zone_district_900_915"
+}

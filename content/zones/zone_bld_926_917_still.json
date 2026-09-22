@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "The back half, behind a door that is a door in the sense that it fills the gap. The still stands in the corner with a fire under it and a condenser coil going up the wall and out through the roof. The whole room smells sweet and sharp and slightly wrong.",
+  "description": "The back half, behind a door that is a door in the sense that it fills the gap. The still stands in the corner with a fire under it and a condenser coil going up the wall and out through the roof. The whole room smells sweet and sharp and slightly wrong. No electric light in here at all now, which everybody agrees is a mercy given what the room is full of.",
   "exits": {
     "west": "zone_bld_926_917_lobby"
   },

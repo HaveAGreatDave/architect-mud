@@ -1,0 +1,11 @@
+{
+  "description": "One shaded lamp on the desk, angled down. From the hall floor it is the only warm thing in the building.",
+  "flags": {},
+  "id": "furn_light_zone_consv_loft",
+  "light_type": "lamp",
+  "lumen_output": 900,
+  "name": "the reading lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_consv_loft"
+}

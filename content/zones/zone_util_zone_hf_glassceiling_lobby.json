@@ -1,0 +1,18 @@
+{
+  "description": "Under the lobby, holding the water for twenty floors of a building with people on four of them, which means the tanks are turned over by a pump on a timer rather than by anybody using them. The timer is the only thing in the building that runs to the design brief.",
+  "exits": {
+    "up": "zone_hf_glassceiling_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_904_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_glassceiling_lobby",
+  "map_id": "map_int_hf_glassceiling",
+  "name": "Glass Ceiling — The Tank Room",
+  "parent_zone": "zone_district_904_911"
+}

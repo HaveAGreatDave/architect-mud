@@ -1,0 +1,14 @@
+{
+  "description": "On the desk, turned to face the pigeonholes rather than the door, so the man behind it can read a name but you cannot read his face.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_gas_zone_bld_922_917_lobby",
+  "light_type": "gas",
+  "lumen_output": 400,
+  "name": "a gas lantern",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": 40,
+  "zone_id": "zone_bld_922_917_lobby"
+}

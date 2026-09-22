@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The part of the unit that was never fitted out, kept as it came: bare screed, a services spine down the ceiling with nothing hanging off it, and the outline of where a partition was going to go still chalked on the floor. There are crates in it, a chest freezer, and four chairs in a circle in the middle of the chalk outline, which is where the lock-in happens.",
+  "exits": {
+    "south": "zone_hf_sitting_bar"
+  },
+  "flags": {
+    "building_name": "Sitting Tenant",
+    "building_type": "chrome_slab",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_sitting_back",
+  "map_id": "map_int_hf_sitting",
+  "name": "Sitting Tenant — The Back Room",
+  "parent_zone": "zone_district_900_915"
+}

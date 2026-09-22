@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_netfilter",
+  "name": "an inline filter",
+  "tags": {
+    "description": "A small sealed chrome block with a port at each end, sold with no explanation and a shrug. What it does to a line on the estate network is take a great deal of information off it and pass everything else through unchanged, and it is not illegal, and nobody at the estate has asked her to stop selling it."
+  },
+  "type": "device",
+  "value": 55,
+  "weight": 120
+}

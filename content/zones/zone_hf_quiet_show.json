@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Two floors up, at the fat part of a bead, and furnished to within an inch of its life: everything matched, everything new, a bowl of fruit that is not fruit. The curved glass makes the room a wedge, which the furniture has been arranged to disguise and does not. On the counter, a folded card thanks you for viewing and asks you not to use the taps.",
+  "exits": {
+    "down": "zone_hf_quiet_desk"
+  },
+  "flags": {
+    "building_name": "Quiet Enjoyment",
+    "building_type": "bead_tower",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The whole outer wall, floor to ceiling, bowing out and back. Fourteen storeys of Halcyon Fields below and the Curtain a field away, humming, close enough to see the rain not reaching the ground on the far side of it.",
+      "light": 0.9,
+      "name": "the curved glazing",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_892_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_quiet_show",
+  "map_id": "map_int_hf_quiet",
+  "name": "Quiet Enjoyment — The Show Apartment",
+  "parent_zone": "zone_district_892_913"
+}

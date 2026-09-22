@@ -1,0 +1,14 @@
+{
+  "description": "Gas, on a counterweighted arm, dragged over the table and set hissing before anything starts. It is the brightest light in Old Coldwater and it is aimed at a tabletop.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_gas_zone_bld_924_917_table",
+  "light_type": "gas",
+  "lumen_output": 400,
+  "name": "the swing-arm lantern",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": 40,
+  "zone_id": "zone_bld_924_917_table"
+}

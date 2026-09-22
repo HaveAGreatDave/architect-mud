@@ -14,6 +14,7 @@
 // keeping every weather effect under the one toggle.
 
 import { isWeatherFxEnabled } from './weather-fx.js';
+import { growBolt } from '../../../shared/lightning.js';
 
 const AE = () => window.AudioEngine;
 const LOOP_ID = 'hb-weather';
@@ -55,17 +56,21 @@ let flash = 0;          // full-door lightning flash 0..1, decays each frame
 let bolt = null;        // { seg:[[x,y]…] in 0..1 door space, born, dur } while alive
 let boltCd = 1.5;       // seconds until the next possible strike
 
-// A jagged top-to-ground bolt in door-fraction space (x,y ∈ 0..1). The renderer
-// maps it into the door's screen rect, so we stay resolution-independent.
+// A strike in the doorway. The channel itself is the shared tree from
+// client/shared/lightning.js — the same one the canopy and the windscreen draw, because a storm
+// that branched out of the cockpit and zigzagged out of the hangar was two weathers at once — and
+// what belongs here is only WHERE it enters the frame: `x` as a fraction of the door's width, with
+// the renderer scaling the tree into the rest of the rect.
+//
+// ⚠ THE TREE IS SHALLOW AND NARROW HERE, DELIBERATELY. This bolt is seen through a doorway, which
+// is a slot: a branch that reaches sixty per cent of the channel's height to either side is out
+// past the jamb, so `spread` pulls it in, and past three generations the detail is finer than a
+// door-sized rect resolves.
 function makeBolt() {
-  let cx = 0.15 + Math.random() * 0.7, cy = 0;
-  const seg = [[cx, cy]];
-  while (cy < 0.66) {
-    cy += 0.05 + Math.random() * 0.06;
-    cx = clamp01(cx + (Math.random() - 0.5) * 0.13);
-    seg.push([cx, cy]);
-  }
-  return { seg, born: performance.now(), dur: 240 };
+  const bolt = growBolt((Math.random() * 2 ** 31) | 0, { gens: 3, segs: 9, fork: 0.8, spread: 0.6 });
+  bolt.x = 0.18 + Math.random() * 0.64;
+  bolt.born = performance.now();
+  return bolt;
 }
 
 // A thunderclap — a low rolling rumble over a noise crack, delayed a beat behind

@@ -1,0 +1,11 @@
+{
+  "description": "One to a table, hung low on a long flex from the underside of the lantern, each with a chrome shade that puts the light on the table and keeps it out of the glass. At night the gallery reads from outside as six warm circles floating inside a lit drum.",
+  "flags": {},
+  "id": "furn_light_zone_hf_grounds_gallery",
+  "light_type": "pendant",
+  "lumen_output": 340,
+  "name": "shaded pendants over the tables",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_grounds_gallery"
+}

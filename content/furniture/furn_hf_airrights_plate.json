@@ -1,0 +1,8 @@
+{
+  "description": "Cast, bolted at chest height, listing the design engineer, the contractor and the year. Under the year, a line that is not on any other building in the city: RIGHTS IN THE AIR ABOVE THIS ROAD ARE HELD IN PERPETUITY. The name of the holder has been left off, and there is a bolt hole where it would have gone.",
+  "flags": {},
+  "id": "furn_hf_airrights_plate",
+  "name": "an engineer's plate",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_airrights_foot"
+}

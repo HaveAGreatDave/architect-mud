@@ -1,0 +1,11 @@
+{
+  "description": "Four separate fittings in a one-bedroom flat — a pendant, two lamps and a run of concealed light under the kitchen wall units — all of them on and all of them on at the same time, which nobody who lived here would ever do and which is the single biggest reason the room photographs well.",
+  "flags": {},
+  "id": "furn_light_zone_hf_newmarket_show",
+  "light_type": "overhead",
+  "lumen_output": 760,
+  "name": "a dressed lighting scheme",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_newmarket_show"
+}

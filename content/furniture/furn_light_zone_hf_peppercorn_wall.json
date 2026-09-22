@@ -1,0 +1,11 @@
+{
+  "description": "Turned down low and aimed at the desk rather than at the screens, because a lit room behind a camera wall is a room you cannot see the cameras in. They are on a dimmer and the dimmer has a piece of tape on it marking where it lives.",
+  "flags": {},
+  "id": "furn_light_zone_hf_peppercorn_wall",
+  "light_type": "lamp",
+  "lumen_output": 260,
+  "name": "a pair of bench lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_peppercorn_wall"
+}

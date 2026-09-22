@@ -1,0 +1,330 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Colvane runs a thumb along a joint, finds something, and goes back over it.",
+    "She turns a shackle over twice, looks at the pin, and puts it in a different tray.",
+    "The kettle clicks off behind her. She does not turn round.",
+    "She writes a figure on a docket, looks at it, and writes a smaller one underneath.",
+    "Somewhere out in the hall a strap creaks as a hull settles a quarter inch into its cradle."
+  ],
+  "description": "A short, heavy-shouldered woman in her forties in a boiler suit that has been washed so often the colour is a guess. Her forearms are a map of small old burns. She is the only person on this shore with anything under her fingernails, and she keeps her hands where you can see them in a way that reads less as manners and more as somebody who has been asked about them before.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\" She has the shackle back in her hand before you are through the door."
+    },
+    "drop": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Not here.\" A pause exactly long enough to notice. \"Slings are webbing and they get binned on a schedule, whatever they look like. That's their rule, not mine, and it's a good one. A wire sling tells you it's going by looking wrong for a month first. Webbing doesn't tell you anything at all.\""
+    },
+    "gossip": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Nothing you'd call news.\" She thinks about it properly rather than dismissing it. \"The Echelon moved. Week before last, middle of the night, out and back inside four hours. Nobody's meant to notice that and I notice everything on this water because it all comes past my end wall.\"\n\n\"Other than that: somebody's been taking a boat out of the hardstanding at night and putting it back. Covers go on wrong. Whoever it is, they're careful with it, which I mind less than I ought to.\""
+    },
+    "hoist": {
+      "options": [
+        {
+          "label": "Does it ever drop one?",
+          "next": "drop"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Four buttons.\" She holds up four fingers and folds them down one at a time. \"Up. Down. That end. This end. There used to be eight and they took four off me, because somebody upstairs worked out that the other four were where the mistakes lived.\"\n\nShe shrugs with one shoulder.\n\n\"They were right. I still resent it.\""
+    },
+    "lapsed": {
+      "options": [
+        {
+          "label": "Do you know who it is?",
+          "next": "lapsed_who"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "She does not look out at the hall, which is how you know she knows exactly which one you mean.\n\n\"Bay three. Two years in April.\" She squares the docket book against the counter edge. \"Account's good. Pays on the day, every quarter, never a word with it.\"\n\n\"I check the straps on that one same as the rest. Turn the engine over twice a year. It'll start.\"\n\nA beat.\n\n\"I'd rather they came and got it. But they're paying me to keep it ready, so I keep it ready, and what I think about it isn't on the docket.\""
+    },
+    "lapsed_who": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I know what's on the account.\" She lets that sit. \"Which isn't the same as knowing, and it isn't mine to say either way.\"\n\n\"Ask me again when you've got a hull in here yourself. You'd be surprised what I'll tell somebody who's paying me.\""
+    },
+    "owners": {
+      "options": [
+        {
+          "label": "Do they come down here?",
+          "next": "visit"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Halcyon own the water, the stone, the building and the glass.\" She counts none of it on her fingers. \"They don't own the tools and they don't own me, and that took some arranging.\"\n\n\"They wanted the whole yard automatic. Showed me a machine that was going to do the lay-up. It did, as well. Beautifully. Then it did the next one exactly the same, and the next one after that, and a hull isn't a next one, it's whatever came in the door.\"\n\n\"So they kept the machine and they kept me. The machine does the covers.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you sell?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Tell me about the hoist.",
+          "next": "hoist"
+        },
+        {
+          "label": "Who owns this place?",
+          "next": "owners"
+        },
+        {
+          "label": "Whose boat is the one nobody comes for?",
+          "next": "lapsed"
+        },
+        {
+          "label": "Heard anything?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing for now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Afternoon.\" She puts down whatever she was holding, which not everybody does. \"Berths are on the plinth outside, the machine does all that. Anything with a hull in it, that's me.\"",
+      "text_by_relation": {
+        "familiar": "She has the kettle on before you have got the door shut, which is either hospitality or a diagnosis.\n\n\"Sit down. I know what you've done to it, I watched you come in.\"",
+        "first": "The woman behind the counter finishes what she is doing before she looks up, and then looks up properly.\n\n\"Marit Colvane.\" She wipes a hand, considers it, and does not offer it. \"I keep the hulls. Berths are the plinth outside, that's all automatic and I have nothing to do with it, so don't come to me about the rate.\"\n\nShe says that last part like a woman who has had the conversation.\n\n\"If it floats and it's yours, I can lift it, park it, or fix it. Usually in that order.\"",
+        "known": "\"You again.\" She is already reaching for the docket book. \"Lift, park, or fix?\""
+      }
+    },
+    "visit": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Once a quarter, and never in the wet.\" She nods at the hall through the doorway. \"They like it out there. Stand at the end by the dock, look at the water inside the building, say something about how it's the same level. It is the same level. That's the pumps, and the pumps are the only part of this place anyone has ever asked me about twice.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a faded boiler suit with the sleeves pushed past the elbow",
+      "a rubber apron hanging loose, worn only at the bench",
+      "steel-capped boots gone pale with resin dust",
+      "a thermal layer underneath, because a glass building is a cold building"
+    ],
+    "repairman": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_consv_loft",
+  "hp": 44,
+  "hp_max": 44,
+  "id": "npc_consv_marit",
+  "name": "Marit Colvane",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_hull_patch",
+      "price": 300
+    },
+    {
+      "item_id": "item_mooring_line",
+      "price": 120
+    },
+    {
+      "item_id": "item_boat_cover",
+      "price": 390
+    },
+    {
+      "item_id": "item_dinghy",
+      "price": 230
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Fairweather Marina",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_consv_hall"
+}

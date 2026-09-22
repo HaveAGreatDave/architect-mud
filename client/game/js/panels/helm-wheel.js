@@ -124,6 +124,20 @@ export function createHelmWheel(canvas, opts = {}) {
   const ABSOLUTE = opts.mode === 'absolute';
   // Which wheel is drawn. The yacht never passes this, so it keeps the helm it always had.
   const TRUCK_ART = opts.art === 'truck';
+  // ⚠ THE RACE WHEEL IS A BUTTERFLY, NOT A RIM, and that is a statement about the STEERING rather
+  // than a skin. A ship's wheel is a circle because it is geared several turns lock to lock and
+  // your hands travel round it; a race boat is one turn or less and your hands never leave the
+  // grips, so the top and bottom of the circle are dead weight and get cut away. That is what an F1
+  // wheel is, and it is why both arrived at the same shape. A round wheel on this boat would be
+  // saying she steers like the Echelon.
+  //
+  // ⚠ AND IT IS THE SAME OBJECT THE PILOTHOUSE DRAWS IN 3-D. `wheelFaces` in interior-shell.js
+  // already builds a butterfly with shift lights across the top; this is the HUD's view of it, and
+  // a widget that stayed a ship's wheel would be two wheels in one boat.
+  const F1_ART = opts.art === 'f1';
+  // What the shift lights read. Null for every wheel that has none, so the truck and the yacht are
+  // untouched and the strip simply is not drawn.
+  const getRevs = opts.getRevs || null;
   const onHorn = opts.onHorn || null;              // the boss is a button, because on a truck it is
   const LOCK = (opts.lock || 1.6) * Math.PI;   // wheel rotation (rad) from centre to full lock
   const RETURN = opts.selfCentre ?? 5.0;       // how briskly the axle walks back to centre (per s)
@@ -312,9 +326,173 @@ export function createHelmWheel(canvas, opts = {}) {
     }
   }
 
+  // ── THE RACE WHEEL ─────────────────────────────────────────────────────────
+  //
+  // A butterfly yoke: two vertical grips, a flat top carrying the shift lights, a shorter flat
+  // bottom, and a squared face of fittings. See the note at F1_ART for why the shape is a statement
+  // about the steering rather than a skin.
+  //
+  // ⚠ THE OUTLINE IS ONE CLOSED PATH AND EVERY FITTING IS PLACED OFF IT. Drawn as a rim with pieces
+  // deleted it reads as a broken circle; drawn as its own shape it reads as a thing that was made
+  // this way. `GW` is the half-width at the grips and `GH` the half-height, and everything below is
+  // a fraction of one of those, so the whole wheel scales with the pane on its own.
+  function drawF1() {
+    const box = canvas.getBoundingClientRect();
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const W = Math.max(2, Math.round(box.width * dpr)), H = Math.max(2, Math.round(box.height * dpr));
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, box.width, box.height);
+    ctx.globalAlpha = enabled ? 1 : 0.4;
+    const cx = box.width / 2, cy = box.height / 2, R = Math.min(box.width, box.height) / 2 - 2;
+    const lock = Math.max(-1, Math.min(1, angle / LOCK));
+
+    // The lock gauge, which does not rotate — the ship's wheel's own reasoning, and it matters more
+    // here: a yoke far enough over is a shape you can no longer tell which way up.
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.lineWidth = Math.max(2, R * 0.035); ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(120,140,160,0.22)';
+    ctx.beginPath(); ctx.arc(0, 0, R * 0.99, Math.PI * 0.2, Math.PI * 0.8); ctx.stroke();
+    const gA = Math.PI * 0.5 + lock * Math.PI * 0.30;
+    ctx.strokeStyle = Math.abs(lock) > 0.92 ? '#d2603f' : accent;
+    ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(0, 0, R * 0.99, Math.PI * 0.5, gA, lock < 0); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(210,225,240,0.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, R * 0.93); ctx.lineTo(0, R * 1.04); ctx.stroke();
+    ctx.restore();
+
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+
+    const GW = R * 0.80, GH = R * 0.60;   // half-width at the grips, half-height of the yoke
+    const CUT = R * 0.30;                 // how far the bottom flat is cut in from the corners
+    const rr = R * 0.10;
+
+    // ⚠ THE WAIST IS THE WHOLE SHAPE. A first cut had a flat top, flat bottom and straight sides,
+    // which is a rounded rectangle: correct in every dimension and reading as a games controller
+    // rather than as a wheel. What makes a butterfly a butterfly is that the middle is NARROWER
+    // than the grips, so the two handles stand out on either side of a waisted centre section.
+    const WA = GW * 0.50;                 // half-width at the waist
+    ctx.beginPath();
+    ctx.moveTo(-GW + rr, -GH);
+    ctx.lineTo(GW - rr, -GH);
+    ctx.quadraticCurveTo(GW, -GH, GW, -GH + rr);       // top right corner
+    ctx.lineTo(GW, -GH * 0.34);                        // down the outside of the right grip
+    ctx.quadraticCurveTo(GW, -GH * 0.02, WA, -GH * 0.02);// in to the waist
+    ctx.lineTo(WA, GH - CUT * 0.5);
+    ctx.quadraticCurveTo(WA, GH, WA - CUT * 0.5, GH);  // and down to the short bottom flat
+    ctx.lineTo(-WA + CUT * 0.5, GH);
+    ctx.quadraticCurveTo(-WA, GH, -WA, GH - CUT * 0.5);
+    ctx.lineTo(-WA, -GH * 0.02);
+    ctx.quadraticCurveTo(-GW, -GH * 0.02, -GW, -GH * 0.34);
+    ctx.lineTo(-GW, -GH + rr);
+    ctx.quadraticCurveTo(-GW, -GH, -GW + rr, -GH);
+    ctx.closePath();
+
+    if (!carbon) carbon = makeCarbon();
+    const pat = ctx.createPattern(carbon, 'repeat');
+    ctx.fillStyle = pat || '#1a1d22'; ctx.fill();
+    const sheen = ctx.createLinearGradient(-GW, -GH, GW * 0.4, GH);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.13)');
+    sheen.addColorStop(0.45, 'rgba(255,255,255,0.03)');
+    sheen.addColorStop(1, 'rgba(0,0,0,0.35)');
+    ctx.fillStyle = sheen; ctx.fill();
+    ctx.lineWidth = Math.max(1.4, R * 0.02); ctx.strokeStyle = 'rgba(12,14,17,0.95)'; ctx.stroke();
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.10)'; ctx.stroke();
+
+    // The grips: moulded rubber over the yoke edge, with finger ridges, because that is the one
+    // part a hand is actually on.
+    // .. THEY HAVE TO BE LIGHTER THAN THE FACE. A first cut drew them in the same near-black as
+    // the carbon and the silhouette lost its handles entirely: correct geometry, invisible. A grip
+    // is moulded rubber over a carbon shell, so it is a different material and reads as one.
+    for (const s of [-1, 1]) {
+      const gx = s * (GW - R * 0.085);
+      const grd = ctx.createLinearGradient(gx - R * 0.085, 0, gx + R * 0.085, 0);
+      grd.addColorStop(0, '#59616e'); grd.addColorStop(0.45, '#3d434d'); grd.addColorStop(1, '#22262c');
+      ctx.fillStyle = grd;
+      roundRect(ctx, gx - R * 0.082, -GH * 0.62, R * 0.164, GH * 1.12, R * 0.05);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.13)'; ctx.lineWidth = 1;
+      for (let i = -2; i <= 2; i++) {
+        const y = i * GH * 0.19;
+        ctx.beginPath(); ctx.moveTo(gx - R * 0.058, y); ctx.lineTo(gx + R * 0.058, y); ctx.stroke();
+      }
+    }
+
+    // ── THE SHIFT LIGHTS ────────────────────────────────────────────────────
+    // The one part of a race wheel everybody can name, and it is driven rather than painted: the
+    // strip fills left to right with the revs and goes red at the top. Nothing is drawn at all when
+    // the caller supplies no `getRevs`, so a wheel without a rev counter simply has no strip.
+    if (getRevs) {
+      const rev = Math.max(0, Math.min(1, getRevs() || 0));
+      const N = 10, sw = (GW * 1.42) / N, sy = -GH * 0.72, sh = Math.max(2.5, R * 0.055);
+      for (let i = 0; i < N; i++) {
+        const t = (i + 0.5) / N;
+        const col = t < 0.55 ? '#49d67a' : t < 0.82 ? '#e8b23c' : '#ef4a4a';
+        const lit = rev >= t;
+        ctx.fillStyle = lit ? col : 'rgba(255,255,255,0.07)';
+        if (lit) { ctx.shadowColor = col; ctx.shadowBlur = 7; }
+        roundRect(ctx, -GW * 0.71 + i * sw + sw * 0.12, sy, sw * 0.76, sh, sh * 0.35);
+        ctx.fill(); ctx.shadowBlur = 0;
+      }
+      // ⚠ A BREATH AT THE LIMIT AND NEVER A STROBE — the same rule the drug FX are held to.
+      if (rev > 0.97) {
+        ctx.globalAlpha *= 0.16 + 0.14 * Math.sin(Date.now() / 90);
+        ctx.fillStyle = '#ef4a4a'; ctx.shadowColor = '#ef4a4a'; ctx.shadowBlur = 10;
+        roundRect(ctx, -GW * 0.71, sy, GW * 1.42, sh, sh * 0.35); ctx.fill();
+        ctx.shadowBlur = 0; ctx.globalAlpha = enabled ? 1 : 0.4;
+      }
+    }
+
+    // ── THE FACE ────────────────────────────────────────────────────────────
+    // Two rotaries and four buttons. None of them is wired to anything and none of them pretends to
+    // be — they are fittings, the way the cab's own switch panel is. A control that did nothing
+    // while LOOKING live is the bug this feature kept shipping.
+    const dial = (dx, dy, dr, label) => {
+      const g = ctx.createRadialGradient(dx - dr * 0.3, dy - dr * 0.4, dr * 0.1, dx, dy, dr);
+      g.addColorStop(0, '#4a515c'); g.addColorStop(1, '#171a1f');
+      ctx.beginPath(); ctx.arc(dx, dy, dr, 0, 7); ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = accent; ctx.lineWidth = Math.max(1.2, dr * 0.16); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(dx, dy); ctx.lineTo(dx + dr * 0.62, dy - dr * 0.5); ctx.stroke();
+      ctx.fillStyle = 'rgba(190,206,222,0.6)'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.font = `700 ${Math.max(5.5, R * 0.052)}px 'DejaVu Sans Mono',monospace`;
+      ctx.fillText(label, dx, dy + dr * 1.15);
+    };
+    dial(-GW * 0.52, -GH * 0.14, R * 0.095, 'TRIM');
+    dial(GW * 0.52, -GH * 0.14, R * 0.095, 'FUEL');
+
+    for (let i = 0; i < 4; i++) {
+      const bx = (i % 2 ? 1 : -1) * GW * 0.26;
+      const by = GH * (i < 2 ? 0.52 : 0.72);
+      ctx.fillStyle = i === 0 ? '#7a2b2b' : '#242931';
+      roundRect(ctx, bx - R * 0.055, by - R * 0.030, R * 0.11, R * 0.06, R * 0.018);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1; ctx.stroke();
+    }
+
+    // The readout in the middle of the yoke: how much lock is on, as a number, on the surface your
+    // eyes are already on. It counter-rotates so it stays level however far over the wheel is —
+    // the chess set's own trick, for the same reason.
+    ctx.save();
+    ctx.rotate(-angle);
+    ctx.fillStyle = 'rgba(6,9,12,0.85)';
+    roundRect(ctx, -GW * 0.30, -GH * 0.13, GW * 0.60, GH * 0.26, R * 0.03); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,140,160,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = Math.abs(lock) > 0.92 ? '#ef7a5a' : accent;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.max(8, R * 0.13)}px 'DejaVu Sans Mono',monospace`;
+    ctx.fillText((lock < -0.02 ? 'P' : lock > 0.02 ? 'S' : '') + Math.round(Math.abs(lock) * 100), 0, 0);
+    ctx.restore();
+
+    ctx.restore();
+  }
+
   function draw() {
     if (!canvas) return;                       // headless — the scene draws this wheel (see the header)
     if (TRUCK_ART) return drawTruck();
+    if (F1_ART) return drawF1();
     const box = canvas.getBoundingClientRect();
     const dpr = Math.min(2, devicePixelRatio || 1);
     const W = Math.max(2, Math.round(box.width * dpr)), H = Math.max(2, Math.round(box.height * dpr));

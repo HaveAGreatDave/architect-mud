@@ -25,11 +25,17 @@
 // 24-hour world tick).
 
 import { schedule } from './scheduler.js';
+import { fallRates, stepGround, freshGround } from '../../client/shared/ground-accum.js';
+import { moonPhaseOf } from '../../client/shared/moon.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
 import { emit } from './events.js';
 import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture, propsOf, reloadZone } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
+// `deps.emitHook` is fireHook, handed in at init; this is the gather half, and it
+// is imported directly because plugins.js pulls in nothing but specializedActions
+// (no cycle) and because the one caller — pulseEpicentre — must stay sync.
+import { gatherHookSync } from './plugins.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -263,13 +269,17 @@ function toDateString(value) {
 // no row: a moon that had to be stored would be one more thing to keep in step with the clock, and
 // there is exactly one right answer for a given date. Sent to the flight sim and the truck cab so
 // every canopy in the world shows the same moon on the same night; the renderers do the geometry.
-const SYNODIC_DAYS = 29.53059;
+//
+// ⚠ THE ARITHMETIC MOVED TO client/shared/moon.js AND THIS IS NOW THE SERVER'S NAME FOR IT. It had
+// to: the answer only reached the client as `moonPhase` on `getHUDPayload()`, which rides
+// `environment.sync`, `environment.daily` and the REST route and NOT `environment.clockTick` — the
+// per-minute broadcast, which carries the DATE. So the frequent route advanced a client's date while
+// saying nothing about the moon, and the two client seats that asked for it off the snapshot
+// (helm-view, freelook-view) got `undefined` and drew a fixed half moon for as long as they existed.
+// The date is the only input and both sides have it, so both sides derive it and the answers are
+// identical by construction. A second copy of this is forbidden — see the note in that file.
 export function getMoonPhase(dateStr) {
-  const d = dateStr || state.date;
-  if (!d) return 0.5;
-  const days = Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86400000;
-  // Offset so the epoch lands on a new moon rather than an arbitrary point in the cycle.
-  return ((((days - 6.7) / SYNODIC_DAYS) % 1) + 1) % 1;
+  return moonPhaseOf(dateStr || state.date);
 }
 
 // The one definition of what season a date falls in. Exported because the vat's
@@ -635,7 +645,27 @@ function lightingFor(zoneId) {
 // light_on, which is what stops demand oscillating as they switch.
 // A fixture's draw: explicit power_draw_kw wins, else the per-light-type
 // default. Mirrors the CASE expression the replaced SQL used.
+// A light that makes its own light — gas, oil, candle, carbide. It is an ordinary
+// `object_type: 'light'` row, so `look`, `examine`, the lumen tally and the dev power
+// map all read it with no change of their own, and it differs from every other fixture
+// in exactly two ways: THE GRID CANNOT SWITCH IT OFF, and it never draws from the grid.
+//
+// ⚠ Without this the sim gets both halves wrong and neither is visible in a log. The
+// offline branch below cuts every `object_type='light'` in a dead zone, so a gas lantern
+// authored the obvious way is switched off by the grid it does not use — and `drawKwFor`
+// falls through to DRAW_DEFAULT_W for an unrecognised light_type, so a room lit by
+// paraffin bills the city for it and can brown its own junction box out.
+//
+// This is what the off-grid regions have always described and never modelled: Deadwater
+// and the Under are dark by construction and every light in their renderer arms is flame,
+// oil or carbide.
+const OFFGRID_LIGHT_TYPES = new Set(['gas', 'oil', 'candle', 'carbide', 'flame']);
+const isOffGridLight = (f) => f?.object_type === 'light' && OFFGRID_LIGHT_TYPES.has(f.light_type);
+// The SQL half of the same predicate, for the UPDATEs that cut a zone's lights.
+const OFFGRID_LIGHT_SQL = [...OFFGRID_LIGHT_TYPES];
+
 function drawKwFor(f) {
+  if (isOffGridLight(f)) return 0;
   if (f.power_draw_kw != null) return Number(f.power_draw_kw);
   return f.light_type === 'overhead'    ? DRAW_OVERHEAD_W
        : f.light_type === 'streetlight' ? DRAW_STREETLIGHT_W
@@ -1326,22 +1356,33 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
     // three round trips a cycle forever. The reads come off the furniture cache
     // and each write is gated on a row actually needing it, so a zone that is
     // already dark (the steady state) now costs nothing at all.
-    const lights = getZoneFurniture(zoneId).filter(f => f.object_type === 'light');
+    // ⚠ OFF-GRID FIXTURES ARE EXCLUDED FROM ALL THREE WRITES BELOW. A gas lantern does
+    // not go out because the junction box did, it has no intended state for the grid to
+    // restore, and it is the only reason a blacked-out room is not pitch dark.
+    const allLights = getZoneFurniture(zoneId).filter(f => f.object_type === 'light');
+    const lights = allLights.filter(f => !isOffGridLight(f));
+    const flames = allLights.filter(f => isOffGridLight(f) && f.light_on === 1);
     // Capture which lights are on before cutting them.
     const activeLights = lights.filter(f => f.light_on === 1);
     // Preserve intended state for non-streetlights only.
     // Streetlights are managed by the day/night cycle — they don't need
     // light_on_intended because syncStreetlights sets them correctly on restore.
     if (lights.some(f => f.light_type !== 'streetlight' && f.light_on_intended == null)) {
-      await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight'`, [zoneId]);
+      await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight' AND COALESCE(light_type,'') <> ALL($2::text[])`, [zoneId, OFFGRID_LIGHT_SQL]);
     }
     if (activeLights.length) {
-      await updateFurnitureWhere(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
+      await updateFurnitureWhere(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND object_type='light' AND COALESCE(light_type,'') <> ALL($2::text[])`, [zoneId, OFFGRID_LIGHT_SQL]);
     }
     // Do NOT zero current_load_kw — demand stays constant; only available_kw=0 signals no supply.
     const dark = lightingFor(zoneId);
-    dark.fixture_count = 0;
-    dark.total_lumens = 0;
+    dark.fixture_count = flames.length;
+    dark.total_lumens = flames.reduce((s, f) => s + Number(f.lumen_output ?? 0), 0);
+    // A room with a lantern burning in it is on its own light, which is exactly what the
+    // emergency-lighting level already means — see computeArtificialLight, which reads
+    // this and nothing else once a zone is offline. Only ever RAISED here: the portable
+    // generator pass owns the zones it lights and must not be overwritten by a zone with
+    // no flame in it.
+    if (flames.length) dark.has_emergency_lighting = 1;
     // prevStatus == null means the sim has no idea what this zone was doing a
     // moment ago — the first cycle after a topology load. Announcing a cut-out
     // there is a claim we cannot make, and at boot it would be ~17k of them.
@@ -1358,7 +1399,11 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
   } else if (nowBrown) {
     // Preserve intended state before any changes — gated, as above, so a zone
     // sitting in a steady brownout doesn't rewrite rows that already carry it.
-    const lights = getZoneFurniture(zoneId).filter(f => f.object_type === 'light')
+    // ⚠ Off-grid fixtures are excluded here for the same reason as in the offline branch,
+    // plus one of its own: `wantOn` below is sorted by draw and shed cheapest-last against
+    // the pool, and a lantern drawing 0 would sit at the head of that queue taking a slot
+    // in an auction it is not bidding in.
+    const lights = getZoneFurniture(zoneId).filter(f => f.object_type === 'light' && !isOffGridLight(f))
       .map(f => ({ ...f, draw_kw: drawKwFor(f) }));
     //
     // ⚠ Non-streetlights ONLY, in the gate AND in the SQL — as the offline branch
@@ -1368,7 +1413,7 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
     // answer to the day/night phase alone, and the next brownout cycle saw a null
     // and wrote it back. A steady brownout paid two round trips a cycle forever.
     if (lights.some(f => f.light_type !== 'streetlight' && f.light_on_intended == null)) {
-      await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight'`, [zoneId]);
+      await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight' AND COALESCE(light_type,'') <> ALL($2::text[])`, [zoneId, OFFGRID_LIGHT_SQL]);
     }
 
     // Streetlights are infrastructure — always on when dark, never compete for brownout pool.
@@ -1571,7 +1616,16 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown', si
   for (const gen of allGenerators) {
     // A destroyed unit (its physical furniture was smashed apart) stays dark
     // regardless of type — this is what cuts power to everything downstream.
-    if (gen.flags?.destroyed) {
+    //
+    // `flags.faulted` is the same OUTCOME from a different cause, and it is a separate
+    // flag rather than a second meaning for `destroyed` because the two are repaired by
+    // different people: a smashed box is replaced, a faulted one is a maintenance call
+    // nobody has answered. Nothing upstream is wrong — the feed is live to the wall and
+    // the fault is on this side of it — so it must NOT be expressed by cutting the
+    // building off its city plant, which would read as the grid failing to reach a
+    // district. Authored as content, so it survives a restart and a deploy; the storm
+    // path below stays untouched, being a rolled fault with its own recovery window.
+    if (gen.flags?.destroyed || gen.flags?.faulted) {
       updatedStatus.set(gen.id, { ...gen, status: 'offline' });
       if (gen.status !== 'offline') wOffline.push(gen.id);
       gen.status = 'offline'; // keep the RAM row in step — nothing re-SELECTs it
@@ -2117,8 +2171,47 @@ export function setWeatherState(weatherType, tempC, forecast) {
 // Setter used by the clothing-wetness plugin to update live precipitation state.
 // Separate from the daily forecast weatherType — this changes every 30-min tick.
 export function setCurrentPrecip(type, rate) {
+  // ⚠ BRING THE GROUND UP TO DATE BEFORE THE RATE MOVES. groundAccum integrates one constant-rate
+  // stretch at a time, exactly, so every change of rate has to close the stretch before it. Skip
+  // this and the whole interval since the last read is integrated at the NEW rate — a shower that
+  // has just stopped would still be filling the gutters for as long as nobody asked.
+  groundAccum();
   state.currentPrecip = type ?? 'none';
   state.precipRate    = rate ?? 0;
+}
+
+// ── HOW WET / HOW DEEP THE GROUND IS, SERVER-SIDE ────────────────────────────
+//
+// ⚠ THIS EXISTS TO SEED A CLIENT, AND FOR NOTHING ELSE YET. The renderer has integrated its own
+// wetness, ponding and snow depth since each was built, and every one of them started at ZERO on
+// page load — so a player logging in ten minutes into a blizzard stood on bare summer grass beside
+// somebody standing in snow, and they did not converge until it thawed. The numbers below are
+// shipped with the sky (plugins/flight/state.js) and adopted once by each client.
+//
+// ⚠ AND IT IS LAZY, NOT A TICK. It is the same idiom bionic heat and NPC relations use: the state
+// is a base plus a timestamp, and the integral from one to the other is arithmetic. A tick would
+// buy nothing — nobody reads this except a packet that is already being built — and would cost a
+// scheduler slot that runs whether or not anyone is flying.
+//
+// ⚠ RAM ONLY, deliberately. Its durable residue is the weather itself: a restart takes the ground
+// back to dry and bare, which is wrong for a few minutes and is much cheaper than a DB write on a
+// path that has no other reason to touch one. See the persistence tiers in docs/architecture.md.
+const GROUND = freshGround();
+let GROUND_AT = Date.now();
+
+/**
+ * The ground as it stands now, integrated forward from the last call.
+ *
+ * ⚠ IT READS THE HEADLINE ONLY, which is the right half for a seed. The renderer refines this with
+ * the weather CELL the player is standing under; the server's answer is the day's own
+ * precipitation, which is what every client agrees about and therefore what they should all start
+ * from. `fallRates` with no local type is exactly that.
+ */
+export function groundAccum(now = Date.now()) {
+  const dt = Math.max(0, (now - GROUND_AT) / 1000);   // ⚠ floored: a clock stepping backwards would run the exponentials the wrong way
+  GROUND_AT = now;
+  if (dt > 0) stepGround(GROUND, dt, fallRates(state.currentPrecip, null, 0));
+  return { wet: GROUND.wet, pond: GROUND.pond, snow: GROUND.snow, fell: GROUND.fell };
 }
 
 // Current global precipitation type. ⚠ IT IS THREE WORDS WIDE: 'none' | 'rain' | 'snow'.
@@ -2306,8 +2399,16 @@ async function firePulse() {
   //
   // Nobody outside the blast in a sealed room or underground hears anything:
   // nothing happened to their lights and they cannot see the skyline.
+  //
+  // ⚠ AND A PULSE THAT DARKENED NOTHING SAYS NOTHING. One that lands out in the
+  // void has an epicentre, a reach and consequences, and no feeds in it — so
+  // there is no blackout to report and the peak line a minute ago was the beat.
+  // Announcing it anyway would tell the whole city its lights had gone while
+  // they were plainly still on.
   const darkened = res?.darkened;
-  if (!darkened || res.wholeGrid) {
+  if (darkened && !res.wholeGrid && darkened.size === 0) {
+    // nothing went dark — say nothing
+  } else if (!darkened || res.wholeGrid) {
     announceWeatherEvent([
       'Every light in the city dies at once. Screens, streetlamps, the hum behind the walls — all of it, gone between one breath and the next.',
     ]);
@@ -2322,7 +2423,22 @@ async function firePulse() {
       }
     }
   }
-  emit('weather.empPulse', { minutes });
+  // ⚠ THE PULSE CARRIES ITS OWN FOOTPRINT. Until this it carried a duration and
+  // nothing else, so every subscriber's only possible rule was "everybody,
+  // everywhere" — which is why a pilot on the far side of the Basin lost their
+  // avionics to a storm that took a quarter of Coldwater's lights. Epicentre,
+  // reach and the whole-grid flag ride along, and `empReaches` is the one thing
+  // that reads them, so a subscriber decides who was IN it without knowing how
+  // the blast is shaped.
+  const epi = res?.epicentre || null;
+  emit('weather.empPulse', {
+    minutes,
+    mapId: epi?.mapId ?? null,
+    x: epi?.x ?? null,
+    y: epi?.y ?? null,
+    radius: EMP_RADIUS_TILES,
+    wholeGrid: !res || !!res.wholeGrid,
+  });
 }
 // How long the grid stays down after a pulse, before generators start coming
 // back (jittered per unit inside forceGridBlackout, so recovery is ragged).
@@ -2858,6 +2974,12 @@ export function getGameDateTime() {
 // for one on the every-move describe path.
 export function getGameHour() { return Math.floor(state.minutes / 60); }
 
+// The game DATE, for the same reason and on the same path. A caller that wants to know what month
+// the Basin is in — the starling's year in client/shared/birds.js is the one so far — is on the
+// every-move describe path too, and `getEnvironmentState()` would build the whole HUD payload,
+// rebuild the forecast and allocate an object per power zone to hand back one string.
+export function getGameDate() { return state.date; }
+
 // The whole-world snapshot. Most callers want one clock or weather field off it —
 // the NPC/enemy AI asks for `minutes`, `hour`, `dayOfWeek` or `timePhase` on a
 // per-entity basis, every second — but building it eagerly also rebuilt the
@@ -3181,6 +3303,35 @@ async function getBuildingNetwork(query, startZoneId) {
   return [...visited];
 }
 
+// Where on the world map a zone actually IS, for the one question that needs it: which
+// city plant a junction box should answer to.
+//
+// ⚠ THE TEST IS `map_id`, NOT THE COORDINATES, AND SNIFFING THE COORDINATES IS THE BUG.
+// Every interior sits at grid 0,0, so `grid_x != null` is true for all of them (0 passes)
+// and measuring from it puts a thousand rooms at the origin together. Rejecting 0,0 is not
+// enough either: **251 zones carry non-zero coordinates on a map that is not the world** —
+// apartments at (1,0) and (-1,0) laid out on `map_interior_*`, the Leviathan's flight deck
+// at (0,-1) on `map_aircraft_leviathan` — and those are LOCAL LAYOUT positions that mean
+// nothing to a distance. A near-miss rule that only excluded 0,0 measured the Leviathan
+// from one tile off the origin, which is the same bug with a different number in it.
+//
+// So: a zone is somewhere only if it is on the world map. `map_world` is the single real
+// map (every region lives on it, the Under is its z −1 layer); everything else is a local
+// frame. This returns null rather than a coordinate for an unplaced zone, which is what
+// lets the caller fall back instead of quietly measuring nonsense.
+//
+// An interior's `flags.world_exit_zone` names its FACADE, which IS a world tile with a
+// region. (On a facade the same key means the STREET instead, which is why this follows it
+// exactly ONE hop, and only from a zone that is not on the world map itself.)
+export function powerAnchorOf(zone) {
+  if (!zone) return null;
+  const placed = (z) => z && z.map_id === 'map_world' && z.grid_x != null && z.grid_y != null;
+  const asAnchor = (z) => ({ x: z.grid_x, y: z.grid_y, region: z.flags?.region_id || null, id: z.id });
+  if (placed(zone)) return asAnchor(zone);
+  const facade = world.zones.get(zone.flags?.world_exit_zone);
+  return placed(facade) ? asAnchor(facade) : null;
+}
+
 export async function installGenerator({ zoneId, generatorType = 'junction_box', capacityKw, name, cityGeneratorId }) {
   markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
@@ -3212,22 +3363,60 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
   const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 10000 : 5000);
   const genName = name || (generatorType === 'city_plant' ? 'City Power Plant' : `${zone.name} Junction Box`);
 
-  // Auto-assign nearest city plant for junction boxes if not specified.
+  // Pick the city plant this junction box answers to, if the caller did not name one.
+  //
+  // ⚠ THIS CANNOT BE DONE ON THE ZONE'S OWN COORDINATES, AND DOING IT ANYWAY IS WHY 49
+  // COLDWATER BUILDINGS DREW FROM TERMINUS'S SUBSTATION FOR MONTHS. A junction box lives
+  // in a utility ROOM, every interior zone in the game sits at grid 0,0 on its own
+  // `map_int_*` map, and 0,0 is UNSET rather than a tile. The old form tested
+  // `zone.grid_x != null`, which 0 passes, so it measured from the origin; two of the four
+  // city plants are themselves interiors at 0,0, both scored distance 0, and `d < minDist`
+  // is a strict less-than, so the FIRST row won every tie. The SELECT had no ORDER BY, so
+  // which plant that was came down to Postgres's row order. Power still flowed, because
+  // distribution does not care about distance, which is exactly why nobody saw it.
+  //
+  // The link that does work is `flags.world_exit_zone`, which on an interior names the
+  // FACADE — a real `map_world` tile carrying real coordinates and a `region_id`. Both
+  // ends resolve through it: every city plant in the game anchors to a map tile this way
+  // (Coldwater's turbine hall to 924,911, Terminus's charge house to 1227,946) or is
+  // already outdoors and is its own anchor. So the question becomes region first, then a
+  // distance between two places that genuinely have one.
+  // The building network, hoisted: the plant choice below needs it, and so do the
+  // power_zones inserts further down. One call, not two.
+  const networkZoneIds = generatorType === 'city_plant'
+    ? (await query(`SELECT id FROM zones WHERE NOT COALESCE((flags->>'is_apartment')::boolean,false) AND NOT COALESCE((flags->>'is_interior')::boolean,false)`)).rows.map(r => r.id)
+    : await getBuildingNetwork(query, zoneId);
+
   let cityGenId = cityGeneratorId || null;
   if (generatorType === 'junction_box' && !cityGenId) {
-    const { rows: cpRows } = await query(`
-      SELECT g.id, z.grid_x, z.grid_y FROM generators g
-      LEFT JOIN zones z ON z.id = g.zone_id
-      WHERE g.generator_type = 'city_plant'
-    `);
-    let nearest = null, minDist = Infinity;
-    for (const cp of cpRows) {
-      if (zone.grid_x != null && cp.grid_x != null) {
-        const d = Math.hypot(zone.grid_x - cp.grid_x, zone.grid_y - cp.grid_y);
-        if (d < minDist) { minDist = d; nearest = cp; }
-      } else if (!nearest) nearest = cp;
+    const { rows: cpRows } = await query(
+      `SELECT id, zone_id FROM generators WHERE generator_type = 'city_plant'`);
+    // ⚠ THE UTILITY ROOM IS THE ONE ROOM IN A BUILDING LEAST LIKELY TO HAVE A FACADE.
+    // It is a plant cupboard reached from inside, so a good number of them carry no
+    // `world_exit_zone` at all while the LOBBY two doors away carries the right one.
+    // Asking the whole building rather than just the cupboard takes the unresolvable
+    // cases from 15 to 2 (an airfield hangar and the Leviathan's cabin, neither of which
+    // has a street door to name). First hit in network order, which getBuildingNetwork
+    // returns deterministically from a breadth-first walk off this zone.
+    const me = powerAnchorOf(zone)
+      || networkZoneIds.map(id => powerAnchorOf(world.zones.get(id))).find(Boolean)
+      || null;
+    const plants = cpRows
+      .map(cp => ({ id: cp.id, anchor: powerAnchorOf(world.zones.get(cp.zone_id)) }))
+      // ⚠ Sorted by id BEFORE choosing, so a tie resolves the same way on every machine
+      // and every re-run. That is the half of this bug that would survive the fix.
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const sameRegion = me?.region
+      ? plants.filter(p => p.anchor?.region === me.region)
+      : [];
+    const pool = sameRegion.length ? sameRegion : plants;
+    let best = null, minDist = Infinity;
+    for (const p of pool) {
+      if (!me || !p.anchor) continue;
+      const d = Math.hypot(me.x - p.anchor.x, me.y - p.anchor.y);
+      if (d < minDist) { minDist = d; best = p; }
     }
-    cityGenId = nearest?.id || null;
+    cityGenId = (best || pool[0] || null)?.id || null;
   }
 
   await query(
@@ -3236,10 +3425,6 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
      ON CONFLICT (id) DO UPDATE SET zone_id=EXCLUDED.zone_id, name=EXCLUDED.name, generator_type=EXCLUDED.generator_type, capacity_kw=EXCLUDED.capacity_kw, city_generator_id=EXCLUDED.city_generator_id`,
     [id, zoneId, genName, generatorType, capacity, cityGenId]
   );
-
-  const networkZoneIds = generatorType === 'city_plant'
-    ? (await query(`SELECT id FROM zones WHERE NOT COALESCE((flags->>'is_apartment')::boolean,false) AND NOT COALESCE((flags->>'is_interior')::boolean,false)`)).rows.map(r => r.id)
-    : await getBuildingNetwork(query, zoneId);
 
   for (const zid of networkZoneIds) {
     const { rows: zRows } = await query('SELECT name FROM zones WHERE id=$1', [zid]);
@@ -3953,20 +4138,58 @@ export async function recomputePower() {
 // powered tile when the world is empty. That is a deliberate thumb on the scale
 // and it is invisible in play — the storm arrives where the game is being
 // played, which is the only place it could have been noticed anyway.
+// ⚠ AND A CREWED VEHICLE IS A PLACE SOMEBODY IS STANDING. `getOccupiedZones`
+// reads `current_zone`, and for anybody in a vehicle that field is a lie about
+// where they are: an airborne pilot's is the field they left, and a trucker's is
+// the void room they are notionally still in while the rig is four hundred tiles
+// down a corridor that has no zones on it at all. Rolled from zones alone the
+// pulse could never land anywhere near the three surfaces whose electronics it
+// exists to take, so the vehicle plugins hand their own positions over through
+// `vehicle.crewed` and those join the pool. SYNC, because this is a pass over
+// three in-memory registries and the caller has no business awaiting one.
 function pulseEpicentre() {
-  const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
-  const candidates = occupied.length ? occupied : [...powerZones.keys()];
-  for (let i = candidates.length - 1; i >= 0; i--) {
-    const z = world.zones.get(candidates[Math.floor(Math.random() * candidates.length)]);
-    if (z && z.grid_x != null && z.grid_y != null) return { mapId: z.map_id, x: z.grid_x, y: z.grid_y };
+  const spots = [];
+  for (const id of (deps.getOccupiedZones ? deps.getOccupiedZones() : [])) {
+    const z = world.zones.get(id);
+    if (z && z.grid_x != null && z.grid_y != null) spots.push({ mapId: z.map_id, x: z.grid_x, y: z.grid_y });
   }
-  return null;
+  for (const v of gatherHookSync('vehicle.crewed')) {
+    if (v?.x == null || v?.y == null) continue;
+    spots.push({ mapId: v.mapId || 'map_world', x: Math.round(v.x), y: Math.round(v.y) });
+  }
+  // Nobody anywhere: fall back to a random powered tile, so a storm that breaks
+  // over an empty world still happened.
+  if (!spots.length) {
+    const keys = [...powerZones.keys()];
+    for (let i = keys.length - 1; i >= 0; i--) {
+      const z = world.zones.get(keys[Math.floor(Math.random() * keys.length)]);
+      if (z && z.grid_x != null && z.grid_y != null) return { mapId: z.map_id, x: z.grid_x, y: z.grid_y };
+    }
+    return null;
+  }
+  return spots[Math.floor(Math.random() * spots.length)];
 }
 
 // Chebyshev distance in tiles — a SQUARE footprint, because the map is a grid
 // and a circle drawn on one is a circle nobody can see the edge of anyway.
 // Deliberately ignores grid_z: the pulse takes the block, cellars included.
-const EMP_RADIUS_TILES = 12;
+export const EMP_RADIUS_TILES = 12;
+
+// ⚠ ONE GEOMETRY FUNCTION, AND EVERYTHING THAT ASKS "WAS I IN IT" ASKS THIS.
+// The blast has three readers now — the junction boxes below, the fry rule in
+// the weather plugin, and every crewed vehicle — and a second copy of the
+// Chebyshev test anywhere would be a second opinion about where the edge of the
+// pulse is, which is exactly the number a player standing on that edge can see.
+// `pulse` is the payload `weather.empPulse` carries, so a subscriber needs
+// nothing from this module but this function.
+export function empReaches(pulse, x, y, mapId = 'map_world') {
+  if (!pulse) return false;
+  if (pulse.wholeGrid) return true;          // the fallback path took everything
+  if (pulse.x == null || pulse.y == null || x == null || y == null) return false;
+  if (pulse.mapId && mapId && pulse.mapId !== mapId) return false;
+  const r = pulse.radius ?? EMP_RADIUS_TILES;
+  return Math.max(Math.abs(x - pulse.x), Math.abs(y - pulse.y)) <= r;
+}
 
 // The junction boxes inside the blast, as a Set of generator ids. A box is in if
 // ANY zone it feeds is in — a building straddling the edge goes dark rather than
@@ -4017,10 +4240,16 @@ export async function forceGridBlackout({ minutes = 6, jitterMinutes = 6, reason
   const writes = [];
   const epi = all ? null : pulseEpicentre();
   const inBlast = all ? null : generatorsWithin(epi);
-  // An epicentre we could not place, or one whose blast holds nothing, would
-  // silently no-op — and a hero event that announces itself and then does
-  // nothing is worse than one that overreaches. Fall back to the whole grid.
-  const takeAll = all || !inBlast?.size;
+  // ⚠ AN EMPTY BLAST IS A PULSE OVER OPEN COUNTRY, NOT A FAILURE TO PLACE ONE.
+  // This used to fall back to the whole grid whenever the blast held no junction
+  // boxes, on the grounds that "a hero event that announces itself and then does
+  // nothing is worse than one that overreaches" — sound while the only thing a
+  // pulse could do was take lights. It isn't the only thing any more: a pulse
+  // that lands on a rig four hundred tiles out in the void has a crewed vehicle
+  // in it and no buildings, and blacking out every generator in the world
+  // because of that would be the light-switch behaviour this radius exists to
+  // end. So the whole grid is now only for a pulse we could not PLACE at all.
+  const takeAll = all || !epi;
   for (const gen of generatorRows.values()) {
     if (gen.generator_type === 'player') continue;
     if (!takeAll && !inBlast.has(gen.id)) continue;
@@ -4030,7 +4259,13 @@ export async function forceGridBlackout({ minutes = 6, jitterMinutes = 6, reason
     gen.status = 'offline';
     writes.push([gen.id, JSON.stringify(flags)]);
   }
-  if (!writes.length) return { ok: false, generators: 0 };
+  // Nothing to write is now a real outcome rather than an error: the pulse landed
+  // where there are no feeds to take. It still HAPPENED — it has an epicentre, and
+  // the vehicles in it are about to find out — so this reports a blackout of zero
+  // zones rather than `ok: false`, and the announce reads `darkened` and stays
+  // quiet. Returning a falsy `darkened` here would trip firePulse's whole-grid arm
+  // and tell the entire map every light in the city had died.
+  if (!writes.length) return { ok: true, generators: 0, epicentre: epi, wholeGrid: false, darkened: new Set() };
   // One round trip for the lot — an EMP touches every generator in the world,
   // so the per-row form would be ~100 sequential round trips to remote Postgres.
   await query(
@@ -4078,6 +4313,35 @@ export async function drainZonePower(zoneId) {
 export function getZonePowerStatus(zoneId) {
   const z = state.zones.get(zoneId);
   return z ? z.powerStatus : 'unpowered';
+}
+
+// Whether a zone keeps a light on when the grid drops. The sim has honoured this
+// indoors since it shipped — computeArtificialLight returns EMERGENCY_LIGHT_LEVEL
+// for a dark zone that has it — and the flight window now asks the same question,
+// so a blacked-out hospital reads differently from a blacked-out tenement.
+//
+// A sibling of getZonePowerStatus rather than a field on it, and sync by contract
+// for the same reason: deriveSurfaceCell runs for every cell of a ~73x73 window, so
+// both are O(1) Map reads off live RAM and neither may ever grow a query.
+export function getZoneEmergencyLighting(zoneId) {
+  return !!state.zones.get(zoneId)?.hasEmergencyLighting;
+}
+
+// Is this zone WIRED TO ANYTHING? A `power_zones` row with no `generator_id` is a zone that was
+// never connected, and its darkness is structural rather than a fault: 4,836 Deadwater tiles and
+// 117 in the Under are exactly that, one orphan row apiece, offline from the first power cycle.
+//
+// ⚠ THE RENDERER NEEDS THIS AND THE SIM DOES NOT, which is why it is new rather than something the
+// sim already asked. Both read 'offline', and for every purpose inside this file they are the same
+// thing — no light, no HVAC, no ATM. Out of a cockpit they are opposites: a city block whose feed
+// has failed should go dark, and the Null's powerhouse should not, because every light in those
+// arms is flame, oil or carbide and has never had anything to do with a grid.
+//
+// ⚠ A DEAD GENERATOR IS STILL A GENERATOR. Out of fuel, smashed, storm-faulted — the row still
+// names one, so the zone IS on the grid and its blackout is a real one. What this answers no to is
+// a zone that has no connection to lose.
+export function getZoneOnGrid(zoneId) {
+  return !!state.zones.get(zoneId)?.generatorId;
 }
 
 // ---------------------------------------------------------------------------

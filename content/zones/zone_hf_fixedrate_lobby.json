@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A hexagon, because the building is one, which means not a single corner in this room is a right angle and every piece of furniture in it has had to be made rather than bought. The core is a hexagon too, set inside the first and turned thirty degrees, so the space between them is six triangles and the lifts are in two of them. People stop just inside the door to work out where to go, every time, and the building has never solved it.",
+  "exits": {
+    "down": "zone_util_zone_hf_fixedrate_lobby",
+    "east": "zone_district_901_912"
+  },
+  "flags": {
+    "building_name": "Fixed Rate",
+    "building_type": "glass_prism",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Five of the six sides, floor to ceiling, in glass dark enough that the lane outside is a shade cooler than it is. From in here at dusk the street looks like it is half an hour later than it is.",
+      "light": 0.55,
+      "name": "the tinted faces",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_901_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_fixedrate_lobby",
+  "map_id": "map_int_hf_fixedrate",
+  "name": "Fixed Rate — The Six-Sided Lobby",
+  "parent_zone": "zone_district_901_912"
+}

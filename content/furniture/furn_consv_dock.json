@@ -1,0 +1,18 @@
+{
+  "description": "The rectangle of open basin lying inside the north end of the hall, with a rubbing strake around three sides and a set of steps down into the water on the fourth. The level inside matches the level outside to within an inch, which is the tank room's whole job.",
+  "flags": {
+    "aliases": [
+      "dock",
+      "wet dock",
+      "water",
+      "basin"
+    ],
+    "interactions": {
+      "examine": "You can see straight down it and out under the end wall into the open basin. Something the size of a dog goes past under the surface, unhurried, and does not come back."
+    }
+  },
+  "id": "furn_consv_dock",
+  "name": "the wet dock",
+  "object_type": "fixture",
+  "zone_id": "zone_consv_hall"
+}

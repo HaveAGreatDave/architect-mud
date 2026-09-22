@@ -1,0 +1,18 @@
+{
+  "description": "Switchgear, a booster set, and a lift pit, all of it running at the design load for a building with a hundred and forty-four flats in it and nobody in any of them. The water is turned over on a timer so that it does not go stale, which is a thing a building does for the benefit of nobody.",
+  "exits": {
+    "up": "zone_hf_bluechip_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_901_917"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_bluechip_lobby",
+  "map_id": "map_int_hf_bluechip",
+  "name": "Blue Chip — The Core Base",
+  "parent_zone": "zone_district_901_917"
+}

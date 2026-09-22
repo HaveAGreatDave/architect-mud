@@ -21,7 +21,7 @@
 // before it, so the claim is made in one pass and honoured in the other), collected twice (a card
 // AND geometry, which reads as a faint doubled rig), and claimed but never collected (the flag says
 // "already on the depth buffer, do not paint" and nothing drew it — an invisible truck).
-import { loadWindshield, stubCanvas } from './dom-stub.mjs';
+import { loadWindshield, stubCanvas, rigOnly } from './dom-stub.mjs';
 
 const ws = await loadWindshield();
 const REPORT = process.argv.includes('--report');
@@ -62,7 +62,7 @@ function collect(view, ship) {
   let seen = null;
   ws.RENDER_TUNE.gl = 1; ws.RENDER_TUNE.glFloor = 1; ws.RENDER_TUNE.glShip = ship;
   ws.installGLWorld((cells, cam, o) => {
-    seen = { ship: (o.ship || []).slice(),
+    seen = { ship: rigOnly(o.ship),
              cards: (o.scatter || []).filter((b) => /^ct:/.test(b.key)).map((b) => b.key),
              ox: cam.ox, oy: cam.oy };
     return null;

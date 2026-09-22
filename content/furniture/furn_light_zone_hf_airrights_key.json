@@ -1,0 +1,11 @@
+{
+  "description": "Set into the junction of the glass floor and the glass wall, throwing light outward and down rather than into the room, so that after dark the Key is visible from the whole quarter and there is nothing in it reflecting off the inside of the glass.",
+  "flags": {},
+  "id": "furn_light_zone_hf_airrights_key",
+  "light_type": "cove",
+  "lumen_output": 540,
+  "name": "a run of floor-edge lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_airrights_key"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_dualaspect_hall",
+  "b": "zone_hf_dualaspect_terrace",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hf_dualaspect_hall_up",
+  "lockable": false,
+  "one_way": false
+}

@@ -26,7 +26,7 @@
 //
 //   · AND CLAIMED BUT NOT COLLECTED is the third. The fittings pass is told the hull is already in
 //     the depth buffer; tell it that after a collection that threw and the ship is not drawn at all.
-import { loadWindshield, stubCanvas } from './dom-stub.mjs';
+import { loadWindshield, stubCanvas, rigOnly } from './dom-stub.mjs';
 
 const ws = await loadWindshield();
 const REPORT = process.argv.includes('--report');
@@ -60,7 +60,12 @@ function collect(view, ship, gl = 1) {
   ws.RENDER_TUNE.gl = gl; ws.RENDER_TUNE.glFloor = gl; ws.RENDER_TUNE.glShip = ship;
   if (gl) {
     ws.installGLWorld((cells, cam, o) => {
-      seen = { ship: (o.ship || []).slice(), ox: cam.ox, oy: cam.oy,
+      // ⚠ THE HULL, NOT THE BUFFER. OWNSHIP_SINK has a second producer now — the interior shell,
+      // which is a solid at the camera and rides the same layer on purpose. Counted in, it made
+      // the hull appear to change size between two headings (it is the SHELL that turns with the
+      // seat, and it is right to) and made `glShip 0` look like a switch that does not reach.
+      // Neither was ever about the ship. See the ⚠ at the push in windshield.js.
+      seen = { ship: rigOnly(o.ship), ox: cam.ox, oy: cam.oy,
         strokes: (o.strokes || []).length, sprites: (o.sprites || []).length, decals: (o.decals || []).length };
       const c = globalThis.document.createElement('canvas'); c.width = W; c.height = H;
       return { faces: 1, canvas: c };

@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_assets_hang",
+  "id": "map_int_hf_assets",
+  "name": "Fixed Assets — Interior",
+  "parent_zone_id": "zone_district_895_913"
+}

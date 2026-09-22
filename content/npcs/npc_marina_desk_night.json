@@ -1,0 +1,127 @@
+{
+  "banter": [],
+  "behaviour_graph": null,
+  "chitchat": [
+    "Sabbatini listens to something out on the water, decides it is nothing, and goes back to the book.",
+    "She turns the desk lamp a few degrees further from her face.",
+    "She marks her page with a berth card and squares the book up.",
+    "Somewhere east of the glass a hull knocks once against a fender. She does not react."
+  ],
+  "description": "She sits with the desk lamp turned away from her so it lights the counter and not her face, which is either courtesy or preference. Forearms like somebody who used to do a heavier job than this one, and a paperback face down beside the berth book that she does not pick up while you are standing there.",
+  "dialogue_tree": {
+    "root": {
+      "text": "\"Evening.\" She marks her page. \"Dock is east. It is open.\"",
+      "text_by_relation": {
+        "first": "The woman behind the desk marks her page before she looks up, and looks up properly.\n\n\"Sabbatini. Nights.\" She lets that sit. \"Six until six. Quillon has the other half. There is nobody in this building at four in the morning except me, and I am here.\"\n\nShe nods east.\n\n\"Your boat is through those doors and the doors do not lock. Neither does the hall. People ask, and I have stopped being surprised by it.\"",
+        "known": "\"You keep odd hours.\" Said without judgement, from a woman on nights. \"Dock is open.\"",
+        "familiar": "\"Sit down if you like.\" She does not move the paperback. \"It is quiet and it is going to stay quiet.\""
+      },
+      "options": [
+        {
+          "label": "Is anything open at this hour?",
+          "next": "hours"
+        },
+        {
+          "label": "Can I get to my boat?",
+          "next": "access"
+        },
+        {
+          "label": "Anything happening out there?",
+          "next": "water"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Goodnight.",
+          "next": "bye"
+        }
+      ]
+    },
+    "hours": {
+      "text": "\"This desk is. The dock is.\" She counts it off without any particular interest. \"The restaurant is not, and has not been since eleven, and will not be again until noon.\"\n\nShe turns the lamp a fraction.\n\n\"That is the whole list. Everything else here runs all night because a boat does not know what time it is.\"",
+      "options": []
+    },
+    "access": {
+      "text": "\"Go on, then.\" She does not get up. \"East, down the deck, mind the third cleat because somebody has bent it and the yard has not got to it.\"\n\nA beat.\n\n\"There is light on the water the whole way. It is lit from under the dock, so it is the water that glows and not you. You will see why people pay to keep a hull here.\"",
+      "options": []
+    },
+    "water": {
+      "text": "She listens for a second before she answers, which is how you can tell she means it.\n\n\"Nothing tonight. A tender went out at two on Thursday and came back at four and it is not my business.\"\n\nShe picks up the paperback and does not open it.\n\n\"Quiet is the whole job. If I have anything to tell you, something has gone wrong.\"",
+      "options": []
+    },
+    "bye": {
+      "text": "\"Mind how you go on that deck.\" She is reading again before you turn round.",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a marina fleece worn open over the top of everything else",
+      "a thick jersey that predates the job",
+      "work trousers with the knees gone pale",
+      "boots, laced, on a shift where nobody would check"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_apt_10",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_marina_desk_night",
+  "name": "Odile Sabbatini",
+  "npc_type": "clerk",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 18,
+        "to": 6
+      }
+    ],
+    "tue": [
+      {
+        "from": 18,
+        "to": 6
+      }
+    ],
+    "wed": [
+      {
+        "from": 18,
+        "to": 6
+      }
+    ],
+    "thu": [
+      {
+        "from": 18,
+        "to": 6
+      }
+    ],
+    "fri": [
+      {
+        "from": 18,
+        "to": 6
+      }
+    ],
+    "sat": [
+      {
+        "from": 18,
+        "to": 6
+      }
+    ],
+    "sun": [
+      {
+        "from": 18,
+        "to": 6
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_marina_lobby"
+}

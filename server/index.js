@@ -304,6 +304,22 @@ const COMPRESS_MIN_BYTES = 1024;
 // filePath -> { mtime, raw, br, gzip, type }
 const assetCache = new Map();
 
+// ⚠ AND THE STAT IS RATE-LIMITED, BECAUSE HALF OF PROBLEM 2 ABOVE SURVIVED THE FIX FOR IT. That
+// note names the cost as "a synchronous readFileSync + statSync" on the loop that also delivers
+// combat messages, and the cache removed the read and kept the stat: getAsset still called
+// statSync on every single request, so ~82 assets per cold load were still ~82 sync syscalls on
+// the shared loop, and ten people refreshing at once were still 820 of them.
+//
+// The mtime is what makes an edit visible without a restart, so it cannot simply go — it only
+// has to be re-asked occasionally. A second of staleness is not perceptible to somebody editing
+// a panel, and it takes a burst of concurrent requests for one file down to a single stat.
+//
+// ⚠ NO NODE_ENV BRANCH, deliberately — db.js records at length why keying behaviour off it is a
+// footgun in this repo, and a cache that behaves differently in the two places is a cache that
+// gets debugged twice. One second is short enough to stay honest in dev and long enough to
+// matter under load.
+const STAT_TTL_MS = 1000;
+
 // See server/modulegraph.js for why these hints exist and why they are generated
 // rather than written by hand. Computed lazily on first use and memoised for the
 // process — the import graph is source, and source doesn't change under a running
@@ -327,9 +343,12 @@ function modulePreloadBlock() {
 }
 
 function getAsset(filePath) {
-	const mtimeMs = statSync(filePath).mtimeMs;
 	const hit = assetCache.get(filePath);
-	if (hit && hit.mtimeMs === mtimeMs) return hit;
+	const now = Date.now();
+	// Asked recently enough — hand back what we have without touching the disk at all.
+	if (hit && now - hit.checkedAt < STAT_TTL_MS) return hit;
+	const mtimeMs = statSync(filePath).mtimeMs;
+	if (hit && hit.mtimeMs === mtimeMs) { hit.checkedAt = now; return hit; }
 
 	const ext = extname(filePath);
 	let raw = readFileSync(filePath);
@@ -346,6 +365,7 @@ function getAsset(filePath) {
 
 	const entry = {
 		mtimeMs,
+		checkedAt: now,
 		lastMod: new Date(mtimeMs).toUTCString(),
 		type: MIME[ext] || "text/plain",
 		raw,

@@ -1,0 +1,14 @@
+{
+  "name": "shopalarm",
+  "version": "1.0.0",
+  "description": "Intruder alarms on shopfronts. Breaching a lock with an alarm panel behind it arms a countdown whose length is the panel's model; `hack alarm` opens a wire-trace board running on whatever is left of that clock. Beat it and nobody knows. Miss it and the box calls SPECTER-PD itself — 4 stars, forced witness, police on the way, and the shelves still there.",
+  "commands": ["alarmresolve"],
+  "specializedActions": ["hack"],
+  "hooks": ["furniture.describe"],
+  "events": {
+    "emits": ["shopalarm.armed", "shopalarm.tripped", "shopalarm.disarmed", "shopalarm.vendorSaw"],
+    "consumes": ["hololock.breached"]
+  },
+  "ticks": ["1s"],
+  "dependencies": ["surveillance"]
+}

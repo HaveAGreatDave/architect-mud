@@ -1,6 +1,26 @@
 import { state } from '../state.js';
 import { formatTemp } from '/shared/settings.js';
 import { setWeatherFx, setDrugFieldFx as aimDrugSlot } from './weather-fx.js';
+import { doyOf } from '/shared/birds.js';
+import { moonPhaseOf } from '/shared/moon.js';
+
+// ── THE RENDERER HAS TO BE TOLD WHAT MONTH IT IS ──────────────────────────────
+//
+// ⚠ PUSHED, NOT PULLED, AND THAT DIRECTION IS THE WHOLE OF IT. The starling's year in
+// client/shared/birds.js swings a flock from a party of nine to a cloud of a thousand, and the only
+// place in the client that knows the game's calendar is this module. windshield.js may NOT import it
+// back: the cold open paints that file before there is a session at all, and every one of the
+// `scripts/shapes/*` gates loads it against a DOM stub with no environment in reach.
+//
+// So the owner of the fact hands it over, optionally, exactly as helm-view and freelook-view import
+// THIS module — a renderer that is not there simply never gets told, and `BIRD_DOY` stays null,
+// which `seasonalSize` reads as "no season information" and answers unseasoned.
+let _setBirdSeason = null;
+import('./windshield.js').then((m) => {
+  _setBirdSeason = m.setBirdSeason || null;
+  if (_setBirdSeason && envDoy != null) _setBirdSeason(envDoy);   // the clock may have beaten the import
+}).catch(() => {});
+let envDoy = null;
 
 const DAY_PHASES_CLIENT = [
   { name: 'dawn',  start: 5 * 60,  end: 7 * 60,  icon: '🌅' },
@@ -58,6 +78,11 @@ function wetnessLabel(v) {
 
 let clientMinutes = null;
 let envDateStr = '';
+// Tonight's moon, derived from the game date above. ⚠ null until the clock arrives, and it must
+// stay null rather than defaulting to 0.5 here: `paintWindshield` already applies that default, and
+// a second copy of it would be this module quietly asserting a half moon on a client that has not
+// been told the date yet — indistinguishable, from the seat, from the bug this replaced.
+let envMoon = null;
 let envWeatherIcon = '—';
 let envTempC = null;
 let envCurrentWeatherType = null;
@@ -307,7 +332,21 @@ let _lastServerTick = 0;
 export function updateEnvironmentHUD(env) {
   if (!env) return;
   if (env.time) clientMinutes = parseHHMM(env.time);
-  if (env.date !== undefined) envDateStr = formatGameDate(env.date, env.dayOfWeek);
+  if (env.date !== undefined) {
+    envDateStr = formatGameDate(env.date, env.dayOfWeek);
+    // ⚠ THE RAW DATE USED TO BE THROWN AWAY HERE. It arrived, was formatted into a string for the
+    // HUD, and the number nothing else could recover was gone — which is why the client had no
+    // calendar at all before this and the birds could not have had a year.
+    envDoy = doyOf(env.date);
+    // ⚠ THE MOON IS DERIVED HERE AND NEVER READ OFF THE WIRE, THOUGH THE WIRE CARRIES ONE.
+    // `moonPhase` is on `getHUDPayload()` and therefore on `environment.sync`, `environment.daily`
+    // and the REST route — but NOT on `environment.clockTick`, which is the per-minute broadcast and
+    // the one that brings the date. Kept as a wire field, the moon would be whatever the last daily
+    // tick said while the date moved on underneath it. The date is the only input the server uses
+    // either, so this is the same answer by construction rather than by a field name agreeing.
+    envMoon = moonPhaseOf(env.date);
+    if (_setBirdSeason) _setBirdSeason(envDoy);
+  }
   if (clientMinutes === null) return; // not ready yet
   if (env.weatherIcon !== undefined) envWeatherIcon = env.weatherIcon || '—';
   if (env.tempC !== undefined) envTempC = env.tempC;
@@ -566,6 +605,14 @@ export function getEnvSnapshot() {
     // Comfort reflects the apparent temperature (wind chill / humidity), not the
     // raw thermometer reading — falls back to actual temp before the first sync.
     bodyFeel: bodyFeelLabel(envFeelsLikeC ?? envTempC),
+    // ⚠ TWO SEATS HAVE BEEN READING THIS FIELD SINCE THEY SHIPPED AND IT WAS NEVER HERE.
+    // helm-view.js and freelook-view.js both build `{ moon: s.moonPhase }` off this snapshot, under
+    // a comment in helm-view asserting that "moonPhase rides the same snapshot, so the yacht helm
+    // gets the same moon as the cockpit for free". It did not: the field was absent, `v.moon` was
+    // undefined, and `paintWindshield` fell back to 0.5 — a permanent half moon on a fixed
+    // 18:00-06:00 arc, on the two seats that spend the most time looking at the night sky.
+    // The cockpit was never affected; it takes its moon by a different route (`F.sky?.moon`).
+    moonPhase: envMoon,
   };
 }
 

@@ -23,7 +23,7 @@
 //
 // ⚠ AND A NON-FINITE VERTEX IS THE OTHER SILENT ONE. A vertex buffer full of NaN rasterises nothing
 // and throws nothing, which is the failure `shapes:smoke` already watches the authored vehicles for.
-import { loadWindshield, stubCanvas } from './dom-stub.mjs';
+import { loadWindshield, stubCanvas, rigOnly } from './dom-stub.mjs';
 
 const ws = await loadWindshield();
 const W = 640, H = 360;
@@ -117,12 +117,22 @@ if (!orbitA || !orbitB || !orbitA.length || !orbitB.length) {
 }
 
 // 3. The cab, where there is no rig to collect: you are inside it.
-const cab = collect({ ...BASE, external: false }, 1);
-if (cab && cab.length) problems.push(`the cab view collected ${cab.length} faces of a rig the driver is sitting inside`);
+//
+// ⚠ THE INTERIOR SHELL IS IN THIS BUFFER TOO, AND IT IS SUPPOSED TO BE. OWNSHIP_SINK had exactly
+// one producer when this file was written, so counting the whole thing and calling the answer
+// "the rig" was true by construction. It is not any more: the cab's floor, roof, seat and door
+// cards are solids at the camera and they go through the same layer, which is how they end up in
+// the depth buffer and in a puddle. They carry `interior` for this — see the ⚠ at the push.
+//
+// ⚠ AND THE FILTER IS NOT A WEAKENING, because the claim underneath is unchanged and is now
+// SHARPER: from the seat there must be no RIG, and a shell is not a rig. A check counting both
+// would have to be deleted rather than filtered, and then nothing would assert either.
+const cab = rigOnly(collect({ ...BASE, external: false }, 1));
+if (cab.length) problems.push(`the cab view collected ${cab.length} faces of a rig the driver is sitting inside`);
 
 // 4. And the off switch, which has to be the frame that shipped before this layer existed.
-const off = collect({ ...BASE, external: true, extYaw: 0, extPitch: 0.3, extZoom: 1 }, 0);
-if (off && off.length) problems.push(`glShip 0 still collected ${off.length} faces — the off switch is not an off switch`);
+const off = rigOnly(collect({ ...BASE, external: true, extYaw: 0, extPitch: 0.3, extZoom: 1 }, 0));
+if (off.length) problems.push(`glShip 0 still collected ${off.length} faces — the off switch is not an off switch`);
 
 ws.installGLWorld(null);
 ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glShip = shipWas;

@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hf_snagging_office",
+  "id": "map_int_hf_snagging",
+  "name": "Snagging List — Interior",
+  "parent_zone_id": "zone_district_904_917"
+}

@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The rest of the ground floor, given over to one wall of screens and a bench in front of it with two chairs at a bench built for four. Forty-one feeds, laid out in a grid that mirrors the map of the quarter rather than the order they were installed in, which took somebody a weekend. Eleven of the tiles are dark, and the labels under those eleven all read the same thing: PLOT VACANT.",
+  "exits": {
+    "south": "zone_hf_peppercorn_desk"
+  },
+  "flags": {
+    "building_name": "Peppercorn",
+    "building_type": "atrium_court",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_904_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hf_peppercorn_wall",
+  "map_id": "map_int_hf_peppercorn",
+  "name": "Peppercorn — The Camera Wall",
+  "parent_zone": "zone_district_904_913"
+}

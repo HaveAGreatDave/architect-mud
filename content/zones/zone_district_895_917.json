@@ -1,24 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
-  "exits": {
-    "east": "zone_district_896_917",
-    "north": "zone_district_895_916",
-    "south": "zone_district_895_918",
-    "west": "zone_district_894_917"
-  },
+  "ambient_theme": "urban",
+  "description": "Twelve floors, clad to the ninth, crane down, and from Kerbstone Row it is three storeys off being a building. It is also the only shell in the quarter where the hoarding is blank — plain chrome board, no printing, no crest and no date. That was a decision made after the third completion date slipped, and it has done more for the estate's reputation than any of the printed ones ever did.",
+  "exits": {},
   "flags": {
+    "building_name": "Scope for Improvement",
+    "building_type": "shell_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "entrance": "north",
+    "floors": 12,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 895,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_895_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "SX",
+  "name": "Scope for Improvement",
   "parent_zone": null
 }

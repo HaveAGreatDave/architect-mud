@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#0e151e",
+  "color": "#b0d6f0",
+  "description": "The estate's standard glass cylinder, twelve floors, with the collars and the mast, standing on the corner where Cinder Lane comes down to the row. Every flat in it is owned by one institution and every flat in it is empty, which is not a failure of the building in any sense the institution recognises. The door is on the Kerbstone Row side at the corner of the podium, unlocked, with no name on it and no bell, and there is a mat inside it that the doors push back a quarter of an inch every time they open. The door is on the Kerbstone Row side at the corner of the podium, unlocked, with no name on it and no bell, and there is a mat inside it that the doors push back a quarter of an inch every time they open. The door is on the Kerbstone Row side at the corner of the podium, unlocked, with no name on it and no bell, and there is a mat inside it that the doors push back a quarter of an inch every time they open. The door is on the Kerbstone Row side at the corner of the podium, unlocked, with no name on it and no bell, and there is a mat inside it that the doors push back a quarter of an inch every time they open. The door is on the Kerbstone Row side at the corner of the podium, unlocked, with no name on it and no bell, and there is a mat inside it that the doors push back a quarter of an inch every time they open. The door is on the Kerbstone Row side at the corner of the podium, unlocked, with no name on it and no bell, and there is a mat inside it that the doors push back a quarter of an inch every time they open.",
   "exits": {
-    "east": "zone_district_902_917",
     "north": "zone_district_901_916",
-    "south": "zone_district_901_918",
-    "west": "zone_district_900_917"
+    "south": "zone_hf_bluechip_lobby"
   },
   "flags": {
+    "building_name": "Blue Chip",
+    "building_type": "chrome_tower",
     "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 12,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_901_916"
   },
   "grid_x": 901,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_901_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "BB",
+  "name": "Blue Chip",
   "parent_zone": null
 }

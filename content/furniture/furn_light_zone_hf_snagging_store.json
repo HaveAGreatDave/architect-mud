@@ -1,0 +1,11 @@
+{
+  "description": "Wire-caged tubes down the middle of the racking, on a pull cord at each end, throwing hard shadows off every rack so that the aisles read as much deeper than they are.",
+  "flags": {},
+  "id": "furn_light_zone_hf_snagging_store",
+  "light_type": "strip",
+  "lumen_output": 520,
+  "name": "a run of caged strip lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_snagging_store"
+}

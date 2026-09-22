@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_flatwhite",
+  "name": "a flat white",
+  "tags": {
+    "description": "Properly made, in a heavy cup, by somebody who has done it eleven thousand times and still watches the pour. It is the best coffee in the south of the city and the competition is a machine in a lobby two streets away.",
+    "stackable": false
+  },
+  "type": "drink",
+  "value": 9,
+  "weight": 160
+}

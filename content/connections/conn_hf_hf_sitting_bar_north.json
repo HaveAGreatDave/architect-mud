@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_sitting_bar",
+  "b": "zone_hf_sitting_back",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_hf_sitting_bar_north",
+  "lockable": false,
+  "one_way": false
+}

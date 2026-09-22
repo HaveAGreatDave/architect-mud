@@ -1,0 +1,8 @@
+{
+  "description": "Papers on a Tuesday and a Friday, milk on a Monday, and a third delivery marked with a circle on the last Thursday of the month that has no label on it at all. Every past circle has been ticked.",
+  "flags": {},
+  "id": "furn_hf_rightofway_calendar",
+  "name": "a delivery calendar",
+  "object_type": "decoration",
+  "zone_id": "zone_hf_rightofway_office"
+}

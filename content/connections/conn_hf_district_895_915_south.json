@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_895_915",
+  "b": "zone_hf_deposit_counter",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_district_895_915_south",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_hf_impression_suite",
+  "b": "zone_hf_impression_booth",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_hf_impression_suite_east",
+  "lockable": false,
+  "one_way": false
+}

@@ -75,6 +75,18 @@ import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';
 
 const ROOT = new URL('../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+// ⚠ RE-BASELINED WHEN BIRDS REACHED THE CITY — 324,540 to 338,309 canvas calls, +4.2% over the
+// sixteen frames, and up to +45.6% on the worst single one (cab:200:day). Deliberate, and worth
+// knowing the shape of: geese and gulls live on grass and water, so the EXPENSIVE frames — a
+// city, full of buildings, signage and lights — carried no birds at all until pigeons arrived on
+// citycore, which is most of Coldwater. The headline number is small because most of the sixteen
+// are cockpit frames at altitude, where nothing draws; the cost lands almost entirely on the cab
+// seats at street level, which is exactly where the birds are meant to be.
+//
+// ⚠ AND THIS HARNESS MEASURES THE 2-D FALLBACK. GLASS 2 is the default renderer and uploads these
+// as mesh triangles, where they are close to free. The number above is what a machine with no
+// WebGL2 pays, which is the right thing to hold a budget against and the wrong thing to reason
+// about the shipping renderer from.
 const BASELINE = ROOT + 'scripts/shapes/framecost.json';
 const TOL_TOTAL = 0.02;   // 2% on the grand total
 const TOL_CASE = 0.06;    // 6% on any single case — noise floor is zero, so this is real drift
@@ -179,8 +191,24 @@ export async function measure({ width = 1280, height = 720 } = {}) {
   // against a load-shedding renderer is a budget that quietly relaxes whenever the machine is slow,
   // which is the opposite of a gate — see the cab's own note about a saturated dial having no
   // authority left.
+  // ⚠ AND Date.now() IS A SECOND CLOCK THAT ALSO HAD TO BE PINNED. Pinning performance.now() was
+  // enough while everything animated was page-relative, and it stopped being enough the moment
+  // anything shared with the SERVER got into the frame: client/shared/birds.js derives a flock's
+  // whole cycle from the wall clock on purpose — a page-load-relative time would teleport flocks
+  // on reload and disagree with the text game — so it never saw the freeze above.
+  //
+  // The cost was not a call or two. With birds in the scene the same budget measured +7.6% on one
+  // run and +50.2% on the next, because a flock is cheap on the ground and expensive mid-circuit
+  // and the run happened to catch different moments. Four consecutive runs of an unchanged tree
+  // disagreed by a factor of six, which is a gate with no authority at all — and it would have
+  // read as a flaky renderer rather than as a flaky harness.
+  //
+  // The value is arbitrary; what matters is that it does not move. This one puts the reference
+  // flock mid-flight, which is the expensive half of its cycle and therefore the honest one.
   const clock = globalThis.performance;
   globalThis.performance = { ...clock, now: () => 1e6 };
+  const wall = Date.now;
+  Date.now = () => 1e6;
 
   for (const [seat, view] of SEATS) {
     for (const heading of HEADINGS) {
@@ -203,6 +231,7 @@ export async function measure({ width = 1280, height = 720 } = {}) {
   }
 
   globalThis.performance = clock;
+  Date.now = wall;      // both clocks go back, or anything sharing this process inherits a frozen one
   const total = Object.values(cases).reduce((a, c) => a + c.calls, 0);
   return { total, cases, scene: { w: width, h: height, tiles: N * N } };
 }

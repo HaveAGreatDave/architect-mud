@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_hf_pastry",
+  "name": "a morning pastry",
+  "tags": {
+    "description": "Bought in rather than baked here, from a place on Marrow Street, and reheated at seven. By eleven they are gone and she will tell you so rather than sell you one at two.",
+    "stackable": true
+  },
+  "type": "food",
+  "value": 7,
+  "weight": 90
+}

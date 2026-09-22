@@ -34,6 +34,7 @@ import { applyDamage, impactSplit, grindSplit, IMPACT_AREAS, damageOf, overall, 
   isBroken, isCosmetic, PART_ITEMS, PART_SHARE, COSMETIC_MUL, BROKEN_AT } from './damage.js';
 import { grimeOf, grimeBand, washCost } from './filth.js';
 import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitInSlot, fitSuffix, priceFor } from './fittings.js';
+import { TRINKETS, TRINKET_IDS, CAB_SLOTS, installedTrinkets, trinketPrice } from '../../client/shared/cab-trinkets.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
@@ -195,7 +196,8 @@ import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveT
   announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, passPlaza, passHitcher, markWreck, pumpAt, pumpClamp, FUEL_FULL,
   gatePair, rigLocked, tryDoorBoard, doorBoardLine,
   _clearGateCache, networkRoute,
-  ridingRigOf, seatsFree, boardPassenger, alightPassenger } from './state.js';
+  ridingRigOf, seatsFree, boardPassenger, alightPassenger,
+  truckElecDead, crewedRigs } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM, sOfNode, wreckNear, trailFor, trailPos } from './corridor.js';
 // The bench — `rig` and the parts counter. It imports a handful of yard helpers back from this file;
 // see the header of bench.js for why that edge is allowed to run both ways inside one plugin.
@@ -209,7 +211,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { hitcherAt } from './hitchers.js';
 import { runScale, afterDrive, customsAnswer, pendingCustoms, scaleAt, releaseImpound } from './scale.js';
 import { tryDeck, plazaHere, weighHere } from './plaza.js';
-import { registerAction } from '../../server/engine/actions.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { TRAILER_TYPES, trailerType, trailersAt, trailersOf, getTrailer, trailerOnTruck,
   buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop, declaredKg, actualKg, stashKg, setTrailerCondition,
@@ -846,11 +848,21 @@ function boardFor(zoneId) {
 // depot moved indoors that is never the room with the flag in it — a bay has no grid coordinates
 // and no road under it. So this resolves each bay to its apron and returns THAT, which is why
 // nothing downstream of it needed changing when the shop went inside.
+//
+// ⚠ AND A POUND IS NOT ONE, THOUGH IT CARRIES THE SAME FLAG. An impound lot has to be a depot to
+// everything that asks "can I get my truck out of here" — `drive` refuses on `!depot` long before
+// it looks up who owns what — and it must be nothing at all to everything that asks "where can
+// freight GO". This list is the second question: it feeds the boards, the contract generator, the
+// text driver's default target and the crossing, so a pound in it offers haulage to a compound you
+// cannot enter without paying a fine, and the fuel rule ("every shipped depot sells diesel, so a
+// tight tank pressures rather than strands") would oblige a police lot to run a pump.
+//
+// One predicate, read from content, because the alternative is every caller remembering.
 function allDepots() {
   const out = [];
   for (const z of getAllZones()) {
     const d = depotAt(z);
-    if (!d) continue;
+    if (!d || z.flags?.impound_pound) continue;
     const yard = d.yard ? getZone(d.yard) : z;
     if (yard?.grid_x != null && !yard.flags?.is_interior) out.push(yard);
   }
@@ -1124,6 +1136,37 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     : !mine.some(t => zonesHere.includes(t.depot_zone)) ? 'Nothing of yours is standing here'
     : hitchedHere && hitchedHere.length > 1 ? 'More than one rig here is hitched up — take the one you mean out yourself'
     : 'Every truck in this yard is bobtail — hitch a trailer first';
+  // ── THE PIN, AS A FACT ─────────────────────────────────────────────────────
+  // Coupling and dropping a box are the two things a driver does most often in a yard, and the
+  // panel had no first-class answer for either: `hitch` was a row buried in the boxes list and
+  // `unhitch` was not offered anywhere at all. Which of the two applies is a question about the
+  // rig, so it is answered here rather than guessed on the client out of `driving` and `canLoad`.
+  //
+  // ⚠ IT RUNS THE VERB'S OWN REACH TEST (`hitchReach`), which is the rule the cab's HITCH button
+  // already lights itself off: coupling is a manoeuvre, not a menu choice, so a box standing in the
+  // shed is not a box you can take unless the fifth wheel is under its pin. A button offering
+  // something the verb then refuses is worse than no button — and a reason is better than either,
+  // so the refusal travels as `why` in the words the verb would use.
+  //
+  // Costs no round trip: `myTrailers` and the live rig are both already in hand.
+  const hitchState = (() => {
+    if (!rig) return null;                                   // the verb needs a cab under you
+    if (rig.trailer) return { verb: 'unhitch', name: rig.trailer.name };
+    const standing = myTrailers.filter(t => !t.towedBy && zonesHere.includes(t.parkedZone));
+    if (!standing.length) return null;
+    // Nearest first, so a refusal describes the box the driver is plainly going for rather than
+    // whichever row the database happened to hand back first — the same choice `cmdHitch` makes.
+    const gap = (t) => (posed(t) ? Math.hypot((rig.x ?? 0) - t.x, (rig.y ?? 0) - t.y) : 99);
+    const reach = standing.map(t => ({ t, r: hitchReach(rig, t) })).sort((a, b) => gap(a.t) - gap(b.t));
+    const got = reach.find(e => e.r.ok);
+    if (got) return { verb: 'hitch', id: got.t.id, name: got.t.name };
+    const { t, r } = reach[0];
+    return { verb: 'hitch', id: null, name: t.name,
+      why: r.why === 'angle' ? `You're across ${t.name}, not under it — straighten up`
+        : r.why === 'across' ? `You're alongside ${t.name}, not on its pin — back onto the nose`
+        : r.why === 'fast' ? 'Stop the truck first'
+        : `Line the truck up on ${t.name} and back under` };
+  })();
   // WHAT THE DECK HOLDS IS THE TRAILER'S RATING, not the truck's mass. It used to be the truck's,
   // because there was no trailer to ask — which meant buying a bigger tractor bought you capacity
   // it does not actually have. The truck pulls; the box carries.
@@ -1153,6 +1196,12 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     // now. `driving` stays because other parts of the panel legitimately ask it (the cab handoff,
     // the fuel gauge); it just is not the question freight was asking.
     canLoad, loadWhy,
+    // WHICH truck you are in, not merely that you are in one. `driving` answers the second and the
+    // panel needs the first: the pin belongs to the rig under you, so a Hitch key beside a truck
+    // parked two regions away would couple a box to something else entirely.
+    drivingId: rig?.truckId || null,
+    // Which way the pin goes, if it goes at all — see `hitchState` above.
+    hitchState,
     fuel: rig ? +rig.fuel.toFixed(2) : null,
     deckKg,
     // The load itself comes off whichever deck this panel is talking about — the rig you are in, or
@@ -1194,6 +1243,7 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     // the price the panel prints has to be the price the verb charges, and the descriptions are
     // written once, in the file that owns them.
     fitCat: { slots: SLOTS, items: FIT_IDS.map((id) => ({ id, ...FITTINGS[id] })) },
+    cabCat: { slots: CAB_SLOTS, items: TRINKET_IDS.map((id) => ({ id, ...TRINKETS[id] })) },
     fleet: mine.map(t => {
       const cd = t.custom_data || {};
       const kits = installedKits(cd);
@@ -1247,6 +1297,11 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         // the same reason the verb charges nothing for it — one answer, two surfaces.
         fits: installedFits(cd),
         fitPrices: Object.fromEntries(FIT_IDS.map((id) => [id, priceFor(cd, id)])),
+        // THE INSIDE SHELF, the same two facts for the same reason — and the prices come through
+        // `trinketPrice`, so something already in this truck's drawer shows free on the button
+        // because the verb charges nothing for it. One answer, two surfaces.
+        cab: installedTrinkets(cd),
+        cabPrices: Object.fromEntries(TRINKET_IDS.map((id) => [id, trinketPrice(cd, id)])),
         repairField: repairCost(t.type, t.condition ?? 1, false),
         repairShop: repairCost(t.type, t.condition ?? 1, true),
         canField: (t.condition ?? 1) < FIELD_CAP,
@@ -1890,8 +1945,32 @@ async function recallMarkets(player) {
 
 // ── refuel ───────────────────────────────────────────────────────────────────
 // At a fuel yard, or at any depot that keeps a pump. Priced off what you actually take.
+// ── ⚠ `fuel` IS ALSO WHAT YOU SAY TO A BOAT, AND THIS PLUGIN OWNS THE WORD ──
+//
+// `plugins/powerboat` has a tank, a price and a pump on a float, and no verb it is allowed to use:
+// `fuel` is declared here, `refuel` by flight and generator, and a plugin verb silently beats an
+// engine builtin — so a collision is not a load error, it is two systems quietly ceasing to work.
+// That is the trap powerboat's own README records against `helm`, which it lost to the yacht.
+//
+// So the word stays here and the ANSWER is dispatched by name, the `CHARGE_CRIME` idiom: neither
+// plugin imports the other, load order stops mattering, and a world booted without powerboat falls
+// through to trucking's own refusal instead of answering "Unknown action: BOAT_FUEL".
+//
+// ⚠ A `null` MEANS "NOT A QUESTION ABOUT BOATS" and is the only thing that makes this safe to put
+// FIRST. The action re-checks that the asker is standing at the yard the hull is lying in, so
+// `fuel` at a forecourt still means diesel for somebody who happens to own a boat across the city.
+async function tryBoatFuel(player, want) {
+  const r = await dispatchAction({ type: 'BOAT_FUEL', actor: player, params: { want } });
+  if (!r || (r.type === 'error' && /^Unknown action/.test(r.message || ''))) return null;
+  return r;
+}
+
 async function cmdRefuelTruck(args, raw, player) {
-  if (!rigOf(player)) return await pumpParked(player, (args || []).join(' ').trim());
+  if (!rigOf(player)) {
+    const boat = await tryBoatFuel(player, (args || []).join(' ').trim());
+    if (boat) return boat;
+    return await pumpParked(player, (args || []).join(' ').trim());
+  }
   // The typed verb is the whole-tank case, which is what typing it has always meant. It is the same
   // commit the handle sends, asked for everything — so there is one place that moves fuel and money.
   return pumpFuel(player, 1, { typed: true });
@@ -2387,6 +2466,11 @@ async function cmdTruckSync(args, raw, player) {
 async function cmdCb(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say("You aren't driving anything.");
+  // A cooked set answers nothing at all — not a status line, not a channel count,
+  // not a squelch click. Gated at the verb rather than in each of the five
+  // handlers below, because every one of them would otherwise report an audience
+  // it cannot reach ("2 other sets are up here", off a radio that is dead).
+  if (truckElecDead(rig)) return say('You reach for the set. Dark face, dead mic, no hiss — it took the pulse with the rest of the dash.');
   const rest = String(raw || '').replace(/^\S+\s*/, '').trim();
   if (!rest) return cbStatus(player, rig);
 
@@ -2599,7 +2683,16 @@ async function cmdFix(args, raw, player) {
 // answer a question `impound_fee` already answers.
 async function cmdTow(args, raw, player) {
   const rig = rigOf(player);
-  if (!rig) return say("You aren't driving anything, so there's nothing out here to come and get.");
+  // ⚠ AND `tow` IS ALSO WHAT YOU SAY ABOUT A BOAT. Same arrangement as `fuel` above and for the
+  // same reason: the word is declared here, a stranded hull needs it more than a truck does (a
+  // truck that stops is on a road you can walk off), and dispatching the answer by name keeps both
+  // plugins ignorant of each other. The boat's action returns null when there is no boat in the
+  // question, so a driver with a dead engine still gets the low-loader.
+  if (!rig) {
+    const boat = await dispatchAction({ type: 'BOAT_TOW', actor: player, params: { want: (args || []).join(' ').trim() } });
+    if (boat && !(boat.type === 'error' && /^Unknown action/.test(boat.message || ''))) return boat;
+    return say("You aren't driving anything, so there's nothing out here to come and get.");
+  }
   if (!rig.broken && !rig.dry && !isTerminal(rig.condition)) {
     return say("It's going. Whatever you think is wrong with it, a recovery driver is going to charge you to "
       + 'tell you the same thing. <span class="text-dim">If you have simply had enough, <b>park</b>.</span>');
@@ -2848,6 +2941,12 @@ async function leaveTheMap(player, rig, broadcast) {
 async function cmdRoute(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say("You aren't driving anything.");
+  // The nav head is the thing that knows where the roads go, and it is cooked.
+  // ⚠ REFUSED, NOT DEGRADED. The screen's whole value is the distance and whether
+  // the tank reaches it, and a plot with those missing is a plot somebody would
+  // drive anyway. You still have the road you are ON — the tarmac did not change
+  // — so this costs you the fork, which is exactly the decision worth losing.
+  if (truckElecDead(rig)) return say('The nav head is black glass. Whatever it knew about the roads out of here, it isn\'t saying.');
   const opts = routeOptions(rig, { zoneId: player.current_zone, forkAhead: atOrBeforeFork(rig) });
   if (!opts) return say("There's one road out of here and you're on it.");
   const onRoad = opts.onRoad;
@@ -3721,6 +3820,12 @@ export const hooks = {
   // Flight asks 'who else is out there'; trucking answers with its moving rigs. A gather hook so
   // the dependency stays one-way — flight has never heard of trucking and does not need to.
   'vehicle.contacts': (x, y, range) => truckContactsNear(x, y, range),
+  // The sibling of the above, and a different question: `contacts` is "who is near
+  // THIS point and moving", asked by a renderer; this is "where is every crewed rig
+  // and how do I reach its electronics", asked by anything that lands on the map.
+  // One consumer today — the EMP pulse. The entry carries its own `knockOut`, so
+  // the weather plugin never learns what a truck is. See state.js: crewedRigs.
+  'vehicle.crewed': () => crewedRigs(),
   // ONE VERB, TWO SYSTEMS. `hijack` belongs to surveillance (breaching a camera) and plugin verbs
   // are first-come, so trucking cannot register it and must not try. Surveillance instead gathers
   // this hook when the name you typed is not a device it can find, and whoever claims the target

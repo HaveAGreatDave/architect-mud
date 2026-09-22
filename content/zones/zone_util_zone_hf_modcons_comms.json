@@ -1,0 +1,18 @@
+{
+  "description": "Under the comms room, where the estate's ducts come up through the slab in a bank of nine and only four of them have anything in them. The other five are capped, labelled, and were paid for, which is a sentence that explains a great deal about this quarter.",
+  "exits": {
+    "up": "zone_hf_modcons_comms"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_903_914"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hf_modcons_comms",
+  "map_id": "map_int_hf_modcons",
+  "name": "Mod Cons — The Intake",
+  "parent_zone": "zone_district_903_914"
+}

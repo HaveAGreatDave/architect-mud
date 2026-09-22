@@ -1,0 +1,11 @@
+{
+  "description": "A string of lamps looped over a services hook and left where it landed, which lights the circle of chairs and about two feet either side and nothing else. It is the only lighting in the room and there is no switch — you unplug it.",
+  "flags": {},
+  "id": "furn_light_zone_hf_sitting_back",
+  "light_type": "festoon",
+  "lumen_output": 220,
+  "name": "a festoon on a hook",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_sitting_back"
+}

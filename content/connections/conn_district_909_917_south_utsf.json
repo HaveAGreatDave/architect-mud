@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_909_917",
+  "b": "zone_district_909_918",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_district_909_917_south_utsf",
+  "lockable": false,
+  "one_way": false
+}

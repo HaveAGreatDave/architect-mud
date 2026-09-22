@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_903_912",
+  "b": "zone_hf_prime_lobby",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_district_903_912_east",
+  "lockable": true,
+  "one_way": false
+}

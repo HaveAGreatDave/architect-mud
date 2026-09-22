@@ -1,0 +1,11 @@
+{
+  "description": "One over each fold-down shelf, wired so that only the nearest three are ever lit and the rest of the corridor stays dark in both directions. You can never see the far end of it and there is not actually anything at the far end of it.",
+  "flags": {},
+  "id": "furn_light_zone_hf_safe_corridor",
+  "light_type": "task",
+  "lumen_output": 300,
+  "name": "a chain of shelf lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hf_safe_corridor"
+}

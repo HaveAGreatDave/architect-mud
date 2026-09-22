@@ -19,3 +19,6 @@ export const TRUCK_ROWS = {
   "hauler": { "aero": 0.35, "axles": 1, "cab": 0.24, "deck": 0.44, "hi": 0.248, "lamps": 0.55, "nose": 0.04, "rig": "rack", "skirt": 0, "sleeper": 0, "stacks": 1, "trim": 0.4, "w": 0.15 },
   "scrapper": { "aero": 0, "axles": 1, "cab": 0.22, "deck": 0.38, "hi": 0.225, "lamps": 0.25, "nose": 0, "rig": "cage", "skirt": 0, "sleeper": 0, "stacks": 0, "trim": 0.05, "w": 0.14 },
 };
+export const BOAT_ROWS = {
+  "hydro": { "beam": 0.25, "bowZ": 0.15, "chineZ": 0.016, "cockpitF0": -0.96, "cowlL": 0.22, "cowlRise": 0.02, "crown": 0.012, "deckZ": 0.095, "glassAft": 0.1, "hatchF": 0.62, "hatchL": 0.2, "headFwd": 1, "houseF0": -0.54, "houseF1": 0.22, "houseH": 0.132, "houseNose": 0.11, "houseRake": 0.15, "houseSegs": 4, "houseTumble": 0.13, "houseWrap": 0.085, "keel": 0.06, "len": 1, "motors": 0, "pillarW": 0.055, "roofCrown": 0.016, "roofOver": 0.046, "roofSweep": 0.085, "screenBend": 2.1, "screenRakeSide": 0.066, "screenSegs": 6, "sillAft": 0.26, "sillFwd": 0.2, "trim": 0.85, "trimBand": 0.075, "trimSegs": 18, "trimTaper": 1.6, "v8": 1, "v8F": -0.76, "v8H": 0.095, "v8L": 0.22, "v8Rise": 0.022, "zoom": 4 },
+};
