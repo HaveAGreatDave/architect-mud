@@ -397,7 +397,7 @@ export const flockSize = (f, opts = null) => {
 // of this same module, so a flag only the windscreen could see would be the picture and the
 // sentence disagreeing about how many starlings are over the park — the exact failure this whole
 // file exists to prevent.
-export const BIRD_TUNE = { season: 0 };
+export const BIRD_TUNE = { season: 0, flockRange: 1 };
 
 /**
  * Day of the year, 1–366, from a `YYYY-MM-DD` game date.
@@ -477,6 +477,40 @@ export function roostFactor(sp, hour) {
 // building repeated). The band is carried by the anchor's own position within its species' roll, so
 // it costs nothing and a rich roost is still a bigger summer party than a thin one.
 export const PARTY_FLOOR = 6, PARTY_SPREAD = 10;
+
+// ── HOW BIG A FLOCK IS, AND THEREFORE HOW FAR OFF YOU CAN SEE IT ────────────
+//
+// ⚠ ONE LAW, TWO READERS, AND THE SECOND ONE WAS MISSING. The renderer already grows a cloud
+// by the CUBE ROOT of its count so that birds-per-volume stays constant — a flock of 695 is
+// 3.3x the linear extent of the party of twenty the number was tuned at. `drawRange` was a flat
+// per-species constant, so that 3.3x-bigger object was cut off at exactly the same distance as
+// the party, and the one bird in the table whose size swings by two orders of magnitude was the
+// one being told it is always the size of a hedge full of sparrows.
+//
+// ⚠ IT MAY ONLY EVER EXTEND, WHICH IS WHAT MAKES IT PROVABLY ADDITIVE. The scale is clamped at
+// 1, so a flock SMALLER than the reference keeps the range its species authored rather than
+// quietly losing some of it. Every other bird in the table maxes out at twelve — under the
+// reference — so this fires for the starling ALONE, by arithmetic rather than by a species
+// check, and the other five are untouched at every hour of every day.
+//
+// ⚠ AND IT IS A LINEAR EXTENT AGAINST A DISTANCE, WHICH IS WHY IT IS THE CUBE ROOT AND NOT THE
+// COUNT. Apparent size is extent over distance, so holding the cloud at the same apparent size
+// means moving the range by the same factor the extent moved. Scaling by the count itself would
+// put a 1,700-bird roost at eighty-five times the range, which is most of the basin.
+export const FLOCK_REF = 20;
+export const flockSpreadScale = (n) => Math.cbrt(Math.max(n, 1) / FLOCK_REF);
+export function flockDrawRange(sp, f, opts = null) {
+  const base = sp.drawRange;
+  // A species that cannot reach the reference can never extend, so its size is never computed.
+  // ⚠ 0 IS THE FLAT CONSTANT, BIT FOR BIT. `flockRange` sits beside `season` and not in
+  // `RENDER_TUNE` for that flag's own stated reason: the server prints the same flock into a
+  // room description out of this module, so a switch only the windscreen could see would be
+  // the picture and the sentence disagreeing about how far off a murmuration can be seen.
+  if (!BIRD_TUNE.flockRange) return base;
+  // A species that cannot reach the reference can never extend, so its size is never computed.
+  if (!(sp.maxFlock > FLOCK_REF)) return base;
+  return base * Math.max(1, flockSpreadScale(flockSize(f, opts)));
+}
 
 /**
  * The rolled size, after the year and the evening have had their say.

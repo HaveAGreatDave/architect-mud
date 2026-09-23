@@ -87,6 +87,13 @@ const MAX_CLOUDS = 12;           // and a hard ceiling, because an eviction rule
 // were each converting privately. A starling in a murmuration is measured at 12 m/s and that is
 // 1.09 tiles/s here, so a tile is 11.0 m and every metric figure below derives from this.
 const TILE_PER_M = 1.09 / 12;
+// ⚠ HOW FAR APART TWO BIRDS FLY, DERIVED RATHER THAN CHOSEN, because something outside this
+// file needs it: a cloud whose birds are closer together on screen than a pixel cannot show
+// how many of it there are, so this is what decides the distance past which drawing more of
+// them buys nothing. 0.67 m is the nearest-neighbour distance the separation radius was tuned
+// to in the sweep below, and it is quoted there in metres like everything else here.
+export const MURMUR_NND_TILES = 0.67 * TILE_PER_M;
+
 const WAVE_SPEED = 1.21;         // 13.4 m/s, measured (Hemelrijk)
 const WAVE_WIDTH = 0.35;         // how wide the dark band is, in tiles
 const WAVE_LIFE = 2.6;           // s before a pulse has damped to nothing

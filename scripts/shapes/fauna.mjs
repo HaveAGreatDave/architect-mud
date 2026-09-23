@@ -19,7 +19,7 @@
 // touches a constant — the same way worldresidue's own header records it claiming for months to
 // measure pedestrians it never ran. So the camera is placed ON a real anchor, found by asking.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
-import { flocksNear, flockState, flockClearance, flockOnSegment, flockEdgeHeading, FLOCK_AREA, GOOSE_PERIOD, GOOSE_SETTLE_MS, U_GROUND, GOOSE_SPAN, SKEIN_ACROSS, skeinSlot, skeinForm, SPECIES, speciesAt, placeOf, habitatState, flockAt, flockPeriod, flockSize, groundSpot, groundPatchR, FORM_WORDS, birdDaylight, callsIn } from '../../client/shared/birds.js';
+import { flocksNear, flockState, flockClearance, flockOnSegment, flockEdgeHeading, FLOCK_AREA, GOOSE_PERIOD, GOOSE_SETTLE_MS, U_GROUND, GOOSE_SPAN, SKEIN_ACROSS, skeinSlot, skeinForm, SPECIES, speciesAt, placeOf, habitatState, flockAt, flockPeriod, flockSize, flockSpreadScale, flockDrawRange, FLOCK_REF, BIRD_TUNE, groundSpot, groundPatchR, FORM_WORDS, birdDaylight, callsIn } from '../../client/shared/birds.js';
 import { murmur, agitation, sweep as murmurSweep, murmurStats, murmurReset, K_NEIGHBOURS } from '../../client/game/js/panels/murmur.js';
 import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase, faunaParamIds, faunaPoseFaces, setFaunaParams, faunaWorldFaces, faunaSpanTiles, beatDihedral } from '../../client/game/js/panels/fauna3d.js';
 
@@ -1083,28 +1083,35 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
     const span = faunaSpanTiles('bird', id);
     const thr = (faunaParamBase('bird', id) || {}).dotPx || ws.RENDER_TUNE.faunaDot;
     const meshTo = FL * span / thr;                 // tiles it keeps its mesh within
-    const range = SPECIES[id].drawRange;
+    // ⚠ AT `maxFlock`, BECAUSE THAT IS WHEN IT IS A CROWD. The range a flock is drawn at is a
+    // function of how big the flock is (`flockDrawRange`), and the rule below is about the
+    // biggest one the species can make. Bounded in the renderer by the window rather than here:
+    // an anchor past `searchR` does not exist, so the promise can never exceed what is searched.
+    const range = SPECIES[id].drawRange * Math.max(1, flockSpreadScale(SPECIES[id].maxFlock));
     rows.push({ id, thr, meshTo, range, share: meshTo / range });
   }
   // ⚠ A SPECIES DRAWN IN THE HUNDREDS IS THE ONE THAT MUST GIVE ITS MESH UP, which is the whole
   // reason this is per species: the starling is six hundred birds at 1.03 px, so a big share would
   // mean sixty thousand triangles for a cloud of specks.
   //
-  // ⚠ AND THE BAR MOVED 0.25 -> 0.35 WHEN THE BUDGET AND THE GLYPH RUNG LANDED, BECAUSE AT 0.25 IT
-  // WAS ASKING FOR A BUG BACK. A songbird spans 0.027 tiles and a murmuration flies at 1.4 of them,
-  // so the mesh has to reach past 1.4 to be a mesh at all -- windshield.js says so where dotPx came
-  // down ("a starling only became a mesh inside 0.87 tiles ... get close and they stayed specks").
-  // Against a 6-tile drawRange that is a share of 0.233 AT BEST, and dotPx 3 puts it at 0.34. Every
-  // setting that satisfied 0.25 put the whole flock back below mesh range.
   //
-  // ⚠ WHAT ACTUALLY BOUNDS THE COST IS NOT THIS RATIO ANY MORE. When the rule was written a near
-  // bird was a mesh or a dot and nothing counted them, so the share WAS the budget. It is not:
-  // `faunaMeshMax` rations meshes per frame off the frame clock, `faunaGlyphPx` gives the rung
-  // below it a three-face bird instead of a speck, and that rung carries its own cap. So the share
-  // is a shape check now, and the ceiling it used to stand in for is asserted directly below it.
+  // ⚠ AND THE RANGE IS THE FLOCK'S OWN, WHICH IS WHAT LET THE BAR STAY AT 0.25. This read
+  // `SPECIES[id].drawRange` — a flat per-species constant — and failed the starling at 34%. The
+  // bar was right and the constant was wrong: a songbird spans 0.027 tiles and a murmuration
+  // flies at 1.4 of them, so its mesh HAS to reach past 1.4, and against a 6-tile range that is
+  // 0.233 at best. Every dotPx that satisfied 0.25 put the whole flock back below mesh range,
+  // which is the "get close and they stayed specks" bug. `flockDrawRange` fixed the cause — a
+  // cloud 4.4x the linear extent of the party the constant was authored for is now drawn 4.4x
+  // further off — and the share fell to 8% with the mesh distance untouched.
+  //
+  // ⚠ AND RAISING drawRange CANNOT BUY ITS WAY PAST THIS CHECK, WHICH IS WHY IT IS STILL WORTH
+  // MAKING. What the rule is about is how many birds are close enough to be MESHES, and that is
+  // `meshTo` — a fixed 2.05 tiles that a longer draw range does not move. A wider range adds far
+  // SPRITES and no faces at all, so the ratio improving here is the ratio reporting a real
+  // improvement rather than a denominator somebody inflated.
   const crowd = rows.filter((r) => SPECIES[r.id].maxFlock >= 100);
   for (const r of crowd) {
-    if (r.share > 0.35) problems.push(`${r.id} flocks to ${SPECIES[r.id].maxFlock} and still keeps its mesh over ${(r.share * 100) | 0}% of its draw range -- a cloud of them is all triangles`);
+    if (r.share > 0.25) problems.push(`${r.id} flocks to ${SPECIES[r.id].maxFlock} and still keeps its mesh over ${(r.share * 100) | 0}% of its draw range -- a cloud of them is all triangles`);
   }
   // ⚠ AND THE CEILING IS ASSERTED, or relaxing the bar above would be relaxing the only bound there
   // was. A crowd species' worst case is every bird of the biggest flock inside its own mesh range
@@ -1126,7 +1133,64 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
     if (r.share < 0.6) problems.push(`${r.id} only keeps its mesh over ${(r.share * 100) | 0}% of the ${r.range} tiles it is drawn at -- its silhouette is being thrown away`);
   }
   rows.sort((x, y) => x.thr - y.thr);
-  notes.push('dot LOD: ' + rows.map((r) => `${r.id.slice(0, 2)} ${r.thr}px mesh to ${r.meshTo.toFixed(1)}/${r.range}t`).join(', '));
+  notes.push('dot LOD: ' + rows.map((r) => `${r.id.slice(0, 2)} ${r.thr}px mesh to ${r.meshTo.toFixed(1)}/${r.range.toFixed(1)}t`).join(', '));
+}
+
+// ── 1h. A FLOCK IS DRAWN AS FAR OFF AS IT IS BIG ─────────────────────────────
+//
+// The starling is the one bird here whose size swings by two orders of magnitude, and its draw
+// range was a flat constant set for the party of twenty at the bottom of that swing -- so the
+// cloud at the top of it, 3.3x the linear extent, was cut off at exactly the same distance and
+// could only ever be seen from inside itself. `flockDrawRange` is the fix and these are the four
+// things about it that are silent when wrong.
+{
+  const song = SPECIES.songbird;
+  const f = { ax: 909, ay: 910, sp: 'songbird' };
+  const was = BIRD_TUNE.flockRange;
+
+  // ⚠ 0 IS THE FLAT CONSTANT, BIT FOR BIT, or there is no way back and no A/B.
+  BIRD_TUNE.flockRange = 0;
+  const off = faunaParamIds('bird').filter((id) => SPECIES[id])
+    .map((id) => flockDrawRange(SPECIES[id], { ax: 909, ay: 910, sp: id }));
+  const flat = faunaParamIds('bird').filter((id) => SPECIES[id]).map((id) => SPECIES[id].drawRange);
+  if (off.some((v, k) => !Object.is(v, flat[k]))) {
+    problems.push(`BIRD_TUNE.flockRange = 0 does not reproduce the flat drawRange: ${off.join()} vs ${flat.join()}`);
+  }
+
+  BIRD_TUNE.flockRange = 1;
+  // ⚠ IT MAY ONLY EVER EXTEND. A flock smaller than the reference must keep the range its
+  // species authored rather than quietly losing some of it -- that clamp is the whole reason
+  // this is provably additive, and without it every bird in the table loses reach.
+  for (const id of faunaParamIds('bird').filter((x) => SPECIES[x])) {
+    const g = { ax: 909, ay: 910, sp: id };
+    if (flockDrawRange(SPECIES[id], g) < SPECIES[id].drawRange - 1e-9) {
+      problems.push(`${id} loses draw range to flockDrawRange -- it may only ever extend`);
+    }
+  }
+
+  // ⚠ AND IT FIRES FOR THE STARLING ALONE, BY ARITHMETIC RATHER THAN BY A SPECIES CHECK. Every
+  // other bird maxes out under the reference, so this is the claim that the other five are
+  // untouched -- and it is the one that breaks the day somebody raises a maxFlock without
+  // meaning to put that species in the sky from twice as far away.
+  // ⚠ MUTATION-TESTED 3 OF 4, AND THE SURVIVOR IS DELIBERATE: deleting the `maxFlock > FLOCK_REF`
+  // short-circuit in `flockDrawRange` changes NO output at all -- the clamp at 1 already answers
+  // for every species under the reference -- so it is a cost guard rather than a behaviour, and a
+  // test that appeared to cover it would be testing the clamp twice.
+  const extended = faunaParamIds('bird').filter((x) => SPECIES[x])
+    .filter((id) => flockDrawRange(SPECIES[id], { ax: 909, ay: 910, sp: id }) > SPECIES[id].drawRange + 1e-9);
+  if (extended.length !== 1 || extended[0] !== 'songbird') {
+    problems.push(`the derived draw range should reach the starling and nothing else, and it reaches: ${extended.join() || 'nothing'}`);
+  }
+
+  // ⚠ AND IT IS THE CUBE ROOT OF THE COUNT, BECAUSE IT IS A LINEAR EXTENT AGAINST A DISTANCE.
+  // Scaling by the count itself would put a roost at eighty-five times the range, which is most
+  // of the basin; the cube root holds the cloud at the apparent size the constant was set for.
+  const eight = flockSpreadScale(FLOCK_REF * 8);
+  if (Math.abs(eight - 2) > 1e-9) problems.push(`eight times the birds should be twice the extent, and is ${eight.toFixed(3)}`);
+
+  BIRD_TUNE.flockRange = was;
+  notes.push(`draw range: songbird ${song.drawRange}t authored -> `
+    + `${flockDrawRange(song, f).toFixed(1)}t at ${flockSize(f)} birds, five other species unmoved`);
 }
 
 // ── 2. STATELESS ACROSS A RECENTRE ────────────────────────────────────────────
