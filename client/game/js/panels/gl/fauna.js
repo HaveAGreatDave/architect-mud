@@ -112,6 +112,7 @@ uniform float uFarHi;
 uniform vec4 uAgit;        // x, y, front, amplitude
 uniform float uWaveW;
 uniform vec2 uBank;        // bank per radian, bank max
+uniform ivec2 uTierClamp;  // the finest and coarsest level drawn for this cloud (see tierSpan)
 const int TW = 64;
 ivec2 at(int i) { return ivec2(i % TW, i / TW); }
 float sstep(float x) { x = clamp(x, 0.0, 1.0); return x * x * (3.0 - 2.0 * x); }
@@ -142,7 +143,7 @@ Bird bird(int id, int wantTier) {
   // birds at five tiles to mesh tiers the CPU drew as dots.
   float fe = f + uCull2.x;
   float px = fe > 0.07 ? uFL * uSpan / fe : 0.0;
-  int tier = fe > 0.07 ? tierOf(px) : 0;
+  int tier = clamp(fe > 0.07 ? tierOf(px) : 0, uTierClamp.x, uTierClamp.y);
   if (tier != wantTier) return b;
   float ag = 0.0;
   if (uAgit.w > 0.0) {
@@ -231,6 +232,43 @@ void main() {
   float a = vAlpha * pow(max(0.0, 1.0 - d), 1.8);   // sprites.js's soft profile
   outColor = vec4(uColor * a, a);
 }`;
+
+// The shader's tierOf, in JavaScript, for tierSpan below. Keep the two in step.
+function tierOfJS(px, T) {
+  if (px < T.glyphPx) return 4;
+  if (px < T.thr) return 3;
+  let t = 0;
+  if (T.farHi > 0 && px < T.farHi) t = 1;
+  if (px < T.coarseHi) t = 2;
+  if (px < T.glyphHi) t = 3;
+  return t;
+}
+
+// ⚠ WHICH DETAIL LEVELS A CLOUD CAN REACH AT ALL, so the passes nobody can earn are not drawn. Each
+// level is one instanced draw over EVERY bird in the cloud, and a bird not at that level is collapsed
+// in the vertex shader — so at 20,000 birds a full-mesh pass is six million vertex invocations for a
+// cloud that is a grey smudge three hundred metres off. The sphere murmur-gpu.js keeps round the flock
+// bounds how near and how far any bird can be, and so the largest and smallest it can be on screen.
+// Returns null when the whole sphere is behind the camera or past the far plane.
+// ⚠ A BIRD OUTSIDE THE SPHERE IS CLAMPED, NEVER LOST: the shader clamps every bird's level into the
+// range drawn here, so a straggler nearer than the bound is drawn one level coarser than it earned.
+export function tierSpan(r, bound) {
+  const all = { lo: 0, hi: 4, set: new Set([0, 1, 2, 3, 4]) };
+  if (!bound || !r.tiers) return all;
+  const wx = bound.x - r.origin[0] - r.camO[0], wy = bound.y - r.origin[1] - r.camO[1];
+  const fe = wx * r.sc[0] - wy * r.sc[1] + r.fwdOff;
+  const feMin = fe - bound.r, feMax = fe + bound.r;
+  if (feMax <= r.nearF || feMin - r.fwdOff > r.farF) return null;
+  const pxAt = (d) => (d > 0.07 ? r.FL * r.span / d : Infinity);
+  const pxHi = pxAt(feMin), pxLo = pxAt(feMax);
+  const T = r.tiers, set = new Set([tierOfJS(pxHi, T), tierOfJS(pxLo, T)]);
+  for (const bp of [T.glyphPx, T.thr, T.farHi, T.coarseHi, T.glyphHi]) {
+    if (!(bp > pxLo && bp <= pxHi)) continue;
+    set.add(tierOfJS(bp, T));
+    set.add(tierOfJS(bp * (1 - 1e-6), T));
+  }
+  return { lo: Math.min(...set), hi: Math.max(...set), set };
+}
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -407,6 +445,8 @@ export function createFaunaLayer(gl) {
     gl.uniform4f(u.uAgit, ag ? ag.x : 0, ag ? ag.y : 0, ag ? ag.front : 0, ag ? ag.amp : 0);
     gl.uniform1f(u.uWaveW, r.waveW);
     gl.uniform2f(u.uBank, r.bank[0], r.bank[1]);
+    const span = tierSpan(r, st.bound);
+    gl.uniform2i(u.uTierClamp, span ? span.lo : 0, span ? span.hi : 4);
     const tex = (unit, t, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(u[name], unit); };
     tex(CLOUD_UNIT, st.pos, 'uPosT');
     tex(CLOUD_UNIT + 1, st.vel, 'uVelT');
@@ -437,12 +477,15 @@ export function createFaunaLayer(gl) {
     gl.uniform1f(um.uFogFar, f ? f.far : 1e9 + 1);
     gl.uniform1f(um.uFogAmt, f ? f.amt : 0);
     for (const { rec: r, st } of list) {
+      const span = tierSpan(r, st.bound);
+      if (!span) continue;
       cloudCommon(um, r, st, vp);
       gl.uniform1f(um.uBeatBase, r.beatBase);
       gl.uniform1f(um.uPitch, r.pitch);
       gl.uniform1f(um.uScale, r.scale);
       gl.uniform2f(um.uMinPx, r.minPx[0], r.minPx[1]);
       for (const tier of [0, 1, 2, 3]) {
+        if (!span.set.has(tier)) continue;
         if (tier === 1 && !(r.tiers.farHi > 0)) continue;
         const slot = faunaPoseSlot('bird', r.sp, 'air', 0, r.flare, r.gear, tier);
         const g = groupFor('bird', r.sp, 'air', r.flare, r.gear, tier, slot.group);
@@ -466,6 +509,8 @@ export function createFaunaLayer(gl) {
     gl.uniform1f(ud.uPull, LIGHT_PULL);
     gl.bindVertexArray(P.dotVao);
     for (const { rec: r, st } of list) {
+      const span = tierSpan(r, st.bound);
+      if (!span || !span.set.has(4)) continue;
       cloudCommon(ud, r, st, vp);
       gl.uniform1f(ud.uDpr, r.dpr);
       gl.uniform1f(ud.uFlash, r.flash);

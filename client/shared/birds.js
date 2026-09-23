@@ -380,7 +380,16 @@ function circuitAt(f, t, clear) {
 export const MIN_FLOCK = 3, MAX_FLOCK = 6;
 export const flockSize = (f, opts = null) => {
   const sp = spOf(f);
-  const roll = sp.minFlock + Math.floor(frac(f.ax * 4.11 + f.ay * 9.73) * (sp.maxFlock - sp.minFlock + 1));
+  const u = frac(f.ax * 4.11 + f.ay * 9.73);
+  // ⚠ A SPECIES WITH A GRAND ROOST ROLLS TWO BANDS, NOT ONE WIDE ONE. A roll across 450 to 20,000
+  // would make the ordinary starling flock ten thousand birds strong and the great roost ordinary; a
+  // share of anchors (`grand.share`, off its own hash) draws from the top band and the rest keep the
+  // band they always had. The top band is skewed low (u squared), so twenty thousand is the rare
+  // end of a rare thing. `maxFlock` stays the declared ceiling for both, as the note above requires.
+  const g = sp.grand;
+  const roll = !g ? sp.minFlock + Math.floor(u * (sp.maxFlock - sp.minFlock + 1))
+    : frac(f.ax * 6.37 + f.ay * 2.91) < g.share ? g.from + Math.floor(u * u * (sp.maxFlock - g.from + 1))
+    : sp.minFlock + Math.floor(u * (g.below - sp.minFlock + 1));
   return seasonalSize(sp, roll, opts);
 };
 
@@ -1141,7 +1150,12 @@ export const SPECIES = {
     // against its own 840 cap — and because a flock is charged WHOLE (half a skein reads as a
     // rendering fault, not as a budget), it would not have been rejected gracefully, it would
     // simply never have drawn. Twenty is what the share buys.
-    minFlock: 450, maxFlock: 1700,
+    minFlock: 450, maxFlock: 20000,
+    // ⚠ AND A FEW ROOSTS ARE ENORMOUS. One anchor in `share` draws from `from` to maxFlock instead of
+    // from minFlock to `below`; see flockSize. That is what the GPU flock (gl/murmur-gpu.js) was built
+    // to afford, at 1.6 ms a step for 20,000 birds, and it is a rarity on purpose: a murmuration of
+    // twenty thousand over every park would be the ordinary thing rather than the spectacle.
+    grand: { share: 0.04, from: 4000, below: 1700 },
     // ⚠ AND THE CEILING IS SET BY THE BOIDS STEP AND THE WORLD TRANSFORM. murmur() finds each bird's
     // nearest neighbours by scanning all the others, so it is invisible to
     // every face count in the game. It USED to cost 0.54 ms at sixty and 16.3 ms at three hundred,

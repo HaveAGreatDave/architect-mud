@@ -200,81 +200,112 @@ half stays derived.
 
 A murmuration is simulated in [gl/murmur-gpu.js](../client/game/js/panels/gl/murmur-gpu.js) and drawn
 straight out of its textures by [gl/fauna.js](../client/game/js/panels/gl/fauna.js). Nothing about a
-bird reaches the CPU. Each frame, for each cloud, one fragment pass reads every bird's position (with
-its roll) and velocity (with its visibility) from two float textures, finds its seven nearest
-flockmates, applies the rule, and writes the next state into the other pair. The drawing side is one
-instanced draw per detail level over every bird, and each vertex shader works out for its own bird
-what the per-bird loop in windshield.js used to: the cull and fade, its size in pixels, the detail
-level that size earns, the wingbeat row, and the bank.
+bird reaches the CPU. Each frame, for each cloud, the birds are filed into a spatial grid, then one
+fragment pass reads every bird's position (with its roll) and velocity (with its visibility) from two
+float textures, finds its seven nearest flockmates, applies the rule, and writes the next state into
+the other pair. The drawing side is one instanced draw per detail level, and each vertex shader works
+out for its own bird what the per-bird loop in windshield.js used to: the cull and fade, its size in
+pixels, the detail level that size earns, the wingbeat row, and the bank.
 
-**It is murmur.js's rule, ported.** Everything that belongs to the flock rather than to a bird stays in
-JavaScript and has one copy, shared by both simulators: the clock, the trail, the stations and the
-stoop (`flockFrame`), the starting cloud (`seedPoints`) and the weights (`MURMUR_RULES`, interpolated
-into the shader). The refactor that split those out is bit-identical: 900 birds over 400 steps, with
-the trail, thinning, a stoop and freezing all live, and not one value differs.
+**There is no CPU flock at all.** murmur.js's per-bird step was deleted once the GPU flock had matched
+it; what is left in [murmur.js](../client/game/js/panels/murmur.js) is the flock-level half the GPU
+reads: the rule's numbers (`MURMUR_RULES`, with the notes that justify each), the flock's memory
+(`flockFrame`: its clock, the trail its centre has flown, the stoop), the starting cloud
+(`seedPoints`) and the two travelling waves. The reasoning behind each term of the deleted step
+is in git at d4dc4f7fa. `murmurRoute()` in windshield.js answers **gpu** when the real GL pass is
+drawing and **none** otherwise, so on GLASS 1 and in every headless harness no murmuration is drawn
+and none is heard. The server's room text still describes one to a player who cannot see it; that
+mismatch was accepted with the decision.
 
-**One deliberate difference: neighbours are found fresh every frame.** The CPU re-scans each bird every
-other frame to save time, and its own measurements say that staleness packs the flock tighter. On the
-GPU the search is brute force and exact (ties to the lower index, as the CPU's grid guarantees), so
-there was nothing to save.
+**The neighbour search goes through a hashed grid.** Brute force (every bird against every other) is
+exact, and grows with the square of the flock: 5.1 ms a step at 12,000 birds. So each step the birds
+are filed into cells about half a bird-spacing wide, and each bird walks outward in shells of cells
+until it can prove nothing unread is nearer than its seventh — once every cell within Chebyshev
+distance r has been read, anything further is at least r cells away. About 97% of birds are settled
+within four shells, and for those the answer is brute force's answer, ties to the lower index. The
+rest (stragglers on the edge, and the birds in the hole a stoop opens) also try last frame's seven
+neighbours and each of theirs, 56 candidates, because who your seven are changes far more slowly than
+where they are. Two details decide whether it works at all. The cells are hashed into a fixed table, so
+there are no bounds to fit and a straggler anywhere is filed like any other bird. And WebGL2 has no
+atomics, so a slot's birds are peeled one layer per pass: each bird is a one-pixel point at its slot
+with its index as the depth, and each pass discards everything the last one kept.
 
-**There is no CPU fallback in the game.** `murmurRoute()` in windshield.js decides, per frame:
+⚠ **Brute force for the unsettled birds was built, measured and taken out.** It is exact, and a GPU
+runs birds in groups that move in lockstep, so one long search holds its whole group: with ~2% of
+birds unsettled, about 40% of groups held one, and the step cost 9.4 ms at 20,000 birds against 1.1
+without it. Drawing the unsettled birds as points so they would pack together cost the same, because
+each point ran as a group of its own. Walking sixteen shells instead cost 18 ms, for the same reason.
 
-| route | when | what happens |
+⚠ **The cell is sized from the cloud's own spacing, never in tiles.** The spread grows with the cube
+root of the count, so `spread / cbrt(n)` is the spacing the flock was sized for. A fixed 0.12 tiles
+held twelve birds and more to a cell at 20,000, and every full slot is an unsettled bird.
+
+**What it costs.** GPU time for one step, measured with a GPU timer query over 20 back-to-back steps
+on an RTX 2070 SUPER (ANGLE, D3D11), each flock settled for 240 frames first (`__glMurmurCost`):
+
+| birds | grid | brute force |
 |---|---|---|
-| `gpu` | the real GL pass is installed and drawing | one cloud record per flock; the GPU simulates and draws |
-| `none` | the game with no GL pass (GLASS 1) | no murmuration is drawn and none is heard |
-| `cpu` | a headless harness's stub hook, or `RENDER_TUNE.glMurmur = 0` | murmur.js as it shipped |
+| 4,000 | 0.72 ms | 1.9 ms |
+| 12,000 | 0.94 ms | 5.1 ms |
+| 20,000 | 1.58 ms | — |
 
-The `cpu` route exists for the headless gates (they cannot reach a GL draw call) and for A/B. When the
-GPU flock replaces them as the reference, the CPU step goes. A GPU cloud is not charged to the face
-budget, which was capping a murmuration at about 1,800 birds for a CPU cost it no longer has. The
-server's room text still describes a murmuration to a player on GLASS 1 who cannot see one; that
-mismatch was accepted when the fallback was removed.
+The CPU step was 22.7 ms at 4,000. A whole cab frame with a 19,953-bird roost in it and another cloud
+beside it (22,610 GPU birds) took 12.4 ms of wall clock at the median (`__glMurmurShot`).
+⚠ **Every number here is one discrete NVIDIA card**, and nobody has measured an integrated GPU.
+⚠ **Timer readings wander between runs by up to 2x** (the same brute-force step read 4.4 and 10.0
+ms in two sessions), so compare within one run and never against a number in this file.
 
-**What it costs.** GPU time for one step, measured with a GPU timer query over 20 back-to-back steps on
-an RTX 2070 SUPER (ANGLE, D3D11):
+**How close to exact it is.** `__glMurmurExact` flies one flock through a stoop and a thinning and,
+at checkpoints, runs both searches on the same state and compares every bird's seven. At 6,000 and
+12,000 birds, every settled bird matched brute force exactly, and 99.6-99.9% of all neighbour links
+matched overall. The misses are the unsettled birds' furthest neighbours; once, at 12,000, eight birds
+missed a neighbour inside the separation radius.
 
-| birds | GPU per step | CPU per step (murmur.js) |
-|---|---|---|
-| 4,000 | 1.9 ms | 22.7 ms |
-| 8,000 | 3.1 ms | — |
-| 12,000 | 5.1 ms | — |
+**It flies like the CPU flock did.** `__glMurmurParity` flies fauna.mjs's shape protocol and
+measures with [client/shared/flock-shape.js](../client/shared/flock-shape.js): 1 : 2.8 : 5.2 at 0.88 m
+apart, against real starlings at 1 : 2.8 : 5.6 and 0.7-1.5 m, and against the deleted CPU flock's
+1 : 2.8 : 5.7 at 0.81 m. With separation removed it collapses to 1 : 14.3 : 40.8 and fails, so the bench
+can see a broken rule.
 
-Below about 2,000 birds the timer reads the GPU's idle clocks rather than the work, so those rows are
-not quoted. In a frame, with a 1,651-bird flock, the CPU cost of the whole fauna phase went from
-4.9–5.0 ms to 1.5–1.9 ms, and what is left is the other species. ⚠ **Every number here is one
-discrete NVIDIA card.** The search is n², and on an integrated GPU nobody has measured it.
+**Everything the CPU gates asserted is now a bench.** fauna.mjs and murmurthin.mjs drove the CPU step
+on every push, and no headless harness can reach a GL draw call, so `__glMurmurChecks` in the
+Modelshop asks the same claims with the same numbers of the GPU flock, by hand: it holds its derived
+centre, stays a flock, keeps its birds out of each other (0.049 tiles apart, 0.028 with separation
+off), releases its state, bands its flash (neighbours agree 2.25x better than chance), carries the
+hawk's wave as a ring, opens a hole round a stoop (55% fewer birds), carries a frozen cloud with its
+centre, and thins without reseeding, blinking or popping. murmurthin.mjs was deleted; fauna.mjs keeps
+the checks that are still pure arithmetic (the agitation wave, the neighbour count). That is the cost
+the no-fallback decision accepted.
 
-**It flies like the CPU flock.** `__glMurmurParity` in the Modelshop flies fauna.mjs's own protocol
-through both simulators and measures both with [client/shared/flock-shape.js](../client/shared/flock-shape.js),
-the ruler fauna.mjs uses:
+**The GPU has its own budget, in birds.** `RENDER_TUNE.murmurBirds` (40,000) caps the birds stepped
+in one frame over every cloud in view; clouds are admitted nearest first, and one that does not fit is
+not drawn rather than drawn short. A GPU cloud is not charged to the face budget, which was capping a
+murmuration at about 1,800 birds for a CPU cost it no longer has. ⚠ **The draw skips detail levels no
+bird can reach**: each level is one instanced draw over every bird in the cloud, so at 20,000 birds a
+full-mesh pass is millions of vertices for a cloud that is a smudge. The sphere murmur-gpu.js keeps
+round the stations bounds how near any bird can be, and a bird outside it is clamped to the nearest
+level that is drawn, never lost.
 
-| seed | CPU | GPU |
-|---|---|---|
-| 1 | 1 : 2.8 : 5.7, 0.81 m | 1 : 2.7 : 5.1, 0.88 m |
-| 2 | 1 : 3.0 : 6.0, 0.83 m | 1 : 2.9 : 5.1, 0.90 m |
-| 3 | 1 : 2.8 : 5.8, 0.80 m | 1 : 2.7 : 5.0, 0.91 m |
+**Gates.** `npm run gl:murmur` ([scripts/shapes/murmurgpu.mjs](../scripts/shapes/murmurgpu.mjs), in both
+chains) checks the route: one complete record per flock on the GPU route with every number finite and
+no bird left behind, the bird budget charged and honoured, and nothing drawn on GLASS 1 or under a
+harness hook. A field missing from the record is a NaN uniform that draws nothing, which is why that
+check exists. `gl:glsl` checks the shaders' names. Whether they compile, and what they draw, only a
+browser can say.
 
-Real starlings sit at 1 : 2.8 : 5.6 and 0.7–1.5 m apart, and both flocks pass fauna.mjs's bands. The
-GPU flock is a little less elongated and a little more spread, which is the direction fresh neighbours
-predict. With separation removed from the GPU rule it collapses to 1 : 14.3 : 40.8 and fails, so the
-bench can see a broken rule.
+⚠ **A bench that reuses a canvas id reuses the GPU flock.** It lives in the GL context, so a new run
+starting its clock earlier than the last one hands the cloud a negative elapsed time, and it never
+steps. `withBench` in glbench.js takes a fresh canvas id per call.
 
-**The same frame from both.** `__glFaunaGlitter` at five tiles: 492 bird pixels on the GPU against 482
-on the CPU, no glitter on either, and the darkest tenth within a level of each other.
+### Grand roosts: a few flocks are enormous
 
-**Gates and benches.** `npm run gl:murmur` ([scripts/shapes/murmurgpu.mjs](../scripts/shapes/murmurgpu.mjs),
-in both chains) checks the route: one complete record per flock on the GPU route with every number
-finite and no bird left behind, the harness route untouched, and nothing simulated on GLASS 1. A field
-missing from the record is a NaN uniform that draws nothing, which is why that check exists. Mutation-
-tested 4 of 4. `gl:glsl` checks the shaders' names. Whether they compile, and what they draw, only a
-browser can say: `__glMurmurParity`, `__glFaunaGlitter` and `__glFlight` in the Modelshop.
-
-⚠ **A bench that reuses a canvas id reuses the GPU flock.** It lives in the GL context, not in
-murmur.js, so `murmurReset()` cannot clear it, and a new run starting its clock earlier than the last
-one hands the cloud a negative elapsed time. It never steps and shows whatever the last run left.
-`withBench` in glbench.js now takes a fresh canvas id per call.
+The starling's `maxFlock` is 20,000, and flockSize rolls two bands rather than one wide one: one
+anchor in `grand.share` (4%) draws from 4,000 to 20,000, skewed low (u squared), and the rest keep
+450 to 1,700. A single band across 450-20,000 would have made the ordinary flock ten thousand strong
+and the great roost ordinary. Over a synthetic all-habitat city at 8% that gave a median grand roost of
+7,800 birds and 27 over 15,000 among 2,177 anchors; it ships at half that share. The room text words a
+crowd rather than printing it: "Thousands of them are up over the trees", because nobody under a
+murmuration could say it holds 18,431 birds. A starling party under 200 keeps its number.
 
 ### Far birds conserve their ink, and the glyph rung starts at 2.5 px
 
@@ -511,36 +542,25 @@ banks, and a bird crossing your view darkens as it rolls.
 
 ## How many
 
-A starling flock is **450-1700**, thinned to 15 on the canvas fallback. Three numbers have to agree
-or the biggest one does nothing:
+A starling flock is **450-1,700**, and one roost in twenty-five is a **grand roost of 4,000-20,000**
+(see "Grand roosts" above). On the ground or on a ledge a flock is drawn per bird and thinned to fit
+the face budget, never below 15; in the air it is the GPU flock, which builds no faces and has its own
+budget in birds. Three numbers have to agree or the biggest one does nothing:
 
 | | |
 |---|---|
-| `maxFlock` 1700 | what the row asks for |
-| face budget 1800 | `birdFacesGL` 165000 x `budgetShare` 0.6 / 55 faces a bird |
-| simulation ceiling 1800 | what the boids step was measured to afford |
+| `maxFlock` 20,000 | what the row asks for |
+| GPU bird budget 40,000 | `RENDER_TUNE.murmurBirds`, over every cloud in a frame |
+| simulation ceiling 20,000 | what one GPU flock step was measured to afford (`MURMUR_BIRDS_MAX` in fauna.mjs) |
 
-⚠ RAISING `maxFlock` ON ITS OWN DOES NOTHING, which is the trap: the cap was 1221 against a
-`maxFlock` of 1200, two per cent apart, so the thinner clamped anything bigger straight back and
-the flock looked identical. The budget has to move with it.
+⚠ RAISING `maxFlock` ON ITS OWN DOES NOTHING, which is the trap: when the CPU simulated the flock the
+face budget capped it at 1,221 against a `maxFlock` of 1,200, two per cent apart, so the thinner
+clamped anything bigger straight back and the flock looked identical. The budget has to move with it,
+and on the GPU route the budget is `murmurBirds`.
 
-⚠ AND THE COST IS THE SIMULATION, NOT THE DRAWING. Past `dotPx` a starling is one sprite and very
-nearly free; what scales is the neighbour search. Measured, one flock, median ms for a single step:
-600 birds 1.5 ms, 1200 4.1, 1800 7.1, 2400 9.9, 3200 16.3. A frame is 16.7 ms at 60 and a cab frame
-is already 2.8-3.6 ms of it.
-
-⚠ THE GATE CEILING IS A MEASURED COST AND NOT A PAIR COUNT ANY MORE. It was `maxFlock` squared
-against a pair budget, which was right when every bird compared itself with every other; the spatial
-grid made the curve about n^1.35 and the old model over-states the top end badly -- n squared
-predicts 88 ms for 4000 birds against a real 22.7. A ceiling that wrong is arbitrary rather than
-conservative.
-
-The unspent lever is **integration rate**: the boids do not need to step at frame rate, and stepping
-at ~30 Hz is 40% cheaper (3.25 -> 1.97 ms at 1200). ⚠ IT MUST BE A TIME ACCUMULATOR WITH
-SUB-STEPPING, NEVER a step every Nth frame, because `DT_MAX` is 0.05 s: stepping every third frame
-at 60 fps lands exactly on that clamp, the sim falls behind its own centre, and centroid drift goes
-0.19 -> **2.10 tiles** while the birds bunch up (nearest-neighbour spacing 0.159 -> 0.078). Even at
-every other frame the shape changes (elongation 4.2x -> 6.5x), so it is cheaper rather than free.
+⚠ AND THE COST IS THE SIMULATION, NOT THE DRAWING. Past `dotPx` a starling is one instanced dot and
+very nearly free; what scales is the neighbour search. The CPU step measured 1.5 ms at 600 birds and
+16.3 at 3,200, which is why the ceiling there was 1,800; the GPU step is 1.58 ms at 20,000.
 
 ## The numbers came from the birds
 
@@ -602,8 +622,8 @@ back in play. That is a rewrite of the force balance, not a term, and it has not
 
 ## What it costs to simulate
 
-This section describes the CPU step in murmur.js, which the game no longer runs (see "On the GPU, and
-only on the GPU" above). The measurements stand as the record of why the CPU could not go further.
+This section describes the CPU step murmur.js used to run, which is deleted (see "On the GPU, and only
+on the GPU" above). The measurements stand as the record of why the CPU could not go further.
 
 Measured in a real browser frame, one truck seat, adaptive dials left free, 1,013 birds:
 

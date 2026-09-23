@@ -1057,21 +1057,30 @@ const PIGEON_AIR_LINES = [
 // ⚠ THE ONLY BIRD HERE WHOSE LINES ARE MOSTLY ABOUT SOUND, because that is what the species is.
 // You hear them across a park at first light and never once see one, so the prose says what you
 // can hear rather than what is standing where.
+// ⚠ A MURMURATION IS NOT COUNTED. Past a couple of hundred nobody under one could say how many birds
+// are in it, and a roost can be twenty thousand strong, so a raw number reads as the game showing its
+// working. A party of forty is countable and keeps its number.
+const CROWD = [[10000, "tens of thousands"], [1000, "thousands"], [200, "hundreds"]];
+const crowd = (n) => { for (const [k, w] of CROWD) if (n >= k) return w; return null; };
+const cap = (w) => w[0].toUpperCase() + w.slice(1);
+// "Thousands" or "40", for "… of them"; and "Thousands of" or "40", before a noun.
+const crowdN = (n, lower) => { const w = crowd(n); return w ? (lower ? w : cap(w)) : String(n); };
+const crowdOf = (n, lower) => { const w = crowd(n); return w ? `${lower ? w : cap(w)} of` : String(n); };
 const SONG_GROUND_LINES = [
-	(n) => `${n === 1 ? "A small bird works" : `A loose ${n} of them work`} the grass in short runs, stopping dead between each one.`,
-	(n) => `${n === 1 ? "A starling picks" : `${n} starlings pick`} over the turf, oil-slick green where the light catches them.`,
-	(n) => `${n === 1 ? "A small speckled bird" : `${n} small speckled birds`} go over the ground in that stabbing walk, finding things.`,
+	(n) => `${n === 1 ? "A small bird works" : crowd(n) ? `${crowdN(n)} of them work` : `A loose ${n} of them work`} the grass in short runs, stopping dead between each one.`,
+	(n) => `${n === 1 ? "A starling picks" : `${crowdOf(n)} starlings pick`} over the turf, oil-slick green where the light catches them.`,
+	(n) => `${n === 1 ? "A small speckled bird" : `${crowdOf(n)} small speckled birds`} go over the ground in that stabbing walk, finding things.`,
 ];
 const SONG_AIR_LINES = [
-	(n) => `${n} of them are up over the trees, turning together and coming apart again.`,
+	(n) => `${crowdN(n)} of them are up over the trees, turning together and coming apart again.`,
 	() => `A cloud of small birds goes over, folds in on itself, and is somewhere else.`,
 ];
 // The dawn half. Keyed on the hour rather than on the flock's state, because at first light the
 // point is that you cannot see them at all.
 const SONG_PERCH_LINES = [
-	(n) => `${n} small birds are strung along a gutter overhead, all facing the same way.`,
-	(n) => `A parapet above you has ${n} starlings on it, close together, going off like a shortwave set.`,
-	(n) => `${n} of them are up on the ledges, dropping off one at a time and coming straight back.`,
+	(n) => `${crowdOf(n)} small birds are strung along a gutter overhead, all facing the same way.`,
+	(n) => `A parapet above you has ${crowdOf(n, true)} starlings on it, close together, going off like a shortwave set.`,
+	(n) => `${crowdN(n)} of them are up on the ledges, dropping off one at a time and coming straight back.`,
 ];
 const SONG_DAWN_LINES = [
 	() => `It is barely light, and the hedges are already deafening.`,

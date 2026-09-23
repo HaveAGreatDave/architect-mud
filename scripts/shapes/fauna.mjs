@@ -19,9 +19,8 @@
 // touches a constant — the same way worldresidue's own header records it claiming for months to
 // measure pedestrians it never ran. So the camera is placed ON a real anchor, found by asking.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
-import { principalAxes, FLOCK_BANDS } from '../../client/shared/flock-shape.js';
 import { flocksNear, flockState, flockClearance, flockOnSegment, flockEdgeHeading, FLOCK_AREA, GOOSE_PERIOD, GOOSE_SETTLE_MS, U_GROUND, GOOSE_SPAN, SKEIN_ACROSS, skeinSlot, skeinForm, SPECIES, speciesAt, placeOf, habitatState, flockAt, flockPeriod, flockSize, flockSpreadScale, flockDrawRange, FLOCK_REF, BIRD_TUNE, groundSpot, groundPatchR, FORM_WORDS, birdDaylight, callsIn } from '../../client/shared/birds.js';
-import { murmur, agitation, sweep as murmurSweep, murmurStats, murmurReset, K_NEIGHBOURS } from '../../client/game/js/panels/murmur.js';
+import { agitation, K_NEIGHBOURS } from '../../client/game/js/panels/murmur.js';
 import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase, faunaParamIds, faunaPoseFaces, setFaunaParams, faunaWorldFaces, faunaSpanTiles, beatDihedral } from '../../client/game/js/panels/fauna3d.js';
 
 const ws = await loadWindshield();
@@ -410,86 +409,22 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
     notes.push(`${sp.id}: ${perBird} faces a bird, ${sp.maxFlock} a flock — ${uncapped} uncapped over ten flocks`);
     // A SINGLE flock must always fit, or the budget can never admit this species at all and it
     // silently never draws.
-    const one = sp.maxFlock * perBird;
+    // ⚠ FOR A THINNABLE SPECIES THAT IS ITS THINNED FLOOR, NOT ITS BIGGEST FLOCK. A starling flock on
+    // the ground or on a ledge is drawn short to fit (see 'thin' in birds.js), and one in the air is the
+    // GPU flock, which builds no faces at all — so maxFlock × faces is a cost no frame ever pays, and at
+    // the 20,000 a grand roost reaches it would be a million faces that nothing draws.
+    const one = (sp.thin || sp.maxFlock) * perBird;
     if (one > FACE_MAX) problems.push(`one ${sp.id} flock is ${one} faces, over the whole ${FACE_MAX} budget — it could never be drawn`);
   }
 
   // ── THE MURMURATION ─────────────────────────────────────────────────────────
   //
-  // ⚠ NOTHING ELSE IN THIS FILE CAN SEE ANY OF THIS. Every other check reads the SINK — what the
-  // renderer pushed — and a cloud that has quietly stopped cohering still pushes exactly as many
-  // faces as one that has not. The failures here are all silent in a face census: a flock that
-  // drifts off the centre the room description states, birds flying through each other, a wave
-  // that does not travel, and state that is never released.
+  // ⚠ THE FLOCK ITSELF IS SIMULATED ON THE GPU AND NOTHING HERE CAN RUN IT (2026-09-23). The claims
+  // that drove murmur.js's CPU step — the cloud holds its derived centre, stays a flock, keeps its birds
+  // out of each other and lets go of its state — are asked of the GPU flock by __glMurmurChecks in the
+  // Modelshop, with the same numbers, by hand. What stays here is what is still pure arithmetic: the
+  // agitation wave and the neighbour count.
   {
-    murmurReset();
-    const N = 20, SP = 0.5;
-    let t = 1e6;
-    // ⚠ THE CENTRE SPEED IS AN INPUT TO THIS TEST AND IT HAD GONE STALE AGAINST THE SPECIES.
-    // It was 1.2 tiles/s against the 1.09 cruise in murmur.js -- a ratio of 1.10, which is off the
-    // end of the measured table in the songbird row of birds.js: at ratio 1.0 only 0.10 of a bird
-    // motion is still relative to the flock, because once the home pull dominates, every bird
-    // heads for its own FIXED station and the cloud becomes a rigid formation being TOWED --
-    // lagging the centre it can no longer keep up with. Measured here, drift runs 1.48 tiles at
-    // 1.2 and 0.06-0.29 at every ratio the species actually flies. The songbird circuit was
-    // retuned to r: 1.0 over 58 s -- about 0.11 tiles/s, ratio 0.10 -- precisely to stay clear of
-    // that collapse, and this test was never moved with it.
-    //
-    // ⚠ THE BOUND IS UNTOUCHED. What was wrong is the configuration being asserted about, not
-    // how strictly it is asserted: 0.6 is still five times the circuit own mean speed, so the
-    // drift claim is made with margin rather than relaxed to fit.
-    const CENTRE_V = 0.6;
-    const step = (ms) => { t += ms; return murmur('g', N, 100 + (t - 1e6) / 1000 * CENTRE_V, 100, 1.3, 0, t, { spread: SP }); };
-    for (let f = 0; f < 240; f++) step(33);
-    const pts = step(33);
-    const dcx = 100 + (t - 1e6) / 1000 * CENTRE_V;
-    const cx = pts.reduce((a, p) => a + p.x, 0) / N;
-    const cy = pts.reduce((a, p) => a + p.y, 0) / N;
-    const cz = pts.reduce((a, p) => a + p.z, 0) / N;
-
-    // ⚠ THE CLOUD MUST STAY ON THE CENTRE THE SHARED MODEL DERIVED. This is the entire bridge
-    // between a simulated arrangement and a derived flock: the room description says birds are
-    // over THIS tile, and a cloud free to wander makes that a lie. It drifted three quarters of a
-    // tile the first time, from a constant forward push added on top of a centre that was already
-    // travelling.
-    const off = Math.hypot(cx - dcx, cy - 100);
-    if (!(off < 0.35)) problems.push(`the murmuration sits ${off.toFixed(2)} tiles off the centre the shared model derived — the room description and the picture disagree about where the birds are`);
-
-    // …and it must stay a flock rather than a cloud of dots.
-    const rs = pts.map((p) => Math.hypot(p.x - cx, p.y - cy, p.z - cz));
-    const radius = rs.reduce((a, b) => a + b, 0) / N;
-    if (!(radius < SP * 2)) problems.push(`the cloud has spread to ${radius.toFixed(2)} tiles on a ${SP} spread — cohesion is not holding`);
-
-    // ⚠ AND THE BIRDS MUST NOT FLY THROUGH EACH OTHER. Separation is the one rule Ballerini keeps
-    // metric, and it is the first thing to go if the pull toward the centre is turned up to make
-    // the cloud tidier.
-    let closest = 1e9;
-    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
-      const d = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y, pts[i].z - pts[j].z);
-      if (d < closest) closest = d;
-    }
-    // ⚠ AN ABSOLUTE FLOOR CANNOT SEE THIS RULE GOING MISSING. With separation switched off entirely
-    // the cohesion and home terms still hold the birds far enough apart to clear any threshold worth
-    // setting — the flock simply becomes a tighter, blunter thing. What says separation is working
-    // is that turning it off makes the closest pair CLOSER, which is a comparison rather than a
-    // number. Same lesson the covertStep no-op taught: a part that measures plausible is not a part
-    // that is doing anything.
-    if (!(closest > 0.03)) problems.push(`two birds in the murmuration are ${closest.toFixed(3)} tiles apart — they are inside each other`);
-    {
-      murmurReset();
-      let t2 = 1e6;
-      for (let f = 0; f < 241; f++) { t2 += 33; murmur('nosep', N, 100 + (t2 - 1e6) / 1000 * 1.2, 100, 1.3, 0, t2, { spread: SP, sep: 0 }); }
-      const q = murmur('nosep', N, 100 + (t2 - 1e6) / 1000 * 1.2, 100, 1.3, 0, t2, { spread: SP, sep: 0 });
-      let cl2 = 1e9;
-      for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
-        const d = Math.hypot(q[i].x - q[j].x, q[i].y - q[j].y, q[i].z - q[j].z);
-        if (d < cl2) cl2 = d;
-      }
-      if (!(closest > cl2 * 1.15)) problems.push(`switching separation off barely moved the closest pair (${closest.toFixed(3)} with, ${cl2.toFixed(3)} without) — the exclusion zone is not doing anything`);
-      murmurReset();
-    }
-    notes.push(`murmuration: radius ${radius.toFixed(2)} on a ${SP} spread, ${off.toFixed(2)} off centre, closest pair ${closest.toFixed(3)}`);
-
     // ⚠ THE WAVE TRAVELS AT THE SPEED IT WAS MEASURED AT. 13.4 m/s is from Hemelrijk's field work
     // and 1 tile is about 11 m, so the crest sits at 1.21 x age. A wave that does not travel is
     // still a dark band and still looks like something; it is simply not the thing that was built.
@@ -518,14 +453,6 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
     // …and no predator means no wave at all, which is the ordinary state of the world.
     if (agitation(100.5, 100, null, 1e6 + 100) !== 0) problems.push('birds are banking with no predator — agitation must answer 0 when nothing has happened');
 
-    // ⚠ AND THE STATE IS RELEASED. This is the only part of the fauna system that keeps any, so it
-    // is the only part that can leak — and a leak here is invisible until a long session starts
-    // dropping frames for no reason anybody can point at.
-    murmur('evict-me', 8, 0, 0, 1, 0, t, {});
-    const before = murmurStats().clouds;
-    murmurSweep(t + 60000);
-    const after = murmurStats().clouds;
-    if (!(after < before)) problems.push(`the murmuration sweep released nothing (${before} clouds before, ${after} after) — a session walking across a city would accumulate every cloud it has ever seen`);
     // ⚠ A VALUE CHECK, AND IT IS HONESTLY WEAKER THAN EVERYTHING ELSE HERE. The topological rule is
     // the centrepiece of this whole module — each bird attends to its six or seven nearest
     // neighbours whatever the density — and at the twenty-odd birds a flock actually runs, seven
@@ -537,7 +464,6 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
     if (!(K_NEIGHBOURS >= 5 && K_NEIGHBOURS <= 9)) {
       problems.push(`the cloud attends to ${K_NEIGHBOURS} neighbours — the field work this is built on says six or seven, and the topological rule is the reason it coheres at all`);
     }
-    murmurReset();
   }
 
   let bare = null;
@@ -1024,45 +950,21 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
   notes.push('flock budgets: GL ' + glBudget + ', canvas ' + cvBudget
     + (shed.length ? ' — ' + shed.join(', ') : ' — every flock fits whole on both'));
 
-  // ⚠ AND THE BOIDS STEP IS A COST NO FACE COUNT CAN SEE. murmur() finds each bird's neighbours
-  // by scanning every other bird, so it is O(n²) while everything else here is linear — which
-  // means a flock size chosen against the face budget can be perfectly affordable in faces and
-  // still eat the frame. Measured per frame: 20 birds 0.05 ms, 60 0.54, 80 1.00, 120 3.09, 200
-  // 6.89 — and that was when it SORTED every pair to read seven of them. Selecting the K nearest
-  // into a fixed buffer instead is bit-identical and 7-17× faster: 60 birds 0.12 ms, 200 0.41,
-  // 300 0.95, 400 2.15. The ceiling moved with it.
+  // ⚠ AND THE FLOCK STEP IS A COST NO FACE COUNT CAN SEE. It runs on the GPU (gl/murmur-gpu.js) since
+  // 2026-09-23, through a hashed grid, and the ceiling is the size that step was measured to afford.
+  // One flock, GPU ms for one step, 20 steps timed back to back (__glMurmurCost), one RTX 2070 SUPER:
   //
-  // ⚠ IT IS GATED IN PAIRS RATHER THAN IN MILLISECONDS, because a timing gate on a shared CI box
-  // is a flake. 62,500 pairs is n = 250, which measured about 0.57 ms on the machine the table
-  // above came from — so this bounds the thing that was measured, in units that cannot drift with
-  // hardware. 640,000 pairs is n = 800; the shipping 600 measured 1.54 ms on the spatial grid,
-  // which is 9% of a 60 fps frame. The pair COUNT is still the right currency even though the grid
-  // no longer visits every pair — it is the size of the problem, and what the grid changed is the
-  // constant in front of it rather than the shape.
-  // ⚠ THE CEILING IS A MEASURED COST NOW, NOT A PAIR COUNT, BECAUSE THE GRID CHANGED THE SHAPE OF
-  // THE CURVE. This was `maxFlock^2` against a pair budget, which was the right model when every
-  // bird compared itself with every other one. The spatial grid made the neighbour search
-  // near-linear-ish and the old model now over-states the cost badly at the top end: n^2 predicts
-  // 88 ms for a 4000-bird cloud and the real figure is 22.7. A ceiling that wrong is not
-  // conservative, it is arbitrary -- it would refuse a flock that runs fine and say nothing useful
-  // about why.
+  //     4,000 birds  0.72 ms      12,000 birds  0.94 ms      20,000 birds  1.58 ms
   //
-  // ⚠ SO THE NUMBER IS THE ONE THAT WAS MEASURED, AND THE TABLE IS HERE SO THE NEXT PERSON CAN
-  // ARGUE WITH IT. One flock, median ms for a single murmur() step on this machine:
-  //
-  //     600 birds  1.5 ms      1800 birds   7.1 ms
-  //    1200 birds  4.1 ms      2400 birds   9.9 ms
-  //                            3200 birds  16.3 ms
-  //
-  // A frame is 16.7 ms at 60 and a cab frame is already 2.8-3.6 ms of it, so 1800 is where one
-  // flock stops leaving room for the rest of the game. This is a SIMULATION cost and the face
-  // budget genuinely cannot see it: the birds are dots by then and nearly free to draw.
-  const MURMUR_BIRDS_MAX = 1800;
+  // It was 22.7 ms for 4,000 on the CPU, which is why the ceiling there was 1,800. Nothing here can
+  // measure a GPU, so this holds the number that was measured rather than re-measuring it; raising it
+  // means running __glMurmurCost again, on the smallest GPU you care about.
+  const MURMUR_BIRDS_MAX = 20000;
   for (const id of faunaParamIds('bird').filter((id) => SPECIES[id])) {
     const sp = SPECIES[id];
     if (!sp || !sp.thin) continue;              // only a cloud species runs the boids step
     if (sp.maxFlock > MURMUR_BIRDS_MAX) {
-      problems.push(`a ${id} flock of ${sp.maxFlock} is past the ${MURMUR_BIRDS_MAX} the boids step was measured to afford — that is simulation cost, and no face budget can see it`);
+      problems.push(`a ${id} flock of ${sp.maxFlock} is past the ${MURMUR_BIRDS_MAX} the GPU flock step was measured to afford — that is simulation cost, and no face budget can see it`);
     }
   }
 }
@@ -2165,295 +2067,10 @@ T = T_GROUND ?? 1e6;
   if (REPORT && offenders.length) console.log('  clipped the block: ' + offenders.slice(0, 8).join('; '));
 }
 
-// ── 1h. the orientation flash bands, rather than flickering per bird ──────────────
-// The dot LOD sizes every sprite off the full wingspan, so before this a murmuration was a cloud of
-// identical specks: the one thing a real one is known for -- a patch of sky going dark and pale as
-// the birds turn -- was the one thing it could not show. pushFauna now dims a dot by how much wing
-// it is presenting, which is one dot product against the camera's own forward.
-//
-// ⚠ THE CLAIM IS NOT THAT IT VARIES, WHICH IS TRIVIAL. Six hundred independent headings vary too,
-// and that is per-bird flicker: sprites twinkling, which is worse than the flat cloud it replaced.
-// What makes it a FLASH is that neighbours agree, and they agree because the boids step aligns
-// locally (measured: local alignment 0.601 against a global coherence of 0.088). So the check is
-// comparative -- the mean brightness step between a bird and its nearest neighbour, against the
-// same statistic with the same brightnesses shuffled over the same positions. At 1.0 the flock is
-// noise however wide its spread.
-//
-// ⚠ AND IT MUST NOT PULSE AS A WHOLE. A murmuration that brightened and darkened in unison would
-// be a flock all facing one way, which is a skein. The frame-to-frame swing of the MEAN is the
-// control for that and is deliberately tiny beside the instantaneous spread.
-{
-  // Read from the renderer, never restated. A second copy of this number is a gate that goes on
-  // passing while the two drift, which is the one failure a gate may not have.
-  const FLOOR = ws.FLASH_FLOOR;
-  if (!(FLOOR > 0 && FLOOR < 1)) problems.push(`windshield does not export a usable FLASH_FLOOR (got ${FLOOR})`);
-  const dimOf = (h, vx, vy, fl) => {
-    const along = Math.cos(h) * vx + Math.sin(h) * vy;
-    const broad = Math.sqrt(Math.max(0, 1 - along * along));
-    return fl > 0 ? (1 - fl) + fl * (FLOOR + (1 - FLOOR) * broad) : 1;
-  };
-
-  // ⚠ THE OFF SWITCH IS EXACT, NOT CLOSE. `alpha * dim` runs for every dotted bird in the world,
-  // so at 0 it has to be the multiplication by a literal 1 that shipped before this, or the flag's
-  // 0 is a slightly different renderer rather than the old one.
-  let offExact = true;
-  for (let i = 0; i < 64; i++) if (!Object.is(dimOf(i * 0.1, 0.6, -0.8, 0), 1)) offExact = false;
-  if (!offExact) problems.push('faunaFlash 0 does not leave the dot alpha untouched exactly');
-
-  murmurReset();
-  const camH = 0.7, vx = Math.sin(camH), vy = -Math.cos(camH);   // the camera's forward, sprite frame
-  let nearSum = 0, chanceSum = 0, sdSum = 0, frames = 0, meanLo = Infinity, meanHi = -Infinity;
-  for (let f = 0; f < 240; f++) {
-    const pts = murmur('flash', 400, 0, 0, 3, 0.4, 1000 + f * 33, { spread: 2.2 });
-    if (f < 30 || !pts || pts.length < 10) continue;
-    const d = pts.map((q) => dimOf(Math.atan2(q.vy ?? 0, q.vx ?? 1), vx, vy, 1));
-    const mean = d.reduce((a, b) => a + b, 0) / d.length;
-    meanLo = Math.min(meanLo, mean); meanHi = Math.max(meanHi, mean);
-    sdSum += Math.sqrt(d.reduce((a, b) => a + (b - mean) ** 2, 0) / d.length);
-    const shuf = d.slice();
-    for (let i = shuf.length - 1; i > 0; i--) { const j = (i * 1103515245 + 12345) % (i + 1); const t = shuf[i]; shuf[i] = shuf[j]; shuf[j] = t; }
-    let near = 0, chance = 0;
-    for (let i = 0; i < pts.length; i++) {
-      let bj = -1, bd = Infinity;
-      for (let j = 0; j < pts.length; j++) {
-        if (j === i) continue;
-        const dd = (pts[i].x - pts[j].x) ** 2 + (pts[i].y - pts[j].y) ** 2 + (pts[i].z - pts[j].z) ** 2;
-        if (dd < bd) { bd = dd; bj = j; }
-      }
-      near += Math.abs(d[i] - d[bj]); chance += Math.abs(shuf[i] - shuf[bj]);
-    }
-    nearSum += near / pts.length; chanceSum += chance / pts.length; frames++;
-  }
-  murmurReset();
-  const patch = chanceSum / nearSum, sd = sdSum / frames, swing = meanHi - meanLo;
-  const PATCH_MIN = 2.0, SD_MIN = 0.10;
-  if (!(sd > SD_MIN)) problems.push(`the flash spreads only ${sd.toFixed(3)} across the flock, under the ${SD_MIN} that is a visible step`);
-  else if (!(patch > PATCH_MIN)) problems.push(`neighbouring birds agree only ${patch.toFixed(2)}x better than chance, under the ${PATCH_MIN} that separates banding from per-bird flicker`);
-  else notes.push(`the flash spreads ${sd.toFixed(3)} at an instant and neighbours agree ${patch.toFixed(2)}x better than chance, while the whole flock's mean moves only ${swing.toFixed(3)}`);
-}
-
-// ── 1i. the hawk's agitation wave reaches the eye as a BAND ──────────────────
-// `agitation()` is the only thing in this renderer that models a predator reaching a flock, and it
-// arrives as a ROLL -- a pulse travelling out from the stoop, damping on angle. It rides into
-// pushFauna as `o.roll`, where the first cut of the flash ignored it entirely.
-//
-// ⚠ THE CLAIM IS SPATIAL, NOT THAT ANYTHING MOVED. A roll term that varies bird by bird is noise;
-// what makes it the dark band a murmuration is famous for is that birds at the SAME DISTANCE from
-// the stoop share it, because the wavefront is a ring. So the test is a correlation between how far
-// a bird is from the wave and how much the bank changed its brightness -- and the control is the
-// same cloud with no event at all, where that correlation must collapse.
-{
-  const FLOOR = ws.FLASH_FLOOR, BANK = ws.FLASH_BANK;
-  if (!(BANK > 0 && BANK < 1)) problems.push(`windshield does not export a usable FLASH_BANK (got ${BANK})`);
-  const dimOf = (h, roll, vx, vy) => {
-    const along = Math.cos(h) * vx + Math.sin(h) * vy;
-    const broad = Math.sqrt(Math.max(0, 1 - along * along));
-    const shown = broad * (1 - BANK + BANK * Math.abs(Math.sin(roll)));
-    return FLOOR + (1 - FLOOR) * shown;
-  };
-
-  murmurReset();
-  const camH = 0.7, vx = Math.sin(camH), vy = -Math.cos(camH);
-  let pts = null;
-  for (let f = 0; f < 120; f++) pts = murmur('band', 400, 0, 0, 3, 0.4, 1000 + f * 33, { spread: 2.2 });
-
-  // A stoop just off the flock, and a moment at which its front is crossing the cloud.
-  const ev = { x: -2.2, y: 0, at: 1000 + 119 * 33 };
-  const now = ev.at + 600;
-  const rows = pts.map((q) => {
-    const h = Math.atan2(q.vy ?? 0, q.vx ?? 1);
-    const a = agitation(q.x, q.y, ev, now);
-    return { d: Math.hypot(q.x - ev.x, q.y - ev.y), delta: dimOf(h, (q.roll || 0) + a, vx, vy) - dimOf(h, q.roll || 0, vx, vy) };
-  });
-  const touched = rows.filter((r) => Math.abs(r.delta) > 1e-4).length;
-
-  // Banded-ness: how much of the variation in delta is explained by distance from the stoop.
-  const corr = (xs, ys) => {
-    const n = xs.length, mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
-    let sxy = 0, sxx = 0, syy = 0;
-    for (let i = 0; i < n; i++) { const a = xs[i] - mx, b = ys[i] - my; sxy += a * b; sxx += a * a; syy += b * b; }
-    return sxx && syy ? Math.abs(sxy / Math.sqrt(sxx * syy)) : 0;
-  };
-  // Binned by distance, because the wave is a RING and the relation is a bump rather than a line:
-  // a raw correlation on a non-monotonic shape reads near zero and says nothing.
-  const bin = (rs) => {
-    const B = 12, lo = Math.min(...rs.map((r) => r.d)), hi = Math.max(...rs.map((r) => r.d));
-    const sum = new Array(B).fill(0), cnt = new Array(B).fill(0);
-    for (const r of rs) { const k = Math.min(B - 1, Math.floor((r.d - lo) / ((hi - lo) || 1) * B)); sum[k] += r.delta; cnt[k]++; }
-    return sum.map((v, i) => (cnt[i] ? v / cnt[i] : 0));
-  };
-  const profile = bin(rows);
-  const spreadOf = (a) => { const m = a.reduce((x, y) => x + y, 0) / a.length;
-    return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length); };
-  const bandSpread = spreadOf(profile);
-
-  // Control: no event. Every delta is 0, so the profile is flat.
-  const flat = bin(pts.map((q) => ({ d: Math.hypot(q.x - ev.x, q.y - ev.y), delta: 0 })));
-  const flatSpread = spreadOf(flat);
-  murmurReset();
-
-  const MIN_TOUCHED = 30, MIN_BAND = 0.004;
-  if (touched < MIN_TOUCHED) problems.push(`the agitation wave changed the brightness of only ${touched} of ${rows.length} birds -- the roll is not reaching the flash`);
-  else if (!(bandSpread > MIN_BAND)) problems.push(`the wave's brightness varies ${bandSpread.toFixed(4)} across distance bands, under the ${MIN_BAND} that is a band rather than a wash`);
-  else if (!(flatSpread === 0)) problems.push('the no-event control is not flat, so the band measurement is reading something other than the wave');
-  else notes.push(`the hawk's wave dims ${touched} of ${rows.length} birds in a ring, ${bandSpread.toFixed(4)} of brightness across distance bands against a flat control`);
-}
-
-// ── 1j. the flock's proportions, against the measured birds ─────────────────
-//
-// Ballerini et al. 2008 (STARFLAG, flocks of up to 2,700 birds reconstructed in 3-D) measured the
-// three principal axes I1 < I2 < I3 at an average of 1 : 2.8 : 5.6, and found that ratio is
-// remarkably STABLE while absolute size varies a lot. The short axis is parallel to GRAVITY and
-// orthogonal to the velocity: a starling flock is a pancake sliding parallel to the ground.
-//
-// ⚠ SO THE BIG NUMBER IS VERTICAL FLATTENING AND NOT LENGTH, which is the thing this check
-// replaced. The first cut of it demanded elongation above 3.0 measured in the horizontal plane --
-// it was written to stop the flock being a ball and it would now insist on a smear, because in
-// PLAN a real flock is only about 2:1 (5.6/2.8). Ours measured 1 : 1.3 : 7.0 at the time: barely
-// flattened and stretched more than twice as far as a real one. A gate can be precisely wrong.
-//
-// ⚠ AND THE SECOND HALF IS NOT ABOUT LOOKS. murmur's own note calls the pull to the derived
-// centre the bridge that keeps a simulated cloud honest about the one fact describe.js is also
-// telling the player -- where the flock IS. Shape passing while the birds have wandered off the
-// tile the room names is not success.
-{
-  const SPEED = 0.0234;                       // tiles/frame -- the game's own flock centre speed
-  // One ruler for both flocks: the GPU flock is measured by the same function in the Modelshop.
-  const axes = principalAxes;
-  const NB = 1000, FR = 2.4;   // a mid-range flock, and the airborne radius the row carries
-  const SPREAD = Math.max(0.35, FR * 0.22) * Math.cbrt(NB / 20) * ws.RENDER_TUNE.murmurPack;
-  const fly = (turn, seed) => {
-    murmurReset();
-    let cx = seed * 3.1, cy = seed * 1.7, th = seed * 0.9, pts = null;
-    for (let f = 0; f < 600; f++) {
-      th += turn * (1 + 0.3 * Math.sin(f * 0.011 + seed));
-      cx += Math.cos(th) * SPEED; cy += Math.sin(th) * SPEED;
-      // The spread the RENDERER derives, not a number picked here -- the shape depends on it,
-      // so a gate with its own value is grading a configuration the game never runs.
-      pts = murmur('shape' + seed, NB, cx, cy, 3, th, 1000 + f * 33,
-        { spread: SPREAD, trail: ws.RENDER_TUNE.murmurTrail });
-    }
-    const a = axes(pts);
-    return { ...a, drift: Math.hypot(a.mx - cx, a.my - cy) };
-  };
-  const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
-  const rs = [1, 2, 3].flatMap((z) => [fly(0.0006, z), fly(0.0028, z)]);
-  murmurReset();
-  const flat = mean(rs.map((r) => r.I2 / r.I1));      // vertical flattening; real 2.8
-  const plan = mean(rs.map((r) => r.I3 / r.I2));      // elongation in plan;   real 2.0
-  const drift = mean(rs.map((r) => r.drift));
-  // Generous bands: 1 : 2.8 : 5.6 is an average over real flocks that vary a lot, so this is
-  // guarding the SHAPE FAMILY -- a flattened plate, not a ball and not a tube -- rather than
-  // pinning a number somebody measured once.
-  // ⚠ THE LOWER FLAT BAND IS TIGHT ON PURPOSE AND THE MUTANT VALUE IS WHY. A first cut allowed
-  // 1.8 and happily passed FLAT_Z removed entirely -- the cloud still measures 2.3 from its seed
-  // alone, so a generous band cannot tell a flattened flock from an unflattened one. 2.5 sits
-  // under what ships (3.1) and over what the bug produces (2.3). The measure is deterministic,
-  // so a tight band here is a pin rather than a flake.
-  const { FLAT_LO, FLAT_HI, PLAN_LO, PLAN_HI, DRIFT_MAX } = FLOCK_BANDS;
-  if (!(flat > FLAT_LO && flat < FLAT_HI))
-    problems.push(`the flock is ${flat.toFixed(2)} times wider than it is thick, outside ${FLAT_LO}-${FLAT_HI} -- real starlings sit at 2.8 and the short axis is vertical`);
-  else if (!(plan > PLAN_LO && plan < PLAN_HI))
-    problems.push(`the flock is ${plan.toFixed(2)} times longer than it is wide in plan, outside ${PLAN_LO}-${PLAN_HI} -- real starlings sit at 2.0, so this is a ${plan > PLAN_HI ? 'tube' : 'ball'}`);
-  else if (!(drift < DRIFT_MAX))
-    problems.push(`the flock sits ${drift.toFixed(2)} tiles off its derived centre -- it has left the tile the room names`);
-  else notes.push(`proportions 1 : ${flat.toFixed(1)} : ${(flat * plan).toFixed(1)} against the measured 1 : 2.8 : 5.6, sitting ${drift.toFixed(2)} tiles off its own centre`);
-}
-// ── 1k. a stoop opens a hole, rather than only changing how they bank ────────
-//
-// `agitation()` models a dive as a wave of BANKING, so before this the flock changed how it caught
-// the light and never got out of the way. The push is the other half.
-//
-// ⚠ COMPARED AT THE SAME FRAME, NEVER ACROSS TIME. The flock flies past a stoop that stays where
-// it happened, so the count near that point swings wildly on its own -- 134, 252, 47 over four
-// seconds with no predator in the model at all. The only sound reading is the same instant with the
-// push and without it.
-{
-  const SPEED = 0.0234;
-  const run = (push) => {
-    murmurReset();
-    let cx = 0, cy = 0, th = 0, pts = null, ev = null, worst = 1e9, at = 0;
-    for (let f = 0; f < 340; f++) {
-      const t = 1000 + f * 33;
-      th += 0.0009; cx += Math.cos(th) * SPEED; cy += Math.sin(th) * SPEED;
-      if (f === 200) ev = { x: cx, y: cy, at: t };
-      pts = murmur('stoop', 400, cx, cy, 3, th, t, { spread: 2.2, trail: 1, scare: push ? ev : null });
-      if (ev && f > 200 && f < 300) {
-        const near = pts.filter((q) => Math.hypot(q.x - ev.x, q.y - ev.y) < 1.15).length;
-        if (near < worst) { worst = near; at = f; }
-      }
-    }
-    return { worst, at };
-  };
-  const off = run(false), on = run(true);
-  murmurReset();
-  // Read at the SAME frame in both, which is what makes it a comparison.
-  const cmp = (frame) => {
-    const seq = (push) => {
-      murmurReset();
-      let cx = 0, cy = 0, th = 0, pts = null, ev = null;
-      for (let f = 0; f <= frame; f++) {
-        const t = 1000 + f * 33;
-        th += 0.0009; cx += Math.cos(th) * SPEED; cy += Math.sin(th) * SPEED;
-        if (f === 200) ev = { x: cx, y: cy, at: t };
-        pts = murmur('cmp', 400, cx, cy, 3, th, t, { spread: 2.2, trail: 1, scare: push ? ev : null });
-      }
-      return pts.filter((q) => Math.hypot(q.x - ev.x, q.y - ev.y) < 1.15).length;
-    };
-    return { off: seq(false), on: seq(true) };
-  };
-  const r = cmp(240);
-  murmurReset();
-  const drop = r.off > 0 ? 1 - r.on / r.off : 0;
-  const MIN_DROP = 0.15;
-  if (!(drop > MIN_DROP)) problems.push(`a stoop thins the birds around it by only ${(drop * 100).toFixed(0)}% (${r.off} -> ${r.on}), under the ${MIN_DROP * 100}% that is a hole rather than a nudge`);
-  else notes.push(`a stoop thins the birds around it ${r.off} -> ${r.on}, ${(drop * 100).toFixed(0)}% fewer inside 1.15 tiles`);
-}
-// ── 1l. a flock nobody can see is frozen, and thawing does not jump ─────────
-//
-// Flocks are gathered on a RADIUS and the only visibility test is per bird, after the sim has run,
-// so a murmuration behind the camera used to pay its whole boids step. It is frozen now.
-//
-// ⚠ FROZEN, NOT SKIPPED, AND THAT IS THE WHOLE OF WHY THIS CHECK EXISTS. The flock's centre is
-// pure arithmetic off the cycle and keeps moving whether or not anyone draws it, so a cloud that
-// simply stopped would come back a long way behind where it belongs and the home pull would haul a
-// thousand birds across the sky in front of whoever just turned round. The cloud is translated with
-// its centre instead. The test is the THAW: the first live frame after a long freeze must move
-// birds no further than an ordinary frame does.
-{
-  const N = 600;
-  const SP = Math.max(0.35, 2.4 * 0.22) * Math.cbrt(N / 20) * 0.5;
-  const centreOf = (pts) => { let mx = 0, my = 0;
-    for (const q of pts) { mx += q.x; my += q.y; } return [mx / pts.length, my / pts.length]; };
-  murmurReset();
-  let cx = 0, cy = 0, th = 0, pts = null;
-  const step = (t, frozen) => { th += 0.0016; cx += Math.cos(th) * 0.0234; cy += Math.sin(th) * 0.0234;
-    pts = murmur('freeze', N, cx, cy, 3, th, t, { spread: SP, trail: 0.3, frozen }); };
-  let t = 1000;
-  for (let f = 0; f < 150; f++) { step(t, false); t += 16.7; }
-  const [bx, by] = centreOf(pts);
-  const offBefore = Math.hypot(bx - cx, by - cy);
-  // two seconds looking the other way
-  let offWorst = 0;
-  for (let f = 0; f < 120; f++) { step(t, true); t += 16.7;
-    const [mx, my] = centreOf(pts); offWorst = Math.max(offWorst, Math.hypot(mx - cx, my - cy)); }
-  const prev = pts.map((q) => ({ x: q.x, y: q.y, z: q.z }));
-  step(t, false); t += 16.7;
-  let thaw = 0;
-  for (let i = 0; i < pts.length; i++)
-    thaw = Math.max(thaw, Math.hypot(pts[i].x - prev[i].x, pts[i].y - prev[i].y, pts[i].z - prev[i].z));
-  const prev2 = pts.map((q) => ({ x: q.x, y: q.y, z: q.z }));
-  step(t, false);
-  let ordinary = 0;
-  for (let i = 0; i < pts.length; i++)
-    ordinary = Math.max(ordinary, Math.hypot(pts[i].x - prev2[i].x, pts[i].y - prev2[i].y, pts[i].z - prev2[i].z));
-  murmurReset();
-  if (!(offWorst <= offBefore + 0.25))
-    problems.push(`a frozen flock drifted ${offWorst.toFixed(2)} tiles off its centre against ${offBefore.toFixed(2)} live -- it is not being carried with it`);
-  else if (!(thaw <= ordinary * 2.5 + 0.01))
-    problems.push(`thawing moved a bird ${thaw.toFixed(3)} tiles against ${ordinary.toFixed(3)} for an ordinary frame -- the flock jumps when you look back`);
-  else notes.push(`a frozen flock holds ${offWorst.toFixed(2)} tiles off its centre against ${offBefore.toFixed(2)} live, and thaws by ${thaw.toFixed(3)} tiles against an ordinary ${ordinary.toFixed(3)}`);
-}
+// ── 1h-1l. the flash, the hawk's band, the proportions, the stoop and the freeze ───────────────
+// These drove murmur.js's CPU flock, which the game no longer has (2026-09-23). The same claims, with
+// the same numbers, are asked of the GPU flock by __glMurmurChecks and __glMurmurParity in the
+// Modelshop — by hand, because no harness here reaches a GL draw call.
 // ── out ───────────────────────────────────────────────────────────────────────
 ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas; ws.RENDER_TUNE.geese = geeseWas;
 globalThis.performance = clock;
