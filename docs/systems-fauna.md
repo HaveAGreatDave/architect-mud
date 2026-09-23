@@ -1,7 +1,8 @@
 # Fauna — the birds over the Basin
 
 **STATUS: BUILT** (`client/shared/birds.js`, `client/game/js/panels/windshield.js`,
-`client/game/js/panels/murmur.js`, `client/game/js/panels/fauna3d.js`, `content/fauna_models/`).
+`client/game/js/panels/murmur.js`, `client/game/js/panels/fauna3d.js`, `client/game/js/panels/gl/murmur-gpu.js`,
+`client/game/js/panels/gl/fauna.js`, `content/fauna_models/`).
 Six species, the flock cycle, perching, the hawk's hunt, the murmuration, the voices and the room
 prose all ship. Everything that is not a bird — dogs, rats, anything on four legs — is not built and
 nothing here is written for it.
@@ -194,6 +195,97 @@ machine even though the cloud under it is not. Its origin and its moment are the
 ⚠ **TWO PLAYERS SEE DIFFERENT CLOUDS**, and a reload pops one back to its seed. Both are accepted:
 fine for texture, and not fine for anything a player could be wrong about, which is why the derived
 half stays derived.
+
+### On the GPU, and only on the GPU (2026-09-23)
+
+A murmuration is simulated in [gl/murmur-gpu.js](../client/game/js/panels/gl/murmur-gpu.js) and drawn
+straight out of its textures by [gl/fauna.js](../client/game/js/panels/gl/fauna.js). Nothing about a
+bird reaches the CPU. Each frame, for each cloud, one fragment pass reads every bird's position (with
+its roll) and velocity (with its visibility) from two float textures, finds its seven nearest
+flockmates, applies the rule, and writes the next state into the other pair. The drawing side is one
+instanced draw per detail level over every bird, and each vertex shader works out for its own bird
+what the per-bird loop in windshield.js used to: the cull and fade, its size in pixels, the detail
+level that size earns, the wingbeat row, and the bank.
+
+**It is murmur.js's rule, ported.** Everything that belongs to the flock rather than to a bird stays in
+JavaScript and has one copy, shared by both simulators: the clock, the trail, the stations and the
+stoop (`flockFrame`), the starting cloud (`seedPoints`) and the weights (`MURMUR_RULES`, interpolated
+into the shader). The refactor that split those out is bit-identical: 900 birds over 400 steps, with
+the trail, thinning, a stoop and freezing all live, and not one value differs.
+
+**One deliberate difference: neighbours are found fresh every frame.** The CPU re-scans each bird every
+other frame to save time, and its own measurements say that staleness packs the flock tighter. On the
+GPU the search is brute force and exact (ties to the lower index, as the CPU's grid guarantees), so
+there was nothing to save.
+
+**There is no CPU fallback in the game.** `murmurRoute()` in windshield.js decides, per frame:
+
+| route | when | what happens |
+|---|---|---|
+| `gpu` | the real GL pass is installed and drawing | one cloud record per flock; the GPU simulates and draws |
+| `none` | the game with no GL pass (GLASS 1) | no murmuration is drawn and none is heard |
+| `cpu` | a headless harness's stub hook, or `RENDER_TUNE.glMurmur = 0` | murmur.js as it shipped |
+
+The `cpu` route exists for the headless gates (they cannot reach a GL draw call) and for A/B. When the
+GPU flock replaces them as the reference, the CPU step goes. A GPU cloud is not charged to the face
+budget, which was capping a murmuration at about 1,800 birds for a CPU cost it no longer has. The
+server's room text still describes a murmuration to a player on GLASS 1 who cannot see one; that
+mismatch was accepted when the fallback was removed.
+
+**What it costs.** GPU time for one step, measured with a GPU timer query over 20 back-to-back steps on
+an RTX 2070 SUPER (ANGLE, D3D11):
+
+| birds | GPU per step | CPU per step (murmur.js) |
+|---|---|---|
+| 4,000 | 1.9 ms | 22.7 ms |
+| 8,000 | 3.1 ms | — |
+| 12,000 | 5.1 ms | — |
+
+Below about 2,000 birds the timer reads the GPU's idle clocks rather than the work, so those rows are
+not quoted. In a frame, with a 1,651-bird flock, the CPU cost of the whole fauna phase went from
+4.9–5.0 ms to 1.5–1.9 ms, and what is left is the other species. ⚠ **Every number here is one
+discrete NVIDIA card.** The search is n², and on an integrated GPU nobody has measured it.
+
+**It flies like the CPU flock.** `__glMurmurParity` in the Modelshop flies fauna.mjs's own protocol
+through both simulators and measures both with [client/shared/flock-shape.js](../client/shared/flock-shape.js),
+the ruler fauna.mjs uses:
+
+| seed | CPU | GPU |
+|---|---|---|
+| 1 | 1 : 2.8 : 5.7, 0.81 m | 1 : 2.7 : 5.1, 0.88 m |
+| 2 | 1 : 3.0 : 6.0, 0.83 m | 1 : 2.9 : 5.1, 0.90 m |
+| 3 | 1 : 2.8 : 5.8, 0.80 m | 1 : 2.7 : 5.0, 0.91 m |
+
+Real starlings sit at 1 : 2.8 : 5.6 and 0.7–1.5 m apart, and both flocks pass fauna.mjs's bands. The
+GPU flock is a little less elongated and a little more spread, which is the direction fresh neighbours
+predict. With separation removed from the GPU rule it collapses to 1 : 14.3 : 40.8 and fails, so the
+bench can see a broken rule.
+
+**The same frame from both.** `__glFaunaGlitter` at five tiles: 492 bird pixels on the GPU against 482
+on the CPU, no glitter on either, and the darkest tenth within a level of each other.
+
+**Gates and benches.** `npm run gl:murmur` ([scripts/shapes/murmurgpu.mjs](../scripts/shapes/murmurgpu.mjs),
+in both chains) checks the route: one complete record per flock on the GPU route with every number
+finite and no bird left behind, the harness route untouched, and nothing simulated on GLASS 1. A field
+missing from the record is a NaN uniform that draws nothing, which is why that check exists. Mutation-
+tested 4 of 4. `gl:glsl` checks the shaders' names. Whether they compile, and what they draw, only a
+browser can say: `__glMurmurParity`, `__glFaunaGlitter` and `__glFlight` in the Modelshop.
+
+⚠ **A bench that reuses a canvas id reuses the GPU flock.** It lives in the GL context, not in
+murmur.js, so `murmurReset()` cannot clear it, and a new run starting its clock earlier than the last
+one hands the cloud a negative elapsed time. It never steps and shows whatever the last run left.
+`withBench` in glbench.js now takes a fresh canvas id per call.
+
+### Far birds conserve their ink, and the glyph rung starts at 2.5 px
+
+A distant bird was a hard dot at least 0.45 px wide, and the sprite layer only draws a dot where a pixel
+centre falls inside it, about 64% of the time at that size. A third of a distant flock was undrawn at
+any instant, and birds blinked on and off the pixel grid: the glitter that made a murmuration read as
+confetti. A far bird is now a soft dot at least 1.25 device pixels wide, faint by exactly the area it
+was given, so it deposits the darkness it really covers wherever it sits. Where birds overlap, the
+darkness stacks. The glyph rung starts at 2.5 px rather than 0.7: a three-face bird flapping through
+sixteen poses at one pixel is a speck snapping between shapes. Glitter under 0.09 px of motion went
+from 37% to 0%, with total darkness up 16%. `faunaInk: 0` and `faunaGlyphPx: 0.7` restore both.
 
 ### The starling has a year now — and it is OFF (`BIRD_TUNE.season`)
 
@@ -509,6 +601,9 @@ much weaker home pull -- which puts both the measured proportions and the centro
 back in play. That is a rewrite of the force balance, not a term, and it has not been done.
 
 ## What it costs to simulate
+
+This section describes the CPU step in murmur.js, which the game no longer runs (see "On the GPU, and
+only on the GPU" above). The measurements stand as the record of why the CPU could not go further.
 
 Measured in a real browser frame, one truck seat, adaptive dials left free, 1,013 birds:
 

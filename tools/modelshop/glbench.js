@@ -16,7 +16,9 @@
 //
 // Re-run it from the console with `__glBench()`. It is a measurement, not a gate: the numbers move
 // with the machine, so what belongs in a commit message is the RATIO and the conditions.
-import { murmurReset, murmurStats } from '/client/game/js/panels/murmur.js';
+import { murmur, murmurReset, murmurStats, MURMUR_RULES } from '/client/game/js/panels/murmur.js';
+import { createMurmurGPU } from '/client/game/js/panels/gl/murmur-gpu.js';
+import { principalAxes, medianNND, FLOCK_BANDS } from '/client/shared/flock-shape.js';
 import { createGLView } from '/client/game/js/panels/gl/context.js';
 import { installGL, glLastFrame, glCapabilities } from '/client/game/js/panels/gl/install.js';
 import { LIGHT_TUNE } from '/client/game/js/panels/gl/world.js';
@@ -5277,19 +5279,26 @@ function murmurScene(el, { back = 2.5, hour = 11, warm = 60 } = {}) {
   const grab = () => { const c = document.createElement('canvas'); c.width = el.width; c.height = el.height; const x = c.getContext('2d'); x.drawImage(el, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
   return { A, t, paintAt, grab };
 }
+// ⚠ A FRESH CANVAS ID PER CALL, AND THEREFORE A FRESH GL CONTEXT AND A FRESH GPU FLOCK. The GPU flock
+// lives in the context (gl/murmur-gpu.js), not in murmur.js, so murmurReset() cannot clear it: reused,
+// the id handed the next run a cloud whose clock was ahead of the new one, which saw negative elapsed
+// time, never stepped, and showed whatever the last run left behind.
+let _benchSeq = 0;
 function withBench(W, H, id, fn) {
   const holder = document.createElement('div'); holder.style.cssText = 'position:fixed;left:-10000px;top:0';
-  const el = document.createElement('canvas'); el.id = id; el.width = W; el.height = H;
+  const el = document.createElement('canvas'); el.id = id + '-' + (++_benchSeq); el.width = W; el.height = H;
   el.style.width = W + 'px'; el.style.height = H + 'px'; holder.append(el); document.body.append(holder);
   const uninstall = installGL(() => el);
   const T = RENDER_TUNE;
-  const keys = ['gl', 'glFloor', 'geese', 'resFloor', 'perfDS', 'glFaunaInst', 'faunaInk', 'faunaGlyphPx', 'faunaFlash'];
-  const was = Object.fromEntries(keys.map((k) => [k, T[k]]));
+  // ⚠ EVERY SETTING, NOT A LIST OF THE ONES THIS FILE TOUCHES: a bench handed a 'tune' can set anything,
+  // and a list that forgot glMurmur left it at 0 after one CPU run, so every 'GPU' run after it was the CPU.
+  const was = { ...T };
   const realNow = performance.now.bind(performance), realDate = Date.now, realRnd = Math.random;
   try { T.gl = 1; T.glFloor = 1; T.resFloor = 1; T.perfDS = 0; T.geese = 1; return fn(el, T); }
   finally {
     performance.now = realNow; Date.now = realDate; Math.random = realRnd;
-    for (const k of keys) T[k] = was[k];
+    for (const k of Object.keys(T)) if (!(k in was)) delete T[k];
+    Object.assign(T, was);
     uninstall(); holder.remove();
   }
 }
@@ -5306,6 +5315,9 @@ const pxDiff = (p, q, thr = 8) => { let n = 0, worst = 0; for (let i = 0; i < p.
  */
 export function runFaunaInst({ back = 1.2, W = 640, H = 360 } = {}) {
   return withBench(W, H, '__faunainst', (el, T) => {
+    // ⚠ ON THE PER-BIRD PATH: a murmuration on the GPU route is one cloud record and no birds, so this A/B
+    // of instanced birds against solids birds needs the flock to arrive as birds (glMurmur 0).
+    T.glMurmur = 0;
     const s = murmurScene(el, { back });
     T.glFaunaInst = 1; s.paintAt(s.t); const a = s.grab(); const instRecs = (glLastFrame() || {}).fauna;
     s.paintAt(s.t); const a2 = s.grab();
@@ -5355,3 +5367,55 @@ export function runFaunaGlitter({ back = 5, dtMs = 2, W = 640, H = 360, hour = 1
   });
 }
 if (typeof window !== 'undefined') window.__glFaunaGlitter = runFaunaGlitter;
+
+/**
+ * The GPU flock against the CPU flock, by the numbers fauna.mjs judges the CPU flock by.
+ *
+ * ⚠ fauna.mjs's OWN PROTOCOL, FLOWN TWICE: a 1,000-bird cloud for 600 frames at 33 ms along a gently
+ * turning path, from the same key (so the same starting birds and the same band seed), at two turn
+ * rates and three seeds. The shape is measured by client/shared/flock-shape.js, the ruler fauna.mjs
+ * uses, and judged against the same bands. Per-bird positions are never compared: two integrators in
+ * different float precisions diverge chaotically within a second, and that says nothing about birds.
+ * This is where the flock rule is checked now that it runs on the GPU, which no headless gate can reach.
+ */
+export function runMurmurParity({ NB = 1000, seeds = [1, 2, 3], frames = 600 } = {}) {
+  const SPEED = 0.0234, FR = 2.4;
+  const SPREAD = Math.max(0.35, FR * 0.22) * Math.cbrt(NB / 20) * RENDER_TUNE.murmurPack;
+  const trail = RENDER_TUNE.murmurTrail;
+  const c = document.createElement('canvas'); c.width = 16; c.height = 16;
+  const gl = c.getContext('webgl2');
+  const mg = createMurmurGPU(gl);
+  if (!mg.ok) return { ok: false, why: 'no float render targets' };
+  const fly = (seed, turn, which) => {
+    const key = 'shape' + seed;
+    murmurReset(); mg.sweep(1e18);
+    let cx = seed * 3.1, cy = seed * 1.7, th = seed * 0.9, pts = null;
+    for (let f = 0; f < frames; f++) {
+      th += turn * (1 + 0.3 * Math.sin(f * 0.011 + seed));
+      cx += Math.cos(th) * SPEED; cy += Math.sin(th) * SPEED;
+      const now = 1000 + f * 33;
+      if (which === 'cpu') pts = murmur(key, NB, cx, cy, 3, th, now, { spread: SPREAD, trail });
+      else mg.step({ key, n: NB, ax: 0, ay: 0, cx, cy, cz: 3, heading: th, now, spread: SPREAD, trail, show: 1, showFade: 0.6, scare: null, frozen: false });
+    }
+    if (which === 'gpu') {
+      const rb = mg.readback(key); pts = [];
+      for (let i = 0; i < NB; i++) if (rb.vel[i * 4 + 3] > 0) pts.push({ x: rb.pos[i * 4], y: rb.pos[i * 4 + 1], z: rb.pos[i * 4 + 2] });
+    }
+    const a = principalAxes(pts);
+    return { flat: a.I2 / a.I1, plan: a.I3 / a.I2, drift: Math.hypot(a.mx - cx, a.my - cy), nndM: medianNND(pts) / MURMUR_RULES.TILE_PER_M };
+  };
+  const mean = (rows, k) => rows.reduce((x, r) => x + r[k], 0) / rows.length;
+  const out = { NB, bands: FLOCK_BANDS };
+  for (const which of ['cpu', 'gpu']) {
+    const rows = seeds.flatMap((z) => [fly(z, 0.0006, which), fly(z, 0.0028, which)]);
+    const flat = mean(rows, 'flat'), plan = mean(rows, 'plan'), drift = mean(rows, 'drift'), nndM = mean(rows, 'nndM');
+    const B = FLOCK_BANDS;
+    out[which] = { flat: +flat.toFixed(2), plan: +plan.toFixed(2), proportions: '1 : ' + flat.toFixed(1) + ' : ' + (flat * plan).toFixed(1),
+      driftTiles: +drift.toFixed(2), nndMetres: +nndM.toFixed(2),
+      pass: flat > B.FLAT_LO && flat < B.FLAT_HI && plan > B.PLAN_LO && plan < B.PLAN_HI && drift < B.DRIFT_MAX };
+  }
+  murmurReset(); mg.sweep(1e18);
+  console.log('__glMurmurParity', JSON.stringify(out));
+  return out;
+}
+if (typeof window !== 'undefined') window.__glMurmurParity = runMurmurParity;

@@ -205,7 +205,10 @@ function trailSamples(trail) {
   }
   return out;
 }
-function seed(key, n, cx, cy, cz, spread) {
+// ⚠ THE CLOUD'S FIRST ARRANGEMENT AND ITS BAND SEED, AS A PURE FUNCTION, because the GPU flock
+// (gl/murmur-gpu.js) starts from exactly the same birds in exactly the same places and must not grow
+// a second copy of the hash that decides them. `seed` below is this plus the Map it files the cloud in.
+export function seedPoints(key, n, cx, cy, cz, spread) {
   // One number per flock, so two clouds in one sky do not band in step.
   let sd = 0;
   for (let i = 0; i < key.length; i++) sd = (sd * 31 + key.charCodeAt(i)) % 100000;
@@ -241,6 +244,20 @@ function seed(key, n, cx, cy, cz, spread) {
       rank: (i * 0.7548776662466927) % 1,
     });
   }
+  return { pts, sd };
+}
+
+// ⚠ WHERE BIRD i IS PLACED, AS A UNIT OFFSET, when it first appears and when it fades back in after
+// thinning: the same three hashes seedPoints and the step below use, times a radius the caller picks.
+// The GPU flock reads its offsets from here. The CPU step keeps its own inline arithmetic so that its
+// output stays bit-identical to what shipped; when the CPU step is deleted this is the only copy.
+export function scatterOf(i) {
+  const a = frac(i * 12.9898 + 1.3) * Math.PI * 2, r = Math.sqrt(frac(i * 78.233 + 4.1));
+  return [Math.cos(a) * r, Math.sin(a) * r, frac(i * 5.77 + 9.1) - 0.5];
+}
+
+function seed(key, n, cx, cy, cz, spread) {
+  const { pts, sd } = seedPoints(key, n, cx, cy, cz, spread);
   const c = { pts, last: null, seen: 0, trail: [], nbr: null, nbrN: null, frame: 0, sd };
   clouds.set(key, c);
   return c;
@@ -343,6 +360,17 @@ export function bandRoll(bx, by, cx, cy, r, sd, now) {
  * eye-catching part of a murmuration stay exact while the cloud underneath drifts. Two players
  * watching the same hawk see the same wave crossing two different clouds.
  */
+// ⚠ THE STOOP WAVE AS FOUR NUMBERS FOR A SHADER: its origin, how far the front has travelled and how
+// strong it still is. agitation() below evaluates the same wave at one bird; the GPU flock evaluates it
+// at every bird from these. Kept beside it so the two cannot drift apart unnoticed.
+export function agitationWave(ev, now, maxRoll = 1.3) {
+  if (!ev) return null;
+  const age = (now - ev.at) / 1000;
+  if (age < 0 || age > WAVE_LIFE) return null;
+  const damp = 1 - age / WAVE_LIFE;
+  return { x: ev.x, y: ev.y, front: WAVE_SPEED * age, amp: maxRoll * damp * damp };
+}
+
 export function agitation(bx, by, ev, now, maxRoll = 1.3) {
   if (!ev) return 0;
   const age = (now - ev.at) / 1000;
@@ -450,15 +478,56 @@ function buildGrid(px, py, pz, n) {
   return { x0, y0, z0, h, nx, ny, nz, start: _gStart, item: _gItem };
 }
 
+// ── WHAT A FLOCK IS DOING THIS FRAME, BEFORE ANY BIRD IS ASKED ───────────────────
+//
+// ⚠ ONE COPY, TWO SIMULATORS. Everything about a murmuration that is a property of the FLOCK rather
+// than of a bird — how long since it was last stepped, the path its centre has flown, where along
+// that path the stations sit, how far the cloud may spread, whether a hawk is in it — is worked out
+// here, and both murmur() below and the GPU flock (gl/murmur-gpu.js) call it. Only the per-bird rule
+// was ported to a shader; the flock's memory stays in JavaScript, where it is a few dozen points.
+//
+// ⚠ IT ADVANCES THE CLOCK AND THEN RECORDS THE TRAIL, and only records it when the clock moved,
+// which is exactly the order murmur() had inline before this was lifted out. A dt of 0 returns before
+// the trail is touched, so painting the same instant twice changes nothing.
+export function flockFrame(c, cx, cy, cz, now, spread, opts = {}) {
+  const dt = c.last == null ? 0 : clamp((now - c.last) / 1000, 0, DT_MAX);
+  c.last = now;
+  if (!dt) return { dt };
+  const head = c.trail[c.trail.length - 1];
+  if (!head || Math.hypot(cx - head.x, cy - head.y, cz - head.z) >= TRAIL_STEP) {
+    c.trail.push({ x: cx, y: cy, z: cz });
+    if (c.trail.length > TRAIL_MAX) c.trail.shift();
+  }
+  const trailW = clamp(opts.trail ?? 0, 0, 1);
+  const samp = trailW > 0 ? trailSamples(c.trail) : null;
+  const localSpread = samp ? spread * (1 - trailW * 0.62) : spread;
+  let offX = 0, offY = 0, offZ = 0;
+  if (samp) { const m = trailMid(samp); offX = cx - m.x; offY = cy - m.y; offZ = cz - m.z; }
+  const scare = opts.scare && (now - opts.scare.at) >= 0
+    && (now - opts.scare.at) / 1000 < WAVE_LIFE ? opts.scare : null;
+  const scareDamp = scare ? 1 - ((now - scare.at) / 1000) / WAVE_LIFE : 0;
+  return { dt, trailW, samp, localSpread, offX, offY, offZ, scare, scareDamp };
+}
+
+// ⚠ THE RULE'S NUMBERS, IN ONE PLACE FOR BOTH SIMULATORS. gl/murmur-gpu.js interpolates these into its
+// shader rather than retyping them, so a weight tuned here moves the GPU flock too. The comments that
+// justify each one stay where they were, beside the code that reads them.
+export const MURMUR_RULES = Object.freeze({
+  wSep: 2.2, wAli: 0.85, wCoh: 0.55, wHome: 4.5, wScare: 9.0,
+  FLAT_Z, Z_SOFT, SCARE_R, TILE_PER_M, K: K_NEIGHBOURS, DT_MAX, SHOW_FADE_S,
+  TRAIL_SAMP, BAND_N, BAND_WIDTH, WAVE_SPEED, WAVE_WIDTH, WAVE_LIFE,
+  sepR: 0.15, speed: 1.09, turnG: 3.0,
+});
+
 export function murmur(key, n, cx, cy, cz, heading, now, opts = {}) {
   const spread = opts.spread ?? 0.5;
   let c = clouds.get(key);
   if (!c || c.pts.length !== n) c = seed(key, n, cx, cy, cz, spread);
   c.seen = now;
 
-  const dt = c.last == null ? 0 : clamp((now - c.last) / 1000, 0, DT_MAX);
-  c.last = now;
   const pts = c.pts;
+  const F = flockFrame(c, cx, cy, cz, now, spread, opts);
+  const dt = F.dt;
   if (!dt) return pts;
 
   // ⚠ THE PATH IS RECORDED BY DISTANCE, NEVER BY TIME. A flock hovering over its roost would
@@ -480,11 +549,7 @@ export function murmur(key, n, cx, cy, cz, heading, now, opts = {}) {
   // ⚠ AND THE PATH IS STILL RECORDED, because the ribbon's shape comes from where the flock has
   // BEEN. Dropping the trail while frozen would hand back a ball for the next 26 points of travel
   // -- several seconds of a flock visibly pulling itself into shape as you look at it.
-  const head = c.trail[c.trail.length - 1];
-  if (!head || Math.hypot(cx - head.x, cy - head.y, cz - head.z) >= TRAIL_STEP) {
-    c.trail.push({ x: cx, y: cy, z: cz });
-    if (c.trail.length > TRAIL_MAX) c.trail.shift();
-  }
+  // (the trail is recorded by flockFrame, above; the note is about that code)
 
   if (opts.frozen) {
     const ddx = cx - (c.fx ?? cx), ddy = cy - (c.fy ?? cy), ddz = cz - (c.fz ?? cz);
@@ -495,8 +560,7 @@ export function murmur(key, n, cx, cy, cz, heading, now, opts = {}) {
     return pts;
   }
   c.fx = cx; c.fy = cy; c.fz = cz;
-  const trailW = clamp(opts.trail ?? 0, 0, 1);
-  const samp = trailW > 0 ? trailSamples(c.trail) : null;
+  const { trailW, samp, localSpread, offX, offY, offZ } = F;
   // ⚠ A RIBBON IS NARROW. `spread` sizes a BALL, and spent unchanged around every station it makes
   // a tube two spreads wide and the whole path long -- a sausage rather than a flock. The length
   // now comes from the path, so the local scatter has to give most of its radius back.
@@ -507,9 +571,6 @@ export function murmur(key, n, cx, cy, cz, heading, now, opts = {}) {
   // stating to the player. So the whole ribbon is translated until its own centre of mass lands on
   // the tile the shared model named. Shape from the history, position from the model, neither
   // paying for the other.
-  const localSpread = samp ? spread * (1 - trailW * 0.62) : spread;
-  let offX = 0, offY = 0, offZ = 0;
-  if (samp) { const m = trailMid(samp); offX = cx - m.x; offY = cy - m.y; offZ = cz - m.z; }
 
   // ── THINNING: FEWER BIRDS SIMULATED, WITHOUT ANY OF THEM BEING SEEN TO GO ────────────────────
   //
@@ -645,11 +706,9 @@ export function murmur(key, n, cx, cy, cz, heading, now, opts = {}) {
   const speed = opts.speed ?? 1.09;      // cruising speed, tiles/s — 12 m/s, measured (Ballerini)
   // How hard a bird is allowed to turn, in g. See the bank limit at the renormalise below.
   const TURN_G = opts.turnG ?? 3.0;
-  const wSep = 2.2, wAli = 0.85, wCoh = 0.55, wHome = 4.5, wScare = 9.0;
+  const { wSep, wAli, wCoh, wHome, wScare } = MURMUR_RULES;
   // The stoop, if one is live. Absent, not one line below it costs anything.
-  const scare = opts.scare && (now - opts.scare.at) >= 0
-    && (now - opts.scare.at) / 1000 < WAVE_LIFE ? opts.scare : null;
-  const scareDamp = scare ? 1 - ((now - scare.at) / 1000) / WAVE_LIFE : 0;
+  const { scare, scareDamp } = F;
   const hx = Math.cos(heading), hy = Math.sin(heading);
 
   // ⚠ ONE PASS OVER A COPY. Integrating in place means the second bird already sees the first one's

@@ -31,7 +31,7 @@ import { makeVertexStream } from './stream.js';
 // How far toward the eye, in world tiles. DECO_PULL caps the 2-D path at 0.05 for the same job and
 // this is that number: enough to win a tie against the surface a light is mounted on at any range,
 // far less than the ~0.44 tiles to that surface own near face, so it can never clear a wall.
-const LIGHT_PULL = 0.05;
+export const LIGHT_PULL = 0.05;   // exported: gl/fauna.js draws murmuration dots at the same nudge
 
 // centre 3, corner 2, radius 1, colour 3, alpha 1, hardness 1
 const STRIDE = 11;

@@ -19,6 +19,7 @@
 // touches a constant — the same way worldresidue's own header records it claiming for months to
 // measure pedestrians it never ran. So the camera is placed ON a real anchor, found by asking.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
+import { principalAxes, FLOCK_BANDS } from '../../client/shared/flock-shape.js';
 import { flocksNear, flockState, flockClearance, flockOnSegment, flockEdgeHeading, FLOCK_AREA, GOOSE_PERIOD, GOOSE_SETTLE_MS, U_GROUND, GOOSE_SPAN, SKEIN_ACROSS, skeinSlot, skeinForm, SPECIES, speciesAt, placeOf, habitatState, flockAt, flockPeriod, flockSize, flockSpreadScale, flockDrawRange, FLOCK_REF, BIRD_TUNE, groundSpot, groundPatchR, FORM_WORDS, birdDaylight, callsIn } from '../../client/shared/birds.js';
 import { murmur, agitation, sweep as murmurSweep, murmurStats, murmurReset, K_NEIGHBOURS } from '../../client/game/js/panels/murmur.js';
 import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase, faunaParamIds, faunaPoseFaces, setFaunaParams, faunaWorldFaces, faunaSpanTiles, beatDihedral } from '../../client/game/js/panels/fauna3d.js';
@@ -2317,30 +2318,8 @@ T = T_GROUND ?? 1e6;
 // tile the room names is not success.
 {
   const SPEED = 0.0234;                       // tiles/frame -- the game's own flock centre speed
-  const axes = (pts) => {
-    const n = pts.length;
-    let mx = 0, my = 0, mz = 0;
-    for (const q of pts) { mx += q.x; my += q.y; mz += q.z; }
-    mx /= n; my /= n; mz /= n;
-    let xx = 0, yy = 0, zz = 0, xy = 0, xz = 0, yz = 0;
-    for (const q of pts) { const a = q.x - mx, b = q.y - my, c = q.z - mz;
-      xx += a * a; yy += b * b; zz += c * c; xy += a * b; xz += a * c; yz += b * c; }
-    xx /= n; yy /= n; zz /= n; xy /= n; xz /= n; yz /= n;
-    const p1 = xy * xy + xz * xz + yz * yz, q0 = (xx + yy + zz) / 3;
-    const p2 = (xx - q0) ** 2 + (yy - q0) ** 2 + (zz - q0) ** 2 + 2 * p1;
-    const pp = Math.sqrt(p2 / 6) || 1e-9;
-    const B = [[(xx - q0) / pp, xy / pp, xz / pp], [xy / pp, (yy - q0) / pp, yz / pp],
-               [xz / pp, yz / pp, (zz - q0) / pp]];
-    const d = B[0][0] * (B[1][1] * B[2][2] - B[1][2] * B[2][1])
-            - B[0][1] * (B[1][0] * B[2][2] - B[1][2] * B[2][0])
-            + B[0][2] * (B[1][0] * B[2][1] - B[1][1] * B[2][0]);
-    const r = Math.max(-1, Math.min(1, d / 2)), phi = Math.acos(r) / 3;
-    const e1 = q0 + 2 * pp * Math.cos(phi);
-    const e3 = q0 + 2 * pp * Math.cos(phi + 2 * Math.PI / 3);
-    const e2 = 3 * q0 - e1 - e3;
-    const v = [e1, e2, e3].map((x) => Math.sqrt(Math.max(x, 0))).sort((a, b) => a - b);
-    return { I1: v[0], I2: v[1], I3: v[2], mx, my };
-  };
+  // One ruler for both flocks: the GPU flock is measured by the same function in the Modelshop.
+  const axes = principalAxes;
   const NB = 1000, FR = 2.4;   // a mid-range flock, and the airborne radius the row carries
   const SPREAD = Math.max(0.35, FR * 0.22) * Math.cbrt(NB / 20) * ws.RENDER_TUNE.murmurPack;
   const fly = (turn, seed) => {
@@ -2371,7 +2350,7 @@ T = T_GROUND ?? 1e6;
   // alone, so a generous band cannot tell a flattened flock from an unflattened one. 2.5 sits
   // under what ships (3.1) and over what the bug produces (2.3). The measure is deterministic,
   // so a tight band here is a pin rather than a flake.
-  const FLAT_LO = 2.5, FLAT_HI = 4.0, PLAN_LO = 1.4, PLAN_HI = 3.2, DRIFT_MAX = 0.8;
+  const { FLAT_LO, FLAT_HI, PLAN_LO, PLAN_HI, DRIFT_MAX } = FLOCK_BANDS;
   if (!(flat > FLAT_LO && flat < FLAT_HI))
     problems.push(`the flock is ${flat.toFixed(2)} times wider than it is thick, outside ${FLAT_LO}-${FLAT_HI} -- real starlings sit at 2.8 and the short axis is vertical`);
   else if (!(plan > PLAN_LO && plan < PLAN_HI))
