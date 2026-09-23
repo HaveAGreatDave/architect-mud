@@ -26,6 +26,7 @@ import { createStrokeLayer } from './strokes.js';
 import { createBillboardLayer } from './billboards.js';
 import { createGroundLayer } from './ground.js';
 import { createSolidsLayer } from './solids.js';
+import { createFaunaLayer } from './fauna.js';
 // The interior's own clip range, in tiles. A cab is about 0.10 of a tile end to end at a driver's
 // eye height, so this brackets it with room to spare — and because the pass clears depth first,
 // neither number has anything to do with the world's. See drawInterior.
@@ -1694,7 +1695,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // ⚠ IT TAKES THE MASS CAMERA. The rig is collected in MAP-WINDOW tiles for exactly the reason
       // the mesh is — see the ⚠ above on mMassCam — so it reflects through the same shifted camera
       // and lands on the same pixels at the same depth.
-      if (solidQuads) drawSolids(mMassCam, cssH, { fog: opts.fog || null });
+      if (solidQuads || faunaInst) drawSolids(mMassCam, cssH, { fog: opts.fog || null });
       // ── AND THE SKY OVER ALL OF IT ────────────────────────────────────────────────────────────
       //
       // A puddle shows what is ABOVE it, and above most of a street is sky. The buffer held the city
@@ -1806,15 +1807,27 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // buffers would be two uploads and two draw calls for no difference in the picture. What the
   // caller gets back is the two counts SEPARATELY, because a diagnostic that adds them together
   // cannot tell a shed that arrived from a rig that did.
+  // ⚠ AND BIRDS MAY ARRIVE IN THE SAME LIST AS INSTANCE RECORDS RATHER THAN FACES (`.inst`), when
+  // windshield.js has been told this context can draw them — see gl/fauna.js. They are split out
+  // HERE, so the fauna list keeps one name from the frame to this layer, and the mirror prepass and
+  // the main pass both get the birds through the two calls they already make, with no new call site.
+  let fnl = null;
+  const faunaLayer = () => (fnl || (fnl = createFaunaLayer(gl)));
+  let faunaInst = 0;
+  const instRecs = [];
   function uploadSolids(lists) {
     const all = [];
-    for (const l of lists) if (l && l.length) for (const q of l) all.push(q);
+    instRecs.length = 0;
+    for (const l of lists) if (l && l.length) for (const q of l) (q.inst ? instRecs : all).push(q);
     solidQuads = all.length ? solidsLayer().upload(all) : 0;
+    faunaInst = (instRecs.length || fnl) ? faunaLayer().upload(instRecs) : 0;
     return solidQuads;
   }
   function drawSolids(cam, cssH, opts) {
-    if (!solidQuads) return 0;
-    return solidsLayer().draw(cam, cssH || canvas.height, opts || {});
+    let n = 0;
+    if (solidQuads) n += solidsLayer().draw(cam, cssH || canvas.height, opts || {});
+    if (faunaInst) faunaLayer().draw(cam, cssH || canvas.height, opts || {});
+    return n;
   }
 
   // ── THE INTERIOR: A VIEWMODEL PASS, AND IT HAS TO BE ONE ──────────────

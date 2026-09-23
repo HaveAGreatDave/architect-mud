@@ -989,14 +989,23 @@ export function faunaSpanTiles(kind, id) {
 // per face, so both are constant for a pose — resolving them per frame would be a string-free
 // version of the same waste `rv` exists to avoid on the rig.
 const _poses = new Map();
-function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0, far = 0) {
+// ⚠ ONE NORMALISATION OF A POSE REQUEST, READ BY faunaPose AND BY THE GPU BAKE BELOW. Which beat
+// step a bird is on, and whether its flare and gear count, used to be worked out inside faunaPose
+// alone. The instanced draw (gl/fauna.js) has to answer the same question to pick a texture row, and
+// a second copy of three lines of modular arithmetic is how a bird ends up one step out of phase on
+// one renderer and not the other.
+function poseParts(state, beatStep, flare, gear) {
   const air = state === 'air';
   const step = air ? ((beatStep | 0) % FAUNA_BEAT_STEPS + FAUNA_BEAT_STEPS) % FAUNA_BEAT_STEPS : 0;
-  const fl = air && flare ? 1 : 0;
+  return { air, step, fl: air && flare ? 1 : 0, gr: air && gear ? 1 : 0 };
+}
+
+function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0, far = 0) {
+  const { air, step, fl } = poseParts(state, beatStep, flare, gear);
   // ⚠ THE GEAR IS ITS OWN LETTER IN THE KEY, not a widening of the flare's. The two flags are set
   // at different heights and the table has to be able to hold the pose in between — feet down and
   // still beating properly, which is what most of an approach looks like.
-  const gr = air && gear ? 1 : 0;
+  const { gr } = poseParts(state, beatStep, flare, gear);
   // ⚠ THE TIER IS IN THE KEY. Without it the first bird of a species to be drawn decides which
   // mesh every other one gets for the life of the session -- a near bird caching the far mesh is a
   // starling with no primaries at arm's length, and the reverse is the whole saving thrown away.
@@ -1042,6 +1051,59 @@ function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0, far = 0) {
 export function faunaPoseFaces(kind, id, opts = {}) {
   const { state = 'walk', beat = 0, flare = 0, gear = 0, far = 0 } = opts;
   return (faunaPose(kind, id, state, beat, flare, gear, far) || { faces: [] }).faces;
+}
+
+// ── THE SAME POSES, FOR THE GPU ───────────────────────────────────────────────
+//
+// A bird drawn by gl/fauna.js is one instanced mesh per POSE GROUP — kind, id, state, flare, gear
+// and tier — with its wingbeat as a row of a float texture. Everything a pose varies inside a group
+// is vertex POSITIONS: the topology (how many faces, how many corners each) is identical across all
+// sixteen beat steps, measured for every species and tier before this was written. The feet are the
+// one part that adds faces, which is why gear is in the group and not in the row.
+//
+// ⚠ THE FAN IS solids.js's FAN, VERTEX FOR VERTEX: (p0, pi, pi+1) for i = 1 .. n-2. The instanced
+// picture has to be the solids picture moved onto the GPU, and a different triangulation of the
+// same polygon is a different set of edges to rasterise.
+//
+// ⚠ THE COLOURS ARE RESOLVED BY faunaPose, NOT HERE, so the palette cannot drift between the two.
+
+/** Which group and row a bird's pose lives in. Pure; allocates one string. */
+export function faunaPoseSlot(kind, id, state, beat = 0, flare = 0, gear = 0, far = 0) {
+  const { step, fl, gr } = poseParts(state, beat, flare, gear);
+  return { group: kind + ':' + id + ':' + state + ':' + (fl ? 'f' : '') + (gr ? 'g' : '') + 'L' + (far | 0), row: step };
+}
+
+/**
+ * Every beat step of one pose group, fan-expanded, in MODEL units.
+ * Returns null for a group with no geometry, or one whose topology varies across rows (the bake
+ * refuses to guess; the caller draws that bird the old way).
+ */
+export function faunaPoseBake(kind, id, state, flare = 0, gear = 0, far = 0) {
+  const rows = state === 'air' ? FAUNA_BEAT_STEPS : 1;
+  let verts = -1, pos = null, rgb = null, sig = null;
+  for (let r = 0; r < rows; r++) {
+    const pose = faunaPose(kind, id, state, r, flare, gear, far);
+    if (!pose || !pose.faces.length) return null;
+    const faces = pose.faces;
+    const thisSig = faces.map((f) => f.p.length).join(',');
+    if (sig == null) {
+      sig = thisSig;
+      verts = faces.reduce((n, f) => n + Math.max(0, f.p.length - 2) * 3, 0);
+      pos = new Float32Array(rows * verts * 4);
+      rgb = new Float32Array(verts * 3);
+    } else if (thisSig !== sig) return null;
+    let o = r * verts * 4, c = 0;
+    for (let i = 0; i < faces.length; i++) {
+      const pts = faces[i].p, col = pose.rgb[i];
+      for (let k = 1; k + 1 < pts.length; k++) {
+        for (const v of [pts[0], pts[k], pts[k + 1]]) {
+          pos[o] = v[0]; pos[o + 1] = v[1]; pos[o + 2] = v[2]; pos[o + 3] = 1; o += 4;
+          if (r === 0) { rgb[c] = col[0] / 255; rgb[c + 1] = col[1] / 255; rgb[c + 2] = col[2] / 255; c += 3; }
+        }
+      }
+    }
+  }
+  return { rows, verts, pos, rgb };
 }
 
 /**

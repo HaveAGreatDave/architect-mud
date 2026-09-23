@@ -5245,3 +5245,113 @@ export function runBoltLum({ W = 420, H = 300, dist = 12, hour = 21, weather = '
   return out;
 }
 if (typeof window !== 'undefined') window.__glBoltLum = runBoltLum;
+
+
+// ── A MURMURATION, FROZEN, TO BE PHOTOGRAPHED TWICE ─────────────────────────────
+//
+// The scene both benches below stand in: the biggest starling flock near a seed tile, at the moment
+// its cloud is widest, seen from a truck cab `back` tiles behind its centre. Warmed through `warm`
+// frames so the boids have formed a cloud, then held.
+//
+// ⚠ THE CLOCK AND THE DICE ARE PINNED, AND A REPAINT AT THE SAME INSTANT MOVES NOTHING. murmur()
+// integrates by the time since its last call, so painting again at the same `t` hands it dt 0 and
+// the flock is exactly where it was. That is what lets two renderings of one moment be compared.
+function murmurScene(el, { back = 2.5, hour = 11, warm = 60 } = {}) {
+  const RR = 30, NN = RR * 2 + 1;
+  const map = Array.from({ length: NN }, () => Array.from({ length: NN }, () => ({ kind: 'land', biome: 'citycore', flr: 0 })));
+  const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+  let A = null;
+  for (const f of flocksNear(900, 900, RR, 1, habitat)) if (f.sp === 'songbird' && (!A || flockSize(f) > flockSize(A))) A = f;
+  if (!A) throw new Error('no songbird flock near the seed');
+  let T0 = 0, bestR = -1;
+  for (let i = 0; i < 40000; i++) { const t = 1e6 + i * 250, st = flockState(A, t); if (st.airborne && st.r > bestR) { bestR = st.r; T0 = t; } }
+  const c0 = flockState(A, T0);
+  const view = { cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12, fovMul: 1.0,
+    hour, weather: 'clear', speed: 0, resFloor: 1, map, heading: 0,
+    mapCenter: { x: Math.round(c0.cx), y: Math.round(c0.cy + back) }, mapOffset: { x: 0, y: 0 } };
+  const seed = () => { let sd = 0x2545f49; Math.random = () => { sd = (sd * 1103515245 + 12345) & 0x7fffffff; return sd / 0x7fffffff; }; };
+  const paintAt = (tt) => { performance.now = () => tt; Date.now = () => tt; seed(); paintWindshield(el.id, view); };
+  murmurReset();
+  let t = T0 - warm * 16.7;
+  for (let i = 0; i < warm; i++) { paintAt(t); t += 16.7; }
+  const grab = () => { const c = document.createElement('canvas'); c.width = el.width; c.height = el.height; const x = c.getContext('2d'); x.drawImage(el, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
+  return { A, t, paintAt, grab };
+}
+function withBench(W, H, id, fn) {
+  const holder = document.createElement('div'); holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas'); el.id = id; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px'; holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const T = RENDER_TUNE;
+  const keys = ['gl', 'glFloor', 'geese', 'resFloor', 'perfDS', 'glFaunaInst', 'faunaInk', 'faunaGlyphPx', 'faunaFlash'];
+  const was = Object.fromEntries(keys.map((k) => [k, T[k]]));
+  const realNow = performance.now.bind(performance), realDate = Date.now, realRnd = Math.random;
+  try { T.gl = 1; T.glFloor = 1; T.resFloor = 1; T.perfDS = 0; T.geese = 1; return fn(el, T); }
+  finally {
+    performance.now = realNow; Date.now = realDate; Math.random = realRnd;
+    for (const k of keys) T[k] = was[k];
+    uninstall(); holder.remove();
+  }
+}
+const pxDiff = (p, q, thr = 8) => { let n = 0, worst = 0; for (let i = 0; i < p.length; i += 4) { const d = Math.max(Math.abs(p[i] - q[i]), Math.abs(p[i + 1] - q[i + 1]), Math.abs(p[i + 2] - q[i + 2])); if (d > thr) n++; if (d > worst) worst = d; } return { px: n, worst }; };
+
+/**
+ * Birds drawn as instances (gl/fauna.js) against the same birds drawn as solids, one frozen moment.
+ *
+ * ⚠ THE CONTROL IS THE SAME PATH PAINTED TWICE, AND THE ABLATION IS THE SAME MOMENT WITH NO BIRDS.
+ * "The two agree" is also what comes back when neither drew anything, so `birds` says how many
+ * pixels the flock actually covers and `instRecs` how many birds went through the instanced path.
+ * Measured when it was written: 0 pixels differ against the solids path, and 12-17 with the shader's
+ * basis deliberately mirrored, over a flock covering 70-143 pixels.
+ */
+export function runFaunaInst({ back = 1.2, W = 640, H = 360 } = {}) {
+  return withBench(W, H, '__faunainst', (el, T) => {
+    const s = murmurScene(el, { back });
+    T.glFaunaInst = 1; s.paintAt(s.t); const a = s.grab(); const instRecs = (glLastFrame() || {}).fauna;
+    s.paintAt(s.t); const a2 = s.grab();
+    T.glFaunaInst = 0; s.paintAt(s.t); const b = s.grab(); const faces = (glLastFrame() || {}).fauna;
+    T.geese = 0; s.paintAt(s.t); const none = s.grab();
+    const out = { back, flock: flockSize(s.A), instRecs, facesOnCpuPath: faces,
+      birds: pxDiff(a, none), control: pxDiff(a, a2), instVsSolids: pxDiff(a, b) };
+    console.log('__glFaunaInst', JSON.stringify(out));
+    return out;
+  });
+}
+if (typeof window !== 'undefined') window.__glFaunaInst = runFaunaInst;
+
+/**
+ * How much a distant murmuration GLITTERS: the share of its pixels that change when every bird moves
+ * a fraction of a pixel. An honest flock barely changes; a flock of sub-pixel hard dots blinks on and
+ * off the pixel grid, and a flock of one-pixel glyphs snaps between wing poses — both read as confetti.
+ *
+ * ⚠ THE SAME INSTANT PAINTED TWICE MUST READ 0, and it is reported as `control`: 2 ms later every
+ * bird has moved about 0.09 px, so what changes is the rasterisation, not the flock. At a seat near
+ * enough for full meshes the metric stops meaning glitter — a big bird really does move and flap.
+ * Measured at five tiles on a 1,651-bird cloud: 0.45 px hard dots 49.2%, ink dots 0%, and the glyph
+ * rung from 0.7 px 30.8%, from 2.5 px 0%.
+ */
+export function runFaunaGlitter({ back = 5, dtMs = 2, W = 640, H = 360, hour = 18, tune = {} } = {}) {
+  return withBench(W, H, '__faunaglit', (el, T) => {
+    Object.assign(T, tune);
+    const s = murmurScene(el, { back, hour, warm: 90 });
+    s.paintAt(s.t); const a = s.grab();
+    s.paintAt(s.t); const same = s.grab();
+    s.paintAt(s.t + dtMs); const b = s.grab();
+    T.geese = 0; s.paintAt(s.t + dtMs); const none = s.grab();
+    const lum = (d, i) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    let birdPx = 0, flick = 0; const dark = [];
+    for (let i = 0; i < a.length; i += 4) {
+      if (!(Math.abs(lum(b, i) - lum(none, i)) > 6 || Math.abs(lum(a, i) - lum(none, i)) > 6)) continue;
+      birdPx++;
+      if (Math.abs(lum(a, i) - lum(b, i)) > 6) flick++;
+      dark.push(lum(none, i) - lum(b, i));
+    }
+    dark.sort((x, y) => x - y);
+    const q = (f) => dark.length ? +dark[Math.floor(f * (dark.length - 1))].toFixed(1) : 0;
+    const out = { back, flock: flockSize(s.A), birdPx, control: pxDiff(a, same).px,
+      glitterPct: +(100 * flick / Math.max(1, birdPx)).toFixed(1), darkening: { p50: q(0.5), p90: q(0.9), max: q(1) }, tune };
+    console.log('__glFaunaGlitter', JSON.stringify(out));
+    return out;
+  });
+}
+if (typeof window !== 'undefined') window.__glFaunaGlitter = runFaunaGlitter;

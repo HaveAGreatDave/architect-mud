@@ -8,7 +8,7 @@
 // This module is that call, and it is the only place that knows both halves: it hands the GL pass
 // the renderer's own mesh capture, its own baked textures and its own palette, so nothing here has
 // an opinion about what a building is made of.
-import { installGLWorld, installGLClouds, installGLDispose, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
+import { installGLWorld, installGLFaunaInstancing, installGLClouds, installGLDispose, captureModelMesh, modelSolid, wallTexMixed, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
 import { glWorldPass, glCloudPass, glDisposeScene } from './world.js';
 import { NEAR, FAR } from './camera.js';
 import { MAX_LIGHTS, MAX_MATERIALS } from './context.js';   // the uniform budgets the light pass and the material table ask for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
@@ -114,6 +114,7 @@ function paletteMap() {
 // The pass is handed the canvas this frame belongs to, so installing it is a call with no
 // arguments and no knowledge of which view is painting — four seats share one installation.
 export function installGL(hostFor) {
+  installGLFaunaInstancing(true);   // the real pass draws birds as instances — see gl/fauna.js
   installGLWorld((cells, cam, opts) => {
     const host = (hostFor && hostFor()) || opts.host;
     if (!host) return;
@@ -314,7 +315,7 @@ export function installGL(hostFor) {
   // perfectly and every context it opens is held until the page is closed; see the note on
   // disposeWindshield for what that costs and how it was measured.
   installGLDispose((id) => glDisposeScene(id));
-  return () => { installGLWorld(null); installGLClouds(null); installGLDispose(null); };
+  return () => { installGLWorld(null); installGLFaunaInstancing(false); installGLClouds(null); installGLDispose(null); };
 }
 
 export { RENDER_TUNE };

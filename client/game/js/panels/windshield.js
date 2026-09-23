@@ -2139,7 +2139,13 @@ export const RENDER_TUNE = {
   // about a glyph, which is eighteen times cheaper and therefore still earns its place a good deal
   // further out. Set it equal to `faunaDot` and the glyph rung stops extending past the mesh's own
   // floor, which is the behaviour before the rung existed.
-  faunaGlyphPx: 0.7,
+  // ⚠ 2.5, NOT 0.7, AND THE REASON IS WHAT A THREE-FACE BIRD DOES UNDER TWO PIXELS. A glyph flaps
+  // through sixteen discrete wing poses, and at one or two pixels that is a speck snapping between
+  // shapes: measured on a 1,651-bird murmuration five tiles off, 30.8% of the flock's pixels changed
+  // under 0.09 px of motion with glyphs from 0.7 px, 14.1% from 1.5, and 0% from 2.5. Below the
+  // threshold a bird is an ink dot (see the dot push in pushFauna), which does not flicker at all. A
+  // glyph exists to keep a flock's birds bird-SHAPED, and a shape needs a few pixels to exist.
+  faunaGlyphPx: 2.5,
   // ⚠ A SILHOUETTE HAS A LEGIBILITY FLOOR, AND WITHOUT ONE THE RUNG BELOW IT IS A CIRCLE.
   // A songbird spans 6.0 px at one tile and 1.0 at six, so across most of the range a murmuration
   // is actually seen at, a bird is a pixel wide: three faces that small rasterise to a speck when
@@ -2173,6 +2179,14 @@ export const RENDER_TUNE = {
   // `murmuration` below) and never by anything in the game. 0 is the renderer as it shipped.
   murmurForce: 0,
   faunaPool: 1,
+  // ⚠ BIRDS AS INSTANCES ON THE GPU (gl/fauna.js): one baked pose texture per group and nine floats a
+  // bird, where the CPU path transformed and uploaded about a thousand. 0 is the solids path exactly
+  // as it shipped, and is there for the A/B while the instanced one is proved; it needs no reload.
+  glFaunaInst: 1,
+  // ⚠ FAR BIRDS CONSERVE THEIR INK (see the dot push in pushFauna): drawn wide enough to always reach a
+  // pixel centre and faint by the area they were given, so they stop blinking on the pixel grid and a
+  // dense patch of a flock goes darker than a thin one. 0 is the 0.45 px hard dot exactly as shipped.
+  faunaInk: 1,
   birdFaces: 1400,
   // MEASURED with __faunaCost() in the Modelshop on a painted frame with a real context, which
   // is the only place a draw call can be reached: at 60 birds the GL marginal cost is 0.7 ms
@@ -22914,6 +22928,13 @@ let GL_HOOK = null, GL_CELLS = null, GL_HOST = null, GL_ID = null;
 // measurement and disagreed only over the world the game actually ships.
 let GL_TAKEN = null;
 export function installGLWorld(fn) { GL_HOOK = fn || null; }
+// ⚠ WHETHER THE INSTALLED PASS CAN DRAW BIRDS AS INSTANCES (gl/fauna.js). A SEPARATE SWITCH FROM
+// THE HOOK, because every headless gate installs a hook of its own that reads the fauna list as
+// FACES — the feet-under-the-turf and wing-pose checks in fauna.mjs among them — and would go
+// vacuous rather than red if handed instance records. Only gl/install.js, which installs the real
+// pass, turns it on.
+let GL_FAUNA_INST = false;
+export function installGLFaunaInstancing(on) { GL_FAUNA_INST = !!on; }
 // ⚠ THE DECK COLLECTS AFTER THE WORLD PASS HAS ALREADY COMPOSITED, so it cannot ride the world
 // hook and cannot fill a sink the world hook reads — that is the trap the Curtain fell into, and
 // the failure is silent: the sink fills, nothing reads it, nothing draws and nothing says so. It
@@ -26531,6 +26552,18 @@ export const FLASH_BANK = 0.62;
 // How much of the dot's RADIUS the bank is allowed to move. 0 is alpha-only, which is the flash
 // as it shipped and is what could not be seen.
 export const FLASH_AREA = 0.55;
+// The smallest radius a far bird is drawn at, in DEVICE pixels. 0.75 is just over the 0.707 at which a
+// disc is guaranteed to cover a pixel centre wherever it sits — see the ⚠ on the dot push below.
+export const FAUNA_INK_R = 1.25;
+// ⚠ THE INK OF THE TWO SPRITE PROFILES, TAKEN FROM gl/sprites.js's OWN FORMULAS. A hard dot is
+// 1 - smoothstep(0.72, 1, d) and a soft one pow(1 - d, 1.8), both over the unit disc; their mean
+// coverage is what a dot of each kind actually deposits. A far bird is drawn soft and must lay down
+// what a hard dot of its own size did, so its alpha is scaled by hard / soft. Integrated here rather
+// than typed in, so the ratio is visibly the shader's. If either profile in sprites.js changes, this
+// must change with it.
+const _profileMean = (f) => { let s = 0, w = 0; for (let i = 0; i < 4000; i++) { const d = (i + 0.5) / 4000; s += f(d) * d; w += d; } return s / w; };
+const _ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+export const FAUNA_INK_GAIN = _profileMean((d) => 1 - _ss(0.72, 1, d)) / _profileMean((d) => Math.pow(Math.max(0, 1 - d), 1.8));
 function pushFauna(cam, sid, dx, dy, wz, alpha, o) {
   // Which mesh tier this bird gets, decided where `px` is known and read after the dot branch has
   // had its say. 0 is the near model, which is every animal with no `lod` authored.
@@ -26717,7 +26750,29 @@ function pushFauna(cam, sid, dx, dy, wz, alpha, o) {
         // the motion layer already carry one. The claim worth gating here is a size: a dot may only
         // ever be a speck, and the way that broke was a NEAR bird reaching this line at all. A
         // census over raw sprites cannot tell a bird's disc from a street lamp's, so it cannot ask.
-        pushLight(dx, dy, wz, Math.max(px * 0.30 * area, 0.45), faunaDotColour('bird', sid), alpha * dim, 1, 0, 0, 1, 'faunaDot');
+        // ⚠ A DOT SMALLER THAN A PIXEL IS DRAWN OR NOT BY WHERE IT HAPPENS TO SIT, AND THAT IS THE
+        // CONFETTI. The sprite layer evaluates a dot's alpha at pixel CENTRES, so a dot of radius 0.45 px
+        // only produces a pixel at all when a centre lies within 0.45 px of it — pi x 0.45^2, about 64%
+        // of the time. At any instant a third of a distant murmuration was simply not drawn, and every
+        // bird blinked on and off as it drifted across the pixel grid: glitter, not a flock.
+        // ⚠ SO A FAR BIRD IS DRAWN WIDE ENOUGH TO ALWAYS REACH A PIXEL CENTRE, AND FAINT BY EXACTLY THE
+        // AREA IT WAS GIVEN. Ink is conserved — the dot deposits the darkness the bird really covers,
+        // wherever it sits — and overlapping dots stack (alpha-over), so a dense patch of the flock goes
+        // darker than a thin one. That is where a murmuration's dark bands come from: how many birds lie
+        // along your line of sight, not how pale each one is.
+        // ⚠ AND THE FOOTPRINT IS SOFT, BECAUSE A HARD ONE STILL FLICKERS. The sprite's hard profile is
+        // solid to 72% of its radius and ramps over the last 28%, so at a pixel or less that ramp is a
+        // fifth of a pixel wide and a centre crossing it still flips the dot on and off — measured, 31.7%
+        // of a far flock's pixels changed under 0.09 px of motion with a hard 0.75 px dot. The soft
+        // profile falls off continuously, so the darkness a bird lays on each pixel moves smoothly as it
+        // drifts. Its alpha is raised by the ratio of the two profiles' ink, so a soft dot deposits what
+        // the hard dot of the bird's own size did (FAUNA_INK_GAIN).
+        const rTrue = px * 0.30 * area;
+        if (RENDER_TUNE.faunaInk > 0) {
+          const R = Math.max(rTrue, (RENDER_TUNE.faunaInkR || FAUNA_INK_R) / _frameDpr);
+          const ink = (rTrue * rTrue) / (R * R) * FAUNA_INK_GAIN;
+          pushLight(dx, dy, wz, R, faunaDotColour('bird', sid), alpha * dim * Math.min(1, ink), 0, 0, 0, 1, 'faunaDot');
+        } else pushLight(dx, dy, wz, Math.max(rTrue, 0.45), faunaDotColour('bird', sid), alpha * dim, 1, 0, 0, 1, 'faunaDot');
         faunaCountPainted(o.state || 'walk');
         return;
       }
@@ -26740,6 +26795,15 @@ function pushFauna(cam, sid, dx, dy, wz, alpha, o) {
     const k = clamp(RENDER_TUNE.faunaMinFade, 0, 1);
     __scale = FAUNA_TILE * mag;
     __alpha = alpha * (1 - k + k / mag);
+  }
+  // ⚠ ON THE GPU, A BIRD IS A RECORD, NOT A MESH. The same arguments faunaWorldFacesInto would have
+  // been handed, so gl/fauna.js reproduces its transform and faunaPose's choice of pose exactly.
+  if (GL_FAUNA_INST && RENDER_TUNE.glFaunaInst) {
+    FAUNA_SINK.push({ inst: 1, kind: 'bird', sp: sid, state: o.state || 'walk', beat: o.beat || 0, flare: o.flare || 0,
+      gear: o.gear || 0, far: tier, x, y, z: wz, heading: o.heading || 0, pitch: o.pitch || 0, roll: o.roll || 0,
+      scale: __scale, a: __alpha });
+    faunaCountPainted(o.state || 'walk');
+    return;
   }
   const start = FAUNA_SINK.length;
   let n;
@@ -28362,6 +28426,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
     // Measured over 200 frames, the furthest any bird gets from its centre horizontally is 1.97
     // tiles, comfortably inside st.r itself, so st.r + 0.5 is generous and still leaves room.
     const __flockBehind = (__fdepth + st.r + 0.5) <= VISIBLE_NEAR_F;
+    pBegin('fauna:sim');
     const cloud = (st.airborne && sid === 'songbird')
       ? murmur(sid + ':' + fl.ax + ',' + fl.ay, st.n, st.cx, st.cy, st.z, st.heading, now,
         // ⚠ THE SPREAD GROWS WITH THE CUBE ROOT OF THE COUNT, so the cloud keeps its DENSITY as
@@ -28397,7 +28462,12 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
           show: FAUNA_SHOW, showFade: RENDER_TUNE.faunaShowFade,
           trail: RENDER_TUNE.murmurTrail, scare: BIRD_SCARE, frozen: __flockBehind })
       : null;
+    pEnd();                  // ── end fauna:sim ──
 
+    // ⚠ TWO SUB-PHASES OF world:fauna, BECAUSE THE BIRD COST IS TWO DIFFERENT THINGS. The boids step
+    // is simulation and the loop below is drawing (cull, LOD pick, face build, sprite push), and a
+    // plan to move either onto the GPU is only worth anything against a measurement of each.
+    pBegin('fauna:birds');
     for (let i = 0; i < st.n; i++) {
       // ⚠ A SINE A BIRD, DISCARDED FOR EVERY BIRD IN THE AIR. `frac` is Math.sin, and it belongs
       // to the GROUND branch: `s` drives the bob and the perched wingbeat, and
@@ -28598,6 +28668,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
         else emitScatterFace(f + (cam.fwdOff || 0), () => drawGooseGround(ctx, cam, sid, dx, dy, perchZ, a, groundState, heading, bob + lift / FAUNA_TILE));
       }
     }
+    pEnd();                  // ── end fauna:birds ──
   }
 }
 
