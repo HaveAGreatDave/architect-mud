@@ -1136,6 +1136,41 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
   notes.push('dot LOD: ' + rows.map((r) => `${r.id.slice(0, 2)} ${r.thr}px mesh to ${r.meshTo.toFixed(1)}/${r.range.toFixed(1)}t`).join(', '));
 }
 
+// ── 1i. `.murmur` HOLDS THE STARLINGS UP AND TOUCHES NOTHING ELSE ─────────────
+//
+// `opts.air` is a test seam: it loops a species' airborne phase so a murmuration can be looked at
+// on demand. Three ways it is silent when wrong, each of which draws a plausible picture.
+{
+  const A = { ax: 909, ay: 910, sp: 'songbird' }, G = { ax: 909, ay: 910, sp: 'goose' };
+  const per = flockState(A, 0).period;
+  let down = 0, worst = 0, prev = null, drift = 0, leak = 0, travel = 0;
+  for (let k = 0; k < 2000; k++) {
+    const t = 1e6 + k * (per / 500);
+    const s = flockState(A, t, null, { air: 'songbird' });
+    if (!s.airborne) down++;
+    // ⚠ AND IT MOVES, AT FLYING SPEED, WITH NO JUMP AT THE LAP. Pinning `t` would pass the first
+    // check and hang the flock still, which draws a ball where the ribbon should be.
+    if (prev) { const d = Math.hypot(s.cx - prev.cx, s.cy - prev.cy); worst = Math.max(worst, d); travel += d; }
+    prev = s;
+    // Nothing that does not ask is moved: the unforced flock is the wall clock's, exactly.
+    const u = flockState(A, t), w = flockState(A, t, null, { hour: 12, doy: 1 });
+    if (u.airborne !== w.airborne || u.cx !== w.cx) drift++;
+    // ⚠ AND IT NAMES ONE SPECIES. A seam that held every flock up would put the geese in the
+    // air over every park while somebody was looking at starlings.
+    const g = flockState(G, t, null, { air: 'songbird' }), h = flockState(G, t);
+    if (g.airborne !== h.airborne || g.cx !== h.cx || g.z !== h.z) leak++;
+  }
+  if (down) problems.push(`opts.air left a forced songbird flock on the ground in ${down} of 2000 samples`);
+  // 0.12 tiles per step is about four times the flock's own cruising distance per step here;
+  // the lap wrap, if it jumped, would jump the whole circuit.
+  // A flock held still passes every other check here and draws a ball; it must actually fly its circuit.
+  if (travel < SPECIES.songbird.r * 4) problems.push(`a forced flock travelled only ${travel.toFixed(2)} tiles over four periods -- held still rather than flying`);
+  if (worst > 0.12) problems.push(`a forced flock jumps ${worst.toFixed(3)} tiles between samples -- the looped phase is not continuous`);
+  if (drift) problems.push(`opts without air changed an unforced flock in ${drift} samples`);
+  if (leak) problems.push(`opts.air = songbird moved a goose in ${leak} samples -- the seam must name one species`);
+  notes.push(`.murmur: forced starlings airborne 2000/2000, worst step ${worst.toFixed(3)} tiles, geese untouched`);
+}
+
 // ── 1h. A FLOCK IS DRAWN AS FAR OFF AS IT IS BIG ─────────────────────────────
 //
 // The starling is the one bird here whose size swings by two orders of magnitude, and its draw

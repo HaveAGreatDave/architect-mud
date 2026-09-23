@@ -26,6 +26,40 @@ import { runHighlightCommand, openFindBar, exportTranscript } from './logtools.j
 import { runTriggerCommand, runAliasCommand, runTimerCommand, runStateCommand, runRouteCommand, expandAlias, stopAllTimers, cancelWaits } from './automation.js';
 import { expandSpeedwalk } from './speedwalk.js';
 import { runVarsCommand } from './varscommand.js';
+
+// ⚠ THROUGH window, BECAUSE windshield.js IS LAZY. Importing it here would load the whole flight
+// renderer at boot for a debug verb; the module installs `__murmuration` when a view opens it.
+const COMPASS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];
+// Grid y grows SOUTH (map-text.js: dy < 0 is north), so atan2 on the raw grid deltas is a
+// clockwise bearing from east.
+const compassOf = (dx, dy) => COMPASS[((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8];
+function runMurmurCommand(arg) {
+  const on = !(arg === 'off' || arg === 'stop');
+  const fn = typeof window !== 'undefined' ? window.__murmuration : null;
+  if (!fn) {
+    window.__murmurPending = on;
+    appendMsg(on ? 'Murmuration armed. It starts when a view opens — cockpit, cab, free look or a telescope.'
+      : 'Murmuration disarmed.', 'system');
+    return;
+  }
+  const r = fn(on);
+  if (!on) { appendMsg('Murmuration off. The starlings are back on the clock.', 'system'); return; }
+  const h = r.hour != null ? ` The sky is pinned at ${Math.floor(r.hour)}:${String(Math.round((r.hour % 1) * 60)).padStart(2, '0')}.` : '';
+  appendMsg('Starlings up.' + h + ' Type .murmur off to let them go.', 'system');
+  // The renderer only knows where they are after it has drawn a frame with the lever on.
+  setTimeout(() => {
+    const near = r.near();
+    if (!near) {
+      const why = r.why && r.why();
+      appendMsg(why === 'high' ? 'Too high to see them. Birds are only drawn low over the ground — come down below the rooftops.'
+        : why === 'dark' ? 'Too dark to see them. Something else is pinning the hour; clear it with __wsTune.hourForce = null.'
+        : 'No view is drawing birds. Open the cockpit, the cab, free look or a telescope.', 'system');
+      return;
+    }
+    if (!near.length) { appendMsg('No starlings in range of here — they keep to streets, parks and rooftops. Try the city.', 'system'); return; }
+    appendMsg('Nearest: ' + near.map((q) => `${Math.hypot(q.dx, q.dy).toFixed(1)} tiles ${compassOf(q.dx, q.dy)} (${q.n} birds)`).join(' · ') + '.', 'system');
+  }, 500);
+}
 // The verbs whose arguments are a sentence a human wrote. Imported rather than
 // restated: command stacking needs exactly the judgement this list already makes,
 // and a second copy would drift into eating somebody's chat message.
@@ -93,6 +127,10 @@ export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   // Dot-prefixed like `.markup` and `.status`: a client-only meta command with no
   // in-world meaning, kept out of the plain verb namespace on purpose.
   if (lower === '.savelog') { exportTranscript(); return true; }
+  // A test lever for the starlings: hold them in the air so a murmuration can be looked at on
+  // demand. Dot-prefixed with `.savelog` because it is a dev meta-command with no in-world
+  // meaning, and client-side because it moves the picture and nothing else.
+  if (lower === '.murmur' || lower.startsWith('.murmur ')) { runMurmurCommand(lower.slice(7).trim()); return true; }
   // Automation. Same collision rule as the log tools above — all four were
   // checked against the live registries and none is claimed by the engine or any
   // plugin. `set`/`unset` are deliberately NOT client verbs: they are macro-script

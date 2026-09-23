@@ -2168,6 +2168,10 @@ export const RENDER_TUNE = {
   // leading third, which is the ribbon in the photographs. Read in murmur.js, nowhere else.
   murmurTrail: 0.3,
   murmurPack: 0.5,
+  // ⚠ A TEST LEVER, NOT A SETTING: 1 holds every starling flock in the air so a murmuration can
+  // be looked at without waiting on the wall clock. Set by `.murmur` in the client (see
+  // `murmuration` below) and never by anything in the game. 0 is the renderer as it shipped.
+  murmurForce: 0,
   faunaPool: 1,
   birdFaces: 1400,
   // MEASURED with __faunaCost() in the Modelshop on a painted frame with a real context, which
@@ -22809,6 +22813,12 @@ if (typeof window !== 'undefined') {
   // The live render knobs, for console experiments (`__wsTune.wallLodPx = 400`). Every one takes
   // effect on the very next frame — same object the ⚙ sliders mutate.
   window.__wsTune = RENDER_TUNE;
+  // `.murmur` in the client lands here. It can be typed before any view has loaded this
+  // module (it is lazy), so a request made earlier is left on window and picked up now.
+  window.__murmuration = murmuration;
+  // ⚠ DEFERRED, because this runs during module evaluation and `murmuration` reads state
+  // declared further down the file -- called here it is a temporal-dead-zone throw at boot.
+  queueMicrotask(() => { if (window.__murmurPending != null) { murmuration(window.__murmurPending); delete window.__murmurPending; } });
   // ⚠ AND THE FREE CAMERA, WHICH WAS EXPORTED AND NOT EXPOSED. `freeCam` is a debug surface — it is
   // reached from a console, not from a module — so an `export` alone left it unreachable by the one
   // caller it has. Caught by opening the game and asking for it: `typeof __freecam` was 'undefined'
@@ -26248,7 +26258,45 @@ export function setBirdSeason(doy) {
 }
 // The pair `flockSize` wants, resolved once per frame. `doyForce` pins the calendar exactly as
 // `hourForce` pins the clock, and `v.hour` has already been through that pin by the time this runs.
-const birdWhen = (v) => ({ hour: v?.hour, doy: RENDER_TUNE.doyForce ?? BIRD_DOY });
+const birdWhen = (v) => ({ hour: v?.hour, doy: RENDER_TUNE.doyForce ?? BIRD_DOY,
+  air: RENDER_TUNE.murmurForce ? 'songbird' : null });
+// Where the starlings are, for `.murmur` to say so. Filled only while the lever is on.
+let MURMUR_NEAR = null;
+// And why there is nothing to report, when there is nothing: 'dark' or 'high'. A null report on
+// its own reads the same as "no starlings live here", which is the one wrong thing to tell
+// somebody standing in a park at night.
+let MURMUR_WHY = null;
+let _murmurHourPinned = false;
+/**
+ * Hold the starlings in the air, or let them go. The dev surface behind `.murmur`.
+ *
+ * ⚠ IT PINS THE HOUR TO THE ROOST PEAK ONLY IF NOTHING ELSE HAS, AND LETS GO ONLY OF A PIN IT
+ * MADE ITSELF. Birds are daylight-gated, so at night the lever alone draws nothing; the
+ * gathering peaks at dusk, which is also when a murmuration is a silhouette against the sky and
+ * looks like one. A pin somebody set by hand is theirs and survives `.murmur off`.
+ */
+export function murmuration(on = true) {
+  RENDER_TUNE.murmurForce = on ? 1 : 0;
+  MURMUR_NEAR = null; MURMUR_WHY = null;
+  if (on && RENDER_TUNE.hourForce == null) {
+    // ⚠ NOT THE ROOST PEAK, WHICH IS IN THE DARK. birds.js puts the starlings' gathering at
+    // `dayEnd - lead` = 20:18, and `drawGeese` turns every bird off once the sky is darker than
+    // GOOSE_NIGHT_OFF, which the fixed sky table crosses at about 18:35 -- so pinning the peak
+    // drew nothing at all. Walk back from it to the latest hour the pass draws at FULL strength
+    // (`dayFade` is 1 a quarter under the cut), which is golden hour: low sun, long light.
+    const sp = spOf({ sp: 'songbird' });
+    let h = sp.dayEnd - (sp.roost?.lead ?? 0.7);
+    while (h > 12 && skyAt(h).night > GOOSE_NIGHT_OFF - 0.25) h -= 0.05;
+    RENDER_TUNE.hourForce = Math.round(h * 20) / 20;
+    _murmurHourPinned = true;
+  }
+  if (!on) {
+    if (_murmurHourPinned) RENDER_TUNE.hourForce = null;
+    _murmurHourPinned = false;
+    MURMUR_NEAR = null;
+  }
+  return { on: !!on, hour: RENDER_TUNE.hourForce, near: () => MURMUR_NEAR, why: () => MURMUR_WHY };
+}
 
 // ⚠ THE PREDATOR SLOT, AND IT IS DECLARED EVEN THOUGH NOTHING SETS IT. `agitation` reads it every
 // frame a murmuration is up, and an UNDECLARED identifier is a ReferenceError that takes the whole
@@ -27905,9 +27953,9 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
   const now = Date.now();
   const density = RENDER_TUNE.geese;
   if (!(density > 0)) return;                       // ⚠ 0 is the absence of the pass, not a quiet one
-  if ((sky.night || 0) > GOOSE_NIGHT_OFF) return;   // a daylight feature, as drawBirds already is
+  if ((sky.night || 0) > GOOSE_NIGHT_OFF) { if (RENDER_TUNE.murmurForce) MURMUR_WHY = 'dark'; return; }   // a daylight feature, as drawBirds already is
   const height = v.height || 0;
-  if (height > GOOSE_AIR_MAX_H) return;
+  if (height > GOOSE_AIR_MAX_H) { if (RENDER_TUNE.murmurForce) MURMUR_WHY = 'high'; return; }
   const dayFade = clamp((GOOSE_NIGHT_OFF - (sky.night || 0)) / 0.25, 0, 1);
   const groundOK = height < STREET_FIGURE_MAX_H;
   const eyeX = wcx + cam.ox, eyeY = wcy + cam.oy;
@@ -28038,6 +28086,11 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
       <= Math.min(flockDrawRange(spOf(f), f, birdWhen(v)) ?? searchR, FLOCK_RESOLVE_F));
   // Nearest first, so the cap spends the budget on what is legible rather than on what is furthest.
   flocks.sort((a, b) => (Math.hypot(a.ax - eyeX, a.ay - eyeY) - Math.hypot(b.ax - eyeX, b.ay - eyeY)));
+  if (RENDER_TUNE.murmurForce) {
+    MURMUR_WHY = null;
+    MURMUR_NEAR = flocks.filter((f) => f.sp === 'songbird').slice(0, 3)
+      .map((f) => ({ dx: f.ax - eyeX, dy: f.ay - eyeY, n: flockSize(f, birdWhen(v)) }));
+  }
 
   // ── WHAT YOU GET TO HEAR ────────────────────────────────────────────────────
   //

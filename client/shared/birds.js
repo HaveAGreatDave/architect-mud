@@ -566,10 +566,21 @@ export function flockState(f, now, clear = null, opts = null) {
   const u = (((now / period) + ph) % 1 + 1) % 1;
 
   const uG = spOf(f).uGround;
-  if (u < uG) {
+  // ⚠ `opts.air` IS A TEST SEAM AND NOTHING IN THE GAME PASSES IT. It names one species whose
+  // flocks are held in the air, so a murmuration can be looked at on demand rather than waited
+  // for (`.murmur` in the client). It LOOPS THE AIRBORNE PHASE ON ITS OWN CLOCK rather than
+  // pinning `t`: a pinned `t` is a flock hanging still, and the ribbon a murmuration is drawn
+  // from is the record of its centre MOVING, so a frozen centre is a ball rather than a cloud.
+  // Looped, the flight runs at its own natural speed and touches down for an instant at the
+  // anchor between laps — the circuit starts and ends there, so the position never jumps.
+  // ⚠ The server never passes it (describe.js hands `{ hour, doy }`), so the room text goes on
+  // describing the real flock, and so does everything in this file that calls without opts —
+  // the hawk's prey pick and the strike search. It moves the PICTURE and nothing else.
+  const forced = !!(opts && opts.air && opts.air === f?.sp);
+  if (!forced && u < uG) {
     return { airborne: false, u, period, cx: f.ax, cy: f.ay, z: 0, heading: frac(f.ax * 2.3 + f.ay * 8.7) * TAU, turn: 0, climb: 0, n: flockSize(f, opts) };
   }
-  const t = (u - uG) / (1 - uG);
+  const t = forced ? (((now / (period * (1 - uG))) + ph) % 1 + 1) % 1 : (u - uG) / (1 - uG);
   const c = circuitAt(f, t, clear);
 
   // ⚠ THE HEADING IS THE VELOCITY, NOT THE TANGENT TO THE CIRCLE, AND THAT COST A FLOCK THAT FLEW
