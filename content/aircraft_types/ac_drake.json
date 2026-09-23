@@ -1,0 +1,24 @@
+{
+  "altitude_ceiling": 3,
+  "cargo_capacity": 60,
+  "class": "heli",
+  "cruise_speed": 2,
+  "data": {
+    "feel": "A flying mandarin duck. Stable, comfortable, slow to turn, and nobody looks at anything else on the pad."
+  },
+  "engines": 2,
+  "fuel_burn_base": 2.4,
+  "fuel_capacity": 1600,
+  "fuel_type": "avgas",
+  "handling": -1,
+  "hardpoints": 0,
+  "hull_hp": 26,
+  "id": "ac_drake",
+  "max_takeoff_weight": 520,
+  "name": "Drake",
+  "noise": 2,
+  "price_buy": 7000,
+  "price_rent_hourly": 160,
+  "seats": 4,
+  "takeoff_mode": "vtol"
+}

@@ -250,6 +250,26 @@ export const TYPES = {
     ceiling: 34000,
     groundPitch: 7,   // TAILDRAGGER: mains forward, tailwheel on the boom — she squats nose-high parked, flies the tail off first
   },
+  // Drake: the luxury compound coaxial shaped like a mandarin duck. Stacked contra-rotating
+  // rotors and a ducted pusher, so no tail rotor; she yaws slowly and evenly off differential
+  // torque. Big, heavy and stable to the point of lazy, and the pusher gives her a real top end.
+  // Sold for now; meant to become a mission prize.
+  drake: {
+    name: 'Drake', heli: true, mass: 3.2,
+    vne: 180, cruise: 140, vs0: 24,
+    vr: 0, aoaCrit: 90, liftScale: 1,
+    pitchRate: 18, pitchTau: 0.6, rollRate: 30, rollTau: 0.55,
+    pitchStable: 1.4, rollStable: 1.5,
+    yawRate: 55,
+    engineLag: 1.4,
+    cyclicThrust: 4.4,
+    dragP: 0.0012,
+    liftMax: 2.5, hoverThrust: 1.0,
+    vsGain: 900, vsGainUp: 1700, vsMax: 2400, vsTau: 1.1,
+    vrsVs: 560,
+    rollFric: 12,
+    ceiling: 26000,
+  },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
   carcass: {
     name: 'Carcass', mass: 1.4, thrustMax: 14, vr: 44, vs0: 28, vne: 115, cruise: 72,

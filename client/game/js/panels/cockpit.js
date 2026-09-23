@@ -1122,7 +1122,7 @@ const FLAP_STYLES = {
   quadrant: { cap: 'FLAPS',      detents: [{ v: 0, l: '0' }, { v: 0.25, l: '1' }, { v: 0.5, l: '2' }, { v: 0.75, l: '3' }, { v: 1, l: 'FULL' }] },
   switch:   { cap: '',           detents: [{ v: 0, l: 'UP' }, { v: 0.5, l: '½' }, { v: 1, l: 'FULL' }] },
 };
-const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, viper: null, grasshopper: 'johnson', locust: 'johnson',
+const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, viper: null, drake: null, grasshopper: 'johnson', locust: 'johnson',
   // The Shrike's flap lever also drives her dive brakes — one handle, two jobs, which is why
   // it is the quadrant rather than a switch: you set it by feel on the way over the top.
   shrike: 'quadrant' };
@@ -1578,6 +1578,7 @@ const FSIM_SKIN = {
   reaper: { id: 'reaper', acc: '#ff9a38', rgb: [255, 154, 56] },   // A-10 Warthog: olive-drab armour + gunsight amber
   dragonfly: { id: 'dragonfly', acc: '#8fe36b', rgb: [143, 227, 107] },   // Mini 500: a light, exposed kit-heli bubble
   viper: { id: 'viper', acc: '#5fe6c0', rgb: [95, 230, 192] },   // attack-heli glass cockpit: black composite + cyan-green HUD, threat-red weapons
+  drake: { id: 'drake', acc: '#e89a3a', rgb: [232, 154, 58] },   // the mandarin drake: warm orange sail-fin trim
   // The two light singles each carry their own flightdeck now: the Grasshopper an olive-drab
   // L-4 liaison deck (khaki plates, lime dials), the Locust a gloss-black hot-rod sport deck
   // (amber dials, racing-red master).

@@ -37,6 +37,8 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { seaShelter } from '../../../shared/sea-swell.js';
+import { TAG_GLYPHS } from '../../../shared/tag-glyphs.js';
+// A mesh file's moving parts — wings that swing out, anything on a hinge — posed per aircraft here.
 import { hfCastFor, hfTint, hfSkinFor } from '../../../shared/hf-tint.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds, aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, drawBoatHullArt, boatExhaustPorts, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta } from './aircraft3d.js';
@@ -38335,7 +38337,7 @@ function drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha) {
 // and every reference piece would look the same set in any of them.
 // ⚠ NAMES A FACE THAT SHIPS WITH WINDOWS FIRST, then a generic family — the rule SIGN_FONT states:
 // a missing font must fall back to a different HAND, never to body text.
-const TAG_FONT = (C) => `900 ${Math.round(C * 0.78)}px "Segoe UI Black","Arial Rounded MT Bold","Arial Black",Impact,sans-serif`;
+const TAG_FONT = (C) => `900 ${Math.round(C * 0.78)}px "Arial Rounded MT Bold","Segoe UI Black","Arial Black",Impact,sans-serif`;
 // The scrawled handstyle beside the piece — a date, a crew, somebody else's name. Every reference
 // board has two or three of these round the edges of the big one, and they are what stops a wall
 // reading as ONE commissioned mural: a piece is a thing somebody spent an hour on, the scrawls are
@@ -38972,24 +38974,37 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
   // ⚠ LETTERS OVERLAP, THEY DO NOT SIT BESIDE EACH OTHER. At 0.90 they nearly touched, which is
   // spacing — a throw-up has none, and what the references show is each letter biting into the one
   // before it so the outlines interlock. That interlock is most of what the shape reads as, and it
-  // is the reason passes 3–5 are per letter: see the ⚠ on scopes.
-  const TRACK = 0.80;
+  // is why the letters are stacked right to left (see PUFF below).
+  const TRACK = 0.72;
+  // ⚠ BUBBLE LETTERS ARE INFLATED, NOT SET IN A FAT FACE. Every letter is grown by a round-joined
+  // stroke of its own fill colour, which rounds every corner and closes the counters down to slots,
+  // and the rim, outline and block grow by the same amount so the keyline stays a keyline.
+  // ⚠ AND THE LETTERS ARE STACKED RIGHT TO LEFT. Left to right, each outline was a black line
+  // across the previous letter's fill, so two overlapping letters read as two stickers with the
+  // later one slapped over the earlier. Merging every outline into one pass was tried too, and it
+  // melts the word into one sausage with nothing to read. What the references do is put each
+  // letter ON TOP of the one after it, so the overlap reads as one letter tucked behind another.
+  const PUFF = CELL * 0.08;
   // ⚠ THE LETTERS ARE STRETCHED AND THE LAYOUT HAS TO KNOW IT. No face that ships with an operating
   // system is as wide as a bubble letter, so each one is drawn through a horizontal scale — and the
   // advance is measured from the UNSCALED glyph, so a `fat` the layout does not know about walks the
   // last letter of every word off the right-hand edge of its own canvas. One constant that both the
   // measure and the draw read, with a per-letter wobble around it that is small enough not to.
   const FAT = 1.24;
-  const PAD_X = Math.round(HALO * 0.5 + CELL * 0.18);
-  const PAD_T = Math.round(HALO * 0.5 + CELL * 0.12);
+  const PAD_X = Math.round(HALO * 0.5 + PUFF + CELL * 0.18);
+  const PAD_T = Math.round(HALO * 0.5 + PUFF + CELL * 0.12);
   const PAD_B = Math.round(HALO * 0.5 + CELL * 0.52);   // …and the drips hang below all of it
 
   const probe = texCanvas(8, 8).getContext('2d');
   probe.font = TAG_FONT(CELL);
-  const chW = (ch) => (probe.measureText(ch).width || CELL * 0.5) * FAT;
+  // A traced letter carries its own width, already as wide as a bubble letter should be, so it
+  // takes no FAT stretch; only a font fallback does.
+  // A traced letter's width already includes its swash, so it needs less overlap to interlock.
+  const trackOf = (ch) => (tagGlyph(ch, CELL) ? 0.84 : TRACK);
+  const chW = (ch) => { const tg = tagGlyph(ch, CELL); return tg ? tg.w : (probe.measureText(ch).width || CELL * 0.5) * FAT; };
   const lineW = lines.map((ln) => {
     let w = 0;
-    for (let i = 0; i < ln.length; i++) w += chW(ln[i]) * (i === ln.length - 1 ? 1 : TRACK);
+    for (let i = 0; i < ln.length; i++) w += chW(ln[i]) * (i === ln.length - 1 ? 1 : trackOf(ln[i]));
     return Math.max(w, CELL * 0.6);
   });
   // ⚠ THE LINES NEST TOO, for the same reason the letters do. At 1.26 of a cell a second line sat
@@ -39024,16 +39039,16 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
       const ch = ln[ci], w = chW(ch);
       if (ch !== ' ') {
         glyphs.push({
-          ch, w, li, ci,
+          ch, w, li, ci, glyph,
           uw: w / FAT,                                  // the face's own width, which is what fillText draws
           x: x + w * 0.5,
           y: yMid + (R(li * 37 + ci * 5) - 0.5) * CELL * 0.17,
           rot: (R(li * 31 + ci * 3) - 0.5) * 0.30,      // ±9°, which reads as a hand and not a font
-          fat: FAT * (0.95 + R(li * 17 + ci * 7) * 0.10),   // each letter its own width, as a can gives it
+          fat: (glyph ? 1 : FAT) * (0.95 + R(li * 17 + ci * 7) * 0.10),   // each letter its own width, as a can gives it
           ink: inks[starts[li] + ci] || P.mid,
         });
       }
-      x += w * (ci === ln.length - 1 ? 1 : TRACK);
+      x += w * (ci === ln.length - 1 ? 1 : trackOf(ch));
     }
   }
   if (!glyphs.length) return null;
@@ -39085,10 +39100,10 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
   g.save();
   g.globalAlpha = 0.46;
   g.strokeStyle = P.halo;
-  g.lineWidth = HALO;
+  g.lineWidth = HALO + PUFF * 2;
   g.shadowColor = P.halo;
   g.shadowBlur = CELL * 0.30;
-  for (const q of glyphs) at(q, (ox) => g.strokeText(q.ch, ox, 0));
+  for (const q of glyphs) at(q, (ox) => tagGlyphOp(g, q, ox, 'stroke', 'line'));
   for (const k of links) { limb(k); g.stroke(); }     // the cloud is round the WHOLE form, limbs included
   // …and a few loose blobs off the edge of it, because a can held at arm's length does not stop
   // where the letters do. Without them the cloud is an offset outline of the word, which is a
@@ -39112,16 +39127,16 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
   g.globalAlpha = 0.9;
   g.strokeStyle = P.line;
   g.fillStyle = P.line;
-  g.lineWidth = RIM;
-  for (const q of glyphs) at(q, (ox) => { g.strokeText(q.ch, ox, 0); g.fillText(q.ch, ox, 0); });
-  for (const k of links) { g.lineWidth = k.t + RIM; limb(k); g.stroke(); }
+  g.lineWidth = RIM + PUFF * 2;
+  for (const q of glyphs) at(q, (ox) => { tagGlyphOp(g, q, ox, 'stroke', 'line'); tagGlyphOp(g, q, ox, 'fill', 'line'); });
+  for (const k of links) { g.lineWidth = k.t + RIM + PUFF * 2; limb(k); g.stroke(); }
   g.restore();
 
   // 2b. THE LIMBS, in three passes over all of them rather than three per limb — two bars meeting
   //     at a letter would otherwise put one's outline across the other's fill, which is the seam
   //     this whole layer exists to remove. Under the letters: see the ⚠ on `links`.
-  for (const k of links) { g.strokeStyle = P.halo; g.lineWidth = k.t + RIM; limb(k); g.stroke(); }
-  for (const k of links) { g.strokeStyle = P.line; g.lineWidth = k.t + OUT; limb(k); g.stroke(); }
+  for (const k of links) { g.strokeStyle = P.halo; g.lineWidth = k.t + RIM + PUFF * 2; limb(k); g.stroke(); }
+  for (const k of links) { g.strokeStyle = P.line; g.lineWidth = k.t + OUT + PUFF * 2; limb(k); g.stroke(); }
   for (const k of links) {
     // The same vertical fade the letters carry, so a limb is lit like the form it belongs to
     // rather than reading as a pipe laid across it.
@@ -39130,33 +39145,48 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
     fade.addColorStop(0.55, P.mid);
     fade.addColorStop(1, hasRuns ? tagMix(P.mid, '#000000', 0.28) : P.bot);
     g.strokeStyle = fade;
-    g.lineWidth = k.t;
+    g.lineWidth = k.t + PUFF * 2;
     limb(k);
     g.stroke();
   }
 
-  // 3–4. THE RIM, THE OUTLINE AND THE FILL, letter by letter, left to right — see the ⚠ on scopes.
-  for (const q of glyphs) {
+  // 3–4. THE RIM, THEN EACH LETTER'S OUTLINE AND FILL, right to left — see the ⚠ on PUFF.
+  const fillOf = (q) => {
+    const fade = g.createLinearGradient(0, -CELL * 0.5, 0, CELL * 0.46);
+    fade.addColorStop(0, hasRuns ? tagMix(q.ink, '#ffffff', 0.30) : P.top);
+    fade.addColorStop(0.55, hasRuns ? q.ink : P.mid);
+    fade.addColorStop(1, hasRuns ? tagMix(q.ink, '#000000', 0.28) : P.bot);
+    return fade;
+  };
+  // A traced letter was drawn bubbly and keeps its own inner lines; inflating it again fills them
+  // in. Only a font fallback gets the full puff.
+  const puffOf = (q) => (q.glyph ? PUFF * 0.15 : PUFF);
+  // The inflated letter: its glyph plus a round stroke of the same paint round it.
+  const blob = (q, ox, paint) => {
+    g.fillStyle = paint; g.strokeStyle = paint; g.lineWidth = puffOf(q) * 2;
+    tagGlyphOp(g, q, ox, 'stroke'); tagGlyphOp(g, q, ox, 'fill');
+  };
+  // The cloud's crisp rim goes round the whole word at once, so it never cuts a letter.
+  for (const q of glyphs) at(q, (ox) => { g.strokeStyle = P.halo; g.lineWidth = q.glyph ? RIM - OUT : RIM + puffOf(q) * 2; tagGlyphOp(g, q, ox, 'stroke', 'line'); });
+  // Then the letters RIGHT TO LEFT, each outline and fill together, so every letter sits on top of
+  // the one after it and tucks into it: its keyline crosses the next letter's shoulder the way a
+  // bubble letter overlaps its neighbour, and the word reads forwards. The inner shade at the foot
+  // of each letter is what sells the overlap as depth rather than as two shapes touching.
+  for (let i = glyphs.length - 1; i >= 0; i--) {
+    const q = glyphs[i];
     at(q, (ox) => {
-      g.strokeStyle = P.halo;                 // the crisp edge of the cloud, hard against the letter
-      g.lineWidth = RIM;
-      g.strokeText(q.ch, ox, 0);
-      g.strokeStyle = P.line;
-      g.lineWidth = OUT;
-      g.strokeText(q.ch, ox, 0);
-      const fade = g.createLinearGradient(0, -CELL * 0.46, 0, CELL * 0.40);
-      fade.addColorStop(0, hasRuns ? tagMix(q.ink, '#ffffff', 0.30) : P.top);
-      fade.addColorStop(0.55, hasRuns ? q.ink : P.mid);
-      fade.addColorStop(1, hasRuns ? tagMix(q.ink, '#000000', 0.28) : P.bot);
-      g.fillStyle = fade;
-      g.fillText(q.ch, ox, 0);
-      // The gloss. Enamel out of a can is shiny, and it is shiny at the TOP because that is where
-      // the sky is — a highlight that followed the letter would read as a bevel.
-      const sh = g.createLinearGradient(0, -CELL * 0.46, 0, -CELL * 0.04);
-      sh.addColorStop(0, 'rgba(255,255,255,0.42)');
-      sh.addColorStop(1, 'rgba(255,255,255,0)');
-      g.fillStyle = sh;
-      g.fillText(q.ch, ox, 0);
+      // A traced letter's keyline is YOUR line, varying in weight the way it does on the sheet, so it
+      // is filled rather than stroked at one width. A font fallback still gets the stroked keyline.
+      if (q.glyph) { g.fillStyle = P.line; tagGlyphOp(g, q, ox, 'fill', 'line'); }
+      else { g.strokeStyle = P.line; g.lineWidth = OUT + puffOf(q) * 2; tagGlyphOp(g, q, ox, 'stroke'); }
+      blob(q, ox, fillOf(q));
+      // …and the shading drawn on the sheet, in a darker cut of this letter's own ink.
+      if (q.glyph && q.glyph.shade) {
+        g.save(); g.globalAlpha = 0.8;
+        g.fillStyle = tagMix(hasRuns ? q.ink : P.mid, '#000000', 0.34);
+        g.fill(q.glyph.shade);
+        g.restore();
+      }
     });
   }
 
@@ -39452,6 +39482,34 @@ export function wallFaceAt(m, seed, fh, h, zLo, zHi) {
 
 // ── IS THERE A BUILDING BEHIND THIS PIECE OF PAINT? ────────────────────────────────────────────
 //
+// The throw-up draws its letters from TAG_GLYPHS (hand-drawn, traced) and only falls back to
+// TAG_FONT for a character the sheet has no letter for. A path is pre-scaled to the bake's cell
+// once and cached, so the context transform and every lineWidth stay exactly what the font path
+// used — scaling the context instead would scale the keyline and every gradient with it.
+const TAG_GLYPH_H = 0.92;        // traced letter height as a fraction of CELL
+const _tagGlyphPaths = new Map();
+function tagGlyph(ch, cell) {
+  const G = TAG_GLYPHS[ch.toUpperCase()];
+  if (!G || typeof Path2D === 'undefined') return null;
+  const key = ch.toUpperCase() + '|' + cell;
+  let hit = _tagGlyphPaths.get(key);
+  if (!hit) {
+    const k = cell * TAG_GLYPH_H;
+    const P2 = (d) => (d ? new Path2D(d.replace(/-?\d*\.?\d+/g, (n) => (parseFloat(n) * k).toFixed(2))) : null);
+    const body = P2(G.d);
+    hit = { w: G.w * k, d: body, line: P2(G.line) || body, shade: P2(G.shade) };
+    _tagGlyphPaths.set(key, hit);
+  }
+  return hit;
+}
+// One letter, stroked or filled, whichever source it comes from. `ox` is the font path's left
+// edge; a traced glyph is already centred on the origin `at` translates to. `layer` picks the
+// traced body ('d') or its hand-drawn keyline ('line'); a font letter has only the one shape.
+function tagGlyphOp(ctx, q, ox, op, layer = 'd') {
+  if (q.glyph) { const path = q.glyph[layer] || q.glyph.d; if (op === 'stroke') ctx.stroke(path); else ctx.fill(path); return; }
+  if (op === 'stroke') ctx.strokeText(q.ch, ox, 0); else ctx.fillText(q.ch, ox, 0);
+}
+
 // A third question about the capture, and deliberately not a third answer to either of the first
 // two. `massExtent` asks how far OUT the wall is; `wallSpanAt` asks how far ALONG it goes; this one
 // asks whether a RECTANGLE of a given height has mass behind the whole of it. They are different
@@ -39561,6 +39619,7 @@ function tagPatch(segs, V, kx, ky, flank, parts, prefer) {
       const lo = zs[i], hi = zs[i + 1], mid = (lo + hi) * 0.5;
       const here = (list) => list.filter((b) => mid >= b.z0 && mid <= b.z1);
       const on = here(boxes).filter((b) => !b.thin && b.front >= out - TAG_FLUSH && b.front <= out + 1e-6);
+        const glyph = tagGlyph(ch, CELL);
       if (hi - lo < 1e-4 || !on.length) { slabs.push(null); continue; }
       // …and nothing of the building's own may stand in front of it, which is a refusal and not a
       // preference for the same reason the kerb props are.
@@ -39697,6 +39756,20 @@ function drawWallTags(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, ent, gft) 
     // and down the wall with their hand — see `sprayOn` — and a player's do not, because the patch
     // is solved by `tagPatch` against the clear brick this wall actually has and the reserved box
     // is what makes a sentence legible at cab range. A handstyle that also went low and small would
+  // The gloss. Enamel out of a can is shiny at the TOP-LEFT of every stroke, and on a bubble letter
+  // that is a crescent: the letter minus itself shifted down and right. Built on its own canvas so
+  // the cut-out only removes highlight, never paint.
+  {
+    const hl = texCanvas(W, H), h = hl.getContext('2d');
+    h.font = g.font; h.textAlign = 'left'; h.textBaseline = 'middle'; h.lineJoin = 'round'; h.lineCap = 'round';
+    const hat = (q, dx, dy) => { h.save(); h.translate(q.x + dx, q.y + dy); h.rotate(q.rot); h.scale(q.fat, 1);
+      const ox = -q.uw * 0.5; h.lineWidth = puffOf(q) * 1.2; tagGlyphOp(h, q, ox, 'stroke'); tagGlyphOp(h, q, ox, 'fill'); h.restore(); };
+    h.fillStyle = h.strokeStyle = '#ffffff';
+    for (const q of glyphs) hat(q, 0, 0);
+    h.globalCompositeOperation = 'destination-out';
+    for (const q of glyphs) hat(q, CELL * 0.045, CELL * 0.06);
+    g.save(); g.globalAlpha = 0.7; g.drawImage(hl, 0, 0); g.restore();
+  }
     // be a player's words rendered a third the size for a reason they never asked for.
     // `t.h` is read but nothing sends one yet: when the spray can learns to offer a hand it arrives
     // here as data and this line does not change.
