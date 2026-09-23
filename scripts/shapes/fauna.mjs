@@ -20,7 +20,7 @@
 // measure pedestrians it never ran. So the camera is placed ON a real anchor, found by asking.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { flocksNear, flockState, flockClearance, flockOnSegment, flockEdgeHeading, FLOCK_AREA, GOOSE_PERIOD, GOOSE_SETTLE_MS, U_GROUND, GOOSE_SPAN, SKEIN_ACROSS, skeinSlot, skeinForm, SPECIES, speciesAt, placeOf, habitatState, flockAt, flockPeriod, flockSize, flockSpreadScale, flockDrawRange, FLOCK_REF, BIRD_TUNE, groundSpot, groundPatchR, FORM_WORDS, birdDaylight, callsIn } from '../../client/shared/birds.js';
-import { agitation, K_NEIGHBOURS } from '../../client/game/js/panels/murmur.js';
+import { agitation, agitationWave, K_NEIGHBOURS, MURMUR_RULES as MR } from '../../client/game/js/panels/murmur.js';
 import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase, faunaParamIds, faunaPoseFaces, setFaunaParams, faunaWorldFaces, faunaSpanTiles, beatDihedral } from '../../client/game/js/panels/fauna3d.js';
 
 const ws = await loadWindshield();
@@ -425,30 +425,52 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
   // Modelshop, with the same numbers, by hand. What stays here is what is still pure arithmetic: the
   // agitation wave and the neighbour count.
   {
-    // ⚠ THE WAVE TRAVELS AT THE SPEED IT WAS MEASURED AT. 13.4 m/s is from Hemelrijk's field work
-    // and 1 tile is about 11 m, so the crest sits at 1.21 x age. A wave that does not travel is
-    // still a dark band and still looks like something; it is simply not the thing that was built.
-    const ev = { x: 100, y: 100, at: 1e6 };
-    let worstErr = 0, sawBand = false;
-    for (const age of [0.3, 0.8, 1.3, 1.8]) {
-      let best = 0, bd = 0;
-      for (let d = 0; d < 4; d += 0.01) { const val = agitation(100 + d, 100, ev, 1e6 + age * 1000); if (val > best) { best = val; bd = d; } }
-      if (best <= 0.01) continue;
-      sawBand = true;
-      worstErr = Math.max(worstErr, Math.abs(bd - 1.21 * age));
+    // ⚠ A STOOP SETS OFF A TRAIN OF PULSES, AND EVERY CREST TRAVELS AT THE MEASURED SPEED. A wave event
+    // is 1-6 pulses about 0.86 s apart (Storms 2019), each leaving the stoop at 13.4 m/s (Procaccini
+    // 2011) — 1.21 tiles/s at 11 m to the tile, so pulse k's crest sits at 1.21 x (age - k x gap). A crest
+    // that does not travel is still a dark band and still looks like something; it is simply not the
+    // thing that was built. Every local peak along a line out of the stoop has to sit on one of them.
+    // ⚠ THE STOOP IS CHOSEN TO HAVE SEVERAL PULSES, off the same hash the game uses, or a one-pulse event
+    // would pass the crest check and say nothing about the train.
+    let ev = null;
+    for (let k = 0; k < 400 && !ev; k++) { const e = { x: 100, y: 100, at: 1e6 + k * 1013 }; const w = agitationWave(e, e.at + (MR.PULSE_GAP * 2 + 0.3) * 1000); if (w && w.length >= 3) ev = e; }
+    if (!ev) problems.push('no stoop in 400 sets off three pulses — the train is one pulse long, which is the old single wave');
+    else {
+      let worstErr = 0, crests = 0;
+      for (const age of [0.3, 0.8, 1.3, 1.8, 2.4, 3.0]) {
+        const vals = [];
+        for (let d = 0; d < 5; d += 0.01) vals.push(agitation(100 + d, 100, ev, ev.at + age * 1000));
+        for (let i = 1; i < vals.length - 1; i++) {
+          if (!(vals[i] > 0.01 && vals[i] >= vals[i - 1] && vals[i] > vals[i + 1])) continue;
+          crests++;
+          const d = i * 0.01;
+          let best = Infinity;
+          for (let k = 0; k < MR.PULSE_MAX; k++) { const a = age - k * MR.PULSE_GAP; if (a >= 0) best = Math.min(best, Math.abs(d - MR.WAVE_SPEED * a)); }
+          worstErr = Math.max(worstErr, best);
+        }
+      }
+      if (!crests) problems.push('the agitation train never produced a band at any age — nothing would be seen');
+      else if (!(worstErr < 0.06)) problems.push(`an agitation crest is ${worstErr.toFixed(2)} tiles off where 13.4 m/s puts any pulse of the train`);
+      // ⚠ AND EACH PULSE BANKS LESS THAN THE ONE BEFORE, at the same age: the damping is on the angle
+      // (Hemelrijk 2019), and a train whose later pulses were as strong as the first would never end.
+      const amps = [];
+      for (let k = 0; k < 3; k++) { const w = agitationWave(ev, ev.at + (k * MR.PULSE_GAP + 0.4) * 1000); amps.push(w ? w[w.length - 1].amp : 0); }
+      if (!(amps[0] > amps[1] && amps[1] > amps[2] && amps[2] > 0)) problems.push(`the pulses do not weaken one after another at the same age: ${amps.map((a) => a.toFixed(3)).join(', ')}`);
+      notes.push(`agitation: ${crests} crests on the pulse train, worst ${worstErr.toFixed(3)} tiles off 13.4 m/s; pulse banks at 0.4 s old ${amps.map((a) => a.toFixed(2)).join(' > ')}`);
     }
-    if (!sawBand) problems.push('the agitation wave never produced a band at any age — nothing would be seen');
-    else if (!(worstErr < 0.06)) problems.push(`the agitation wave crest is ${worstErr.toFixed(2)} tiles off where 13.4 m/s puts it`);
     // …and it goes away, or a single scare marks the flock for the rest of the session.
-    // ⚠ PROBE WHERE THE FRONT WOULD BE, NOT WHERE THE SCARE WAS. Written as a probe half a tile
-    // from the origin this passed with the lifetime set to a billion seconds, because by then the
-    // band has travelled seven tiles and half a tile from the origin is quiet either way — it was
-    // measuring the wave having gone PAST, which it does whether or not it ever expires.
+    // ⚠ PROBE WHERE THE FRONTS WOULD BE, NOT WHERE THE SCARE WAS. Written as a probe half a tile from the
+    // origin this passed with the lifetime set to a billion seconds, because by then the band has
+    // travelled seven tiles and half a tile from the origin is quiet either way. The late age is past the
+    // LAST pulse the longest train can have, plus its life.
     {
-      const lateAge = 6;
+      const lateAge = (MR.PULSE_MAX - 1) * MR.PULSE_GAP + MR.WAVE_LIFE + 0.2;
       let live = 0;
-      for (let d = 0; d < 12; d += 0.02) live = Math.max(live, agitation(100 + d, 100, ev, 1e6 + lateAge * 1000));
-      if (live > 0.01) problems.push(`the agitation wave is still ${live.toFixed(2)} strong ${lateAge}s after the scare — one fright would mark a flock for the rest of the session`);
+      for (let k = 0; k < 400; k++) {
+        const e = { x: 100, y: 100, at: 1e6 + k * 1013 };
+        for (let d = 0; d < 14; d += 0.05) live = Math.max(live, agitation(100 + d, 100, e, e.at + lateAge * 1000));
+      }
+      if (live > 0.01) problems.push(`an agitation train is still ${live.toFixed(2)} strong ${lateAge.toFixed(1)}s after the scare — one fright would mark a flock for the rest of the session`);
     }
     // …and no predator means no wave at all, which is the ordinary state of the world.
     if (agitation(100.5, 100, null, 1e6 + 100) !== 0) problems.push('birds are banking with no predator — agitation must answer 0 when nothing has happened');
@@ -1064,11 +1086,13 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
     if (g.airborne !== h.airborne || g.cx !== h.cx || g.z !== h.z) leak++;
   }
   if (down) problems.push(`opts.air left a forced songbird flock on the ground in ${down} of 2000 samples`);
-  // 0.12 tiles per step is about four times the flock's own cruising distance per step here;
-  // the lap wrap, if it jumped, would jump the whole circuit.
+  // ⚠ A JUMP IS TWICE THE FASTEST THE FLOCK FLIES, per step, not a fixed distance. The bar was 0.12 tiles
+  // when the starling's centre crawled round a one-tile circle; it sweeps its roost at the birds' own
+  // 7-15 m/s now, which is 0.13 tiles a step on its own. The lap wrap, if it jumped, would jump the roost.
   // A flock held still passes every other check here and draws a ball; it must actually fly its circuit.
+  const jumpBar = 2 * MR.speedHi * (per / 500) / 1000;
   if (travel < SPECIES.songbird.r * 4) problems.push(`a forced flock travelled only ${travel.toFixed(2)} tiles over four periods -- held still rather than flying`);
-  if (worst > 0.12) problems.push(`a forced flock jumps ${worst.toFixed(3)} tiles between samples -- the looped phase is not continuous`);
+  if (worst > jumpBar) problems.push(`a forced flock jumps ${worst.toFixed(3)} tiles between samples against ${jumpBar.toFixed(3)} at its fastest -- the looped phase is not continuous`);
   if (drift) problems.push(`opts without air changed an unforced flock in ${drift} samples`);
   if (leak) problems.push(`opts.air = songbird moved a goose in ${leak} samples -- the seam must name one species`);
   notes.push(`.murmur: forced starlings airborne 2000/2000, worst step ${worst.toFixed(3)} tiles, geese untouched`);

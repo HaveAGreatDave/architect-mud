@@ -26,6 +26,7 @@ import { makeVertexStream } from './stream.js';
 import { faunaPoseSlot, faunaPoseBake } from '../fauna3d.js';
 import { zRow, NEAR } from './camera.js';
 import { LIGHT_PULL } from './sprites.js';
+import { PULSE_MAX } from '../murmur.js';
 
 // Per instance: x, y, z, scale | heading, pitch, roll, row | alpha
 const STRIDE = 9;
@@ -109,10 +110,13 @@ uniform float uFL;
 uniform float uSpan;
 uniform vec4 uTierPx;      // glyph from, mesh from, glyph below, coarse below
 uniform float uFarHi;
-uniform vec4 uAgit;        // x, y, front, amplitude
+uniform vec4 uAgit[${PULSE_MAX}]; // the hawk's pulse train: x, y, front, amplitude, one a pulse
+uniform int uAgitN;
 uniform float uWaveW;
-uniform vec2 uBank;        // bank per radian, bank max
+uniform vec2 uBank;        // bank per stored unit, bank max
 uniform ivec2 uTierClamp;  // the finest and coarsest level drawn for this cloud (see tierSpan)
+uniform highp sampler2D uStat2; // the ground mill's phase, for the bob
+uniform vec3 uGround;      // 1 when the flock is down; the bob's phase; the bob's height in tiles
 const int TW = 64;
 ivec2 at(int i) { return ivec2(i % TW, i / TW); }
 float sstep(float x) { x = clamp(x, 0.0, 1.0); return x * x * (3.0 - 2.0 * x); }
@@ -146,14 +150,21 @@ Bird bird(int id, int wantTier) {
   int tier = clamp(fe > 0.07 ? tierOf(px) : 0, uTierClamp.x, uTierClamp.y);
   if (tier != wantTier) return b;
   float ag = 0.0;
-  if (uAgit.w > 0.0) {
-    float u = (distance(P.xy, uAgit.xy) - uAgit.z) / uWaveW;
-    if (u >= -3.0 && u <= 3.0) ag = uAgit.w * exp(-u * u);
+  for (int k = 0; k < ${PULSE_MAX}; k++) {
+    if (k >= uAgitN) break;
+    float u = (distance(P.xy, uAgit[k].xy) - uAgit[k].z) / uWaveW;
+    if (u >= -3.0 && u <= 3.0) ag += uAgit[k].w * exp(-u * u);
   }
   b.ok = true; b.w = w; b.a = a; b.px = px;
   b.heading = atan(V.y, V.x);
   b.roll = clamp((P.w + ag) * uBank.x, -uBank.y, uBank.y);
   b.beat = texelFetch(uStat0, t, 0).w;
+  // ⚠ A LANDED BIRD STANDS LEVEL AND BOBS, the way pushFauna draws one: no bank, and a hop off the
+  // ground that the flock's own settle scales down while it is still arriving (drawGooseGround).
+  if (uGround.x > 0.5) {
+    b.roll = 0.0;
+    b.w.z += abs(sin(uGround.y + texelFetch(uStat2, t, 0).w * 6.28)) * uGround.z;   // 6.28, as drawGooseGround has it
+  }
   return b;
 }
 `;
@@ -163,6 +174,7 @@ layout(location = 0) in vec3 aColor;
 uniform highp sampler2D uPose;
 uniform int uTier;
 uniform float uBeatBase;
+uniform vec2 uGlide;       // the burst-and-glide cycle's phase, and the share of it spent gliding
 uniform float uPitch;
 uniform float uScale;
 uniform vec2 uMinPx;       // faunaMinPx, faunaMinFade
@@ -178,7 +190,12 @@ void main() {
     float mag = uMinPx.x / b.px;
     scale *= mag; a *= 1.0 - uMinPx.y + uMinPx.y / mag;
   }
-  int row = int(floor(fract(uBeatBase + b.beat) * 16.0));
+  // a walking pose has one row; only a wing beats
+  int row = uGround.x > 0.5 ? 0 : int(floor(fract(uBeatBase + b.beat) * 16.0));
+  // ⚠ A GLIDE HOLDS THE WINGS OUT AT BEAT STEP 2, a slight dihedral above level, where beatDihedral puts a
+  // wing a sixth of the way into the downstroke. Each bird's cycle is offset by its own beat offset, so
+  // the flock never glides in unison.
+  if (uGround.x < 0.5 && uGlide.y > 0.0 && fract(uGlide.x + b.beat * 3.7) > 1.0 - uGlide.y) row = 2;
   vec3 m = texelFetch(uPose, ivec2(gl_VertexID, row), 0).xyz * scale;
   float ch = cos(b.heading), sh = sin(b.heading), cp = cos(uPitch), sp = sin(uPitch), cr = cos(b.roll), sr = sin(b.roll);
   vec3 F = vec3(ch * cp, sh * cp, sp), S0 = vec3(-sh, ch, 0.0), U0 = vec3(-ch * sp, -sh * sp, cp);
@@ -196,18 +213,25 @@ uniform vec2 uAB;
 uniform float uPull;
 uniform float uDpr;
 uniform float uFlash;
-uniform vec3 uFlashK;      // floor, bank share, area share
+uniform vec3 uFlashK;      // floor, how much of the flash is the wing's angle to you, area share
 uniform vec2 uInk;         // smallest radius in device px, soft/hard ink gain
+uniform vec3 uEye;         // the eye, in the same frame as the birds
 out vec2 vCorner; out float vAlpha;
 const vec2 CORNERS[6] = vec2[6](vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(1.0, 1.0), vec2(-1.0, -1.0), vec2(1.0, 1.0), vec2(-1.0, 1.0));
 void main() {
   Bird b = bird(gl_InstanceID, 4);
   vCorner = CORNERS[gl_VertexID];
   if (!b.ok) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vAlpha = 0.0; return; }
-  // the flash: a bird broadside to you and banking shows more wing (pushFauna's dot branch)
-  float along = cos(b.heading) * uCull.z - sin(b.heading) * uCull.w;
-  float broad = sqrt(max(0.0, 1.0 - along * along));
-  float shown = broad * (1.0 - uFlashK.y + uFlashK.y * abs(sin(b.roll)));
+  // ⚠ THE FLASH IS HOW MUCH WING THE BIRD SHOWS YOU: the wing plane's normal against the line of sight,
+  // so a bird banked toward the eye shows its whole planform and one banked away shows its edge. That is
+  // what a dark band is (Hemelrijk 2015), and seen from below a flock rolling through a sharp turn goes
+  // LIGHTER, not darker (Costanzo 2021). A beating wing is never quite edge-on, which is the rest of it.
+  float ch = cos(b.heading), sh = sin(b.heading);
+  vec3 N = vec3(0.0, 0.0, cos(b.roll)) - vec3(-sh, ch, 0.0) * sin(b.roll);
+  vec3 los = b.w - uEye;
+  float ll = length(los);
+  float face = ll > 1e-5 ? abs(dot(N, los / ll)) : 1.0;
+  float shown = (1.0 - uFlashK.y) * 0.35 + uFlashK.y * face;
   float dim = uFlash > 0.0 ? (1.0 - uFlash) + uFlash * (uFlashK.x + (1.0 - uFlashK.x) * shown) : 1.0;
   float area = uFlash > 0.0 ? 1.0 - uFlash * uFlashK.z + uFlash * uFlashK.z * (0.55 + 0.9 * shown) : 1.0;
   // ink conserved: drawn wide enough to reach a pixel centre, faint by the area it was given
@@ -283,6 +307,24 @@ function compile(gl, type, src, label) {
 }
 
 export function createFaunaLayer(gl) {
+
+  // ⚠ A UNIFORM IS SENT ONLY WHEN IT CHANGES. Every cloud in a frame shares the camera, the species' ladder, the scare and the ink, and they were being sent again for each cloud and each program. A program keeps its uniforms between draws, so
+  // the last value sent to each location is remembered here and an identical one is not sent again.
+  // Per location, and so per program, and this whole object is per context, so a lost context
+  // starts with an empty memory.
+  const sent = new Map();
+  const fresh = (l, a, b, c, d) => {
+    let v = sent.get(l);
+    if (!v) { v = new Float64Array(4).fill(NaN); sent.set(l, v); }
+    if (v[0] === a && v[1] === b && v[2] === c && v[3] === d) return false;
+    v[0] = a; v[1] = b; v[2] = c; v[3] = d; return true;
+  };
+  const u1f = (l, a) => { if (l && fresh(l, a, 0, 0, 0)) gl.uniform1f(l, a); };
+  const u1i = (l, a) => { if (l && fresh(l, a, 0, 0, 0)) gl.uniform1i(l, a); };
+  const u2f = (l, a, b) => { if (l && fresh(l, a, b, 0, 0)) gl.uniform2f(l, a, b); };
+  const u2i = (l, a, b) => { if (l && fresh(l, a, b, 0, 0)) gl.uniform2i(l, a, b); };
+  const u3f = (l, a, b, c) => { if (l && fresh(l, a, b, c, 0)) gl.uniform3f(l, a, b, c); };
+  const u4f = (l, a, b, c, d) => { if (l && fresh(l, a, b, c, d)) gl.uniform4f(l, a, b, c, d); };
   const prog = gl.createProgram();
   gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
   gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
@@ -419,6 +461,14 @@ export function createFaunaLayer(gl) {
       return { pr, u };
     };
     cp = { mesh: link(VERT_CLOUD, FRAG, 'cloud mesh'), dot: link(VERT_DOT, FRAG_DOT, 'cloud dot'), dotVao: gl.createVertexArray() };
+    // ⚠ EACH SAMPLER'S UNIT IS SET ONCE, HERE. Sending it with every bind was four uniform calls per
+    // cloud per program per frame, for a number that never changes.
+    for (const P of [cp.mesh, cp.dot]) {
+      gl.useProgram(P.pr);
+      const set = (n, k) => { if (P.u[n] != null) gl.uniform1i(P.u[n], k); };
+      set('uPosT', CLOUD_UNIT); set('uVelT', CLOUD_UNIT + 1); set('uStat0', CLOUD_UNIT + 2); set('uStat2', CLOUD_UNIT + 3); set('uPose', UNIT);
+    }
+    gl.useProgram(null);
     return cp;
   }
   function cloudVaoOf(g) {
@@ -431,26 +481,31 @@ export function createFaunaLayer(gl) {
     gl.bindVertexArray(null);
     return g.cloudVao;
   }
+  const agitBuf = new Float32Array(PULSE_MAX * 4);
   // the uniforms both cloud programs share, set per cloud
-  function cloudCommon(u, r, st, vp) {
+  function cloudCommon(u, r, st, vp, span) {
     gl.uniformMatrix4fv(u.uViewProj, false, vp);
-    gl.uniform2f(u.uOrigin, r.origin[0], r.origin[1]);
-    gl.uniform4f(u.uCull, r.camO[0], r.camO[1], r.sc[0], r.sc[1]);
-    gl.uniform4f(u.uCull2, r.fwdOff, r.nearF, r.farF, r.alphaMul);
-    gl.uniform1f(u.uFL, r.FL);
-    gl.uniform1f(u.uSpan, r.span);
-    gl.uniform4f(u.uTierPx, r.tiers.glyphPx, r.tiers.thr, r.tiers.glyphHi, r.tiers.coarseHi);
-    gl.uniform1f(u.uFarHi, r.tiers.farHi);
-    const ag = r.agit;
-    gl.uniform4f(u.uAgit, ag ? ag.x : 0, ag ? ag.y : 0, ag ? ag.front : 0, ag ? ag.amp : 0);
-    gl.uniform1f(u.uWaveW, r.waveW);
-    gl.uniform2f(u.uBank, r.bank[0], r.bank[1]);
-    const span = tierSpan(r, st.bound);
-    gl.uniform2i(u.uTierClamp, span ? span.lo : 0, span ? span.hi : 4);
-    const tex = (unit, t, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(u[name], unit); };
-    tex(CLOUD_UNIT, st.pos, 'uPosT');
-    tex(CLOUD_UNIT + 1, st.vel, 'uVelT');
-    tex(CLOUD_UNIT + 2, st.stat0, 'uStat0');
+    u2f(u.uOrigin, r.origin[0], r.origin[1]);
+    u4f(u.uCull, r.camO[0], r.camO[1], r.sc[0], r.sc[1]);
+    u4f(u.uCull2, r.fwdOff, r.nearF, r.farF, r.alphaMul);
+    u1f(u.uFL, r.FL);
+    u1f(u.uSpan, r.span);
+    u4f(u.uTierPx, r.tiers.glyphPx, r.tiers.thr, r.tiers.glyphHi, r.tiers.coarseHi);
+    u1f(u.uFarHi, r.tiers.farHi);
+    const ag = r.agit || [];
+    for (let k = 0; k < PULSE_MAX; k++) agitBuf.set(k < ag.length ? [ag[k].x, ag[k].y, ag[k].front, ag[k].amp] : [0, 0, 0, 0], k * 4);
+    gl.uniform4fv(u.uAgit, agitBuf);
+    u1i(u.uAgitN, Math.min(PULSE_MAX, ag.length));
+    u1f(u.uWaveW, r.waveW);
+    u2f(u.uBank, r.bank[0], r.bank[1]);
+    u2i(u.uTierClamp, span ? span.lo : 0, span ? span.hi : 4);
+    const tex = (unit, t) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); };
+    tex(CLOUD_UNIT, st.pos);
+    tex(CLOUD_UNIT + 1, st.vel);
+    tex(CLOUD_UNIT + 2, st.stat0);
+    tex(CLOUD_UNIT + 3, st.stat2 || st.stat0);
+    const G = r.ground;
+    u3f(u.uGround, G ? 1 : 0, G ? G.bob[0] : 0, G ? G.bob[1] : 0);
   }
 
   /**
@@ -468,32 +523,36 @@ export function createFaunaLayer(gl) {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     let drawn = 0;
+    // which levels each cloud can reach, worked out once for both programs
+    const spans = list.map(({ rec, st }) => tierSpan(rec, st.bound));
     // meshes
     gl.useProgram(P.mesh.pr);
     gl.depthMask(true);
     const um = P.mesh.u;
-    gl.uniform3f(um.uFog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);
-    gl.uniform1f(um.uFogNear, f ? f.near : 1e9);
-    gl.uniform1f(um.uFogFar, f ? f.far : 1e9 + 1);
-    gl.uniform1f(um.uFogAmt, f ? f.amt : 0);
-    for (const { rec: r, st } of list) {
-      const span = tierSpan(r, st.bound);
+    u3f(um.uFog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);
+    u1f(um.uFogNear, f ? f.near : 1e9);
+    u1f(um.uFogFar, f ? f.far : 1e9 + 1);
+    u1f(um.uFogAmt, f ? f.amt : 0);
+    for (let ci = 0; ci < list.length; ci++) {
+      const { rec: r, st } = list[ci], span = spans[ci];
       if (!span) continue;
-      cloudCommon(um, r, st, vp);
-      gl.uniform1f(um.uBeatBase, r.beatBase);
-      gl.uniform1f(um.uPitch, r.pitch);
-      gl.uniform1f(um.uScale, r.scale);
-      gl.uniform2f(um.uMinPx, r.minPx[0], r.minPx[1]);
+      cloudCommon(um, r, st, vp, span);
+      u1f(um.uBeatBase, r.beatBase);
+      u2f(um.uGlide, r.glide ? r.glide[0] : 0, r.glide ? r.glide[1] : 0);
+      u1f(um.uPitch, r.pitch);
+      u1f(um.uScale, r.scale);
+      u2f(um.uMinPx, r.minPx[0], r.minPx[1]);
       for (const tier of [0, 1, 2, 3]) {
         if (!span.set.has(tier)) continue;
         if (tier === 1 && !(r.tiers.farHi > 0)) continue;
-        const slot = faunaPoseSlot('bird', r.sp, 'air', 0, r.flare, r.gear, tier);
-        const g = groupFor('bird', r.sp, 'air', r.flare, r.gear, tier, slot.group);
+        // a landed flock walks, and a walking bird has no flare and no gear
+        const pose = r.ground ? r.ground.state : 'air', fl = r.ground ? 0 : r.flare, ge = r.ground ? 0 : r.gear;
+        const slot = faunaPoseSlot('bird', r.sp, pose, 0, fl, ge, tier);
+        const g = groupFor('bird', r.sp, pose, fl, ge, tier, slot.group);
         if (!g) continue;
-        gl.uniform1i(um.uTier, tier);
+        u1i(um.uTier, tier);
         gl.activeTexture(gl.TEXTURE0 + UNIT);
         gl.bindTexture(gl.TEXTURE_2D, g.tex);
-        gl.uniform1i(um.uPose, UNIT);
         gl.bindVertexArray(cloudVaoOf(g));
         gl.drawArraysInstanced(gl.TRIANGLES, 0, g.verts, st.n);
         drawn++;
@@ -504,25 +563,26 @@ export function createFaunaLayer(gl) {
     gl.depthMask(false);
     const ud = P.dot.u;
     const zr = zRow((cam && cam.near) || NEAR);
-    gl.uniform2f(ud.uViewport, W, H);
-    gl.uniform2f(ud.uAB, zr[0], zr[1]);
-    gl.uniform1f(ud.uPull, LIGHT_PULL);
+    u2f(ud.uViewport, W, H);
+    u2f(ud.uAB, zr[0], zr[1]);
+    u1f(ud.uPull, LIGHT_PULL);
     gl.bindVertexArray(P.dotVao);
-    for (const { rec: r, st } of list) {
-      const span = tierSpan(r, st.bound);
+    for (let ci = 0; ci < list.length; ci++) {
+      const { rec: r, st } = list[ci], span = spans[ci];
       if (!span || !span.set.has(4)) continue;
-      cloudCommon(ud, r, st, vp);
-      gl.uniform1f(ud.uDpr, r.dpr);
-      gl.uniform1f(ud.uFlash, r.flash);
-      gl.uniform3f(ud.uFlashK, r.flashK[0], r.flashK[1], r.flashK[2]);
-      gl.uniform2f(ud.uInk, r.ink[0], r.ink[1]);
-      gl.uniform3f(ud.uColor, r.dot[0] / 255, r.dot[1] / 255, r.dot[2] / 255);
+      cloudCommon(ud, r, st, vp, span);
+      u1f(ud.uDpr, r.dpr);
+      u1f(ud.uFlash, r.flash);
+      u3f(ud.uFlashK, r.flashK[0], r.flashK[1], r.flashK[2]);
+      u3f(ud.uEye, r.eye[0], r.eye[1], r.eye[2]);
+      u2f(ud.uInk, r.ink[0], r.ink[1]);
+      u3f(ud.uColor, r.dot[0] / 255, r.dot[1] / 255, r.dot[2] / 255);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, st.n);
       drawn++;
     }
     gl.depthMask(true);
     gl.bindVertexArray(null);
-    for (const k of [UNIT, CLOUD_UNIT, CLOUD_UNIT + 1, CLOUD_UNIT + 2]) { gl.activeTexture(gl.TEXTURE0 + k); gl.bindTexture(gl.TEXTURE_2D, null); }
+    for (const k of [UNIT, CLOUD_UNIT, CLOUD_UNIT + 1, CLOUD_UNIT + 2, CLOUD_UNIT + 3]) { gl.activeTexture(gl.TEXTURE0 + k); gl.bindTexture(gl.TEXTURE_2D, null); }
     gl.activeTexture(gl.TEXTURE0);
     return drawn;
   }

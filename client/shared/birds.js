@@ -227,7 +227,8 @@ const _hx = [], _hy = [];
  */
 export function flockClearance(f, isBlocked) {
   if (typeof isBlocked !== 'function') return null;
-  const baseR = spOf(f).r;
+  // a species that sweeps a roost rather than flying a circle is kept clear over the whole roost
+  const baseR = spOf(f).roam ?? spOf(f).r;
   const REACH = Math.ceil(baseR + CLEAR_BAND), R2 = (baseR + CLEAR_BAND) * (baseR + CLEAR_BAND);
   let n = 0;
   for (let dy = -REACH; dy <= REACH; dy++) {
@@ -351,8 +352,55 @@ function thermalAt(f, t, sp) {
   };
 }
 
-function circuitAt(f, t, clear) {
+// ⚠ A MURMURATION SWEEPS ITS ROOST AT THE BIRDS' OWN SPEED, and this is the third generator for that
+// reason rather than a retuning of the circle. A real flock travels as one aligned body at 10-12 m/s
+// (polarisation 0.96, Cavagna et al. 2010) and wanders over a roost of a hundred metres or more (Ballerini
+// 2008b; StarDisplay bounds it at 150 m). The circle every other species flies puts the centre on a
+// one-tile loop at about a metre a second, which leaves twelve-metre-a-second birds nothing to do but orbit
+// it — milling, the one thing the measurement says a murmuration does not do.
+//
+// ⚠ A SUM OF THREE EPICYCLES, IN SECONDS OF FLIGHT, SO IT IS STILL A CLOSED FORM. The main term carries
+// the flock round the roost at about 10 m/s, the second counter-rotates at a different rate so the loop
+// stretches into sweeps with turns at their ends and never repeats within a flight, and the third is a
+// small fast wobble. Speed then drifts between about 7 and 13 m/s with the geometry, which is what a real
+// flock's does. The server evaluates this for the room description and the hawk; it must stay cheap and
+// it must stay a pure function of (anchor, t, clear).
+//
+// ⚠ ANCHORED AT BOTH ENDS BY SUBTRACTION, NOT BY A RAMP. The circle is scaled by a smoothstep so it
+// starts and ends on the anchor; a roost several tiles across scaled that way would fling the flock
+// outward at up to twice its cruise as it takes off. Instead the pattern's own start and end are
+// subtracted, blended across the flight, which costs a drift of well under half a tile a second.
+function wanderAt(f, t, sp, clear, span = 1) {
+  const w = sp.wander;
+  // a held flock's flight is `span` flights long (flightPhase); the climb and the descent keep their own length
+  const secsN = (flockPeriod(f) * (1 - sp.uGround)) / 1000, secs = secsN * span;
+  // a bigger roost ranges further, by the cube root of its count like everything else about its size
+  const R = (sp.roam ?? sp.r) * Math.max(1, Math.cbrt(flockSize(f) / w.refN));
+  const h = (k) => frac(f.ax * (3.1 + k * 1.7) + f.ay * (7.9 - k * 2.3) + k * 0.37);
+  const s1 = h(0) < 0.5 ? 1 : -1;
+  const A1 = R * w.a1, w1 = (w.v1 * (0.9 + 0.2 * h(1))) / A1;
+  const w2 = w1 * (0.8 + 0.4 * h(2)), A2 = (w.v2 * (0.9 + 0.2 * h(3))) / w2;
+  const w3 = w1 * (2.3 + 0.8 * h(4)), A3 = w.v3 / w3;
+  const p1 = h(5) * TAU, p2 = h(6) * TAU, p3 = h(7) * TAU;
+  const W = (T) => {
+    const a = s1 * w1 * T + p1, b = -s1 * w2 * T + p2, c = s1 * w3 * T + p3;
+    return [A1 * Math.cos(a) + A2 * Math.cos(b) + A3 * Math.cos(c), A1 * Math.sin(a) + A2 * Math.sin(b) + A3 * Math.sin(c)];
+  };
+  const tau = t * secs, w0 = W(0), wE = W(secs), c = W(tau);
+  let ox = c[0] - w0[0] * (1 - t) - wE[0] * t, oy = c[1] - w0[1] * (1 - t) - wE[1] * t;
+  // Where something stands, the whole pattern is compressed in that direction, smoothly — the same
+  // clearance profile the circle reads, so a roost beside a tower sweeps the open side of it.
+  if (clear && (ox || oy)) {
+    const base = sp.roam ?? sp.r, k = radiusAt(clear, Math.atan2(oy, ox), base) / base;
+    ox *= k; oy *= k;
+  }
+  const bump = Math.min(smooth(tau / (RAMP_UP * secsN)), smooth((secs - tau) / (RAMP_DN * secsN)));
+  return { x: f.ax + ox, y: f.ay + oy, z: sp.z * bump, r: sp.r * bump, th: Math.atan2(oy, ox) };
+}
+
+function circuitAt(f, t, clear, span = 1) {
   const sp = spOf(f);
+  if (sp.circuit === 2) return wanderAt(f, t, sp, clear, span);
   // ⚠ SELECTED BY A NUMBER ON THE ROW rather than by the species id, so the buzzard and anything
   // else that soars gets it without this function learning another name.
   if (sp.circuit === 1) {
@@ -388,10 +436,12 @@ export const flockSize = (f, opts = null) => {
   // end of a rare thing. `maxFlock` stays the declared ceiling for both, as the note above requires.
   const g = sp.grand;
   const roll = !g ? sp.minFlock + Math.floor(u * (sp.maxFlock - sp.minFlock + 1))
-    : frac(f.ax * 6.37 + f.ay * 2.91) < g.share ? g.from + Math.floor(u * u * (sp.maxFlock - g.from + 1))
+    : isGrandRoost(f) ? g.from + Math.floor(u * u * (sp.maxFlock - g.from + 1))
     : sp.minFlock + Math.floor(u * (g.below - sp.minFlock + 1));
   return seasonalSize(sp, roll, opts);
 };
+/** Is this anchor one of its species' grand roosts? Off its own hash, so it never changes. */
+export const isGrandRoost = (f) => { const g = spOf(f).grand; return !!g && frac(f.ax * 6.37 + f.ay * 2.91) < g.share; };
 
 // ── THE YEAR AND THE EVENING ──────────────────────────────────────────────────
 //
@@ -569,10 +619,45 @@ export function seasonalSize(sp, roll, opts) {
  * flock's period; `climb` is a gradient — rise over horizontal run — so it is an angle's tangent
  * and needs no speed at all.
  */
-export function flockState(f, now, clear = null, opts = null) {
+// Where in its cycle a flock is at `now`: the share of the period `u`, and `t`, how far through its
+// flight, or null on the ground. ⚠ ONE HELPER FOR flockState AND flockCentreAt, so the centre the GPU
+// flock is steered by and the centre every other reader is handed cannot disagree about when it is up.
+function flightPhase(f, now, opts) {
   const ph = frac(f.ax * 19.1 + f.ay * 5.3);
   const period = flockPeriod(f);
   const u = (((now / period) + ph) % 1 + 1) % 1;
+  const uG = spOf(f).uGround;
+  const forced = !!(opts && opts.air && opts.air === f?.sp);
+  if (!forced && u < uG) return { u, period, uG, t: null, span: 1 };
+  // ⚠ A HELD FLOCK FLIES ONE LONG FLIGHT, NOT THE SHORT ONE ON A LOOP, when its row says so (`forcedSpan`).
+  // Looped, every lap ends with the course snapping from wherever the flight left it to wherever the next
+  // one starts, and a murmuration steered by its course shatters at the snap — measured, the flock's
+  // polarisation fell from 0.99 to 0.52 at the lap. A lap twelve flights long touches down every few
+  // minutes instead of every half-minute.
+  const span = forced ? (spOf(f).forcedSpan ?? 1) : 1;
+  const t = forced ? (((now / (period * (1 - uG) * span)) + ph) % 1 + 1) % 1 : (u - uG) / (1 - uG);
+  return { u, period, uG, t, span };
+}
+
+/**
+ * The flock's centre at any time — past, present or a moment ahead — as [x, y, z], and nothing else.
+ *
+ * ⚠ THE GPU MURMURATION IS STEERED BY THIS, AHEAD OF NOW AS WELL AS BEHIND. A turn crosses a real flock
+ * as a relay, so each bird steers by the course as it was some time ago; steered only by the past, the
+ * whole body trails the centre by that time times its speed — measured at 1.3 tiles in a steady turn.
+ * The course a moment AHEAD is as derivable as the one behind, so the relay is centred on the present:
+ * the middle of the flock flies the course now, the edge the turn starts at a little ahead of it.
+ */
+export function flockCentreAt(f, now, clear = null, opts = null) {
+  const P = flightPhase(f, now, opts);
+  if (P.t == null) return [f.ax, f.ay, 0];
+  const c = circuitAt(f, P.t, clear, P.span);
+  return [c.x, c.y, c.z];
+}
+
+export function flockState(f, now, clear = null, opts = null) {
+  const P = flightPhase(f, now, opts);
+  const { u, period, span } = P;
 
   const uG = spOf(f).uGround;
   // ⚠ `opts.air` IS A TEST SEAM AND NOTHING IN THE GAME PASSES IT. It names one species whose
@@ -585,12 +670,11 @@ export function flockState(f, now, clear = null, opts = null) {
   // ⚠ The server never passes it (describe.js hands `{ hour, doy }`), so the room text goes on
   // describing the real flock, and so does everything in this file that calls without opts —
   // the hawk's prey pick and the strike search. It moves the PICTURE and nothing else.
-  const forced = !!(opts && opts.air && opts.air === f?.sp);
-  if (!forced && u < uG) {
+  if (P.t == null) {
     return { airborne: false, u, period, cx: f.ax, cy: f.ay, z: 0, heading: frac(f.ax * 2.3 + f.ay * 8.7) * TAU, turn: 0, climb: 0, n: flockSize(f, opts) };
   }
-  const t = forced ? (((now / (period * (1 - uG))) + ph) % 1 + 1) % 1 : (u - uG) / (1 - uG);
-  const c = circuitAt(f, t, clear);
+  const t = P.t;
+  const c = circuitAt(f, t, clear, span);
 
   // ⚠ THE HEADING IS THE VELOCITY, NOT THE TANGENT TO THE CIRCLE, AND THAT COST A FLOCK THAT FLEW
   // SIDEWAYS. The circuit has TWO moving terms — the angle round it and the radius, which rides the
@@ -605,7 +689,7 @@ export function flockState(f, now, clear = null, opts = null) {
   // to be subtly wrong about the one thing this is for. Three cheap evaluations, at most ten flocks
   // a frame.
   const D = 0.004;
-  const a = circuitAt(f, Math.max(0, t - D), clear), b = circuitAt(f, Math.min(1, t + D), clear);
+  const a = circuitAt(f, Math.max(0, t - D / span), clear, span), b = circuitAt(f, Math.min(1, t + D / span), clear, span);
   const vx = b.x - a.x, vy = b.y - a.y;
   // A flock that is not moving at all has no course to point along; the tangent is the honest
   // fallback rather than atan2(0, 0), which is a confident zero.
@@ -626,10 +710,10 @@ export function flockState(f, now, clear = null, opts = null) {
   // a building hands the renderer a bank that moves 20° in a tenth of a second; over DT it is a
   // roll. The window is a fraction of the AIRBORNE phase, so it is about a second of wall clock
   // whatever this flock's own period happens to be.
-  const secs = (period * (1 - spOf(f).uGround)) / 1000;
+  const secs = (period * (1 - spOf(f).uGround) * span) / 1000;
   const DT = Math.min(0.24, 1.15 / Math.max(1e-6, secs));
   const t0 = Math.max(0, t - DT), t1 = Math.min(1, t + DT);
-  const wa = circuitAt(f, t0, clear), wb = circuitAt(f, t1, clear), wm = circuitAt(f, (t0 + t1) / 2, clear);
+  const wa = circuitAt(f, t0, clear, span), wb = circuitAt(f, t1, clear, span), wm = circuitAt(f, (t0 + t1) / 2, clear, span);
   const s0 = Math.hypot(wm.x - wa.x, wm.y - wa.y), s1 = Math.hypot(wb.x - wm.x, wb.y - wm.y);
   const turn = (s0 > 1e-9 && s1 > 1e-9)
     ? angDiff(Math.atan2(wb.y - wm.y, wb.x - wm.x), Math.atan2(wm.y - wa.y, wm.x - wa.x)) / (((t1 - t0) / 2) * secs)
@@ -1114,7 +1198,17 @@ export const SPECIES = {
     street: true,             // a starling is a city bird before it is anything else
     // Short restless cycles and a lot of time in the air — the opposite of a goose.
     //
-    // ⚠ THE CIRCUIT IS SMALL AND SLOW, AND FOR THIS SPECIES THAT IS A CORRECTNESS INVARIANT RATHER
+    // ⚠ IT SWEEPS A ROOST RATHER THAN FLYING THE CIRCLE (`circuit: 2`, wanderAt). `roam` is the
+    // roost's radius at `wander.refN` birds, growing by the cube root past it; `wander` is the three
+    // epicycles' share of it and their speeds in tiles/s (1 tile = 11 m). `r` stays the nominal circuit
+    // radius the cloud's size and the clearance margins are keyed on, which is why it did not change.
+    //
+    // ⚠ WHAT FOLLOWS IS THE HISTORY OF WHY THE OLD CIRCLE WAS SMALL AND SLOW, kept because the reasoning
+    // was right for the rule it served: every bird was pulled to a fixed STATION on the path its centre had
+    // flown, so a fast centre towed a rigid formation. The stations are gone (murmur.js), every bird now
+    // flies the centre's own course, and a centre moving at the birds' speed is what the rule needs.
+    //
+    // ⚠ THE CIRCUIT WAS SMALL AND SLOW, AND FOR THIS SPECIES THAT WAS A CORRECTNESS INVARIANT RATHER
     // THAN A LOOK. Every other flock in this file is DERIVED from the circuit, so the circuit's
     // speed IS the flock's speed and nothing reads it twice. A murmuration is the one flock that is
     // SIMULATED on top of it: murmur() pulls every bird toward its own fixed station on the path
@@ -1144,6 +1238,17 @@ export const SPECIES = {
     // over its roost; it does not tour. The radius is what says so, and the longer period is what
     // stops the small circuit simply being flown round faster.
     period: 58000, uGround: 0.55, z: 1.4, r: 1.0,
+    circuit: 2, roam: 5, forcedSpan: 12,
+    // ⚠ ITS OWN WINGBEAT, BECAUSE THE GOOSE'S MADE IT SKATE. Every bird beats at GOOSE_FLAP_HZ unless its
+    // row says otherwise, and at 1.5 Hz a starling flying 10 m/s covers about twenty-three wingspans a
+    // beat: a tiny bird sliding across the sky on nearly still wings, which is paper, not flight. A goose
+    // here covers 2.4 spans a beat and a gull about 4. A starling's wings beat at about 10 Hz in the field
+    // (Attanasi 2014) — 3.6 spans a beat at its speed here, the same gait the others have.
+    // ⚠ AND IT GLIDES BETWEEN BURSTS. Starlings alternate flapping with glides and bounds at every speed
+    // (Tobalske, J Exp Biol 198:1259, 1995): `glide` is the share of each burst-and-glide cycle spent with
+    // the wings held out, and `glideHz` how many such cycles a second — about five beats, then a glide.
+    flapHz: 10, glide: 0.28, glideHz: 1.4,
+    wander: { refN: 1700, a1: 0.62, v1: 0.95, v2: 0.22, v3: 0.08 },
     // ⚠ BIG FLOCKS, WHICH IS THE WHOLE REASON THIS SPECIES EXISTS. A murmuration of six is a
     // sentence with no subject. The budget share below is what stops that being a problem.
     // ⚠ AND THE SIZE IS SET BY THE SHARE, not the other way round. At 26 a flock is 1,040 faces
@@ -1200,10 +1305,12 @@ export const SPECIES = {
     // season and its winter roost, and the murmuration is a thing that happens at one end of that
     // swing. Giving the goose a `season` row would be authoring a phenomenon it does not have.
     //
-    // Peak at the turn of the year and a broad lean season: the roosts are full from November to
-    // January, swollen by continental birds, and from April to July the same starlings are
-    // territorial pairs at a nest hole. `floor` is why a summer park still has starlings in it.
-    season: { peak: 8, gamma: 1.7, floor: 0.06 },
+    // ⚠ PEAK IN EARLY FEBRUARY, NOT AT THE TURN OF THE YEAR. Mean murmuration size rises from October to
+    // a peak in early February and falls away through March, a skewed bell (Goodenough et al., PLOS ONE
+    // 12:e0179277, 2017 — citizen science, so the shape is better than any one number in it). It was day
+    // 8 until 2026-09-23, a month early. From April to July the same starlings are territorial pairs at
+    // a nest hole; `floor` is why a summer park still has starlings in it.
+    season: { peak: 36, gamma: 1.7, floor: 0.06 },
     // The pre-roost gathering, in the last hour of light. `lead` is how long before `dayEnd` it
     // peaks and `span` how wide the swell is either side; `floor` is the rest of the day, when a
     // starling is in a feeding party of a few dozen at most and there is no display at all.
@@ -1634,6 +1741,23 @@ export function groundMill(f) {
  */
 export function groundSpot(f, i, n, now, alarm = 0) {
   const R = groundPatchR(f, n) * (1 + alarm * 2);
+  const P = groundSpotParts(f, i, n);
+  const r = R * P.q;
+  const sx = f.ax + P.c * r + P.jx, sy = f.ay + P.sn * r + P.jy;
+  const mill = groundMill(f) * (1 + alarm * 1.4);
+  const rate = 0.00022 * (1 + alarm * 2.4);
+  const a1 = now * rate + P.s * TAU, a2 = now * rate * 0.61 + P.s2 * TAU;
+  return { x: sx + Math.cos(a1) * mill, y: sy + Math.sin(a2) * mill, heading: a1 + Math.PI / 2 };
+}
+
+/**
+ * The parts of bird `i`'s place on the patch that do not change while the flock is down: which way
+ * from the centre (c, sn), how far out as a share of the patch (q), its jitter (jx, jy) and the two
+ * phases of its mill (s, s2). `groundSpot` puts them together; the GPU flock (gl/murmur-gpu.js)
+ * bakes them into a texture once and puts them together in a shader, so there is one copy of where
+ * a landed starling stands.
+ */
+export function groundSpotParts(f, i, n) {
   // ⚠ A JITTERED SPIRAL, NOT A HASHED POINT IN THE DISC. Two independent hashes per bird is
   // uniform in the disc and it is POISSON, which means close pairs are not a bug in it — they are
   // what it is for. Measured over 120 starlings the nearest pair stood 0.005 tiles apart against a
@@ -1644,18 +1768,14 @@ export function groundSpot(f, i, n, now, alarm = 0) {
   const th = i * 2.39996323 + frac(f.ax * 9.41 + f.ay * 27.3) * TAU;
   // `sqrt` on the index, or the rings crowd toward the rim: this is the radius that gives every
   // bird the same area of ground, which is the same statement `groundPatchR` makes about the flock.
-  const r = R * Math.sqrt((i + 0.5) / Math.max(1, n));
+  const q = Math.sqrt((i + 0.5) / Math.max(1, n));
   const j1 = frac(f.ax * 31.7 + f.ay * 13.9 + i * 7.13 + 2.7) - 0.5;
   const j2 = frac(f.ax * 11.3 + f.ay * 41.9 + i * 3.71 + 8.1) - 0.5;
   const jit = (spOf(f).groundPitch ?? GROUND_PITCH_DEFAULT) * 0.18;
-  const sx = f.ax + Math.cos(th) * r + j1 * jit, sy = f.ay + Math.sin(th) * r + j2 * jit;
-
-  const mill = groundMill(f) * (1 + alarm * 1.4);
-  const s = frac(f.ax * 7.3 + f.ay * 3.9 + i * 17.1);
-  const s2 = frac(f.ax * 2.1 + f.ay * 13.3 + i * 5.7);
-  const rate = 0.00022 * (1 + alarm * 2.4);
-  const a1 = now * rate + s * TAU, a2 = now * rate * 0.61 + s2 * TAU;
-  return { x: sx + Math.cos(a1) * mill, y: sy + Math.sin(a2) * mill, heading: a1 + Math.PI / 2 };
+  return {
+    c: Math.cos(th), sn: Math.sin(th), q, jx: j1 * jit, jy: j2 * jit,
+    s: frac(f.ax * 7.3 + f.ay * 3.9 + i * 17.1), s2: frac(f.ax * 2.1 + f.ay * 13.3 + i * 5.7),
+  };
 }
 
 // ⚠ THE CYCLE NUMBER IS THE ONE `flockState` AND `hawkStoop` ALREADY COUNT, and it has to be
@@ -1664,6 +1784,11 @@ export function groundSpot(f, i, n, now, alarm = 0) {
 export function perchedNow(f, now) {
   const p = spOf(f).perch;
   if (!p || !p.share) return false;
+  // ⚠ A GRAND ROOST COMES DOWN ONTO OPEN GROUND, NEVER ONTO A LEDGE. Thousands of starlings do not
+  // line one gutter, and a perched flock is drawn a bird at a time on the CPU and thinned to its face
+  // budget, so ten thousand on a parapet would be drawn as eighteen hundred. On the ground the GPU
+  // flock (gl/murmur-gpu.js) keeps every bird. Asked here so the room text says the same.
+  if (isGrandRoost(f)) return false;
   const period = flockPeriod(f);
   const ph = frac(f.ax * 19.1 + f.ay * 5.3);
   const cycle = Math.floor(now / period + ph);

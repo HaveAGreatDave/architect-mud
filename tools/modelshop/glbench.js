@@ -22,7 +22,7 @@ import { principalAxes, medianNND, FLOCK_BANDS } from '/client/shared/flock-shap
 import { createGLView } from '/client/game/js/panels/gl/context.js';
 import { installGL, glLastFrame, glCapabilities } from '/client/game/js/panels/gl/install.js';
 import { LIGHT_TUNE } from '/client/game/js/panels/gl/world.js';
-import { flocksNear, flockState, speciesAt, flockSize, hawkStoop } from '/client/shared/birds.js';
+import { flocksNear, flockState, flockCentreAt, speciesAt, flockSize, hawkStoop, isGrandRoost, SPECIES, groundSpot, groundSpotParts, groundPatchR, groundMill } from '/client/shared/birds.js';
 import { faunaPaintCount } from '/client/game/js/panels/fauna3d.js';
 import { paintWindshield, pushLightningStrike, foamReset, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, FLASH_FLOOR, FLASH_BANK, murmurFrameBirds, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 
@@ -5256,7 +5256,7 @@ if (typeof window !== 'undefined') window.__glBoltLum = runBoltLum;
 // ⚠ THE CLOCK AND THE DICE ARE PINNED, AND A REPAINT AT THE SAME INSTANT MOVES NOTHING. murmur()
 // integrates by the time since its last call, so painting again at the same `t` hands it dt 0 and
 // the flock is exactly where it was. That is what lets two renderings of one moment be compared.
-function murmurScene(el, { back = 2.5, hour = 11, warm = 60, anchor = null } = {}) {
+function murmurScene(el, { back = 2.5, hour = 11, warm = 60, anchor = null, at = null, realPerf = false } = {}) {
   const RR = 30, NN = RR * 2 + 1;
   const map = Array.from({ length: NN }, () => Array.from({ length: NN }, () => ({ kind: 'land', biome: 'citycore', flr: 0 })));
   const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
@@ -5265,12 +5265,15 @@ function murmurScene(el, { back = 2.5, hour = 11, warm = 60, anchor = null } = {
   if (!A) throw new Error('no songbird flock near the seed');
   let T0 = 0, bestR = -1;
   for (let i = 0; i < 40000; i++) { const t = 1e6 + i * 250, st = flockState(A, t); if (st.airborne && st.r > bestR) { bestR = st.r; T0 = t; } }
+  // a moment the caller asked for (a landing, a landed flock) instead of the widest airborne one
+  if (typeof at === 'function') T0 = at(A, T0);
   const c0 = flockState(A, T0);
   const view = { cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12, fovMul: 1.0,
     hour, weather: 'clear', speed: 0, resFloor: 1, map, heading: 0,
     mapCenter: { x: Math.round(c0.cx), y: Math.round(c0.cy + back) }, mapOffset: { x: 0, y: 0 } };
   const seed = () => { let sd = 0x2545f49; Math.random = () => { sd = (sd * 1103515245 + 12345) & 0x7fffffff; return sd / 0x7fffffff; }; };
-  const paintAt = (tt) => { performance.now = () => tt; Date.now = () => tt; seed(); paintWindshield(el.id, view); };
+  // realPerf leaves performance.now alone, so the renderer's own profiler can time the frame
+  const paintAt = (tt) => { if (!realPerf) performance.now = () => tt; Date.now = () => tt; seed(); paintWindshield(el.id, view); };
   let t = T0 - warm * 16.7;
   for (let i = 0; i < warm; i++) { paintAt(t); t += 16.7; }
   const grab = () => { const c = document.createElement('canvas'); c.width = el.width; c.height = el.height; const x = c.getContext('2d'); x.drawImage(el, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
@@ -5375,40 +5378,83 @@ if (typeof window !== 'undefined') window.__glFaunaGlitter = runFaunaGlitter;
  * different float precisions diverge chaotically within a second, and that says nothing about birds.
  * This is where the flock rule is checked now that it runs on the GPU, which no headless gate can reach.
  */
-export function runMurmurParity({ NB = 1000, seeds = [1, 2, 3], frames = 600 } = {}) {
-  const SPEED = 0.0234, FR = 2.4;
-  const SPREAD = Math.max(0.35, FR * 0.22) * Math.cbrt(NB / 20) * RENDER_TUNE.murmurPack;
-  const trail = RENDER_TUNE.murmurTrail;
+export function runMurmurParity({ NB = 1000, seeds = [1, 2, 3], frames = 600, speed = 11, turns = [0.12, 0.45], path = 'wander' } = {}) {
+  const V = speed * MURMUR_RULES.TILE_PER_M, DT = 0.033;
+  const SPREAD = 0.35 * Math.cbrt(NB / 20) * RENDER_TUNE.murmurPack;
   const c = document.createElement('canvas'); c.width = 16; c.height = 16;
   const gl = c.getContext('webgl2');
   const mg = createMurmurGPU(gl);
   if (!mg.ok) return { ok: false, why: 'no float render targets' };
+  // ⚠ WHO YOUR FOUR NEAREST ARE, AND HOW MANY ARE STILL THERE THREE SECONDS LATER: the churn the STARFLAG
+  // group measured and StarEscape reproduces at Q4(3 s) of about 0.58. A flock held to fixed stations
+  // scores near 1, which is the frozen interior the research says real flocks do not have.
+  const near4 = (pts, idx) => idx.map((k) => { const a = pts[k], d = [];
+    for (let j = 0; j < pts.length; j++) if (j !== k) d.push([(pts[j].x - a.x) ** 2 + (pts[j].y - a.y) ** 2 + (pts[j].z - a.z) ** 2, pts[j].i]);
+    d.sort((x, y) => x[0] - y[0]); return new Set(d.slice(0, 4).map((x) => x[1])); });
   const fly = (seed, turn) => {
     const key = 'shape' + seed;
     mg.sweep(1e18);
-    let cx = seed * 3.1, cy = seed * 1.7, th = seed * 0.9, pts = null;
+    // ⚠ THE PATH IS LAID DOWN FIRST AND HANDED OVER AS A COURSE, the way the game hands the shared model's
+    // centre: the relay looks a moment ahead of now as well as behind, and a path made up frame by frame
+    // has no ahead to look at.
+    // ⚠ BY DEFAULT IT IS THE GAME'S OWN PATH: a starling roost's wander circuit (flockCentreAt), held in
+    // the air the way `.murmur` holds it, from a moment well into its flight. 'synthetic' flies a
+    // steady course at `speed` turning at each of `turns` instead.
+    const PAD = 120, xs = [], ys = [], ths = [];
+    const A = { ax: 900 + seed * 7, ay: 905 + seed * 3, sp: 'songbird' }, T0 = 1.7e12 + seed * 3.3e5;
+    if (path === 'wander') {
+      for (let f = -PAD; f < frames + PAD; f++) { const c = flockCentreAt(A, T0 + f * DT * 1000, null, { air: 'songbird' }); xs.push(c[0]); ys.push(c[1]); }
+      for (let k = 0; k < xs.length; k++) { const j = Math.min(xs.length - 1, k + 1), i = j - 1; ths.push(Math.atan2(ys[j] - ys[i], xs[j] - xs[i])); }
+    } else { let x = seed * 3.1, y = seed * 1.7, th = seed * 0.9;
+      for (let f = -PAD; f < frames + PAD; f++) { th += turn * DT * (1 + 0.8 * Math.sin(f * 0.013 + seed)); x += Math.cos(th) * V * DT; y += Math.sin(th) * V * DT; xs.push(x); ys.push(y); ths.push(th); } }
+    const course = (T) => { const u = (T - 1000) / (DT * 1000) + PAD, i = Math.max(0, Math.min(xs.length - 2, Math.floor(u))), k = u - i;
+      return [xs[i] + (xs[i + 1] - xs[i]) * k, ys[i] + (ys[i + 1] - ys[i]) * k, 3]; };
+    let cx = 0, cy = 0, before = null;
+    const at3 = frames - 1 - Math.round(3 / DT);
     for (let f = 0; f < frames; f++) {
-      th += turn * (1 + 0.3 * Math.sin(f * 0.011 + seed));
-      cx += Math.cos(th) * SPEED; cy += Math.sin(th) * SPEED;
-      const now = 1000 + f * 33;
-      mg.step({ key, n: NB, ax: 0, ay: 0, cx, cy, cz: 3, heading: th, now, spread: SPREAD, trail, show: 1, showFade: 0.6, scare: null, frozen: false });
+      const now = 1000 + f * DT * 1000;
+      [cx, cy] = course(now);
+      mg.step({ key, n: NB, ax: 0, ay: 0, cx, cy, cz: 3, heading: ths[f + PAD], now, spread: SPREAD, show: 1, showFade: 0.6, scare: null, frozen: false, course });
+      if (f === at3) before = murmurPts(mg, key);
     }
-    const rb = mg.readback(key); pts = [];
-    for (let i = 0; i < NB; i++) if (rb.vel[i * 4 + 3] > 0) pts.push({ x: rb.pos[i * 4], y: rb.pos[i * 4 + 1], z: rb.pos[i * 4 + 2] });
+    const pts = murmurPts(mg, key);
     const a = principalAxes(pts);
-    return { flat: a.I2 / a.I1, plan: a.I3 / a.I2, drift: Math.hypot(a.mx - cx, a.my - cy), nndM: medianNND(pts) / MURMUR_RULES.TILE_PER_M };
+    // polarisation: the length of the mean heading
+    let sx = 0, sy = 0, sz = 0, vx = 0, vy = 0;
+    for (const q of pts) { const l = Math.hypot(q.vx, q.vy, q.vz) || 1; sx += q.vx / l; sy += q.vy / l; sz += q.vz / l; vx += q.vx; vy += q.vy; }
+    const phi = Math.hypot(sx, sy, sz) / pts.length;
+    // the long axis in plan, against the flock's velocity: 90 is broadside
+    let xx = 0, yy = 0, xy = 0;
+    for (const q of pts) { const dx = q.x - a.mx, dy = q.y - a.my; xx += dx * dx; yy += dy * dy; xy += dx * dy; }
+    const ax = 0.5 * Math.atan2(2 * xy, xx - yy), vh = Math.atan2(vy, vx);
+    let off = Math.abs(((ax - vh) % Math.PI + Math.PI) % Math.PI); if (off > Math.PI / 2) off = Math.PI - off;
+    let q4 = null;
+    if (before) {
+      const nowAt = new Map(pts.map((q, k) => [q.i, k]));
+      const was = [], now = [];
+      for (let k = 0; k < before.length; k += 7) if (nowAt.has(before[k].i)) { was.push(k); now.push(nowAt.get(before[k].i)); }
+      const A4 = near4(before, was), B4 = near4(pts, now);
+      let kept = 0; for (let k = 0; k < A4.length; k++) for (const j of A4[k]) if (B4[k].has(j)) kept++;
+      q4 = kept / (4 * Math.max(1, A4.length));
+    }
+    return { flat: a.I2 / a.I1, plan: a.I3 / a.I2, drift: Math.hypot(a.mx - cx, a.my - cy), nndM: medianNND(pts) / MURMUR_RULES.TILE_PER_M,
+      phi, broadside: off * 180 / Math.PI, q4 };
   };
   const mean = (rows, k) => rows.reduce((x, r) => x + r[k], 0) / rows.length;
-  const out = { NB, bands: FLOCK_BANDS };
+  const out = { NB, speedMs: speed, bands: FLOCK_BANDS };
   // ⚠ THE CPU FLOCK THIS WAS FIRST HELD AGAINST IS GONE (2026-09-23); what it measured, by the same
-  // ruler, was 1 : 2.8 : 5.7 at 0.81 m against the GPU's 1 : 2.7 : 5.1 at 0.88 m. The bands are the claim.
+  // ruler, was 1 : 2.8 : 5.7 at 0.81 m. The bands are the claim, and since the rule moved from stations
+  // to a relayed course (2026-09-23) so are the research's own: polarisation 0.96 ± 0.03 (Cavagna 2010),
+  // the long axis 60-90° from the course (Attanasi 2015), Q4(3 s) about 0.58 (StarEscape).
   for (const which of ['gpu']) {
-    const rows = seeds.flatMap((z) => [fly(z, 0.0006), fly(z, 0.0028)]);
+    const rows = path === 'wander' ? seeds.map((z) => fly(z, 0)) : seeds.flatMap((z) => turns.map((tr) => fly(z, tr)));
     const flat = mean(rows, 'flat'), plan = mean(rows, 'plan'), drift = mean(rows, 'drift'), nndM = mean(rows, 'nndM');
-    const B = FLOCK_BANDS;
+    const phi = mean(rows, 'phi'), broad = mean(rows, 'broadside'), q4 = mean(rows, 'q4');
+    const Bd = FLOCK_BANDS;
     out[which] = { flat: +flat.toFixed(2), plan: +plan.toFixed(2), proportions: '1 : ' + flat.toFixed(1) + ' : ' + (flat * plan).toFixed(1),
-      driftTiles: +drift.toFixed(2), nndMetres: +nndM.toFixed(2),
-      pass: flat > B.FLAT_LO && flat < B.FLAT_HI && plan > B.PLAN_LO && plan < B.PLAN_HI && drift < B.DRIFT_MAX };
+      driftTiles: +drift.toFixed(2), nndMetres: +nndM.toFixed(2), polarisation: +phi.toFixed(3), broadsideDeg: +broad.toFixed(0), q4: +q4.toFixed(2),
+      rows: rows.map((r) => ({ flat: +r.flat.toFixed(2), plan: +r.plan.toFixed(2), phi: +r.phi.toFixed(3), broad: +r.broadside.toFixed(0), q4: r.q4 == null ? null : +r.q4.toFixed(2), nnd: +r.nndM.toFixed(2), drift: +r.drift.toFixed(2) })),
+      pass: flat > Bd.FLAT_LO && flat < Bd.FLAT_HI && plan > Bd.PLAN_LO && plan < Bd.PLAN_HI && drift < Bd.DRIFT_MAX && phi > 0.9 && broad > 45 };
   }
   mg.sweep(1e18);
   gl.getExtension('WEBGL_lose_context')?.loseContext();
@@ -5458,7 +5504,7 @@ const murmurRec = (o) => ({ ax: 0, ay: 0, cz: 3, show: 1, showFade: 0.6, scare: 
 export function runMurmurExact({ n = 4000, frames = 300, checkEvery = 50, cellK, rMax } = {}) {
   const { mg, done } = murmurGL();
   if (!mg.ok) { done(); return { ok: false, why: 'no float render targets' }; }
-  const SPEED = 0.0234, SPREAD = Math.max(0.35, 2.4 * 0.22) * Math.cbrt(n / 20) * RENDER_TUNE.murmurPack;
+  const SPEED = 0.0234, SPREAD = 0.35 * Math.cbrt(n / 20) * RENDER_TUNE.murmurPack;
   let cx = 0, cy = 0, th = 0, ev = null;
   const rows = [];
   for (let f = 0; f < frames; f++) {
@@ -5467,7 +5513,7 @@ export function runMurmurExact({ n = 4000, frames = 300, checkEvery = 50, cellK,
     const now = 1000 + f * 33;
     if (f === Math.floor(frames * 0.4)) ev = { x: cx, y: cy, at: now };
     const show = f > frames * 0.6 && f < frames * 0.8 ? 0.55 : 1;
-    const rec = murmurRec({ key: 'exact', n, cx, cy, heading: th, now, spread: SPREAD, trail: RENDER_TUNE.murmurTrail, scare: ev, show, cellK, rMax });
+    const rec = murmurRec({ key: 'exact', n, cx, cy, heading: th, now, spread: SPREAD, scare: ev, show, cellK, rMax });
     mg.step(rec);
     if ((f + 1) % checkEvery !== 0 && f !== frames - 1) continue;
     const g = mg.probe('exact', rec, false), bf = mg.probe('exact', rec, true);
@@ -5519,10 +5565,10 @@ export async function runMurmurCost({ sizes = [2000, 4000, 8000, 12000, 16000, 2
   const wait = () => new Promise((res) => setTimeout(res, 20));
   const time = async (n, brute) => {
     const key = 'cost:' + n + (brute ? ':b' : ':g');
-    const SPREAD = Math.max(0.35, 2.4 * 0.22) * Math.cbrt(n / 20) * RENDER_TUNE.murmurPack;
+    const SPREAD = 0.35 * Math.cbrt(n / 20) * RENDER_TUNE.murmurPack;
     let t = 1000, cx = 0, th = 0, rec = null;
     const stepOnce = () => { t += 16.7; th += 0.002; cx += 0.02;
-      rec = murmurRec({ key, n, cx, cy: 0, heading: th, now: t, spread: SPREAD, trail: RENDER_TUNE.murmurTrail, brute, cellK, rMax }); mg.step(rec); };
+      rec = murmurRec({ key, n, cx, cy: 0, heading: th, now: t, spread: SPREAD, brute, cellK, rMax }); mg.step(rec); };
     // ⚠ SETTLED, NOT SEEDED: a fresh cloud is a disc with no structure, and the grid's cost is a
     // property of the flock it has become — its dense bands and its stragglers.
     for (let k = 0; k < frames; k++) stepOnce();
@@ -5559,12 +5605,21 @@ if (typeof window !== 'undefined') window.__glMurmurCost = runMurmurCost;
  * the gates they came from so the history is findable. Run it by hand after touching the rule, the
  * search, the thinning or the stoop — no push gate can reach a GL draw call.
  */
+// ⚠ THE DOT'S FLASH, AS gl/fauna.js DRAWS IT: how much wing a bird shows an eye, off its heading, its bank
+// and the line of sight. Kept beside the checks that use it so a change to one is a change to both.
+function wingFlash(q, eye) {
+  const h = Math.atan2(q.vy, q.vx), ch = Math.cos(h), sh = Math.sin(h), cr = Math.cos(q.roll), sr = Math.sin(q.roll);
+  const N = [sh * sr, -ch * sr, cr];
+  const lx = q.x - eye[0], ly = q.y - eye[1], lz = q.z - eye[2], ll = Math.hypot(lx, ly, lz) || 1;
+  const face = Math.abs((N[0] * lx + N[1] * ly + N[2] * lz) / ll);
+  return FLASH_FLOOR + (1 - FLASH_FLOOR) * ((1 - FLASH_BANK) * 0.35 + FLASH_BANK * face);
+}
+
 export function runMurmurChecks() {
   const { mg, done } = murmurGL();
   if (!mg.ok) { done(); return { ok: false, why: 'no float render targets' }; }
   const problems = [], notes = [];
   const reset = () => mg.sweep(1e18);
-  const trail = RENDER_TUNE.murmurTrail;
   const rankOf = (key, n) => seedPoints(key, n, 0, 0, 0, 1).pts.map((p) => p.rank);
   const nnd = (pts) => { let best = 1e9;
     for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++)
@@ -5601,21 +5656,27 @@ export function runMurmurChecks() {
     if (!(mg.clouds < before)) problems.push(`the sweep released nothing (${before} clouds before, ${mg.clouds} after)`);
   }
 
-  // ── fauna 1h: the flash comes in patches, not per-bird flicker ──
+  // ── fauna 1h: the flash moves with the flock, and a front crosses it in patches, not per-bird flicker ──
+  // ⚠ A FLOCK THAT TURNS AT EQUAL RADIUS BANKS AS ONE, so most of its flash is the whole cloud lightening
+  // and darkening together as it turns (Costanzo 2021), and the variation ACROSS it at one moment is the
+  // front of a turn crossing it. The old check asked for a spread of 0.10 across the flock at every frame,
+  // which a flock of birds each wandering on its own heading has and a real one does not.
   {
     reset();
-    const camH = 0.7, fx = Math.sin(camH), fy = -Math.cos(camH);
-    const dimOf = (vx, vy) => { const h = Math.atan2(vy, vx);
-      const along = Math.cos(h) * fx + Math.sin(h) * fy, broad = Math.sqrt(Math.max(0, 1 - along * along));
-      return FLASH_FLOOR + (1 - FLASH_FLOOR) * broad; };
-    let nearSum = 0, chanceSum = 0, sdSum = 0, frames = 0;
+    // a flock sweeping a roost, looked at from the ground six tiles off
+    const eye = [-6, -2, 0];
+    let nearSum = 0, chanceSum = 0, sdSum = 0, sdMax = 0, frames = 0, cx = 0, cy = 0, th = 0.4;
+    const means = [];
     for (let f = 0; f < 240; f++) {
-      mg.step(murmurRec({ key: 'flash', n: 400, cx: 0, cy: 0, cz: 3, heading: 0.4, now: 1000 + f * 33, spread: 2.2 }));
+      th += 0.45 * 0.033 * (1 + 0.8 * Math.sin(f * 0.02)); cx += Math.cos(th) * 1.0 * 0.033; cy += Math.sin(th) * 1.0 * 0.033;
+      mg.step(murmurRec({ key: 'flash', n: 400, cx, cy, cz: 3, heading: th, now: 1000 + f * 33, spread: 0.35 * Math.cbrt(400 / 20) * RENDER_TUNE.murmurPack }));
       if (f < 30 || f % 10) continue;
       const pts = murmurPts(mg, 'flash');
-      const d = pts.map((q) => dimOf(q.vx, q.vy));
+      const d = pts.map((q) => wingFlash(q, eye));
       const mean = d.reduce((a, b) => a + b, 0) / d.length;
-      sdSum += Math.sqrt(d.reduce((a, b) => a + (b - mean) ** 2, 0) / d.length);
+      means.push(mean);
+      const sdNow = Math.sqrt(d.reduce((a, b) => a + (b - mean) ** 2, 0) / d.length);
+      sdSum += sdNow; sdMax = Math.max(sdMax, sdNow);
       const shuf = d.slice();
       for (let i = shuf.length - 1; i > 0; i--) { const j = (i * 1103515245 + 12345) % (i + 1); const t = shuf[i]; shuf[i] = shuf[j]; shuf[j] = t; }
       let near = 0, chance = 0;
@@ -5628,23 +5689,25 @@ export function runMurmurChecks() {
       }
       nearSum += near / pts.length; chanceSum += chance / pts.length; frames++;
     }
-    const patch = chanceSum / nearSum, sd = sdSum / frames;
-    if (!(sd > 0.10)) problems.push(`the flash spreads only ${sd.toFixed(3)} across the flock`);
+    const patch = chanceSum / nearSum, sd = sdSum / frames, swing = Math.max(...means) - Math.min(...means);
+    if (!(swing > 0.10)) problems.push(`the whole flock's flash swings only ${swing.toFixed(3)} as it turns — it is not banking into its turns`);
+    if (!(sdMax > 0.03)) problems.push(`the flash never spreads more than ${sdMax.toFixed(3)} across the flock — no turn front ever crosses it`);
     else if (!(patch > 2.0)) problems.push(`neighbours agree only ${patch.toFixed(2)}x better than chance — flicker, not banding`);
-    notes.push(`flash: spread ${sd.toFixed(3)}, neighbours agree ${patch.toFixed(2)}x better than chance`);
+    notes.push(`flash: the flock swings ${swing.toFixed(3)} as it turns, fronts spread it ${sd.toFixed(3)} (at most ${sdMax.toFixed(3)}), neighbours agree ${patch.toFixed(2)}x better than chance`);
   }
 
   // ── fauna 1i: the hawk's wave reaches the flash as a band ──
   {
     reset();
-    for (let f = 0; f < 120; f++) mg.step(murmurRec({ key: 'band', n: 400, cx: 0, cy: 0, cz: 3, heading: 0.4, now: 1000 + f * 33, spread: 2.2 }));
+    let cx = 0;
+    for (let f = 0; f < 120; f++) { cx += 1.0 * 0.033; mg.step(murmurRec({ key: 'band', n: 400, cx, cy: 0, cz: 3, heading: 0, now: 1000 + f * 33, spread: 0.35 * Math.cbrt(400 / 20) * RENDER_TUNE.murmurPack })); }
     const pts = murmurPts(mg, 'band');
-    const camH = 0.7, fx = Math.sin(camH), fy = -Math.cos(camH);
-    const dimOf = (h, roll) => { const along = Math.cos(h) * fx + Math.sin(h) * fy, broad = Math.sqrt(Math.max(0, 1 - along * along));
-      return FLASH_FLOOR + (1 - FLASH_FLOOR) * broad * (1 - FLASH_BANK + FLASH_BANK * Math.abs(Math.sin(roll))); };
-    const ev = { x: -2.2, y: 0, at: 1000 + 119 * 33 }, now = ev.at + 600;
-    const rows = pts.map((q) => { const h = Math.atan2(q.vy, q.vx), a = agitation(q.x, q.y, ev, now);
-      return { d: Math.hypot(q.x - ev.x, q.y - ev.y), delta: dimOf(h, q.roll + a) - dimOf(h, q.roll) }; });
+    const eye = [cx - 6, -4, 0];
+    // a stoop from behind, a third of a tile off the body's trailing edge
+    const rear = Math.min(...pts.map((q) => q.x));
+    const ev = { x: rear - 0.35, y: 0, at: 1000 + 119 * 33 }, now = ev.at + 600;
+    const rows = pts.map((q) => { const a = agitation(q.x, q.y, ev, now);
+      return { d: Math.hypot(q.x - ev.x, q.y - ev.y), delta: wingFlash({ ...q, roll: q.roll + a }, eye) - wingFlash(q, eye) }; });
     const touched = rows.filter((r) => Math.abs(r.delta) > 1e-4).length;
     const B = 12, lo = Math.min(...rows.map((r) => r.d)), hi = Math.max(...rows.map((r) => r.d));
     const sum = new Array(B).fill(0), cnt = new Array(B).fill(0);
@@ -5666,8 +5729,8 @@ export function runMurmurChecks() {
       for (let f = 0; f <= 240; f++) {
         const t = 1000 + f * 33;
         th += 0.0009; cx += Math.cos(th) * SPEED; cy += Math.sin(th) * SPEED;
-        if (f === 200) ev = { x: cx, y: cy, at: t };
-        mg.step(murmurRec({ key: 'cmp', n: 400, cx, cy, heading: th, now: t, spread: 2.2, trail: 1, scare: push ? ev : null }));
+        if (f === 200) ev = { x: cx, y: cy, at: t, flash: true };
+        mg.step(murmurRec({ key: 'cmp', n: 400, cx, cy, heading: th, now: t, spread: 2.2, scare: push ? ev : null }));
       }
       return murmurPts(mg, 'cmp').filter((q) => Math.hypot(q.x - ev.x, q.y - ev.y) < 1.15).length;
     };
@@ -5683,7 +5746,7 @@ export function runMurmurChecks() {
     const centre = (pts) => [pts.reduce((a, q) => a + q.x, 0) / pts.length, pts.reduce((a, q) => a + q.y, 0) / pts.length];
     let cx = 0, cy = 0, th = 0, t = 1000;
     const step = (frozen) => { th += 0.0016; cx += Math.cos(th) * 0.0234; cy += Math.sin(th) * 0.0234;
-      mg.step(murmurRec({ key: 'freeze', n: N, cx, cy, heading: th, now: t, spread: SP, trail: 0.3, frozen })); t += 16.7; };
+      mg.step(murmurRec({ key: 'freeze', n: N, cx, cy, heading: th, now: t, spread: SP, frozen })); t += 16.7; };
     for (let f = 0; f < 150; f++) step(false);
     let [bx, by] = centre(murmurPts(mg, 'freeze'));
     const offBefore = Math.hypot(bx - cx, by - cy);
@@ -5699,7 +5762,7 @@ export function runMurmurChecks() {
 
   // ── murmurthin 2-4: thinning reseeds nobody, nothing blinks or pops, a returning bird comes home ──
   {
-    const OPT = { spread: 1.1, trail: 0.3 };
+    const OPT = { spread: 1.1 };
     let t = 1e6;
     const go = (key, n, show) => { t += 16.7; mg.step(murmurRec({ key, n, cx: 100 + (t - 1e6) / 1000 * 0.55, cy: 100, cz: 1.4, heading: 0, now: t, show, ...OPT })); };
     // 2: survivors do not move more than a frame's flight on the frame the flock is thinned
@@ -5757,7 +5820,7 @@ if (typeof window !== 'undefined') window.__glMurmurChecks = runMurmurChecks;
  * removes it. ⚠ The time is wall clock round paintWindshield, not GPU time: see __glMurmurCost for
  * that. It is here to say the frame is not choking, not to budget it.
  */
-export function runMurmurShot({ minN = 15000, search = 400, back = 6, hour = 17, W = 960, H = 540, frames = 60 } = {}) {
+export function runMurmurShot({ minN = 15000, search = 400, back = 6, hour = 17, W = 960, H = 540, frames = 60, phase = 'air', lead = 0 } = {}) {
   document.getElementById('__murmurshot')?.remove();
   const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
   let A = null;
@@ -5765,19 +5828,292 @@ export function runMurmurShot({ minN = 15000, search = 400, back = 6, hour = 17,
   if (!A) return { ok: false, why: 'no roost of ' + minN + ' within ' + search + ' tiles' };
   const realNow = performance.now.bind(performance);
   return withBench(W, H, '__murmurshot', (el) => {
-    const s = murmurScene(el, { back, hour, anchor: A });
+    const s = murmurScene(el, { back, hour, anchor: A, at: phaseAt(phase, lead) });
     let t = s.t;
     const ms = [];
-    for (let i = 0; i < frames; i++) { const a = realNow(); s.paintAt(t); ms.push(realNow() - a); t += 16.7; }
+    const x2 = el.getContext('2d');
+    for (let i = 0; i < frames; i++) { const a = realNow(); s.paintAt(t); x2.getImageData(0, 0, 1, 1); ms.push(realNow() - a); t += 16.7; }
     ms.sort((x, y) => x - y);
     const img = document.createElement('img');
     img.id = '__murmurshot'; img.src = el.toDataURL();
     img.style.cssText = 'position:fixed;left:0;top:0;z-index:99999;width:' + W + 'px;height:' + H + 'px;border:2px solid #f0f';
     img.onclick = () => img.remove();
     document.body.append(img);
-    const out = { flock: flockSize(A), anchor: [A.ax, A.ay], frameBirds: murmurFrameBirds(), frameMs: { p50: +ms[Math.floor(frames / 2)].toFixed(1), p90: +ms[Math.floor(frames * 0.9)].toFixed(1) } };
+    const st = flockState(A, t);
+    const out = { flock: flockSize(A), phase, airborne: st.airborne, u: +(st.u ?? 0).toFixed(4), anchor: [A.ax, A.ay], frameBirds: murmurFrameBirds(), frameMs: { p50: +ms[Math.floor(frames / 2)].toFixed(1), p90: +ms[Math.floor(frames * 0.9)].toFixed(1) } };
     console.log('__glMurmurShot', JSON.stringify(out));
     return out;
   });
 }
 if (typeof window !== 'undefined') window.__glMurmurShot = runMurmurShot;
+
+// A moment in a flock's cycle, for murmurScene's `at`: 'air' is the widest airborne moment it already
+// finds; 'landing' is `lead` ms before touchdown; 'ground' is the middle of the ground phase.
+function phaseAt(phase, lead = 0) {
+  if (phase === 'air') return null;
+  return (A, T0) => {
+    let prev = flockState(A, T0).airborne;
+    for (let i = 1; i < 200000; i++) {
+      const tt = T0 + i * 50, st = flockState(A, tt);
+      if (phase === 'landing' && prev && !st.airborne) return tt - lead;
+      if (phase === 'ground' && !st.airborne && st.u > SPECIES[A.sp].uGround * 0.5) return tt;
+      prev = st.airborne;
+    }
+    return T0;
+  };
+}
+
+/**
+ * WHERE THE COMFORT LEVEL IS: the whole frame, timed, with one roost forced to each size in turn.
+ *
+ * The roost is a real grand-roost anchor with its size pinned (the species row is edited for the run
+ * and put back), seen from a cab `back` tiles behind it. Each frame is timed round paintWindshield
+ * plus a one-pixel readback, so the GPU's work is inside the number, and the median of `frames` is
+ * reported beside a control with no birds at all. ⚠ Wall clock on this machine only — the budget
+ * that matters is the slowest machine you care about.
+ */
+export function runMurmurComfort({ sizes = [2000, 5000, 10000, 20000, 40000, 60000], phase = 'air', back = 6, hour = 17, W = 1280, H = 720, frames = 40 } = {}) {
+  const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+  let A = null;
+  for (const f of flocksNear(900, 900, 400, 1, habitat)) if (f.sp === 'songbird' && isGrandRoost(f)) { A = f; break; }
+  if (!A) return { ok: false, why: 'no grand roost in reach' };
+  const sp = SPECIES.songbird, was = { maxFlock: sp.maxFlock, from: sp.grand.from };
+  const realNow = performance.now.bind(performance);
+  const time = (n) => withBench(W, H, '__comfort', (el, T) => {
+    T.murmurBirds = 1e9;
+    if (!n) T.geese = 0;
+    else { sp.maxFlock = n; sp.grand.from = n; }
+    const s = murmurScene(el, { back, hour, anchor: A, at: phaseAt(phase) });
+    let tt = s.t;
+    const x2 = el.getContext('2d'), ms = [];
+    for (let i = 0; i < frames; i++) { const a = realNow(); s.paintAt(tt); x2.getImageData(0, 0, 1, 1); ms.push(realNow() - a); tt += 16.7; }
+    ms.sort((x, y) => x - y);
+    return { n: n ? flockSize(A) : 0, gpuBirds: murmurFrameBirds(), p50: +ms[Math.floor(frames / 2)].toFixed(1), p90: +ms[Math.floor(frames * 0.9)].toFixed(1) };
+  });
+  const rows = [];
+  try {
+    rows.push(time(0));
+    for (const n of sizes) rows.push(time(n));
+  } finally { sp.maxFlock = was.maxFlock; sp.grand.from = was.from; }
+  console.log('__glMurmurComfort', JSON.stringify(rows));
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glMurmurComfort = runMurmurComfort;
+
+/**
+ * THE COMFORT LEVEL, MEASURED THE WAY A PLAYER FEELS IT: frames drawn in a requestAnimationFrame loop,
+ * the interval between them timed, at each forced roost size. CPU and GPU overlap across frames there
+ * exactly as they do in the game, and the display's vsync caps it, so the answer reads directly as
+ * "holds 60" or not. ⚠ The pane must be VISIBLE — a hidden pane stops calling rAF. `cpuMs` is the
+ * paint call alone, so the headroom under a vsync-capped interval is still visible.
+ */
+export async function runMurmurComfortRaf({ sizes = [2000, 5000, 10000, 20000, 40000, 60000], phase = 'air', back = 6, hour = 17, W = 1280, H = 720, frames = 120 } = {}) {
+  const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+  let A = null;
+  for (const f of flocksNear(900, 900, 400, 1, habitat)) if (f.sp === 'songbird' && isGrandRoost(f)) { A = f; break; }
+  if (!A) return { ok: false, why: 'no grand roost in reach' };
+  const sp = SPECIES.songbird, was = { maxFlock: sp.maxFlock, from: sp.grand.from };
+  const T = RENDER_TUNE, tuneWas = { ...T };
+  const realNow = performance.now.bind(performance), realDate = Date.now, realRnd = Math.random;
+  const rows = [];
+  const one = async (n) => {
+    const holder = document.createElement('div'); holder.style.cssText = 'position:fixed;left:0;top:0;z-index:99998';
+    const el = document.createElement('canvas'); el.id = '__comfortraf-' + (++_benchSeq); el.width = W; el.height = H;
+    el.style.width = W + 'px'; el.style.height = H + 'px'; holder.append(el); document.body.append(holder);
+    const uninstall = installGL(() => el);
+    try {
+      T.gl = 1; T.glFloor = 1; T.resFloor = 1; T.perfDS = 0; T.geese = n ? 1 : 0; T.murmurBirds = 1e9;
+      if (n) { sp.maxFlock = n; sp.grand.from = n; }
+      const s = murmurScene(el, { back, hour, anchor: A, at: phaseAt(phase) });
+      let tt = s.t;
+      const gaps = [], cpu = [];
+      await new Promise((done) => {
+        let last = null, k = 0;
+        const tick = (ts) => {
+          if (last != null) gaps.push(ts - last);
+          last = ts;
+          const a = realNow(); s.paintAt(tt); cpu.push(realNow() - a); tt += 16.7;
+          if (++k > frames) done(); else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      const med = (a) => { const b = a.slice().sort((x, y) => x - y); return +b[Math.floor(b.length / 2)].toFixed(1); };
+      const p90 = (a) => { const b = a.slice().sort((x, y) => x - y); return +b[Math.floor(b.length * 0.9)].toFixed(1); };
+      rows.push({ n: n ? flockSize(A) : 0, gpuBirds: n ? murmurFrameBirds() : 0, frameMs: med(gaps), frameP90: p90(gaps), fps: +(1000 / med(gaps)).toFixed(0), cpuMs: med(cpu) });
+    } finally {
+      performance.now = realNow; Date.now = realDate; Math.random = realRnd;
+      uninstall(); holder.remove();
+    }
+  };
+  try {
+    await one(0);
+    for (const n of sizes) await one(n);
+  } finally {
+    sp.maxFlock = was.maxFlock; sp.grand.from = was.from;
+    for (const k of Object.keys(T)) if (!(k in tuneWas)) delete T[k];
+    Object.assign(T, tuneWas);
+  }
+  console.log('__glMurmurComfortRaf', JSON.stringify(rows));
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glMurmurComfortRaf = runMurmurComfortRaf;
+
+/**
+ * THE FRAME'S GPU TIME, by what is in it: no birds at all, every species but no murmuration, and a
+ * roost forced to each size. The world pass's own WebGL2 context is caught as it is created and a
+ * timer query is wrapped round each whole paint, so the number is every GL command the frame issued
+ * — the flock step, both draws of it (the mirror prepass and the main pass) and everything else.
+ * Results arrive a few frames late, so they are gathered after the loop.
+ */
+export async function runMurmurGpuFrame({ sizes = [2000, 5000, 10000, 20000, 40000], phase = 'air', back = 6, hour = 17, W = 1280, H = 720, frames = 60 } = {}) {
+  const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+  let A = null;
+  for (const f of flocksNear(900, 900, 400, 1, habitat)) if (f.sp === 'songbird' && isGrandRoost(f)) { A = f; break; }
+  if (!A) return { ok: false, why: 'no grand roost in reach' };
+  const sp = SPECIES.songbird, was = { maxFlock: sp.maxFlock, from: sp.grand.from };
+  const origGet = HTMLCanvasElement.prototype.getContext;
+  const caught = [];
+  HTMLCanvasElement.prototype.getContext = function (type, attrs) { const c = origGet.call(this, type, attrs); if (type === 'webgl2' && c && !caught.includes(c)) caught.push(c); return c; };
+  const realNow = performance.now.bind(performance);
+  const wait = () => new Promise((r) => setTimeout(r, 30));
+  const rows = [];
+  const one = async (label, n, tune) => {
+    caught.length = 0;
+    const out = withBench(W, H, '__gpuframe', (el, T) => {
+      Object.assign(T, { murmurBirds: 1e9 }, tune);
+      if (n) { sp.maxFlock = n; sp.grand.from = n; }
+      const s = murmurScene(el, { back, hour, anchor: A, at: phaseAt(phase) });
+      const gl = caught[caught.length - 1];
+      const tq = gl && gl.getExtension('EXT_disjoint_timer_query_webgl2');
+      if (!tq) return { label, why: 'no timer query on the world context' };
+      let tt = s.t;
+      const qs = [], cpu = [];
+      for (let i = 0; i < frames; i++) {
+        const q2 = gl.createQuery();
+        gl.beginQuery(tq.TIME_ELAPSED_EXT, q2);
+        const a = realNow(); s.paintAt(tt); cpu.push(realNow() - a);
+        gl.endQuery(tq.TIME_ELAPSED_EXT);
+        qs.push(q2); tt += 16.7;
+      }
+      return { label, gl, tq, qs, cpu, gpuBirds: murmurFrameBirds() };
+    });
+    if (!out.qs) { rows.push(out); return; }
+    const { gl, tq, qs } = out;
+    for (let k = 0; k < 200 && !gl.getQueryParameter(qs[qs.length - 1], gl.QUERY_RESULT_AVAILABLE); k++) await wait();
+    const ms = qs.map((q2) => (gl.getQueryParameter(q2, gl.QUERY_RESULT_AVAILABLE) ? gl.getQueryParameter(q2, gl.QUERY_RESULT) / 1e6 : NaN)).filter(Number.isFinite).sort((x, y) => x - y);
+    const cpu = out.cpu.slice().sort((x, y) => x - y);
+    rows.push({ label, n: n ? flockSize(A) : 0, gpuBirds: n || label !== 'no birds' ? out.gpuBirds : 0,
+      gpuMs: ms.length ? +ms[Math.floor(ms.length / 2)].toFixed(2) : null, gpuP90: ms.length ? +ms[Math.floor(ms.length * 0.9)].toFixed(2) : null,
+      cpuMs: +cpu[Math.floor(cpu.length / 2)].toFixed(2), disjoint: !!gl.getParameter(tq.GPU_DISJOINT_EXT) });
+  };
+  try {
+    await one('no birds', 0, { geese: 0 });
+    await one('other species, no murmuration', 0, { murmurBirds: 0 });
+    for (const n of sizes) await one('roost ' + n, n, {});
+  } finally {
+    HTMLCanvasElement.prototype.getContext = origGet;
+    sp.maxFlock = was.maxFlock; sp.grand.from = was.from;
+  }
+  console.log('__glMurmurGpuFrame', JSON.stringify(rows));
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glMurmurGpuFrame = runMurmurGpuFrame;
+
+/**
+ * A LANDING, MEASURED: a GPU flock flown down onto its patch and left there.
+ *
+ * Two claims. The landing is CONTINUOUS — no bird moves further in one frame than it could fly, where
+ * the per-bird path jumped every bird from its formation to the mill at touchdown. And a landed bird
+ * stands where groundSpot (client/shared/birds.js) says it does, to float precision — the shader is a
+ * second evaluation of that arithmetic from baked parts, and this is what keeps the two one answer.
+ */
+export function runMurmurLanding({ n = 3000, dt = 33 } = {}) {
+  const { mg, done } = murmurGL();
+  if (!mg.ok) { done(); return { ok: false, why: 'no float render targets' }; }
+  const f = { ax: 100, ay: 100, sp: 'songbird' };
+  const SPREAD = 0.35 * Math.cbrt(n / 20) * RENDER_TUNE.murmurPack;
+  const key = 'landing', R0 = groundPatchR(f, n), mill = groundMill(f);
+  const base = (now, o) => murmurRec({ key, n, spread: SPREAD, now, groundParts: (i) => groundSpotParts(f, i, n), ...o });
+  const turn = (x) => x - Math.floor(x / (Math.PI * 2)) * (Math.PI * 2);
+  const groundRec = (now, landLeft) => ({ state: 'walk', anchor: [f.ax, f.ay], R: R0, mill,
+    millA: [turn(now * 0.00022), turn(now * 0.00022 * 0.61)], landLeft, lift: 0, bob: [0, 0] });
+  let now = 1e6, prev = null, airMax = 0, landMax = 0, below = 0;
+  const step = (rec) => { mg.step(rec); const p = murmurPts(mg, key, true);
+    let m = 0; if (prev) for (let i = 0; i < n; i++) m = Math.max(m, Math.hypot(p[i].x - prev[i].x, p[i].y - prev[i].y, p[i].z - prev[i].z));
+    for (const b of p) if (b.z < -1e-6) below++;
+    prev = p; return m; };
+  // in: 240 frames coming home to the anchor, the last 90 descending to the ground
+  for (let k = 0; k < 240; k++) {
+    now += dt;
+    const u = k / 239, cx = f.ax - 6 * (1 - u), cz = k < 150 ? 1.4 : 1.4 * (1 - (k - 150) / 89);
+    airMax = Math.max(airMax, step(base(now, { cx, cy: f.ay, cz, heading: 0 })));
+  }
+  // down: the settle window, as windshield hands it over, then settled
+  const WIN = 2.6;
+  for (let k = 0; k < 140; k++) {
+    now += dt;
+    const left = Math.max(0, WIN - k * dt / 1000);
+    landMax = Math.max(landMax, step(base(now, { cx: f.ax, cy: f.ay, cz: 0, heading: 0, ground: groundRec(now, left) })));
+  }
+  // where every bird stands, against groundSpot at the same instant
+  let worst = 0;
+  const p = murmurPts(mg, key, true);
+  for (let i = 0; i < n; i++) { const g = groundSpot(f, i, n, now); worst = Math.max(worst, Math.hypot(p[i].x - g.x, p[i].y - g.y), Math.abs(p[i].z)); }
+  mg.sweep(1e18); done();
+  const fly = MURMUR_RULES.speed * dt / 1000;
+  const out = { n, airMaxStep: +airMax.toFixed(4), landMaxStep: +landMax.toFixed(4), cruiseStep: +fly.toFixed(4),
+    spotError: +worst.toExponential(2), birdsBelowGround: below,
+    ok: landMax < 0.25 && worst < 1e-3 && below === 0 };
+  console.log('__glMurmurLanding', JSON.stringify(out));
+  return out;
+}
+if (typeof window !== 'undefined') window.__glMurmurLanding = runMurmurLanding;
+
+/**
+ * WHAT A STARLING CLOUD COSTS THE CPU, by phase and by GL call. The same scene with no murmuration and
+ * with a roost, the renderer's own profiler timing the frame (performance.now left real) and every
+ * WebGL2 call counted by name on a second pass (counting wraps every call, which is too slow to time).
+ */
+export function runMurmurCpu({ n = 20000, phase = 'air', back = 6, hour = 17, W = 1280, H = 720, frames = 60 } = {}) {
+  const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+  let A = null;
+  for (const f of flocksNear(900, 900, 400, 1, habitat)) if (f.sp === 'songbird' && isGrandRoost(f)) { A = f; break; }
+  if (!A) return { ok: false, why: 'no grand roost in reach' };
+  const sp = SPECIES.songbird, was = { maxFlock: sp.maxFlock, from: sp.grand.from };
+  const P = WebGL2RenderingContext.prototype;
+  const run = (label, tune, count) => withBench(W, H, '__murmurcpu', (el, T) => {
+    Object.assign(T, { murmurBirds: 1e9 }, tune);
+    sp.maxFlock = n; sp.grand.from = n;
+    const s = murmurScene(el, { back, hour, anchor: A, at: phaseAt(phase), realPerf: true });
+    const calls = {}, orig = {};
+    if (count) for (const k of Object.getOwnPropertyNames(P)) {
+      const d = Object.getOwnPropertyDescriptor(P, k);
+      if (!d || typeof d.value !== 'function' || k === 'constructor') continue;
+      orig[k] = d.value;
+      P[k] = function (...a) { calls[k] = (calls[k] || 0) + 1; return orig[k].apply(this, a); };
+    }
+    let tt = s.t;
+    try {
+      setWindshieldProfiler(true);
+      for (let i = 0; i < frames; i++) { s.paintAt(tt); tt += 16.7; }
+      const snap = perfSnapshot();
+      setWindshieldProfiler(false);
+      const per = (k) => +((snap.t[k] || 0) / Math.max(1, snap.frames)).toFixed(3);
+      const phases = {};
+      for (const k of Object.keys(snap.t)) if (/fauna|world:gl|world:build|frame/.test(k)) phases[k] = per(k);
+      const total = Object.values(calls).reduce((a, b) => a + b, 0) / frames;
+      const top = Object.entries(calls).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => [k, +(v / frames).toFixed(1)]);
+      return { label, gpuBirds: murmurFrameBirds(), phases, glCallsPerFrame: count ? +total.toFixed(0) : null, top: count ? top : null };
+    } finally { for (const k of Object.keys(orig)) P[k] = orig[k]; }
+  });
+  const rows = [];
+  try {
+    for (const [label, tune] of [['no murmuration', { murmurBirds: 0 }], ['roost', {}]]) {
+      const timed = run(label, tune, false), counted = run(label, tune, true);
+      rows.push({ ...timed, glCallsPerFrame: counted.glCallsPerFrame, top: counted.top });
+    }
+  } finally { sp.maxFlock = was.maxFlock; sp.grand.from = was.from; }
+  console.log('__glMurmurCpu', JSON.stringify(rows));
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glMurmurCpu = runMurmurCpu;

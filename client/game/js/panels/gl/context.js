@@ -1826,15 +1826,20 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const all = [];
     instRecs.length = 0;
     cloudList.length = 0;
-    let cloudNow = 0;
+    const clouds = [];
     for (const l of lists) if (l && l.length) for (const q of l) {
-      if (q.cloud) {
-        const st = murmurGPU().step(q) && mg.state(q.key);
-        if (st) cloudList.push({ rec: q, st });
-        cloudNow = q.now;
-      } else (q.inst ? instRecs : all).push(q);
+      if (q.cloud) clouds.push(q);
+      else (q.inst ? instRecs : all).push(q);
     }
-    if (mg && cloudNow) mg.sweep(cloudNow);
+    // every cloud of the frame stepped under one save of the GL state, not one each
+    if (clouds.length) {
+      const done = murmurGPU().stepAll(clouds);
+      for (let i = 0; i < clouds.length; i++) {
+        const st = done[i] && mg.state(clouds[i].key);
+        if (st) cloudList.push({ rec: clouds[i], st });
+      }
+    }
+    if (mg && clouds.length) mg.sweep(clouds[0].now);
     solidQuads = all.length ? solidsLayer().upload(all) : 0;
     faunaInst = (instRecs.length || fnl) ? faunaLayer().upload(instRecs) : 0;
     return solidQuads;

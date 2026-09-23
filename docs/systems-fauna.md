@@ -39,10 +39,11 @@ this table is a reading of them, not a second copy to keep in step.
 | | goose | gull | pigeon | songbird | hawk | vulture |
 |---|---|---|---|---|---|---|
 | wingspan (model units) | 0.85 | 1.1 | 0.5 | 0.155 | 1.02 | 1.3 |
-| birds in a flock | 3–6 | 4–12 | 4–10 | 24–60 | 1 | 3–7 |
-| cycle | 100 s | 55 s | 27 s | 34 s | 150 s | 210 s |
+| birds in a flock | 3–6 | 4–12 | 4–10 | 450–1,700 (a grand roost 4,000–20,000) | 1 | 3–7 |
+| cycle | 100 s | 55 s | 27 s | 58 s | 150 s | 210 s |
 | share of it on the ground | 40% | 25% | 78% | 55% | 18% | 42% |
-| ceiling / circuit radius | 2.2 / 3.4 | 1.6 / 5.0 | 0.9 / 1.6 | 1.4 / 2.4 | 3.6 / 1.9 | 4.4 / 3.2 |
+| ceiling / circuit radius | 2.2 / 3.4 | 1.6 / 5.0 | 0.9 / 1.6 | 1.4 / sweeps a roost of 5 | 3.6 / 1.9 | 4.4 / 3.2 |
+| wingbeat | 1.5 Hz | 1.5 Hz | 1.5 Hz | 10 Hz, with glides | 1.5 Hz | 1.5 Hz |
 | drawn out to | 14 tiles | 13 | 7 | 6 | 16 | 18 |
 | about between | 06–20 | 05–21 | 06–20 | 05–21 | 08–18 | 08–18 |
 | perches | never | 42% | 55% | 50% | 70%, highest | 30%, highest |
@@ -196,6 +197,95 @@ machine even though the cloud under it is not. Its origin and its moment are the
 fine for texture, and not fine for anything a player could be wrong about, which is why the derived
 half stays derived.
 
+### What a real murmuration does, and the rule that does it (2026-09-23)
+
+The flock-level half is [murmur.js](../client/game/js/panels/murmur.js), the per-bird rule is the shader in
+[gl/murmur-gpu.js](../client/game/js/panels/gl/murmur-gpu.js), and the centre's path is `wanderAt` in
+[birds.js](../client/shared/birds.js). Nearly every number comes from the STARFLAG/COBBS reconstructions of
+starling flocks over Rome (Ballerini 2008, Cavagna 2010, Attanasi 2014–15, Bialek 2014), Hemelrijk's
+StarDisplay model, and Storms et al. 2019's 795 filmed escape events.
+
+**It travels as one body.** Real flocks have a polarisation of 0.96 ± 0.03 (Cavagna 2010) and a centre
+moving at 10–12 m/s. The old rule held each bird to a fixed station on the path its centre had flown, while
+the centre looped a one-tile circle at about 1 m/s, so twelve-metre-a-second birds orbited a point that
+barely moved. That's milling. The starling now has its own circuit, `circuit: 2`: three epicycles in
+seconds of flight that sweep a roost of radius `roam` (5 tiles, growing by the cube root of the count). The
+centre moves at a median 10.2 m/s (7–14 m/s from the 5th to 95th percentile) and turns at 0.29 rad/s,
+about the gull's 0.26. It's still a closed form, so the room text and the hawk read the same flock.
+
+**It turns by relay, at equal radius.** A turn starts at a side edge and crosses the flock at 10–20 m/s
+(Attanasi 2014). Each bird steers by the centre's own course as it was `delay` ago, where `delay` is its
+distance from the inside edge of the turn over the relay speed (17 m/s). Every bird turns on the same
+radius, so the body keeps its world orientation while the heading swings through it.
+
+⚠ **The relay is centred on the present, never on the past.** Steered only by the past, the whole body
+trailed its centre by the mean delay times its speed, 1.3 tiles in a steady turn. The record carries
+`course`, which is `flockCentreAt` in birds.js, the shared model's centre at any time. The course table
+is sampled from half the relay's span ahead of now, so the middle bird flies the course now and the body
+sits on its centre. `flockCentreAt` shares one phase helper with `flockState`, so they can't disagree
+about when the flock is up.
+
+**The body is flat and broadside.** Real flocks are 1 : 2.8 : 5.6 (thickness : width : length) with the
+long axis 60–90° across the course in straight flight (Attanasi 2015). The old ribbon put the long axis
+along the path. The body is held in an ellipsoid (`ENV_L/W/T` in murmur.js), free inside and pushed back
+over its outer band, which also makes the edge denser than the middle, as Ballerini found in all ten of
+his flocks. Its long axis relaxes back to broadside over `ENV_TAU` after a turn, and its plane banks into
+the turn.
+
+⚠ **A bird holds its place fore and aft by its speed, not by turning.** Its speed is set, so a push from
+the front of the body could only swing it sideways, and the body smeared out along its own course. The
+rim pushes only across and vertically; a bird past the inner band slows or speeds up (`catchK`).
+
+⚠ **Separation acts in full vertically.** Damping it with alignment and cohesion let cohesion press the
+flock into a sheet, 1 : 12.9 thick-to-wide.
+
+⚠ **The turn gain has to beat the turn rate.** At `wCmd` 1.8 a bird lagged a 0.3 rad/s turn by about
+10°, and the body swung wide and trailed. At 4 the lag is a few degrees.
+
+**Speed is shared and changes slowly.** A bird flies at the centre's speed, clamped to 6–16 m/s (wind
+tunnel: 6.3–14.4). The deviation between birds is a few per cent, spatially smooth over domains about a
+third of the body, and slowing is easier than speeding up (Cavagna 2022). The old fixed per-bird factor of
+0.85–1.15 had birds overtaking each other.
+
+**It beats its wings at 10 Hz and glides between bursts.** Every species used the goose's 1.5 Hz, and at
+10 m/s that let a starling cover about 23 wingspans per beat. A tiny bird skating across the sky on still
+wings reads as paper or insects. At the field-measured 10 Hz it covers 3.6 spans per beat, the same gait
+as the goose (2.4) and the gull (about 4). `glide` is the share of each burst-and-glide cycle spent with
+the wings held out (Tobalske 1995), offset per bird so the flock never glides in unison. `flapHz` is on the
+species row and every other bird keeps the goose's rate.
+
+**The dark bands are wings shown to the eye.** A bird's bank is its real turn, `g·tan(bank) = v·ω`, up to
+`rollMax` (1.25 rad). The dot is shaded by the wing plane's normal against the line of sight
+(Hemelrijk 2015; Costanzo 2021), so a bird banked toward you shows its planform and one banked away shows
+its edge. Most of the flash is now the whole flock lightening and darkening as it turns, measured at a
+swing of 0.20. A turn front crossing the flock spreads it by up to 0.05, and neighbours agree 2.3× better
+than chance. ⚠ That reverses a rule the old flash section below states. "The flock must not pulse as a
+whole" was right for birds on independent headings, and a flock that turns at equal radius does exactly
+that.
+
+**Travelling bands are a response to a hawk.** Every source ties pulse trains to an attack. `agitationWave`
+is 1–5 pulses (mean 3.1 against a measured 2.88), 0.86 s apart, each leaving the stoop at 13.4 m/s with
+its bank shrinking by `PULSE_DECAY` per relay. A hole (flash expansion) follows one attack in four, off
+the same hash (Storms 2019: 25%). The constant rolling bands every flock carried every 0.75 s are gone.
+
+**Measured** (`__glMurmurParity` on the game's own path, six roosts, 1,000 birds):
+
+| | the flock | real flocks |
+|---|---|---|
+| thickness : width : length | 1 : 2.8 : 5.1 | 1 : 2.8 : 5.6 |
+| polarisation | 0.988 | 0.96 ± 0.03 |
+| nearest neighbour | 0.82 m | 0.68–1.51 m |
+| off its centre | 0.31 tiles | — |
+| long axis from the course | 87–88° straight, 52° mean while turning | 60–90° straight |
+| Q4 (3 s) | 0.83–0.9 straight, about 0.3 turning, 0.36 mean | about 0.58 |
+
+⚠ **Two shortfalls remain.** The wander path turns almost all the time, so the long axis spends much of
+the flight swung by a turn. Churn is high while turning and low in a straight, so Q4 matches the
+research on average rather than moment to moment. **Not built from the research:** the evening structure
+(one 20–45 minute display and a funnel into the roost, where this flock flies 18–36 s and lands),
+sub-flocks that split and merge, and the escape set beyond the pulse train and the hole (blackening,
+dives, columns, cordons, vacuoles).
+
 ### On the GPU, and only on the GPU (2026-09-23)
 
 A murmuration is simulated in [gl/murmur-gpu.js](../client/game/js/panels/gl/murmur-gpu.js) and drawn
@@ -306,6 +396,37 @@ and the great roost ordinary. Over a synthetic all-habitat city at 8% that gave 
 7,800 birds and 27 over 15,000 among 2,177 anchors; it ships at half that share. The room text words a
 crowd rather than printing it: "Thousands of them are up over the trees", because nobody under a
 murmuration could say it holds 18,431 birds. A starling party under 200 keeps its number.
+
+### Landed: the same flock, on the ground
+
+A starling flock that lands off any ledge stays the GPU flock, in GROUND MODE. There is no flocking on
+the ground: each bird walks from wherever the cloud left it to its own spot on the patch, arriving
+exactly when the settle window closes, then mills round it. The spot is `groundSpot` in birds.js,
+split so the per-bird half (`groundSpotParts`: direction, share of the patch, jitter, mill phases) is
+baked into two textures once per flock and put together in the shader. The draw switches to the
+walking pose, stands the bird level and gives it the same bob `drawGooseGround` does. No neighbour
+search and no grid run on the ground, so a landed flock costs the sim almost nothing.
+
+It used to become a CPU flock at touchdown: drawn bird by bird, thinned to the face budget (about
+1,800 birds), with every bird jumping from its cloud position to a skein formation. Measured with
+`__glMurmurLanding`: no bird moves more than 0.06 tiles in a frame across touchdown (cruise is 0.036),
+against jumps of 0.37-0.45 tiles on the old path. Every landed bird stands within 0.00001 tiles of
+where `groundSpot` puts it, and no bird went below the ground. A floor now stops an airborne bird below
+0.03 tiles, because a flock coming in to land is centred on a point at the ground and half of it
+used to fly through the turf.
+
+⚠ **A perched flock is still the CPU's**, because a ledge and a wire are geometry the GPU flock has
+never seen, and **a grand roost never perches** (`perchedNow`, shared with the room text): ten thousand
+starlings do not line one gutter, and a perched flock is thinned to about 1,800. An ordinary flock on a
+parapet is under that anyway. `RENDER_TUNE.murmurGround` 0 hands landed flocks back to the per-bird
+path, for the A/B.
+
+**What it costs, on the machine it was measured on** (RTX 2070 SUPER, 1280x720, `__glMurmurGpuFrame`,
+a GPU timer query round the whole frame). With a grand roost of 20,000 landed round the cab: GPU 11.3
+ms and CPU 18.1 ms a frame in ground mode, against GPU 11.3 and CPU 21.3 on the old per-bird path,
+which drew about 1,800 of them. In the air the roost's size barely moves the frame: 8.6 ms of GPU at
+8,500 birds in view, 9.0 at 84,000. What costs is starlings near the camera at mesh detail, about
+5 ms of GPU whatever the count, and the CPU work of the rest of the frame.
 
 ### Far birds conserve their ink, and the glyph rung starts at 2.5 px
 
@@ -465,6 +586,9 @@ was charged per species and the prose named the right bird.
 
 ## The flash
 
+⚠ **Superseded 2026-09-23** by the wing-to-eye flash in [What a real murmuration does](#what-a-real-murmuration-does-and-the-rule-that-does-it-2026-09-23).
+This section is the history of the per-bird flash it replaced.
+
 A murmuration is famous for two things and the renderer only had one of them. The density waves were
 free -- the boids step produces them, measured at 1.29 times its own mean occupancy with 87 of 216
 cells empty -- and the flash was missing, because past a species' `dotPx` a bird is one sprite sized
@@ -493,6 +617,10 @@ starling and not a hole. `RENDER_TUNE.faunaFlash` is the A/B and 0 is provably t
 the gate asserts the multiplier is exactly 1 there rather than near it.
 
 ## The shape, and the hawk
+
+⚠ **Superseded 2026-09-23**: the ribbon and its stations are gone. See
+[What a real murmuration does](#what-a-real-murmuration-does-and-the-rule-that-does-it-2026-09-23). The hawk's
+bubble described here survives as the flash expansion a quarter of attacks get.
 
 A murmuration is famous for three things and the renderer had one of them. The density waves came
 free from the boids step. The other two did not, and both were one decision each.
@@ -836,15 +964,15 @@ would mean shipping the shape capture to the server.
 | `RENDER_TUNE.birdFaces` / `birdFacesGL` | the canvas and mesh budgets |
 | `RENDER_TUNE.faunaDot` | no sprite LOD — every bird is a mesh at every range |
 | `RENDER_TUNE.faunaFlash` | no orientation flash; a murmuration is a cloud of identical dots again |
-| `RENDER_TUNE.murmurTrail` | the point attractor again — a murmuration balls up instead of taking its shape from its path (0.3 ships) |
 
 `npm run shapes:smoke` runs both gates, and both are in the push chain:
 
 - **[scripts/shapes/fauna.mjs](../scripts/shapes/fauna.mjs)** — the flock cycle, the skein, the
   wingbeat, the gear, the calls, the budget, the startle, determinism across a recentre, the orientation
-  flash banding rather than flickering per bird, the ribbon shape AND its centroid staying on the
-  tile the room names, the hawk's wave reaching the eye as a band, and that nothing hangs below a
-  bird's feet.
+  flash banding rather than flickering per bird, the hawk's pulse train (every crest at 13.4 m/s,
+  each pulse weaker than the last, the event over by the time the longest train can last), and that
+  nothing hangs below a bird's feet. The murmuration's shape, polarisation, spacing and churn are
+  measured by `__glMurmurParity` in the Modelshop, because no headless gate can reach the GPU flock.
 - **[scripts/shapes/perch.mjs](../scripts/shapes/perch.mjs)** (`npm run gl:perch`) — sweeps every
   building tile in the baked city and asserts every standing point is on mass `modelTopAt` agrees is
   there, then renders a real street and checks birds are actually up on a building. Mutation-tested
