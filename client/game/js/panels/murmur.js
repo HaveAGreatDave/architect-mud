@@ -45,8 +45,8 @@
 // and every bird flies the course the centre flew.
 //
 // ⚠ AND IT TURNS BY RELAY, AT EQUAL RADIUS. A turn starts with a few birds at a side edge and crosses
-// the flock as a front at 10-20 m/s — a hop of 50-76 ms between neighbours — without noticeably damping
-// (Attanasi et al., Nature Physics 10:691, 2014). Every bird turns on the same radius, so the flock
+// the flock as a front at 20-40 m/s — 400 birds crossed in a little over half a second — without
+// noticeably damping (Attanasi et al., Nature Physics 10:691, 2014). Every bird turns on the same radius, so the flock
 // keeps its orientation in the world while its heading swings and birds that were at the side end up at
 // the front (Attanasi 2015). Both fall out of one rule: bird i steers by the centre's course as it was
 // `delay_i` ago, and delay_i is its distance from the edge the turn started at over the relay speed.
@@ -132,12 +132,13 @@ const BANK_SHARE = 0.5;
 // ── THE RELAY ───────────────────────────────────────────────────────────────────────────────────
 //
 // The course a bird steers by is the centre's own, some time ago. CMD_N samples CMD_DT apart hold the
-// last 2.3 s of it; RELAY_SPEED is how fast a turn crosses the flock (17 m/s: a metre between
+// last 2.3 s of it; RELAY_SPEED is how fast a turn crosses the flock (30 m/s, the middle of the 20-40 m/s
+// Attanasi 2014 measured over twelve turns; it was 17 until 2026-09-23, from assuming a metre between
 // neighbours over a 60 ms hop). A flock too wide to cross in the history relays faster instead, so the
 // far edge is never left flying a course older than the table holds.
 export const CMD_N = 24;
 const CMD_DT = 0.1;
-const RELAY_SPEED = 17 * TILE_PER_M;
+const RELAY_SPEED = 30 * TILE_PER_M;
 // How firmly a turn has to be under way before one side counts as its inside, in rad/s.
 const TURN_SIDE = 0.08;
 const HIST_KEEP_MS = (CMD_N * CMD_DT + 1.0) * 1000;
@@ -170,7 +171,30 @@ export function seedPoints(key, n, cx, cy, cz, spread, heading = 0) {
       rank: (i * 0.7548776662466927) % 1,
     });
   }
+  // ⚠ IN SPACE ORDER, SO BIRDS THAT ARE NEAR EACH OTHER ARE NEAR EACH OTHER IN MEMORY. The GPU step reads
+  // every neighbour's state by index; in scatter order those reads land all over a texture several
+  // megabytes big and miss the cache on nearly every one. A murmuration keeps its neighbours for a long
+  // time, so sorting once at the seed holds: measured at 300,000 birds the step went 27 to 15.6 ms and
+  // was still 14.1 after 300 frames. A bird's rank travels with it, so thinning is unaffected.
+  mortonSort(pts);
   return { pts, sd };
+}
+
+function mortonSort(pts) {
+  if (pts.length < 2) return;
+  let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+  for (const p of pts) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
+  const q = (v, lo, hi) => Math.min(1023, Math.floor(((v - lo) / Math.max(1e-9, hi - lo)) * 1024));
+  const spread3 = (v) => { v = (v | (v << 16)) & 0x30000FF; v = (v | (v << 8)) & 0x300F00F; v = (v | (v << 4)) & 0x30C30C3; return (v | (v << 2)) & 0x9249249; };
+  const keys = new Float64Array(pts.length), order = new Array(pts.length);
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    keys[i] = spread3(q(p.x, x0, x1)) + spread3(q(p.y, y0, y1)) * 2 + spread3(q(p.z, z0, z1)) * 4;
+    order[i] = i;
+  }
+  order.sort((a, b) => keys[a] - keys[b] || a - b);
+  const copy = pts.slice();
+  for (let i = 0; i < pts.length; i++) pts[i] = copy[order[i]];
 }
 
 // ⚠ WHERE BIRD i IS PLACED, AS A UNIT OFFSET IN THE BODY'S OWN FRAME (long, wide, thick), when it first
@@ -342,6 +366,12 @@ export function flockFrame(c, cx, cy, cz, now, spread, opts = {}) {
 //
 // wCmd: how hard a bird holds the relayed course; wEnv, how hard the rim pushes back; catchK, how much a
 // bird at the back of the body speeds up and one at the front eases off to keep it together.
+// ⚠ WHERE EACH MURMURATION REALLY IS, against its shared centre: key -> { dx, dy, dz }. Written by the GPU
+// flock's readback (gl/murmur-gpu.js, readSample) and read by windshield.js, which must not import GL code,
+// so the hawk can dive at the birds rather than at the point the flock was derived round. Local to this
+// client: the server has no birds to measure and never reads it.
+export const MURMUR_MEASURED = new Map();
+
 export const MURMUR_RULES = Object.freeze({
   wSep: 2.2, wAli: 1.6, wCoh: 0.55, wCmd: 4.0, wEnv: 3.2, wScare: 9.0,
   Z_SOFT: 0.2, SCARE_R: 1.15, TILE_PER_M, G_TILES, K: K_NEIGHBOURS, DT_MAX, SHOW_FADE_S,

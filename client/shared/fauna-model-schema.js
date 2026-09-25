@@ -34,7 +34,7 @@ export const FAUNA_IDS = {
   // Anything about a SPECIES — is its silhouette distinct from the others, does its largest flock
   // fit the budget — runs over SPECIES instead, because a model in no habitat has no flock and
   // cannot be confused with anything in the field.
-  bird: ['goose', 'gull', 'pigeon', 'songbird', 'hawk', 'vulture', 'robin'],
+  bird: ['goose', 'gull', 'pigeon', 'songbird', 'hawk', 'peregrine', 'vulture', 'robin'],
 };
 
 // ⚠ THIS FORMAT SAYS MORE THAN "IT IS JSON", AND IT EARNS IT TWICE OVER.

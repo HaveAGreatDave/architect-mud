@@ -26,7 +26,7 @@ import { FAUNA_TILE } from '../../client/game/js/panels/fauna3d.js';
 import { BIRD_ROWS } from '../../client/shared/fauna-models.js';
 
 const ws = await loadWindshield();
-const { buildLedges, kitLedges, wildLedges, perchableDepth, modelTopAt, perchFor, perchSpot, wireLedge, wireSag, perchCap, HUNT_REACH } = ws;
+const { buildLedges, kitLedges, wildLedges, perchableDepth, modelTopAt, perchFor, perchSpot, wireLedge, wireSag, perchCap, HUNT_REACH, HUNT_MIN_LEDGE, HUNT_BAND } = ws;
 const RT = ws.RENDER_TUNE;
 if (process.env.NO_POLES) RT.wirePoles = 0;
 // ⚠ THE DOT LOD IS PINNED OFF, for the reason fauna.mjs pins it: this file reads a bird POSITION
@@ -244,15 +244,15 @@ else {
 
 // ── 3. WHO PERCHES, AND WHERE ────────────────────────────────────────────────
 if (SPECIES.goose.perch) problems.push('a goose perches — it is a ground and water bird and must not');
-for (const id of ['pigeon', 'songbird', 'gull', 'hawk']) {
+for (const id of ['pigeon', 'songbird', 'gull', 'hawk', 'peregrine']) {
   if (!SPECIES[id].perch || !SPECIES[id].perch.share) problems.push(`${id} never perches`);
 }
-if (!perchesHigh({ ax: 1, ay: 1, sp: 'hawk' })) problems.push('a hawk does not take the highest perch — the hunt is the whole reason it has one');
+for (const id of ['hawk', 'peregrine']) if (!perchesHigh({ ax: 1, ay: 1, sp: id })) problems.push(`a ${id} does not take the highest perch — the hunt is the whole reason it has one`);
 if (perchesHigh({ ax: 1, ay: 1, sp: 'pigeon' })) problems.push('a pigeon insists on the highest perch');
 
 // The share is a probability over cycles, so it has to come out near what the row claims or the
 // species is effectively always up or never up whatever the table says.
-for (const id of ['pigeon', 'hawk']) {
+for (const id of ['pigeon', 'hawk', 'peregrine']) {
   let up = 0; const N = 3000;
   for (let i = 0; i < N; i++) if (perchedNow({ ax: 880 + (i % 71), ay: 890 + ((i * 13) % 67), sp: id }, 1e12 + i * 37000)) up++;
   const got = up / N, want = SPECIES[id].perch.share;
@@ -287,7 +287,7 @@ if (anchors.length < 20) problems.push(`only ${anchors.length} standable tiles i
 let placed = 0, highWrong = 0, roomShort = 0, roomPossible = 0, rimOK = 0, rimUntested = 0, rimControl = 0;
 for (const [wx, wy] of anchors.slice(0, 240)) {
   const map = mapAround(wx, wy);
-  for (const sp of ['pigeon', 'hawk']) {
+  for (const sp of ['pigeon', 'peregrine']) {
     const fl = { ax: wx, ay: wy, sp };
     const L = perchFor(map, R, wx, wy, fl, perchesHigh(fl));
     if (!L) continue;
@@ -385,8 +385,12 @@ for (const [wx, wy] of anchors.slice(0, 240)) {
       if (ks) pool.push(...ks);
     }
     if (!pool.length) continue;
-    const maxZ = Math.max(...pool.map((l) => l.z));
-    if (perchesHigh(fl) && Math.abs(L.z - maxZ) > 1e-9) highWrong++;
+    // A hunter takes a real edge (not an ornament) in the upper band of what it can reach, and
+    // varies between them by landing. The renderer's own constants, so the two cannot drift.
+    const edges = pool.filter((l) => l.len >= HUNT_MIN_LEDGE);
+    const ref = edges.length ? edges : pool;
+    const maxZ = Math.max(...ref.map((l) => l.z));
+    if (perchesHigh(fl) && (L.z < maxZ * HUNT_BAND - 1e-9 || (edges.length && L.len < HUNT_MIN_LEDGE))) highWrong++;
     const n = Math.max(1, flockSize(fl));
     const fits = pool.filter((l) => l.len >= n * 0.03);
     if (fits.length) { roomPossible++; if (L.len < n * 0.03) roomShort++; }
@@ -474,7 +478,7 @@ if (worstWire) {
     + `${(bot - wireSag(worstWire.wire.span, perchCap(worstWire) / lw) - TRUCK_H).toFixed(3)} tiles over a lorry.`);
 }
 
-if (highWrong) problems.push(`a hunter took a lower perch than it could reach on ${highWrong} streets`);
+if (highWrong) problems.push(`a hunter took an ornament or a perch below its band on ${highWrong} streets`);
 if (roomShort) problems.push(`a flock was put on a ledge too small for it on ${roomShort} of ${roomPossible} streets that had a bigger one`);
 if (placed && !rimOK) problems.push('the rim check never ran — no flock had any margin to slide the window across, so nothing here defends the perch pool against the camera');
 if (rimOK && !rimControl) problems.push('the rim check is vacuous — no flock changed its perch even with the window slid clear off its pool, so the margin is not what is holding it steady');
@@ -723,7 +727,7 @@ const perchers = Object.entries(SPECIES).filter(([, s]) => s.perch).map(([id]) =
 console.log(`✓ perch: ${withLedge} of ${tiles} buildings offer a ledge — ${ledgeCount} of them, ${ptCount} standing points, every one on mass the aeroplane collides with (worst ${worst.toFixed(4)} tiles).`);
 console.log(`  · the detail kit adds ${kitLedgeCount} perches on ${kitTiles} buildings — sills, balconies and awnings, ${kitPts} standing points, every one with a wall behind it.`);
 console.log(`  · the highest thing to stand on in the city is ${tallest.toFixed(2)} tiles up, on ${tallestAt}.`);
-console.log(`  · ${perchers.join(', ')} perch and a goose never does; a hunter took the top ledge on all ${placed} streets tried, and no flock was crowded onto a small one.`);
+console.log(`  · ${perchers.join(', ')} perch and a goose never does; a hunter took a real edge in its upper band on all ${placed} streets tried, and no flock was crowded onto a small one.`);
 console.log(`  · the badlands offer ${wildCount} hoodoo tops on ${wildTiles} tiles — caprocks, shears and stumps, never a spire tip.`);
 if (poleNote) console.log('  · ' + poleNote);
 for (const n of notesPole) console.log('  · ' + n);

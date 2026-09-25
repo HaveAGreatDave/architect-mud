@@ -69,7 +69,7 @@ function birdsOnTile(zone, weather, hour, doy) {
   const habitat = habitatState(sid, place);
   if (!habitat) return null;
   const daylight = birdDaylight(sid, hour);
-  const flock = flockAt(gx, gy, 1, sid);
+  const flock = flockAt(gx, gy, 1, sid, place);
   if (!flock) return { zone, gx, gy, terrain: t, place, sid, habitat, daylight, flock: null };
   // ⚠ THE SAME (hour, doy) PAIR BOTH OTHER SURFACES GET. Hand this one a different season and the
   // census would confidently disagree with both the room and the window about the same birds.
@@ -272,7 +272,7 @@ export function apiFaunaTile(qs = {}) {
   out.curve = (sp.season || sp.roost)
     ? { season: +seasonFactor(sp, doy).toFixed(3), roost: +roostFactor(sp, hour).toFixed(3) } : null;
 
-  const flock = flockAt(gx, gy, 1, sid);
+  const flock = flockAt(gx, gy, 1, sid, place);
   if (!flock) return { ...out, why: `the per-tile roll failed — ${sid} lives on '${place}' but not on this tile` };
   const st = flockState(flock, Date.now(), null, { hour, doy });
   return { ...out, flock: {

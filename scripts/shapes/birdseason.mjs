@@ -61,8 +61,11 @@ const sizes = (anchors, opts) => anchors.map((f) => flockSize(f, opts));
 }
 
 // ── 2. OFF IS THE MODULE AS IT SHIPPED, TO THE BIT ───────────────────────────
+// ⚠ OFF IS BOTH HALVES: the year (`season`) and the evening (`dusk`) are separate switches since the daily
+// cycle shipped on its own, so the module as it shipped is the two of them at 0.
 {
-  BIRD_TUNE.season = 0;
+  const wasDusk = BIRD_TUNE.dusk;
+  BIRD_TUNE.season = 0; BIRD_TUNE.dusk = 0;
   let bad = 0, worst = null;
   for (const id of Object.keys(SPECIES)) {
     for (const f of A_OTHER(id)) {
@@ -75,8 +78,25 @@ const sizes = (anchors, opts) => anchors.map((f) => flockSize(f, opts));
       }
     }
   }
-  if (bad) problems.push(`with BIRD_TUNE.season = 0, ${bad} flock sizes differ from the unseasoned roll (${worst}) — the off switch does not switch off, which is what every later A/B is measured against`);
+  if (bad) problems.push(`with BIRD_TUNE.season and dusk both 0, ${bad} flock sizes differ from the unseasoned roll (${worst}) — the off switch does not switch off, which is what every later A/B is measured against`);
   else notes.push(`off: ${Object.keys(SPECIES).length} species × 400 anchors × 6 hours × 7 days all identical to the old roll`);
+  // ⚠ AND THE DAILY CYCLE ALONE NEVER READS THE YEAR: with the year off and the evening on, a flock's size is a
+  // function of the hour and never of the day of the year, or testing would still find winter-only murmurations.
+  BIRD_TUNE.dusk = 1;
+  let yearly = 0, yWorst = null, swings = 0;
+  for (const f of A_OTHER('songbird')) {
+    for (const hour of [0, 5, 13, DUSK, 20.9, 23.5]) {
+      const a = flockSize(f, { hour, doy: MIDWINTER });
+      for (const doy of [1, 60, MIDSUMMER, 200, 300, 365]) {
+        const b = flockSize(f, { hour, doy });
+        if (b !== a) { yearly++; if (!yWorst) yWorst = `hour ${hour}: ${b} on day ${doy} against ${a} on day ${MIDWINTER}`; }
+      }
+    }
+    if (flockSize(f, { hour: 13, doy: MIDSUMMER }) < flockSize(f, { hour: DUSK, doy: MIDSUMMER })) swings++;
+  }
+  if (yearly) problems.push(`with the year off and the evening on, ${yearly} flock sizes change with the day of the year (${yWorst}) — the daily cycle is reading the season`);
+  if (!swings) problems.push('with the evening on, no starling flock is bigger at dusk than at noon — the daily cycle does nothing');
+  BIRD_TUNE.dusk = wasDusk;
 }
 
 // ⚠ THE UNSEASONED ANSWER HAS TO BE TAKEN WHILE THE FLAG IS STILL OFF, and taking it any other way
@@ -209,10 +229,13 @@ BIRD_TUNE.season = 1;
   if (!/const st = flockState\(fl, now, null, birdWhen\(v\)\)/.test(ws)) {
     problems.push('the murmuration AUDIO bed in windshield.js reads a flock size with no season — the bed would go on asserting there are hundreds of starlings over a summer park');
   }
-  if (!/const st = flockState\(fl, now, clear, birdWhen\(v\)\)/.test(ws)) {
+  // The draw pass bends the flight onto a ledge (perchLegState) around the same seasoned flockState.
+  if (!/(?:const|let) st = perchLegState\(map, R, wcx, wcy, fl, flockState\(fl, now, clear, birdWhen\(v\)\), now, clear, birdWhen\(v\)\)/.test(ws)) {
     problems.push('the fauna DRAW pass in windshield.js reads a flock size with no season — the picture would keep the year-round murmuration while the room description dropped to a party');
   }
-  if (!/flockState\(flock, Date\.now\(\), null, \{ hour: getGameHour\(\), doy: doyOf\(getGameDate\(\)\) \}\)/.test(de)) {
+  // The bird clock carries the fractional hour, when it was read, and the rate (getBirdClock), which is
+  // what lets the roost dive land on the same minute here as out of the canopy.
+  if (!/flockState\(flock, Date\.now\(\), null, \{ \.\.\.getBirdClock\(\), doy: doyOf\(getGameDate\(\)\) \}\)/.test(de)) {
     problems.push('describe.js reads a flock size with no season — the room and the window would disagree about how many birds are over the same tile');
   }
   // The renderer's own two inputs: the injected calendar and the bench pin beside `hourForce`.

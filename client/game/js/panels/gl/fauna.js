@@ -23,7 +23,7 @@
 // no culling. A bird drawn here and a bird drawn there must be indistinguishable in a still.
 import { viewProjMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
-import { faunaPoseSlot, faunaPoseBake } from '../fauna3d.js';
+import { faunaPoseSlot, faunaPoseBake, FAUNA_BEAT_STEPS } from '../fauna3d.js';
 import { zRow, NEAR } from './camera.js';
 import { LIGHT_PULL } from './sprites.js';
 import { PULSE_MAX } from '../murmur.js';
@@ -96,11 +96,23 @@ void main() {
 // ⚠ THE DETAIL LADDER IS pushFauna's, WITHOUT ITS BUDGETS. On the CPU a bird that lost the mesh budget
 // was demoted to a glyph or a dot; here a mesh costs a vertex shader and nothing is rationed, so every
 // bird is drawn at the level its own size earns.
+// Landing and take-off poses (see uPoseSel): a bird counts as in the air above ALOFT_H tiles (the walking
+// bob stays well under it), climbs faster than CLIMB_VZ tiles/s on the way up, and brakes below BRAKE_H.
+const ALOFT_H = '0.015', CLIMB_VZ = '0.02', BRAKE_H = '0.12';
+// ⚠ WHEN A WING BLURS: past WING_BLUR_FROM of a beat per rendered frame it starts to, and it is fully blurred
+// WING_BLUR_SPAN later; a starling at 13 Hz and 60 fps is 0.22 of a beat a frame, a slow flap near zero. A
+// blurred wing fades by up to WING_BLUR_FADE at its tip.
+const WING_BLUR_FROM = '0.12', WING_BLUR_SPAN = '0.2', WING_BLUR_FADE = '0.45';
 const CLOUD_HEAD = `#version 300 es
 precision highp float;
 precision highp int;
 uniform highp sampler2D uPosT;
 uniform highp sampler2D uVelT;
+// the state one step earlier and how far between the two to draw: a cloud stepped every other frame
+// or third (STEP_BUDGET_MS in murmur-gpu.js) is drawn between its last two steps, 1.0 for one stepped every frame
+uniform highp sampler2D uPosP;
+uniform highp sampler2D uVelP;
+uniform float uLerp;
 uniform highp sampler2D uStat0;
 uniform mat4 uViewProj;
 uniform vec2 uOrigin;
@@ -117,6 +129,13 @@ uniform vec2 uBank;        // bank per stored unit, bank max
 uniform ivec2 uTierClamp;  // the finest and coarsest level drawn for this cloud (see tierSpan)
 uniform highp sampler2D uStat2; // the ground mill's phase, for the bob
 uniform vec3 uGround;      // 1 when the flock is down; the bob's phase; the bob's height in tiles
+uniform vec4 uSil;         // the eye (the birds' frame) and how far a bird against the sky goes to silhouette
+// ⚠ A BIRD ABOVE YOU IS SEEN AGAINST THE SKY, AND THE SKY IS BRIGHTER THAN ANY LIT FEATHER. The vertex
+// colours are the bird lit from outside, which is right from above (against the ground) and wrong from
+// below, where a starling is a black cut-out: measured, the darkest bird in a dusk frame was luminance 42
+// against a sky of 100-160. The share is the line of sight's climb, so the change is continuous at the
+// eye's own height and a pilot looking down on a flock still sees it lit.
+float silhouette(vec3 w) { vec3 d = w - uSil.xyz; float up = d.z / max(1e-4, length(d)); return 1.0 - uSil.w * smoothstep(-0.03, 0.10, up); }
 const int TW = 64;
 ivec2 at(int i) { return ivec2(i % TW, i / TW); }
 float sstep(float x) { x = clamp(x, 0.0, 1.0); return x * x * (3.0 - 2.0 * x); }
@@ -130,11 +149,12 @@ int tierOf(float px) {
   return t;
 }
 // Everything both programs need about one bird. ok = false collapses it.
-struct Bird { bool ok; vec3 w; float a; float px; float heading; float roll; float beat; };
+struct Bird { bool ok; vec3 w; float a; float px; float heading; float roll; float beat; float h; float vz; float hv; };
 Bird bird(int id, int wantTier) {
   Bird b; b.ok = false;
   ivec2 t = at(id);
   vec4 P = texelFetch(uPosT, t, 0), V = texelFetch(uVelT, t, 0);
+  if (uLerp < 1.0) { P = mix(texelFetch(uPosP, t, 0), P, uLerp); V = mix(texelFetch(uVelP, t, 0), V, uLerp); }
   if (V.w <= 0.0) return b;
   vec3 w = vec3(P.xy - uOrigin, P.z);
   float f = (w.x - uCull.x) * uCull.z - (w.y - uCull.y) * uCull.w;
@@ -156,6 +176,7 @@ Bird bird(int id, int wantTier) {
     if (u >= -3.0 && u <= 3.0) ag += uAgit[k].w * exp(-u * u);
   }
   b.ok = true; b.w = w; b.a = a; b.px = px;
+  b.h = P.z; b.vz = V.z; b.hv = length(V.xy);   // height off the ground and climb rate, before the walking bob: they pick the landing pose
   b.heading = atan(V.y, V.x);
   b.roll = clamp((P.w + ag) * uBank.x, -uBank.y, uBank.y);
   b.beat = texelFetch(uStat0, t, 0).w;
@@ -172,8 +193,17 @@ Bird bird(int id, int wantTier) {
 const VERT_CLOUD = CLOUD_HEAD + `
 layout(location = 0) in vec3 aColor;
 uniform highp sampler2D uPose;
+// a beat phase 0..1 to a pose: the two baked steps either side of it, blended
+vec3 poseAt(float p) {
+  float r = fract(p) * ${FAUNA_BEAT_STEPS}.0;
+  int r0 = int(floor(r)), r1 = (r0 + 1) % ${FAUNA_BEAT_STEPS};
+  return mix(texelFetch(uPose, ivec2(gl_VertexID, r0), 0).xyz, texelFetch(uPose, ivec2(gl_VertexID, r1), 0).xyz, fract(r));
+}
 uniform int uTier;
+uniform int uPoseSel;      // 0 every bird; 1 only birds still in the air; 2 only birds on the ground
+uniform vec3 uPitchK;      // the share of each bird's pitch that is its own; goosePitch's gain; its limit
 uniform float uBeatBase;
+uniform float uBeatAdv;    // how much of a wingbeat passes in one rendered frame (flapHz x frame time)
 uniform vec2 uGlide;       // the burst-and-glide cycle's phase, and the share of it spent gliding
 uniform float uPitch;
 uniform float uScale;
@@ -191,18 +221,62 @@ void main() {
     scale *= mag; a *= 1.0 - uMinPx.y + uMinPx.y / mag;
   }
   // a walking pose has one row; only a wing beats
-  int row = uGround.x > 0.5 ? 0 : int(floor(fract(uBeatBase + b.beat) * 16.0));
+  // ⚠ A LANDING OR A TAKE-OFF IS TWO POSES AT ONCE. The flock comes down continuously from the cloud, so at
+  // any moment some birds are standing and some are still dropping in, and the draw is split: pass 1 is the
+  // flying mesh (flare and feet down) for the birds still in the air, pass 2 the walking mesh for the rest.
+  // Each bird answers for itself off its own height, so there is no moment the whole flock swaps pose.
+  bool aloft = b.h > ${ALOFT_H};
+  if ((uPoseSel == 1 && !aloft) || (uPoseSel == 2 && aloft)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vAlpha = 0.0; vColor = vec3(0.0); vFog = 0.0; return; }
+  bool landing = uGround.x > 0.5 && uPoseSel == 1;
+  // ⚠ THE BEAT IS A PHASE, NOT A ROW: the wing is blended between the two baked steps either side of it, so
+  // a slow flap (a landing, a bird near the eye) moves smoothly rather than in sixteen jumps. row < 0 beats.
+  int row = uGround.x > 0.5 && !landing ? 0 : -1;
+  float ph = fract(uBeatBase + b.beat), rate = 1.0;
+  if (landing) {
+    // climbing away: hard, quick beats. The last stretch before touchdown: braking beats. The descent
+    // itself: wings held out (the glide row), with the odd flap, which is what a starling dropping into
+    // a roost does. The climb rate is what the bird really moved, so each one chooses on its own.
+    if (b.vz > ${CLIMB_VZ}) { ph = fract(uBeatBase * 1.5 + b.beat); rate = 1.5; }
+    else if (b.h < ${BRAKE_H}) { ph = fract(uBeatBase * 1.3 + b.beat); rate = 1.3; }
+    else if (fract(uGlide.x * 0.6 + b.beat * 3.7) > 0.2) row = 2;
+  }
   // ⚠ A GLIDE HOLDS THE WINGS OUT AT BEAT STEP 2, a slight dihedral above level, where beatDihedral puts a
   // wing a sixth of the way into the downstroke. Each bird's cycle is offset by its own beat offset, so
   // the flock never glides in unison.
   if (uGround.x < 0.5 && uGlide.y > 0.0 && fract(uGlide.x + b.beat * 3.7) > 1.0 - uGlide.y) row = 2;
-  vec3 m = texelFetch(uPose, ivec2(gl_VertexID, row), 0).xyz * scale;
-  float ch = cos(b.heading), sh = sin(b.heading), cp = cos(uPitch), sp = sin(uPitch), cr = cos(b.roll), sr = sin(b.roll);
+  vec3 m;
+  if (row >= 0) m = texelFetch(uPose, ivec2(gl_VertexID, row), 0).xyz;
+  else {
+    m = poseAt(ph);
+    // ⚠ A FAST WING IS A BLUR, NOT A SHARP WING AT A RANDOM POINT OF ITS BEAT. A starling beats 13 times a
+    // second, so a 60 fps frame samples under five points of each beat and the flock flickers. When much of
+    // a beat passes in one frame the wing is averaged over the frame's exposure, and the vertices that
+    // travel furthest over a beat (the wings, never the body) fade a little, which reads as a soft shimmer.
+    float adv = uBeatAdv * rate;
+    float blur = clamp((adv - ${WING_BLUR_FROM}) / ${WING_BLUR_SPAN}, 0.0, 1.0);
+    if (blur > 0.0) {
+      vec3 avg = (m + poseAt(ph - adv * 0.5) + poseAt(ph - adv)) / 3.0;
+      m = mix(m, avg, blur);
+      float travel = length(poseAt(0.25) - poseAt(0.75));
+      a *= 1.0 - blur * ${WING_BLUR_FADE} * smoothstep(0.01, 0.06, travel);
+    }
+  }
+  m *= scale;
+  // ⚠ EACH BIRD PITCHES ALONG ITS OWN PATH, by goosePitch's arithmetic on its own climb rate, rather than
+  // the whole flock sharing the centre's. A bird dropping into the roost points down its descent and
+  // noses up to brake in the last stretch; one lifting off points up. A standing bird is level.
+  float pitch = uPitch;
+  if (uPitchK.x > 0.0 && !(uGround.x > 0.5 && !landing)) {
+    float own = clamp(atan(b.vz, max(b.hv, 1e-3)) * uPitchK.y, -uPitchK.z, uPitchK.z);
+    if (landing && b.vz <= ${CLIMB_VZ} && b.h < ${BRAKE_H}) own = min(uPitchK.z * 1.6, own + 0.45);
+    pitch = mix(uPitch, own, uPitchK.x);
+  }
+  float ch = cos(b.heading), sh = sin(b.heading), cp = cos(pitch), sp = sin(pitch), cr = cos(b.roll), sr = sin(b.roll);
   vec3 F = vec3(ch * cp, sh * cp, sp), S0 = vec3(-sh, ch, 0.0), U0 = vec3(-ch * sp, -sh * sp, cp);
   vec3 S = S0 * cr + U0 * sr, U = U0 * cr - S0 * sr;
   vec4 clip = uViewProj * vec4(b.w + F * m.x + S * m.y + U * m.z, 1.0);
   gl_Position = clip;
-  vColor = aColor; vAlpha = a;
+  vColor = aColor * silhouette(b.w); vAlpha = a;
   float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
   vFog = ff * ff * uFogAmt;
 }`;
@@ -216,12 +290,14 @@ uniform float uFlash;
 uniform vec3 uFlashK;      // floor, how much of the flash is the wing's angle to you, area share
 uniform vec2 uInk;         // smallest radius in device px, soft/hard ink gain
 uniform vec3 uEye;         // the eye, in the same frame as the birds
-out vec2 vCorner; out float vAlpha;
+out vec2 vCorner; out float vAlpha; out float vSil;
 const vec2 CORNERS[6] = vec2[6](vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(1.0, 1.0), vec2(-1.0, -1.0), vec2(1.0, 1.0), vec2(-1.0, 1.0));
 void main() {
   Bird b = bird(gl_InstanceID, 4);
   vCorner = CORNERS[gl_VertexID];
+  vSil = 1.0;
   if (!b.ok) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vAlpha = 0.0; return; }
+  vSil = silhouette(b.w);
   // ⚠ THE FLASH IS HOW MUCH WING THE BIRD SHOWS YOU: the wing plane's normal against the line of sight,
   // so a bird banked toward the eye shows its whole planform and one banked away shows its edge. That is
   // what a dark band is (Hemelrijk 2015), and seen from below a flock rolling through a sharp turn goes
@@ -247,14 +323,14 @@ void main() {
 
 const FRAG_DOT = `#version 300 es
 precision highp float;
-in vec2 vCorner; in float vAlpha;
+in vec2 vCorner; in float vAlpha; in float vSil;
 uniform vec3 uColor;
 out vec4 outColor;
 void main() {
   float d = length(vCorner);
   if (d > 1.0 || vAlpha <= 0.002) discard;
   float a = vAlpha * pow(max(0.0, 1.0 - d), 1.8);   // sprites.js's soft profile
-  outColor = vec4(uColor * a, a);
+  outColor = vec4(uColor * vSil * a, a);
 }`;
 
 // The shader's tierOf, in JavaScript, for tierSpan below. Keep the two in step.
@@ -466,7 +542,7 @@ export function createFaunaLayer(gl) {
     for (const P of [cp.mesh, cp.dot]) {
       gl.useProgram(P.pr);
       const set = (n, k) => { if (P.u[n] != null) gl.uniform1i(P.u[n], k); };
-      set('uPosT', CLOUD_UNIT); set('uVelT', CLOUD_UNIT + 1); set('uStat0', CLOUD_UNIT + 2); set('uStat2', CLOUD_UNIT + 3); set('uPose', UNIT);
+      set('uPosT', CLOUD_UNIT); set('uVelT', CLOUD_UNIT + 1); set('uStat0', CLOUD_UNIT + 2); set('uStat2', CLOUD_UNIT + 3); set('uPosP', CLOUD_UNIT + 4); set('uVelP', CLOUD_UNIT + 5); set('uPose', UNIT);
     }
     gl.useProgram(null);
     return cp;
@@ -493,7 +569,9 @@ export function createFaunaLayer(gl) {
     u4f(u.uTierPx, r.tiers.glyphPx, r.tiers.thr, r.tiers.glyphHi, r.tiers.coarseHi);
     u1f(u.uFarHi, r.tiers.farHi);
     const ag = r.agit || [];
-    for (let k = 0; k < PULSE_MAX; k++) agitBuf.set(k < ag.length ? [ag[k].x, ag[k].y, ag[k].front, ag[k].amp] : [0, 0, 0, 0], k * 4);
+    // the wave rides with the flock's measured offset from its shared centre, as the scare does (murmur-gpu.js)
+    const ox = st.cent ? st.cent.x - r.cx : 0, oy = st.cent ? st.cent.y - r.cy : 0;
+    for (let k = 0; k < PULSE_MAX; k++) agitBuf.set(k < ag.length ? [ag[k].x + ox, ag[k].y + oy, ag[k].front, ag[k].amp] : [0, 0, 0, 0], k * 4);
     gl.uniform4fv(u.uAgit, agitBuf);
     u1i(u.uAgitN, Math.min(PULSE_MAX, ag.length));
     u1f(u.uWaveW, r.waveW);
@@ -504,8 +582,12 @@ export function createFaunaLayer(gl) {
     tex(CLOUD_UNIT + 1, st.vel);
     tex(CLOUD_UNIT + 2, st.stat0);
     tex(CLOUD_UNIT + 3, st.stat2 || st.stat0);
-    const G = r.ground;
+    tex(CLOUD_UNIT + 4, st.prevPos || st.pos);
+    tex(CLOUD_UNIT + 5, st.prevVel || st.vel);
+    u1f(u.uLerp, st.lerp ?? 1);
+    const G = r.ground || r.hold;
     u3f(u.uGround, G ? 1 : 0, G ? G.bob[0] : 0, G ? G.bob[1] : 0);
+    u4f(u.uSil, r.eye[0], r.eye[1], r.eye[2], G ? 0 : (r.sil || 0));
   }
 
   /**
@@ -538,24 +620,34 @@ export function createFaunaLayer(gl) {
       if (!span) continue;
       cloudCommon(um, r, st, vp, span);
       u1f(um.uBeatBase, r.beatBase);
+      u1f(um.uBeatAdv, r.beatAdv ?? 0);
       u2f(um.uGlide, r.glide ? r.glide[0] : 0, r.glide ? r.glide[1] : 0);
       u1f(um.uPitch, r.pitch);
+      u3f(um.uPitchK, r.pitchK ? r.pitchK[0] : 0, r.pitchK ? r.pitchK[1] : 0, r.pitchK ? r.pitchK[2] : 0);
       u1f(um.uScale, r.scale);
       u2f(um.uMinPx, r.minPx[0], r.minPx[1]);
       for (const tier of [0, 1, 2, 3]) {
         if (!span.set.has(tier)) continue;
         if (tier === 1 && !(r.tiers.farHi > 0)) continue;
-        // a landed flock walks, and a walking bird has no flare and no gear
-        const pose = r.ground ? r.ground.state : 'air', fl = r.ground ? 0 : r.flare, ge = r.ground ? 0 : r.gear;
-        const slot = faunaPoseSlot('bird', r.sp, pose, 0, fl, ge, tier);
-        const g = groupFor('bird', r.sp, pose, fl, ge, tier, slot.group);
-        if (!g) continue;
+        // In the air, one pass. On the ground, two when the landing pose is on: the flying mesh (flare and
+        // feet down) for birds still dropping in or lifting off, the walking mesh for the ones standing.
+        // With it off, a landed flock walks throughout, as it did.
+        // (and a flock lifting off in waves, r.hold, is half on the ground too, so it takes both passes)
+        const Gp = r.ground || r.hold;
+        const passes = !Gp ? [['air', r.flare, r.gear, 0]]
+          : r.landPose ? [['air', 1, 1, 1], [Gp.state, 0, 0, 2]] : [[Gp.state, 0, 0, 0]];
         u1i(um.uTier, tier);
-        gl.activeTexture(gl.TEXTURE0 + UNIT);
-        gl.bindTexture(gl.TEXTURE_2D, g.tex);
-        gl.bindVertexArray(cloudVaoOf(g));
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, g.verts, st.n);
-        drawn++;
+        for (const [pose, fl, ge, sel] of passes) {
+          const slot = faunaPoseSlot('bird', r.sp, pose, 0, fl, ge, tier);
+          const g = groupFor('bird', r.sp, pose, fl, ge, tier, slot.group);
+          if (!g) continue;
+          u1i(um.uPoseSel, sel);
+          gl.activeTexture(gl.TEXTURE0 + UNIT);
+          gl.bindTexture(gl.TEXTURE_2D, g.tex);
+          gl.bindVertexArray(cloudVaoOf(g));
+          gl.drawArraysInstanced(gl.TRIANGLES, 0, g.verts, st.n);
+          drawn++;
+        }
       }
     }
     // dots

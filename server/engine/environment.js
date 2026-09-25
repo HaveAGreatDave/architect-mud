@@ -2973,6 +2973,10 @@ export function getGameDateTime() {
 // HUD payload to build one integer — which is fine for a caller that wants the weather and wrong
 // for one on the every-move describe path.
 export function getGameHour() { return Math.floor(state.minutes / 60); }
+// The bird clock: the FRACTIONAL hour, the wall time it is true at, and the rate it runs at, which is
+// the shape client/shared/birds.js reads so a starling's evening lands on the same minute here as out of
+// the canopy. The floored hour above would put the room text up to an hour behind the picture.
+export function getBirdClock() { return { hour: state.minutes / 60, hourMs: Date.now(), rate: state.timeScale || 1 }; }
 
 // The game DATE, for the same reason and on the same path. A caller that wants to know what month
 // the Basin is in — the starling's year in client/shared/birds.js is the one so far — is on the

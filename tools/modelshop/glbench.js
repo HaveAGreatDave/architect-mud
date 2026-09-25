@@ -16,15 +16,15 @@
 //
 // Re-run it from the console with `__glBench()`. It is a measurement, not a gate: the numbers move
 // with the machine, so what belongs in a commit message is the RATIO and the conditions.
-import { MURMUR_RULES, seedPoints, agitation } from '/client/game/js/panels/murmur.js';
-import { createMurmurGPU } from '/client/game/js/panels/gl/murmur-gpu.js';
+import { MURMUR_RULES, seedPoints, agitation, murmurEnvelope } from '/client/game/js/panels/murmur.js';
+import { createMurmurGPU, FREE_RULES } from '/client/game/js/panels/gl/murmur-gpu.js';
 import { principalAxes, medianNND, FLOCK_BANDS } from '/client/shared/flock-shape.js';
 import { createGLView } from '/client/game/js/panels/gl/context.js';
 import { installGL, glLastFrame, glCapabilities } from '/client/game/js/panels/gl/install.js';
 import { LIGHT_TUNE } from '/client/game/js/panels/gl/world.js';
-import { flocksNear, flockState, flockCentreAt, speciesAt, flockSize, hawkStoop, isGrandRoost, SPECIES, groundSpot, groundSpotParts, groundPatchR, groundMill } from '/client/shared/birds.js';
+import { perchedNow, perchesHigh, flocksNear, flockState, flockCentreAt, speciesAt, flockSize, falconStoop, isGrandRoost, SPECIES, groundSpot, groundSpotParts, groundPatchR, groundMill } from '/client/shared/birds.js';
 import { faunaPaintCount } from '/client/game/js/panels/fauna3d.js';
-import { paintWindshield, pushLightningStrike, foamReset, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, FLASH_FLOOR, FLASH_BANK, murmurFrameBirds, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
+import { perchFor, perchSeat, perchSpot, perchLegState, paintWindshield, pushLightningStrike, foamReset, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, FLASH_FLOOR, FLASH_BANK, murmurFrameBirds, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 
 const R = 16, N = R * 2 + 1;
 
@@ -3694,7 +3694,7 @@ if (typeof window !== 'undefined') window.__glFlash = runFlash;
 /**
  * What a stoop does to the shape of a murmuration.
  *
- * ⚠ THE BENCH EXISTS BECAUSE THE FEATURE WAS SILENTLY OFF. `hawkStoop` returned the prey flock's
+ * ⚠ THE BENCH EXISTS BECAUSE THE FEATURE WAS SILENTLY OFF. `falconStoop` returned the prey flock's
  * ANCHOR TILE as the stoop point, and an airborne flock sits a median 2.4 tiles from its anchor,
  * while `murmur` pushes birds out of a Gaussian bubble of radius SCARE_R = 1.15. The push reaching
  * the birds was 1.3% of full strength, so the hawk dived at empty sky next door and the cloud never
@@ -3737,7 +3737,7 @@ export function runStoop({ W = 900, H = 520, ages = [0.4, 0.9, 1.5, 2.2], zoom =
     for (let i = 0; i < 200000 && !found; i++) {
       const now = 1e6 + i * 200;
       for (const h of hawks) {
-        const st = hawkStoop(h, now, anchors);
+        const st = falconStoop(h, now, anchors);
         if (!st) continue;
         const ps = flockState(st.prey, now);
         if (!ps.airborne || ps.r < 1.5) continue;
@@ -3872,7 +3872,7 @@ export function runBands({ W = 900, H = 520, dist = 5, eyeH = 0.6, SETTLE = 120,
       for (let i = 0; i < 200000 && !ev; i++) {
         const now = 1e6 + i * 200;
         for (const h of hawks) {
-          const st = hawkStoop(h, now, anchors);
+          const st = falconStoop(h, now, anchors);
           if (!st) continue;
           const ps = flockState(st.prey, now);
           if (!ps.airborne || ps.r < 1.5) continue;
@@ -5256,10 +5256,10 @@ if (typeof window !== 'undefined') window.__glBoltLum = runBoltLum;
 // ⚠ THE CLOCK AND THE DICE ARE PINNED, AND A REPAINT AT THE SAME INSTANT MOVES NOTHING. murmur()
 // integrates by the time since its last call, so painting again at the same `t` hands it dt 0 and
 // the flock is exactly where it was. That is what lets two renderings of one moment be compared.
-function murmurScene(el, { back = 2.5, hour = 11, warm = 60, anchor = null, at = null, realPerf = false } = {}) {
+function murmurScene(el, { back = 2.5, hour = 11, warm = 60, anchor = null, at = null, realPerf = false, patch = null, biome = 'citycore' } = {}) {
   const RR = 30, NN = RR * 2 + 1;
-  const map = Array.from({ length: NN }, () => Array.from({ length: NN }, () => ({ kind: 'land', biome: 'citycore', flr: 0 })));
-  const habitat = (wx, wy) => speciesAt('citycore', wx, wy) || false;
+  const map = Array.from({ length: NN }, () => Array.from({ length: NN }, () => ({ kind: biome === 'water' ? 'water' : 'land', biome, flr: 0 })));
+  const habitat = (wx, wy) => speciesAt(biome, wx, wy) || false;
   let A = anchor;
   if (!A) for (const f of flocksNear(900, 900, RR, 1, habitat)) if (f.sp === 'songbird' && (!A || flockSize(f) > flockSize(A))) A = f;
   if (!A) throw new Error('no songbird flock near the seed');
@@ -5273,7 +5273,7 @@ function murmurScene(el, { back = 2.5, hour = 11, warm = 60, anchor = null, at =
     mapCenter: { x: Math.round(c0.cx), y: Math.round(c0.cy + back) }, mapOffset: { x: 0, y: 0 } };
   const seed = () => { let sd = 0x2545f49; Math.random = () => { sd = (sd * 1103515245 + 12345) & 0x7fffffff; return sd / 0x7fffffff; }; };
   // realPerf leaves performance.now alone, so the renderer's own profiler can time the frame
-  const paintAt = (tt) => { if (!realPerf) performance.now = () => tt; Date.now = () => tt; seed(); paintWindshield(el.id, view); };
+  const paintAt = (tt) => { if (!realPerf) performance.now = () => tt; Date.now = () => tt; seed(); paintWindshield(el.id, patch ? { ...view, ...patch(tt, view) } : view); };
   let t = T0 - warm * 16.7;
   for (let i = 0; i < warm; i++) { paintAt(t); t += 16.7; }
   const grab = () => { const c = document.createElement('canvas'); c.width = el.width; c.height = el.height; const x = c.getContext('2d'); x.drawImage(el, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
@@ -5486,7 +5486,7 @@ function murmurPts(mg, key, all = false) {
   }
   return out;
 }
-const murmurRec = (o) => ({ ax: 0, ay: 0, cz: 3, show: 1, showFade: 0.6, scare: null, frozen: false, ...o });
+const murmurRec = (o) => ({ ax: 0, ay: 0, cz: 3, show: 1, showFade: 0.6, scare: null, frozen: false, stride: 1, ...o });
 
 /**
  * THE GRID FINDS THE SAME SEVEN NEIGHBOURS AS BRUTE FORCE, FOR EVERY BIRD.
@@ -5615,7 +5615,7 @@ function wingFlash(q, eye) {
   return FLASH_FLOOR + (1 - FLASH_FLOOR) * ((1 - FLASH_BANK) * 0.35 + FLASH_BANK * face);
 }
 
-export function runMurmurChecks() {
+export async function runMurmurChecks() {
   const { mg, done } = murmurGL();
   if (!mg.ok) { done(); return { ok: false, why: 'no float render targets' }; }
   const problems = [], notes = [];
@@ -5640,7 +5640,11 @@ export function runMurmurChecks() {
     const off = Math.hypot(cx - dcx, cy - 100);
     const radius = pts.reduce((a, p) => a + Math.hypot(p.x - cx, p.y - cy, p.z - cz), 0) / N;
     const closest = nnd(pts), cl2 = nnd(fly('nosep', 0).pts);
-    if (!(off < 0.35)) problems.push(`the murmuration sits ${off.toFixed(2)} tiles off its derived centre`);
+    // ⚠ UNDER THE FREE RULES THE FLOCK IS NOT HELD TO ITS CENTRE: it roams up to the roost radius off it before
+    // the pull takes hold, and that roaming is where its shapes come from. The claim is that it stays within
+    // that radius and its own body, never that it sits on the point. The enveloped flock keeps 0.35.
+    const offMax = FREE_RULES.on ? FREE_RULES.roostR * murmurEnvelope(SP).aL + SP * 2 : 0.35;
+    if (!(off < offMax)) problems.push(`the murmuration sits ${off.toFixed(2)} tiles off its derived centre, past the ${offMax.toFixed(2)} its rules allow`);
     if (!(radius < SP * 2)) problems.push(`the cloud has spread to ${radius.toFixed(2)} tiles on a ${SP} spread — cohesion is not holding`);
     if (!(closest > 0.03)) problems.push(`two birds are ${closest.toFixed(3)} tiles apart — they are inside each other`);
     if (!(closest > cl2 * 1.15)) problems.push(`switching separation off barely moved the closest pair (${closest.toFixed(3)} with, ${cl2.toFixed(3)} without)`);
@@ -5789,17 +5793,22 @@ export function runMurmurChecks() {
     if (!(rise < 0.2)) problems.push(`a bird gained ${rise.toFixed(2)} of its opacity in one frame — it pops in`);
     // 4: a bird coming back arrives inside the cloud, faint
     reset(); t = 1e6;
-    for (let f = 0; f < 200; f++) go('id:d', 400, 1);
-    for (let f = 0; f < 320; f++) go('id:d', 400, 0.3);
-    const dormant = new Set(murmurPts(mg, 'id:d', true).filter((p) => !(p.vis > 0)).map((p) => p.i));
+    // ⚠ YIELDING, AS A FRAME DOES: a free flock places a returning bird by where the flock was MEASURED to
+    // be, and that measurement is a GPU readback that completes only when the page gets back to its event
+    // loop. Stepped in one synchronous run it never arrives, and the check measures a fallback no frame uses.
+    for (let f = 0; f < 200; f++) { go('id:d', 400, 1); if (f % 10 === 9) await new Promise((r) => setTimeout(r, 0)); }
+    for (let f = 0; f < 320; f++) { go('id:d', 400, 0.3); if (f % 10 === 9) await new Promise((r) => setTimeout(r, 0)); }
+    const pre = murmurPts(mg, 'id:d', true);
+    const dormant = new Set(pre.filter((p) => !(p.vis > 0)).map((p) => p.i));
     go('id:d', 400, 1);
     const back = murmurPts(mg, 'id:d', true), live = back.filter((p) => p.vis > 0.5);
     const mx = live.reduce((a, p) => a + p.x, 0) / live.length, my = live.reduce((a, p) => a + p.y, 0) / live.length;
     const ext = Math.max(...live.map((p) => Math.hypot(p.x - mx, p.y - my)));
     let far = 0, loud = 0, came = 0;
-    for (const p of back) if (dormant.has(p.i) && p.vis > 0) { came++; far = Math.max(far, Math.hypot(p.x - mx, p.y - my)); if (p.vis > 0.2) loud++; }
+    let farI = -1;
+    for (const p of back) if (dormant.has(p.i) && p.vis > 0) { came++; const d = Math.hypot(p.x - mx, p.y - my); if (d > far) { far = d; farI = p.i; } if (p.vis > 0.2) loud++; }
     if (!dormant.size || !came) problems.push('the respawn check is vacuous — nothing went dormant and came back');
-    else if (!(far < ext * 1.15)) problems.push(`a returning bird arrived ${far.toFixed(2)} from the centre against an extent of ${ext.toFixed(2)}`);
+    else if (!(far < ext * 1.15)) problems.push(`a returning bird (#${farI}, moved ${Math.hypot(back[farI].x - pre[farI].x, back[farI].y - pre[farI].y).toFixed(2)} on its return frame) arrived ${far.toFixed(2)} from the centre against an extent of ${ext.toFixed(2)}`);
     if (loud) problems.push(`${loud} returning bird(s) appeared above 0.2 opacity on their first frame`);
     notes.push(`thinning: survivors move ${worst.toFixed(4)}, opacity steps ${Math.max(drop, rise).toFixed(3)} a frame, ${came} birds came back within ${far.toFixed(2)} of an extent ${ext.toFixed(2)}`);
   }
@@ -5811,6 +5820,67 @@ export function runMurmurChecks() {
   return out;
 }
 if (typeof window !== 'undefined') window.__glMurmurChecks = runMurmurChecks;
+
+/**
+ * WHAT SHAPE A MURMURATION MAKES, drawn as a contact sheet: the flock from the side and from above every
+ * few seconds, with its spread on each axis and how far its centre of mass sits from the shared centre.
+ * The centre circles `R` tiles every `P` seconds at height `z` (0.9 tiles/s is the game's own wander
+ * speed: R 3, P 21); `scare` puts a stoop into it every ten seconds; `free` overrides FREE_RULES.
+ * ⚠ A SHAPE IS A PICTURE BEFORE IT IS A NUMBER. The spreads say whether a flock is flat or round; they
+ * cannot say whether it folds, and folding is what this exists to look at. Posted to /api/shot as `name`.
+ */
+export async function runMurmurShape({ n = 20000, free = {}, secs = 40, shots = 8, name = 'shape', R = 3, P = 40, z = 5, scare = false, view = 10 } = {}) {
+  const { gl, mg, done } = murmurGL();
+  if (!mg.ok) { done(); return { ok: false, why: 'no float render targets' }; }
+  const spread = 0.35 * Math.cbrt(n / 20) * RENDER_TUNE.murmurPack;
+  const dt = 33.4, frames = Math.round(secs * 1000 / dt), every = Math.floor(frames / shots);
+  const CW = 420, CH = 300, cols = 4, rows = Math.ceil(shots / cols) * 2;
+  const sheet = document.createElement('canvas'); sheet.width = CW * cols; sheet.height = CH * rows;
+  const x2 = sheet.getContext('2d');
+  x2.fillStyle = '#d9d4cc'; x2.fillRect(0, 0, sheet.width, sheet.height);
+  let t = 1e6, shot = 0;
+  const stats = [];
+  for (let f = 1; f <= frames; f++) {
+    t += dt;
+    const a = (t - 1e6) / 1000 / P * Math.PI * 2;
+    const cx = 100 + Math.cos(a) * R, cy = 100 + Math.sin(a) * R;
+    const sc = scare && f % 300 === 150 ? { x: cx + Math.cos(a) * spread, y: cy + Math.sin(a) * spread, at: t } : null;
+    mg.step(murmurRec({ key: 'shape', n, cx, cy, cz: z, heading: a + Math.PI / 2, now: t, spread, scare: sc, free }));
+    if (f % 15 === 0) await new Promise((r) => setTimeout(r, 0));
+    if (f % every !== 0 || shot >= shots) continue;
+    const rb = mg.readback('shape');
+    const col = shot % cols, row = Math.floor(shot / cols) * 2;
+    let sx = 0, sy = 0, sz = 0, m = 0;
+    for (let i = 0; i < n; i++) if (rb.vel[i * 4 + 3] > 0) { sx += rb.pos[i * 4]; sy += rb.pos[i * 4 + 1]; sz += rb.pos[i * 4 + 2]; m++; }
+    sx /= m; sy /= m; sz /= m;
+    const k = CW / (view * 2);
+    for (const dy of [0, 1]) {
+      const oy = (row + dy) * CH;
+      x2.fillStyle = 'rgba(20,20,20,0.25)';
+      for (let i = 0; i < n; i++) {
+        if (!(rb.vel[i * 4 + 3] > 0)) continue;
+        const X = rb.pos[i * 4] - sx, Y = rb.pos[i * 4 + 1] - sy, Z = rb.pos[i * 4 + 2];
+        x2.fillRect(col * CW + CW / 2 + X * k, dy === 0 ? oy + CH - 10 - Z * k : oy + CH / 2 + Y * k, 1.2, 1.2);
+      }
+      x2.fillStyle = '#000'; x2.font = '12px monospace';
+      x2.fillText((dy === 0 ? 'side ' : 'top ') + 't+' + Math.round(f * dt / 1000) + 's', col * CW + 6, oy + 14);
+      x2.strokeStyle = '#888'; x2.strokeRect(col * CW, oy, CW, CH);
+    }
+    let vx = 0, vy = 0, vz = 0;
+    for (let i = 0; i < n; i++) if (rb.vel[i * 4 + 3] > 0) {
+      const X = rb.pos[i * 4] - sx, Y = rb.pos[i * 4 + 1] - sy, Z = rb.pos[i * 4 + 2] - sz;
+      vx += X * X; vy += Y * Y; vz += Z * Z;
+    }
+    stats.push({ s: Math.round(f * dt / 1000), sdx: +Math.sqrt(vx / m).toFixed(2), sdy: +Math.sqrt(vy / m).toFixed(2), sdz: +Math.sqrt(vz / m).toFixed(2), off: +Math.hypot(sx - cx, sy - cy).toFixed(2) });
+    shot++;
+  }
+  done();
+  const blob = await new Promise((r) => sheet.toBlob(r, 'image/png'));
+  const res = await (await fetch('/api/shot?name=' + name, { method: 'POST', body: blob })).json();
+  console.log('__glMurmurShape', JSON.stringify(stats));
+  return { file: res.file, stats };
+}
+if (typeof window !== 'undefined') window.__glMurmurShape = runMurmurShape;
 
 
 /**
@@ -5847,6 +5917,95 @@ export function runMurmurShot({ minN = 15000, search = 400, back = 6, hour = 17,
 }
 if (typeof window !== 'undefined') window.__glMurmurShot = runMurmurShot;
 
+/**
+ * MURMURATIONS FILMED FROM OUTSIDE: no cab, a free camera parked `dist` tiles off the roost and turned to
+ * keep it in frame, and a contact sheet of every `every`th frame posted to /api/shot as `name`. `size`
+ * pins the grand roost; `crowd` (optional) pins every ordinary starling flock too, which is how a sky
+ * with several murmurations in it is made. `force` pins the thinning share (RENDER_TUNE.murmurShowForce).
+ * The clock runs at `dt` ms a frame, so the sheet spans frames x dt of the flock's life.
+ */
+export async function runMurmurFilm({ name = 'film', size = 80000, crowd = null, budget = 1e9, force = null, hour = 17,
+  dist = 14, camZ = 0.6, pitch = 0.18, fov = 1, frames = 900, every = 100, dt = 33.4, W = 640, H = 360, cols = 3, multi = false, follow = false, groupR = 8, yawAdd = 0, phase = 'air', lead = 0, species = 'songbird', biome = 'citycore', anchorCam = false } = {}) {
+  const habitat = (wx, wy) => speciesAt(biome, wx, wy) || false;
+  let A = null;
+  // another species: the first flock of it on this ground (its size is its own); a starling: a grand roost
+  for (const f of flocksNear(900, 900, 400, 1, habitat)) if (species === 'songbird' ? f.sp === 'songbird' && isGrandRoost(f) : (f.sp || 'goose') === species) { A = f; break; }
+  if (!A) return { ok: false, why: 'no ' + species + ' flock in reach' };
+  const sp = SPECIES.songbird, was = { max: sp.maxFlock, from: sp.grand.from, min: sp.minFlock, below: sp.grand.below };
+  const n = Math.floor(frames / every), rows = Math.ceil(n / cols);
+  const sheet = document.createElement('canvas'), info = [];
+  let sx = null;
+  try {
+    sp.maxFlock = size; sp.grand.from = size;
+    if (crowd) { sp.minFlock = crowd; sp.grand.below = crowd; }
+    withBench(W, H, '__film', (el, T) => {
+      T.murmurBirds = budget;
+      if (force != null) T.murmurShowForce = force;
+      const flocks = [...flocksNear(A.ax, A.ay, multi ? 18 : 40, 1, habitat)].filter((f) => f.sp === 'songbird');
+      // several murmurations only read as several if they are up together: start where the most of them are
+      const busiest = (a, T0) => { let bt = T0, bn = -1; for (let i = 0; i < 20000; i++) { const tt = 1e6 + i * 1000; let k = 0; for (const f of flocks) if (flockState(f, tt).airborne) k++; if (k > bn) { bn = k; bt = tt; } } return bt; };
+      let cam = null, group = null;
+      const s = murmurScene(el, { back: 0, hour, anchor: A, warm: 1, biome, at: multi ? busiest : phaseAt(phase, lead), patch: (tt, view) => {
+        // withBench restores everything on return, so this loop is synchronous. The camera stays put; only its heading follows the flock (or the middle of several)
+        let cx = 0, cy = 0, cz = 0, k = 0;
+        // several flocks: the tightest group of them that is up at the start, chosen once, filmed from outside
+        if (multi && !group) {
+          const up = flocks.map((f) => ({ f, st: flockState(f, tt) })).filter((o) => o.st.airborne && o.st.z > 1);
+          let best = null;
+          for (const o of up) {
+            const near = up.filter((q) => Math.hypot(q.st.cx - o.st.cx, q.st.cy - o.st.cy) < groupR);
+            if (!best || near.length > best.length) best = near;
+          }
+          group = (best || []).map((o) => o.f);
+        }
+        for (const f of multi ? group : [A]) {
+          const st = flockState(f, tt);
+          if (!st.airborne) continue;
+          cx += st.cx; cy += st.cy; cz += st.z; k++;
+        }
+        if (!k) { const st = flockState(A, tt); cx = st.cx; cy = st.cy; cz = anchorCam ? st.z : (st.z || 1); k = 1; }
+        cx /= k; cy /= k; cz /= k;
+        // ⚠ WHERE THE RENDERER REALLY DRAWS IT, not where the flock model's centre is: a flock that perches
+        // (a vulture on a rock spire, a pigeon on a parapet) sits on its ledge and flies to and from it, and
+        // the camera has to be pointed at that rather than at an empty home tile.
+        if (anchorCam && !multi) {
+          const st0 = flockState(A, tt), when = { hour };
+          if (st0.airborne) { const lg = perchLegState(view.map, 30, view.mapCenter.x, view.mapCenter.y, A, st0, tt, null, when); cx = lg.cx; cy = lg.cy; cz = lg.z; }
+          else if (perchedNow(A, tt)) {
+            const L = perchFor(view.map, 30, view.mapCenter.x, view.mapCenter.y, A, perchesHigh(A), tt);
+            if (L) { const S = perchSeat(L, 0, st0.n); const P = perchSpot(S.L, A, S.i, S.n, tt, 0, S.n); cx = P.x; cy = P.y; cz = P.z != null ? P.z : S.L.z; }
+          }
+        }
+        if (!cam || follow) cam = follow ? { x: cx - view.mapCenter.x, y: cy - view.mapCenter.y + dist, z: Math.max(0.12, cz + camZ) } : multi ? { x: cx - view.mapCenter.x, y: cy - view.mapCenter.y + dist, z: camZ } : anchorCam ? { x: cx - view.mapCenter.x, y: cy - view.mapCenter.y + dist, z: camZ } : { x: 0, y: dist, z: camZ };
+        const dx = cx - view.mapCenter.x - cam.x, dy = cy - view.mapCenter.y - cam.y;
+        const aim = Math.atan2(cz - cam.z, Math.hypot(dx, dy));
+        return { external: true, hideOwnShip: true, phase: 'cruise', freeCam: { x: cam.x, y: cam.y, z: cam.z, yaw: (multi ? (cam.yaw0 ??= Math.atan2(dx, -dy) * 180 / Math.PI) : Math.atan2(dx, -dy) * 180 / Math.PI) + yawAdd, pitch: follow || anchorCam ? aim : Math.max(pitch, aim * 0.9), roll: 0, fov } };
+      } });
+      let t = s.t;
+      for (let i = 0; i < frames; i++) {
+        s.paintAt(t);
+        if (!sx) { sheet.width = el.width * cols; sheet.height = el.height * rows; sx = sheet.getContext('2d'); }
+        if ((i + 1) % every === 0) {
+          const j = (i + 1) / every - 1, ox = (j % cols) * el.width, oy = Math.floor(j / cols) * el.height;
+          sx.drawImage(el, ox, oy);
+          const secs = Math.round(((i + 1) * dt) / 1000);
+          sx.fillStyle = 'rgba(0,0,0,0.55)'; sx.fillRect(ox, oy, 230, 26);
+          sx.fillStyle = '#fff'; sx.font = '15px monospace'; sx.fillText('t+' + secs + 's  ' + murmurFrameBirds() + ' birds', ox + 8, oy + 18);
+          info.push({ s: secs, birds: murmurFrameBirds() });
+        }
+        t += dt;
+      }
+    });
+  } finally {
+    sp.maxFlock = was.max; sp.grand.from = was.from; sp.minFlock = was.min; sp.grand.below = was.below;
+  }
+  const blob = await new Promise((r) => sheet.toBlob(r, 'image/png'));
+  const res = await (await fetch('/api/shot?name=' + name, { method: 'POST', body: blob })).json();
+  console.log('__glMurmurFilm', JSON.stringify({ file: res.file, info }));
+  return { file: res.file, info };
+}
+if (typeof window !== 'undefined') window.__glMurmurFilm = runMurmurFilm;
+
 // A moment in a flock's cycle, for murmurScene's `at`: 'air' is the widest airborne moment it already
 // finds; 'landing' is `lead` ms before touchdown; 'ground' is the middle of the ground phase.
 function phaseAt(phase, lead = 0) {
@@ -5856,6 +6015,7 @@ function phaseAt(phase, lead = 0) {
     for (let i = 1; i < 200000; i++) {
       const tt = T0 + i * 50, st = flockState(A, tt);
       if (phase === 'landing' && prev && !st.airborne) return tt - lead;
+      if (phase === 'takeoff' && !prev && st.airborne) return tt - lead;
       if (phase === 'ground' && !st.airborne && st.u > SPECIES[A.sp].uGround * 0.5) return tt;
       prev = st.airborne;
     }

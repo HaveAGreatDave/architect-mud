@@ -10,15 +10,16 @@
 
 import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
-import { getZoneSeverity, getZonePrecip, getGameHour } from '../../server/engine/environment.js';
+import { getZoneSeverity, getZonePrecip, getGameHour, getBirdClock, getEnvironmentState, getGameDate } from '../../server/engine/environment.js';
 import { fireSpecializedAction } from '../../server/engine/specializedActions.js';
 import { applyTopical } from '../../server/engine/topical.js';
-import { getZonePlayers } from '../../server/engine/world.js';
+import { getZonePlayers, tileSurroundings } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { carriedFluids } from './hangars.js';
 // ⚠ THE SAME MODULE THE WINDSHIELD DRAWS FROM. A bird strike has to come from a flock the pilot
 // could see, so both surfaces read one answer — see the header on flockOnThePath below.
-import { flockOnSegment, gooseHabitat, gooseDaylight } from '../../client/shared/birds.js';
+import { birdContacts, speciesAt, placeOf, habitatState, birdDaylight, doyOf, BIRD_M_PER_TILE } from '../../client/shared/birds.js';
+import { altitudeTiles } from '../../client/shared/flight-height.js';
 
 import {
   liveAircraft, surfaceAt, pilotOf, persist, crash, toOccupants, out, sendToZone,
@@ -45,47 +46,74 @@ import { commands as broadcastCommands } from '../broadcast/index.js';
 //
 // ⚠ AND THE THROTTLE GATE IS GONE. The old roll wanted you low AND slow, which was a way of making
 // a dice roll feel situational. Speed has nothing to do with whether a flock is in front of you —
-// if anything a fast aircraft covers more ground and meets more of them, which the swept segment
-// now expresses directly.
+// if anything a fast aircraft covers more ground and meets more of them, which the swept path
+// expresses directly. What speed DOES decide is how hard the hit is (½mv², below).
+//
+// ⚠ AND IT IS CONTACT, NOT PROXIMITY (birdContacts). The aircraft is stepped along the path it flew,
+// at the altitudes it held, while every species' birds move on the wall clock the canopy draws them
+// by, and a bird counts when it was inside the airframe's body at that moment. The old test was a
+// flat line against geese frozen at the end of the tick, gated on the 'low' band.
+//
+// The airframe the contact test sweeps, in tiles: a 12 m light aircraft, 3 m tall. ⚠ A BODY, NOT A LINE —
+// the old test charged a strike for a bird within 7 cm of a line through the cockpit, so a wingtip
+// through a goose was a miss and a skein split by the fuselage was one bird.
+const AIRFRAME_HALF_SPAN = 6 / BIRD_M_PER_TILE, AIRFRAME_HALF_HEIGHT = 1.5 / BIRD_M_PER_TILE;
+// What each tile is home to, the question describe.js asks for the room text. The map is content, so
+// the answer only changes on a world reload; tileSurroundings walks the neighbours and is worth keeping.
+const _birdTile = new Map();
+function birdSpeciesAt(wx, wy, weather) {
+  const key = wx + "," + wy + "," + weather;
+  if (_birdTile.has(key)) return _birdTile.get(key);
+  let sid = false;
+  const z = surfaceAt(wx, wy);
+  if (z && z.flags?.terrain && !z.flags?.building_type && !z.flags?.is_building) {
+    const sur = tileSurroundings(z), place = placeOf(z.flags.terrain, sur.bld, sur.shore);
+    const s2 = speciesAt(place, wx, wy, { weather });
+    if (s2 && habitatState(s2, place)) sid = s2;
+  }
+  if (_birdTile.size > 20000) _birdTile.clear();
+  _birdTile.set(key, sid);
+  return sid;
+}
+// Impact energy that writes off the airframe, in kJ: about five Canada geese at a light aircraft's cruise.
+const BIRDSTRIKE_KJ_PER_AIRFRAME = 40;
+const BIRD_NAMES = {
+  goose: ['a goose', 'geese'], gull: ['a gull', 'gulls'], pigeon: ['a pigeon', 'pigeons'],
+  songbird: ['a starling', 'starlings'], hawk: ['a hawk', 'hawks'], peregrine: ['a peregrine', 'peregrines'], vulture: ['a vulture', 'vultures'],
+};
+function birdStrikeLine(struck, kJ) {
+  const what = struck.hits.map((h) => {
+    const nm = BIRD_NAMES[h.sp] || ['a bird', 'birds'];
+    return h.n === 1 ? nm[0] : (h.n > 20 ? 'dozens of ' : h.n + ' ') + nm[1];
+  }).join(' and ');
+  const feel = kJ >= 5 ? 'A heavy thud, a smear across the glass, and the engine note changes.'
+    : kJ >= 1 ? 'A hard knock somewhere forward and a streak on the screen.'
+    : 'A patter along the leading edge like thrown gravel.';
+  return `<span class="text-amber">⚠ BIRD STRIKE — you go through ${what}. ${feel}</span>`;
+}
 function flockOnThePath(live) {
   const a = live.row;
-  // Only down among them. The circuit tops out at GOOSE_Z tiles, which is the low band and nothing
-  // above it — so this stays the altitude gate it always was, for a reason rather than by habit.
-  if (a.altitude_band !== 'low') { live._birdPos = null; return null; }
   const x = live.fx ?? a.grid_x, y = live.fy ?? a.grid_y;
-  if (!Number.isFinite(x) || !Number.isFinite(y)) { live._birdPos = null; return null; }
-
+  if (!a.airborne || !Number.isFinite(x) || !Number.isFinite(y)) { live._birdPos = null; return null; }
+  // ⚠ THE HEIGHT THE CANOPY DRAWS YOU AT, from the one mapping both sides read (flight-height.js).
+  const here = { x, y, z: altitudeTiles(live.cont?.altitude ?? 0), ms: Date.now() };
   const from = live._birdPos;
-  live._birdPos = [x, y];
-  // The first airborne tick has nothing to sweep from, and a zero-length segment tests a POINT —
-  // the exact thing the swept test exists to avoid. Wait a tick rather than test badly.
+  live._birdPos = here;
+  // The first airborne tick has nothing to sweep from, and a zero-length segment tests a POINT.
   if (!from) return null;
-
-  // ⚠ THE GAME HOUR, NOT THE WALL CLOCK. The flock CYCLE runs on wall time, which is what lets this
-  // and the windshield agree about where a bird is this second; whether it is DAY is the game's own
-  // clock, and the two are unrelated. Reading the real hour here would put the geese to bed at
-  // whatever time it happens to be where the server is racked.
-  if (!gooseDaylight(getGameHour())) return null;
-
-  return flockOnSegment(from[0], from[1], x, y, Date.now(), (wx, wy) => {
-    // The habitat test is the caller's, and the server's is the zone's own TERRAIN — the other
-    // spelling of the biome the renderer reads. GOOSE_HABITAT answers to both.
-    const z = surfaceAt(wx, wy);
-    return !!(z && !z.flags?.building_type && !z.flags?.is_building && gooseHabitat(z.flags?.terrain));
-  }, undefined, 1, (wx, wy) => {
-    // ⚠ AND WHAT THE BIRDS TURN AWAY FROM, which is a SECOND question and not the negation of the
-    // first. A road is not habitat and a flock happily crosses one; a building is neither habitat
-    // nor crossable. The circuit bends around these tiles (see flockClearance), so leaving this out
-    // would sweep the plain circle the renderer stopped drawing — a strike over empty sky, and a
-    // flock you can watch a wing pass through.
-    //
-    // ⚠ `building_type` ALONE, unlike the habitat test just above, which also refuses `is_building`.
-    // That is not an inconsistency: the flock turns away from what the RENDERER DRAWS, and the
-    // flight sim only extrudes `building_type` — a walk-in building without one renders as flat
-    // grass out the canopy. `deriveSurfaceCell` sets the `bt` the windscreen reads from this field
-    // and nothing else, so this is the same question asked of the same column.
-    const z = surfaceAt(wx, wy);
-    return !!(z && z.flags?.building_type);
+  // ⚠ THE GAME HOUR FOR DAYLIGHT, THE WALL CLOCK FOR WHERE THE BIRDS ARE — see getBirdClock.
+  const hour = getGameHour(), weather = getEnvironmentState()?.weatherType || "";
+  const when = { ...getBirdClock(), doy: doyOf(getGameDate()) };
+  return birdContacts(from, here, {
+    isHabitat: (wx, wy) => birdSpeciesAt(wx, wy, weather),
+    // ⚠ WHAT THE BIRDS TURN AWAY FROM is a second question: the circuit bends round what the renderer
+    // extrudes, which is building_type and nothing else. Leave it out and this sweeps a circle the
+    // canopy stopped drawing.
+    isBlocked: (wx, wy) => { const z = surfaceAt(wx, wy); return !!(z && z.flags?.building_type); },
+    daylight: (sid) => birdDaylight(sid, hour),
+    halfSpan: AIRFRAME_HALF_SPAN, halfHeight: AIRFRAME_HALF_HEIGHT,
+    speed: (live.cont?.airspeed ?? 0) * 0.5144,
+    when,
   });
 }
 
@@ -182,10 +210,16 @@ export async function rollHazards(live) {
   // BIRD STRIKE — you flew through a flock that was there.
   const struck = flockOnThePath(live);
   if (struck) {
-    // Bigger flock, more of it down the intake.
-    a.damage = Math.min(1, a.damage + 0.05 + struck.n * 0.012);
-    a.engine_temp += 12 + struck.n * 2;   // ingestion spikes the temp — can seed a fire
-    toOccupants(live, `<span class="text-amber">⚠ BIRD STRIKE — you go straight through the middle of them. A heavy thud, a smear on the glass, and the engine note changes.</span>`);
+    // ⚠ THE DAMAGE IS THE ENERGY OF WHAT YOU HIT, not a flat charge per strike: ½mv² for every bird the
+    // airframe went through, at the airspeed you went through them. A Canada goose at 120 knots is
+    // about 7 kJ and takes a fifth of the airframe; a starling at the same speed is 150 J and barely
+    // marks it, until you have flown through the middle of a thousand of them.
+    const kJ = struck.energyJ / 1000;
+    a.damage = Math.min(1, a.damage + kJ / BIRDSTRIKE_KJ_PER_AIRFRAME);
+    a.engine_temp += Math.min(40, kJ * 2);   // ingestion spikes the temp — can seed a fire
+    toOccupants(live, birdStrikeLine(struck, kJ));
+    // Tell the canopy which flocks came off short, so the birds we hit stop being drawn (bird-strikes.js).
+    for (const pid of live.occupants) sendToPlayer(pid, { type: 'bird_strike', flocks: struck.flocks });
     if (a.damage >= 1) { await crash(live, 'birdstrike'); return; }
   }
 

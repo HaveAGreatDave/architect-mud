@@ -19,7 +19,7 @@
 // touches a constant — the same way worldresidue's own header records it claiming for months to
 // measure pedestrians it never ran. So the camera is placed ON a real anchor, found by asking.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
-import { flocksNear, flockState, flockClearance, flockOnSegment, flockEdgeHeading, FLOCK_AREA, GOOSE_PERIOD, GOOSE_SETTLE_MS, U_GROUND, GOOSE_SPAN, SKEIN_ACROSS, skeinSlot, skeinForm, SPECIES, speciesAt, placeOf, habitatState, flockAt, flockPeriod, flockSize, flockSpreadScale, flockDrawRange, FLOCK_REF, BIRD_TUNE, groundSpot, groundPatchR, FORM_WORDS, birdDaylight, callsIn } from '../../client/shared/birds.js';
+import { flocksNear, flockState, flockClearance, flockOnSegment, birdContacts, BIRD_M_PER_TILE, BIRD_MASS_KG, BIRD_TUNE_EVADE, flockEdgeHeading, FLOCK_AREA, GOOSE_PERIOD, GOOSE_SETTLE_MS, U_GROUND, GOOSE_SPAN, SKEIN_ACROSS, skeinSlot, skeinForm, SPECIES, speciesAt, placeOf, habitatState, flockAt, flockPeriod, flockSize, flockSpreadScale, flockDrawRange, FLOCK_REF, BIRD_TUNE, groundSpot, groundPatchR, FORM_WORDS, birdDaylight, callsIn } from '../../client/shared/birds.js';
 import { agitation, agitationWave, K_NEIGHBOURS, MURMUR_RULES as MR } from '../../client/game/js/panels/murmur.js';
 import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase, faunaParamIds, faunaPoseFaces, setFaunaParams, faunaWorldFaces, faunaSpanTiles, beatDihedral } from '../../client/game/js/panels/fauna3d.js';
 
@@ -194,6 +194,9 @@ function paint(view) {
       // Every billboard in the frame — trees, bushes, rocks, actors — and whether any of them asked
       // to write depth. See check 12.
       otherDepth: (o.scatter || []).filter((q) => q.depth).length,
+      // The strike puffs: red mist and pale feathers in the sprite layer (drawStrikePuffs).
+      puffRed: (o.sprites || []).filter((q) => q.air && q.add === 0 && q.rgb && q.rgb[1] === 14).length,
+      puffFeather: (o.sprites || []).filter((q) => q.air && q.add === 0 && q.hard === 1 && q.rgb && q.rgb[0] === 214).length,
     };
     return { faces: 1, canvas: c };
   });
@@ -977,11 +980,12 @@ notes.push(`drew ${ground.quads.length} walking and ${airborne(air).length} airb
   // One flock, GPU ms for one step, 20 steps timed back to back (__glMurmurCost), one RTX 2070 SUPER:
   //
   //     4,000 birds  0.72 ms      12,000 birds  0.94 ms      20,000 birds  1.58 ms
+  //    40,000 birds  1.29 ms      60,000 birds  2.32 ms      80,000 birds  3.46 ms  (2026-09-24)
   //
   // It was 22.7 ms for 4,000 on the CPU, which is why the ceiling there was 1,800. Nothing here can
   // measure a GPU, so this holds the number that was measured rather than re-measuring it; raising it
   // means running __glMurmurCost again, on the smallest GPU you care about.
-  const MURMUR_BIRDS_MAX = 20000;
+  const MURMUR_BIRDS_MAX = 300000;
   for (const id of faunaParamIds('bird').filter((id) => SPECIES[id])) {
     const sp = SPECIES[id];
     if (!sp || !sp.thin) continue;              // only a cloud species runs the boids step
@@ -1205,7 +1209,17 @@ else if (f1 !== f2) {
 // ⚠ AND AGAIN IN THE AIR, BECAUSE THE TWO HALVES SHARE NO CODE. The skein is laid out only while a
 // flock is flying, so a recentre check run at a moment it is on the grass never executes it at all
 // — which is how a skein built in the camera's frame passed this twice.
-T = T_AIR ?? 1e6;
+// ⚠ AN AIRBORNE MOMENT WITH THE FLOCK INSIDE `near6`, NOT JUST THE FIRST ONE. T_AIR can land anywhere
+// on the circuit, and since the goose's circuit went to 9 tiles (its real 18 m/s, see GOOSE_R) the
+// first airborne moment put the flock 8 tiles out, where this check sees nothing and calls itself vacuous.
+const T_AIR_NEAR = (() => {
+  for (let i = 0; i < 4000; i++) {
+    const t = 1e6 + i * (GOOSE_PERIOD / 400), st = flockState(ANCHOR, t);
+    if (st.airborne && Math.hypot(st.cx - ANCHOR.ax, st.cy - ANCHOR.ay) < 4) return t;
+  }
+  return T_AIR;
+})();
+T = T_AIR_NEAR ?? 1e6;
 const b1 = paint(viewAt(VIEW_A, 0, 12, OFF_A));
 const b2 = paint(viewAt(VIEW_B, 0, 12, OFF_B, 14));
 const air1 = birdsIn(b1), air2 = birdsIn(b2);
@@ -1578,6 +1592,119 @@ T = T_GROUND ?? 1e6;
     const overGrazing = flockOnSegment(down.cx - 3, down.cy, down.cx + 3, down.cy, tGround, anyGround);
     if (overGrazing) problems.push('a flock ON THE GROUND registered a bird strike');
     notes.push('a leg through an airborne flock strikes, its own endpoints do not, and a grazing flock never does');
+  }
+}
+
+// ── 11b. THE STRIKE HAZARDS.JS ACTUALLY USES IS CONTACT, IN THREE DIMENSIONS ──
+// birdContacts steps the airframe along its path at the heights it held, against birds moving on the
+// same clock. Each claim below is a way it would go back to being proximity, or a roll.
+{
+  // Only the anchor's own flock: with every tile habitat, a pass meets other flocks by design.
+  const anyGround = (x, y) => x === ANCHOR.ax && y === ANCHOR.ay;
+  const tAir = T_AIR ?? 1e6;
+  const st = flockState(ANCHOR, tAir);
+  const leg = (dz, speed = 60, sp = null) => birdContacts(
+    { x: st.cx - 3, y: st.cy, z: st.z + dz, ms: tAir }, { x: st.cx + 3, y: st.cy, z: st.z + dz, ms: tAir + 1 },
+    { isHabitat: sp ? () => sp : anyGround, halfSpan: 6 / BIRD_M_PER_TILE, halfHeight: 1.5 / BIRD_M_PER_TILE, speed });
+  if (st.airborne) {
+    const hit = leg(0);
+    if (!hit) problems.push('birdContacts: a pass at the flock\'s own height, through its centre, hit nothing');
+    // ⚠ HEIGHT IS PART OF CONTACT. Two hundred feet over them is a miss, which the old flat test called a strike.
+    if (leg(1.2)) problems.push('birdContacts: a pass 1.2 tiles above the flock still struck it — the test is flat again');
+    const e60 = hit?.energyJ || 0, e120 = leg(0, 120)?.energyJ || 0;
+    if (hit && Math.abs(e120 / e60 - 4) > 0.01) problems.push(`birdContacts: energy at twice the speed is ${(e120 / e60).toFixed(2)}x, not 4x — it is not ½mv²`);
+    if (hit && Math.abs(e60 - hit.birds * 0.5 * BIRD_MASS_KG.goose * 3600) > 1) problems.push('birdContacts: goose energy is not the goose\'s mass at the closing speed');
+    // A point at either end of the leg, three tiles clear, touches nothing.
+    const pt = (x) => birdContacts({ x, y: st.cy, z: st.z, ms: tAir }, { x, y: st.cy, z: st.z, ms: tAir + 1 },
+      { isHabitat: anyGround, halfSpan: 6 / BIRD_M_PER_TILE, halfHeight: 1.5 / BIRD_M_PER_TILE });
+    if (pt(st.cx - 3) || pt(st.cx + 3)) problems.push('birdContacts: a point three tiles from the flock struck it');
+    // Grounded birds are not in the air.
+    const tG = T_GROUND ?? 1e6, dn = flockState(ANCHOR, tG);
+    if (birdContacts({ x: dn.cx - 3, y: dn.cy, z: 0.3, ms: tG }, { x: dn.cx + 3, y: dn.cy, z: 0.3, ms: tG + 1 },
+      { isHabitat: anyGround, halfSpan: 0.55, halfHeight: 0.14 })) problems.push('birdContacts: a flock on the ground was struck');
+    notes.push(`contact: ${hit ? hit.birds : 0} geese through the middle at their height, none 1.2 tiles over, energy ∝ v²`);
+    // ⚠ EVASION: a bird judges an aircraft by distance, so a slow one gives it time to get clear and a
+    // fast one does not. The same 6-tile pass flown in real time at 25 and at 90 m/s.
+    // Aimed at where the flock WILL be when the aircraft reaches the middle of the leg — the flock flies
+    // a tile or more while a slow aircraft covers six, and a pass at where it was measures nothing.
+    const timed = (mps) => {
+      const dur = (6 * BIRD_M_PER_TILE / mps) * 1000, m = flockState(ANCHOR, tAir + dur / 2);
+      return birdContacts(
+        { x: m.cx - 3, y: m.cy, z: m.z, ms: tAir }, { x: m.cx + 3, y: m.cy, z: m.z, ms: tAir + dur },
+        { isHabitat: anyGround, halfSpan: 6 / BIRD_M_PER_TILE, halfHeight: 1.5 / BIRD_M_PER_TILE, speed: mps });
+    };
+    const slow = timed(25)?.birds || 0, fast = timed(90)?.birds || 0;
+    if (!(slow < fast)) problems.push(`birdContacts: a 25 m/s pass hit ${slow} and a 90 m/s pass ${fast} — the birds are not getting out of the way of the slow one`);
+    BIRD_TUNE_EVADE.on = 0;
+    const slowOff = timed(25)?.birds || 0;
+    BIRD_TUNE_EVADE.on = 1;
+    if (slowOff <= slow) problems.push(`birdContacts: with evasion off the slow pass hit ${slowOff}, no more than with it on (${slow}) — the switch reaches nothing`);
+    const f0 = timed(90)?.flocks?.[0];
+    if (!f0 || !(f0.untilMs > tAir) || f0.n < 1) problems.push('birdContacts: a strike did not hand back the flock it hit and when that flock lands');
+    notes.push(`evasion: ${slow} birds hit at 25 m/s (${slowOff} with evasion off), ${fast} at 90 m/s`);
+  }
+  // A murmuration is a cloud of measured density: flying through one has to count starlings.
+  const mf = { ax: ANCHOR.ax, ay: ANCHOR.ay, sp: 'songbird' };
+  let mt = null;
+  for (let i = 0; i < 2000 && mt == null; i++) { const t = 1e6 + i * 500; if (flockState(mf, t).airborne) mt = t; }
+  if (mt != null) {
+    const ms = flockState(mf, mt);
+    const r = birdContacts({ x: ms.cx - 6, y: ms.cy, z: ms.z, ms: mt }, { x: ms.cx + 6, y: ms.cy, z: ms.z, ms: mt + 1 },
+      { isHabitat: () => 'songbird', halfSpan: 6 / BIRD_M_PER_TILE, halfHeight: 1.5 / BIRD_M_PER_TILE, speed: 60 });
+    if (!r || !r.birds) problems.push('birdContacts: a pass through the middle of a murmuration counted no starlings');
+    else notes.push(`contact: ${r.birds} starlings through a ${ms.n}-bird murmuration, ${(r.energyJ / 1000).toFixed(1)} kJ`);
+    // The cloud gets out of the way by share: a slow pass through it meets fewer starlings than a fast one.
+    const cloudAt = (mps) => {
+      const dur = (12 * BIRD_M_PER_TILE / mps) * 1000, m = flockState(mf, mt + dur / 2);
+      return birdContacts({ x: m.cx - 6, y: m.cy, z: m.z, ms: mt }, { x: m.cx + 6, y: m.cy, z: m.z, ms: mt + dur },
+        { isHabitat: () => 'songbird', halfSpan: 6 / BIRD_M_PER_TILE, halfHeight: 1.5 / BIRD_M_PER_TILE, speed: mps })?.birds || 0;
+    };
+    const cSlow = cloudAt(30), cFast = cloudAt(80);
+    if (!(cSlow < cFast)) problems.push(`birdContacts: a murmuration met ${cSlow} starlings at 30 m/s and ${cFast} at 80 — the cloud is not getting out of the way`);
+    notes.push(`evasion: a murmuration pass meets ${cSlow} starlings at 30 m/s, ${cFast} at 80 m/s`);
+  }
+}
+
+// ── 11c. A BIRD HIT LEAVES A PUFF WHERE IT WAS HIT ─────────────────────────────
+// The server names each point; the canopy draws red mist and feathers there for PUFF_S, then nothing.
+{
+  const { noteBirdStrikes } = await import('../../client/game/js/panels/bird-strikes.js');
+  const at = { x: CENTRE.x, y: CENTRE.y - 3 };
+  noteBirdStrikes([{ ax: at.x, ay: at.y, sp: 'goose', n: 1, untilMs: T + 60000, pts: [[at.x, at.y, 0.6]] }]);
+  const fresh = paint(viewAt(CENTRE, 0, 12));
+  if (!fresh.puffRed) problems.push('a bird strike drew no red puff where the bird was hit');
+  if (!fresh.puffFeather) problems.push('a bird strike drew no feathers where the bird was hit');
+  const Twas = T; T += 5000;
+  const later = paint(viewAt(CENTRE, 0, 12));
+  T = Twas;
+  if (later.puffRed || later.puffFeather) problems.push('a strike puff was still in the air five seconds later');
+  notes.push(`strike puff: ${fresh.puffRed} mist and ${fresh.puffFeather} feathers, gone in ${5} s`);
+}
+
+// ── 11d. BIRDS GET OUT OF THE WAY OF OTHER AIRCRAFT TOO ───────────────────────
+// Somebody else flying through a flock: the contact feed carries them, and the birds in the picture
+// have to move for them the way the server's contact test says they did.
+{
+  const tAir = T_AIR ?? 1e6, st = flockState(ANCHOR, tAir);
+  if (st.airborne) {
+    const ft = Math.max(0, (st.z - 0.24) / 7) ** 2 * 3000;
+    const withTraffic = (on) => {
+      const v0 = viewAt(CENTRE, 0, 12);
+      const base = { ...v0, acX: CENTRE.x + (v0.mapOffset?.x || 0), acY: CENTRE.y + (v0.mapOffset?.y || 0) };
+      const cx = st.cx - base.acX, cy = st.cy - base.acY;
+      // Coming from the west at about 40 m/s, a tile from the flock on the second frame.
+      const T0 = T;
+      T = tAir - 100; paint({ ...base, contacts: on ? [{ id: 7, cls: 'cessna', dx: cx - 1.36, dy: cy, altDiff: ft }] : [] });
+      T = tAir; const r = paint({ ...base, contacts: on ? [{ id: 7, cls: 'cessna', dx: cx - 1.0, dy: cy, altDiff: ft }] : [] });
+      T = T0;
+      return airborne(r);
+    };
+    const calm = withTraffic(false), busy = withTraffic(true);
+    let moved = 0;
+    for (let i = 0; i < Math.min(calm.length, busy.length); i++) moved = Math.max(moved, Math.hypot(calm[i].wx - busy[i].wx, calm[i].wy - busy[i].wy, calm[i].z - busy[i].z));
+    if (!calm.length) problems.push('the traffic-evasion check found no airborne bird to watch — it is vacuous');
+    else if (!(moved > 0.01)) problems.push('another aircraft flew into a flock and not one drawn bird moved out of its way');
+    else notes.push('traffic: birds move up to ' + (moved * BIRD_M_PER_TILE).toFixed(1) + ' m out of another aircraft\'s way');
   }
 }
 

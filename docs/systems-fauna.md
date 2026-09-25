@@ -27,7 +27,7 @@ wrong twice over here: it resets on every reload, so a refresh would teleport ev
 world to a new point in its cycle, and the text game asks the same question with `Date.now()`.
 
 ⚠ **AND `birds.js` KNOWS NOTHING ABOUT THE MAP.** It takes callbacks — `flocksNear(…, isHabitat)`,
-`hawkStoop(…, near)`, `flockClearance(f, isBlocked)` — because only the caller has the terrain. The
+`falconStoop(…, near)`, `flockClearance(f, isBlocked)` — because only the caller has the terrain. The
 renderer reads its own map window and the text game reads its own grid index; the RULE lives in one
 file so the two cannot drift apart.
 
@@ -39,13 +39,13 @@ this table is a reading of them, not a second copy to keep in step.
 | | goose | gull | pigeon | songbird | hawk | vulture |
 |---|---|---|---|---|---|---|
 | wingspan (model units) | 0.85 | 1.1 | 0.5 | 0.155 | 1.02 | 1.3 |
-| birds in a flock | 3–6 | 4–12 | 4–10 | 450–1,700 (a grand roost 4,000–20,000) | 1 | 3–7 |
-| cycle | 100 s | 55 s | 27 s | 58 s | 150 s | 210 s |
-| share of it on the ground | 40% | 25% | 78% | 55% | 18% | 42% |
-| ceiling / circuit radius | 2.2 / 3.4 | 1.6 / 5.0 | 0.9 / 1.6 | 1.4 / sweeps a roost of 5 | 3.6 / 1.9 | 4.4 / 3.2 |
+| birds in a flock | 3–6 | 4–12 | 4–10 | 450–1,700 (a grand roost 4,000–300,000) | 1 | 3–7 |
+| cycle | 100 s | 55 s | 27 s | 300 s | 150 s | 210 s |
+| share of it on the ground | 40% | 25% | 78% | 70% | 18% | 42% |
+| ceiling / circuit radius | 2.2 / 3.4 | 1.6 / 5.0 | 0.9 / 1.6 | 5.0 / sweeps a roost of 5, slowly | 3.6 / 1.9 | 4.4 / 3.2 |
 | wingbeat | 1.5 Hz | 1.5 Hz | 1.5 Hz | 10 Hz, with glides | 1.5 Hz | 1.5 Hz |
 | drawn out to | 14 tiles | 13 | 7 | 6 | 16 | 18 |
-| about between | 06–20 | 05–21 | 06–20 | 05–21 | 08–18 | 08–18 |
+| about between | 06–20 | 05–21 | 06–20 | 05–18:35 | 08–18 | 08–18 |
 | perches | never | 42% | 55% | 50% | 70%, highest | 30%, highest |
 | a hawk will take one | no | yes | yes | yes | — | no |
 
@@ -158,7 +158,7 @@ than on the awning beside them.
 
 ## The hunt
 
-`hawkStoop` is resolved once per frame, before anything draws, because two things read the answer —
+`falconStoop` is resolved once per frame, before anything draws, because two things read the answer —
 the flock that loses a bird and the cloud that panics — and asking twice is how they end up
 disagreeing about whether it happened. It is a pure function of the two anchors and the clock, so the
 server can make the same call.
@@ -367,7 +367,7 @@ centre, and thins without reseeding, blinking or popping. murmurthin.mjs was del
 the checks that are still pure arithmetic (the agitation wave, the neighbour count). That is the cost
 the no-fallback decision accepted.
 
-**The GPU has its own budget, in birds.** `RENDER_TUNE.murmurBirds` (40,000) caps the birds stepped
+**The GPU has its own budget, in birds.** `RENDER_TUNE.murmurBirds` (300,000) caps the birds stepped
 in one frame over every cloud in view; clouds are admitted nearest first, and one that does not fit is
 not drawn rather than drawn short. A GPU cloud is not charged to the face budget, which was capping a
 murmuration at about 1,800 birds for a CPU cost it no longer has. ⚠ **The draw skips detail levels no
@@ -389,9 +389,9 @@ steps. `withBench` in glbench.js takes a fresh canvas id per call.
 
 ### Grand roosts: a few flocks are enormous
 
-The starling's `maxFlock` is 20,000, and flockSize rolls two bands rather than one wide one: one
-anchor in `grand.share` (4%) draws from 4,000 to 20,000, skewed low (u squared), and the rest keep
-450 to 1,700. A single band across 450-20,000 would have made the ordinary flock ten thousand strong
+The starling's `maxFlock` is 300,000, and flockSize rolls two bands rather than one wide one: one
+anchor in `grand.share` (4%) draws from 4,000 to 300,000, skewed low (u squared), and the rest keep
+450 to 1,700. A single band across 450-300,000 would have made the ordinary flock ten thousand strong
 and the great roost ordinary. Over a synthetic all-habitat city at 8% that gave a median grand roost of
 7,800 birds and 27 over 15,000 among 2,177 anchors; it ships at half that share. The room text words a
 crowd rather than printing it: "Thousands of them are up over the trees", because nobody under a
@@ -569,7 +569,7 @@ twice at two scales. ⚠ **AND IT HAS A FLOOR THE PICTURE DOES NOT** — `thin` 
 DRAWN as few as fifteen birds when the face budget is tight, which is fine for a cloud and not for
 a sound that asserts there are hundreds; under `MURMUR_AUDIO_MIN` (120) the flock keeps the ordinary
 burst schedule. A hawk's stoop arms the longest manoeuvre the bed has, ⚠ **edge-triggered on the
-stoop's own timestamp** rather than on "a stoop is live", because `hawkStoop` is derived and answers
+stoop's own timestamp** rather than on "a stoop is live", because `falconStoop` is derived and answers
 the same stoop on every frame. `RENDER_TUNE.murmurAudio = 0` puts it back on bursts.
 
 ## What it costs
@@ -670,16 +670,16 @@ banks, and a bird crossing your view darkens as it rolls.
 
 ## How many
 
-A starling flock is **450-1,700**, and one roost in twenty-five is a **grand roost of 4,000-20,000**
+A starling flock is **450-1,700**, and one roost in twenty-five is a **grand roost of 4,000-300,000**
 (see "Grand roosts" above). On the ground or on a ledge a flock is drawn per bird and thinned to fit
 the face budget, never below 15; in the air it is the GPU flock, which builds no faces and has its own
 budget in birds. Three numbers have to agree or the biggest one does nothing:
 
 | | |
 |---|---|
-| `maxFlock` 20,000 | what the row asks for |
-| GPU bird budget 40,000 | `RENDER_TUNE.murmurBirds`, over every cloud in a frame |
-| simulation ceiling 20,000 | what one GPU flock step was measured to afford (`MURMUR_BIRDS_MAX` in fauna.mjs) |
+| `maxFlock` 300,000 | what the row asks for (`client/shared/birds.js`) |
+| GPU bird budget 300,000 | `RENDER_TUNE.murmurBirds`, over every cloud in a frame; `murmurFloor` 40,000 is how far a grand roost thins under frame pressure |
+| simulation ceiling 300,000 | what one GPU flock step was measured to afford (`MURMUR_BIRDS_MAX` in fauna.mjs) |
 
 ⚠ RAISING `maxFlock` ON ITS OWN DOES NOTHING, which is the trap: when the CPU simulated the flock the
 face budget capped it at 1,221 against a `maxFlock` of 1,200, two per cent apart, so the thinner
@@ -688,7 +688,202 @@ and on the GPU route the budget is `murmurBirds`.
 
 ⚠ AND THE COST IS THE SIMULATION, NOT THE DRAWING. Past `dotPx` a starling is one instanced dot and
 very nearly free; what scales is the neighbour search. The CPU step measured 1.5 ms at 600 birds and
-16.3 at 3,200, which is why the ceiling there was 1,800; the GPU step is 1.58 ms at 20,000.
+16.3 at 3,200, which is why the ceiling there was 1,800.
+
+⚠ **WHAT A STEP COSTS, AND WHY IT USED TO GROW FASTER THAN THE FLOCK.** Measured 2026-09-24 with
+GPU timer queries round the filing and step passes, one settled cloud, RTX 2070 SUPER:
+
+| birds | hashed grid, scatter order (before) | wrapped grid, space order (now) |
+|---|---|---|
+| 80,000 | 4.4 ms | 2.9 ms |
+| 160,000 | 14.2 ms | 5.9 ms |
+| 300,000 | 67 ms | 17.2 ms |
+| 450,000 | — | 39.5 ms |
+| 600,000 | never completed (device lost) | 72.8 ms |
+
+The grid was not overfull: a 4× table under the old hash only took 300k from 65 to 49 ms, with the
+same unsettled birds. The cost was cache misses. The XOR hash scattered the ~125 cells one search
+reads across the whole table, and the birds themselves sat in scatter order, so almost every
+neighbour read missed. Two changes fixed it. **The slot is the cell wrapped**
+(`slotOf` in `gl/murmur-gpu.js`), so neighbouring cells are neighbouring texels. **`seedPoints` returns birds in Morton order**, so
+neighbouring birds are neighbouring texels, and a murmuration keeps its neighbours long enough
+that sorting once at the seed holds (14.1 ms still at 300k after 300 frames). The table is 256 × 256 × 16 cells on 8 layers (a 1024 × 1024 texture array, 32 MB). Measured at 300k
+it beat the other shapes tried: 128 × 128 × 32 on 16 layers took 19.6 ms (a 300k body is ~173 cells
+long and wrapped onto itself), the same wide table on 16 layers 15.2, and it takes 14.0. A 512 × 256
+table was 47 ms, because its z wrapped every 8 cells against a body ~34 thick. The unsettled counts
+were the same in every case, so the layout changes speed only, never the neighbours.
+
+⚠ **A FAR ROOST STEPS LESS OFTEN TOO.** Once a bird is under half the dot size (`FL × span / distance`,
+the draw's own arithmetic, so it cannot disagree with what is drawn) the cloud takes stride 2, and
+under a quarter stride 3, whatever its cost. The larger of the two strides wins.
+
+⚠ **A BIG CLOUD STEPS EVERY 2ND OR 3RD FRAME, CHOSEN BY ITS OWN MEASURED GPU COST** (`STEP_BUDGET_MS`
+6, `STRIDE_MAX` 3, `STRIDE_MIN` 10,000 in `gl/murmur-gpu.js`). Each step is timed with
+`EXT_disjoint_timer_query_webgl2` and the stride is the fewest steps that keep the cloud under 6 ms a
+frame, with hysteresis. It's drawn between its last two states (`uLerp` in `gl/fauna.js`), so it's
+one step behind itself, and each cloud takes its own phase. Measured on the RTX 2070 SUPER: 80k takes
+stride 1, 160k stride 2, 300k stride 3. Three things about it:
+- **The first eight readings are thrown away.** A cloud's first steps pay for textures, the shader's
+  first run and idle clocks; folded in, they held a 20k cloud at 8.9 ms against a real 1.5.
+- **The readings are noisy** on a GPU that is also drawing a city (one 20k cloud read 2.2, 4.4 and 8.4
+  ms in three runs), so a flock under 10,000 never strides. Noise can only push a grand roost a
+  stride higher, which costs lag and nothing else.
+- **It stops at 3**, because at 60 fps that's a 50 ms step, which is `DT_MAX`; past it the flock
+  flies slower instead of costing less. Without the timer extension (Firefox often lacks it) a cloud
+  over `STRIDE_FROM` (120,000) takes stride 2. Benches pass `stride: 1`, because they measure the rule.
+
+⚠ **THE SPACE ORDER HOLDS, BECAUSE A RETURNING BIRD JOINS ITS NEIGHBOUR IN MEMORY.** Flown for 90
+seconds with no thinning, a 300k step went 12.3 → 10.1 → 9.8 ms as the flock settled: sorting once at
+the seed is enough. What broke it was thinning. A bird fading back in was placed at its scatter point,
+a random spot in the body, so one thinning episode left the step at 20 ms for good. It now appears a
+separation radius from the nearest visible bird within six slots either side (the scatter point only
+if there's none), and the same flight ends at 10.1 ms. Returning birds land within 3.23 tiles of a
+3.18-tile body, against 3.50 before.
+
+⚠ **THE GRID USES ALL 16 LAYERS AT 300k** even though no cell holds more than about 5 birds: slots
+shared through the wrap stack up. So cutting layers to save memory is not free; it would leave birds
+unsettled.
+
+⚠ **STORING POSITIONS IN THE GRID WAS TRIED AND IS SLOWER.** The grid could hold each bird's position
+beside its index, saving a second read per candidate. Measured: 10% faster at 80k, 30% slower at 160k
+and 300k (21.2 ms against 17.4). An RGBA32F grid texel is four times the traffic, and since the Morton
+sort the position reads it saves were already cache-friendly. The grid's own bandwidth is the cost now.
+
+⚠ **ALL OF THIS IS ONE CARD.** Nothing above has been measured on an integrated GPU.
+
+⚠ **A BIGGER ROOST IS STILL MOSTLY A DRAWING TRICK.** Vertex-animation-texture crowds reach millions
+because nothing in them reacts. What costs here is the live neighbour search. Simulating fewer
+birds and drawing each as a small cluster of followers would grow the drawn count while the step
+stays flat. That isn't built.
+
+## The free rules (as built)
+
+The shape of a murmuration is not authored. Until 2026-09-24 every bird was held inside a fixed
+ellipsoid round the flock centre and steered hard onto one shared course, so the flock was always a
+lozenge. `FREE_RULES` in `gl/murmur-gpu.js` replaces both with local rules on the StarDisplay model
+(Hildenbrandt, Carere & Hemelrijk 2010); `RENDER_TUNE.murmurFree` 0 puts the old flock back.
+
+- **No body, no course.** A bird follows its 7 nearest neighbours (alignment, cohesion, separation,
+  the blind sector behind) and nothing else tells it where to be. `cmd` 0.
+- **Cohesion is stronger on the edge** (`edge` 3, times how one-sided its view of the flock is,
+  squared). That holds a free flock together without a boundary.
+- **A pull back past a radius** (`roost` 3 past `roostR` 0.6 body-lengths), horizontal, per bird. The
+  part of the flock that strays turns first, the turn spreads through its neighbours, and that
+  differential turning is where every fold, crescent and comet comes from.
+- **A height spring** (`alt` 0.8 over `band` 1.2 body-thicknesses), a spring rather than a band: a
+  band with a dead zone is a floor and a ceiling the birds pile against, and drew the flock with a flat
+  top and bottom.
+- **A small wander** per bird (`wander` 0.15). At 0.6 polarisation fell to 0.78 against a real 0.96.
+- **Neighbours match turning, not only heading** (`spin` 0.5): a bird's bank is pulled toward its
+  neighbours' (the inertial spin model, Attanasi et al. 2014). With the shared course gone this is what
+  makes a turn cross the flock as a band; banding went 1.8x to 2.46x better than chance.
+
+⚠ **ANYTHING THAT HOLDS THE WHOLE FLOCK TO ITS CENTRE KILLS THE SHAPES.** A shared course, a uniform
+push on every bird and a gentle position-only spring were each tried to stop the flock drifting, and
+each flattened it back into a featureless disc: every bird's speed is fixed, so a push that is the same
+for all of them is the same turn for all of them. So the flock is allowed to drift, and the game
+follows it instead (below).
+
+⚠ **SO THE STARLING'S CENTRE IS SLOW.** A free flock cannot whirl round a point moving at its own
+speed: at the old 10 m/s it hung 4 tiles off the centre and clumped into a ball with a thin halo, the
+opposite of a real flock. `wander` in the starling row of `client/shared/birds.js` now moves the centre at
+about 3.4 m/s (0.25-0.48 tiles/s), so the murmuration performs over its roost while the birds whirl
+round it at 10-12 m/s. The server reads the same centre for the room text and the hawk.
+
+⚠ **THE GAME FOLLOWS THE MEASURED FLOCK.** Each step samples 1,024 birds into a 32 × 64 target and
+reads it back through a pixel buffer and a fence (`sample`/`readSample`): asynchronous, a few frames
+late, nothing waits. ⚠ **The fence must be flushed**, or it never signals, and a bench that steps in one
+synchronous loop never sees a result at all (the checks bench yields for that reason). The measured
+centre is used for:
+- the culling sphere (`boundOf`), which is also widened by the roost radius;
+- the hawk's scare and the agitation wave, carried by the flock's offset from the shared centre so
+  they land on the birds (the hawk sprite still dives at the shared centre);
+- where a bird fading back in appears: beside the visible memory neighbour nearest the measured centre,
+  or near that centre if none is in reach.
+
+⚠ **AND BUILDINGS.** Each roost gets a 64 × 64 height map at half-tile spacing (`murmurObstacles` in
+windshield.js), the higher of `modelTopZAt` and `curtainTopZAt` — the geometry aircraft collide with —
+cached per map window and uploaded only when it changes. A bird looks 0.8 s ahead, climbs and turns down
+the height slope when within 0.6 tiles of a roof, and anything the look-ahead missed is lifted to the
+roof. Against a 9-tile tower on the circuit: 0 birds inside it, against 4,546 without.
+`RENDER_TUNE.murmurAvoid` 0 switches it off.
+
+⚠ **HEIGHT AND THE CYCLE.** Starlings fly at `z` 5 tiles (about 55 m; it was 1.4, below most of the
+city's roofs) and the cycle is 300 s with 70% on the ground: about 80 s of display, then 3.5 minutes
+feeding.
+
+Checked by `__glMurmurChecks` (all pass), `__glMurmurExact` (recall 0.998) and `__glMurmurParity`
+(proportions 1 : 3.7 : 5.8 against a measured 1 : 2.8 : 5.6, polarisation 0.981). The centre check
+now allows the roost radius plus the body under the free rules, 0.35 under the old. Look at the shapes
+with `__glMurmurShape`, which posts a side-and-top contact sheet.
+
+## The wingbeat, blended and blurred (as built)
+
+A murmuration's wingbeat is 16 steps baked into the pose texture (`FAUNA_BEAT_STEPS`). The cloud's
+vertex shader in `gl/fauna.js` does two things with them:
+
+- **It blends.** The beat is a phase, not a row: `poseAt` reads the two baked steps either side and
+  mixes them, so a slow flap (a landing, a take-off, a bird near the eye) moves smoothly rather than in
+  sixteen jumps. One extra texture read per mesh vertex; far birds are dots and pay nothing.
+- **It blurs a fast wing.** A starling beats 13 times a second, so a 60 fps frame samples fewer than five
+  points of each beat and a sharp wing at a random point of it reads as flicker across a flock.
+  `uBeatAdv` is how much of a beat passes in one rendered frame (`flapHz × frame time`, from
+  `FAUNA_FRAME_DT` in windshield.js). Past `WING_BLUR_FROM` (0.12 of a beat) the wing is averaged over
+  the frame's exposure with three reads, fully by `WING_BLUR_SPAN` later, and the vertices that travel
+  furthest over a beat (the wings, never the body) fade by up to `WING_BLUR_FADE` (0.45). At 60 fps a
+  starling is about half blurred; at 20 fps, fully.
+
+⚠ **IT IS SUBTLE ON PURPOSE.** In a close shot of 4,000 birds it changes 1.35% of the frame at 60 fps and
+1.62% at 20 fps: the wing tips soften and fade, the bodies do not move. A glide holds a fixed row and is
+never blurred. Adding baked steps would not show at full beat speed: the limit is the frame rate sampling
+a 13 Hz beat, not missing poses. `RENDER_TUNE.wingBlur` 0 draws the sharp wing as shipped (blending stays).
+
+## The starling's day (as built)
+
+`BIRD_TUNE.dusk` (on) is the evening half of the season code on its own: the flock size curve round dusk
+(`roostFactor`) and the evening show (`roostShow`), without the year. `BIRD_TUNE.season` (the year) stays
+off until launch. Both live in `client/shared/birds.js`, so the server's room text and the picture agree.
+
+| time | ordinary flock | the 179,825-bird grand roost at 910,916 |
+|---|---|---|
+| before 05:00 | 30, roosting | 3,597, roosting |
+| 05:00–16:30 | 30, short feeding flights (up about 28% of the time) | 3,597, short hops |
+| 17:00 | 158, gathering | 18,955 |
+| 17:30–18:20 | about 1,000–1,500, **the show** | 126,000–176,000, **the show** |
+| from about 18:20 | down on the roost for the night | down on the roost |
+
+⚠ **THE STARLING'S `dayEnd` IS 18.6, WHEN THE SKY STOPS DRAWING A BIRD.** windshield.js cuts every bird at
+`sky.night` 0.55 (`GOOSE_NIGHT_OFF`), which its SKY table passes at about 18:35. At 21 the gathering peak
+(`dayEnd - roost.lead`) fell at 20:18 and the dive at about 20:45, after the birds had stopped being drawn,
+so the whole evening happened in the dark. ⚠ With the year off, the year may no longer call off the show:
+`roostShow`'s `minSeason` gate now applies only when `season` is on.
+
+## Waves and splits (as built)
+
+⚠ **A MURMURATION LIFTS OFF AND POURS DOWN IN WAVES** (`MURMUR_WAVE_S` 24 in windshield.js, `uWave` in
+`gl/murmur-gpu.js`). Each bird's turn comes off its rank, four waves with a little jitter. Coming down, the
+rest keep wheeling overhead at their own height (`airZ`) until their turn, each with its own settle
+deadline; going up, the rest keep walking on the patch (`hold`, the ground spec at rest) until theirs, and
+the draw takes both passes for a flock that is half down. Measured on 4,000 birds: landing went from all
+down in 3 s to 95% up at 3 s, 50% at 12 s, 2% at 21 s; take-off from 92% up at 3 s to 19% at 3 s, 60% at 12 s,
+all by 21 s. Drawing only: the shared flock is up or down exactly when it always was.
+`RENDER_TUNE.murmurWaves` 0 sends the whole flock at once.
+
+⚠ **A SIDE OF THE FLOCK PEELS OFF AND COMES BACK** (`uSplit`, `SPLIT_EVERY` 17 s, `SPLIT_FOR` 6 s, `split`
+4 in `FREE_RULES`). Birds on the side of the measured centre facing a hashed bearing are pulled that way
+while the rest are not; their neighbours follow, so a piece breaks away as a sub-flock, and when the pull
+ends cohesion and the roost bring it home. ⚠ **By position, never by rank**: a random third of the birds
+pulled away stretches the whole flock rather than splitting it. Off during waves and on the ground.
+Measured in `__glMurmurShape`: three sub-flocks at 13 s, a hook peeling off at 21 s, pieces apart and back
+by 51 s; the checks, grid and parity benches all still pass.
+
+## The hawk strikes (as built)
+
+A stoop (`falconStoop`) is an event shared with the server: it scares the prey. For its three seconds the
+hawk is now also DRAWN diving: `falconDiveState` in windshield.js bends its path onto the prey's measured
+position (`MURMUR_MEASURED` in `panels/murmur.js`, written by the GPU readback) over one second, then back
+onto its circuit over two. `RENDER_TUNE.falconDive` 0 leaves it on its circuit. Gated by
+`scripts/shapes/falcondive.mjs` (`npm run gl:falcondive`, in the push chain and `shapes:smoke`).
 
 ## The numbers came from the birds
 

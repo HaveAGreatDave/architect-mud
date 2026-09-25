@@ -112,7 +112,12 @@ if (inView) {
   }
   if (!T1) fail.push('ground: no moment found when the flock is down — the ground checks cannot run');
   else {
+    // ⚠ LOOK AT THE ROOST, NOT AT WHERE THE CLOUD WAS WIDEST: a longer flight carries the flock several tiles
+    // off its anchor, and a camera aimed at that moment cannot see the patch it lands on
+    const aimed = view.mapCenter;
+    view.mapCenter = { x: A.ax, y: A.ay + 4 };
     const g = paint({ inst: true, at: T1 });
+    view.mapCenter = aimed;
     const G = g.clouds.find((q) => q.key === 'songbird:' + A.ax + ',' + A.ay);
     if (!G) fail.push('ground: the landed flock reached the GL pass as no cloud record — it was handed back to the per-bird path, which draws it thinned to the face budget');
     else {
@@ -126,7 +131,10 @@ if (inView) {
       if (typeof G.groundParts !== 'function' || !Number.isFinite(G.groundParts(3)?.q)) bad.push('groundParts');
       if (!Number.isFinite(G.spread)) bad.push('spread');
       if (bad.length) fail.push(`ground: the landed flock's record carries bad or missing fields (${bad.join(', ')}) — each is a NaN uniform that draws nothing`);
-      if (G.n !== B.flockState(A, T1).n) fail.push(`ground: the landed flock went over as ${G.n} birds against the ${B.flockState(A, T1).n} it has — a roost must keep every bird it had in the air`);
+      // ⚠ AGAINST THE SAME FLOCK IN THE AIR AT THE SAME HOUR, not against flockState with no clock: the dusk
+      // curve (BIRD_TUNE.dusk) sizes a flock by the time of day, and a size asked for with no hour is its dusk peak.
+      const airN = (gpu.clouds.find((q) => q.key === G.key) || {}).n;
+      if (G.n !== airN) fail.push(`ground: the landed flock went over as ${G.n} birds against the ${airN} it had in the air — a roost must keep every bird it had in the air`);
     }
     if (g.groundStarlings) fail.push(`ground: ${g.groundStarlings} landed starlings also went through as per-bird records — the per-bird loop ran for a GPU flock`);
     const h = paint({ inst: false, at: T1 });

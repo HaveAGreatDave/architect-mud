@@ -45,7 +45,7 @@ import { bodyTell } from "../dreamscape.js";
 import { signalLamp, junctionOffset, isJunction, LAMP_WORD } from "../../../client/shared/traffic.js";
 // The geese, on exactly the same footing as the signals above: one answer, two surfaces.
 import { flockAt, flockState, gooseHabitat, gooseDaylight, birdDaylight, speciesAt, placeOf, habitatState, skeinForm, perchedNow, FORM_WORDS, SPECIES, doyOf } from "../../../client/shared/birds.js";
-import { getZonePowerStatus, getGameHour, getGameDate, getEnvironmentState } from "../environment.js";
+import { getZonePowerStatus, getGameHour, getGameDate, getEnvironmentState, getBirdClock } from "../environment.js";
 import { mobStatusLabels } from "../effects.js";
 import { sectionFurniture } from "../classify.js";
 import { loggedPanelsSync } from "../presentation.js";
@@ -585,7 +585,7 @@ function phrasesFor(pieces, viewer) {
 		const body =
 			qty > 1
 				? `${countWord(qty).toLowerCase()} ${pluralName(n)}`
-				: namePlural
+				: namePlural || /^the /.test(n)
 					? n
 					: `${/^[aeiou]/i.test(n) ? "an" : "a"} ${n}`;
 		return {
@@ -1103,9 +1103,9 @@ const SONG_DAWN_LINES = [
 // What a room may say is that the bird is up there with a view, because that is true whenever it
 // is true. See the ⚠ on the ground pool: nothing here announces a kill.
 const HAWK_PERCH_LINES = [
-	() => `A hawk is up on the parapet with the whole street in front of it, and it has not moved since you came round the corner.`,
-	() => `There is a hawk on a ledge four floors up. Everything smaller than it has gone quiet and stayed where it is.`,
-	() => `Something is sitting very still on the corner of the roofline, looking down, and it is not a pigeon.`,
+	() => `A hawk sits on top of a dead post out on the flat, facing into the wind, and hasn't moved since you first saw it.`,
+	() => `There's a hawk on the highest thing for a long way round, which isn't very high, watching the ground.`,
+	() => `Something big and brown is hunched on a snag ahead, looking down at the grass rather than at you.`,
 ];
 const HAWK_GROUND_LINES = [
 	() => `A hawk is down on a post, mantling over something, and does not look up as you pass.`,
@@ -1115,6 +1115,26 @@ const HAWK_AIR_LINES = [
 	() => `A hawk is up in a long slow spiral, not beating its wings, going nowhere in particular and getting higher while it does.`,
 	() => `Something big turns overhead on a fixed pair of wings. The smaller birds have gone quiet.`,
 	() => `A hawk hangs a long way up, circling. It has been there a while.`,
+];
+
+// ── THE PEREGRINE ──────────────────────────────────────────────────────────────
+// The city's hunter, and a different animal from the hawk out on the flat: a falcon that treats a
+// tower as a cliff, sits on it most of the day, and takes pigeons out of the air. Always one bird,
+// for the hawk's reason. Nothing here announces a kill, for the hawk's reason too: the stoop is
+// derived on both surfaces and either it is happening now or it is not.
+const PEREGRINE_PERCH_LINES = [
+	() => `A falcon sits on a setback high up the tower, slate-backed and very upright, with the whole street under it.`,
+	() => `There's a peregrine on the corner of a ledge a long way up. The pigeons below haven't noticed it, or they have and are pretending.`,
+	() => `Something small and dark is sitting on the edge of the roofline, very still, facing out. It was there before you arrived.`,
+];
+const PEREGRINE_GROUND_LINES = [
+	() => `A falcon is down on a low wall, plucking something, and a drift of grey feathers is blowing away from it down the street.`,
+	() => `A peregrine stands on the pavement over what's left of a pigeon, and gives you a look that says it has no plans to share.`,
+];
+const PEREGRINE_AIR_LINES = [
+	() => `A falcon goes over the rooftops fast and level, a few quick stiff beats and then a glide, and it's gone behind the next block.`,
+	() => `Something small and sharp-winged is circling high over the street. Every pigeon on it has gone quiet.`,
+	() => `A peregrine hangs on the wind above the towers, wings half closed, looking down.`,
 ];
 
 // ── THE VULTURES ─────────────────────────────────────────────────────────────
@@ -1155,6 +1175,7 @@ const BIRD_LINES = {
 	// reached rather than merely being meaningless: nothing in its habitat table is water, so
 	// `habitatState` only ever answers 'walk' for it.
 	hawk: { walk: HAWK_GROUND_LINES, air: HAWK_AIR_LINES, perch: HAWK_PERCH_LINES },
+	peregrine: { walk: PEREGRINE_GROUND_LINES, air: PEREGRINE_AIR_LINES, perch: PEREGRINE_PERCH_LINES },
 	// ⚠ NO `raft`, for the hawk's reason: nothing in the habitat table is water, so
 	// `habitatState` only ever answers 'walk' and a water pool could never be reached.
 	vulture: { walk: VULTURE_GROUND_LINES, air: VULTURE_AIR_LINES },
@@ -1184,14 +1205,14 @@ function gooseLine(zone) {
 	const habitat = habitatState(sid, placeOf(t, sur.bld, sur.shore));
 	if (!habitat) return "";
 	if (!birdDaylight(sid, getGameHour())) return "";
-	const flock = flockAt(gx, gy, 1, sid);
+	const flock = flockAt(gx, gy, 1, sid, placeOf(t, sur.bld, sur.shore));
 	if (!flock) return "";
 	// ⚠ THE YEAR AND THE HOUR REACH THE SIZE, AND THIS SURFACE MUST HAND OVER THE SAME PAIR THE
 	// WINDOW DOES. A starling's flock is two orders of magnitude bigger at a midwinter dusk than on
 	// a July afternoon — see BIRD_TUNE in birds.js — so handing one surface the season and not the
 	// other is the room saying a cloud of hundreds is going up over a park the windscreen has drawn
 	// with a party of nine on it, which is the disagreement this whole module exists to prevent.
-	const st = flockState(flock, Date.now(), null, { hour: getGameHour(), doy: doyOf(getGameDate()) });
+	const st = flockState(flock, Date.now(), null, { ...getBirdClock(), doy: doyOf(getGameDate()) });
 	const set = BIRD_LINES[sid] || BIRD_LINES.goose;
 	// ⚠ THE DAWN POOL OUTRANKS THE FLOCK'S OWN STATE, which no other species needs. For the other
 	// three the sentence describes what the birds are doing; at first light the whole point is that
