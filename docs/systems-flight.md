@@ -36,7 +36,12 @@
   climate-controlled). Side-effect import; declares no verbs and no hooks.
 - **biomes.js** — overflight biomes.
 - **collateral.js** — ground collateral (crash/strike effects).
-- **livery.js** — aircraft liveries.
+- **livery.js** — aircraft liveries. Besides base, trim, pattern and finish, a livery carries
+  `parts`: a colour per named paint slot of the model's mesh file (`{ ruffDark: '#e2ded6' }`). The
+  server only checks the shape (`cleanParts`); `liveryPalette` in `aircraft3d.js` applies a part to
+  any mesh with a slot of that name, so a new model is paintable part by part with no code. The
+  hangar's Paint page lists the slots straight off the mesh file, and `paintset` carries them as a
+  last `slot:#hex,…` token. A scheme's colour in a mesh file replaces that slot's `alt` sheen too.
 - **snapshot.js** — flight-world snapshot/export helpers.
 
 ## Airfields (live)

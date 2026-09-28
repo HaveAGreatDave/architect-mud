@@ -652,7 +652,9 @@ export function compileMesh(params, { detail = 1, scheme = null } = {}) {
     const slots = {};
     const sch = (scheme && params.schemes && params.schemes[scheme]) || {};
     for (const [k, s0] of Object.entries(params.paints)) {
-      const s = sch[k] ? { ...s0, ...sch[k] } : s0;
+      // A scheme's colour REPLACES the slot's sheen too: keeping the stock `alt` under a new `rgb`
+      // let the mandarin's orange shimmer through Quackhawk Down's white neck.
+      const s = sch[k] ? { ...s0, alt: undefined, ...sch[k] } : s0;
       slots[k] = { name: k, rgb: s.rgb, livery: s.livery || 'base', ...(s.alt ? { alt: s.alt } : {}) };
     }
     for (const f of faces) if (typeof f.paint === 'string') {

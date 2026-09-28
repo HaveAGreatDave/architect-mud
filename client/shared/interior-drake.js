@@ -87,15 +87,26 @@ export const DRAKE_TRIM_NOIR = {
   // The gauges: black faces, gold ink, ivory hands.
   dialFace: [24, 23, 22], dialInk: [214, 172, 82], dialHand: [236, 226, 200],
 };
-// QUACKHAWK DOWN, the special edition: navy leather walls, a deep red floor, white seats piped in red,
-// the walnut and the gold kept. The mode selector is a white plate with navy chips and white names.
+// QUACKHAWK DOWN, the special edition, and it is dressed like one: red, white and blue with the
+// brightwork in CHROME. Every bezel, rim, rule and letter that is gold on the stock Drake is polished
+// chrome here (its own `gold` array, registered below as chrome); the walnut becomes a deep navy
+// candy lacquer with a hard clear coat; the seats are white hide piped in red on navy leather walls
+// over a red carpet; the dials are white faces with navy numerals and red needles; and the nameplate
+// is a navy enamel badge under a glass-thick coat, chrome letters on it and a red and white rule.
 export const DRAKE_TRIM_QUACKHAWK = {
   ...DRAKE_TRIM, quackhawk: true,
-  leather: [26, 38, 88], leatherDk: [18, 28, 66],
-  carpet: [120, 22, 32], carpetEdge: [90, 16, 24],
-  cream: [238, 236, 230], creamDk: [214, 212, 206],
-  ruff: [178, 30, 42],
-  plate: [232, 232, 228], chip: [26, 40, 96], chipInk: [242, 240, 234],
+  leather: [26, 38, 92], leatherDk: [18, 28, 70],
+  carpet: [132, 20, 32], carpetEdge: [96, 14, 24],
+  cream: [244, 243, 238], creamDk: [220, 219, 214],
+  ruff: [190, 26, 40],
+  gold: [214, 220, 228], goldDk: [132, 140, 152],                 // chrome, not gold
+  walnut: [20, 34, 92], walnutDk: [12, 22, 64], burl: [30, 48, 124], // navy candy lacquer
+  enamel: [10, 18, 56],                                            // the nameplate's navy enamel
+  ivory: [248, 248, 244], blued: [196, 22, 38],
+  plate: [236, 236, 232], chip: [26, 40, 100], chipInk: [244, 242, 236],
+  console: [14, 22, 60],
+  dialFace: [246, 246, 242], dialInk: [18, 28, 84], dialHand: [200, 22, 38],
+  stripeRed: [200, 24, 40], stripeWhite: [246, 246, 242],
 };
 // ⚠ `T` IS SWAPPED, NOT PASSED: every part in this file reads it, so the profile builder and the
 // fit-out set it for the trim of the profile they are building (drakeProfile's second argument).
@@ -140,7 +151,18 @@ for (const c of [T.walnut, T.walnutDk, T.burl]) TEXTURE.set(c, 'wood');   // the
   TEXTURE.set(N.carpet, 'carpet'); TEXTURE.set(N.carpetEdge, 'carpet');
   SHINY.set(N.chip, { spec: 0.55, pow: 60, coat: 0.45 }); SHINY.set(N.plate, { spec: 0.5, pow: 40, coat: 0.5 });
   SHINY.set(N.console, { spec: 0.45, pow: 40, coat: 0.5 }); TEXTURE.set(N.console, 'fabric');
+}{ // Quackhawk Down: mirror chrome for every stock-gold part, candy-lacquered navy where the walnut was,
+  // a deep glass coat on the enamel badge, satin white and navy hide, and the red and white rule.
+  const Q = DRAKE_TRIM_QUACKHAWK;
+  SHINY.set(Q.gold, { spec: 1, pow: 48, ramp: [[70, 76, 88], [250, 252, 255]], glint: 0.7, albedo: [238, 242, 248], envK: 0.95 });
+  SHINY.set(Q.goldDk, { spec: 0.8, pow: 30, ramp: [[40, 44, 52], [200, 206, 216]], glint: 0.4, albedo: [220, 226, 234], envK: 0.8 });
+  for (const c of [Q.walnut, Q.walnutDk, Q.burl, Q.console]) SHINY.set(c, { spec: 0.85, pow: 80, coat: 0.75 });
+  SHINY.set(Q.enamel, { spec: 1, pow: 110, coat: 0.9 });
+  for (const c of [Q.stripeRed, Q.stripeWhite]) SHINY.set(c, { spec: 0.9, pow: 90, coat: 0.8 });
+  for (const c of [Q.leather, Q.leatherDk, Q.cream, Q.creamDk]) { SHINY.set(c, { spec: 0.32, pow: 16, coat: 0.16 }); TEXTURE.set(c, 'leather'); }
+  TEXTURE.set(Q.carpet, 'carpet'); TEXTURE.set(Q.carpetEdge, 'carpet');
 }
+
 {
   const Q = DRAKE_TRIM_QUACKHAWK, N = DRAKE_TRIM_NOIR;   // N: the noir lines that follow share this block
   for (const c of [Q.leather, Q.leatherDk, Q.cream, Q.creamDk]) { SHINY.set(c, { spec: 0.28, pow: 14, coat: 0.12 }); TEXTURE.set(c, 'leather'); }
@@ -756,6 +778,13 @@ function nameplate_(Pn, ca, cb, h, name = 'DRAKE', maxW = Infinity) {
   Pn.rect(i0, j0, i1, j0 + t, T.gold, 0.2, 0.0035); Pn.rect(i0, j1 - t, i1, j1, T.gold, 0.2, 0.0035);
   Pn.rect(i0, j0, i0 + t, j1, T.gold, 0.2, 0.0035); Pn.rect(i1 - t, j0, i1, j1, T.gold, 0.2, 0.0035);
   plated(Pn, name, ca, cb, h);
+  // The special edition's badge carries a red and white rule under the letters, inside the chrome.
+  if (T.stripeRed) {
+    const r0 = ca - W / 2 - pad * 0.2, r1 = ca + W / 2 + pad * 0.2, y = cb - h * 0.62, th = h * 0.07;
+    Pn.rect(r0, y - th * 1.5, r1, y - th * 0.5, T.stripeRed, 0.15, 0.0034);
+    Pn.rect(r0, y - th * 0.5, r1, y + th * 0.5, T.stripeWhite, 0.15, 0.0034);
+    Pn.rect(r0, y + th * 0.5, r1, y + th * 1.5, T.stripeRed, 0.15, 0.0034);
+  }
   // A lozenge either side of the name.
   for (const s of [-1, 1]) {
     const x = ca + s * (W / 2 + pad * 0.55);
@@ -849,12 +878,13 @@ function woodTone(c, dk) {
 }
 for (const c of [...GRAIN, STREAK]) TEXTURE.set(c, 'wood');
 function woodGrain_(Pn, a0, b0, a1, b1, lift, o = {}) {
-  if (T.noir) {
+  // Darkwing's carbon and Quackhawk's navy lacquer are one flat coat with a fine inlay line, not a grain.
+  if (T.noir || T.quackhawk) {
     const dk = o.dark ?? 1;
     Pn.plate([[a0, b0], [a1, b0], [a1, b1], [a0, b1]], dk < 0.8 ? T.walnutDk : T.walnut, 0, lift);
-    const w = 0.0008, e = 0.004;
+    const w = T.stripeRed ? 0.0016 : 0.0008, e = 0.004;
     if (a1 - a0 > 0.03 && b1 - b0 > 0.02) for (const q of [[a0 + e, b0 + e, a1 - e, b0 + e + w], [a0 + e, b1 - e - w, a1 - e, b1 - e], [a0 + e, b0 + e, a0 + e + w, b1 - e], [a1 - e - w, b0 + e, a1 - e, b1 - e]])
-      Pn.plate([[q[0], q[1]], [q[2], q[1]], [q[2], q[3]], [q[0], q[3]]], T.goldDk, 0.05, lift + 0.0004);
+      Pn.plate([[q[0], q[1]], [q[2], q[1]], [q[2], q[3]], [q[0], q[3]]], T.stripeRed || T.goldDk, 0.05, lift + 0.0004);
     return;
   }
   const NB = Math.max(3, Math.min(20, Math.round((b1 - b0) / GRAIN_BAND_M)));
@@ -910,8 +940,8 @@ function veneer_(K, c, r, u, hr, hu, o) {
 }
 // A raised gold bead round the panel: four strips standing off it at an angle, each facing a
 // different way, so one edge or another flashes as the aircraft turns against the sun.
-function goldBead(K, Pn, hw, hh, hdr) {
-  const pts = [[-hw, -hh], [hw, -hh], [hw, hh + hdr], [-hw, hh + hdr]];
+function goldBead(K, Pn, hw, hh, hdr, ftr = 0) {
+  const pts = [[-hw, -hh - ftr], [hw, -hh - ftr], [hw, hh + hdr], [-hw, hh + hdr]];
   for (let i = 0; i < 4; i++) {
     const A = pts[i], B = pts[(i + 1) % 4];
     const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, L = Math.hypot(mx, my) || 1;
@@ -1369,7 +1399,7 @@ function drakeFascia(K, L, { dxL, dxR, dY0, fl, zTop, rud, cons }) {
   }
 
   // The kick plate: brass along the carpet, where a shoe would scuff the wood.
-  for (const [a, b] of [[dxL, -hw], [hw, dxR]]) K.box(a, y - 0.006, fl, b, y, fl + 0.05, 'dash', 0.3, [176, 132, 70]);
+  for (const [a, b] of [[dxL, -hw], [hw, dxR]]) K.box(a, y - 0.006, fl, b, y, fl + 0.05, 'dash', 0.3, T.quackhawk ? T.gold : [176, 132, 70]);
   // And the carpet in front of the whole dash is in its shadow.
   shade([[dxL, y - 0.12, fl + 0.003], [dxR, y - 0.12, fl + 0.003], [dxR, y, fl + 0.003], [dxL, y, fl + 0.003]], [0, 0, 1], 2);
 }
@@ -1423,7 +1453,12 @@ const DW = DRAKE_WHEEL;
 const DW_NOIR = { carbon: [22, 22, 25], weave: [34, 34, 38], rubber: [16, 16, 18] };
 TEXTURE.set(DW_NOIR.carbon, 'fabric'); TEXTURE.set(DW_NOIR.rubber, 'leather');
 SHINY.set(DW_NOIR.carbon, { spec: 0.55, pow: 46, coat: 0.55 });
-const dwOf = () => (T.noir ? { ...DW, ...DW_NOIR } : DW);
+// Quackhawk Down: a navy candy-lacquer body, white hide grips with a red bead, and chrome where the gold was.
+const QH_CHROME = DRAKE_TRIM_QUACKHAWK.gold;
+const DW_QH = { carbon: DRAKE_TRIM_QUACKHAWK.walnut, weave: DRAKE_TRIM_QUACKHAWK.burl, rubber: DRAKE_TRIM_QUACKHAWK.cream, bead: QH_CHROME,
+  buttons: DW.buttons.map(b => ({ ...b, rgb: b.rgb[0] === 230 ? QH_CHROME : b.rgb[1] === 150 ? [26, 40, 110] : b.rgb })),
+  knobs: DW.knobs.map((k, i) => ({ ...k, rgb: i ? [200, 24, 40] : QH_CHROME })), wheels: DW.wheels.map(w => ({ ...w, rgb: QH_CHROME })) };
+const dwOf = () => (T.noir ? { ...DW, ...DW_NOIR } : T.quackhawk ? { ...DW, ...DW_QH } : DW);
 // The yoke's figure and the grips' perforation are drawn per pixel by the GL solids pass rather than as
 // geometry (see the weave and the grips in drakeFit): the yoke is rebuilt every frame it moves.
 TEXTURE.set(DW.carbon, 'wood'); TEXTURE.set(DW.rubber, 'leather');
@@ -1670,22 +1705,23 @@ export function drakeFit(P, live, push) {
   // ⚠ ITS TOP STAYS UNDER THE EYE LINE: the forward view is the right eye, just to the right of
   // this, and a pod whose header rose past z 0 would stand across it. The gate casts the ray.
   const po = [0, 0.49, -0.208];   // centred under the screen, straight ahead of the pilot
-  const HW = 0.30, HH = 0.048, HDR = 0.07;          // HDR: the header band over the gauges, for the name
-  const oc = [0, HDR / 2];                            // the housing is centred on gauges + header
-  const back = panelCorners(add(po, [0, 0, HDR / 2]), HW + 0.02, HH + HDR / 2 + 0.02, 0.06);
-  const front = panelCorners(add(po, [0, 0, HDR / 2]), HW + 0.02, HH + HDR / 2 + 0.02, -0.004);
+  // HDR: the header band over the gauges, the name's ALONE, so a long one ('QUACKHAWK DOWN') reads
+  // the full width. FTR: the strip under the gauges, where the fuel bar and the jewel lamps live.
+  const HW = 0.30, HH = 0.048, HDR = 0.07, FTR = 0.03;
+  const mid = (HDR - FTR) / 2, half = HH + (HDR + FTR) / 2;   // the housing spans footer + gauges + header
+  const back = panelCorners(add(po, [0, 0, mid]), HW + 0.02, half + 0.02, 0.06);
+  const front = panelCorners(add(po, [0, 0, mid]), HW + 0.02, half + 0.02, -0.004);
   for (let i = 0; i < 4; i++) {
     const j = (i + 1) % 4, n = norm(cross(sub(front[j], front[i]), sub(back[i], front[i])));
     K.face([front[i], front[j], back[j], back[i]], dot(n, front[i]) > 0 ? mul(n, -1) : n, 'dash', 0.1, T.walnutDk, 0);
   }
-  void oc;
   const Pn = facingPanel(K, po);
-  Pn.plate(roundRect(-HW - 0.012, -HH - 0.012, HW + 0.012, HH + HDR + 0.012, 0.03), T.gold, 0.05, 0);
-  Pn.plate(roundRect(-HW, -HH, HW, HH + HDR, 0.024), T.burl, 0, 0.001);
-  woodGrain(Pn, -HW + 0.012, -HH + 0.012, HW - 0.012, HH + HDR - 0.012, 0.0014);
-  goldBead(K, Pn, HW + 0.006, HH + 0.006, HDR);
+  Pn.plate(roundRect(-HW - 0.012, -HH - FTR - 0.012, HW + 0.012, HH + HDR + 0.012, 0.03), T.gold, 0.05, 0);
+  Pn.plate(roundRect(-HW, -HH - FTR, HW, HH + HDR, 0.024), T.burl, 0, 0.001);
+  woodGrain(Pn, -HW + 0.012, -HH - FTR + 0.012, HW - 0.012, HH + HDR - 0.012, 0.0014);
+  goldBead(K, Pn, HW + 0.006, HH + 0.006, HDR, FTR);
   // The name across the top of the gauges: the one thing on the panel that is not an instrument.
-  nameplate(Pn, 0, HH + HDR / 2 - 0.004, 0.026, (live && live.plate) || (T.quackhawk ? 'QUACKHAWK DOWN' : T.noir ? 'DARKWING' : 'DRAKE'), 2 * HW - 0.04);
+  nameplate(Pn, 0, HH + HDR / 2 - 0.004, 0.026, (live && live.plate) || (T.quackhawk ? 'QUACKHAWK DOWN' : T.noir ? 'DARKWING' : 'DRAKE'), 2 * HW - 0.03);
   // ⚠ ONE ROW OF SEVEN, so the pod is short enough to leave the yoke room under it in the forward
   // view. It was two rows of four and reached the bottom of the frame on its own.
   const R = 0.036, gx = (i) => -0.255 + i * 0.085;
@@ -1697,8 +1733,9 @@ export function drakeFit(P, live, push) {
   Pn.compass(gx(4), 0, R, hdg); goldRim(Pn, gx(4), 0, R);
   luxDial(Pn, gx(5), 0, R, clamp(0.5 + vsi / 3000, 0, 1), { a0: Math.PI, sweep: Math.PI * 1.8, ticks: 8, major: 2 });
   modeDial(Pn, gx(6), 0, R, wings, fold);
-  // Fuel along the left of the header, and the jewel lamps along its right.
-  const hv = HH + HDR / 2 - 0.004, fz = fuel < 0.15 ? C.red : C.green;
+  // Fuel along the left of the footer, and the jewel lamps along its right: off the header, so
+  // nothing sits beside the name.
+  const hv = -HH - FTR / 2 + 0.002, fz = fuel < 0.15 ? C.red : C.green;
   Pn.rect(-0.27, hv - 0.007, -0.13, hv + 0.007, C.black, 0, 0.003);
   Pn.rect(-0.268, hv - 0.005, -0.268 + 0.136 * fuel, hv + 0.005, fz, 0.85, 0.005);
   [[fuel < 0.15, C.amber], [rpm < 0.85 && powered && fold < 0.5, C.red], [!!L.stall, C.red], [!powered, C.amber]]

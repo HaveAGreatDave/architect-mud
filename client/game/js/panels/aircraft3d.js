@@ -79,7 +79,11 @@ export function liveryPalette(lv, cls = null) {
   // slots alone whatever base and trim say, and every other pattern paints over them.
   const drakeBare = cls === 'drake' && (!lv.pattern || lv.pattern === 'bare');
   const factory = noLivery || lv.pattern === 'factory' || (!lv.base && !lv.trim && !lv.pattern) || stockGrey || drakeBare;
-  return { base, trim, ground, hw, deck, bright, glow, glass, chrome: lv.chrome == null ? 1 : (lv.chrome ? 1 : 0),
+  // Per-part paint: `parts` maps a mesh paint slot's NAME to a colour. It knows no model; a slot this
+  // mesh doesn't have is simply never read, which is what lets one livery shape paint any vehicle.
+  let parts = null;
+  if (lv.parts && typeof lv.parts === 'object') for (const [k, v] of Object.entries(lv.parts)) { const c = hex2rgb(v); if (c) (parts ||= {})[k] = c; }
+  return { parts, base, trim, ground, hw, deck, bright, glow, glass, chrome: lv.chrome == null ? 1 : (lv.chrome ? 1 : 0),
     finish: lv.finish || 'satin', fmul: FINISH_MUL[lv.finish] ?? 1.0, pat, factory };
 }
 // ── A STORED PAINT → A LIVERY, ONCE ──────────────────────────────────────────
@@ -254,6 +258,9 @@ export function faceBaseRgb(face, pal) {
   // colours on purpose: a painted landing leg is a leg somebody painted.
   if (face.paint && typeof face.paint === 'object') {
     const s = face.paint;
+    // A part the owner painted by name beats everything: the scheme, the pattern, fixed or not.
+    const own = pal.parts && pal.parts[s.name];
+    if (own) return finishCoat(own, pal, face);
     if (pal.factory || s.livery === 'fixed') return finishCoat(s.rgb, pal, face);
     return finishCoat(s.livery === 'trim' ? pal.trim : pal.base, pal, face);
   }
@@ -6518,7 +6525,7 @@ export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = nul
 // grounded in a real space.
 const FLOOR_Z = -0.27;   // ground plane, just under the wheels
 function drawInspectBackdrop(ctx, w, h, venue = null, sky = null) {
-  if (venue === 'helipad') {
+  if (venue === 'helipad' || venue === 'ramp') {
     // Open sky over the pad — the live sky/weather palette, sea-dark toward the deck.
     const pal = skyPalette(sky), g = ctx.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, rgbStr(pal.top)); g.addColorStop(0.5, rgbStr(pal.hor)); g.addColorStop(1, rgbStr(mix3(pal.hor, [8, 12, 18], 0.7)));
@@ -6752,6 +6759,65 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
   ctx.strokeStyle = 'rgba(36,44,52,0.95)'; ctx.lineWidth = 4;                  // heavy door frame
   ctx.beginPath(); ctx.moveTo(DP[0].sx, DP[0].sy); for (let i = 1; i < DP.length; i++) ctx.lineTo(DP[i].sx, DP[i].sy); ctx.closePath(); ctx.stroke();
 }
+// ── Walk-inspect: the open ramp ───────────────────────────────────────────────
+// A craft parked outside (no hangar, or not stored in it) is worked on where she stands: a
+// concrete apron under the live sky, a painted tie-down box around her, a taxi line out to a
+// runway along one side with its edge lights, and a hazy tree-and-shed line on the horizon.
+// Same free `proj` as the model, drawn first so she sits on it.
+function drawRampRoom(ctx, proj, sky) {
+  const F0 = FLOOR_Z, pal = skyPalette(sky), night = pal.night;
+  const poly = (pts, style) => {
+    const cl = clipNear(pts, proj); if (cl.length < 3) return;
+    const P = cl.map(p => proj(p[0], p[1], p[2]));
+    ctx.beginPath(); ctx.moveTo(P[0].sx, P[0].sy); for (let i = 1; i < P.length; i++) ctx.lineTo(P[i].sx, P[i].sy); ctx.closePath();
+    ctx.fillStyle = typeof style === 'function' ? style(P) : style; ctx.fill();
+  };
+  const flat = (f0, g0, f1, g1, style, dz = 0) => poly([[f0, g0, F0 + dz], [f1, g0, F0 + dz], [f1, g1, F0 + dz], [f0, g1, F0 + dz]], style);
+  // Grass out to the horizon, then the concrete.
+  flat(-60, -60, 60, 60, (P) => {
+    const ys = P.map(q => q.sy), g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
+    g.addColorStop(0, rgbStr(mix3(pal.hor, [40, 52, 36], 0.6))); g.addColorStop(1, rgbStr(mix3([46, 60, 38], [10, 14, 12], night * 0.8)));
+    return g;
+  });
+  const conc = mix3([112, 114, 110], [26, 28, 32], night * 0.75);
+  flat(-9, -5, 9, 5, rgbStr(conc));
+  // The runway along the left, with its centreline and edge lights.
+  const asph = mix3([58, 60, 62], [16, 17, 20], night * 0.75);
+  flat(-40, -11, 40, -6.5, rgbStr(asph), 0.001);
+  for (let f = -38; f < 38; f += 3) flat(f, -8.84, f + 1.6, -8.66, 'rgba(236,236,230,0.8)', 0.002);
+  const lit = night > 0.35;
+  for (let f = -36; f <= 36; f += 4) for (const g of [-11.1, -6.4]) {
+    const c = proj(f, g, F0 + 0.03); if (c.z <= ROOM_NEAR) continue;
+    const r = Math.max(1, Math.min(6, 10 / c.z));
+    ctx.fillStyle = lit ? 'rgba(255,238,190,0.95)' : 'rgba(210,210,200,0.7)';
+    ctx.beginPath(); ctx.arc(c.sx, c.sy, r, 0, 7); ctx.fill();
+  }
+  // Tie-down box and the taxi line out of it.
+  const box = 'rgba(232,196,70,0.85)';
+  flat(-2.2, -1.9, 2.2, -1.82, box, 0.002); flat(-2.2, 1.82, 2.2, 1.9, box, 0.002);
+  flat(-2.2, -1.9, -2.12, 1.9, box, 0.002); flat(2.12, -1.9, 2.2, 1.9, box, 0.002);
+  flat(2.2, -0.04, 7, 0.04, box, 0.002); flat(6.96, -6.5, 7.04, 0.04, box, 0.002);
+  // A horizon line of trees and sheds, tangential billboards so it wraps as you turn.
+  for (let i = 0; i < 26; i++) {
+    const a = i / 26 * Math.PI * 2, R = 34 + hash01(i * 4.1) * 6;
+    const cf = Math.cos(a) * R, cg = Math.sin(a) * R, tf = -Math.sin(a), tg = Math.cos(a);
+    const hw = 1.6 + hash01(i * 2.3) * 2.4, top = F0 + 0.8 + hash01(i * 6.7) * 1.8;
+    const P = [[cf - tf * hw, cg - tg * hw, F0], [cf + tf * hw, cg + tg * hw, F0], [cf + tf * hw, cg + tg * hw, top], [cf - tf * hw, cg - tg * hw, top]].map(p => proj(p[0], p[1], p[2]));
+    if (P.some(q => q.z <= ROOM_NEAR)) continue;
+    ctx.fillStyle = rgbStr(mix3(pal.hor, [30, 38, 32], 0.45));
+    ctx.beginPath(); ctx.moveTo(P[0].sx, P[0].sy); for (let k = 1; k < 4; k++) ctx.lineTo(P[k].sx, P[k].sy); ctx.closePath(); ctx.fill();
+  }
+  // A soft contact shadow under her.
+  const o = proj(0, 0, F0);
+  if (o.z > ROOM_NEAR) {
+    const rr = Math.max(30, Math.min(220, 260 / o.z));
+    const rg = ctx.createRadialGradient(o.sx, o.sy, 1, o.sx, o.sy, rr);
+    rg.addColorStop(0, 'rgba(0,0,0,0.35)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save(); ctx.translate(o.sx, o.sy); ctx.scale(1, 0.35); ctx.translate(-o.sx, -o.sy);
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(o.sx, o.sy, rr, 0, 7); ctx.fill(); ctx.restore();
+  }
+}
+
 // ── Walk-inspect: the Echelon's open boat helipad ─────────────────────────────
 // The yacht variant of drawInspectRoom — no roof, no walls. An open non-slip deck
 // disc (painted 'H' + ring of breathing red pad lights), a low guard rail around the
@@ -7315,9 +7381,11 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     eyeW = [camDist * cosE, 0, camDist * sinE];   // orbit eye in (fx,gy,hz) space: solves camZ = camDist, camY = 0
   }
   const helipad = venue === 'helipad';
+  const ramp = venue === 'ramp';
   if (floor && cam && helipad) drawHelipadRoom(ctx, proj, sky, w, h);   // walk view: an open boat helipad (deck draws its own ground)
+  else if (floor && cam && ramp) drawRampRoom(ctx, proj, sky);         // parked outside: open apron under the live sky
   else if (floor && cam) drawInspectRoom(ctx, proj, sky);              // walk view: a real 3D hangar around you, live sky through the bay door
-  if (floor && !(cam && helipad)) drawFloorGrid(ctx, proj);   // 3D ground under the plane (the helipad draws its own deck instead)
+  if (floor && !(cam && (helipad || ramp))) drawFloorGrid(ctx, proj);   // 3D ground under the plane (the pad and the apron draw their own)
   const drawn = [];
   for (const face of faces) {
     if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
@@ -8174,6 +8242,63 @@ export function drawHangarFloorBay(ctx, opts) {
   // effects layer on the concrete under the machine. Aircraft callers ignore it, as they always did.
   return opts.cls ? paintTurntable(ctx, opts) : null;
 }
+
+// ── THE PAINT BOOTH: a lazy susan under three spotlights ──────────────────────
+// Any vehicle on a turning platform in a white booth, for choosing a paint job without flying it.
+// It's a stage, not a place: the booth is drawn in 2-D behind the turntable model and the platform
+// sits where that model says its ground is (last frame's anchor, so the disc tracks the craft's size).
+// Any class drawHangarFloorBay can draw can stand on it — aircraft, trucks, boats.
+const _boothAnchor = new WeakMap();
+export function drawPaintBooth(ctx, opts) {
+  const { w, h } = opts, t = opts.time || 0;
+  ctx.clearRect(0, 0, w, h);
+  // The booth: pale walls going up into shadow, and a glossy floor.
+  const hor = h * 0.58;
+  let g = ctx.createLinearGradient(0, 0, 0, hor);
+  g.addColorStop(0, '#15181e'); g.addColorStop(0.55, '#3a414c'); g.addColorStop(1, '#8e98a6');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, hor);
+  // Light panels in the back wall.
+  for (let i = 0; i < 6; i++) {
+    const x = w * (0.08 + i * 0.15), pw = w * 0.1;
+    const lg = ctx.createLinearGradient(0, hor * 0.2, 0, hor * 0.85);
+    lg.addColorStop(0, 'rgba(235,242,255,0.05)'); lg.addColorStop(1, 'rgba(235,242,255,0.28)');
+    ctx.fillStyle = lg; ctx.fillRect(x, hor * 0.22, pw, hor * 0.62);
+  }
+  g = ctx.createLinearGradient(0, hor, 0, h);
+  g.addColorStop(0, '#6d7581'); g.addColorStop(1, '#1b1f25');
+  ctx.fillStyle = g; ctx.fillRect(0, hor, w, h - hor);
+  // The platform, where the model's ground was last frame.
+  const an = _boothAnchor.get(ctx.canvas) || { sx: w / 2, sy: h * 0.66 };
+  const R = Math.min(w * 0.4, h * 0.62), ry = R * 0.2;
+  const disc = (r, fill) => { ctx.beginPath(); ctx.ellipse(an.sx, an.sy, r, r * ry / R, 0, 0, 7); ctx.fillStyle = fill; ctx.fill(); };
+  disc(R * 1.08, 'rgba(0,0,0,0.45)');
+  const dg = ctx.createLinearGradient(an.sx - R, 0, an.sx + R, 0);
+  dg.addColorStop(0, '#2a2f37'); dg.addColorStop(0.5, '#5b6470'); dg.addColorStop(1, '#2a2f37');
+  disc(R, dg);
+  // Chrome rim, a ring of lights running round it, and the reflection of the booth in the top.
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(230,236,246,0.85)';
+  ctx.beginPath(); ctx.ellipse(an.sx, an.sy, R, ry, 0, 0, 7); ctx.stroke();
+  for (let i = 0; i < 28; i++) {
+    const a = i / 28 * Math.PI * 2 + t * 0.6, x = an.sx + Math.cos(a) * R * 0.97, y = an.sy + Math.sin(a) * ry * 0.97;
+    const on = (i + Math.floor(t * 6)) % 4 === 0;
+    ctx.fillStyle = on ? 'rgba(255,240,200,0.95)' : 'rgba(255,240,200,0.28)';
+    ctx.beginPath(); ctx.arc(x, y, on ? 2.4 : 1.6, 0, 7); ctx.fill();
+  }
+  ctx.save(); ctx.globalAlpha = 0.18; disc(R * 0.7, 'rgba(255,255,255,0.35)'); ctx.restore();
+  // The vehicle, turning.
+  const res = drawHangarFloorBayOnto(ctx, { ...opts, flat: true, yaw: t * 0.35 + (opts.yaw || 0), elev: opts.elev ?? 0.28, zoom: opts.zoom ?? 1.2 });
+  if (res?.ground) _boothAnchor.set(ctx.canvas, { sx: res.ground.sx, sy: res.ground.sy });
+  // Three spotlights from above, added over everything.
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const [fx, tint] of [[0.2, '255,236,210'], [0.5, '235,242,255'], [0.8, '255,236,210']]) {
+    const sx = w * fx, cg = ctx.createLinearGradient(0, 0, 0, an.sy);
+    cg.addColorStop(0, `rgba(${tint},0.22)`); cg.addColorStop(1, `rgba(${tint},0)`);
+    ctx.fillStyle = cg; ctx.beginPath(); ctx.moveTo(sx - 8, 0); ctx.lineTo(sx + 8, 0); ctx.lineTo(an.sx + (sx - w / 2) * 0.25 + R * 0.5, an.sy); ctx.lineTo(an.sx + (sx - w / 2) * 0.25 - R * 0.5, an.sy); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+// drawHangarFloorBay clears the canvas first; the booth has already drawn, so this skips the clear.
+function drawHangarFloorBayOnto(ctx, opts) { return opts.cls ? paintTurntable(ctx, opts) : null; }
 
 // ── The hangar FLOOR: one continuous 3D room, every craft parked in it ────────
 // A single shared camera (not one camera per plane) looks across a raked showroom
