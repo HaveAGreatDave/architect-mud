@@ -226,10 +226,14 @@ export default async function regress({ check, getPlayer }) {
     check('a lit block keeps burning between the two thresholds',
       ledger.read(key).heat > 50, `${ledger.read(key).heat}`);
 
+    // ⚠ Not `heat === 50`. Decay is on read and runs on the wall clock, so one
+    // millisecond between force and read takes 50 to 49.99997. That passed only
+    // when both landed in the same millisecond, and failed when they didn't.
     ledger.force(key, { grip: 40, heat: 50, pressure: IGNITE_LO - 1 });
     ledger.step(roster);
-    check('…and goes out once the grievance is spent', ledger.read(key).heat === 50,
-      `${ledger.read(key).heat}`);
+    const out = ledger.read(key);
+    check('…and goes out once the grievance is spent', !out.lit && out.heat <= 50 && out.heat > 49.9,
+      `lit=${out.lit} heat=${out.heat}`);
 
     // ⚠ THE SILENT-DEATH INVARIANT. Pressure approaches
     // `restingGrip * RATE.pressure / decayPerTick`, and the resting grip is
