@@ -210,10 +210,10 @@ unlikely. Per swing:
 | 12 | 47.2% | 22.6% | 3.9% |
 | 18 | 71.8% | 58.3% | 28.5% |
 
-**The weapon decides lethal vs non-lethal.** With `clubs` or `fists` a successful called head shot is
-a **knockout**, not a kill — the stealth system's rule reused verbatim (*"swinging a blade at a skull
-is not a knockout attempt, it is a killing"*), so the two routes to unconsciousness agree and no new
-verb is needed. You chose the outcome when you picked up a bat instead of a knife. See
+**The weapon decides lethal vs non-lethal.** With `clubs` or `fists` a successful called head shot
+knocks the target out instead of killing them. It's the stealth system's rule reused as is: a blade
+to the skull is a killing, never an attempt to knock someone out. So the two routes to
+unconsciousness agree and no new verb is needed. You chose the outcome when you picked up a bat instead of a knife. See
 [systems-stealth.md](systems-stealth.md#the-rule-that-shapes-everything) for why this does not
 contradict "combat is to the death".
 

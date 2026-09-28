@@ -179,21 +179,23 @@ When you add a plugin or a verb, add `plugins/<name>/regress.js` (default export
 
 ### Reading a run
 
-- **The pre-push hook runs `npm run test:regress`**, the whole `pretest:regress` chain included. Add a check to `pretest:regress` and the push gate gets it.
-- **No trailing `N/N passed` line means the run was killed, not that a test failed.** Re-run standalone before looking for a bug. A complete run is about 9,500 lines.
+- **The pre-push hook runs `npm run test:regress`**, `pretest:regress` included. Add a gate to [scripts/gates/manifest.mjs](scripts/gates/manifest.mjs) and the push gate gets it.
+- **No trailing `N/N passed` line means the run was killed, not that a test failed.** Re-run standalone before looking for a bug.
+- **A run is quiet.** A failing check prints when it fails; a passing one doesn't. Each layer and each plugin suite ends with one line of counts and CPU, and the run ends with the five slowest sections and `N/N passed`: about 200 lines in all. `npm run test:regress -- --verbose` prints every check (about 11,000 lines), and `node scripts/gates/run.mjs --verbose` prints every gate's output.
 - **Don't read the exit code through a pipe.** `npm run test:regress 2>&1 | tail -4` reports `tail`'s status. Redirect instead: `npm run test:regress > /tmp/reg.txt 2>&1; echo $?`, then read the `N/N passed` line or look for a `— FAILURES (n) —` block.
 - **Never run two regress suites at once.** `pretest:regress` runs `scripts/kill-orphans.js`, which kills any running `tests/regress.js`, so the second run silently kills the first.
 - **`EMAXCONNSESSION`** means something is holding Neon pool connections (pool size 15), usually an orphaned `node server/index.js`. `kill-orphans.js` runs before every regress and before `npm run dev`; run it by hand with `npm run kill:orphans`. It's Windows-only, only targets this repo's entrypoints (`server/index.js`, `tests/regress.js`, `sync-commits.js`, `scripts/dev.mjs`, `tools/studio/serve.mjs`, `tools/modelshop/serve.mjs`), and never runs in production. If it can't reach the process, wait about 90 seconds.
 
 ### Checks in `pretest:regress`
 
-The chain mirrors CI order (lint, import, regress).
+`pretest:regress` is `node scripts/gates/run.mjs`: every gate in [scripts/gates/manifest.mjs](scripts/gates/manifest.mjs), run side by side, one per core up to 8. The group scripts (`shapes:smoke`, `client:smoke`, `docs:lint`, `a11y:smoke`, `voice:smoke`, `audio:smoke`) each run one group from the same list. **To add a check, add its path to its group in the manifest**, and the push gate and the group script both get it. `npm run gates:list` prints the list.
 
-**Shape gates: two lists.** `pretest:regress` doesn't call `npm run shapes:smoke`; it lists the shape scripts itself (`node scripts/shapes/smoke.mjs && node scripts/shapes/freecam.mjs && …`). **Add every new check to both** the `pretest:regress` chain and the matching npm script. `glresidue` once sat outside the push gate because it was only added to `shapes:smoke`.
+- A passing gate prints nothing. A failing one prints its whole output, and the run ends with one summary line and the five gates that cost the most CPU.
+- **Every gate has a CPU budget** of 60 s, unless the manifest gives it more with a `why`, and fails by name over it. The suite has its own: 60 s of CPU per check and 30 s per plugin suite, failed as `budget: …` checks. Make the slow thing cheaper instead of raising the number. On 2026-09-28 one gate was 11 minutes of a 30-minute chain and one check was 55% of the suite, and nothing said so.
+- A gate has to be safe beside any other: no database, no fixed port, no files written. One that isn't goes in a `serial` group, as `kill-orphans` (alone, first) and `check-stale --import` (alone, last) do.
+- Under the DOM stub there's no WebGL, so the Mode-7 floor is a per-texel JS raster. A gate that isn't testing the floor should paint a coarse one (`tune: { pixel: 16 }` on the view, or `RENDER_TUNE.pixel`); at the default of 1 the floor was 99% of `clouds`. A `canvasResidue` caller that only reads the sinks should pass `who: false`, which skips a stack walk per face.
 
-As of 2026-09-19, these 16 gates run in `pretest:regress` but not in `npm run shapes:smoke`, so running `shapes:smoke` by hand after touching a building model is not a full check: `framecost`, `glparity`, `atlasfit`, `glmesh`, `signtext`, `signfit`, `signhand`, `signfloor`, `signrange`, `glao`, `glfade`, `glsl-smoke`, `floorfallback`, `chess3d-smoke`, `rink-smoke`, `textui-smoke`.
-
-**`shapes:smoke`** ([scripts/shapes/smoke.mjs](scripts/shapes/smoke.mjs)) runs every building model in `drawTypeModel` against a DOM stub, night and day, both entrance facings, and fails if one throws. It's the only automated windshield coverage (a café model once froze the sim the first time a player flew past it). It also checks that captured geometry stays affine. Run it after touching any building model or mass primitive; it takes about a second and needs no browser, DB or network. If it fails on a missing browser API, add the API to [scripts/shapes/dom-stub.mjs](scripts/shapes/dom-stub.mjs). It proves models run, not that they look right.
+**[scripts/shapes/smoke.mjs](scripts/shapes/smoke.mjs)**, the first gate in `shapes:smoke`, runs every building model in `drawTypeModel` against a DOM stub, night and day, both entrance facings, and fails if one throws. It's the only automated windshield coverage (a café model once froze the sim the first time a player flew past it). It also checks that captured geometry stays affine. Run `npm run shapes:smoke` after touching any building model or mass primitive; it needs no browser, DB or network. If it fails on a missing browser API, add the API to [scripts/shapes/dom-stub.mjs](scripts/shapes/dom-stub.mjs). It proves models run, not that they look right.
 
 **`docs:lint`** is six checks:
 

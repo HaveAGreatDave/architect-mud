@@ -52,7 +52,7 @@ const NEAR = -1.2, FAR = -2.9;
 // `canvasResidue` sets up a GLASS 2 frame: `FLAT_OFF` on, no mesh sink, `ADORN_NEAR`. That is
 // exactly the frame the bug lives in, and it is the one this has to ask the question of.
 function lettering(m, dy) {
-  const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy, collect: true });
+  const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy, collect: true, who: false });
   if (r.threw) return null;
   // `st:` is `signTexKey`'s prefix — one id per baked lettering canvas, so this counts SIGNS and
   // not the boards, frames, soffits and panels that share the layer.

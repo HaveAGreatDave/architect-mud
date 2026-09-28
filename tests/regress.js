@@ -59,9 +59,60 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
 
 const results = [];
-function check(name, cond, detail = '') {
+// Quiet by default: a failure prints when it happens, a pass doesn't, and each
+// section ends with one line of counts. Ten thousand ✓ lines hid the one ✗ and
+// filled every agent's context. `npm run test:regress -- --verbose` prints them all.
+const VERBOSE = process.argv.includes('--verbose');
+function record(name, cond, detail = '') {
   results.push({ name, pass: !!cond, detail });
+  if (cond && !VERBOSE) return;
   console.log(`${cond ? '  ✓' : '  ✗ FAIL'} ${name}${cond ? '' : ` — ${detail}`}`);
+}
+
+// ── The time budget ──────────────────────────────────────────────────────────
+// The count was never the problem. On 2026-09-28 one check out of 10,372 was 55%
+// of the suite (143 s), and nothing said so; it was found by timestamping every
+// line of output. So each check is charged the CPU spent since the one before it,
+// and a check over budget fails by name. CPU, not wall time, so a remote DB's
+// round trips and a busy machine don't trip it. `startBudget()` runs after boot,
+// or the first check would be charged for loading the world.
+//
+// Headroom, measured 2026-09-28 on a 4-core cloud container, which is slower than
+// CI: the dearest check is the Studio's building move at 25.5 s of CPU, and the
+// dearest suite is trucking at 9.5 s. Both limits sit well above a slow machine
+// and well below the 143 s check they exist for.
+const CHECK_BUDGET_S = 60;
+const SUITE_BUDGET_S = 30;   // one plugins/<name>/regress.js, charged in layer 3
+const cpuSeconds = (since) => { const u = process.cpuUsage(since); return (u.user + u.system) / 1e6; };
+let budgetFrom = null;
+const startBudget = () => { budgetFrom = process.cpuUsage(); };
+
+// A section is a layer header or one plugin suite. Starting one closes the last.
+const sections = [];
+let open = null;
+function endSection() {
+  if (!open) return;
+  const mine = results.slice(open.from);
+  const bad = mine.filter(r => !r.pass).length;
+  const cpu = cpuSeconds(open.cpu);
+  sections.push({ title: open.title, cpu });
+  console.log(`  ${bad ? '✗' : '✓'} ${open.title}: ${mine.length} check${mine.length === 1 ? '' : 's'}${bad ? `, ${bad} failed` : ''} (${cpu.toFixed(1)} s CPU)`);
+  open = null;
+}
+function section(title) {
+  endSection();
+  if (VERBOSE) console.log(`— ${title} —`);
+  open = { title, from: results.length, cpu: process.cpuUsage() };
+}
+function check(name, cond, detail = '') {
+  record(name, cond, detail);
+  if (!budgetFrom) return;
+  const spent = cpuSeconds(budgetFrom);
+  budgetFrom = process.cpuUsage();
+  if (spent > CHECK_BUDGET_S) {
+    record(`budget: ${name}`, false,
+      `${spent.toFixed(1)} s of CPU since the previous check; the budget is ${CHECK_BUDGET_S} s. Make the check cheaper, don't raise the number.`);
+  }
 }
 
 // Per-player tables, shared by the fake-player teardown and the end-of-run
@@ -92,10 +143,19 @@ await loadItems();
 // "no cross-load" passes because the cache is empty, not because the law works.
 await loadDrugs();
 await loadMisSettings();
-await loadPlugins();
+// Each plugin announces itself twice on load, which was about 200 of a quiet run's
+// 400 lines and never the line anyone needed. Only those two shapes are dropped;
+// warnings, collisions and errors still print.
+{
+  const BOOT_CHATTER = /^\s*✓ Plugin: |^\[[\w-]+\] Plugin loaded\.$/;
+  const log = console.log;
+  if (!VERBOSE) console.log = (...a) => { if (!(typeof a[0] === 'string' && BOOT_CHATTER.test(a[0]))) log(...a); };
+  try { await loadPlugins(); } finally { console.log = log; }
+}
+startBudget();
 
 // ── Layer 1: manifest contract sweep ─────────────────────────────────────────
-console.log('— layer 1: manifest contracts —');
+section('layer 1: manifest contracts');
 {
   const registeredCommands = new Set(getRegisteredCommands());
   const registeredHooks = getRegisteredHooks(); // { hookName: [pluginNames] }
@@ -225,7 +285,7 @@ console.log('— layer 1: manifest contracts —');
 // The registry also drives the file-based content pipeline, so its pk and
 // excludeColumns entries must name REAL columns — a typo there would silently
 // export wrong files or upsert the wrong column set.
-console.log('— layer 1a: content-registry coverage —');
+section('layer 1a: content-registry coverage');
 {
   const contentNames = new Set(CONTENT_TABLES.map(e => typeof e === 'string' ? e : e.table));
   const excludedNames = new Set(EXCLUDED_TABLES);
@@ -295,7 +355,7 @@ console.log('— layer 1a: content-registry coverage —');
 // This check fails if a verb declared discoverable (exposed !== false) isn't wired
 // into the specialized-action registry under the tag it claims. See
 // docs/audits/affordance-discoverability-audit.md and the verb-discoverability memory.
-console.log('— layer 1b: object-gated verb discoverability —');
+section('layer 1b: object-gated verb discoverability');
 {
   const specialized = getRegisteredSpecializedActions(); // { verb: [{ requiredTag, pluginName }] }
   const problems = [], knownGaps = [];
@@ -323,7 +383,7 @@ console.log('— layer 1b: object-gated verb discoverability —');
 // routes — must 403 with the read-only message, while ops routes (auth, player
 // admin, environment controls…) must NOT be blocked BY THE GATE (they may still
 // 401/403 for auth reasons — that's the handler speaking, not the gate).
-console.log('— layer 1c: CONTENT_READONLY gate —');
+section('layer 1c: CONTENT_READONLY gate');
 {
   const READONLY_MSG = /read-only on production/;
   const hitsGate = async (method, url) => {
@@ -369,7 +429,7 @@ console.log('— layer 1c: CONTENT_READONLY gate —');
 // so the live world here is the ordinary DB-loaded one and none of that path
 // executes — these exercise the pieces directly, because a path that only runs in
 // production is a path that only breaks there.
-console.log('— layer 1c2: authored columns off the checkout —');
+section('layer 1c2: authored columns off the checkout');
 {
   const sample = [...world.zones.keys()].slice(0, 200);
   const blank = sample.filter(id => !ZONE_DESCRIPTION.read(id));
@@ -425,7 +485,7 @@ console.log('— layer 1c2: authored columns off the checkout —');
 // zones.flags is the catalog-validated zone tag bag (scope 'zone'). Every live
 // bag must validate (catches uncatalogued keys / junk values drifting back in),
 // and the API write paths must reject bad bags loudly.
-console.log('— layer 1d: zone tag substrate —');
+section('layer 1d: zone tag substrate');
 {
   const bagErrors = [];
   for (const z of world.zones.values()) {
@@ -538,7 +598,7 @@ console.log('— layer 1d: zone tag substrate —');
 // graph, a real emit on the bus, and the flag the graph sets. Also proves the
 // filters actually filter — a disabled trigger and a failing zone filter must
 // NOT run, which is the direction that fails silently.
-console.log('— layer 1e: script trigger registry —');
+section('layer 1e: script trigger registry');
 {
   const { loadScriptTriggers, getTriggeredEvents } = await import('../server/engine/script-triggers.js');
   const { emit } = await import('../server/engine/events.js');
@@ -595,7 +655,7 @@ console.log('— layer 1e: script trigger registry —');
 // a relocation written there survives until the next deploy and then silently
 // reverts. npc_home_overrides is the runtime-class table that the deploy cannot
 // reach; this proves the merge happens and that the DB column is left alone.
-console.log('— layer 1e4: npc home overrides —');
+section('layer 1e4: npc home overrides');
 {
   const { world, setNpcHomeOverride, clearNpcHomeOverride } = await import('../server/engine/world.js');
   const { dispatchAction } = await import('../server/engine/actions.js');
@@ -659,7 +719,7 @@ console.log('— layer 1e4: npc home overrides —');
 // BY REFERENCE, so an in-place merge would make every later spawn of that
 // template inherit the previous hunt, and nothing would look wrong until two
 // different players were being chased by each other's pursuers.
-console.log('— layer 1e3: spawn node instance flags —');
+section('layer 1e3: spawn node instance flags');
 {
   const { runGraph } = await import('../server/engine/graph.js');
   const { world } = await import('../server/engine/world.js');
@@ -731,7 +791,7 @@ console.log('— layer 1e3: spawn node instance flags —');
 // `bar_${venue}_visits` — every venue silently collapsing onto one shared
 // counter, with no error anywhere. Static, so it catches the drift at author
 // time instead of after someone plays it.
-console.log('— layer 1e2: trigger params cover script tokens —');
+section('layer 1e2: trigger params cover script tokens');
 {
   const { query } = await import('../server/models/db.js');
   const [{ rows: trigs }, { rows: scripts }] = await Promise.all([
@@ -777,7 +837,7 @@ console.log('— layer 1e2: trigger params cover script tokens —');
 // Both are branch nodes, so the failure mode is "took the wrong edge", which is
 // invisible in play. Weights of 1/0 make the random pick deterministic without
 // stubbing Math.random; the counter runs three times to prove the reset wraps.
-console.log('— layer 1f: random + counter nodes —');
+section('layer 1f: random + counter nodes');
 {
   const { runGraph } = await import('../server/engine/graph.js');
   const { getFlag, clearFlag } = await import('../server/engine/flags.js');
@@ -900,7 +960,7 @@ console.log('— layer 1f: random + counter nodes —');
 // evalCondition grew two new shapes. The stat allow-list is the one to pin: the
 // real columns are stat_brawn/stat_brains/stat_cool/stat_senses (NOT intellect or
 // charisma), and an unknown stat must fail closed rather than build bad SQL.
-console.log('— layer 1h: item / stat conditions + dialogue tokens —');
+section('layer 1h: item / stat conditions + dialogue tokens');
 {
   const { evalCondition, evalConditions } = await import('../server/engine/flags.js');
   const { interp } = await import('../server/engine/interp.js');
@@ -939,7 +999,7 @@ console.log('— layer 1h: item / stat conditions + dialogue tokens —');
 // the seam must allocate nothing. Everything else in this block pins the
 // contract, so the failure mode for a badly-written contributor is "your
 // technique does nothing" rather than "combat hangs".
-console.log('— layer 1h2: swing seam —');
+section('layer 1h2: swing seam');
 {
   const { registerSwingContributor, getSwingContributors, _swingTest }
     = await import('../server/engine/combat.js');
@@ -993,7 +1053,7 @@ console.log('— layer 1h2: swing seam —');
 // The substrate every social read is about to depend on. Three things are pinned:
 // the tier ladder (hostility outranks familiarity), the ZERO-query read contract,
 // and the fallback rule — an unauthored NPC must render EXACTLY as it does today.
-console.log('— layer 1i: relations substrate —');
+section('layer 1i: relations substrate');
 {
   const { getRelation, adjustRelation, touchRelation, relationTier, relationAtLeast, hydrateRelations }
     = await import('../server/engine/relations.js');
@@ -1216,7 +1276,7 @@ console.log('— layer 1i: relations substrate —');
 //     evening looks the same", which no test was ever going to notice.
 //   • The banter library's personality coverage, for the same reason: a slug with
 //     no threads falls back to the generic pool and reads as merely repetitive.
-console.log('— layer 1i3: archetype tiers (chitchat / home / banter) —');
+section('layer 1i3: archetype tiers (chitchat / home / banter)');
 {
   const { getNpcChitchat, getNpcHomeActivities, getNpcCombatLine }
     = await import('../server/engine/npc-personality.js');
@@ -1331,7 +1391,7 @@ console.log('— layer 1i3: archetype tiers (chitchat / home / banter) —');
 // ── Layer 1j: standing decay + relationship help ─────────────────────────
 // Two rules with teeth: standing is MAINTAINED (it slides back to a resting
 // point in both directions), and knowing someone is WORTH something at the till.
-console.log('— layer 1j: standing decay + relationship help —');
+section('layer 1j: standing decay + relationship help');
 {
   const { decayRep, restingRep, getTier } = await import('../server/engine/ideologies.js');
   const { relationHelp, adjustRelation } = await import('../server/engine/relations.js');
@@ -1444,7 +1504,7 @@ console.log('— layer 1j: standing decay + relationship help —');
 // The three nodes that reach OUT of the graph into the world. Each is asserted
 // on its observable effect (a zone message, a live enemy instance, a parked row),
 // not on "it didn't throw".
-console.log('— layer 1g: broadcast / spawn / durable wait —');
+section('layer 1g: broadcast / spawn / durable wait');
 {
   const { runGraph, resumeDueWaits } = await import('../server/engine/graph.js');
   const { query } = await import('../server/models/db.js');
@@ -1556,7 +1616,7 @@ console.log('— layer 1g: broadcast / spawn / durable wait —');
 // reached anywhere the exit graph touched. These assert the three pieces that
 // bound it — and, just as importantly, that a creature WITHOUT the new opt-in
 // behaves exactly as it did before, since 44 shipped enemies depend on that.
-console.log('— layer 1g2: leash / chase / destination law —');
+section('layer 1g2: leash / chase / destination law');
 {
   const { distanceFromSpawn, leashCandidates, canChase, moveEntity } =
     await import('../server/engine/ai-behaviour.js');
@@ -1930,7 +1990,7 @@ const run = (input) => handleCommand(input, getLivePlayer(P.id), broadcast);
 const getPlayer = () => getLivePlayer(P.id);
 
 // ── Layer 2: core engine checks ───────────────────────────────────────────────
-console.log('— layer 2: engine core —');
+section('layer 2: engine core');
 let r = await run('look');
 check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice(0, 120));
 
@@ -6434,12 +6494,15 @@ function disarm(p) {
   return left;
 }
 
-console.log('— layer 3: plugin suites —');
+if (VERBOSE) console.log('— layer 3: plugin suites —');
+endSection();
 const dirs = (await readdir(PLUGINS_DIR, { withFileTypes: true })).filter(e => e.isDirectory());
 for (const d of dirs) {
   const suitePath = join(PLUGINS_DIR, d.name, 'regress.js');
   if (!existsSync(suitePath)) continue;
+  section(d.name);
   const zoneBefore = getPlayer().current_zone;
+  const suiteCpu = process.cpuUsage();
   try {
     const mod = await import(pathToFileURL(suitePath).href);
     if (typeof mod.default !== 'function') { check(`${d.name}: regress.js has default export`, false, 'no default function'); continue; }
@@ -6453,8 +6516,15 @@ for (const d of dirs) {
       getPlayer().current_zone = zoneBefore;
     }
     if (leaked.length) check(`${d.name}: leaves no live state behind`, false, `${leaked.join(', ')} (disarmed)`);
+    const spent = cpuSeconds(suiteCpu);
+    if (spent > SUITE_BUDGET_S) {
+      record(`budget: ${d.name} suite`, false,
+        `${spent.toFixed(1)} s of CPU; the budget for one plugin suite is ${SUITE_BUDGET_S} s`);
+    }
   }
 }
+
+section('engine checks after the plugin suites');
 
 // ── Cleanup ───────────────────────────────────────────────────────────────────
 removePlayerFromZone(P.id, getPlayer().current_zone);
@@ -6737,6 +6807,9 @@ removeLivePlayer(P.id);
 await sweepOrphanedPlayerRows();
 stopAll();
 
+endSection();
+const dearest = sections.slice().sort((a, b) => b.cpu - a.cpu).slice(0, 5);
+console.log(`\n  slowest sections: ${dearest.map(x => `${x.title} ${x.cpu.toFixed(1)} s`).join(', ')}`);
 const failed = results.filter(x => !x.pass);
 console.log(`\n${results.length - failed.length}/${results.length} passed${failed.length ? ` — ${failed.length} FAILED` : ''}`);
 

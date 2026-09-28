@@ -231,9 +231,9 @@ for (const { key, m } of ws.shapeModelRegistry()) {
     // the model's identity, and until it has run the kit has no shape to hang a part on — measured
     // on type:noodle_bar, whose light runner is 0 strokes on the first pass and 4 on every one
     // after it. Two passes with a cold cache between them compare the cache filling up, not a pull.
-    ws.canvasResidue(m, opts);
+    ws.canvasResidue(m, { ...opts, who: false });
     const drawn = ws.canvasResidue(m, opts);
-    const truth = ws.canvasResidue(m, { ...opts, noPull: true });
+    const truth = ws.canvasResidue(m, { ...opts, noPull: true, who: false });
     if (drawn.threw || truth.threw) continue;
     if (!drawn.sink || !truth.sink) continue;
     const pairs = [...couples(drawn.sink, truth.sink, key, deg)];

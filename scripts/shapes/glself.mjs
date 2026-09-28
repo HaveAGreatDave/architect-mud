@@ -92,7 +92,7 @@ for (const { key, m } of ws.shapeModelRegistry()) {
   // measured — the same rule the occlusion bake follows rather than assuming an empty one.
   if (!solid) continue;
 
-  const opts = { cam, night: 1, bn: 'THE EXAMPLE', dx: DX, dy: DY, fh: FH, h: H, seed: SEED, collect: true };
+  const opts = { cam, night: 1, bn: 'THE EXAMPLE', dx: DX, dy: DY, fh: FH, h: H, seed: SEED, collect: true, who: false };
   const drawn = ws.canvasResidue(m, opts);
   const truth = ws.canvasResidue(m, { ...opts, noPull: true });
   if (drawn.threw || truth.threw) { threw++; continue; }

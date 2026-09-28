@@ -36,7 +36,7 @@ const cam = ws.makeCam(640, 160, 360, { heading: 0, height: 0, eyeH: 0.24, map: 
 const decalsOf = () => {
   const out = [];
   for (const { key, m } of ws.shapeModelRegistry()) {
-    const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: -2, collect: true });
+    const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: -2, collect: true, who: false });
     if (r.threw) continue;
     for (const d of (r.sink && r.sink.decals) || []) out.push({ model: key, d });
   }

@@ -185,7 +185,7 @@ for (const { key, m } of ws.shapeModelRegistry()) {
     const cam = ws.makeCam(640, 160, 360, { heading, height: 0, eyeH: 0.24, map: null });
     const hd = heading * Math.PI / 180;
     const r = ws.canvasResidue(m, {
-      cam, night: 1, bn: 'THE EXAMPLE', collect: true,
+      cam, night: 1, bn: 'THE EXAMPLE', collect: true, who: false,
       dx: DIST * Math.sin(hd), dy: -DIST * Math.cos(hd),
     });
     if (r.threw) { if (heading === 0) { threw++; console.error(`  ✗ ${key} threw: ${r.threw}`); } continue; }
