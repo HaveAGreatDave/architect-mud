@@ -13,7 +13,6 @@ import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho, removeCorpChannels } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
-import { openGalley } from './panels/galley.js';
 import { openWardrobePanel, refreshWardrobePanel, getActiveWardrobeId, showWardrobeNotify } from './panels/wardrobe.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openWorkspacePanel, refreshWorkspacePanel, isWorkspaceOpen, workspaceClaimsContainerView } from './panels/workspace.js';
@@ -1570,8 +1569,6 @@ const handlers = {
   // handling rather than a missing case: 'galley' is an ordinary verb and can be typed from a
   // depot forecourt, where the LOG is the surface and this panel does not exist.
   truck_galley: (msg) => { cabGalley(msg); },
-  // Any vehicle's galley quick actions (panels/galley.js); the message names the verb that owns it.
-  galley_view: (msg) => { openGalley(msg); },
   // Dismounting takes the set with it — the Deadhead window closes because the radio is gone,
   // not because anybody pressed anything on it.
   // …and the service bay with it, which lives inside the cab's own wrapper and would otherwise

@@ -220,8 +220,17 @@ the player's inventory or on the ground.
 (`open`/`stow`/`pull`/`look in`) fuzzy-match a container *by name*. The panel UI
 instead drives a parallel set of *by-id* verbs that take a `player_inventory`
 row id: `opencontainer <id>`, `closecontainer <id>`, `stowid <invId> <ctrId>`,
-`pullid <id>`. These ids are **TEXT UUIDs** — pass them straight to the query,
+`pullid <id>`, `passid <id> <playerId>`. These ids are **TEXT UUIDs** — pass them straight to the query,
 never `parseInt()` them (see *Lessons Learned* in `architecture.md`).
+
+**Passing food out of a box.** The container view lists the other players in your
+room as `company` (from the zone's live set, so it costs no query; never at a
+`vendor_stock` cooler), and stamps each food or drink row with `consume`
+(`eat` or `drink`, from `consumeVerb`). Clicking such a row in the panel offers
+**Pass to <name>** for each of them, which sends `passid <row> <player>`: one of
+the stack goes straight from the box into their inventory through the engine's
+`GIVE` action, and the room sees it handed over. Only food and drink, and only to
+someone still in the room. The typed version is `pull`, then `give`.
 
 **Capacity is weight, in grams.** The `container` tag value is a max *weight*, not a
 slot count. The panel shows `usedWeight / capacity` (formatted `g`/`kg`) and lists each item's

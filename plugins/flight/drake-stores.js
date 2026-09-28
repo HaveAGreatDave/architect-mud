@@ -21,6 +21,7 @@ import { liveAircraft } from './state.js';
 import { getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
+import { stampConsume } from '../../server/engine/commands/inventory.js';
 
 // ⚠ SMALLER THAN A KITCHEN FRIDGE ON PURPOSE. The cheapest fridge in the game (the Coldbox) holds
 // 15 kg; a compartment under an aircraft's dash is a bar fridge. Refrigerated only, never a freezer.
@@ -57,6 +58,12 @@ const accepts = (store, tags) => (store === 'pantry' ? !!tags?.perishable : !tag
 // `storeVerb`, so every stow/take the panel makes comes back through this verb as putid/takeid
 // rather than the engine's stowid/pullid, which only know container rows. The pantry reports
 // itself as refrigerated so it wears the same cold theme and readout as every other fridge.
+//
+// THE PANTRY IS THE GALLEY. Its view carries `galley`, and the panel titles itself Galley, puts
+// your hunger and thirst in the title bar, and folds to just that bar for a long flight. `company`
+// is everyone else aboard, so a click on food in the pantry can pass it to them. Like every panel
+// here it holds no logic: eat, drink and pass are verb strings (`pantry eatid <id>`,
+// `pantry sendid <id> <pid>`) that come back through this verb and answer with this view.
 async function storeView(store, player, owner) {
   const [held, inv] = await Promise.all([
     listStore(owner),
@@ -74,7 +81,24 @@ async function storeView(store, player, owner) {
   };
   const hidden = all.length - invItems.length;
   if (hidden) view.invNote = `Only ${store === 'pantry' ? 'perishables' : 'dry goods'}: ${hidden} other item${hidden === 1 ? '' : 's'} hidden.`;
+  if (store === 'pantry') {
+    for (const r of [...held, ...invItems]) stampConsume(r);
+    view.galley = true;
+    const company = aboard(player, drakeFor(player));
+    if (company.length) view.company = company;
+  }
   return view;
+}
+
+// Everyone else in the aircraft, as the panel lists them.
+function aboard(player, live) {
+  const out = [];
+  for (const pid of live?.occupants || []) {
+    if (pid === player.id) continue;
+    const p = getLivePlayer(pid);
+    if (p) out.push({ id: p.id, name: p.handle });
+  }
+  return out;
 }
 
 // Move a row, or part of a stack, to another owner by inventory row id.
@@ -169,33 +193,9 @@ async function takeOut(player, owner, name, { one = false } = {}) {
   return item;
 }
 
-// ── The galley quick-actions panel (client galley.js) ────────────────────────
-// A small floating panel over whatever vehicle you are in: what the galley holds, your hunger and
-// thirst, and who else is aboard. Like the truck's galley flap it holds no logic of its own — every
-// button is a verb string (`pantry eatid <id>`, `pantry sendid <id> <pid>`) that comes back here.
-// The message shape (`galley_view`) is vehicle-agnostic: another vehicle with a galley answers with
-// the same shape under its own `verb` and the same panel draws it.
-async function galleyView(player, live, owner) {
-  const held = await listStore(owner);
-  const items = held.map((r) => {
-    const t = r.tags || {};
-    const food = Number(t.restore_hunger) || 0, water = Number(t.restore_thirst) || 0;
-    return { id: r.id, name: r.name, qty: r.quantity || 1, verb: water > food ? 'drink' : 'eat', food, water };
-  });
-  const aboard = [];
-  for (const pid of live.occupants) {
-    if (pid === player.id) continue;
-    const p = getLivePlayer(pid);
-    if (p) aboard.push({ id: p.id, name: p.name, hunger: p.hunger, thirst: p.thirst });
-  }
-  return {
-    type: 'galley_view', verb: 'pantry', title: `${live.row.name || 'Drake'}: galley`,
-    items, hunger: player.hunger, thirst: player.thirst, passengers: aboard,
-  };
-}
-
 // Hand one of a stack to somebody else aboard. The item goes into their own inventory, and they are
-// told who sent it, so "send food to a passenger" is an ordinary give that never left the aircraft.
+// told who sent it, so "pass food to a passenger" is an ordinary give that never left the aircraft.
+// Returns the line for the passer, or an error reply.
 async function sendOne(player, live, owner, id, toPid) {
   if (!live.occupants.has(toPid) || toPid === player.id) return { type: 'error', message: "They aren't aboard." };
   const to = getLivePlayer(toPid);
@@ -205,9 +205,8 @@ async function sendOne(player, live, owner, id, toPid) {
   const row = rows[0];
   if (!row || !to) return { type: 'error', message: "That isn't in the galley any more." };
   await moveRow(row, to.id, 1, thaw(row.custom_data || {}));
-  sendToPlayer(to.id, { type: 'info', message: `${player.name} passes you ${row.name} from the galley.` });
-  sendToPlayer(player.id, await galleyView(player, live, owner));
-  return { type: 'info', message: `You pass ${to.name} the ${row.name}.` };
+  sendToPlayer(to.id, { type: 'info', message: `${player.handle} passes you ${row.name} from the galley.` });
+  return `You pass ${to.handle} the ${row.name}.`;
 }
 
 function makeCmd(store) {
@@ -223,13 +222,14 @@ function makeCmd(store) {
     // The panel's own round trips (a click on the compartment in the cockpit, and every stow/take).
     // At the log rung the panel is not shown, so a click answers with the written list instead.
     const panel = !loggedPanelsSync(player);
-    if (op === 'view' && panel) return storeView(store, player, owner);
+    // `pantry galley` is the same panel: the galley is the pantry's view, not a second window.
+    if ((op === 'view' || (store === 'pantry' && op === 'galley')) && panel) return storeView(store, player, owner);
     if (op === 'putid' || op === 'takeid') {
       const [id, q] = rest;
       const qty = /^[0-9]+$/.test(q || '') ? parseInt(q, 10) : null;
       return op === 'putid' ? putById(store, player, owner, id, qty) : takeById(store, player, owner, id, qty);
     }
-    if (!op || op === 'view' || op === 'look' || op === 'list' || op === 'open') {
+    if (!op || op === 'view' || op === 'look' || op === 'list' || op === 'open' || (store === 'pantry' && op === 'galley')) {
       const rows = await listStore(owner);
       const open = store === 'pantry'
         ? 'The gantry screen slides up out of the left of the dash, lit cold blue, over a chilled shelf.'
@@ -239,8 +239,12 @@ function makeCmd(store) {
       const hint = store === 'pantry' ? `${store} take|eat|drink &lt;item&gt;` : `${store} take &lt;item&gt;`;
       return { type: 'info', message: `${open}\n${list}\n<span class="text-dim">(${hint}, ${rows.length}/${limits(live, store).cap} slots)</span>` };
     }
-    if (store === 'pantry' && op === 'galley') return galleyView(player, live, owner);
-    if (store === 'pantry' && op === 'sendid') return sendOne(player, live, owner, rest[0], rest[1]);
+    if (store === 'pantry' && op === 'sendid') {
+      const line = await sendOne(player, live, owner, rest[0], rest[1]);
+      if (typeof line !== 'string') return line;
+      if (!panel) return { type: 'info', message: line };
+      return { ...(await storeView(store, player, owner)), mainMsg: line };
+    }
     if (store === 'pantry' && (op === 'eatid' || op === 'drinkid')) {
       const { rows } = await query(
         `SELECT pi.*, COALESCE(pi.custom_data->>'name', i.name) AS name FROM player_inventory pi JOIN items i ON i.id = pi.item_id
@@ -250,7 +254,7 @@ function makeCmd(store) {
       if (!item) return { type: 'error', message: "That isn't in the galley any more." };
       const { handleCommand } = await import('../../server/engine/commands/index.js');
       const res = await handleCommand(`${op === 'eatid' ? 'eat' : 'drink'} ${item.name}`, player, broadcast);
-      sendToPlayer(player.id, await galleyView(player, live, owner));
+      if (panel) sendToPlayer(player.id, await storeView(store, player, owner));
       return res;
     }
     if (op === 'upgrade' || op === 'refit') {
