@@ -59,9 +59,37 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
 
 const results = [];
-function check(name, cond, detail = '') {
+function record(name, cond, detail = '') {
   results.push({ name, pass: !!cond, detail });
   console.log(`${cond ? '  ✓' : '  ✗ FAIL'} ${name}${cond ? '' : ` — ${detail}`}`);
+}
+
+// ── The time budget ──────────────────────────────────────────────────────────
+// The count was never the problem. On 2026-09-28 one check out of 10,372 was 55%
+// of the suite (143 s), and nothing said so; it was found by timestamping every
+// line of output. So each check is charged the CPU spent since the one before it,
+// and a check over budget fails by name. CPU, not wall time, so a remote DB's
+// round trips and a busy machine don't trip it. `startBudget()` runs after boot,
+// or the first check would be charged for loading the world.
+//
+// Headroom, measured 2026-09-28 on a 4-core cloud container, which is slower than
+// CI: the dearest check is the Studio's building move at 25.5 s of CPU, and the
+// dearest suite is trucking at 9.5 s. Both limits sit well above a slow machine
+// and well below the 143 s check they exist for.
+const CHECK_BUDGET_S = 60;
+const SUITE_BUDGET_S = 30;   // one plugins/<name>/regress.js, charged in layer 3
+const cpuSeconds = (since) => { const u = process.cpuUsage(since); return (u.user + u.system) / 1e6; };
+let budgetFrom = null;
+const startBudget = () => { budgetFrom = process.cpuUsage(); };
+function check(name, cond, detail = '') {
+  record(name, cond, detail);
+  if (!budgetFrom) return;
+  const spent = cpuSeconds(budgetFrom);
+  budgetFrom = process.cpuUsage();
+  if (spent > CHECK_BUDGET_S) {
+    record(`budget: ${name}`, false,
+      `${spent.toFixed(1)} s of CPU since the previous check; the budget is ${CHECK_BUDGET_S} s. Make the check cheaper, don't raise the number.`);
+  }
 }
 
 // Per-player tables, shared by the fake-player teardown and the end-of-run
@@ -93,6 +121,7 @@ await loadItems();
 await loadDrugs();
 await loadMisSettings();
 await loadPlugins();
+startBudget();
 
 // ── Layer 1: manifest contract sweep ─────────────────────────────────────────
 console.log('— layer 1: manifest contracts —');
@@ -6440,6 +6469,7 @@ for (const d of dirs) {
   const suitePath = join(PLUGINS_DIR, d.name, 'regress.js');
   if (!existsSync(suitePath)) continue;
   const zoneBefore = getPlayer().current_zone;
+  const suiteCpu = process.cpuUsage();
   try {
     const mod = await import(pathToFileURL(suitePath).href);
     if (typeof mod.default !== 'function') { check(`${d.name}: regress.js has default export`, false, 'no default function'); continue; }
@@ -6453,6 +6483,11 @@ for (const d of dirs) {
       getPlayer().current_zone = zoneBefore;
     }
     if (leaked.length) check(`${d.name}: leaves no live state behind`, false, `${leaked.join(', ')} (disarmed)`);
+    const spent = cpuSeconds(suiteCpu);
+    if (spent > SUITE_BUDGET_S) {
+      record(`budget: ${d.name} suite`, false,
+        `${spent.toFixed(1)} s of CPU; the budget for one plugin suite is ${SUITE_BUDGET_S} s`);
+    }
   }
 }
 
