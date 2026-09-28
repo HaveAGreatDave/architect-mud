@@ -180,6 +180,9 @@ for (const r of recs) {
   if (!(tall > 0.03 && tall < 0.2)) problems.push(`a mesh figure is ${tall.toFixed(3)} tiles tall; the billboard it replaces is about 0.07 from a cab`);
   for (const p of ['coat', 'legs', 'skin', 'hair', 'shoes']) if (!Array.isArray(r.o && r.o[p])) problems.push(`an actor record has no ${p} colour`);
 }
+// A one-wide straight street raises its pavement to the kerb top, and people stand on it, not in it.
+const kerbZ = ws.RENDER_TUNE.kerbHeight + 0.002;
+for (const r of walkers) if (Math.abs(r.z - kerbZ) > 1e-6) problems.push(`a figure on a raised pavement stands at z ${r.z}, not on the kerb top at ${kerbZ}`);
 // Standing about, they face along the street: north or south.
 for (const r of walkers) {
   const along = Math.abs(Math.sin(r.hd));

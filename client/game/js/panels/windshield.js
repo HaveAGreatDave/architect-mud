@@ -28542,6 +28542,12 @@ const VERGE = 0.38;         // how far off the tile centre the kerb is. Under ha
 // trafficked surface — sits at VERGE − WALK_HW. Module scope because the puddle cross-section
 // needs the same number the band is drawn at (see roadCrossSection).
 const WALK_HW = 0.085;
+// Which tiles had their pavement band raised to the kerb top this frame. drawGroundSurfaces marks a
+// tile when it lays the full-length band (a single-width straight street that isn't worn or at an
+// angle); the actor pass, which runs after it, stands people on those tiles at the kerb top instead
+// of at road level. Asking the drawer rather than restating its conditions keeps the two in step.
+const RAISED_WALK = new WeakMap();
+let _walkGen = 0;
 
 // A stable 0..1 from a token. Every per-figure constant — which side of the street they walk, their
 // gait phase, their build — comes from this rather than from Math.random, so a figure keeps its
@@ -28706,7 +28712,8 @@ const ACTOR_TOP = 0.62 + 0.16 * 1.62;
 function drawActorFigure(ctx, cam, dx, dy, alpha, t, phase, moving, night, opts = {}) {
   const p = cam.proj(dx, dy, 0);
   if (!p || p.f <= 0.12) return;
-  if (opts.pose && pushActorMesh(cam, dx, dy, alpha, night, opts.pose, p)) return;
+  const z = opts.z || 0;   // the kerb top on a raised pavement, else the road
+  if (opts.pose && pushActorMesh(cam, dx, dy, z, alpha, night, opts.pose, p)) return;
   if (SCATTER_SINK) {
     // With an outfit the bucket comes from the coat, so somebody keeps roughly their brightness when
     // they cross between the mesh and the billboard.
@@ -28716,9 +28723,10 @@ function drawActorFigure(ctx, cam, dx, dy, alpha, t, phase, moving, night, opts 
     // scales it with everything else, so a walking figure lifts by the same fraction of itself at
     // every distance without the bake ever hearing about it.
     const bobPx = moving ? Math.abs(Math.sin(phase)) * propS(ACTOR_S, BB_F, 1.6, 40) * 0.06 : 0;
+    // Standing on a kerb lifts the card by the kerb's height in the texture's pixels at BB_F.
     if (scatterBillboard(cam, dx, dy, alpha, `actor|${tone}|${arm}|${night ? 1 : 0}`,
-      (g, stub) => drawActorFigure(g, stub, 0, 0, 1, t, 0, false, night, { ...opts, pose: null, tone, arm: arm < 0 ? null : (arm + 0.5) / ACTOR_WAVES }),
-      bobPx)) return;
+      (g, stub) => drawActorFigure(g, stub, 0, 0, 1, t, 0, false, night, { ...opts, pose: null, z: 0, tone, arm: arm < 0 ? null : (arm + 0.5) / ACTOR_WAVES }),
+      bobPx + z * cam.depth)) return;
   }
   // ⚠ LEGIBILITY, NOT ANTHROPOMETRY. 11 was the literal answer — drawTreeBB uses 34 for a tree and
   // a person is about a third of a tree. It was also a figure four pixels tall across most of a
@@ -28780,7 +28788,7 @@ function drawActorFigure(ctx, cam, dx, dy, alpha, t, phase, moving, night, opts 
 // actorOutfit for why.
 const ACTOR_SETTLE_MS = 350;   // how long somebody takes to go from walking to standing, or back
 function actorMeshOn() { return GL_ACTOR_MESH && SCATTER_SINK && FAUNA_SINK && RENDER_TUNE.actorMesh > 0; }
-function pushActorMesh(cam, dx, dy, alpha, night, pose, p) {
+function pushActorMesh(cam, dx, dy, z, alpha, night, pose, p) {
   const bk = actorBakeReady();
   if (!bk || !actorMeshOn()) return false;
   if (ACTOR_TOP * ACTOR_S * _propK / p.f * _frameDpr < (RENDER_TUNE.actorMeshPx || 0)) return false;
@@ -28790,7 +28798,7 @@ function pushActorMesh(cam, dx, dy, alpha, night, pose, p) {
   const L = LIGHT_STATE;
   const from = pose.mix > 0 ? pose.from : null;
   FAUNA_SINK.push({
-    actor: 1, x: dx + (cam.ox || 0), y: dy + (cam.oy || 0), z: 0, s, hd: pose.hd, o: pose.o,
+    actor: 1, x: dx + (cam.ox || 0), y: dy + (cam.oy || 0), z, s, hd: pose.hd, o: pose.o,
     clip: pose.clip, ph: phOf(pose.clip, pose.gd, pose.ph),
     clip2: from ? from.clip : null, ph2: from ? phOf(from.clip, from.gd, from.ph) : 0, mix: from ? pose.mix : 0,
     lum: night ? 0.62 : 1, a: alpha, lx: L ? L.sx : -0.707, ly: L ? L.sy : -0.707,
@@ -28911,8 +28919,9 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     // Gait runs on wall-clock, offset per figure, so a pavement of people is not a chorus line.
     const phase = now * 0.011 + actorHash(t, 5) * 7;
     const pose = mesh ? streetActorPose(h, t, cell, px, py, walking, dirX, dirY, now) : null;
+    const z = RAISED_WALK.get(cell) === _walkGen ? ROAD_EPS + RENDER_TUNE.kerbHeight : 0;
     // No probe: the figure is a depth-tested billboard now — see drawRoadside.
-    emitScatterFace(f + (cam.fwdOff || 0), () => drawActorFigure(ctx, cam, dx, dy, a, t, phase, p.moving, night, pose ? { pose } : undefined));
+    emitScatterFace(f + (cam.fwdOff || 0), () => drawActorFigure(ctx, cam, dx, dy, a, t, phase, p.moving, night, { pose, z }));
   }
 }
 
@@ -36865,7 +36874,7 @@ function roadCrossSection(c, at, rx, ry, surf) {
     u: blk.index - (blk.width - 1) / 2,
     kerb: Math.max(0.05, blk.width / 2 - (0.5 - VERGE) - WALK_HW), blk };
 }
-function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  const map = v.map; if (!map || !map.length) return; const R = cam.R;
+function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; const map = v.map; if (!map || !map.length) return; const R = cam.R;
   GULLY_ALL = [];   // the kerb gullies, refilled below — see the ⚠ on the two stores
   const baseAlpha = ctx.globalAlpha;   // = worldBlend (set by the caller); the far fade rides on top of it
   const nite = sky ? sky.night : 0;
@@ -37377,6 +37386,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  const map = v.m
           // ⚠ THE BAND AND THE KERB TOP BOTH AT KERB_H — see above. `stripeA` takes the height
           // as its last argument and defaults to the ground, so every other marking in the game
           // is untouched by this.
+          if (KERB_H > 0 && GROUND_MESH && aLo <= -RSPAN + 1e-6 && aHi >= RSPAN - 1e-6) RAISED_WALK.set(c, _walkGen);
           stripeA(A, ROFF + s * VERGE * RK, WALK_HW * RK, aLo, aHi, WALK, KERB_H);
           stripeA(A, ROFF + s * (VERGE - WALK_HW) * RK, KERB_HW * RK, aLo, aHi, KERB, KERB_H);   // the kerb top
           kerbRiser(A, ROFF + s * (VERGE - WALK_HW) * RK, aLo, aHi);                      // …and its face

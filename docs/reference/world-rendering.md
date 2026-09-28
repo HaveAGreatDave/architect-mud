@@ -718,10 +718,14 @@ the birds.
   would make the coat an identity you could read from a street away, which is the tracker the
   opaque token exists to prevent. With an outfit, the billboard's tone bucket comes from the coat's
   lightness, so a figure keeps its brightness across the LOD switch.
-- **Draw order.** The main pass draws people after the ground, not with the solids. The pavement
-  band is translucent paint a kerb's height above the road and figures stand at road level like the
-  billboards, so drawn before it the band blended over their lower legs. The mirror prepass still
-  draws them with the solids.
+- **Standing on the kerb.** The pavement band is raised a kerb's height (`kerbHeight`, 0.028
+  tiles, about 40% of a person) on single-width straight streets. `drawGroundSurfaces` marks each
+  tile it raises in `RAISED_WALK`, and the actor pass stands people on those tiles at the kerb top,
+  mesh and billboard alike. Elsewhere they stand on the road. The marks are per frame, so the
+  pavement drawer stays the only place that decides where a kerb is.
+- **Draw order.** The main pass draws people after the ground, not with the solids, as the
+  billboards are: the band is translucent paint, and a figure drawn before it gets the paint laid
+  over any part of it below the band. The mirror prepass still draws them with the solids.
 - **The bake is incremental.** It costs about 2 ms a frame for 112 frames, so the street pass runs
   it 2 ms at a time and draws billboards until it's done.
 
