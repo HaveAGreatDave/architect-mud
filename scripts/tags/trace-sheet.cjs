@@ -3,6 +3,8 @@
 //   line  the body plus the dark pixels hugging it: the hand-drawn keyline, without the drop shadow
 //   shade the darker inner shading
 // All three share one transform: origin at the body's bbox centre, one unit = median letter height.
+// The C in client/shared/tag-glyphs.js was reshaped by hand after tracing (see the note there);
+// keep that entry when re-tracing this sheet.
 // Usage: node trace2.cjs sheet.png ABCDEF,GHIJKL,MNOPQ,RSTUV,WXYZ > glyphs.json
 const Jimp = require('jimp');
 const potrace = require('potrace');
