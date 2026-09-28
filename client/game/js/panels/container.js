@@ -1,5 +1,5 @@
 import { sendCmdSilent } from '../net.js';
-import { makeFloatable } from './confirm.js';
+import { makeFloatable, promptQty } from './confirm.js';
 
 let containerDraggedId = null;
 let containerDragSource = null; // 'inv' or 'contents'
@@ -100,37 +100,6 @@ function setCapacity(elId, used, capacity) {
   el.style.setProperty('--fill', `${pct}%`);
 }
 
-function promptQty(max, action) {
-  if (max <= 1) return Promise.resolve(max);
-  return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'qty-dialog-overlay';
-    overlay.innerHTML = `
-      <div class="qty-dialog">
-        <div class="qty-dialog-label">How many? (1–${max})</div>
-        <input class="qty-dialog-input" type="number" min="1" max="${max}" value="${max}">
-        <div class="qty-dialog-btns">
-          <button class="qty-dialog-ok">${action || 'OK'}</button>
-          <button class="qty-dialog-cancel">Cancel</button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    const input = overlay.querySelector('.qty-dialog-input');
-    input.focus();
-    input.select();
-    const finish = (qty) => { overlay.remove(); resolve(qty); };
-    overlay.querySelector('.qty-dialog-ok').onclick = () => {
-      const v = Math.min(max, Math.max(1, parseInt(input.value, 10) || 1));
-      finish(v);
-    };
-    overlay.querySelector('.qty-dialog-cancel').onclick = () => finish(null);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') overlay.querySelector('.qty-dialog-ok').click();
-      if (e.key === 'Escape') finish(null);
-    });
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(null); });
-  });
-}
 
 // One tab per compartment of the piece of furniture you have open. The server
 // sends the whole set with `active` marked; there is no client-side selection
@@ -282,10 +251,18 @@ function openItemActions(item, source, containerId, anchor) {
         const q = await promptQty(item.quantity, 'Take');
         if (q != null) sendCmdSilent(pullCmd(item.id, item.quantity > 1 ? ` ${q}` : ''));
       } }
-    : { label: 'Put in', run: async () => {
+    : { label: freezerBoxId && containerId !== freezerBoxId ? 'Put in fridge' : 'Put in', run: async () => {
         const q = await promptQty(item.quantity, 'Stow');
         if (q != null) sendCmdSilent(stowCmd(item.id, containerId, item.quantity > 1 ? ` ${q}` : ''));
       } });
+  // The freezer door, for the same reason as the card's ❄ button: without it a paired box's
+  // freezer was reachable only by a drag, which a phone cannot make.
+  if (!inBox && freezerBoxId && containerId !== freezerBoxId) {
+    rows.push({ label: 'Put in freezer', run: async () => {
+      const q = await promptQty(item.quantity, 'Freeze');
+      if (q != null) sendCmdSilent(stowCmd(item.id, freezerBoxId, item.quantity > 1 ? ` ${q}` : ''));
+    } });
+  }
 
   for (const a of ITEM_ACTIONS) {
     if (!tags[a.tag]) continue;
@@ -429,6 +406,23 @@ function renderList(listId, items, source, containerId) {
       };
     }
     card.appendChild(btn);
+    // ⚠ THE FREEZER HALF OF A PAIRED BOX WAS DRAG-ONLY. The inventory list is rendered against
+    // the fridge, so this card's stow and the menu's Put in both went to the fridge, Stow All
+    // hides when the pair is ambiguous, and the only thing that ever targeted the freezer was its
+    // drop zone. Android fires no HTML5 drag from a touch, so a phone could fill the fridge and
+    // never the freezer. A second button names the other door.
+    if (source === 'inv' && freezerBoxId && containerId !== freezerBoxId) {
+      const fz = document.createElement('button');
+      fz.className = 'ctr-action-btn ctr-action-freeze';
+      fz.textContent = '❄ freeze';
+      fz.title = 'Put into the freezer';
+      fz.onclick = async (e) => {
+        e.stopPropagation();
+        const qty = await promptQty(item.quantity, 'Freeze');
+        if (qty != null) sendCmdSilent(stowCmd(item.id, freezerBoxId, item.quantity > 1 ? ` ${qty}` : ''));
+      };
+      card.appendChild(fz);
+    }
 
     // Clicking the item itself opens what you can DO with it. A container panel
     // that only knows "stow" and "take" makes you close it, type `examine`, and

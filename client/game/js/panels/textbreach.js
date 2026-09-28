@@ -17,7 +17,7 @@
 // back on close, the way the text cockpit hands it back.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { esc, bar, paintRow, heading, ensureTextUiStyles } from './textui.js';
+import { esc, bar, paintRow, heading, ensureTextUiStyles, attachBoard, detachBoard } from './textui.js';
 import { generateBreach, setBreachSkin, breachActions } from './circuithack.js';
 
 let _state = null;
@@ -197,6 +197,7 @@ export function openTextBreach(opts = {}) {
   _state = generateBreach({ ..._opts, atmName: _opts.deviceName });
   if (!_state) { setBreachSkin(null); return false; }
   _open = true;
+  attachBoard(command);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   _status = '<span class="dim">Route to the CORE. ping/scan to scout, breach to force a gate, ice or sentry.</span>';
   render();
   return true;
@@ -205,6 +206,7 @@ export function openTextBreach(opts = {}) {
 export function close() {
   if (!_open) return;
   _open = false; _state = null; _mode = null;
+  detachBoard(command);   // hand the pane back to the phone layout
   setBreachSkin(null);
   // Hand the pane back to the room, the way the text cockpit does.
   sendCmdSilent('look');

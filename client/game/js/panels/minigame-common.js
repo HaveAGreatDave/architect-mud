@@ -49,6 +49,20 @@ export function ensureChassisStyles() {
     .mg-headbolts { display:flex; align-items:center; gap:11px; }
     .mg-close { background:none; border:none; color:#8496a8; font-size:0.875rem; cursor:pointer; padding:0 2px; line-height:1; font-family:inherit; }
     .mg-close:hover { color:#ff4a5b; }
+    /* On a phone the glyph was an 11px target, and it is the only way out of the
+       tablet and every minigame without a keyboard for Escape. The negative margin
+       lets the hit box grow to a thumb without pushing the head any taller. */
+    html[data-density="compact"] .mg-close { font-size:1.125rem; min-width:44px; min-height:44px;
+      margin:-14px -12px -14px -8px; display:inline-flex; align-items:center; justify-content:center; }
+    /* ⚠ A PANEL TALLER THAN THE SCREEN WAS CUT OFF AT BOTH ENDS. Every overlay centres its panel
+       with flexbox and none of them scrolls, so on a phone held sideways (342px) the fishing
+       column, the vault dial and the calibration scope lost their header (and the close in it)
+       above the screen and their action row below it. Scroll the overlay, and centre SAFELY:
+       'safe center' centres while the panel fits and pins it to the top when it doesn't, which
+       is what keeps the top reachable. A browser without 'safe' drops the declaration and keeps
+       the plain centring it had. */
+    html[data-density="compact"] .mg-overlay-root { overflow-y:auto; overscroll-behavior:contain;
+      align-items:safe center; justify-content:safe center; }
     /* Phillips screw — inline in the head, absolute on a bezel's corners. */
     .mg-screw { position:relative; width:8px; height:8px; border-radius:50%; flex-shrink:0;
       background:radial-gradient(circle at 35% 30%, #6b7075, #2a2d30 70%, #16181a); box-shadow:inset 0 0 0 1px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.05); }
@@ -160,6 +174,7 @@ export function setDeckLevel(overlay, frac) {
 export function mountOverlay({ id, html, onKey, onClose, closeOnBackdrop = true }) {
   const overlay = document.createElement('div');
   overlay.id = id;
+  overlay.classList.add('mg-overlay-root');   // the compact scroll rule below keys off this, not forty ids
   overlay.innerHTML = html;
 
   let closed = false;

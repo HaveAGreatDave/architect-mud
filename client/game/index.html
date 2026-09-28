@@ -1174,6 +1174,10 @@
 					     turned on (CSS hangs off data-dictation on <html>), and hidden for
 					     good in a browser with no SpeechRecognition — see js/dictation.js. -->
 					<button id="dictate-btn" hidden aria-pressed="false" aria-label="Voice input" title="Voice input (tap, or hold to talk)">🎤</button>
+					<!-- Recent commands (phone only). ArrowUp is the desktop's way back to a
+					     command; a handset has no ArrowUp, so this is one tap to send it again.
+					     js/input.js initRecentCommands. -->
+					<button id="recent-cmds-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Recent commands" title="Recent commands">↺</button>
 					<button id="mobile-chat-btn" title="Toggle chat">💬<span id="mobile-chat-badge" style="display:none"> !</span></button>
 				</div>
 				<div id="smart-bar" class="smart-bar-empty"></div>

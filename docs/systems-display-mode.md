@@ -1,7 +1,7 @@
 # Display Mode — the three-rung ladder (as built)
 
 One ordered player preference covering every system that ships a graphical
-presentation **and** a written one for the same thing. Tablet → Settings → General,
+presentation **and** a written one for the same thing. Tablet → Settings → Accessibility,
 or the verb `displaymode visual|text|log`.
 
 Lives in [server/engine/presentation.js](../server/engine/presentation.js). Stored as
@@ -1126,6 +1126,16 @@ poker's `text` moves the minigame rung and leaves your maps alone.
 ## Building a text minigame
 
 Two pieces exist for this, and a new family should use both rather than starting over.
+
+**Client: on a phone, every verb is a tap and the board owns the pane.** A board
+mounts in `#area-pane`, which a phone collapses until an app claims it and folds
+away when the soft keyboard opens (see [mobile-layout.md](reference/mobile-layout.md)).
+Call `attachBoard(command)` from [textui.js](../client/game/js/panels/textui.js) on
+open and `detachBoard(command)` on close; that claims the pane and routes taps.
+Render each verb the board prints with `tap(verb, label)` (a row of them with
+`deck([...])`), and the delegated listener hands the verb to the same `command()`
+typed words reach. Pass `press: true` for a timing verb (the demolition board's
+`seat`), which then fires on pointerdown instead of on release.
 
 **Server: one line.** `textRender(player, payload)` in
 [server/engine/minigame.js](../server/engine/minigame.js) stamps `render: 'text'` on a

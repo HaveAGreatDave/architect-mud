@@ -16,7 +16,7 @@
 // the game.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { esc, bar, paintRow, heading, ensureTextUiStyles } from './textui.js';
+import { esc, bar, paintRow, heading, ensureTextUiStyles, attachBoard, detachBoard } from './textui.js';
 import {
   setSignalSkin, startSignalGame, stopSignalGame, SIGNAL_W,
   signalSweep, signalOverdrive, signalTune,
@@ -157,6 +157,7 @@ export function openTextSignal(opts = {}) {
   const s = startSignalGame(_opts);
   if (!s) { setSignalSkin(null); return false; }
   _st = s; _open = true;
+  attachBoard(command);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   window.addEventListener('keydown', onKey);
   paint(s);
   return true;
@@ -165,6 +166,7 @@ export function openTextSignal(opts = {}) {
 export function close() {
   if (!_open) return;
   _open = false; _st = null; _over = false;
+  detachBoard(command);   // hand the pane back to the phone layout
   window.removeEventListener('keydown', onKey);
   stopSignalGame();
   setSignalSkin(null);

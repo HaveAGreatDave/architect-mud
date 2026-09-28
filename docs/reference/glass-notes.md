@@ -33,6 +33,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Measuring the frame (`__glFrame()`)](#measuring-the-frame-__glframe)
 - [Hardware coverage](#hardware-coverage)
 - [A pass that didn't draw](#a-pass-that-didnt-draw)
+- [Phones (2026-09-28)](#phones-2026-09-28)
 - [Releasing GL scenes (2026-09-17)](#releasing-gl-scenes-2026-09-17)
 - [Fidelity measurement (`__glFidelity()`)](#fidelity-measurement-__glfidelity)
 - [Archetypes in the occluder field](#archetypes-in-the-occluder-field)
@@ -210,7 +211,7 @@ Her deckhouse ran 0.085 to 0.163: three tiers totalling 0.078 of local height on
 
 GLASS 2 has been the default since 2026-09-09. `RENDER_TUNE.gl = 0` (the **GLASS 2 (WebGL)** slider, or `__wsTune.gl = 0`) puts the city back on the CPU. The evidence for the switch: the camera agrees with `cam.proj` to 5.7e-14 px across five device-pixel ratios (`gl:parity`, 3,931 projections); the mesh agrees with the shape every building collides as at all four facings (`gl:mesh`, 10,853 faces); a real Coldwater frame measured 18.3 ms average, 31 ms worst; and the ground-to-air crossfade, the Curtain and the signage all use the depth buffer instead of a probe.
 
-It fails safe: no WebGL2, a lost context, a shader that won't compile, a texture page the device can't hold, a pass that returns nothing, and a pass that throws all hand the world back to 2-D and set the flag to 0. Every number comes from one machine with a discrete NVIDIA card, so falling back correctly says nothing about speed on an integrated GPU.
+It fails safe: no WebGL2, a lost context, a shader that won't compile, a texture page the device can't hold, a pass that returns nothing, and a pass that throws all hand the world back to 2-D and set the flag to 0. Coming back to a backgrounded tab tries GL again, twice at most (see [Phones](#phones-2026-09-28)). Every number comes from one machine with a discrete NVIDIA card, so falling back correctly says nothing about speed on an integrated GPU.
 
 ### How the pass is wired
 
@@ -434,6 +435,16 @@ Other hardware is untested: every number here is one machine with a discrete NVI
 ## A pass that didn't draw
 
 The mass is suppressed because the GL pass exists, so a pass that returns nothing leaves floating lights over no buildings. No WebGL2 and a driver removing the context both get there without throwing, so the pass returns null and the flag goes back to 0, as with a throw. The context-lost listener calls `preventDefault` (otherwise the loss is permanent) and `lost()` is checked every frame.
+
+## Phones (2026-09-28)
+
+Three things in windshield.js exist for phones. None of them runs in the smoke suite, because every DOM stub's `matchMedia` answers false.
+
+- **Phone tier (`GL_TIER`, `PHONE_TIER`).** A coarse pointer on a screen whose short side is under 600 CSS px starts with `glSsao`, `glShadow`, `glMsaa` and `glHdr` at 0. Each is an exact off switch that gives back the picture from before it shipped. It is decided once at load, because `glMsaa` is a context creation attribute. localStorage `architect_gl_tier` = `full` opts a device back in.
+- **Revival after a lost context.** When the pass turns GL off itself (`glAutoOff`), the next `visibilitychange` to visible sets `RENDER_TUNE.gl` back to 1, at most twice a session (`GL_REVIVE_MAX`). A backgrounded phone tab is the common way to lose a context. The player's own GLASS 2 switch is never overridden, and the world-pass throw inside `drawWorldObjects` (a code fault, not a lost context) still switches GL off for good.
+- **`glass:struggling`.** On a coarse-pointer device, a view that keeps its smoothed frame interval above 85 ms for six seconds of painting fires this window event once a session. Gaps over a second (a hidden tab) don't count. main.js answers it once per device with a log line offering `displaymode textgames`.
+
+The cockpit's two frame loops (`fsimFrame`, `hudFrame`) are wrappers around `…Body` functions now: a throw is logged once and the loop re-arms, so a bad frame no longer ends the flight.
 
 ## Releasing GL scenes (2026-09-17)
 

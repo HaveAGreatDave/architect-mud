@@ -2424,6 +2424,31 @@ export const RENDER_TUNE = {
   chaseFrameY: 0.46,  // EXTERNAL chase cam: screen-y (fraction of canvas height) the craft's VISUAL CENTRE is pinned to — the camera pitch is solved to land it here regardless of zoom / ground vs air / orbit angle, so it never slides behind the bottom flight-stick HUD (lower = higher in frame)
   yachtMidWz: 0.11,   // HELM chase (hideOwnShip): the Echelon's visual-centre world-z, used to pin her at frameY the same zoom-stable way the own ship is pinned — so she holds her screen spot on the dolly/orbit and always frames ABOVE the helm console (raise ⇒ she sits lower in frame)
 };
+
+// ── THE PHONE TIER ───────────────────────────────────────────────────────────
+// Four GLASS 2 passes above are on for every device, and each has an exact off switch that gives
+// back the picture that shipped before it: SSAO (a second depth read and a blur), the sun's shadow
+// map (the city drawn a second time into a 2048-square depth map every daylight frame), MSAA (a
+// multisampled framebuffer at a DPR-2 backing store) and HDR bloom (float buffers a phone often
+// can't render, where it was already a no-op). A phone GPU paying for all four on a 3x screen is
+// how the seats went slow enough to read as broken. A phone-class screen starts with them off;
+// the adaptive resolution dial and the scene governor still do their own work on top.
+//
+// Decided ONCE, at load: glMsaa is a context creation attribute (see its note) and must be settled
+// before the first view is made. Browser-only by construction: the smoke stubs' matchMedia
+// answers false, so every gate still measures the full tier it was written against. A player (or
+// a tester) can opt back in with localStorage 'architect_gl_tier' = 'full'.
+export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glMsaa: 0, glHdr: 0 });
+export const GL_TIER = (() => {
+  try {
+    const mm = globalThis.matchMedia, sc = globalThis.screen;
+    if (typeof mm !== 'function' || !sc) return 'full';
+    if (globalThis.localStorage?.getItem('architect_gl_tier') === 'full') return 'full';
+    const shortSide = Math.min(sc.width || 0, sc.height || 0);
+    return mm('(pointer: coarse)').matches && shortSide > 0 && shortSide < 600 ? 'phone' : 'full';
+  } catch { return 'full'; }
+})();
+if (GL_TIER === 'phone') Object.assign(RENDER_TUNE, PHONE_TIER);
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const lerp = (a, b, t) => a + (b - a) * t;
 const rgb = (c, a) => a == null ? `rgb(${c[0]|0},${c[1]|0},${c[2]|0})` : `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
@@ -4181,6 +4206,7 @@ function paintWindshieldFrame(id, view) {
   // recovers; the EMA damps it into a stable equilibrium instead of oscillating. 1 = full quality
   // (≤~22ms/45fps), down to 0.3 under sustained load. Read by drawVolumetricClouds below.
   st.frameMs = st.frameMs ? st.frameMs + (raw - st.frameMs) * 0.1 : raw;
+  watchStruggle(st, raw);
   // Adaptive Mode-7 downscale: the ground raster is a fixed-cost per-pixel software loop the canvas
   // dynamic-res dial above can't reach (its buffer is sized in CSS-px/DS space, not backing pixels), so
   // under sustained load bump DS up to +4 on top of RENDER_TUNE.pixel — quartering the texel count at
@@ -23711,6 +23737,39 @@ let DECAL_SINK = null;
 // there is nothing left to point at. `__glass2()` in the game reads this.
 let GL_LAST_ERROR = null;
 export function glLastError() { return GL_LAST_ERROR; }
+// ⚠ AND IT SWITCHED ITSELF OFF FOR THE REST OF THE SESSION. The commonest way a phone loses a
+// WebGL context is being put in a pocket: the tab is backgrounded, the browser reclaims the GPU,
+// and every seat was then on the 2-D renderer (about four times the frame cost) until a reload.
+// So when the pass turned GL off ITSELF, coming back to the page gives it another go. Twice at
+// most: a driver that takes a context away once usually takes it away again (see releaseScene in
+// gl/world.js), and a device with no WebGL2 at all fails the same way on every attempt, one bad
+// frame each. A player's own GLASS 2 switch is never overridden: only GL_AUTO_OFF is revived.
+// ── A DEVICE THAT CAN'T KEEP UP IS TOLD THERE IS ANOTHER WAY ─────────────────
+// Every seat and minigame has a text version that plays the same game (the Display Mode ladder,
+// docs/systems-display-mode.md), and nothing ever said so to the player it exists for: a phone
+// that renders the cab at five frames a second just stutters until they give up. On a touch
+// device, a view that holds under ~12fps for six seconds of real painting raises one
+// `glass:struggling` event per session; main.js turns it into a single offer in the log. A frame
+// gap over a second is a backgrounded tab (rAF stops), not a slow frame, and is not counted.
+let STRUGGLE_WATCH = (() => { try { return !!globalThis.matchMedia?.('(pointer: coarse)')?.matches; } catch { return false; } })();
+function watchStruggle(st, raw) {
+  if (!STRUGGLE_WATCH || raw > 1000) return;
+  st.slowFor = (st.frameMs > 85) ? (st.slowFor || 0) + raw / 1000 : Math.max(0, (st.slowFor || 0) - raw / 2000);
+  if (st.slowFor < 6) return;
+  STRUGGLE_WATCH = false;
+  try { globalThis.dispatchEvent?.(new CustomEvent('glass:struggling', { detail: { frameMs: Math.round(st.frameMs), gl: !!RENDER_TUNE.gl } })); } catch { /* no DOM */ }
+}
+let GL_AUTO_OFF = false, GL_REVIVES = 0;
+const GL_REVIVE_MAX = 2;
+function glAutoOff() { RENDER_TUNE.gl = 0; GL_AUTO_OFF = true; }
+globalThis.document?.addEventListener?.('visibilitychange', () => {
+  if (globalThis.document.visibilityState !== 'visible') return;
+  if (!GL_AUTO_OFF || RENDER_TUNE.gl || GL_REVIVES >= GL_REVIVE_MAX) return;
+  GL_REVIVES++;
+  GL_AUTO_OFF = false;
+  RENDER_TUNE.gl = 1;
+  console.info(`[windshield] back in view: trying GLASS 2 again (${GL_REVIVES}/${GL_REVIVE_MAX})`);
+});
 // ── WHAT WAS THE RENDERER BEING TOLD? ───────────────────────────────────────
 // A picture is a question about the INPUT as often as about the code, and the input arrives from
 // four callers with fifty fields. "The runway band looks like it is above the ground" cannot be
@@ -65662,9 +65721,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       // enough on its own. One frame is wrong; the flag then puts it back on the 2-D renderer for
       // good, exactly as a throw does.
       if (out && out.canvas) { ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH); GL_DREW = true; }
-      else { GL_LAST_ERROR = { where: 'gl pass', message: 'drew nothing — no context, a lost context, or a zero-sized host', at: Date.now() }; console.error('[windshield] the GL world pass drew nothing — falling back to 2-D'); RENDER_TUNE.gl = 0; }
+      else { GL_LAST_ERROR = { where: 'gl pass', message: 'drew nothing — no context, a lost context, or a zero-sized host', at: Date.now() }; console.error('[windshield] the GL world pass drew nothing — falling back to 2-D'); glAutoOff(); }
     }
-    catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
+    catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass threw — falling back to 2-D', e); glAutoOff(); }
     pEnd();
     GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; STROKE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; SCATTER_SINK = null; OWNSHIP_SINK = null; BAY_SINK = null; FAUNA_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; GROUND_LATE = null; FLOOR_STATE = null;
   }

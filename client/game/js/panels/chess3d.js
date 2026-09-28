@@ -1395,7 +1395,11 @@ function attachInput(pane) {
 		const t = e.changedTouches[0];
 		const sq = pickSquare(...atCanvas(t.clientX, t.clientY));
 		if (sq?.cmd) fireCmd(sq.cmd, e);
-	}, { passive: true });
+	// ⚠ NOT PASSIVE. A tap here is followed by the browser's compatibility mousedown/mouseup, and
+	// the mouse path above fires the same square's command on mouseup, so one tap sent the move
+	// twice (or picked a piece up and dropped it again). fireCmd calls preventDefault on this
+	// touchend, which suppresses those synthetic events, and a passive listener may not.
+	}, { passive: false });
 
 	canvas.addEventListener('wheel', e => {
 		e.preventDefault();

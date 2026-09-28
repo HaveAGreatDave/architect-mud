@@ -293,7 +293,15 @@ export function openBoat(ctx = {}) {
     + '<div class="boat-help" hidden></div>'
     + '</div>';
 
+  // ⚠ A PHONE KEEPS #area-pane COLLAPSED UNTIL AN APP SAYS IT OWNS IT, and this was the one seat
+  // that never said so: dispatch.js closes the depot (which releases the pane) and then opens the
+  // boat into it, so on a phone the helm mounted into a 0×0 pane and the player saw a d-pad.
+  // Only when the pane is ours: a handed-in mount (free look) has already claimed it itself.
+  const ownsPane = !ctx.mount;
+  if (ownsPane) window.dispatchEvent(new Event('pane:claimed'));
+
   st = {
+    ownsPane,
     p,
     name: ctx.name || 'her',
     livery: ctx.livery || null, preview: null,
@@ -453,6 +461,7 @@ export function closeBoat() {
   document.body.classList.remove('boat-hidepanel');
   disposeWindshield(ID);
   endSeatKeyboard(st.pane);
+  if (st.ownsPane) window.dispatchEvent(new Event('pane:released'));  // hand the pane back to the phone layout
   st = null;
 }
 

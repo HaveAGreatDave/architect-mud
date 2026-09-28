@@ -277,6 +277,16 @@ function renderDialogue(msg) {
     } else {
       btn.textContent = label;
     }
+    // ⚠ A THUMB HAS NO HOVER. The stakes footer only fills on mouseenter or focus, and on a
+    // phone the tap that would fill it is the tap that commits, so a hostile or irreversible
+    // option went through without its warning ever being on screen. The same line rides inside
+    // the option; styles.css shows it only where hover isn't (touch, or the compact layout).
+    if (opt._hint) {
+      const stakes = document.createElement('span');
+      stakes.className = 'dialogue-opt-stakes';
+      stakes.textContent = opt._hint;
+      btn.appendChild(stakes);
+    }
     // A turn-in option for a quest you've accepted but not yet finished: the
     // server marks it disabled rather than hiding it, so you can see the hand-in
     // exists but can't misfire it. Clicking it isn't dead — it drops you into the

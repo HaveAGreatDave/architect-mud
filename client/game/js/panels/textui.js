@@ -24,6 +24,7 @@
 // ── Primitives ───────────────────────────────────────────────────────────────
 
 export const esc = (s) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const escAttr = (s) => esc(s).replace(/"/g, '&quot;');
 export const pad = (s, n) => String(s).padStart(n, ' ');
 export const padEnd = (s, n) => String(s).padEnd(n, ' ');
 export const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -78,6 +79,78 @@ export function meter(label, frac, value, { w = 10, labelW = 9, cls = '' } = {})
   return `<span class="dim">${esc(padEnd(label, labelW))}</span>${bar(frac, w, cls)} ${esc(String(value))}`;
 }
 
+// ── Tap controls and the pane ────────────────────────────────────────────────
+// A character board is played with words, and on a phone a word means opening a
+// keyboard over the board and typing against its clock: `latch c9` in a 30s
+// alarm, `seat` while a needle crosses a band at 30fps, `1`–`4` on a handset
+// with no number row. Every verb a board prints is also a TAP: `tap()` renders a
+// chip carrying the verb, and one delegated listener hands it to the open board's
+// own command(), so a tap and a typed word run the same code and can't disagree.
+//
+// The listener is delegated (document level, wired once) because boards repaint
+// by replacing innerHTML up to 30 times a second. Per-render listeners would be
+// rewired every frame; a delegated one never needs to be.
+//
+// `press: true` fires on pointerdown rather than click, for the timing verbs
+// (`seat` when the needle is in the band): a click lands on release, 80–300ms
+// after the thumb went down, and on a moving needle that is the difference
+// between inside the band and out of it.
+let _board = null;       // the open board's command(word), or null
+let _tapsWired = false;
+
+export function tap(cmd, label, { press = false, cls = '' } = {}) {
+  return `<span class="pick txui-tap${cls ? ` ${cls}` : ''}" role="button" tabindex="0" data-txcmd="${escAttr(cmd)}"${press ? ' data-txpress="1"' : ''}>${label}</span>`;
+}
+
+// A row of chips that wraps on a narrow screen. The boards are white-space:pre,
+// so a line of chips would otherwise run off the right edge of a phone.
+export const deck = (chips) => `<div class="txui-deck">${chips.filter(Boolean).join('')}</div>`;
+
+function fireTap(el, e) {
+  const cmd = el.getAttribute('data-txcmd');
+  if (!_board || cmd == null) return;
+  e.preventDefault();
+  _board(cmd);
+}
+
+function wireTaps() {
+  if (_tapsWired) return;
+  _tapsWired = true;
+  document.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest?.('[data-txcmd][data-txpress]');
+    if (el) fireTap(el, e);
+  });
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest?.('[data-txcmd]');
+    if (el && !el.hasAttribute('data-txpress')) fireTap(el, e);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = e.target.closest?.('[data-txcmd]');
+    if (el) fireTap(el, e);
+  });
+}
+
+// ⚠ A BOARD MOUNTS IN #area-pane, AND A PHONE KEEPS THAT PANE COLLAPSED UNTIL AN
+// APP CLAIMS IT, and folds it away when the soft keyboard comes up unless one has
+// (main.js setupMobilePane). The 3-D seats claimed it; the character boards, the
+// rung that exists for a player whose device can't run the 3-D ones, did not. So
+// a phone opened the text board into a shut pane, and a player who found the bar
+// and opened it lost the board again the moment they opened the keyboard to type.
+// attachBoard on open, detachBoard on close; calling attach again is harmless.
+export function attachBoard(command) {
+  wireTaps();
+  const first = !_board;
+  _board = command;
+  if (first) window.dispatchEvent(new Event('pane:claimed'));
+}
+
+export function detachBoard(command) {
+  if (!_board || (command && _board !== command)) return;
+  _board = null;
+  window.dispatchEvent(new Event('pane:released'));
+}
+
 // ── Styles ───────────────────────────────────────────────────────────────────
 // The shared shell + the semantic colour classes every panel here uses. A panel
 // with its own look injects its own sheet ON TOP of this one (textcockpit.js
@@ -109,6 +182,23 @@ export function ensureTextUiStyles() {
     .txui .pick { cursor:pointer; text-decoration:underline dotted; }
     .txui .pick:hover { color:#d8fff0; text-shadow:0 0 6px rgba(216,255,240,.5); }
     @media (max-width:700px){ .txui { font-size:0.6875rem; } .txui-cols { gap:10px; } }
+    /* Tap chips. Scoped by their own class, not .txui, because three boards
+       (alarm, demolition, the text cockpit) paint into a root of their own. */
+    .txui-deck { display:flex; flex-wrap:wrap; gap:6px; white-space:normal; margin:4px 0 2px; }
+    .txui-tap { display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+      text-decoration:none; padding:3px 9px; border:1px solid #1d4436; border-radius:4px;
+      background:#0d1d18; color:#9fe0c4; user-select:none; -webkit-user-select:none;
+      -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+    .txui .txui-tap { text-decoration:none; }   /* .txui .pick underlines a bare word; a chip is already a button */
+    .txui-tap:hover, .txui-tap:focus-visible { color:#d8fff0; border-color:#3f8f72; outline:none; }
+    .txui-tap:active { background:#16362b; }
+    .txui-tap.hot { color:#ff8a6a; border-color:#5a2a22; }
+    .txui-tap.big { padding:8px 22px; font-weight:700; letter-spacing:2px; }
+    html[data-density="compact"] .txui-tap { min-height:38px; min-width:44px; padding:4px 12px; }
+    html[data-density="compact"] .txui-tap.big { min-height:52px; min-width:40%; }
+    /* A chip inside a row of the board (a terminal tag, a lead's probe/cut): shorter, so a
+       seven-row block stays a block rather than doubling in height, and still a thumb wide. */
+    html[data-density="compact"] .txui-tap.inl { min-height:30px; padding:1px 12px; }
   `;
   document.head.appendChild(st);
 }

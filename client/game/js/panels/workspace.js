@@ -1162,10 +1162,10 @@ function wireResize() {
   const grip = el('workspace-grip');
   const box = el('workspace-box');
   if (!grip || !box) return;
-  let sx = 0, sy = 0, sw = 0, sh = 0;
+  let sx = 0, sy = 0, sw = 0, sh = 0, sl = 0;
   grip.addEventListener('pointerdown', (e) => {
     const r = box.getBoundingClientRect();
-    sx = e.clientX; sy = e.clientY; sw = r.width; sh = r.height;
+    sx = e.clientX; sy = e.clientY; sw = r.width; sh = r.height; sl = r.left;
     // The box is centred by transform; resizing has to pin it first or it grows
     // from the middle in both directions and the grip runs away from the pointer.
     box.style.transform = 'none';
@@ -1183,7 +1183,11 @@ function wireResize() {
   });
   grip.addEventListener('pointermove', (e) => {
     if (!grip.hasPointerCapture(e.pointerId)) return;
-    box.style.width = Math.max(420, sw + (e.clientX - sx)) + 'px';
+    // ⚠ THE FLOOR IS 420 ONLY WHERE 420 FITS. On a window narrower than that, the old
+    // Math.max(420, …) widened the box past the screen on the first touch of the grip, and
+    // the clamp that keeps it on screen then cut its right edge off: the ✕ and Close with it.
+    const room = window.innerWidth - sl - 4;
+    box.style.width = Math.min(room, Math.max(Math.min(420, room), sw + (e.clientX - sx))) + 'px';
     // Compact sizes itself to its contents; pinning a height there would put an
     // empty gap under the replies and make the button do two things at once.
     if (!box.classList.contains('wsp-compact')) box.style.height = Math.max(260, sh + (e.clientY - sy)) + 'px';

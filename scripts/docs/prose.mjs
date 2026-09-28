@@ -107,13 +107,16 @@ const count = (re, text) => { re.lastIndex = 0; let n = 0; while (re.exec(text))
 // ---- gather units: { key, text } ----
 const units = [];
 const rel = (p) => relative(ROOT, p).split(sep).join('/');
+// Line endings are normalised because several rules span a line break, and a Windows checkout
+// (CRLF) and CI (LF) counted docs/combat.md differently: the gate passed on one and failed the other.
+const readText = (p) => readFileSync(p, 'utf8').replace(/\r\n?/g, '\n');
 for (const p of [join(ROOT, 'CLAUDE.md'), ...walk(join(ROOT, 'docs'), (f) => f.endsWith('.md')),
   ...walk(join(ROOT, 'plugins'), (f) => f.endsWith(sep + 'README.md')),
   ...walk(join(ROOT, 'tools'), (f) => f.endsWith(sep + 'README.md'))]) {
-  if (existsSync(p)) units.push({ key: rel(p), text: stripMd(readFileSync(p, 'utf8'))});
+  if (existsSync(p)) units.push({ key: rel(p), text: stripMd(readText(p))});
 }
 for (const p of walk(join(ROOT, 'client', 'game'), (f) => f.endsWith('.html'))) {
-  units.push({ key: rel(p), text: stripHtml(readFileSync(p, 'utf8'))});
+  units.push({ key: rel(p), text: stripHtml(readText(p))});
 }
 const sentenceHits = new Map();
 const contentByDir = new Map();
