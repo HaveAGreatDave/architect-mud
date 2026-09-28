@@ -4,6 +4,7 @@
 // correctly, and delegate to the shadowed owner off-context) plus pure helpers.
 import { _test } from './index.js';
 import { withinShift, pilotTarget, charterOwnsPilot, stepToward, charterFare, pilotColor } from './charter.js';
+import { parsePartsArg, cleanParts, normalizeLivery as _normLv } from './livery.js';
 import { signatureMult, signatureScore, colorName, describeExterior,
   normalizeLivery, sanitizeLivery, conspicuousnessMult, paintCost, isPaintable,
   readSchemes, schemeOf } from './livery.js';
@@ -674,6 +675,12 @@ export default async function regress({ run, check, getPlayer }) {
     r = await run(`modify ${sub}`);
     check(`modify ${sub.split(' ')[0]} requires an owned aircraft`, /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
   }
+  // Per-part paint: the one-token wire form round-trips, junk names and non-hex colours are dropped,
+  // and a stored livery keeps its parts through normalizeLivery (the path every renderer reads).
+  { const pp = parsePartsArg('ruffDark:#E2DED6,bad name:#fff,flagRed:notahex,hub:#3a3e48');
+    check('paintset parts token keeps only clean slot:hex pairs', JSON.stringify(pp) === JSON.stringify({ ruffDark: '#e2ded6', hub: '#3a3e48' }), JSON.stringify(pp));
+    check("paintset parts '-' clears every part", JSON.stringify(parsePartsArg('-')) === '{}');
+    check('a stored livery keeps its parts', _normLv({ livery: { parts: cleanParts({ tail: '#b22234' }) } }).parts.tail === '#b22234'); }
   r = await run('paintset nope #111111 #222222 solid matte #333333 standard none'); check('paintset on an unknown craft is refused', /no such aircraft/i.test(r?.message || ''), r?.message);
   r = await run('scheme save fast'); check('scheme with no owned craft is refused', /no aircraft of your own|own/i.test(r?.message || ''), r?.message);
   r = await run('hangaract store x'); check('hangaract off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);

@@ -158,6 +158,28 @@ export function colorName(hex) {
   return best;
 }
 
+// ── Per-part paint ────────────────────────────────────────────────────────────
+// livery.parts = { slotName: '#rrggbb' }: a colour per named paint slot of the model's mesh file.
+// The server knows no model's slots and doesn't need to — a slot the mesh doesn't have is never
+// read — so this only checks shape: a sane name, a real hex, and a cap on how many.
+export const PARTS_MAX = 64;
+const PART_NAME = /^[A-Za-z][A-Za-z0-9_]{0,23}$/;
+export function cleanParts(p) {
+  if (!p || typeof p !== 'object') return {};
+  const out = {};
+  for (const [k, v] of Object.entries(p)) {
+    if (Object.keys(out).length >= PARTS_MAX) break;
+    if (PART_NAME.test(k) && isHex(v)) out[k] = v.toLowerCase();
+  }
+  return out;
+}
+// The one-token wire form paintset carries: 'slot:#hex,slot:#hex', '-' for none.
+export function parsePartsArg(s) {
+  if (s === undefined) return undefined;
+  if (s === '-' || !s) return {};
+  return cleanParts(Object.fromEntries(s.split(',').map(t => t.split(':')).filter(a => a.length === 2)));
+}
+
 // ── Normalise ─────────────────────────────────────────────────────────────────
 // custom_data.livery may be absent, a legacy free-text STRING (the old
 // `modify livery <text>`), or the structured object. Always yield a full object.
@@ -179,6 +201,7 @@ export function normalizeLivery(cd) {
     variant: TRIM_IDS.has(raw.variant) ? raw.variant : 'stock',
     itrim: CABIN_IDS.has(raw.itrim) ? raw.itrim : CABIN_IDS.has(raw.variant) ? raw.variant : 'stock',
     plate: cleanPlate(raw.plate),
+    parts: cleanParts(raw.parts),
   };
 }
 
@@ -199,6 +222,7 @@ export function sanitizeLivery(patch, prev = LIVERY_DEFAULT) {
     variant: TRIM_IDS.has(p.variant) ? p.variant : (prev.variant || 'stock'),
     itrim: CABIN_IDS.has(p.itrim) ? p.itrim : (prev.itrim || 'stock'),
     plate: typeof p.plate === 'string' ? cleanPlate(p.plate) : (prev.plate || ''),
+    parts: p.parts && typeof p.parts === 'object' ? cleanParts(p.parts) : cleanParts(prev.parts),
   };
 }
 
@@ -212,7 +236,7 @@ export function readSchemes(cd) {
 // The core (non-schemes, non-text) fields that make up one saved scheme.
 export function schemeOf(livery) {
   const lv = normalizeLivery({ livery });
-  return { base: lv.base, trim: lv.trim, accent: lv.accent, ground: lv.ground, pattern: lv.pattern, finish: lv.finish, decal: lv.decal, cabin: lv.cabin, uphol: lv.uphol };
+  return { base: lv.base, trim: lv.trim, accent: lv.accent, ground: lv.ground, pattern: lv.pattern, finish: lv.finish, decal: lv.decal, cabin: lv.cabin, uphol: lv.uphol, variant: lv.variant, itrim: lv.itrim, parts: lv.parts };
 }
 
 // ── Signature / conspicuousness ───────────────────────────────────────────────

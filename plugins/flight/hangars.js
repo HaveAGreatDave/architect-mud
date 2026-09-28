@@ -12,7 +12,7 @@ import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, craftIsVtol, getZone,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope,
   detach, getLivePlayer, resetSurfaces, acquirableTypes, airfieldOf, fieldName } from './state.js';
-import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
+import { normalizeLivery, sanitizeLivery, parsePartsArg, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS, TRIMS, CABIN_TRIMS, PLATE_DEFAULT, PLATE_CHARS, PLATE_MAX } from './livery.js';
 import { fieldStocks } from './acquisition.js';
@@ -122,7 +122,7 @@ async function buildCards(player, field) {
   const fab = await effectiveSkill(player, 'fabrication');
   return rows.map(r => {
     const lv = normalizeLivery(r.custom_data), cap = r.fuel_capacity || 1;
-    const schemes = Object.entries(readSchemes(r.custom_data)).map(([name, s]) => ({ name, base: s.base, trim: s.trim }));
+    const schemes = Object.entries(readSchemes(r.custom_data)).map(([name, s]) => ({ name, base: s.base, trim: s.trim, accent: s.accent, variant: s.variant || 'stock', parts: s.parts || {} }));
     const cd = r.custom_data || {};
     // Full template numbers the performance model reads (state.computeStats/perfAxes).
     const type = { class: r.class, seats: r.seats, cargo_capacity: r.cargo_capacity,
@@ -403,14 +403,16 @@ async function writeLivery(ac, next) {
 // paint actually changed; the hand-written livery text and saved schemes are never touched here.
 // (accent/ground trail the arg list so older clients that omit them still parse — they default in place.)
 async function cmdPaintset(args, raw, player) {
-  const [id, base, trim, pattern, finish, cabin, uphol, decal, accent, ground, variant, itrim, plateArg] = args;
+  const [id, base, trim, pattern, finish, cabin, uphol, decal, accent, ground, variant, itrim, plateArg, partsArg] = args;
+  // Per-part colours ride last as one token (see parsePartsArg); absent keeps what she has.
+  const parts = parsePartsArg(partsArg);
   // The nameplate travels as one token: spaces as '_', and '-' for "the trim's own name". Absent (an
   // older client) leaves it as it was.
   const plate = plateArg === undefined ? undefined : plateArg === '-' ? '' : plateArg.replace(/_/g, ' ');
   const { ac, err } = await paintTarget(player, id); if (err) return err;
 
   const prev = normalizeLivery(ac.custom_data);
-  const next = { ...sanitizeLivery({ base, trim, accent, ground, pattern, finish, cabin, uphol, decal, variant, itrim, plate }, prev), text: prev.text };
+  const next = { ...sanitizeLivery({ base, trim, accent, ground, pattern, finish, cabin, uphol, decal, variant, itrim, plate, parts }, prev), text: prev.text };
   if (JSON.stringify(next) !== JSON.stringify(prev)) {
     const fee = paintCost({ class: ac.class });
     if ((player.credits || 0) < fee) { await pushHangarBay(player); return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵. You're short.` }; }
@@ -449,7 +451,7 @@ async function cmdScheme(args, raw, player) {
   }
   if (sub === 'load') {
     if (!schemes[name]) return { type: 'emote', message: `No saved scheme "${name}".` };
-    await writeLivery({ id: owned.id, custom_data: cd }, sanitizeLivery(schemes[name], normalizeLivery(cd)));
+    await writeLivery({ id: owned.id, custom_data: cd }, sanitizeLivery({ parts: {}, variant: 'stock', itrim: 'stock', ...schemes[name] }, normalizeLivery(cd)));
     out(player.id, `<span class="item-grant">Swapped to scheme "${name}", no charge.</span>`);
     return pushHangarBay(player);
   }

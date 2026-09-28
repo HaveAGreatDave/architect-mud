@@ -13,7 +13,7 @@
 // to floor.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { drawHangarFloorBay, MODEL_SCALE } from './aircraft3d.js';
+import { drawHangarFloorBay, drawPaintBooth, MODEL_SCALE, meshIdFor, meshParams } from './aircraft3d.js';
 import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyles, barTone } from './vehicle-card.js';
 import { updateHangarAmbience, stopHangarAmbience } from './hangar-ambience.js';
 import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor, rgbTriplet } from './wireframe-plane.js';
@@ -367,8 +367,11 @@ function buyRentScreen() {
 // half of the deal: writing straight into B.work so the hero canvas repaints live
 // as you drag (startSpin re-reads it every frame), and a full render() only once
 // the picker closes, since rendering mid-drag would tear the popover down.
+// A field is a livery key ('base') or a named mesh part ('part:ruff'), which lands in work.parts.
+const workGet = (field) => field.startsWith('part:') ? (B.work.parts || {})[field.slice(5)] || partRgbHex(field.slice(5)) : B.work[field];
 function setPickerColor(field, hex) {
-  B.work[field] = hex;
+  if (field.startsWith('part:')) B.work.parts = { ...(B.work.parts || {}), [field.slice(5)]: hex };
+  else B.work[field] = hex;
   const btn = document.querySelector(`.hb-cp-swatch[data-cp="${field}"]`);
   const chip = btn?.querySelector('i'), lbl = btn?.querySelector('em');
   if (chip) chip.style.background = hex;
@@ -376,7 +379,7 @@ function setPickerColor(field, hex) {
 }
 function openColorPopover(field, btn) {
   openColorPicker({
-    key: field, anchor: btn, value: B.work[field], title: field, themeFrom: 'hb-root',
+    key: field, anchor: btn, value: workGet(field), title: field.replace(/^part:/, ''), themeFrom: 'hb-root',
     onChange: (hex) => setPickerColor(field, hex),
     onClose: () => render(),
   });
@@ -400,43 +403,81 @@ function selectRow(label, field, opts) {
     opts.map(o => `<option value="${o.id}"${o.id === B.work[field] ? ' selected' : ''}>${o.label}</option>`).join('')
   }</select></label>`;
 }
-// LIVERY, kept simple: a book of scheme cards (the factory looks, the special editions and your
-// own saved schemes), a Custom page for the colours, and a Cabin page. Picking a card only
-// changes the preview on the stage; nothing is charged until Apply.
+// LIVERY. Three pages:
+//   SCHEMES — every look as a card: a band of its colours, its name and where it came from. The
+//     special editions come off the model's own mesh file (its `schemes`), so a new model's editions
+//     show up here without a line of this file changing.
+//   PAINT — base, trim, pattern, finish and nose art, then EVERY PART the model's mesh file names,
+//     each its own swatch. Nothing here knows which model it is; the list is the file's paint slots.
+//   CABIN — trim, colour, upholstery and the dash nameplate.
+// Picking only changes the preview on the stage; nothing is charged until Apply.
 const LOOK_KEYS = ['base', 'trim', 'accent', 'pattern', 'finish', 'cabin', 'uphol'];
-function schemeCard(attrs, base, trim, label, sub, on) {
+const hex2 = (c) => '#' + c.map(v => Math.max(0, Math.min(255, v | 0)).toString(16).padStart(2, '0')).join('');
+const curCraftMesh = () => { const c = curCraft(); return c ? meshParams(meshIdFor(c.class, c.class === 'heli' && c.hardpoints > 0)) : null; };
+// A slot's colour as the model shows it now: the scheme picked in the work copy over the file's paint.
+function slotRgb(mesh, slot, variant) {
+  const sch = (variant && variant !== 'stock' && mesh?.schemes?.[variant]) || {};
+  return (sch[slot] || mesh?.paints?.[slot] || {}).rgb || [128, 128, 128];
+}
+function partRgbHex(slot) { return hex2(slotRgb(curCraftMesh(), slot, B.work?.variant)); }
+// A scheme's band: up to six distinct colours, in the order the file lists them.
+function meshBand(mesh, variant) {
+  const out = [];
+  for (const k of Object.keys(mesh?.paints || {})) {
+    if (/^(lens|lamp|pupil|eye|grille|gun|chrome|flag)/.test(k)) continue;
+    const h = hex2(slotRgb(mesh, k, variant));
+    if (!out.some(o => colourDist(o, h) < 40)) out.push(h);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+function colourDist(a, b) { const p = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); const x = p(a), y = p(b); return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]); }
+const prettySlot = (k) => k.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase());
+function lookCard(attrs, band, name, tag, on, extra = '') {
+  const stripes = band.map((h, i) => `<i style="background:${esc(h)};--i:${i}"></i>`).join('');
   return `<button class="hb-look${on ? ' on' : ''}" ${attrs}>
-    <span class="hb-look-chip" style="background:linear-gradient(135deg, ${esc(base)} 0 58%, ${esc(trim)} 58% 100%)"></span>
-    <b>${esc(label)}</b>${sub ? `<span class="hb-dim">${esc(sub)}</span>` : ''}</button>`;
+    <span class="hb-look-band">${stripes}<em></em></span>
+    <b>${esc(name)}</b>${tag ? `<span class="hb-look-tag">${esc(tag)}</span>` : ''}${extra}</button>`;
 }
 function paintTabHtml(c, cat, dirty) {
   if (!c.paintable) {
     return `<div class="hb-note">${c.wreck ? 'A wreck: nothing worth painting.' : c.rental ? "Rentals can't be painted." : 'You can only paint an aircraft you own.'}</div>`;
   }
-  const pt = ['schemes', 'custom', 'cabin'].includes(B.paintTab) ? B.paintTab : (B.paintTab = 'schemes');
-  const seg = [['schemes', 'Schemes'], ['custom', 'Custom'], ['cabin', 'Cabin']]
+  const pt = ['schemes', 'paint', 'cabin'].includes(B.paintTab) ? B.paintTab : (B.paintTab = 'schemes');
+  const seg = [['schemes', 'Schemes'], ['paint', 'Paint'], ['cabin', 'Cabin']]
     .map(([k, l]) => `<button class="hb-subtab${pt === k ? ' hb-subtab-active' : ''}" data-paint-tab="${k}">${l}</button>`).join('');
   const applyRow = `<div class="hb-apply-row">
     <button class="hb-btn hb-accent" data-act="paint-apply"${dirty ? '' : ' disabled'}>Apply · ${c.paintCost}₵</button>
     <button class="hb-btn" data-act="paint-revert"${dirty ? '' : ' disabled'}>Revert</button>
   </div>`;
-  const W = B.work;
+  const W = B.work, mesh = curCraftMesh();
+  const noParts = !W.parts || !Object.keys(W.parts).length;
   let panel;
   if (pt === 'schemes') {
-    const specials = ((cat.trims || {})[c.class] || []).filter(t => t.id !== 'stock');
-    const factory = (cat.presets || []).map(p => schemeCard(`data-preset="${esc(p.id)}"`, p.base, p.trim, p.label, '',
-      (W.variant || 'stock') === 'stock' && LOOK_KEYS.every(k => p[k] == null || W[k] === p[k])));
-    const special = specials.map(t => schemeCard(`data-variant="${esc(t.id)}"`, '#222', '#c9a94a', t.label.split(' · ')[0], t.label.split(' · ')[1] || 'factory scheme', W.variant === t.id));
-    const mine = (c.schemes || []).map(sc => `<span class="hb-look-wrap">${schemeCard(`data-scheme-load="${esc(sc.name)}"`, sc.base, sc.trim, sc.name, 'yours · free swap', false)}
-      <button class="hb-look-del" data-scheme-del="${esc(sc.name)}" aria-label="Delete scheme ${esc(sc.name)}">✕</button></span>`);
+    const cards = [];
+    const specials = ((cat.trims || {})[c.class] || []);
+    if (mesh && specials.length) for (const t of specials) {
+      const [name, sub] = t.label.split(' · ');
+      cards.push(lookCard(`data-variant="${esc(t.id)}"`, meshBand(mesh, t.id), name,
+        t.id === 'stock' ? 'the original' : sub || 'factory edition', (W.variant || 'stock') === t.id && W.pattern === 'bare' && noParts, t.id !== 'stock' && /special/i.test(t.label) ? '<span class="hb-look-star">★</span>' : ''));
+    }
+    for (const p of (cat.presets || [])) cards.push(lookCard(`data-preset="${esc(p.id)}"`, [p.base, p.trim, p.accent].filter(Boolean), p.label, 'paint job',
+      (W.variant || 'stock') === 'stock' && noParts && LOOK_KEYS.every(k => p[k] == null || W[k] === p[k])));
+    const mine = (c.schemes || []).map(sc => `<span class="hb-look-wrap">${lookCard(`data-scheme-load="${esc(sc.name)}"`,
+      [sc.base, sc.trim, sc.accent, ...Object.values(sc.parts || {})].filter(Boolean).filter((h, i, a) => a.findIndex(x => colourDist(x, h) < 30) === i).slice(0, 6),
+      sc.name, 'yours · free swap', false)}<button class="hb-look-del" data-scheme-del="${esc(sc.name)}" aria-label="Delete scheme ${esc(sc.name)}">✕</button></span>`);
     panel = `
-      ${special.length ? `<div class="hb-section">SPECIAL EDITIONS</div><div class="hb-looks">${(W.variant && W.variant !== 'stock' ? [schemeCard('data-variant="stock"', '#888', '#444', 'Stock', 'the class look', false)] : []).concat(special).join('')}</div>` : ''}
-      <div class="hb-section">FACTORY</div><div class="hb-looks">${factory.join('')}</div>
+      <div class="hb-looks">${cards.join('')}</div>
       <div class="hb-section">YOUR SCHEMES</div>
-      <div class="hb-looks">${mine.join('') || '<span class="hb-dim">None saved yet. Make one on Custom, apply it, then save it here.</span>'}</div>
+      <div class="hb-looks">${mine.join('') || '<span class="hb-dim">None yet. Paint her on the Paint page, apply it, then save it here.</span>'}</div>
       <div class="hb-scheme-save"><input id="hb-scheme-name" placeholder="name this look" maxlength="16"><button class="hb-btn" data-act="scheme-save"${dirty ? ' disabled title="Apply your paint first"' : ''}>Save current look</button></div>
       ${applyRow}`;
-  } else if (pt === 'custom') {
+  } else if (pt === 'paint') {
+    const slots = Object.keys(mesh?.paints || {}).filter(k => !/^(lens|lamp|pupil)/.test(k));
+    const parts = slots.map(k => {
+      const own = (W.parts || {})[k], hex = own || partRgbHex(k);
+      return `<span class="hb-part${own ? ' own' : ''}"><button type="button" class="hb-cp-swatch" data-cp="part:${esc(k)}" title="${esc(prettySlot(k))}"><i style="background:${esc(hex)}"></i><em>${esc(prettySlot(k))}</em></button>${own ? `<button class="hb-part-x" data-part-reset="${esc(k)}" aria-label="Back to the scheme's colour">↺</button>` : ''}</span>`;
+    }).join('');
     panel = `
       <div class="hb-ctls">
         ${swatchRow('Base', 'base')}${swatchRow('Trim', 'trim')}
@@ -444,6 +485,9 @@ function paintTabHtml(c, cat, dirty) {
         ${selectRow('Pattern', 'pattern', cat.patterns)}${selectRow('Finish', 'finish', cat.finishes)}
         ${selectRow('Nose art', 'decal', cat.decals || [])}
       </div>
+      ${slots.length ? `<div class="hb-section">EVERY PART <span class="hb-dim">· tap one to paint it by itself</span></div>
+      <div class="hb-parts">${parts}</div>
+      ${noParts ? '' : '<button class="hb-btn" data-act="parts-clear">Clear every part</button>'}` : ''}
       ${applyRow}`;
   } else {
     panel = `
@@ -741,6 +785,9 @@ function weightTabHtml(c) {
 // (or you're standing in it), out on the ramp if she's parked outside, on the pad at a helipad —
 // and the work is a row of cards beside her: tap one and its page opens under the row. Drag the
 // stage to walk round her. Livery edits preview on the stage live.
+// The paint booth takes the stage on the Livery card unless you've asked for the bay back; the
+// button on the stage flips it on any card.
+const boothOn = () => (B.boothPick ?? B.benchTab === 'paint');
 function stageVenue(c) {
   if (B.data.venue === 'helipad') return 'helipad';
   if (B.data.inHangar || c.location === 'hangar') return 'hangar';
@@ -783,6 +830,7 @@ function benchScreen() {
     : paintTabHtml(c, cat, dirty);
 
   const venue = stageVenue(c);
+  const booth = boothOn();
   const radar = B.benchTab === 'tuning' ? `<canvas id="hb-perf-radar" class="hb-stage-radar" width="220" height="200"></canvas>` : '';
   const statusPill = c.rental ? '<b class="hb-bench-pill hb-bench-pill-rent">Rental</b>' : '';
   return `
@@ -790,7 +838,8 @@ function benchScreen() {
       <div class="hb-bay2-stage">
         <canvas id="hb-stage3d" class="hb-scene" tabindex="0" aria-label="${esc(c.tail)} ${esc(STAGE_CAP[venue].toLowerCase())}"></canvas>
         <div class="hb-inspect-name">${esc(c.tail)} <span>${esc(c.typeName)}</span> ${statusPill}</div>
-        <div class="hb-inspect-hint">${STAGE_CAP[venue]} · drag to walk round her</div>
+        <div class="hb-inspect-hint">${booth ? 'PAINT BOOTH · drag to turn her' : STAGE_CAP[venue] + ' · drag to walk round her'}</div>
+        <button class="hb-stage-mode" data-act="stage-mode">${booth ? '⌂ Back to the ' + (venue === 'hangar' ? 'hangar' : venue === 'helipad' ? 'pad' : 'ramp') : '✦ Paint booth'}</button>
         ${radar}
       </div>
       <div class="hb-bay2-side">
@@ -846,7 +895,7 @@ function wire() {
   const root = document.getElementById('hb-root'); if (!root) return;
   const on = (sel, ev, fn) => root.querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn));
 
-  on('[data-bench-tab]', 'click', (e) => { B.benchTab = e.currentTarget.getAttribute('data-bench-tab'); render(); });
+  on('[data-bench-tab]', 'click', (e) => { B.benchTab = e.currentTarget.getAttribute('data-bench-tab'); B.boothPick = null; render(); });
   on('[data-paint-tab]', 'click', (e) => { B.paintTab = e.currentTarget.getAttribute('data-paint-tab'); render(); });
 
   // The maintenance stage: drag to walk round her (the camera orbits), scroll to step in or out.
@@ -1000,7 +1049,9 @@ function wire() {
       if (c) showConfirmDialog({ title: 'Cancel Rental', prompt: `Hand back the ${c.tail}? This deletes the rental, can't be undone.`, command: `cancelrental ${c.id}`, confirmLabel: 'Return' });
       return;
     }
-    if (act === 'paint-apply') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) sendCmdSilent(`paintset ${c.id} ${B.work.base} ${B.work.trim} ${B.work.pattern} ${B.work.finish} ${B.work.cabin} ${B.work.uphol} ${B.work.decal || 'none'} ${B.work.accent || '#c22b8c'} ${B.work.ground || '#eee7d6'} ${B.work.variant || 'stock'} ${B.work.itrim || 'stock'} ${(B.work.plate || '').trim().replace(/ +/g, '_') || '-'}`); return; }
+    if (act === 'paint-apply') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) sendCmdSilent(`paintset ${c.id} ${B.work.base} ${B.work.trim} ${B.work.pattern} ${B.work.finish} ${B.work.cabin} ${B.work.uphol} ${B.work.decal || 'none'} ${B.work.accent || '#c22b8c'} ${B.work.ground || '#eee7d6'} ${B.work.variant || 'stock'} ${B.work.itrim || 'stock'} ${(B.work.plate || '').trim().replace(/ +/g, '_') || '-'} ${Object.entries(B.work.parts || {}).map(([k, v]) => k + ':' + v).join(',') || '-'}`); return; }
+    if (act === 'stage-mode') { B.boothPick = !boothOn(); render(); return; }
+    if (act === 'parts-clear') { B.work.parts = {}; render(); return; }
     if (act === 'paint-revert') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) { B.work = { ...c.livery }; render(); } return; }
     if (act === 'scheme-save') { const n = (document.getElementById('hb-scheme-name')?.value || '').trim(); if (n) sendCmdSilent(`scheme ${B.selId} save ${n}`); return; }
   });
@@ -1014,9 +1065,16 @@ function wire() {
   on('[data-sel-field]', 'change', (e) => { B.work[e.currentTarget.getAttribute('data-sel-field')] = e.currentTarget.value; render(); });
   on('[data-preset]', 'click', (e) => {
     const p = (B.data.catalog?.presets || []).find(x => x.id === e.currentTarget.getAttribute('data-preset'));
-    if (p) { B.work = { ...B.work, base: p.base, trim: p.trim, accent: p.accent || B.work.accent, pattern: p.pattern, finish: p.finish, cabin: p.cabin, uphol: p.uphol }; render(); }
+    if (p) { B.work = { ...B.work, variant: 'stock', parts: {}, base: p.base, trim: p.trim, accent: p.accent || B.work.accent, pattern: p.pattern, finish: p.finish, cabin: p.cabin, uphol: p.uphol }; render(); }
   });
-  on('[data-variant]', 'click', (e) => { B.work = { ...B.work, variant: e.currentTarget.getAttribute('data-variant') }; render(); });
+  // A factory edition is the mesh file's own paint, so it shows bare (no pattern over it) and drops
+  // any per-part colours; the cabin follows it when the model has a cabin of that name.
+  on('[data-variant]', 'click', (e) => {
+    const v = e.currentTarget.getAttribute('data-variant');
+    const cab = ((B.data.catalog?.cabinTrims || {})[curCraft()?.class] || []).some(t => t.id === v);
+    B.work = { ...B.work, variant: v, pattern: 'bare', parts: {}, ...(cab ? { itrim: v } : {}) }; render();
+  });
+  on('[data-part-reset]', 'click', (e) => { const k = e.currentTarget.getAttribute('data-part-reset'); const p = { ...(B.work.parts || {}) }; delete p[k]; B.work.parts = p; render(); });
   on('[data-scheme-load]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} load ${e.currentTarget.getAttribute('data-scheme-load')}`));
   on('[data-scheme-del]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} delete ${e.currentTarget.getAttribute('data-scheme-del')}`));
   on('[data-knob]', 'pointerdown', startKnobDrag);
@@ -1063,7 +1121,11 @@ function startSpin() {
         const x = Math.cos(o.a) * R, y = Math.sin(o.a) * R, z = 0.05 + o.h * 1.6;
         const cam = { x, y, z, yaw: Math.atan2(-y, -x), pitch: -Math.atan2(z - 0.05, R) * 0.9, fov: 1 };
         ctx.setTransform(stage3d._dpr, 0, 0, stage3d._dpr, 0, 0);
-        drawHangarFloorBay(ctx, { cls: sc.class, armed, wreck: !!sc.wreck, variant: liveVariant(B.work), livery: B.work || sc.livery,
+        if (boothOn()) {
+          const armedZ = armed ? 0.55 : 1;
+          drawPaintBooth(ctx, { cls: sc.class, armed, wreck: !!sc.wreck, variant: liveVariant(B.work), livery: B.work || sc.livery,
+            w: stage3d._cw, h: stage3d._ch, time: t / 1000, yaw: -o.a * 2, zoom: 1.45 * armedZ, fit: 1.4 });
+        } else drawHangarFloorBay(ctx, { cls: sc.class, armed, wreck: !!sc.wreck, variant: liveVariant(B.work), livery: B.work || sc.livery,
           w: stage3d._cw, h: stage3d._ch, sky: { ...(B.data?.sky || {}), fx: skyFx }, floor: true, floor3d: true,
           venue: stageVenue(sc), cam });
       }
@@ -1697,6 +1759,10 @@ function ensureStyles() {
   #hb-root .hb-bay2-stage { position:relative; flex:1.25 1 0; min-width:0; min-height:260px; display:flex; border-radius:8px; overflow:hidden;
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 25%, var(--border)); }
   #hb-root .hb-bay2-stage .hb-scene { cursor:grab; border-radius:0; }
+  #hb-root .hb-stage-mode { position:absolute; right:10px; top:10px; z-index:3; padding:5px 11px; border-radius:16px; cursor:pointer;
+    font:600 11px/1 inherit; letter-spacing:.5px; color:#fff; background:linear-gradient(135deg, color-mix(in srgb, var(--hb-atm-accent) 70%, #000), rgba(10,14,20,.8));
+    border:1px solid var(--hb-atm-accent); box-shadow:0 0 12px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
+  #hb-root .hb-stage-mode:hover { filter:brightness(1.2); }
   #hb-root .hb-stage-radar { position:absolute; left:8px; bottom:8px; transform:scale(.72); transform-origin:left bottom; z-index:2; background:rgba(6,12,18,0.72); border-radius:8px; pointer-events:none; }
   #hb-root .hb-bay2-side { flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:10px; min-height:0; }
   #hb-root .hb-jobs { flex:0 0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:6px; }
@@ -1709,19 +1775,42 @@ function ensureStyles() {
   #hb-root .hb-job b { font-size:12px; letter-spacing:.5px; }
   #hb-root .hb-job-sub { font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
   #hb-root .hb-job-sub.warn { color:#e8c07a; } #hb-root .hb-job-sub.bad { color:#ff6b6b; }
-  /* Livery scheme cards */
-  #hb-root .hb-looks { display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:6px; margin-bottom:8px; }
-  #hb-root .hb-look { display:flex; flex-direction:column; align-items:flex-start; gap:2px; width:100%; padding:6px; border-radius:7px; cursor:pointer;
-    font-family:inherit; text-align:left; color:var(--text); background:var(--hb-surf-lo, rgba(127,127,127,.08));
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 18%, var(--border)); }
-  #hb-root .hb-look:hover { border-color:var(--hb-atm-accent); }
-  #hb-root .hb-look.on { border-color:var(--hb-atm-accent); box-shadow:inset 0 0 0 1px var(--hb-atm-accent); }
-  #hb-root .hb-look-chip { display:block; width:100%; height:26px; border-radius:4px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.35); }
-  #hb-root .hb-look b { font-size:11px; }
-  #hb-root .hb-look .hb-dim { font-size:9.5px; }
+  /* Livery scheme cards: a band of the look's colours under a moving sheen, the name, the tag. */
+  #hb-root .hb-looks { display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:8px; margin-bottom:8px; }
+  #hb-root .hb-look { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:3px; width:100%; padding:7px; border-radius:10px;
+    cursor:pointer; overflow:hidden; font-family:inherit; text-align:left; color:var(--text);
+    background:linear-gradient(160deg, color-mix(in srgb, var(--hb-atm-accent) 10%, rgba(20,24,32,.9)), rgba(8,10,14,.92));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, var(--border));
+    box-shadow:0 4px 10px rgba(0,0,0,.35); transition:transform .14s, box-shadow .14s, border-color .14s; }
+  #hb-root .hb-look:hover { transform:translateY(-3px) scale(1.02); border-color:var(--hb-atm-accent);
+    box-shadow:0 10px 20px rgba(0,0,0,.45), 0 0 16px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
+  #hb-root .hb-look.on { border-color:var(--hb-atm-accent);
+    box-shadow:inset 0 0 0 1px var(--hb-atm-accent), 0 0 22px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
+  #hb-root .hb-look.on::after { content:'✓'; position:absolute; top:10px; left:12px; z-index:3; font:700 13px/1 system-ui; color:#fff;
+    text-shadow:0 1px 3px #000; }
+  #hb-root .hb-look-band { position:relative; display:flex; width:100%; height:44px; border-radius:6px; overflow:hidden;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), inset 0 -8px 14px rgba(0,0,0,.35); transform:skewX(-8deg); }
+  #hb-root .hb-look-band i { flex:1 1 0; display:block; }
+  #hb-root .hb-look-band em { position:absolute; inset:0; background:linear-gradient(105deg, transparent 30%, rgba(255,255,255,.55) 45%, transparent 60%);
+    transform:translateX(-120%); }
+  #hb-root .hb-look:hover .hb-look-band em, #hb-root .hb-look.on .hb-look-band em { animation:hbSheen 1.4s ease-in-out infinite; }
+  @keyframes hbSheen { from { transform:translateX(-120%); } to { transform:translateX(120%); } }
+  #hb-root .hb-look b { font-size:12px; letter-spacing:.6px; text-transform:uppercase; }
+  #hb-root .hb-look-tag { font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); }
+  #hb-root .hb-look-star { position:absolute; top:4px; right:6px; z-index:3; font-size:15px; color:#ffd24a;
+    text-shadow:0 0 8px rgba(255,210,74,.9), 0 1px 2px #000; animation:hbTwinkle 2.2s ease-in-out infinite; }
+  @keyframes hbTwinkle { 50% { opacity:.55; transform:scale(.85) rotate(20deg); } }
   #hb-root .hb-look-wrap { position:relative; display:block; }
-  #hb-root .hb-look-del { position:absolute; top:3px; right:3px; width:18px; height:18px; padding:0; border-radius:50%; cursor:pointer; font-size:10px;
-    color:#fff; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.3); }
+  #hb-root .hb-look-del { position:absolute; top:4px; right:4px; z-index:4; width:20px; height:20px; padding:0; border-radius:50%; cursor:pointer; font-size:10px;
+    color:#fff; background:rgba(0,0,0,.6); border:1px solid rgba(255,255,255,.3); }
+  /* Every part, as a swatch */
+  #hb-root .hb-parts { display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:5px; margin-bottom:8px; }
+  #hb-root .hb-part { position:relative; display:block; }
+  #hb-root .hb-part .hb-cp-swatch { width:100%; justify-content:flex-start; }
+  #hb-root .hb-part.own .hb-cp-swatch { border-color:var(--hb-atm-accent); }
+  #hb-root .hb-part-x { position:absolute; right:3px; top:50%; transform:translateY(-50%); width:20px; height:20px; padding:0; border-radius:50%;
+    cursor:pointer; color:#fff; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.25); font-size:11px; }
+  @media (prefers-reduced-motion:reduce) { #hb-root .hb-look, #hb-root .hb-look-band em, #hb-root .hb-look-star { animation:none !important; transition:none; } }
   @media (max-width:720px) {
     #hb-root .hb-bay2 { flex-direction:column; overflow-y:auto; }
     #hb-root .hb-bay2-stage { flex:0 0 240px; }
