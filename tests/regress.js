@@ -5324,14 +5324,15 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     for (const w of writes) next[w.table].set(w.id, w.row);
     return next;
   };
-  const driftFrom = (t) => {
-    const out = [];
-    for (const table of Object.keys(tree)) {
-      for (const [id, row] of t[table]) {
-        if (canonicalJson(row) !== canonicalJson(tree[table].get(id))) out.push(`${table}/${id}`);
-      }
+  // Only a row some write touched can differ: apply() copies every other row by
+  // reference. Comparing all 44k rows on each of ~170 turns took 140 s, over half
+  // the suite, to prove that objects equal themselves.
+  const driftFrom = (t, writes) => {
+    const out = new Set();
+    for (const w of writes) {
+      if (canonicalJson(t[w.table].get(w.id)) !== canonicalJson(tree[w.table].get(w.id))) out.add(`${w.table}/${w.id}`);
     }
-    return out;
+    return [...out];
   };
 
   // NORTH IS y−1, so clockwise is (x, y) → (−y, x). Get this backwards and every
@@ -5357,10 +5358,11 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     for (const k of [1, -1]) {
       const out = planRotate(tree, f.id, k);
       if (out.errors.length) continue;
-      const back = planRotate(apply(tree, out.writes), f.id, -k);
+      const there = apply(tree, out.writes);
+      const back = planRotate(there, f.id, -k);
       if (back.errors.length) { notHome.push(`${f.id}: cannot turn back — ${back.errors[0]}`); continue; }
       turned++;
-      const d = driftFrom(apply(apply(tree, out.writes), back.writes));
+      const d = driftFrom(apply(there, back.writes), [...out.writes, ...back.writes]);
       if (d.length) notHome.push(`${f.id} (${k > 0 ? 'cw' : 'ccw'}): ${d.slice(0, 4).join(', ')}`);
     }
   }
@@ -5423,10 +5425,16 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 
   // The two refusals that stop the Studio authoring something the gate rejects.
   const ontoBuilding = [], ontoOccupied = [];
+  // First zone per cell, the same answer the old linear find() gave, without
+  // scanning 17k zones for each of ~900 neighbours.
+  const cellOf = new Map();
+  for (const z of tree.zones.values()) {
+    const key = `${z.map_id}|${z.grid_x}|${z.grid_y}|${z.grid_z ?? 0}`;
+    if (!cellOf.has(key)) cellOf.set(key, z);
+  }
   for (const f of facades) {
     for (const [, [dx, dy]] of Object.entries(OFF)) {
-      const target = [...tree.zones.values()].find(z => z.map_id === f.map_id
-        && z.grid_x === f.grid_x + dx && z.grid_y === f.grid_y + dy && (z.grid_z ?? 0) === (f.grid_z ?? 0));
+      const target = cellOf.get(`${f.map_id}|${f.grid_x + dx}|${f.grid_y + dy}|${f.grid_z ?? 0}`);
       if (!target?.flags?.facade) continue;
       const p = planMove(tree, f.id, target.grid_x, target.grid_y);
       if (!p.errors.some(e => /already a building/.test(e))) ontoBuilding.push(`${f.id} → ${target.id}`);
@@ -5445,9 +5453,9 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // deck with a fuel pump standing on it; the forecourt at 923,907 is the same shape and escaped
   // only by not being in the first twelve. Two copies of "is this a building" is the bug, and the
   // fix is to stop keeping the second one.
+  const furnished = new Set([...tree.furniture.values()].map(fu => fu.zone_id));
   const withStuff = [...tree.zones.values()].filter(z => z.map_id === 'map_world'
-    && !isBuildingish(z)
-    && [...tree.furniture.values()].some(fu => fu.zone_id === z.id));
+    && !isBuildingish(z) && furnished.has(z.id));
   for (const z of withStuff.slice(0, 12)) {
     const near = facades.find(f => f.map_id === z.map_id
       && Math.abs(f.grid_x - z.grid_x) + Math.abs(f.grid_y - z.grid_y) <= 3);
