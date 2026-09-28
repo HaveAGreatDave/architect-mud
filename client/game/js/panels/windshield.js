@@ -22717,13 +22717,15 @@ function pushInteriorShell(cam, v) {
           env = mix(env, [255, 252, 240], band * 0.6);
           env = mix(mul3c(env, 0.06), env, day);
           // Toward the back of the aperture the view goes into the cabin.
-          env = mix([46, 28, 16], env, clamp((rr[1] + 0.15) * 4, 0, 1));
+          env = mix(P.cabinEnv ? P.cabinEnv.back : [46, 28, 16], env, clamp((rr[1] + 0.15) * 4, 0, 1));
         } else {
           // Back into the cabin: walnut and leather, lit by what comes in the windows.
           // Wood low, the pale headliner and the canopy's light high: a real cabin behind a bezel is
           // bright, and a face that reflects it went dull brown when this was only the dark wood.
+          // A profile whose room is not wood says what it is instead (`cabinEnv`: back, low, high);
+          // INT_LIT is keyed on the profile, so a cached colour never crosses from one room to another.
           const up = clamp(rr[2] * 0.6 + 0.5, 0, 1);
-          env = mix([70, 44, 24], [214, 196, 168], up * up);
+          env = P.cabinEnv ? mix(P.cabinEnv.low, P.cabinEnv.high, up * up) : mix([70, 44, 24], [214, 196, 168], up * up);
           env = mix(env, [248, 244, 232], Math.exp(-((rr[2] - 0.55) ** 2) / 0.01) * 0.45);
           env = mix(mul3c(env, 0.4), env, day);
         }
