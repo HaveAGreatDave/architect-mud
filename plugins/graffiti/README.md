@@ -48,6 +48,23 @@ The trap that shapes `paint.js`: **`esc` changes the LENGTH of the string** (`<`
 
 **The client decides nothing.** `sprayapply` re-asks whether there's a wall there and a can in your hand, re-validates every colour, and re-measures the length. The panel is a nicer way to say a sentence the server was always going to check.
 
+## Letterforms
+
+A throw-up comes in four letterforms, listed as `TAG_FACES` in `client/shared/tag-strokes.js`:
+
+- `bubble`: the hand-drawn sheet traced into `client/shared/tag-glyphs.js`.
+- `round`: thick strokes with every corner smoothed off and round ends.
+- `block`: square ends and cut corners, upright.
+- `sharp`: thinner, leaning forward, mitred to points, with chisel-cut ends.
+
+The last three are one skeleton alphabet (`tag-strokes.js`) stroked three ways, and it also covers the digits and the punctuation a tag uses, so no letter falls back to a system font.
+
+The can's **Style** row picks one. `any` leaves it to the wall, which rolls the hand and the letterform off the street tile, the same way it always rolled the hand. Picking a letterform makes the tag a throw-up, because the others only exist there. Under the row is the piece as the flight window will paint it, baked by the renderer's own `tagPreview`.
+
+The choice is stored in `zone_graffiti.face` and `player_sprays.face`. `safeFace` in `paint.js` only accepts a name off `TAG_FACES`, so a payload can't ask the renderer for anything it doesn't draw, and `wall.tags` hands it on as `f`.
+
+Letters touch and never overlap. `tagLayout` in `windshield.js` spaces them by their outlines so the bodies stop a small gap apart at their nearest, and the bake lays every keyline before any fill, so a piece has one outline round the outside and one line between each pair. `scripts/shapes/tagspace.mjs` checks it for every letterform.
+
 ## The shelf
 
 Designs save to `player_sprays` (cap **12**, per player) and load back onto the can. The oldest is never silently dropped — you're told the shelf is full and you pick what goes, because auto-eviction eats the one somebody meant to keep. Save and bin both answer with the **whole fresh shelf** rather than a delta, so an open panel can't drift from the table.
@@ -72,9 +89,11 @@ The budget is the point of the price: at ₵120 a can and 120 characters in it, 
 
 ## Files
 - `index.js` — the verbs, the RAM authority, the one write path (`applyTag`)
-- `paint.js` — the per-letter style model and the only thing that renders it
+- `paint.js` — the per-letter style model and the only thing that renders it, plus `safeFace`
 - `client/game/js/panels/spraycan.js` — the dialog
 - `client/game/js/panels/color-picker.js` — the shared wheel (also the hangar bench's)
+- `client/shared/tag-strokes.js`: the stroke alphabet and the `TAG_FACES` list
+- `client/shared/tag-glyphs.js`: the traced bubble sheet (regenerate with `scripts/tags/trace-sheet.cjs`)
 
 ## See also
 [docs/systems-surveillance.md](../../docs/systems-surveillance.md) · [docs/systems-cleaning.md](../../docs/systems-cleaning.md)

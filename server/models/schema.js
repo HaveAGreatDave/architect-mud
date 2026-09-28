@@ -3166,6 +3166,10 @@ export const SCHEMA_SQL = `
   -- #rrggbb and a four-bit flag, so there's no markup in a room description to
   -- parse and none to get wrong. NULL is an ordinary unstyled tag.
   ALTER TABLE zone_graffiti ADD COLUMN IF NOT EXISTS style JSONB;
+  -- The throw-up letterform the player picked in the spray can (bubble, round, block or
+  -- sharp; the list is TAG_FACES in client/shared/tag-strokes.js). NULL means none was
+  -- picked and the renderer rolls one off the wall, as it does for the city's own paint.
+  ALTER TABLE zone_graffiti ADD COLUMN IF NOT EXISTS face TEXT;
 
   -- Saved sprays (graffiti plugin): a player's own designs, kept off the wall. The
   -- spray-can dialog is a design tool, and a design you can't put away is one you
@@ -3180,6 +3184,8 @@ export const SCHEMA_SQL = `
     style JSONB,
     created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+  -- A saved design keeps its letterform too, same as the wall.
+  ALTER TABLE player_sprays ADD COLUMN IF NOT EXISTS face TEXT;
   CREATE INDEX IF NOT EXISTS idx_player_sprays_player ON player_sprays(player_id);
 
   -- Economy ledger (economy-ledger plugin): append-only record of every credit

@@ -1687,6 +1687,8 @@ casing — is decided at the size it is **baked**, not at the size it is drawn.
 __tagSheet()                                       // the house word list, three schemes, by day
 __tagSheet({ night: 1, colour: '#5fd0ff' })
 __tagSheet({ words: ['COLDWATER LIES'], scale: 1 })  // a player's own can, unshrunk
+__tagSheet({ faces: true })                        // one row per throw-up letterform
+__tagSheet({ face: 'sharp' })                      // every throw-up in one letterform
 __tagSheetHide()
 ```
 

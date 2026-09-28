@@ -17,7 +17,8 @@
 // renderer that indexed the escaped text would slice an entity in half and put a
 // live `<` back on the wall.
 import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, CAN_CAPACITY, tagAt, removeTag, tagFromWorld } from './index.js';
-import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, escapedChars } from './paint.js';
+import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, safeFace, escapedChars } from './paint.js';
+import { TAG_FACES } from '../../client/shared/tag-strokes.js';
 import { world } from '../../server/engine/world.js';
 import { gameDayIndex } from '../../server/engine/zone-filth.js';
 
@@ -155,6 +156,19 @@ export default async function regress({ run, check }) {
   const nl = decodePayload(Buffer.from(JSON.stringify({ t: 'ONE\nTWO' })).toString('base64'));
   check('decodePayload flattens a newline — a tag is one line on a wall', nl?.text === 'ONE TWO', JSON.stringify(nl));
 
+  // --- The letterform ---------------------------------------------------------
+  // The can offers the renderer's own list, and the server stores only a name off
+  // that list: anything else is no choice at all, and the wall rolls one.
+  check('safeFace accepts every letterform the renderer draws', TAG_FACES.length >= 4 && TAG_FACES.every(f => safeFace(f) === f), JSON.stringify(TAG_FACES));
+  check('safeFace ignores case and padding', safeFace(' SHARP ') === 'sharp');
+  check('safeFace refuses a face that is not one', safeFace('comic sans') === null && safeFace('<b>') === null);
+  check('safeFace treats nothing as no choice', safeFace(undefined) === null && safeFace('') === null);
+  const faced = decodePayload(Buffer.from(JSON.stringify({ t: 'OSKA', f: 'block' })).toString('base64'));
+  check('decodePayload carries the letterform', faced?.face === 'block', JSON.stringify(faced));
+  const unfaced = decodePayload(Buffer.from(JSON.stringify({ t: 'OSKA', f: 'wingdings' })).toString('base64'));
+  check('decodePayload drops a bad letterform and keeps the tag', unfaced?.text === 'OSKA' && unfaced.face === null, JSON.stringify(unfaced));
+  check('a payload with no letterform leaves it to the wall', decoded?.face === null, JSON.stringify(decoded));
+
   // --- The room line, painted ------------------------------------------------
   tags.set(street.id, {
     text: esc('NO GODS'), style: [{ n: 2, c: '#ff2d55', f: 1 }, { n: 5, c: null, f: 0 }],
@@ -202,6 +216,12 @@ export default async function regress({ run, check }) {
     // because a room description is HTML; hand that straight to `fillText` and the wall reads
     // "ACAB &amp; CO". Escaping is still the room's rule — this is the one consumer that undoes it.
     check('the words arrive as the player typed them', got[0] && got[0].t === 'ACAB & CO', got[0] && got[0].t);
+    check('a tag nobody picked letters for sends none', got[0] && got[0].f === undefined, JSON.stringify(got[0]));
+    // The letterform picked in the can rides to the renderer alongside the words.
+    tags.get(street.id).face = 'sharp';
+    const sharp = wallTags(shop, shop.grid_x, shop.grid_y) || [];
+    check('a picked letterform reaches the renderer', sharp[0] && sharp[0].f === 'sharp', JSON.stringify(sharp[0]));
+    tags.get(street.id).face = null;
     check('and the stored text is still escaped', (tagAt(street.id) || {}).text === 'ACAB &amp; CO', (tagAt(street.id) || {}).text);
 
     // A building nobody sprayed answers nothing — the index is a hint, and a hint that fires on

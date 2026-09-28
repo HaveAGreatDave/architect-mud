@@ -22,6 +22,8 @@
  * the same trick the chat rainbow uses in client/game/js/markup.js.
  */
 
+import { TAG_FACES } from '../../client/shared/tag-strokes.js';
+
 export const F_BOLD = 1;
 export const F_ITALIC = 2;
 export const F_UNDER = 4;
@@ -38,6 +40,16 @@ const HEX = /^#[0-9a-f]{6}$/i;
 export function safeColor(raw) {
   const c = String(raw ?? '').trim().toLowerCase();
   return HEX.test(c) ? c : null;
+}
+
+/**
+ * A throw-up letterform (`bubble`, `round`, `block`, `sharp`), or null for "roll one off the wall".
+ * It only ever selects from the renderer's own list, so the worst a payload can do is name a face
+ * that isn't one, and that is simply no choice at all.
+ */
+export function safeFace(raw) {
+  const f = String(raw ?? '').trim().toLowerCase();
+  return TAG_FACES.includes(f) ? f : null;
 }
 
 /**
@@ -118,7 +130,8 @@ export function renderStyled(escapedText, runs) {
 
 /**
  * The wire format between the spray-can dialog and the verb: base64 of
- * `{ t: <text the player typed>, r: <runs> }`.
+ * `{ t: <text the player typed>, r: <runs>, f: <letterform>, n: <shelf name> }`. `f` and `n` are
+ * optional.
  *
  * Base64 because a command is a single whitespace-split STRING and a tag is
  * allowed spaces, quotes and punctuation; anything hand-rolled would need an
@@ -135,6 +148,6 @@ export function decodePayload(b64) {
     const text = String(obj.t ?? '').replace(/[\x00-\x1f\x7f]/g, ' ').trim();
     if (!text) return null;
     const name = String(obj.n ?? '').replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 24);
-    return { text, runs: Array.isArray(obj.r) ? obj.r : [], name };
+    return { text, runs: Array.isArray(obj.r) ? obj.r : [], name, face: safeFace(obj.f) };
   } catch { return null; }
 }

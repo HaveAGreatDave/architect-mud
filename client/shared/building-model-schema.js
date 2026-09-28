@@ -272,9 +272,10 @@ export const DETAIL_SCHEMA = {
   // other colour is derived from it (see tagPalette); `n` is how many scrawled satellite tags share
   // the patch, 0 to 4. `v` is the variant the caller rolls per building, and it picks both the word
   // and the colour scheme — leave it out and every tag in the city is the same tag, which reads as
-  // signage rather than as graffiti.
+  // signage rather than as graffiti. `face` names the throw-up letterform (bubble, round, block or
+  // sharp; TAG_FACES in tag-strokes.js) and makes the piece a throw-up; leave it out and `v` rolls.
   tag: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', hh: 'h' }, required: ['z', 'w'],
-    plain: { color: 'string', word: 'string', n: 'number', v: 'number' }, px: 5 },
+    plain: { color: 'string', word: 'string', n: 'number', v: 'number', face: 'string' }, px: 5 },
 
   // Dirt on a wall with nothing making it — a run of water and soot down a face, tapering and
   // fading as it goes. The SAME stain `vent` and `acUnit` put under themselves (`dripStain`),

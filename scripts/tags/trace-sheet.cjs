@@ -3,6 +3,8 @@
 //   line  the body plus the dark pixels hugging it: the hand-drawn keyline, without the drop shadow
 //   shade the darker inner shading
 // All three share one transform: origin at the body's bbox centre, one unit = median letter height.
+// The C in client/shared/tag-glyphs.js was reshaped by hand after tracing (see the note there);
+// keep that entry when re-tracing this sheet.
 // Usage: node trace2.cjs sheet.png ABCDEF,GHIJKL,MNOPQ,RSTUV,WXYZ > glyphs.json
 const Jimp = require('jimp');
 const potrace = require('potrace');
@@ -55,17 +57,24 @@ const UP = 3;        // upsample for smoother fits
   }
   if (rows.length !== ORDER.length) throw new Error(`found ${rows.length} rows, expected ${ORDER.length}`);
   // Within a row: left to right, merging small pieces (the i's dot) into the letter they overlap.
+  // A small piece goes to the letter it overlaps MOST, once every letter is known. Taking the first
+  // one it touched gave the i's dot to the H, which crowds it on the sheet: every H carried a dot
+  // and every I was a bare stem.
   const boxes = {};
+  const SMALL = medH * medH * 0.15;
   rows.forEach((row, ri) => {
     row.sort((a, b) => a.x0 - b.x0);
-    const merged = [];
+    const merged = row.filter((c) => c.n >= SMALL).map((c) => ({ ...c, ids: [c.id] }));
+    const overlap = (c, m) => Math.min(c.x1, m.x1) - Math.max(c.x0, m.x0);
     for (const c of row) {
-      const host = merged.find((m) => c.x0 < m.x1 - 5 && c.x1 > m.x0 + 5 && Math.min(c.n, m.n) < medH * medH * 0.15);
+      if (c.n >= SMALL) continue;
+      const host = merged.reduce((a, m) => (overlap(c, m) > (a ? overlap(c, a) : 10) ? m : a), null);
       if (host) {
         host.x0 = Math.min(host.x0, c.x0); host.x1 = Math.max(host.x1, c.x1);
         host.y0 = Math.min(host.y0, c.y0); host.y1 = Math.max(host.y1, c.y1); host.ids.push(c.id);
       } else merged.push({ ...c, ids: [c.id] });
     }
+    merged.sort((a, b) => a.x0 - b.x0);
     if (merged.length !== ORDER[ri].length) throw new Error(`row ${ri}: ${merged.length} letters, expected ${ORDER[ri]}`);
     merged.forEach((c, i) => { boxes[ORDER[ri][i]] = c; });
   });

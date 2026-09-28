@@ -52,7 +52,7 @@ import { gameDayIndex } from '../../server/engine/zone-filth.js';
 import { gameToday } from '../../server/engine/apartments.js';
 import { emit } from '../../server/engine/events.js';
 import { query } from '../../server/models/db.js';
-import { normalizeRuns, coalesceRuns, renderStyled, decodePayload } from './paint.js';
+import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeFace } from './paint.js';
 
 // One tag lives three game days. The clock is 1:1 by default (timeScale 1), so
 // that's three real days — long enough that a tag is worth putting up, short
@@ -84,7 +84,7 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 
 // --- The RAM authority ------------------------------------------------------
 
-const tags = new Map();   // streetZoneId -> { text, authorId, authorHandle, targetZoneId, targetName, dayIndex }
+const tags = new Map();   // streetZoneId -> { text, style, face, authorId, authorHandle, targetZoneId, targetName, dayIndex }
 let hydrated = null;      // the one-time load promise, memoized
 
 async function hydrate() {
@@ -92,12 +92,12 @@ async function hydrate() {
     hydrated = (async () => {
       try {
         const { rows } = await query(
-          'SELECT zone_id, target_zone_id, target_name, author_id, author_handle, text, style, day_index FROM zone_graffiti'
+          'SELECT zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, day_index FROM zone_graffiti'
         );
         for (const r of rows) {
           indexTag(r.zone_id, r.target_zone_id);
           tags.set(r.zone_id, {
-            text: r.text, style: Array.isArray(r.style) ? r.style : null,
+            text: r.text, style: Array.isArray(r.style) ? r.style : null, face: safeFace(r.face),
             authorId: r.author_id, authorHandle: r.author_handle,
             targetZoneId: r.target_zone_id, targetName: r.target_name, dayIndex: r.day_index,
           });
@@ -215,6 +215,8 @@ function wallTags(zone, gx, gy) {
     out.push({
       t: unesc(t.text).slice(0, TAG_MAX_LEN),
       r: Array.isArray(t.style) && t.style.length ? t.style : undefined,
+      // The letterform the player picked, if they picked one. Absent, the renderer rolls one.
+      f: t.face || undefined,
       n: [dx / len, dy / len],
       // The variant only has to differ between two tags on one building, so that two walls of the
       // same word do not get the identical wobble. The street tile is already that.
@@ -318,15 +320,15 @@ async function persistTag(zoneId, entry) {
   indexTag(zoneId, entry.targetZoneId);
   tags.set(zoneId, entry);
   await query(
-    `INSERT INTO zone_graffiti (zone_id, target_zone_id, target_name, author_id, author_handle, text, style, day_index)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    `INSERT INTO zone_graffiti (zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, day_index)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      ON CONFLICT (zone_id) DO UPDATE SET
        target_zone_id=EXCLUDED.target_zone_id, target_name=EXCLUDED.target_name,
        author_id=EXCLUDED.author_id, author_handle=EXCLUDED.author_handle,
-       text=EXCLUDED.text, style=EXCLUDED.style, day_index=EXCLUDED.day_index,
+       text=EXCLUDED.text, style=EXCLUDED.style, face=EXCLUDED.face, day_index=EXCLUDED.day_index,
        created_at=EXTRACT(EPOCH FROM NOW())`,
     [zoneId, entry.targetZoneId, entry.targetName, entry.authorId, entry.authorHandle,
-     entry.text, entry.style ? JSON.stringify(entry.style) : null, entry.dayIndex]
+     entry.text, entry.style ? JSON.stringify(entry.style) : null, entry.face || null, entry.dayIndex]
   ).catch(() => {});
 }
 
@@ -350,6 +352,7 @@ export async function tagFromWorld(zoneId, text, authorHandle = 'someone') {
   const entry = {
     text: esc(String(text).slice(0, TAG_MAX_LEN)),
     style: null,
+    face: null,
     authorId: null,
     authorHandle,
     targetZoneId: wall.id,
@@ -366,14 +369,16 @@ export async function tagFromWorld(zoneId, text, authorHandle = 'someone') {
  * somebody's" line can never drift apart between the two ways in.
  *
  * `runs` is normalized against the length of what was TYPED, before escaping —
- * see paint.js for why that distinction is the whole ballgame.
+ * see paint.js for why that distinction is the whole ballgame. `face` is the
+ * letterform picked in the can, or null to let the wall roll one.
  */
-async function applyTag(player, wall, text, runs, can) {
+async function applyTag(player, wall, text, runs, can, face = null) {
   const over = tagAt(player.current_zone);
   const style = coalesceRuns(normalizeRuns(runs, text.length));
   const entry = {
     text: esc(text),
     style: style.length ? style : null,
+    face: safeFace(face),
     authorId: player.id,
     authorHandle: player.handle,
     targetZoneId: wall.id,
@@ -469,21 +474,21 @@ async function doSprayApply(args, raw, player) {
   if (!can) return { type: 'output', message: `You've got nothing to spray with. Hardware shops sell paint.` };
   if (payload.text.length > can.paint) return { type: 'output', message: thinCan(can, payload.text.length) };
 
-  return applyTag(player, wall, payload.text, payload.runs, can);
+  return applyTag(player, wall, payload.text, payload.runs, can, payload.face);
 }
 
 // --- The shelf of saved designs ---------------------------------------------
 
 async function savedSprays(playerId) {
   const { rows } = await query(
-    'SELECT id, name, text, style FROM player_sprays WHERE player_id=$1 ORDER BY id',
+    'SELECT id, name, text, style, face FROM player_sprays WHERE player_id=$1 ORDER BY id',
     [playerId]
   ).catch(() => ({ rows: [] }));
   // Sent back to the dialog, which is the thing that ESCAPES it for display. The
   // wall stores escaped text; the shelf stores what you typed, because it goes
   // back into a text field. Nothing here is ever inserted into a room description
   // without going through applyTag's esc first.
-  return rows.map(r => ({ id: r.id, name: r.name, text: r.text, style: Array.isArray(r.style) ? r.style : [] }));
+  return rows.map(r => ({ id: r.id, name: r.name, text: r.text, style: Array.isArray(r.style) ? r.style : [], face: safeFace(r.face) }));
 }
 
 /** The dialog's SAVE. Client transport only. Answers with the whole fresh shelf. */
@@ -500,8 +505,8 @@ async function doSpraySave(args, raw, player) {
   const text = payload.text.slice(0, TAG_MAX_LEN);
   const style = coalesceRuns(normalizeRuns(payload.runs, text.length));
   await query(
-    'INSERT INTO player_sprays (player_id, name, text, style) VALUES ($1,$2,$3,$4)',
-    [player.id, payload.name || text.slice(0, 24), text, style.length ? JSON.stringify(style) : null]
+    'INSERT INTO player_sprays (player_id, name, text, style, face) VALUES ($1,$2,$3,$4,$5)',
+    [player.id, payload.name || text.slice(0, 24), text, style.length ? JSON.stringify(style) : null, payload.face]
   ).catch(() => {});
   return { type: 'spray_shelf', saved: await savedSprays(player.id), note: 'Saved.' };
 }
