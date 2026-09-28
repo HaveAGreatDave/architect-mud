@@ -232,7 +232,9 @@ const KNOWN = new Map([
   // in the shared mesh. The hoardings are still up; six sevenths of them are no longer on this path
   // to be counted. If this climbs back toward 38 without `roofTakesName` changing, something has
   // started putting per-tile lettering on a roof again.
-  ['decal:gantry', { budget: 7, why:
+  // 7 → 9 when board and lettering started writing depth (glBoardDepth/glSignDepth): the slab's back
+  // board and soffit are the two points, on type:bank, named:thechorusden and type:archive.
+  ['decal:gantry', { budget: 9, why:
    'a rooftop hoarding stands at its own tile CENTRE on legs, so its back board, its soffit and the '
    + 'far edge return are inside the roof mass they are standing on — the same shape of reason as the '
    + 'mast in `stroke`, and the same fix: they have to come out or they are simply not drawn. It is '
