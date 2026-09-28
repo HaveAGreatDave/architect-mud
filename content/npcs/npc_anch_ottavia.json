@@ -140,14 +140,14 @@
       ],
       "text": "\"Off the boats, in the morning, from people I know by name.\" A small shrug. \"You are going to ask me about the water. Everybody asks me about the water. The clams are cleaned for three days in tanks under this floor and I have eaten them every week since we opened. That is the whole answer and it is the only one I have.\""
     },
-    "kitchen": {
+    "good": {
       "options": [
         {
           "label": "Back up.",
           "next": "root"
         }
       ],
-      "text": "\"Three of them, and they have been three of them for nine years.\" She does not name them. \"You see the hands and not the faces, and that is on purpose. The room looks north. There is nothing to look at behind the pass.\""
+      "text": "\"The brodetto.\" She does not need to think about it. \"Whatever came off the boats this morning, in broth, with bread standing in it. It is the one that carries you through a night on the water.\"\n\n\"The vongole if you want something lighter. The risotto if you want to be told about the risotto. Anything on the menu and you go out of here well fed. The kitchen serves from six until midnight.\""
     },
     "marina": {
       "options": [
@@ -156,7 +156,7 @@
           "next": "root"
         }
       ],
-      "text": "\"We are inside their building and we do not work for them.\" She lets that sit. \"They put the roof up, we took the east end of it, and the arrangement has been good for both of us. The people who keep a hull here eat here. The people who eat here look at the hulls and start wanting one. It runs itself.\""
+      "text": "\"The desk, back through the south doors.\" She lets that sit. \"They sell the hulls, hire them out and tell you where yours is lying. Anything that needs fixing on one, Marit, in the Dock Hall past the desk.\"\n\n\"We are inside their building and we do not work for them. People who keep a hull here eat here. That arrangement suits everybody.\""
     },
     "root": {
       "options": [
@@ -165,15 +165,15 @@
           "next": "__shop__"
         },
         {
-          "label": "Who's in the kitchen?",
-          "next": "kitchen"
+          "label": "What's worth having?",
+          "next": "good"
         },
         {
           "label": "Where does the fish come from?",
           "next": "fish"
         },
         {
-          "label": "Do you run the marina too?",
+          "label": "I'm here about a boat.",
           "next": "marina"
         },
         {

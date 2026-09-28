@@ -132,6 +132,19 @@
       "options": [],
       "text": "\"Right you are.\" She has the shackle back in her hand before you are through the door."
     },
+    "carry": {
+      "options": [
+        {
+          "label": "Let me see what you have.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A patch kit, before anything.\" She taps the tin. \"It's the difference between towing her home and driving her.\"\n\n\"The dinghy rolls up small enough to carry. Blow it up and you cross open water dry, which matters the day she sinks under you. The line and the cover are for the boat, not for you.\""
+    },
     "drop": {
       "options": [
         {
@@ -140,6 +153,15 @@
         }
       ],
       "text": "\"Not here.\" A pause exactly long enough to notice. \"Slings are webbing and they get binned on a schedule, whatever they look like. That's their rule, not mine, and it's a good one. A wire sling tells you it's going by looking wrong for a month first. Webbing doesn't tell you anything at all.\""
+    },
+    "fix": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Bring her in and I'll look.\" She nods at the slot.\n\n\"Stand in here with me and <b>refit</b>, and she comes back sound, wherever you've got her lying in this yard. I'm in nine till six.\"\n\n\"Out on the water you're on your own. With a patch kit on you, <b>refit</b> gets a split closed and her home. A patch won't take her past about half afloat, or most of the way if you're at a cradle. Past that it's shed work.\""
     },
     "gossip": {
       "options": [
@@ -161,7 +183,16 @@
           "next": "root"
         }
       ],
-      "text": "\"Four buttons.\" She holds up four fingers and folds them down one at a time. \"Up. Down. That end. This end. There used to be eight and they took four off me, because somebody upstairs worked out that the other four were where the mistakes lived.\"\n\nShe shrugs with one shoulder.\n\n\"They were right. I still resent it.\""
+      "text": "\"<b>berth</b> and her name, standing in here, and the hoist lifts her in.\" She holds up the pendant. \"Two bays under this roof, one thousand six hundred to move in, and it's the only berth where I can put her right completely. <b>berth</b> on its own tells you what's free.\"\n\n\"Four buttons. Up, down, that end, this end. There used to be eight and they took four off me, because somebody upstairs worked out that the other four were where the mistakes lived. They were right.\""
+    },
+    "jobs": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Servicing, paint, a decal, a name.\" She counts them on the docket book.\n\n\"All of it needs her under this roof: moored in here, or sat in the slot and stopped. Then <b>refit service</b> for oil, prop and a scrub of the bottom, <b>refit paint</b>, <b>refit decal</b>, or <b>refit name</b>. Not on a hire.\"\n\n\"Oil goes with distance, the prop with whatever you hit, and the bottom grows weed while she sits afloat at a pontoon. All three slow her down. In here or up on a cradle, the weed stops.\""
     },
     "lapsed": {
       "options": [
@@ -201,12 +232,24 @@
     "root": {
       "options": [
         {
-          "label": "What do you sell?",
-          "next": "__shop__"
+          "label": "Can you fix her?",
+          "next": "fix"
         },
         {
-          "label": "Tell me about the hoist.",
+          "label": "What else can you do to her?",
+          "next": "jobs"
+        },
+        {
+          "label": "How do I get her under the roof?",
           "next": "hoist"
+        },
+        {
+          "label": "What should I carry?",
+          "next": "carry"
+        },
+        {
+          "label": "What do you sell?",
+          "next": "__shop__"
         },
         {
           "label": "Who owns this place?",
@@ -228,10 +271,10 @@
           "next": "bye"
         }
       ],
-      "text": "\"Afternoon.\" She puts down whatever she was holding, which not everybody does. \"Berths are on the plinth outside, the machine does all that. Anything with a hull in it, that's me.\"",
+      "text": "\"Afternoon.\" She puts down whatever she was holding, which not everybody does. \"Anything with a hull in it, that's me. Buying and hiring are the desk, back through the lobby.\"",
       "text_by_relation": {
         "familiar": "She has the kettle on before you have got the door shut, which is either hospitality or a diagnosis.\n\n\"Sit down. I know what you've done to it, I watched you come in.\"",
-        "first": "The woman behind the counter finishes what she is doing before she looks up, and then looks up properly.\n\n\"Marit Colvane.\" She wipes a hand, considers it, and does not offer it. \"I keep the hulls. Berths are the plinth outside, that's all automatic and I have nothing to do with it, so don't come to me about the rate.\"\n\nShe says that last part like a woman who has had the conversation.\n\n\"If it floats and it's yours, I can lift it, park it, or fix it. Usually in that order.\"",
+        "first": "The woman behind the counter finishes what she is doing before she looks up, and then looks up properly.\n\n\"Marit Colvane.\" She wipes a hand, considers it, and does not offer it. \"I keep the hulls. Buying one, hiring one and the berth rate are the desk in the lobby, west through those doors, so don't come to me about the rate.\"\n\n\"If it floats and it's yours, I can lift it, park it, or fix it. Usually in that order.\"",
         "known": "\"You again.\" She is already reaching for the docket book. \"Lift, park, or fix?\""
       }
     },

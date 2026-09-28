@@ -10,28 +10,40 @@
   "description": "A narrow man in a marina fleece two sizes too generous for him, standing rather than sitting because the stool is behind him and he has decided against it. He has the look of somebody who has answered the same four questions for six years and has got the answers down to one sentence each.",
   "dialogue_tree": {
     "root": {
-      "text": "\"Morning.\" He does not look at the clock. \"Dock is through the doors, east. It is open.\"",
+      "text": "\"Morning.\" He squares the berth book. \"Buying, hiring, or looking for your own?\"",
       "text_by_relation": {
-        "first": "The man behind the desk straightens up as the door goes, which is more than most desks manage.\n\n\"Ninian Quillon. Days.\" He says it like half a sentence and then supplies the other half. \"Odile has nights. Between us this desk is never empty, so whatever hour you come in, somebody is standing here.\"\n\nHe nods east, past the glass doors.\n\n\"Your boat is through there and it is through there at three in the morning as well. The dock does not lock and we do not have a key for it. The only thing in this building that shuts is the restaurant, and that is the restaurant's business.\"",
-        "known": "\"Back again.\" He is already reaching for the berth book. \"Dock is open. It is always open.\"",
-        "familiar": "\"There you are.\" He pushes the berth book aside without looking at it. \"Nothing has changed since Tuesday, and I would have told you if it had.\""
+        "first": "The man behind the desk straightens up as the door goes.\n\n\"Ninian Quillon. This is the desk for hulls.\" He turns the berth book round to face you. \"You buy a boat here or hire one, and I tell you where yours is lying. The dock is east, the chandlery is west, and Anchovies is through the north doors.\"",
+        "known": "\"Back again.\" He is already reaching for the berth book. \"Buying, hiring, or finding one?\"",
+        "familiar": "\"There you are.\" He pushes the berth book aside. \"What does she need?\""
       },
       "options": [
         {
-          "label": "What hours are you open?",
-          "next": "hours"
+          "label": "I want to buy a boat.",
+          "next": "buy"
         },
         {
-          "label": "Can I get to my boat?",
-          "next": "access"
+          "label": "Can I hire one instead?",
+          "next": "hire"
         },
         {
-          "label": "Who is Odile?",
-          "next": "odile"
+          "label": "Where do I keep her?",
+          "next": "keep"
         },
         {
-          "label": "What is through the north doors?",
-          "next": "anchovies"
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Where do I get fuel?",
+          "next": "fuel"
+        },
+        {
+          "label": "She needs work.",
+          "next": "work"
+        },
+        {
+          "label": "Where do I eat?",
+          "next": "eat"
         },
         {
           "actions": [],
@@ -42,21 +54,80 @@
         }
       ]
     },
-    "hours": {
-      "text": "\"There are no hours.\" He seems to enjoy saying it. \"Two of us, twelve each, and the handover takes about a minute. I am here six to six and Odile is here six to six the other way round.\"\n\nHe taps the desk once.\n\n\"The dock is a separate question and the answer is also always. It does not lock. There is no lock on it to fail.\"",
-      "options": []
+    "buy": {
+      "text": "He taps the desk. \"Everything we sell is on the list. <b>use desk</b> and I will show you the lot, or <b>boat</b> reads it out. <b>boat</b> and a name buys that one.\"\n\n\"She comes with a full tank and a berth. I put her in the first free one, and <b>boats</b> tells you where she is from anywhere in the city.\"",
+      "options": [
+        {
+          "label": "Show me what you have.",
+          "cmd": "use desk"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
     },
-    "access": {
-      "text": "\"Whenever you like.\" He points east without turning. \"Through the doors, down the deck, she is where you left her. Nobody has ever had to ask me to let them onto that dock and nobody ever will.\"\n\nA pause.\n\n\"If she is under cover, the hall is the same answer. The roof is a roof, not a door.\"",
-      "options": []
+    "hire": {
+      "text": "He slides a rate card across. \"Any hull on the list, for two hours, at a fraction of the price. <b>boat rent</b> shows the rates and <b>boat rent</b> with a name takes one. One at a time.\"\n\n\"When the time is up and she is tied up here, she goes back by herself. <b>boat return</b> hands her back early. No paint or names on a hire.\"",
+      "options": [
+        {
+          "label": "Show me the hire list.",
+          "cmd": "boat rent"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
     },
-    "odile": {
-      "text": "\"Nights.\" He considers whether that is enough and decides it is not. \"Odile Sabbatini. Came off a dredger. Knows more about this water than I do and says about a tenth as much about it.\"\n\nHe glances at the berth book.\n\n\"We share a flat, which sounds companionable and is mostly a note on the table.\"",
-      "options": []
+    "keep": {
+      "text": "He points at the berth board behind him. \"Four places to keep her, and you pay for the roof.\"\n\n\"East, the Dock Hall: under cover, with the hoist and Marit, and the only berth where a hull comes back fully sound. West, through the chandlery, the Hardstanding: cradles in the open, and the cheapest. North of the Hardstanding, the visitor pontoon and the fuel berth: afloat, alongside.\"\n\n\"Stand at a berth and <b>berth</b> reads you the board. <b>berth</b> and her name moves her in, if there is room and she is already in this yard. <b>boats</b> tells you where she is now.\"",
+      "options": [
+        {
+          "label": "Where is mine now?",
+          "cmd": "boats"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
     },
-    "anchovies": {
-      "text": "\"Anchovies.\" He says the name flatly, as a man says the name of a thing he has never eaten. \"Twelve covers hanging out over the water. You want to have booked.\"\n\nHe straightens the card rack.\n\n\"That is the one part of this building that shuts. Everything else is on all night, including the light over your boat.\"",
-      "options": []
+    "drive": {
+      "text": "He points east without turning. \"Go to wherever she is lying and <b>board</b>. That puts you aboard. <b>helm</b> puts you at the wheel, and the controls card comes up the first time.\"\n\n\"K is the key, and she will not start with the lever open. From the log, <b>conn start</b>, then <b>conn</b> with a bearing or a bell.\"\n\n\"Coming home, stop alongside a berth and <b>disembark</b>. That ties her up. Do it on open water and you are swimming. If she dies out there, <b>tow</b> brings her home, and you settle the bill before she goes out again.\"",
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "fuel": {
+      "text": "He nods north. \"The fuel berth, on the north face of the building, east along the gangway from the visitor pontoon. It is the only marine pump on the Basin.\"\n\n\"Bring her alongside the pylons, stop, and <b>fuel</b>. You pay by the unit, so a bigger tank costs more to fill.\"",
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "work": {
+      "text": "\"Marit Colvane, in the Dock Hall, east. She is there from nine until six.\"\n\n\"Stand in the hall with her there and <b>refit</b>, and Marit puts the hull back to sound wherever your boat is lying in this yard. Servicing, paint and a name need the boat under the roof: <b>berth</b> her in the hall, or bring her into the covered slot and stop. Then <b>refit service</b>, <b>refit paint</b> or <b>refit name</b>.\"\n\n\"Away from the hall you patch her yourself. Marit sells hull patches. A patch gets her to about half on the water and most of the way on a cradle.\"",
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "eat": {
+      "text": "\"Anchovies, through the north doors.\" He points without turning. \"Twelve tables over the water, Italian, and dear. Ottavia opens at six in the evening and serves until midnight.\"",
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
     },
     "bye": {
       "text": "\"Right.\" He is back at the berth book before the door has closed.",
