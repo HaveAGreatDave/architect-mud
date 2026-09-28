@@ -87,15 +87,25 @@ export const DRAKE_TRIM_NOIR = {
   // The gauges: black faces, gold ink, ivory hands.
   dialFace: [24, 23, 22], dialInk: [214, 172, 82], dialHand: [236, 226, 200],
 };
-// QUACKHAWK DOWN, the special edition: navy leather walls, a deep red floor, white seats piped in red,
-// the walnut and the gold kept. The mode selector is a white plate with navy chips and white names.
+// QUACKHAWK DOWN, the special edition, and it is a showroom rather than a study: white quilted hide
+// and white lacquer where the stock trim has green leather and walnut, polished chrome for every piece
+// of gold, a navy carpet, red seats piped in blue, and the gauges white-faced in a navy ring with a red
+// needle. The lacquer carries a red pinstripe and a blue one (woodGrain_). The mode selector is a white
+// plate with navy chips and white names. `gold` IS C.chrome itself, so it shines as the chrome does.
 export const DRAKE_TRIM_QUACKHAWK = {
   ...DRAKE_TRIM, quackhawk: true,
-  leather: [26, 38, 88], leatherDk: [18, 28, 66],
-  carpet: [120, 22, 32], carpetEdge: [90, 16, 24],
-  cream: [238, 236, 230], creamDk: [214, 212, 206],
-  ruff: [178, 30, 42],
+  leather: [236, 236, 238], leatherDk: [212, 214, 220],
+  carpet: [28, 38, 92], carpetEdge: [20, 28, 70],
+  walnut: [238, 238, 240], walnutDk: [214, 216, 222], burl: [244, 244, 246],
+  cream: [240, 238, 234], creamDk: [216, 214, 210],
+  seat: [168, 26, 38], seatDk: [124, 18, 28],
+  gold: C.chrome, goldDk: [132, 138, 148],
+  enamel: [24, 36, 98], ivory: [246, 246, 248],
+  ruff: [34, 62, 168],
   plate: [232, 232, 228], chip: [26, 40, 96], chipInk: [242, 240, 234],
+  dialFace: [248, 248, 250], dialInk: [24, 38, 104], dialHand: [204, 28, 40],
+  pinRed: [196, 30, 44], pinBlue: [30, 52, 150], tabInk: [24, 36, 98],
+  modeHead: [242, 240, 234], modeBill: [238, 180, 36],
 };
 // ⚠ `T` IS SWAPPED, NOT PASSED: every part in this file reads it, so the profile builder and the
 // fit-out set it for the trim of the profile they are building (drakeProfile's second argument).
@@ -143,9 +153,13 @@ for (const c of [T.walnut, T.walnutDk, T.burl]) TEXTURE.set(c, 'wood');   // the
 }
 {
   const Q = DRAKE_TRIM_QUACKHAWK, N = DRAKE_TRIM_NOIR;   // N: the noir lines that follow share this block
-  for (const c of [Q.leather, Q.leatherDk, Q.cream, Q.creamDk]) { SHINY.set(c, { spec: 0.28, pow: 14, coat: 0.12 }); TEXTURE.set(c, 'leather'); }
+  for (const c of [Q.leather, Q.leatherDk, Q.cream, Q.creamDk, Q.seat, Q.seatDk]) { SHINY.set(c, { spec: 0.28, pow: 14, coat: 0.12 }); TEXTURE.set(c, 'leather'); }
   TEXTURE.set(Q.carpet, 'carpet'); TEXTURE.set(Q.carpetEdge, 'carpet');
   SHINY.set(Q.chip, { spec: 0.55, pow: 60, coat: 0.45 }); SHINY.set(Q.plate, { spec: 0.6, pow: 50, coat: 0.5 });
+  // Gloss white lacquer, navy enamel, and a darker chrome for what was the darker gold.
+  for (const c of [Q.walnut, Q.walnutDk, Q.burl, Q.ivory]) SHINY.set(c, { spec: 0.6, pow: 60, coat: 0.5 });
+  SHINY.set(Q.enamel, { spec: 0.55, pow: 60, coat: 0.45 });
+  SHINY.set(Q.goldDk, { spec: 0.7, pow: 20, ramp: [[44, 48, 56], [196, 202, 212]], glint: 0.2, albedo: [226, 230, 236], envK: 0.75 });
   SHINY.set(N.ivory, SHINY.get(DRAKE_TRIM.gold));
 }
 SHINY.set(T.leather, { spec: 0.22, pow: 10, coat: 0.08 }); SHINY.set(T.leatherDk, { spec: 0.18, pow: 10, coat: 0.06 });
@@ -324,6 +338,9 @@ export function drakeProfile(doc = MESH_ROWS.drake, trim = 'stock') {
       { p: [0, 0.05, 0.30], r: 0.75 }, { p: [0.42, 0.34, -0.18], r: 0.22 }],
     // The Drake's floods never go fully out by day: a trace of warm cabin light stays on the wood.
     floodFloor: 0.22,
+    // What the chrome sees behind you (windshield.js, the metals' environment term): white hide over
+    // a navy carpet in the Quackhawk. Absent, the renderer's walnut room, which is the stock cabin.
+    ...(trim === 'quackhawk' ? { cabinEnv: { back: [128, 132, 146], low: [58, 70, 120], high: [236, 236, 240] } } : {}),
     // The room is its own; interior-shell.js hands `room` the collector and stands back.
     room: drakeShell,
     drake: { m, X, Y, Z, H, inset, rims, faces: room.faces, floorZ: room.floorZ, well: room.well, screenRim: room.screenRim, screen: room.screen },
@@ -857,6 +874,16 @@ function woodGrain_(Pn, a0, b0, a1, b1, lift, o = {}) {
       Pn.plate([[q[0], q[1]], [q[2], q[1]], [q[2], q[3]], [q[0], q[3]]], T.goldDk, 0.05, lift + 0.0004);
     return;
   }
+  if (T.quackhawk) {
+    // White lacquer with a red pinstripe inset from the edge and a blue one inside it.
+    const dk = o.dark ?? 1;
+    Pn.plate([[a0, b0], [a1, b0], [a1, b1], [a0, b1]], dk < 0.8 ? T.walnutDk : T.walnut, 0, lift);
+    const w = 0.0009;
+    if (a1 - a0 > 0.03 && b1 - b0 > 0.02) for (const [e, rgb] of [[0.004, T.pinRed], [0.0062, T.pinBlue]])
+      for (const q of [[a0 + e, b0 + e, a1 - e, b0 + e + w], [a0 + e, b1 - e - w, a1 - e, b1 - e], [a0 + e, b0 + e, a0 + e + w, b1 - e], [a1 - e - w, b0 + e, a1 - e, b1 - e]])
+        Pn.plate([[q[0], q[1]], [q[2], q[1]], [q[2], q[3]], [q[0], q[3]]], rgb, 0.05, lift + 0.0004);
+    return;
+  }
   const NB = Math.max(3, Math.min(20, Math.round((b1 - b0) / GRAIN_BAND_M)));
   const NX = Math.max(2, Math.min(6, Math.round((a1 - a0) / GRAIN_SEG_M)));
   const bh = (b1 - b0) / NB, dk = o.dark ?? 1;
@@ -940,8 +967,8 @@ function modeDial_(Pn, ca, cb, R, wings, fold) {
   Pn.plate(body, T.cream, 0.5, 0.003);
   const headC = [ca, cb + s * 0.55];
   const hd = []; for (let i = 0; i < 10; i++) { const t = (i / 10) * TAU; hd.push([headC[0] + Math.cos(t) * s * 0.13, headC[1] + Math.sin(t) * s * 0.13]); }
-  Pn.plate(hd, [40, 150, 110], 0.6, 0.004);
-  Pn.plate([[ca - s * 0.05, cb + s * 0.66], [ca + s * 0.05, cb + s * 0.66], [ca, cb + s * 0.84]], C.red, 0.7, 0.004);
+  Pn.plate(hd, T.modeHead || [40, 150, 110], 0.6, 0.004);
+  Pn.plate([[ca - s * 0.05, cb + s * 0.66], [ca + s * 0.05, cb + s * 0.66], [ca, cb + s * 0.84]], T.modeBill || C.red, 0.7, 0.004);
   // The wings: a panel each side, hinged at the shoulder and swept from 80° to 0 by `wings`.
   const sw = (1 - clamp(wings, 0, 1)) * (80 * Math.PI / 180);
   for (const side of [-1, 1]) {
@@ -1019,7 +1046,7 @@ function captainChair_(K, P) {
   const wy0 = y0 - 0.15, wy1 = y0 + 0.14, wz0 = sz + 0.25, wz1 = P.backZ + 0.18;
   for (const s of [-1, 1]) {
     const wx = s * (P.seatHalf + 0.03);
-    padGrid(K, [wx, wy0, wz0], [0, wy1 - wy0, 0], [0, 0, wz1 - wz0], [-s, 0, 0], 2, 3, 0.022, T.cream);
+    padGrid(K, [wx, wy0, wz0], [0, wy1 - wy0, 0], [0, 0, wz1 - wz0], [-s, 0, 0], 2, 3, 0.022, T.seat || T.cream);
     K.rod([wx, wy1, wz0], [wx, wy1, wz1], 0.008, 'seat', 0.2, T.ruff, 0.05, 5);
     K.rod([wx, wy0, wz1], [wx, wy1, wz1], 0.008, 'seat', 0.2, T.gold, 0.05, 5);
   }
@@ -1057,18 +1084,20 @@ function padGrid_(K, o, u, v, n, nu, nv, h, rgb) {
 function luxSeat_(K, cx, P, seed) {
   const x0 = cx - P.seatHalf, x1 = cx + P.seatHalf, y0 = P.seatY[0], y1 = P.seatY[1], sz = P.seatZ;
   const fl = P.drake.floorZ;
+  // The hide: the crescent's cream, unless the trim upholsters its seats apart from the room.
+  const hide = T.seat || T.cream, hideDk = T.seatDk || T.creamDk;
   K.box(x0 + 0.04, y0 - 0.08, fl, x1 - 0.04, y1 - 0.08, sz - 0.14, 'seat', -0.15, T.walnut);
   K.box(x0 + 0.03, y1 - 0.09, fl, x1 - 0.03, y1 - 0.08, fl + 0.03, 'seat', 0.2, T.gold);            // the kick strip
-  K.box(x0, y0, sz - 0.14, x1, y1, sz - 0.05, 'seat', 0.02, T.creamDk);
+  K.box(x0, y0, sz - 0.14, x1, y1, sz - 0.05, 'seat', 0.02, hideDk);
   // Diamond-padded, like the walls: pads that bulge between gold buttons.
-  padGrid(K, [x0, y0, sz - 0.05], [x1 - x0, 0, 0], [0, y1 - y0, 0], [0, 0, 1], 4, 4, 0.03, T.cream);
+  padGrid(K, [x0, y0, sz - 0.05], [x1 - x0, 0, 0], [0, y1 - y0, 0], [0, 0, 1], 4, 4, 0.03, hide);
   // The back, and its rolls standing out of it toward you.
   const by0 = y0 - 0.15, by1 = y0 - 0.03;
-  K.box(x0, by0, sz - 0.05, x1, by1, P.backZ, 'seat', -0.04, T.creamDk);
-  padGrid(K, [x0, by1, sz - 0.03], [x1 - x0, 0, 0], [0, 0, P.backZ - sz + 0.02], [0, 1, 0], 4, 5, 0.03, T.cream);
+  K.box(x0, by0, sz - 0.05, x1, by1, P.backZ, 'seat', -0.04, hideDk);
+  padGrid(K, [x0, by1, sz - 0.03], [x1 - x0, 0, 0], [0, 0, P.backZ - sz + 0.02], [0, 1, 0], 4, 5, 0.03, hide);
   // Wings either side of the back.
-  K.box(x0 - 0.035, by0, sz - 0.02, x0 + 0.02, by1 + 0.07, P.backZ - 0.02, 'seat', -0.02, T.cream);
-  K.box(x1 - 0.02, by0, sz - 0.02, x1 + 0.035, by1 + 0.07, P.backZ - 0.02, 'seat', -0.02, T.cream);
+  K.box(x0 - 0.035, by0, sz - 0.02, x0 + 0.02, by1 + 0.07, P.backZ - 0.02, 'seat', -0.02, hide);
+  K.box(x1 - 0.02, by0, sz - 0.02, x1 + 0.035, by1 + 0.07, P.backZ - 0.02, 'seat', -0.02, hide);
   // Orange piping on the cushion's front edge and round the back's face.
   K.rod([x0, y1 + 0.004, sz - 0.05], [x1, y1 + 0.004, sz - 0.05], 0.007, 'seat', 0.2, T.ruff, 0.05, 5);
   K.rod([x0 + 0.02, by1 + 0.035, sz], [x0 + 0.02, by1 + 0.035, P.backZ - 0.03], 0.006, 'seat', 0.2, T.ruff, 0.05, 5);
@@ -1077,8 +1106,8 @@ function luxSeat_(K, cx, P, seed) {
   // ⚠ IT STANDS BEHIND THE EYE, never at it: an eye inside a headrest is the black screen the
   // gate's first rule is about.
   const hz1 = P.backZ + 0.20;
-  K.box(cx - 0.14, by0, P.backZ - 0.02, cx + 0.14, by1, hz1, 'seat', -0.04, T.creamDk);
-  padGrid(K, [cx - 0.14, by1, P.backZ - 0.02], [0.28, 0, 0], [0, 0, hz1 - P.backZ + 0.02], [0, 1, 0], 2, 2, 0.025, T.cream);
+  K.box(cx - 0.14, by0, P.backZ - 0.02, cx + 0.14, by1, hz1, 'seat', -0.04, hideDk);
+  padGrid(K, [cx - 0.14, by1, P.backZ - 0.02], [0.28, 0, 0], [0, 0, hz1 - P.backZ + 0.02], [0, 1, 0], 2, 2, 0.025, hide);
   // Ermine along the front of the cushion.
   furRoll(K, [x0 - 0.01, y1 + 0.02, sz - 0.075], [x1 + 0.01, y1 + 0.02, sz - 0.075], 0.03, seed + 3);
 }
@@ -1423,7 +1452,17 @@ const DW = DRAKE_WHEEL;
 const DW_NOIR = { carbon: [22, 22, 25], weave: [34, 34, 38], rubber: [16, 16, 18] };
 TEXTURE.set(DW_NOIR.carbon, 'fabric'); TEXTURE.set(DW_NOIR.rubber, 'leather');
 SHINY.set(DW_NOIR.carbon, { spec: 0.55, pow: 46, coat: 0.55 });
-const dwOf = () => (T.noir ? { ...DW, ...DW_NOIR } : DW);
+// Quackhawk: a white lacquer body, navy hide grips, red and blue buttons, chrome rotaries.
+const QH_RED = [200, 32, 44], QH_BLUE = [36, 66, 176];
+const DW_QUACKHAWK = {
+  carbon: [236, 236, 240], weave: [222, 224, 230], rubber: [28, 40, 96],
+  buttons: DW.buttons.map((b, i) => ({ ...b, rgb: [QH_RED, QH_BLUE, QH_BLUE, QH_RED, QH_RED, QH_BLUE][i] })),
+  knobs: DW.knobs.map((k) => ({ ...k, rgb: C.chrome })),
+  wheels: DW.wheels.map((t) => ({ ...t, rgb: C.chrome })),
+};
+TEXTURE.set(DW_QUACKHAWK.rubber, 'leather');
+SHINY.set(DW_QUACKHAWK.carbon, { spec: 0.6, pow: 60, coat: 0.5 });
+const dwOf = () => (T.noir ? { ...DW, ...DW_NOIR } : T.quackhawk ? { ...DW, ...DW_QUACKHAWK } : DW);
 // The yoke's figure and the grips' perforation are drawn per pixel by the GL solids pass rather than as
 // geometry (see the weave and the grips in drakeFit): the yoke is rebuilt every frame it moves.
 TEXTURE.set(DW.carbon, 'wood'); TEXTURE.set(DW.rubber, 'leather');
@@ -1491,7 +1530,7 @@ function drakeGpsScreen(K, L) {
     Gp.plate(roundRect(x - hw + 0.001, GPS_TAB_Y - hh - 0.0025, x + hw + 0.001, GPS_TAB_Y + hh - 0.0025, 0.004), SHADE_SOFT, 1, 0.0018);
     Gp.plate(roundRect(x - hw, GPS_TAB_Y - hh, x + hw, GPS_TAB_Y + hh, 0.004), on ? [40, 120, 80] : T.goldDk, on ? 0.6 : 0, top - 0.001);
     Gp.plate(roundRect(x - hw + 0.0015, GPS_TAB_Y - hh + 0.0025, x + hw - 0.0015, GPS_TAB_Y + hh - 0.0005, 0.003), on ? [70, 200, 130] : T.gold, on ? 0.8 : 0.05, top);
-    hudText(Gp, GPS_TAB_NAMES[i], x, GPS_TAB_Y, 0.0068, on ? [220, 255, 230] : [60, 38, 18], top + 0.0006);
+    hudText(Gp, GPS_TAB_NAMES[i], x, GPS_TAB_Y, 0.0068, on ? [220, 255, 230] : T.tabInk || [60, 38, 18], top + 0.0006);
   }
   const GR = [110, 255, 170], AM = [255, 190, 70], BL = [90, 190, 255], RD = [255, 80, 60], DIM = [30, 90, 60];
   const cy = -0.002, R = 0.06, L0 = 0.0035;
@@ -2085,7 +2124,7 @@ export function drakeFit(P, live, push) {
       }
     }
     // The thumb rotaries at the top of each grip: drums across the wheel.
-    for (const t of DW.wheels) {
+    for (const t of DWc.wheels) {
       const c = W0.pt(t.x * sc, t.y * sc, 0.004);
       K.rod(add(c, mul(W0.r, -0.006)), add(c, mul(W0.r, 0.006)), 0.0075, 'dash', 0.3, t.rgb, 0.1, 10);
     }
@@ -2105,9 +2144,9 @@ export function drakeFit(P, live, push) {
       Wp.rect(s0 + 0.006, s1 + 0.006, s0 + 0.006 + (s2 - s0 - 0.012) * clamp(ias / 200, 0.02, 1), s1 + 0.012, [140, 255, 170], 0.9, 0.004);
     }
     // The buttons: domed, each in its own gap with a shadow, the same as the switch strips'.
-    DW.buttons.forEach((b, i) => domeBtn(W0, b.x * sc, b.y * sc, 0.0085, b.r * sc, b.rgb, 0.2, 'yoke' + i));
+    DWc.buttons.forEach((b, i) => domeBtn(W0, b.x * sc, b.y * sc, 0.0085, b.r * sc, b.rgb, 0.2, 'yoke' + i));
     // The two rotaries: a skirt, a knob on it, and a white pointer line.
-    for (const k of DW.knobs) {
+    for (const k of DWc.knobs) {
       K.rod(W0.pt(k.x * sc, k.y * sc, 0), W0.pt(k.x * sc, k.y * sc, 0.004), k.r * 1.25 * sc, 'dash', 0.2, [30, 32, 36], 0, 12);
       K.rod(W0.pt(k.x * sc, k.y * sc, 0.004), W0.pt(k.x * sc, k.y * sc, 0.014), k.r * sc, 'dash', 0.35, k.rgb, 0.15, 10);
       K.obox(W0.pt(k.x * sc, (k.y + k.r * 0.5) * sc, 0.0155), W0.r, W0.u, N, 0.0018, k.r * 0.5 * sc, 0.0015, 'dash', 0.3, [250, 250, 250], 0.3);
