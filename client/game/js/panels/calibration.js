@@ -50,6 +50,12 @@ function ensureStyles() {
   #calibration-overlay .cal-stats b{color:#5fd0e0}
   #calibration-overlay .cal-hint{font-size:10px;letter-spacing:1px;color:#5d7880;margin:2px 2px 10px;min-height:14px}
   #calibration-overlay .cal-phase{color:#e0b64f}
+  #calibration-overlay .cal-pad{display:flex;gap:10px;justify-content:center;margin:0 2px 12px}
+  #calibration-overlay .cal-btn{flex:1 1 0;max-width:9rem;min-height:44px;background:#0d1a1e;border:1px solid #2b5b63;
+    color:#9fe4ee;border-radius:6px;font-family:inherit;font-size:1rem;letter-spacing:2px;cursor:pointer;
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+  #calibration-overlay .cal-btn:active{background:#16323a;border-color:#5fd0e0;color:#d8f6fb}
+  #calibration-overlay .cal-sync{flex-grow:1.4}
   #calibration-overlay .cal-done{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:10px;background:rgba(2,6,8,.9);border-radius:inherit}
   #calibration-overlay .cal-done .cal-score{font-size:34px;letter-spacing:3px;color:#5fd0e0;
@@ -245,6 +251,15 @@ export function openCalibration(opts = {}) {
       `</div>` +
       `<div class="cal-stats"></div>` +
       `<div class="cal-hint"></div>` +
+      // ⚠ THE RIG WAS KEYS ONLY: arrows to steer, a held Space to sync. A phone has neither,
+      // and the backdrop won't close it either (a stray tap must not throw away a run), so a
+      // touch player could only sit and watch the score fall. The pad is the same three
+      // inputs; held buttons repeat and hold the way the keys do.
+      `<div class="cal-pad">` +
+        `<button type="button" class="cal-btn" data-cal="up" aria-label="Nudge the trace up">&#9650;</button>` +
+        `<button type="button" class="cal-btn cal-sync" data-cal="sync" aria-label="Hold to pull the servos together">SYNC</button>` +
+        `<button type="button" class="cal-btn" data-cal="down" aria-label="Nudge the trace down">&#9660;</button>` +
+      `</div>` +
       deckStrip('BENCH', 'DEVIATION') +
     `</div>`;
 
@@ -265,12 +280,11 @@ export function openCalibration(opts = {}) {
       const down = e.key === 'ArrowDown' || e.key === 's' || e.key === 'S';
       if (!up && !down) return;
       e.preventDefault();
-      g.value += (up ? -1 : 1) * 0.055;
-      g.drift *= 0.55;                                   // a correction damps the drift
-      if (phase === 'SETTLE') g.settle = Math.max(0, g.settle - 0.35);
+      nudge(up ? -1 : 1);
     },
     onClose: () => {
       if (!g) return;
+      g.padStop?.();
       cancelAnimationFrame(g.raf);
       window.removeEventListener('keyup', g.keyUp);
       // Report whatever was achieved. Abandoning is an outcome, not an escape.
@@ -305,9 +319,45 @@ export function openCalibration(opts = {}) {
   window.addEventListener('keyup', g.keyUp);
 
   overlay.querySelector('.mg-close').onclick = () => close();
+  g.padStop = wirePad(overlay);
   paintHud();
   g.raf = requestAnimationFrame(step);
   return { close };
+}
+
+// One correction, from a key or the pad. A correction damps the drift, and in SETTLE any
+// input costs you, which is the whole point of that stage.
+function nudge(dir) {
+  if (!g || g.done) return;
+  g.value += dir * 0.055;
+  g.drift *= 0.55;
+  if (PHASES[g.phase] === 'SETTLE') g.settle = Math.max(0, g.settle - 0.35);
+}
+
+// The pad. ▲/▼ repeat while held, as a held arrow key does; SYNC holds for as long as the
+// thumb stays down, as Space does. Pointer capture keeps a thumb that slides off the button
+// from leaving SYNC latched on. Returns the release, for onClose.
+function wirePad(overlay) {
+  let rep = 0;
+  const stop = () => { clearInterval(rep); rep = 0; if (g) g.correcting = 0; };
+  overlay.querySelectorAll('.cal-btn').forEach((b) => {
+    b.addEventListener('pointerdown', (e) => {
+      if (!g || g.done) return;
+      e.preventDefault();
+      b.setPointerCapture?.(e.pointerId);
+      if (b.dataset.cal === 'sync') {
+        g.correcting = 1;
+        if (PHASES[g.phase] === 'SETTLE') g.settle = Math.max(0, g.settle - 0.35);
+        return;
+      }
+      const dir = b.dataset.cal === 'up' ? -1 : 1;
+      nudge(dir);
+      clearInterval(rep);
+      rep = setInterval(() => { if (g && !g.done) nudge(dir); else stop(); }, 110);
+    });
+    for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(t, stop);
+  });
+  return stop;
 }
 
 export function closeCalibration() {

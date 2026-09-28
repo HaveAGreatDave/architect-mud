@@ -1,5 +1,5 @@
 import { sendCmdSilent } from '../net.js';
-import { makeFloatable } from './confirm.js';
+import { makeFloatable, promptQty } from './confirm.js';
 
 let activeCorpseId = null;
 let activeCorpseName = null;
@@ -39,37 +39,6 @@ function formatWeight(g) {
   return `${(Math.round(g / 100) / 10).toString()}kg`;
 }
 
-function promptQty(max, action) {
-  if (max <= 1) return Promise.resolve(max);
-  return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'qty-dialog-overlay';
-    overlay.innerHTML = `
-      <div class="qty-dialog">
-        <div class="qty-dialog-label">How many? (1–${max})</div>
-        <input class="qty-dialog-input" type="number" min="1" max="${max}" value="${max}">
-        <div class="qty-dialog-btns">
-          <button class="qty-dialog-ok">${action || 'OK'}</button>
-          <button class="qty-dialog-cancel">Cancel</button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    const input = overlay.querySelector('.qty-dialog-input');
-    input.focus();
-    input.select();
-    const finish = (qty) => { overlay.remove(); resolve(qty); };
-    overlay.querySelector('.qty-dialog-ok').onclick = () => {
-      const v = Math.min(max, Math.max(1, parseInt(input.value, 10) || 1));
-      finish(v);
-    };
-    overlay.querySelector('.qty-dialog-cancel').onclick = () => finish(null);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') overlay.querySelector('.qty-dialog-ok').click();
-      if (e.key === 'Escape') finish(null);
-    });
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(null); });
-  });
-}
 
 function lootCmd(itemId, corpseId, qty) {
   const name = activeCorpseName ? ' ' + activeCorpseName : '';

@@ -15,7 +15,7 @@
 // a slideshow — see the one performance rule in textui.js.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { esc, padEnd, paintRow, heading, ensureTextUiStyles } from './textui.js';
+import { esc, padEnd, paintRow, heading, ensureTextUiStyles, tap, deck, attachBoard, detachBoard } from './textui.js';
 import {
   setDemoSkin, startRig, startDefuse, stop as stopGame, demoState,
   rigFuse, rigCommit, defuseMove, defuseProbe, defuseCut, defuseSecondsLeft,
@@ -69,6 +69,7 @@ function paintRig(st) {
     lines.push(`   <span class="dim">Short is worth more and leaves you less.</span>`);
     lines.push('');
     lines.push(`   <span class="ok">arm</span> <span class="dim">when you have set it.</span>`);
+    lines.push(deck([tap('fuse -5', 'fuse −5'), tap('fuse +5', 'fuse +5'), tap('arm', 'ARM', { cls: 'big' })]));
   } else {
     lines.push(`  ${trackRow(st)}`);
     lines.push('');
@@ -76,11 +77,14 @@ function paintRig(st) {
     lines.push(`   <span class="dim">LEADS</span> ${pips}    <span class="dim">FUMBLES</span> ${st.fumbles}/3`);
     lines.push('');
     lines.push(`   <span class="ok">seat</span> <span class="dim">(or space) when the needle is in the band.</span>`);
+    // Fires on the PRESS: a click lands on release, and on a 30fps needle that is late.
+    lines.push(deck([tap('seat', 'SEAT', { press: true, cls: 'big' })]));
   }
   lines.push('');
   lines.push(`<span class="dim">${'─'.repeat(W)}</span>`);
   lines.push(_status);
   lines.push(`<span class="dim">abort to walk away.</span>`);
+  lines.push(deck([tap('abort', 'abort', { cls: 'hot' })]));
   setAreaPane(`<div class="txdm">${lines.join('\n')}</div>`);
 }
 
@@ -96,7 +100,9 @@ function paintDefuse(st) {
     const l = st.leads[i];
     const mark = i === st.cursor ? '▶' : ' ';
     const reading = l.cut ? 'CUT' : l.probed ? `${l.tension} mV` : '— — —';
-    lines.push(`  ${mark} <span class="w-${l.colour}">━━</span> ${padEnd(l.colour.toUpperCase(), 7)} <span class="amp">${reading}</span>`);
+    // Each lead carries its own two verbs, so a thumb never has to spell a colour.
+    const acts = l.cut ? '' : ` ${l.probed ? '' : tap(`probe ${l.colour}`, 'probe', { cls: 'inl' })} ${tap(`cut ${l.colour}`, 'cut', { cls: 'hot inl' })}`;
+    lines.push(`  ${mark} <span class="w-${l.colour}">━━</span> ${padEnd(l.colour.toUpperCase(), 7)} <span class="amp">${reading}</span>${acts}`);
   }
   lines.push('');
   lines.push(`   <span class="dim">${esc(st.note || 'The shunt reads against the run.')}</span>`);
@@ -105,6 +111,7 @@ function paintDefuse(st) {
   lines.push('');
   lines.push(`<span class="dim">${'─'.repeat(W)}</span>`);
   lines.push(_status);
+  lines.push(deck([tap('abort', 'abort', { cls: 'hot' })]));
   setAreaPane(`<div class="txdm">${lines.join('\n')}</div>`);
 }
 
@@ -183,6 +190,7 @@ function open(kind, opts) {
   // looking at a bomb they cannot touch.
   if (!st) { setDemoSkin(null); return false; }
   _open = true;
+  attachBoard(command);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   window.addEventListener('keydown', onKey);
   SKIN.board(st);
   return true;
@@ -194,6 +202,7 @@ export function openTextBombDefuse(opts = {}) { return open('defuse', opts); }
 export function close() {
   if (!_open) return;
   _open = false;
+  detachBoard(command);
   window.removeEventListener('keydown', onKey);
   stopGame();
   setDemoSkin(null);

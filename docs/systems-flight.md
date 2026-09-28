@@ -977,10 +977,13 @@ per-dive latch, an 18 s per-aircraft floor, and a 15 s per-zone cooldown. The la
 not enough: it re-arms on the pull-up, so a pilot porpoising the nose could carpet a
 neighbourhood in sirens without ever dropping anything.
 
-⚠ **A throw inside `fsimFrame` does not skip a frame — it ENDS THE SIM.** The loop re-arms with
-`requestAnimationFrame` at the *end* of its body, so the aeroplane stops in mid air with the last
-frame still painted while every DOM button (⏪, ABORT) keeps working — which looks like anything
-except an exception. The bomb release's "nose down" nag called `fsimToast` bare, and that const
+⚠ **A throw inside the frame body used to END THE SIM.** The loop re-arms with
+`requestAnimationFrame` at the *end* of its body, so the aeroplane stopped in mid air with the last
+frame still painted while every DOM button (⏪, ABORT) kept working — which looks like anything
+except an exception. `fsimFrame` and `hudFrame` are now thin wrappers around `fsimFrameBody` and
+`hudFrameBody`: a throw is logged once (`[cockpit] … frame threw`) and the wrapper re-arms, so a
+fault costs a frame rather than the flight. That is a safety net, not a licence: a body that
+throws every frame still runs only up to the throw. The bomb release's "nose down" nag called `fsimToast` bare, and that const
 lives in the **panel-setup closure**, not at module scope: pressing FIRE with bombs selected out
 of a dive killed the sim every time. `fsimToast` is now also a module-level function delegating to
 the `F.toast` handle (the closure's const still shadows it inside the setup function, so no

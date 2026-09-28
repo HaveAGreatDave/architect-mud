@@ -325,7 +325,25 @@ export function cabinAudio(s) {
 }
 
 // ── The per-frame animation loop ──────────────────────────────────────────────
+// ⚠ A FRAME THAT THROWS MUST NOT END THE LOOP. Both loops here re-arm at their END, so one
+// exception (a phone's GPU dropping the canvas mid-frame, a payload field that isn't there yet)
+// stopped the whole view on its last painted frame, and for the HUD it was worse: `_raf` kept
+// the spent frame id, so the `if (!_raf)` restart in the feed never fired again either. The
+// wrappers log the first failure, then re-arm, so a fault costs a frame instead of the flight.
+const _frameFaults = new Set();
+function frameFault(where, err) {
+  if (_frameFaults.has(where)) return;
+  _frameFaults.add(where);
+  console.error(`[cockpit] ${where} frame threw; the loop carries on:`, err);
+}
 function hudFrame(t) {
+  try { hudFrameBody(t); }
+  catch (err) {
+    frameFault('hud', err);
+    _raf = document.getElementById('ck-hud-root') && _target ? requestAnimationFrame(hudFrame) : 0;
+  }
+}
+function hudFrameBody(t) {
   const root = document.getElementById('ck-hud-root');
   if (!root || !_target) { _raf = 0; return; }
   const dt = Math.min(0.05, (t - _lastT) / 1000 || 0); _lastT = t;
@@ -5151,7 +5169,16 @@ function drawSubGauge(D) {
   }
 }
 
+// See the note above hudFrame. The body re-arms itself on every path that returns normally, so
+// the wrapper re-arms only when it threw before getting there.
 function fsimFrame(now) {
+  try { fsimFrameBody(now); }
+  catch (err) {
+    frameFault('flight', err);
+    if (_fsim && document.getElementById('fsim-root')) _fsim.raf = requestAnimationFrame(fsimFrame);
+  }
+}
+function fsimFrameBody(now) {
   const F = _fsim; if (!F) return;
   const root = document.getElementById('fsim-root');
   if (!root) { closeFlightSim(); return; }

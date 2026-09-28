@@ -317,14 +317,14 @@ function ensureLabStyles() {
     background:linear-gradient(180deg,color-mix(in srgb,var(--A) 6%,var(--bg2,#0d0d16)),var(--bg,#05050a) 55%);
     border:2px solid color-mix(in srgb,var(--bg2,#0d0d16) 30%,#000 70%);
     box-shadow:inset 0 2px 0 var(--bevhi),inset 0 -3px 8px var(--bevlo),0 24px 70px rgba(0,0,0,.85),0 0 40px color-mix(in srgb,var(--A) 16%,transparent)}
-  .lab-rig canvas.lab-stage{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .lab-rig canvas.lab-stage{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
   .lab-fx{position:absolute;inset:0;pointer-events:none;z-index:5}
   .lab-fx.scan{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.18) 2px 3px);opacity:.5;mix-blend-mode:multiply}
   .lab-fx.vig{box-shadow:inset 0 0 140px rgba(0,0,0,.78),inset 0 0 40px rgba(0,0,0,.5)}
   .lab-fx.grid{opacity:.08;background-image:linear-gradient(color-mix(in srgb,var(--A) 50%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--A) 50%,transparent) 1px,transparent 1px);background-size:30px 30px;animation:lab-drift 8s linear infinite}
   @keyframes lab-drift{to{background-position:0 30px,30px 0}}
   .lab-grain{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:.05;mix-blend-mode:screen;image-rendering:pixelated;width:100%;height:100%}
-  .lab-top{position:absolute;top:0;left:0;right:0;height:34px;z-index:8;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:12px;font-weight:bold;text-transform:uppercase;pointer-events:auto;cursor:grab;user-select:none;background:linear-gradient(180deg,color-mix(in srgb,var(--A) 10%,var(--bg,#05050a)),transparent);border-bottom:1px solid color-mix(in srgb,var(--A) 22%,transparent)}
+  .lab-top{position:absolute;top:0;left:0;right:0;height:34px;z-index:8;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:12px;font-weight:bold;text-transform:uppercase;pointer-events:auto;cursor:grab;user-select:none;touch-action:none;background:linear-gradient(180deg,color-mix(in srgb,var(--A) 10%,var(--bg,#05050a)),transparent);border-bottom:1px solid color-mix(in srgb,var(--A) 22%,transparent)}
   .lab-top.dragging{cursor:grabbing}
   .lab-top .mk{color:var(--A);font-size:15px;text-shadow:0 0 10px var(--A)}
   .lab-top b{letter-spacing:3px;color:var(--A);font-size:13px;text-shadow:0 0 10px color-mix(in srgb,var(--A) 65%,transparent)}
@@ -349,6 +349,16 @@ function ensureLabStyles() {
   .lab-ticker b{color:var(--A)} .lab-ticker .r{color:var(--red,#ff4a5b)} .lab-ticker .a{color:var(--orange,#ffb23e)}
   .lab-flash{position:absolute;inset:0;z-index:20;pointer-events:none;background:#fff;opacity:0}
   .lab-hidden{display:none!important}
+  .lab-rotate{display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;
+    padding:6px 14px;border-radius:999px;font-size:0.75rem;letter-spacing:2px;text-transform:uppercase;white-space:nowrap;
+    color:var(--accent,#4fe08a);background:color-mix(in srgb,var(--bg,#05050a) 85%,transparent);border:1px solid currentColor}
+  @media (orientation:portrait){ html[data-density="compact"] .lab-rotate{display:block} }
+  /* The rig's own ✕ scales with the rig, to a few px on a phone, and Escape is the only other
+     way out. A phone gets a full-size exit on the screen's corner, outside the scaled box. */
+  .lab-exit{display:none;position:absolute;top:6px;right:6px;z-index:31;pointer-events:auto;width:44px;height:44px;
+    border-radius:50%;border:1px solid color-mix(in srgb,var(--accent,#4fe08a) 55%,transparent);cursor:pointer;
+    background:color-mix(in srgb,var(--bg,#05050a) 88%,transparent);color:var(--accent,#4fe08a);font-size:1.25rem;line-height:1}
+  html[data-density="compact"] .lab-exit{display:block}
   .lab-card{width:360px;padding:22px;border-radius:12px;background:linear-gradient(180deg,var(--surf-hi),var(--surf-lo));border:1px solid color-mix(in srgb,var(--A) 34%,transparent);box-shadow:inset 0 1px 0 var(--bevhi),inset 0 -3px 10px var(--bevlo),0 20px 60px rgba(0,0,0,.9);font-family:inherit}
   .lab-field{width:100%;box-sizing:border-box;background:var(--bg,#05050a);border:1px solid color-mix(in srgb,var(--A) 40%,transparent);border-radius:6px;color:var(--A);font-family:inherit;font-size:14px;letter-spacing:1px;padding:9px 11px;text-align:center;outline:none;box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
   .lab-field:focus{border-color:var(--A);box-shadow:inset 0 2px 6px rgba(0,0,0,.6),0 0 12px color-mix(in srgb,var(--A) 40%,transparent)}
@@ -386,7 +396,9 @@ export function mountLab({ title = 'CHIMERA-9', subtitle = 'GENESPLICER', accent
       <div class="lab-insta ${showInsta ? '' : 'lab-hidden'}"><div class="lb"><span>INSTABILITY</span><b class="pct">0%</b></div><div class="bar"><div class="fill"></div></div></div>
       <div class="lab-ticker"></div>
       <div class="lab-flash"></div>
-    </div>`;
+    </div>
+    <div class="lab-rotate">&#8635; turn sideways for a bigger bench</div>
+    <button type="button" class="lab-exit" aria-label="Abort and close the bench">&#10005;</button>`;
   document.body.appendChild(overlay);
   const canvas = overlay.querySelector('.lab-stage'), ctx = canvas.getContext('2d');
   useCanvas(ctx, canvas.width, canvas.height);
@@ -397,6 +409,27 @@ export function mountLab({ title = 'CHIMERA-9', subtitle = 'GENESPLICER', accent
   // a lab window is open, re-read --bg and re-apply immediately, no reopen needed.
   // Patches only the two custom props (setAttribute would wipe the drag transform).
   const rigEl = overlay.querySelector('.lab-rig');
+
+  // ⚠ THE RIG IS DRAWN IN 960×604 DESIGN PIXELS AND ITS CONTROLS ARE PLACED IN THEM. The canvas
+  // scales to the rig's CSS width; the DOM controls (slot panels at left 20/300/580, SPLICE at
+  // right:22, the name field) are literal px and do not. Below a 1000px viewport the CSS shrank
+  // the rig to 94vw and the controls stayed put, so on a phone they spilled off it: the OUTPUT
+  // slot entirely off the right, the name field under the buttons, and sideways the title bar
+  // (and the ✕ in it) above the top of the screen. Where the design doesn't fit, the rig keeps its
+  // design size and is SCALED to fit, so canvas and controls stay registered to each other.
+  // evPos reads getBoundingClientRect, which includes the scale, so pointer mapping holds.
+  let fitK = 1;
+  const fit = () => {
+    const vw = globalThis.innerWidth, vh = globalThis.innerHeight;
+    if (vw >= 1000 && vh >= 620) { fitK = 1; rigEl.style.width = ''; rigEl.style.flex = ''; rigEl.style.scale = ''; return; }
+    fitK = Math.min((vw * 0.94) / 960, (vh * 0.96) / 604, 1);
+    rigEl.style.width = '960px';
+    rigEl.style.flex = '0 0 auto';
+    rigEl.style.scale = String(fitK);
+  };
+  fit();
+  globalThis.addEventListener('resize', fit);
+
   const onThemeChange = () => {
     setLabBg(true);
     if (labBgLight) { rigEl.style.setProperty('--fgdim', 'color-mix(in srgb,var(--A) 65%,#000)'); rigEl.style.setProperty('--fgbright', 'color-mix(in srgb,var(--A) 20%,#000)'); }
@@ -406,8 +439,9 @@ export function mountLab({ title = 'CHIMERA-9', subtitle = 'GENESPLICER', accent
   themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style'] });
 
   let closed = false; const closeCbs = [];
-  function close() { if (closed) return; closed = true; clearInterval(grainTimer); themeObs.disconnect(); AX.stopAll(); closeCbs.forEach(fn => { try { fn(); } catch (e) { } }); window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragEnd); if (overlay.parentNode) overlay.remove(); }
+  function close() { if (closed) return; closed = true; globalThis.removeEventListener('resize', fit); clearInterval(grainTimer); themeObs.disconnect(); AX.stopAll(); closeCbs.forEach(fn => { try { fn(); } catch (e) { } }); window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragEnd); if (overlay.parentNode) overlay.remove(); }
   overlay.querySelector('.close').addEventListener('click', close);
+  overlay.querySelector('.lab-exit').addEventListener('click', close);
 
   // draggable rig — grab the titlebar (not the close button) and slide the window
   // around by CSS transform, independent of layout so the centred flex box holds.
@@ -422,7 +456,9 @@ export function mountLab({ title = 'CHIMERA-9', subtitle = 'GENESPLICER', accent
   function onDragMove(e) {
     if (!dragging) return;
     dragX = e.clientX - startX; dragY = e.clientY - startY;
-    rigEl.style.transform = `translate(${dragX}px,${dragY}px)`;
+    // Divided by the fit scale: 'scale' applies to the transform too, so an unscaled offset
+    // would move the rig at a fraction of the thumb's speed.
+    rigEl.style.transform = `translate(${dragX / fitK}px,${dragY / fitK}px)`;
   }
   function onDragEnd() { dragging = false; top.classList.remove('dragging'); window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragEnd); }
   top.addEventListener('pointerdown', onDragStart);

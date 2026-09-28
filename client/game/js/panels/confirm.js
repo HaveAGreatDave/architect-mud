@@ -32,6 +32,11 @@ function asDialog(el, label) {
 // box pinned at both edges stretches instead of moving.
 export function makeDraggable(win, handle) {
   let ox = 0, oy = 0;
+  // ⚠ A TOUCH DRAG NEEDS touch-action:none ON THE HANDLE. preventDefault on pointerdown does not
+  // stop a browser claiming the gesture for panning, and once it does it sends pointercancel and
+  // the window stops following the thumb after a few pixels. Buttons in the header keep their
+  // own taps; this only tells the browser a drag here is ours.
+  handle.style.touchAction = 'none';
   handle.addEventListener('pointerdown', (e) => {
     if (e.target.tagName === 'BUTTON') return;
     const r = win.getBoundingClientRect();
@@ -52,6 +57,21 @@ export function makeDraggable(win, handle) {
     win.style.top = y + 'px';
   });
   handle.addEventListener('pointerup', () => { handle.style.cursor = 'grab'; });
+  handle.addEventListener('pointercancel', () => { handle.style.cursor = 'grab'; });
+  // A window left low on a portrait screen is off it after a rotate to landscape (342px tall),
+  // with its ✕ out of reach. Pull a placed window back inside whenever the viewport changes.
+  // Only a window that has been placed (an inline left) is touched; a centred one is the CSS's.
+  // The confirm windows are built fresh on every open, so the listener takes itself off once its
+  // window has left the page rather than collecting one per dialog for the life of the session.
+  const reclamp = () => {
+    if (!win.isConnected) { globalThis.removeEventListener('resize', reclamp); return; }
+    if (!win.style.left || win.offsetWidth === 0) return;
+    const x = Math.max(0, Math.min(globalThis.innerWidth - win.offsetWidth, parseFloat(win.style.left) || 0));
+    const y = Math.max(0, Math.min(globalThis.innerHeight - win.offsetHeight, parseFloat(win.style.top) || 0));
+    win.style.left = x + 'px';
+    win.style.top = y + 'px';
+  };
+  globalThis.addEventListener?.('resize', reclamp);
 }
 
 // A window that sits centred in a flex overlay (the container and loot boxes) and can be picked up by
@@ -70,6 +90,51 @@ export function makeFloatable(win, handle) {
     }
   }, true);
   makeDraggable(win, handle);
+}
+
+// The "how many?" dialog for moving part of a stack (container, corpse). Shared here because
+// the container and the corpse panels each carried the same copy.
+//
+// ⚠ ON A PHONE THE FIELD IS NOT FOCUSED, AND THE COMMON ANSWERS ARE BUTTONS. Focusing the number
+// field threw the soft keyboard over the dialog on every stack moved, to type a number that is
+// almost always one, half, or all of it. Those are taps now; the field is still there (and still
+// takes Enter) for the other answers. A desktop keeps the focus, where it costs nothing.
+export function promptQty(max, action) {
+  if (max <= 1) return Promise.resolve(max);
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'qty-dialog-overlay';
+    const half = Math.max(1, Math.floor(max / 2));
+    const picks = [...new Set([1, half, max])];
+    overlay.innerHTML = `
+      <div class="qty-dialog">
+        <div class="qty-dialog-label">How many? (1–${max})</div>
+        <div class="qty-dialog-picks">${picks.map(n => `<button type="button" class="qty-dialog-pick" data-n="${n}">${n === max ? `all ${n}` : n}</button>`).join('')}</div>
+        <input class="qty-dialog-input" type="number" inputmode="numeric" min="1" max="${max}" value="${max}">
+        <div class="qty-dialog-btns">
+          <button class="qty-dialog-ok">${action || 'OK'}</button>
+          <button class="qty-dialog-cancel">Cancel</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('.qty-dialog-input');
+    if (document.documentElement.dataset.density !== 'compact') {
+      input.focus();
+      input.select();
+    }
+    const finish = (qty) => { overlay.remove(); resolve(qty); };
+    overlay.querySelector('.qty-dialog-ok').onclick = () => {
+      const v = Math.min(max, Math.max(1, parseInt(input.value, 10) || 1));
+      finish(v);
+    };
+    overlay.querySelector('.qty-dialog-cancel').onclick = () => finish(null);
+    for (const b of overlay.querySelectorAll('.qty-dialog-pick')) b.onclick = () => finish(Number(b.dataset.n));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') overlay.querySelector('.qty-dialog-ok').click();
+      if (e.key === 'Escape') finish(null);
+    });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(null); });
+  });
 }
 
 function close() {

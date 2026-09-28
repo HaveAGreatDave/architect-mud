@@ -207,6 +207,21 @@ export function openFreelook(ctx = {}) {
     + `<button class="fl-chip fl-x" type="button" title="close the camera (O)">✕</button>`
     + `</div>`
     + `<div class="fl-hint"></div>`
+    // ⚠ MOVING WAS KEYS ONLY. Drag looks, but WASD/QE/RF walk, turn and climb, and a phone has
+    // none of them, so free look on a phone was a camera bolted to the spot you opened it on. The
+    // pad presses the same keys into the same freeCam.onKey the keyboard does (shown on touch
+    // only); held buttons hold. A vantage has no up/down, so it gets no R/F.
+    + `<div class="fl-pad" role="group" aria-label="Move the camera">`
+    + `<button type="button" class="fl-pk" data-k="q" aria-label="Turn left">&#10226;</button>`
+    + `<button type="button" class="fl-pk" data-k="w" aria-label="Forward">&#9650;</button>`
+    + `<button type="button" class="fl-pk" data-k="e" aria-label="Turn right">&#10227;</button>`
+    + `<button type="button" class="fl-pk" data-k="a" aria-label="Left">&#9664;</button>`
+    + `<button type="button" class="fl-pk" data-k="s" aria-label="Back">&#9660;</button>`
+    + `<button type="button" class="fl-pk" data-k="d" aria-label="Right">&#9654;</button>`
+    + (stand ? '' : `<button type="button" class="fl-pk" data-k="r" aria-label="Up">&#8679;</button>`
+      + `<span></span>`
+      + `<button type="button" class="fl-pk" data-k="f" aria-label="Down">&#8681;</button>`)
+    + `</div>`
     + `</div>`;
 
   const root = mount.querySelector('.fl-root');
@@ -381,6 +396,20 @@ export function openFreelook(ctx = {}) {
   }
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', onKey);
+  // The touch pad: a press is a keydown, a release (or a thumb leaving) is the keyup. Pointer
+  // capture keeps the release addressed here, which is the whole difference between a held
+  // button and a camera that flies on after the thumb has gone.
+  for (const b of root.querySelectorAll('.fl-pk')) {
+    const k = b.dataset.k;
+    const up = () => { freeCam.onKey(k, false); b.classList.remove('on'); };
+    b.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      b.setPointerCapture?.(e.pointerId);
+      freeCam.onKey(k, true);
+      b.classList.add('on');
+    });
+    for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(t, up);
+  }
   // ⚠ AND ALT-TAB IS THE ONE THE LENIENCY ABOVE CANNOT CATCH. The keyup for whatever was held goes
   // to whatever you switched to and this window never hears it at all, so there is no release to be
   // lenient about — the camera simply flies on, over a city nobody is looking at, until somebody
@@ -550,6 +579,14 @@ function ensureFreelookStyles() {
        whole row shuffles sideways every time the mode changes and the button you were aiming at has
        moved. Same reason the flight sim's ◎ EXT is padded rather than sized to its text. */
     button.fl-chip.fl-fps{ min-width:34px; text-align:center; }
+    .fl-pad{ display:none; position:absolute; left:10px; bottom:38px; z-index:6; grid-template-columns:repeat(3,44px);
+      gap:6px; touch-action:none; }
+    .fl-pk{ width:44px; height:44px; padding:0; font-size:1.125rem; line-height:1; color:#dfe6ef; cursor:pointer;
+      background:rgba(8,11,15,0.55); border:1px solid rgba(255,255,255,0.22); border-radius:10px;
+      touch-action:none; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent; }
+    .fl-pk.on{ background:rgba(233,241,250,0.85); color:#0a0f16; }
+    @media (hover:none), (pointer:coarse){ .fl-pad{ display:grid; } }
+    html[data-density="compact"] .fl-pad{ display:grid; }
     .fl-hint{ position:absolute; left:50%; bottom:12px; transform:translateX(-50%); z-index:6;
       font:11px/1 system-ui,sans-serif; letter-spacing:0.6px; color:#dfe6ef; background:rgba(8,11,15,0.62);
       padding:4px 12px; border-radius:11px; border:1px solid rgba(255,255,255,0.16);

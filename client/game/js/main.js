@@ -18,6 +18,7 @@ import {
 } from "/shared/settings.js";
 import {
 	appendMsg,
+	appendHtml,
 	initVitalsReorder,
 	initScrollLock,
 	keepTail,
@@ -132,7 +133,17 @@ function applyMobileScale() {
 	// and the chrome stayed at its hardcoded px sizes; now it is the ROOT font size,
 	// so a 10px root would take a 9px label down to 5.6px. 12 is the narrowest root
 	// the rest of the scale still reads at, and it only binds below ~340px wide.
-	const byWidth = Math.floor(window.innerWidth / 28);
+	//
+	// ⚠ ON A TOUCH DEVICE, THE SHORT SIDE OF THE SCREEN, NOT innerWidth. Turning a
+	// phone sideways took the root from 13px to the 18px ceiling at the moment the
+	// viewport lost half its height, so every band of chrome grew as the room for it
+	// shrank. The screen's short side does not change with rotation, and unlike
+	// innerHeight it does not change when a soft keyboard resizes the layout
+	// viewport either (older Android does), so the type holds still in both cases.
+	const span = _isTouch && screen?.width && screen?.height
+		? Math.min(screen.width, screen.height, window.innerWidth)
+		: window.innerWidth;
+	const byWidth = Math.floor(span / 28);
 	const sz = Math.max(12, Math.min(18, byWidth));
 	document.documentElement.style.setProperty("--font-size-base", sz + "px");
 }
@@ -203,13 +214,20 @@ fetch("/api/districts")
 	.then((d) => d?.districts && setDistrictLegend(d.districts))
 	.catch(() => {});
 
-// Mobile area-pane: always starts collapsed. The resize-handle bar is always
-// visible and hosts the toggle button (▼/▲). No auto-open on content update.
+// Mobile area-pane. The resize-handle bar is always visible and hosts the toggle
+// (▼/▲); tapping it is the player's choice, and that choice is remembered.
+//
+// ⚠ IT STARTS OPEN. It used to start collapsed on every load, and on a phone the
+// pane IS the room: the name, the prose, the exits and every tappable NPC and
+// object. A player who had not found the orange bar saw an empty log under a
+// room name and nothing to press but the d-pad. A player who collapses it gets it
+// collapsed again next time (MOB_PANE_KEY).
 //
 // Wired once, the first time the layout is compact — at load for a phone, or on
 // the resize that flips a desktop window into the compact class (syncDensity
 // calls this). Without that second entry point the handle would appear with the
 // chrome but do nothing until a refresh.
+const MOB_PANE_KEY = "architect_mob_pane_open";
 let _mobilePaneWired = false;
 function setupMobilePane() {
 	if (_mobilePaneWired) return;
@@ -219,6 +237,10 @@ function setupMobilePane() {
 	const _toggleBtn = document.getElementById("area-pane-toggle");
 
 	const _resizeHandle = document.getElementById("look-resize-handle");
+
+	const _preferOpen = () => {
+		try { return localStorage.getItem(MOB_PANE_KEY) !== "0"; } catch { return true; }
+	};
 
 	function _setAreaPane(open) {
 		_areaPane.classList.toggle("mob-pane-hidden", !open);
@@ -230,31 +252,63 @@ function setupMobilePane() {
 			localStorage.removeItem("lookPaneHeight");
 		}
 		if (_toggleBtn) _toggleBtn.textContent = open ? "▲" : "▼";
+		_resizeHandle?.setAttribute("aria-expanded", open ? "true" : "false");
 	}
 
 	// Hide the old toggle bar — the handle button replaces it
 	if (_toggleBar) _toggleBar.style.display = "none";
 
-	// Start collapsed
-	_setAreaPane(false);
+	// The handle is the pane's only control on a phone, so it is a button to a
+	// screen reader and a keyboard as well as to a thumb.
+	if (_resizeHandle) {
+		_resizeHandle.setAttribute("role", "button");
+		_resizeHandle.setAttribute("tabindex", "0");
+		_resizeHandle.setAttribute("aria-controls", "area-pane");
+		_resizeHandle.setAttribute("aria-label", "Show or hide the room");
+	}
 
-	// An app that MOUNTS INTO THE PANE opens it. The pane starts collapsed and, before this,
-	// only a tap ever opened it — so a player who arrived already inside one of these (logging
-	// in aboard an aircraft is how this was found) got the app rendered into a pane they could
-	// not see: no cockpit, no controls, just the log pane and a d-pad offering directions.
-	// The apps announce themselves rather than being listed here, so a new one is covered by
-	// dispatching the same event.
-	window.addEventListener("pane:claimed", () => _setAreaPane(true));
-	window.addEventListener("pane:released", () => _setAreaPane(false));
+	_setAreaPane(_preferOpen());
+
+	// An app that MOUNTS INTO THE PANE opens it, whatever the player keeps it at — so a player
+	// who arrived already inside one of these (logging in aboard an aircraft is how this was
+	// found) is not handed an app rendered into a pane they cannot see: no cockpit, no controls,
+	// just the log pane and a d-pad offering directions. The apps announce themselves rather than
+	// being listed here, so a new one is covered by dispatching the same event.
+	//
+	// `_claimed` is the last word either event said. Several closers release unconditionally (the
+	// depot, the cockpit), which is why it is a flag and not a count: a count would go negative on
+	// the first close of something that was never open, and read "free" while a cab was mounted.
+	//
+	// data-pane-claimed tells the stylesheet as well: while an app owns the pane, the map and d-pad
+	// band folds away (styles.css). Nobody walks from the d-pad mid-seat or mid-minigame, and on a
+	// 664px screen that band is 121px the app would otherwise be clipped or scrolled for.
+	let _claimed = false;
+	const _markClaimed = (on) => {
+		if (on) document.documentElement.dataset.paneClaimed = "1";
+		else delete document.documentElement.dataset.paneClaimed;
+	};
+	window.addEventListener("pane:claimed", () => { _claimed = true; _markClaimed(true); _setAreaPane(true); });
+	window.addEventListener("pane:released", () => { _claimed = false; _markClaimed(false); _setAreaPane(_preferOpen()); });
 
 	// Clicking anywhere on the handle bar toggles the pane.
 	// Guard: ignore if the touch/click was part of a drag (moved more than 4px).
 	let _handleDragged = false;
+	const _toggle = () => {
+		const open = _areaPane.classList.contains("mob-pane-hidden");
+		_setAreaPane(open);
+		// Only a player's own tap becomes the preference; an app claiming the pane does not.
+		try { localStorage.setItem(MOB_PANE_KEY, open ? "1" : "0"); } catch { /* private mode */ }
+	};
 	_resizeHandle?.addEventListener("touchstart", () => { _handleDragged = false; }, { passive: true });
 	_resizeHandle?.addEventListener("touchmove",  () => { _handleDragged = true;  }, { passive: true });
 	_resizeHandle?.addEventListener("click", () => {
 		if (_handleDragged) return;
-		_setAreaPane(_areaPane.classList.contains("mob-pane-hidden"));
+		_toggle();
+	});
+	_resizeHandle?.addEventListener("keydown", (e) => {
+		if (e.key !== "Enter" && e.key !== " ") return;
+		e.preventDefault();
+		_toggle();
 	});
 
 	// When the soft keyboard appears, shrink the body to the visual viewport
@@ -264,6 +318,7 @@ function setupMobilePane() {
 		const _output = document.getElementById("output");
 		let _fullVH = window.visualViewport.height;
 		let _paneWasOpen = false;
+		let _kbUp = false;
 
 		window.visualViewport.addEventListener("resize", () => {
 			const vh = window.visualViewport.height;
@@ -277,12 +332,24 @@ function setupMobilePane() {
 			if (keyboardUp) {
 				document.body.style.height = vh + "px";
 				window.scrollTo(0, window.visualViewport.offsetTop);
-				_paneWasOpen = !_areaPane.classList.contains("mob-pane-hidden");
-				_setAreaPane(false);
+				// data-kb folds the map and d-pad band away while typing (styles.css); nobody
+				// thumbs a direction with the keyboard up, and it is room the log needs.
+				document.documentElement.dataset.kb = "up";
+				// Recorded on the way UP only: a keyboard that resizes twice while open (the
+				// suggestion strip appearing) must not overwrite "was open" with "is collapsed".
+				if (!_kbUp) _paneWasOpen = !_areaPane.classList.contains("mob-pane-hidden");
+				_kbUp = true;
+				// ⚠ NOT WHEN AN APP OWNS THE PANE. A room description can fold away while you
+				// type; a text cockpit or a seat cannot, because it is the thing being typed to.
+				// Collapsing it was how a text-rung pilot on a phone lost the instruments the
+				// moment they opened the keyboard to fly.
+				if (!_claimed) _setAreaPane(false);
 			} else {
 				_fullVH = vh;
 				document.body.style.height = "";
-				if (_paneWasOpen) _setAreaPane(true);
+				delete document.documentElement.dataset.kb;
+				if (_kbUp && _paneWasOpen) _setAreaPane(true);
+				_kbUp = false;
 				_output.scrollTop = _output.scrollHeight;
 			}
 		});
@@ -644,6 +711,26 @@ window.addEventListener('game-disconnect', () => {
 	if (mapTip) mapTip.style.display = 'none';
 });
 
+// A device that can't keep up with a 3-D seat is told, once, that the text version exists.
+// windshield.js raises `glass:struggling` when a view has held under ~12fps for six seconds on a
+// touch device. Offered once per device (not per session: a phone that struggles is a phone that
+// will struggle again, and the player has heard it), never to a player already on a text rung,
+// and it changes nothing unless tapped. The rung is read when a seat is taken, so it says so.
+const TEXT_OFFER_KEY = "architect_text_views_offered";
+window.addEventListener("glass:struggling", () => {
+	const rung = state.player?.displayRung;
+	if (rung === "textgames" || rung === "log") return;
+	try {
+		if (localStorage.getItem(TEXT_OFFER_KEY)) return;
+		localStorage.setItem(TEXT_OFFER_KEY, "1");
+	} catch { /* private mode: offer anyway, just this once */ }
+	appendHtml(
+		`<div class="system">This device is struggling with the 3-D view. Every seat and minigame also comes in text, and it plays the same game: `
+		+ `<span class="action-link" data-action="cmd" data-cmd="displaymode textgames">switch to text views</span>. `
+		+ `It takes over from the next seat you take. Tablet → Settings → Accessibility → Display Mode puts it back.</div>`,
+	);
+});
+
 // Wire signout
 function doSignout() {
 	// Flag to prevent auto-login on next page load
@@ -887,55 +974,10 @@ document.getElementById("area-content")?.addEventListener("click", (e) => {
 	}
 });
 
-// Mobile output scroll — touchstart/move on #output scrolls it, ignoring
-// touches that begin on the map tab button or the minimap panel.
-{
-	const output = document.getElementById("output");
-	let scrollTouchId = null;
-	let scrollStartY = 0;
-	let scrollStartTop = 0;
-
-	output.addEventListener(
-		"touchstart",
-		(e) => {
-			const touch = e.changedTouches[0];
-			const hit = document.elementFromPoint(touch.clientX, touch.clientY);
-			if (mobileMapTab?.contains(hit) || mobileMapPanel?.contains(hit))
-				return;
-			scrollTouchId = touch.identifier;
-			scrollStartY = touch.clientY;
-			scrollStartTop = output.scrollTop;
-		},
-		{ passive: true },
-	);
-
-	output.addEventListener(
-		"touchmove",
-		(e) => {
-			if (scrollTouchId === null) return;
-			const touch = [...e.changedTouches].find(
-				(t) => t.identifier === scrollTouchId,
-			);
-			if (!touch) return;
-			output.scrollTop = scrollStartTop - (touch.clientY - scrollStartY);
-		},
-		{ passive: true },
-	);
-
-	output.addEventListener(
-		"touchend",
-		(e) => {
-			if (
-				[...e.changedTouches].some(
-					(t) => t.identifier === scrollTouchId,
-				)
-			) {
-				scrollTouchId = null;
-			}
-		},
-		{ passive: true },
-	);
-}
+// #output scrolls natively on touch (overflow-y: auto). A hand-rolled touchmove
+// scroller used to sit here; it referenced two map elements that no longer exist,
+// so it threw a ReferenceError on every touch of the log and never scrolled
+// anything. Had it run, it would have scrolled on top of the native scroll.
 
 // Raw directions the server's `go` understands as a leading disambiguator.
 const RAW_DIRS = ["north", "south", "east", "west", "up", "down", "in", "out", "exit"];
@@ -963,6 +1005,9 @@ function toggleFurnGroup(el) {
 function handleActionLinkClick(e) {
 	const el = e.target.closest(".action-link");
 	if (!el) return;
+	// An action link that is a real anchor (the accessibility listing uses them, so a screen
+	// reader announces links) must not also navigate to "#".
+	if (el.tagName === "A" && el.getAttribute("href") === "#") e.preventDefault();
 	// Client-side links: answered HERE, never sent to the server. This is the
 	// difference between a clickable "Yes" and a broken one — a y/n prompt like
 	// auto-walk's is consumed by handleClientCommand BEFORE the socket, so a link

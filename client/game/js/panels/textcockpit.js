@@ -14,17 +14,24 @@
 // server sim's own tick). Everything here is a pure render of that payload — no state
 // of its own beyond the last packet, so a missed tick simply redraws the old numbers.
 
-import { esc, pad, clamp, bar, paintRow } from './textui.js';
+import { esc, pad, clamp, bar, paintRow, tap, deck, attachBoard, detachBoard, ensureTextUiStyles } from './textui.js';
+import { sendCmd } from '../net.js';
 
 let _last = null;
 let _open = false;
 
 function ensureStyles() {
+  ensureTextUiStyles();   // the tap chips' sheet; this panel paints into a root of its own
   if (document.getElementById('textcockpit-styles')) return;
   const st = document.createElement('style');
   st.id = 'textcockpit-styles';
   st.textContent = `
     #area-content:has(.tck) { height:100%; }
+    /* On a phone the deck is the stick and the throttle, and it sat under a twelve-row horizon
+       ball, below the fold of the pane. Pinned to the bottom of the pane, it stays under the thumb
+       while the instruments scroll above it. */
+    html[data-density="compact"] .tck .txui-deck { position:sticky; bottom:0; z-index:2; margin:6px -10px -8px;
+      padding:6px 10px 8px; background:#060b09; border-top:1px solid #10261e; }
     /* ⚠ NOT 'Courier New' — this panel is a CHARACTER GRID, and Courier New has no
        box-drawing or geometric-shape glyphs on Windows. Every ─ ╱ ╲ ▲ ◄ █ fell back
        to a different family with a different advance width, so any row containing one
@@ -241,8 +248,50 @@ const LAND_MODE_NOTE = {
   strip: 'STRIP: she needs a runway under her to land.',
 };
 
+// ⚠ THE TEXT PANEL MOUNTS IN THE SAME PANE AS THE GLASS ONE, AND HAS TO SAY SO THE SAME WAY. A
+// phone keeps #area-pane collapsed until an app claims it and folds it away when the keyboard comes
+// up unless one has. The glass cockpit claimed it; this did not, so a text-rung pilot on a phone,
+// the player this panel exists for, flew with the instruments folded shut, and lost them again the
+// moment they opened the keyboard to type a command. attachBoard also routes the deck's taps.
+const fly = (word) => sendCmd(word);
+const claimPane = () => attachBoard(fly);
+
+// The deck: the verbs a text pilot types, as taps, with the numbers worked out from the panel so
+// a thumb never has to. A text pilot sets INTENT (textpilot.js), so "climb" is the current target
+// plus a thousand feet and the autopilot flies it; nothing here touches a surface directly.
+const round = (v, step) => Math.round(v / step) * step;
+function deckRow(s) {
+  const thr = round(s.throttle || 0, 10);
+  const alt = round(s.tgtAlt ?? s.alt ?? 0, 100);
+  const flaps = round(s.flaps || 0, 25);
+  if (!s.airborne) {
+    return deck([
+      tap('startup', 'startup'),
+      tap('throttle 100', 'full power'),
+      tap('takeoff', 'TAKEOFF', { cls: 'big' }),
+      tap(`flaps ${Math.min(100, flaps + 25)}`, 'flaps +'),
+      tap(`flaps ${Math.max(0, flaps - 25)}`, 'flaps −'),
+      tap('throttle 0', 'idle'),
+    ]);
+  }
+  return deck([
+    tap('turn left 30', '◀ left 30'),
+    tap('turn right 30', 'right 30 ▶'),
+    tap(`climb to ${alt + 1000}`, `▲ ${alt + 1000}ft`),
+    tap(`descend to ${Math.max(0, alt - 1000)}`, `▼ ${Math.max(0, alt - 1000)}ft`),
+    tap('level', 'level'),
+    tap(`throttle ${Math.max(0, thr - 10)}`, 'thr −'),
+    tap(`throttle ${Math.min(100, thr + 10)}`, 'thr +'),
+    tap(`flaps ${Math.max(0, flaps - 25)}`, 'flaps −'),
+    tap(`flaps ${Math.min(100, flaps + 25)}`, 'flaps +'),
+    tap(s.gear ? 'gear up' : 'gear down', s.gear ? 'gear up' : 'gear down'),
+    tap('land', 'LAND', { cls: 'big' }),
+  ]);
+}
+
 export function openTextCockpit(msg) {
   ensureStyles();
+  claimPane();
   _open = true;
   _last = null;
   const el = document.getElementById('area-content');
@@ -250,6 +299,7 @@ export function openTextCockpit(msg) {
 }
 
 export function closeTextCockpit() {
+  if (_open) detachBoard(fly);
   _open = false; _last = null;
 }
 
@@ -257,6 +307,7 @@ export function isTextCockpitActive() { return _open; }
 
 export function updateTextCockpit(s) {
   ensureStyles();
+  claimPane();   // a login mid-flight gets its first packet with no open before it
   _open = true;
   _last = s;
   const el = document.getElementById('area-content');
@@ -311,6 +362,7 @@ export function updateTextCockpit(s) {
     `<span class="dim">GEAR ${s.gear ? 'DOWN' : 'UP  '} · FLAPS ${pad(s.flaps, 3)}% · ${esc(s.surface || 'open air')}</span>\n` +
     `<span class="dim">${esc(LAND_MODE_NOTE[s.landMode] || '')}</span>\n` +
     (warnings.length ? rule + '\n' + warnings.join('\n') + '\n' : '') +
+    deckRow(s) +
     `</div>`;
 }
 

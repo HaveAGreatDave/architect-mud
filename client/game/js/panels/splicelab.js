@@ -288,8 +288,8 @@ function wireInput(g) {
   const onKey = e => { if (e.key === 'Escape') { g.lab.close(); return; } if (e.repeat) return; if (stage && stage.key) stage.key(e); };
   const onKeyUp = e => { if (stage && stage.keyup) stage.keyup(e); };
   canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerdown', onDown);
-  window.addEventListener('pointerup', onUp); window.addEventListener('keydown', onKey); window.addEventListener('keyup', onKeyUp);
-  g.lab.onClose(() => { g.closed = true; canvas.removeEventListener('pointermove', onMove); canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); if (g.raf) cancelAnimationFrame(g.raf); });
+  window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp); window.addEventListener('keydown', onKey); window.addEventListener('keyup', onKeyUp);
+  g.lab.onClose(() => { g.closed = true; canvas.removeEventListener('pointermove', onMove); canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); if (g.raf) cancelAnimationFrame(g.raf); });
 }
 function mkBtn(label, style, cls) { return game.lab.mkBtn(label, style, cls); }
 function mkEl(style) { const d = document.createElement('div'); d.setAttribute('style', style); game.lab.ui.appendChild(d); return d; }

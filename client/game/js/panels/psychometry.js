@@ -20,7 +20,7 @@
 // The permanently short bar is the rule made visible.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { esc, bar, heading, ensureTextUiStyles } from './textui.js';
+import { esc, bar, heading, ensureTextUiStyles, tap, deck, attachBoard, detachBoard } from './textui.js';
 
 let _open = false;
 let _opts = null;
@@ -46,7 +46,8 @@ function paint(selected) {
     const v = Math.max(0, Math.min(10, Number(f[k]) || 0));
     const mark = i === selected ? '>' : ' ';
     const left = `${mark} ${LABEL[k].padEnd(9)} `;
-    return left + bar(v / 10, 10, i === selected ? 'hi' : '');
+    // The whole row is the tap: a handset has no number row to press 1-4 on.
+    return tap(String(i + 1), left + bar(v / 10, 10, i === selected ? 'hi' : ''), { cls: 'inl' });
   });
 
   const lines = [
@@ -56,14 +57,18 @@ function paint(selected) {
     '',
     ...rows,
     '',
-    '  [1-4] focus    [W] withdraw',
+    '  [1-4] or tap a row to focus    [W] withdraw',
+    deck([tap('w', 'withdraw', { cls: 'hot' })]),
   ];
-  setAreaPane(`<pre class="text-ui">${lines.join('\n')}</pre>`);
+  // ⚠ txui, NOT text-ui. The class was misspelt, so the bars never got the shared sheet's
+  // colours: the empty cells had no dim and the focused row no highlight.
+  setAreaPane(`<div class="txui">${lines.join('\n')}</div>`);
 }
 
 function finish(focus) {
   if (!_open) return;
   _open = false;
+  detachBoard(onTap);
   window.removeEventListener('keydown', onKey, true);
   setAreaPane('');
   // Withdrawing is a real choice, not a cancel: you keep your resonance and learn
@@ -73,26 +78,30 @@ function finish(focus) {
   _opts = null;
 }
 
-function onKey(e) {
-  if (!_open) return;
-  const k = e.key.toLowerCase();
+// One path for a key and a tap, so the two can't disagree on what a choice means.
+function choose(k) {
+  if (!_open) return false;
   if (k >= '1' && k <= '4') {
-    e.preventDefault(); e.stopPropagation();
     const i = Number(k) - 1;
     paint(i);
     setTimeout(() => finish(ORDER[i]), 220);
-    return;
+    return true;
   }
-  if (k === 'w' || k === 'escape') {
-    e.preventDefault(); e.stopPropagation();
-    finish('withdraw');
-  }
+  if (k === 'w' || k === 'escape') { finish('withdraw'); return true; }
+  return false;
+}
+const onTap = (word) => choose(String(word).toLowerCase());
+
+function onKey(e) {
+  if (!_open) return;
+  if (choose(e.key.toLowerCase())) { e.preventDefault(); e.stopPropagation(); }
 }
 
 export function openPsychometry(opts) {
   ensureTextUiStyles();
   _opts = opts;
   _open = true;
+  attachBoard(onTap);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   paint(-1);
   window.addEventListener('keydown', onKey, true);
   return true;

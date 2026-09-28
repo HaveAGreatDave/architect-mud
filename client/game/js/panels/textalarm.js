@@ -16,7 +16,7 @@
 // keystrokes and painting it at frame rate would be spending a budget on nothing.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { esc, padEnd, heading, ensureTextUiStyles } from './textui.js';
+import { esc, padEnd, heading, ensureTextUiStyles, tap, deck, attachBoard, detachBoard } from './textui.js';
 import { setAlarmSkin, startAlarm, stopAlarm, alarmState, alarmLatch, alarmSecondsLeft, alarmWanted } from './alarmgame.js';
 
 let _opts = null;
@@ -54,7 +54,11 @@ function paint(st) {
     const state = t.burnt ? '<span class="burnt">BURNT</span>'
       : t.latched ? '<span class="ok">OPEN</span>'
       : t.live ? '<span class="amb">LIVE</span>' : '';
-    const tag = t.burnt ? `<span class="burnt">${t.tag}</span>` : `<span class="tag">${t.tag}</span>`;
+    // A live tag is a tap as well as a word: calling out `latch c9` against a 30s clock is a
+    // keyboard race on a phone, and this is the whole game.
+    const tag = t.burnt ? `<span class="burnt">${t.tag}</span>`
+      : t.latched ? `<span class="tag">${t.tag}</span>`
+      : tap(`latch ${t.tag}`, `<span class="tag">${t.tag}</span>`, { cls: 'inl' });
     lines.push(`  ${mark} ${tag} <span class="dim">runs to</span> <span class="amp">${padEnd(t.next || 'END', 4)}</span> ${state}`);
   }
   lines.push('');
@@ -65,6 +69,7 @@ function paint(st) {
   lines.push(`<span class="dim">${'─'.repeat(W)}</span>`);
   lines.push(_status);
   lines.push(`<span class="dim">back to take your hands off it.</span>`);
+  lines.push(deck([tap('back', 'back', { cls: 'hot' })]));
   setAreaPane(`<div class="txal">${lines.join('\n')}</div>`);
 }
 
@@ -138,6 +143,7 @@ export function openTextAlarm(opts = {}) {
   // looking at a panel they cannot touch.
   if (!st) { setAlarmSkin(null); return false; }
   _open = true;
+  attachBoard(command);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   window.addEventListener('keydown', onKey);
   SKIN.board(st);
   return true;
@@ -146,6 +152,7 @@ export function openTextAlarm(opts = {}) {
 export function close() {
   if (!_open) return;
   _open = false;
+  detachBoard(command);
   window.removeEventListener('keydown', onKey);
   stopAlarm();
   setAlarmSkin(null);

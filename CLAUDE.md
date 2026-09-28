@@ -41,6 +41,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/plugin-standard.md](docs/plugin-standard.md): `plugin.json` schema, README convention, tick/DB-burden rules, `regress.js` shape
 - [docs/proposals/engine-plugin-boundary.md](docs/proposals/engine-plugin-boundary.md): substrates/laws/registries vs systems, and the tests for where new code lives
 - [docs/audits/](docs/audits/README.md): reusable audit prompts; start with [source-of-truth-audit.md](docs/audits/source-of-truth-audit.md)
+- [docs/reference/mobile-layout.md](docs/reference/mobile-layout.md): the phone layout (as built): the compact flag, the landscape rail, the soft keyboard. An app that mounts into the room pane must dispatch `pane:claimed` and `pane:released`, or a phone shows it into a shut pane
 - [docs/ops-usage-watch.md](docs/ops-usage-watch.md): daily free-tier budget report (`npm run ops:usage`) from the Neon and Render APIs, graded on projected pace. Read before touching anything that costs egress
 
 **Content & authoring**

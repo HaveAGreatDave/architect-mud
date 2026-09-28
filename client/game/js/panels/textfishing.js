@@ -16,7 +16,7 @@
 // save lines would quietly throw that away.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { esc, bar, paintRow, heading, ensureTextUiStyles } from './textui.js';
+import { esc, bar, paintRow, heading, ensureTextUiStyles, attachBoard, detachBoard } from './textui.js';
 import {
   setFishingSkin, startFishingGame, stopFishingGame, fishingDown, fishingUp,
 } from './fishing.js';
@@ -182,6 +182,7 @@ export function openTextFishing(opts = {}) {
   const s = startFishingGame(_opts);
   if (!s) { setFishingSkin(null); return false; }
   _st = s; _open = true;
+  attachBoard(command);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   paint(s);
@@ -191,6 +192,7 @@ export function openTextFishing(opts = {}) {
 export function close() {
   if (!_open) return;
   _open = false; _st = null; _held = false;
+  detachBoard(command);   // hand the pane back to the phone layout
   window.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('keyup', onKeyUp);
   stopFishingGame();

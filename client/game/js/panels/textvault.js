@@ -16,7 +16,7 @@
 // row on the panel, because reading it IS the game.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { esc, bar, paintRow, heading, ensureTextUiStyles } from './textui.js';
+import { esc, bar, paintRow, heading, ensureTextUiStyles, attachBoard, detachBoard } from './textui.js';
 import {
   setVaultSkin, startVaultGame, stopVaultGame, vaultTurn, vaultSet, vaultBand,
 } from './vaultcrack.js';
@@ -152,6 +152,7 @@ export function openTextVault(opts = {}) {
   const st = startVaultGame(_opts);
   if (!st) { setVaultSkin(null); return false; }
   _st = st; _open = true;
+  attachBoard(command);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   window.addEventListener('keydown', onKey);
   paint(st);
   return true;
@@ -160,6 +161,7 @@ export function openTextVault(opts = {}) {
 export function close() {
   if (!_open) return;
   _open = false; _st = null;
+  detachBoard(command);   // hand the pane back to the phone layout
   window.removeEventListener('keydown', onKey);
   stopVaultGame();
   setVaultSkin(null);

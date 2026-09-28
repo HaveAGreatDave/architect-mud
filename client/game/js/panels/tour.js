@@ -38,14 +38,13 @@ const STEPS = [
     body: `This top pane is <b>where you are</b>: the room's description, who and what's standing in it, and the ways out. It redraws every time the room changes. Names in it are clickable: tapping one is the same as typing the command.`,
   },
   {
-    // Phone-only, and the single most useful thing to know about the small
-    // layout: on a handset this pane starts CLOSED, and nothing else on screen
-    // says so. A player who never finds the bar thinks the game forgot to
-    // describe the room.
+    // Phone-only. The pane starts open now and remembers how the player left it
+    // (main.js setupMobilePane), so this step is about the handle, not about
+    // finding a room that was hidden.
     on: 'mobile',
     sel: ['#look-resize-handle'],
-    title: 'Open the room',
-    body: `On a small screen the room pane starts <b>closed</b> so the log gets the space. This bar is the handle, tap it to slide the room open (<b>▼</b>/<b>▲</b>), or drag it up and down to set the height you want. It also carries the room's name, so you always know where you're standing with the pane shut. Opening the keyboard tucks it away and reopens it after.`,
+    title: 'Fold the room away',
+    body: `This bar is the room pane's handle. Tap it to fold the room away and give the log the space (<b>▲</b>/<b>▼</b>), or drag it to set the height. It carries the room's name, so you know where you are with the pane shut, and it stays how you left it. Opening the keyboard tucks it away and brings it back after.`,
   },
   {
     sel: ['#output'],
@@ -55,7 +54,7 @@ const STEPS = [
   {
     sel: ['#input-area'],
     title: 'The command line',
-    body: `You play by typing. <b>look</b>, <b>north</b> (or just <b>n</b>), <b>take bat</b>, <b>talk attendant</b>, <b>i</b> for inventory, <b>help</b> for the rest. Press <b>↑</b> to bring back what you typed last.`,
+    body: `You play by typing. <b>look</b>, <b>north</b> (or just <b>n</b>), <b>take bat</b>, <b>talk attendant</b>, <b>i</b> for inventory, <b>help</b> for the rest. ${compact() ? 'Tap <b>↺</b> beside it for your last few commands, one tap to send one again.' : 'Press <b>↑</b> to bring back what you typed last.'}`,
   },
   {
     // Phone-only. Typing directions on a handset is the fastest way to make a

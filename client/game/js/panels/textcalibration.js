@@ -14,7 +14,7 @@
 // pulls the servos together in BALANCE. In SETTLE, doing nothing is the play.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { esc, bar, centreBar, paintRow, heading, meter, ensureTextUiStyles, clamp } from './textui.js';
+import { esc, bar, centreBar, paintRow, heading, meter, ensureTextUiStyles, clamp, tap, deck, attachBoard, detachBoard } from './textui.js';
 
 const W = 46;
 const LANES = 34;
@@ -83,20 +83,15 @@ function render() {
     '',
     `  <span class="dim">${esc(HINTS[phase] || '')}</span>`,
     '',
-    `  <span class="btn" data-cact="up">[ &#9650; UP ]</span>  ` +
-    `<span class="btn" data-cact="down">[ &#9660; DOWN ]</span>  ` +
-    `<span class="btn" data-cact="sync">[ SYNC ]</span>  ` +
-    `<span class="btn" data-cact="abort">[ ABORT ]</span>`,
+    deck([tap('up', '&#9650; UP', { press: true, cls: 'big' }), tap('down', '&#9660; DOWN', { press: true, cls: 'big' }),
+      tap('sync', 'SYNC', { press: true }), tap('abort', 'ABORT', { cls: 'hot' })]),
     s.status ? '' : null,
     s.status || null,
   ];
+  // The chips route through textui's one delegated listener (attachBoard), so an 11fps repaint
+  // no longer rewires four listeners a frame. UP/DOWN/SYNC fire on the press: this is a drift
+  // you are fighting, and a release is a beat late.
   setAreaPane(`<div class="txui txcal">${lines.filter(l => l !== null).join('\n')}</div>`);
-  const root = document.querySelector('.txcal');
-  if (root) {
-    root.querySelectorAll('[data-cact]').forEach(el => {
-      el.addEventListener('click', () => command(el.getAttribute('data-cact')));
-    });
-  }
 }
 
 function tick() {
@@ -205,6 +200,7 @@ export function openTextCalibration(opts = {}) {
     scores: [], done: false, reported: false, status: '', timer: 0, syncTimer: 0,
   };
   _open = true;
+  attachBoard(command);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', onKeyUp);
   render();
@@ -215,6 +211,7 @@ export function openTextCalibration(opts = {}) {
 export function close() {
   if (!_open) { s = null; return; }
   _open = false;
+  detachBoard(command);
   window.removeEventListener('keydown', onKey);
   window.removeEventListener('keyup', onKeyUp);
   if (s) {

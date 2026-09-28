@@ -47,6 +47,18 @@ function currentLabel(opt, settings, ctx) {
   return hit ? hit.t : cur;
 }
 
+// ⚠ THESE LINKS DID NOTHING WHEN CLICKED. They were bare <a data-cmd> anchors, and the log's one
+// click handler (handleActionLinkClick in main.js) only answers `.action-link`: a tap scrolled to
+// "#" and that was all. That made this listing, the settings a player reaches for when the
+// graphical surface is the problem, readable but not usable by touch. `accessibility …` is a
+// CLIENT verb, so it goes through data-client-cmd (sendCmd would hand the server a word it has
+// never heard of); `displaymode` is a server verb and goes through data-action="cmd". Both keep
+// data-cmd, which is what vocabulary.js and the verb smoke read.
+const clientLink = (cmd, label) =>
+  `<a href="#" class="action-link" data-client-cmd="${esc(cmd)}" data-cmd="${esc(cmd)}">${esc(label)}</a>`;
+const serverLink = (cmd, label) =>
+  `<a href="#" class="action-link" data-action="cmd" data-cmd="${esc(cmd)}">${esc(label)}</a>`;
+
 function optionBlock(opt, settings, ctx) {
   const eff = String(effectiveOptionValue(opt, settings, ctx));
   const pills = opt.opts.map(o => {
@@ -54,7 +66,7 @@ function optionBlock(opt, settings, ctx) {
     const cmd = `accessibility ${opt.verb} ${o.t.toLowerCase()}`;
     return on
       ? `<b>[${esc(o.t)}]</b>`
-      : `<a href="#" data-cmd="${esc(cmd)}">${esc(o.t)}</a>`;
+      : clientLink(cmd, o.t);
   }).join(' · ');
   return `<div style="margin:0.5em 0">`
     + `<b>${esc(opt.label)}</b>: currently <b>${esc(currentLabel(opt, settings, ctx))}</b><br>`
@@ -76,9 +88,9 @@ function listAll(settings, ctx) {
       + `<b>Display Mode</b>: how much of the game is drawn rather than written.<br>`
       + `<span style="color:var(--text-dim)">The biggest one. <b>log</b> writes everything into this log for a screen reader; `
       + `<b>textgames</b> keeps the graphics but gives every minigame a written form you can play at your own pace.</span><br>`
-      + `<a href="#" data-cmd="displaymode visual">Visual</a> · `
-      + `<a href="#" data-cmd="displaymode textgames">Text Games</a> · `
-      + `<a href="#" data-cmd="displaymode log">Log</a><br>`
+      + `${serverLink('displaymode visual', 'Visual')} · `
+      + `${serverLink('displaymode textgames', 'Text Games')} · `
+      + `${serverLink('displaymode log', 'Log')}<br>`
       + `<span style="color:var(--text-dim)">displaymode &lt;mode&gt;</span>`
     + `</div>`
     + A11Y_OPTIONS.map(o => optionBlock(o, settings, ctx)).join('')
@@ -106,7 +118,7 @@ export function runAccessibilityCommand(argstr, ctx) {
   const opt = A11Y_OPTIONS.find(o => o.verb === which || o.key.toLowerCase() === which);
   if (!opt) {
     return `<div class="error">No accessibility setting called "${esc(parts[0])}". `
-      + `Try: ${A11Y_OPTIONS.map(o => esc(o.verb)).join(', ')}, reset, or just <a href="#" data-cmd="accessibility">accessibility</a>.</div>`;
+      + `Try: ${A11Y_OPTIONS.map(o => esc(o.verb)).join(', ')}, reset, or just ${clientLink('accessibility', 'accessibility')}.</div>`;
   }
 
   if (parts.length === 1) return `<div class="system">${optionBlock(opt, settings, ctx)}</div>`;

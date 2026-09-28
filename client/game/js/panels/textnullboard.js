@@ -15,7 +15,7 @@
 // focus is exactly what the text rungs exist to avoid, and hands the pane back
 // on close the way the text cockpit does.
 import { setAreaPane } from '../render.js';
-import { esc, bar, paintRow, heading, ensureTextUiStyles } from './textui.js';
+import { esc, bar, paintRow, heading, ensureTextUiStyles, attachBoard, detachBoard } from './textui.js';
 import { generateNull, setNullSkin, nullActions, stopNullGame, NULL_COLS } from './nullboard.js';
 
 let _state = null;
@@ -159,6 +159,7 @@ export function openTextNullBoard(opts) {
   _state = state;
   _mode = 'move';
   _open = true;
+  attachBoard(command);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   ensureTextUiStyles();
   // The base game calls these back; finish() fires after onResult has already
   // gone to the server, so this only ever decides how long the board stays up.
@@ -188,6 +189,7 @@ export function command(word) {
 
 export function close() {
   _open = false;
+  detachBoard(command);   // hand the pane back to the phone layout
   _state = null;
   _opts = null;
   setNullSkin(null);

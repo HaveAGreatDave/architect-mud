@@ -305,7 +305,15 @@ html[data-density="compact"] #main {
 	grid-template-rows: 1fr;
 	overflow: hidden;
 }
+/* ⚠ grid-column: 1 IS REQUIRED. The desktop rules pin #output-container to column
+   2 (sidebar left, the default). With the template cut to one column, column 2 is
+   an implicit auto track sized to the log's content, and the explicit 1fr column
+   takes the rest and holds nothing: an empty sidebar-shaped gutter down the left,
+   0px on a narrow phone, 325px on a phone held sideways, 655px on an iPad in
+   landscape, with the whole game squeezed into what was left on the right. */
 html[data-density="compact"] #output-container {
+	grid-column: 1;
+	border-left: none;
 	border-right: none;
 }
 html[data-density="compact"] #sidebar {
@@ -6170,6 +6178,19 @@ html.map-poi-color .map-bld-label {
 	font-size: 0.85em;
 }
 .qty-dialog-ok:hover { border-color: var(--cyan, #0ff); color: var(--cyan, #0ff); }
+/* One, half, all: the answers a stack move almost always wants, as taps (confirm.js promptQty). */
+.qty-dialog-picks { display: flex; gap: 6px; margin-bottom: 8px; }
+.qty-dialog-pick {
+	flex: 1;
+	padding: 5px 0;
+	background: none;
+	border: 1px solid var(--border, #444);
+	color: var(--fg, #ccc);
+	cursor: pointer;
+	font-size: 0.85em;
+	font-family: inherit;
+}
+.qty-dialog-pick:hover { border-color: var(--cyan, #0ff); color: var(--cyan, #0ff); }
 .qty-dialog-cancel:hover { border-color: var(--red, #f44); color: var(--red, #f44); }
 
 /* Container + corpse on a phone — the two columns become one scroll. The
@@ -6204,6 +6225,31 @@ html.map-poi-color .map-bld-label {
 	   item, so they get a real target rather than the desktop's 9px chip. */
 	.ctr-action-btn { padding: 7px 12px; font-size: 0.625rem; }
 }
+
+/* ─── TOUCH TARGETS, COMPACT ───
+   The width query above misses a phone held sideways (750–932px wide), which
+   got the desktop's 17px take/stow chips: on touch, the only way to move an
+   item. These key off the compact flag instead, like the rest of the phone
+   chrome. Where a control lives in a header whose height is the log's loss, the
+   HIT AREA grows (an invisible ::after) and the glyph and the header do not. */
+html[data-density="compact"] .ctr-action-btn { padding: 8px 12px; font-size: 0.625rem; }
+html[data-density="compact"] .ctr-action-freeze { margin-left: 4px; }
+html[data-density="compact"] .qty-dialog-ok,
+html[data-density="compact"] .qty-dialog-cancel,
+html[data-density="compact"] .qty-dialog-pick { padding: 11px 0; font-size: 0.9375rem; }
+html[data-density="compact"] .dialogue-opt { padding: 9px 12px; }
+html[data-density="compact"] #settings-btn,
+html[data-density="compact"] #signout-btn,
+html[data-density="compact"] #dialogue-close,
+html[data-density="compact"] #workspace-close,
+html[data-density="compact"] .confirm-x { position: relative; }
+/* The header pair sit 6px apart, so they grow up and down more than sideways
+   and never into each other. */
+html[data-density="compact"] #settings-btn::after,
+html[data-density="compact"] #signout-btn::after { content: ""; position: absolute; inset: -8px -3px; }
+html[data-density="compact"] #dialogue-close::after,
+html[data-density="compact"] #workspace-close::after,
+html[data-density="compact"] .confirm-x::after { content: ""; position: absolute; inset: -12px; }
 
 #map-close {
 	width: 100%;
@@ -6516,6 +6562,22 @@ html.map-poi-color .map-bld-label {
 	color: #fff;
 	background: rgba(255, 59, 92, 0.14);
 }
+/* The stakes line inside the option (dialogue.js). Hidden where hover exists,
+   because there the footer above says it before the click; shown where it
+   doesn't, because there the tap that would fill the footer is the commit. */
+.dialogue-opt-stakes {
+	display: none;
+	margin-top: 3px;
+	font-size: 0.8125rem;
+	line-height: 1.35;
+	color: var(--cyan);
+	opacity: 0.85;
+}
+.dialogue-opt-hostile .dialogue-opt-stakes { color: var(--red); opacity: 1; }
+@media (hover: none), (pointer: coarse) {
+	.dialogue-opt-stakes { display: block; }
+}
+html[data-density="compact"] .dialogue-opt-stakes { display: block; }
 
 .dialogue-opt-branch {
 	color: var(--accent);
@@ -7627,6 +7689,74 @@ html.map-poi-color .map-bld-label {
 	#mobile-chat-btn { display: block; }
 }
 [data-density="compact"] #mobile-chat-btn { display: block; }
+
+/* Recent commands (input.js initRecentCommands): the phone's ArrowUp. Same
+   chrome as the chat button beside it, and like it, compact only: a keyboard
+   already has the history on its arrow keys. */
+#recent-cmds-btn {
+	display: none;
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 1rem;
+	padding: 6px 10px;
+	margin-right: 6px;
+	cursor: pointer;
+	border-radius: 2px;
+	flex-shrink: 0;
+	line-height: 1;
+	-webkit-tap-highlight-color: transparent;
+}
+html[data-density="compact"] #recent-cmds-btn { display: block; }
+#recent-cmds-btn[aria-expanded="true"],
+#recent-cmds-btn:active { border-color: var(--accent); color: var(--accent); }
+html[data-density="compact"] #input-area { position: relative; }
+#recent-cmds {
+	position: absolute;
+	left: 8px;
+	right: 8px;
+	bottom: calc(100% + 4px);
+	z-index: 70;
+	max-height: min(60vh, 22rem);
+	overflow-y: auto;
+	background: var(--bg2);
+	border: 1px solid var(--accent);
+	border-radius: 6px;
+	box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.5);
+	padding: 4px;
+}
+#recent-cmds .rc-row { display: flex; gap: 4px; }
+#recent-cmds .rc-row + .rc-row { border-top: 1px solid var(--border); }
+#recent-cmds .rc-run {
+	flex: 1;
+	min-width: 0;
+	min-height: 42px;
+	text-align: left;
+	padding: 8px 10px;
+	background: none;
+	border: none;
+	color: var(--text);
+	font-family: var(--font-mono);
+	font-size: 0.9375rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: pointer;
+}
+#recent-cmds .rc-edit {
+	flex: 0 0 44px;
+	min-height: 42px;
+	background: none;
+	border: none;
+	border-left: 1px solid var(--border);
+	color: var(--text-dim);
+	font-size: 1rem;
+	cursor: pointer;
+}
+#recent-cmds .rc-run:active,
+#recent-cmds .rc-edit:active { background: var(--accent-dim); color: var(--accent); }
+#recent-cmds .rc-empty { padding: 10px; color: var(--text-dim); font-size: 0.8125rem; }
 #mobile-chat-btn:active {
 	border-color: var(--accent);
 	color: var(--accent);
@@ -7828,6 +7958,9 @@ body.asleep.dreaming-line #output {
 #cmd-fan-btn {
 	display: none !important;
 }
+/* …which leaves the bar on a phone as #bottom-left's padding around nothing: a
+   13px strip between the log and the command line, with nothing in it to tap. */
+html[data-density="compact"] #bottom-bar { display: none; }
 
 /* Mobile: command list becomes a fan-out popup above the bar, triggered by
    #cmd-fan-btn; #bottom-left takes its place inline.
@@ -7913,6 +8046,106 @@ body.ck-fullscreen #mob-hud-env {
 
 [data-density="compact"] #mob-dpad {
 	display: flex;
+}
+
+/* Soft keyboard up (main.js sets data-kb on a touch device). The keyboard takes
+   half the screen, and the map and d-pad band would take 121px of what is left,
+   for controls nobody uses mid-sentence. The vitals strip stays: it is 17px and
+   it is the thing you glance at while typing in a fight. */
+html[data-density="compact"][data-kb="up"] #mobile-hud { display: none; }
+/* …and while an app owns the pane: a 3-D seat, a character board, the free
+   camera (main.js sets data-pane-claimed on pane:claimed). Nobody walks from the
+   d-pad mid-seat or mid-minigame, and it is 121px the app was being clipped or
+   scrolled for. The seats that carry their own map say so on the glass. */
+html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
+
+/* ─── PHONE HELD SIDEWAYS ───
+   The portrait chrome is three full-width bands (header, vitals, map + d-pad)
+   stacked over the game. At 342px of height that is 182px of chrome, and the
+   log was left 24px tall: a single line of text under the room bar. Sideways,
+   the vitals and the map/d-pad column move into a rail down the right, where
+   the right thumb already is, and the game gets the full height under the
+   header. Keyed to a short landscape viewport, not to width, because a tablet
+   on its side has the height for the portrait bands and keeps them. */
+@media (orientation: landscape) and (max-height: 540px) {
+	html[data-density="compact"] body {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-rows: auto auto auto minmax(0, 1fr);
+		grid-template-areas:
+			"header header"
+			"esp    esp"
+			"main   vitals"
+			"main   hud";
+	}
+	/* The skip links take no space (each link is off-screen until focused), so
+	   they share the header's cell rather than claiming a row of their own. */
+	html[data-density="compact"] #skip-links,
+	html[data-density="compact"] #header { grid-area: header; }
+	html[data-density="compact"] #esp-banner { grid-area: esp; }
+	html[data-density="compact"] #main { grid-area: main; min-height: 0; }
+	html[data-density="compact"] #mobile-vitals,
+	html[data-density="compact"] #mobile-hud {
+		width: 11.5rem;
+		box-sizing: border-box;
+		border-left: 1px solid var(--border);
+	}
+	html[data-density="compact"] #mobile-vitals {
+		grid-area: vitals;
+		flex-direction: column;
+		align-items: stretch;
+		flex-wrap: nowrap;
+	}
+	html[data-density="compact"] .mob-bar-row { flex: 0 0 auto; min-width: 0; }
+	html[data-density="compact"] #mobile-hud {
+		grid-area: hud;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 6px;
+		border-bottom: none;
+		overflow-y: auto;
+		min-height: 0;
+	}
+	/* D-pad first: it is the part a thumb reaches for without looking. */
+	html[data-density="compact"] #mobile-hud #mob-dpad {
+		order: -1;
+		border-left: none;
+		padding-left: 4px;
+	}
+	html[data-density="compact"] #mob-hud-map { flex: 0 0 auto; justify-content: center; }
+	html[data-density="compact"] #mob-hud-env { max-width: none; align-self: stretch; }
+	/* With the map and d-pad folded away (an app owns the pane, or the keyboard is
+	   up), a rail would be 150px of width holding two bars. The vitals go back to a
+	   strip under the header and the app gets the whole width. */
+	html[data-density="compact"]:is([data-pane-claimed], [data-kb="up"]) body {
+		grid-template-areas:
+			"header header"
+			"esp    esp"
+			"vitals vitals"
+			"main   main";
+	}
+	html[data-density="compact"]:is([data-pane-claimed], [data-kb="up"]) #mobile-vitals {
+		width: auto;
+		flex-direction: row;
+		flex-wrap: wrap;
+		border-left: none;
+	}
+	html[data-density="compact"]:is([data-pane-claimed], [data-kb="up"]) .mob-bar-row { flex: 1 1 0; min-width: 96px; }
+	/* ⚠ AND THE APP GETS THE HEIGHT. The pane's ceiling keeps 72px of log and the
+	   whole bottom stack free, which at 342px tall left a seat 88px of pane for a
+	   380px camera. While an app owns the pane sideways, the log and the smart bar
+	   step aside and the pane fills to the command line; they come back the moment
+	   it lets go. !important for the reason the immersive modes above give: a saved
+	   drag height is an inline style. */
+	html[data-density="compact"][data-pane-claimed] #output,
+	html[data-density="compact"][data-pane-claimed] #smart-bar { display: none; }
+	html[data-density="compact"][data-pane-claimed] #area-pane { max-height: none !important; height: auto !important; flex: 1 1 auto; }
+	html[data-density="compact"][data-pane-claimed] #area-content { flex: 1 1 auto; min-height: 0; }
+	/* Free look's own 380px floor would overflow that; the pane is a definite size
+	   here, so the view can simply fill it. (Not in portrait: there the pane is sized
+	   by its content, and a view with no floor would size itself to nothing.) */
+	html[data-density="compact"][data-pane-claimed] .fl-root { min-height: 0; }
 }
 
 .dpad-row {
@@ -15872,6 +16105,18 @@ body.dfx-on.dfx-jitter #output-container {
 	       box-shadow: 0 0 14px var(--accent), inset 0 0 8px var(--accent-dim); }
 }
 #wanted-hud.wanted-pulse { animation: wanted-pulse .5s ease-out; }
+/* On a phone the centred pill sat over the handle, the credits and the top of the
+   vitals strip. It takes the logo's corner instead, stars only: the stars are the
+   readout, and the word is what the logo space can't spare. Its own pulse, because
+   the desktop one animates the translateX(-50%) this position doesn't have. */
+html[data-density="compact"] #wanted-hud { top: 3px; left: 6px; transform: none; padding: 2px 10px; gap: 4px; background: rgba(6, 2, 8, .94); }
+html[data-density="compact"] #wanted-hud .wanted-label { display: none; }
+html[data-density="compact"] #wanted-hud .wanted-stars { font-size: 0.9375rem; letter-spacing: 1px; }
+html[data-density="compact"] #wanted-hud.wanted-pulse { animation-name: wanted-pulse-compact; }
+@keyframes wanted-pulse-compact {
+	0%, 100% { transform: scale(1); }
+	30%      { transform: scale(1.09); }
+}
 
 /* Builder modal */
 .cpanel-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000;
@@ -18439,6 +18684,9 @@ body.intro-cine-open { overflow: hidden; }
 		transparent 70%, var(--border) 70%, var(--border) 80%, transparent 80%);
 }
 #workspace-grip:hover { filter: brightness(1.8); }
+/* A phone's workspace is already as wide as the screen; a grip there is a 16px
+   target whose only effect is to push the box past the edge. */
+html[data-density="compact"] #workspace-grip { display: none; }
 
 
 /* Action strip — phase 2. Dim until the row is hovered or a button is focused,

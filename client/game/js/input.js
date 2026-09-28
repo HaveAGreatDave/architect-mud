@@ -335,9 +335,82 @@ export function isStacked(line) {
   return String(line).includes(';');
 }
 
+// ── Recent commands, for a thumb ─────────────────────────────────────────────
+// ArrowUp walks the history on a keyboard; a phone has no ArrowUp, so every repeat
+// (`attack enforcer` again, `drink canteen` again, the same `tell` to the same
+// person) was the whole command typed out a second time. The ↺ beside the command
+// box lists the last few distinct commands: tap one to send it through
+// submitCommand (the same path Enter takes, so aliases, macros and history all
+// behave), or ✎ to put it in the box and change it first. Shown on the compact
+// layout only; styles.css.
+const RECENT_MAX = 8;
+function recentDistinct() {
+  const seen = new Set(), out = [];
+  for (const c of state.cmdHistory) {
+    const k = String(c || '').trim();
+    if (!k || seen.has(k.toLowerCase())) continue;
+    seen.add(k.toLowerCase());
+    out.push(k);
+    if (out.length >= RECENT_MAX) break;
+  }
+  return out;
+}
+function initRecentCommands(input) {
+  const btn = document.getElementById('recent-cmds-btn');
+  const host = document.getElementById('input-area');
+  if (!btn || !host) return;
+  let pop = null;
+  const outside = (e) => { if (pop && !pop.contains(e.target) && e.target !== btn) close(); };
+  function close() {
+    pop?.remove(); pop = null;
+    btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('pointerdown', outside, true);
+  }
+  btn.addEventListener('click', () => {
+    if (pop) { close(); return; }
+    pop = document.createElement('div');
+    pop.id = 'recent-cmds';
+    pop.setAttribute('role', 'menu');
+    pop.setAttribute('aria-label', 'Recent commands');
+    const list = recentDistinct();
+    if (!list.length) {
+      const empty = document.createElement('div');
+      empty.className = 'rc-empty';
+      empty.textContent = 'Nothing sent yet.';
+      pop.appendChild(empty);
+    }
+    for (const c of list) {
+      const row = document.createElement('div');
+      row.className = 'rc-row';
+      const run = document.createElement('button');
+      run.type = 'button'; run.className = 'rc-run'; run.setAttribute('role', 'menuitem');
+      run.textContent = c;
+      run.addEventListener('click', () => { close(); submitCommand(c); });
+      const edit = document.createElement('button');
+      edit.type = 'button'; edit.className = 'rc-edit';
+      edit.setAttribute('aria-label', `Edit before sending: ${c}`);
+      edit.textContent = '✎';
+      edit.addEventListener('click', () => {
+        close();
+        input.value = c;
+        input.focus();
+        input.setSelectionRange?.(c.length, c.length);
+      });
+      row.append(run, edit);
+      pop.appendChild(row);
+    }
+    pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { close(); btn.focus(); } });
+    host.appendChild(pop);
+    btn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('pointerdown', outside, true);
+    pop.querySelector('button')?.focus({ preventScroll: true });
+  });
+}
+
 export function initInput({ saveOrigin, notify } = {}) {
   const input = document.getElementById('cmd-input');
   _submitOpts = { saveOrigin, notify };
+  initRecentCommands(input);
 
   // Any ordinary edit retires a running completion cycle (complete.js rule 3).
   input.addEventListener('input', resetCompletion);

@@ -984,6 +984,25 @@ function ensureStyles() {
     #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:1.875rem; margin-bottom:9px; }
     #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:31px; height:31px; }
     #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:0.7188rem; letter-spacing:.6px; }
+    /* ⚠ THE PHONE HAS TO BE TOLD AS WELL. The compact block above sets --tos-tile-h on
+       html[data-density] #tablet-os-overlay, which outranks the .tos-no-widgets rule, so
+       a phone kept 3.5rem rows while taking this block's padding and flex column. The
+       label was squeezed to under 5px of height (Map read as Man) and the bottom third
+       of the screen sat empty under the toolbar. The row height is what is left of the
+       viewport after the header, summary, pager and toolbar (about 20rem), shared by
+       four rows, clamped so a phone held sideways still gets a thumbable tile and
+       .tos-scroll takes the rest. */
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets { --tos-tile-h:clamp(3.5rem, calc((100dvh - 20rem) / 4), 6.5rem); }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-tile { padding:6px 3px; }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:1.5rem; margin-bottom:6px; }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:26px; height:26px; }
+    html[data-density="compact"] #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:0.75rem; letter-spacing:.2px; }
+    /* A label never gives up its line to the icon: the flex column shrank the name first. */
+    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-name { flex-shrink:0; }
+    /* The toolbar labels were 0.4375rem, under 6px at a phone's 13px root. */
+    html[data-density="compact"] #tablet-os-overlay .tos-hbar-lb { font-size:0.625rem; }
+    /* Back is on every app screen and was a 19px strip to hit. */
+    html[data-density="compact"] #tablet-os-overlay .tos-crumb .tos-back { padding:8px 14px; display:inline-block; }
     #tablet-os-overlay.tos-no-widgets .tos-grid { gap:10px; }
     /* Groups keep their proportions inside the bigger grid rather than inheriting the
        full tile size (a group is a sub-grid — its tiles are meant to read as smaller). */

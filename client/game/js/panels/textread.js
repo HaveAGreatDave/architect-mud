@@ -17,7 +17,7 @@
 // character board can animate at all (see textui.js).
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { esc, bar, heading, rule, ensureTextUiStyles } from './textui.js';
+import { esc, bar, heading, rule, ensureTextUiStyles, tap, deck, attachBoard, detachBoard } from './textui.js';
 
 let _open = false;
 let _opts = null;
@@ -51,11 +51,13 @@ function paint() {
   rows.push(`  ${bar(frac, 30, frac > 0.4 ? 'ok' : frac > 0.2 ? 'warn' : 'bad')}`);
   rows.push('');
   rows.push(rule(W));
-  const opts = _opts.options.map((o, i) => `<span class="hi">${i + 1}</span> ${esc(o)}`).join('   ');
-  rows.push(`  ${opts}`);
-  rows.push(`  <span class="dim">press 1-4: or do nothing, it costs you nothing</span>`);
+  // Each answer is a tap as well as a key: a handset has no number row to press 1-4 on.
+  rows.push(deck(_opts.options.map((o, i) => tap(String(i + 1), `<span class="hi">${i + 1}</span>&nbsp;${esc(o)}`))));
+  rows.push(`  <span class="dim">press or tap 1-4: or do nothing, it costs you nothing</span>`);
 
-  setAreaPane(`<div class="textui">${rows.join('\n')}</div>`);
+  // ⚠ txui, NOT textui. The class was misspelt, so the board had none of the shared sheet:
+  // no white-space:pre, and every row it joins with a newline ran together into one line.
+  setAreaPane(`<div class="txui">${rows.join('\n')}</div>`);
 }
 
 function answer(index) {
@@ -66,6 +68,12 @@ function answer(index) {
   // The CHOICE goes up, not a verdict — the server decides whether it was right.
   sendCmdSilent(`${_opts.resolveCmd} ${_opts.token} ${choice}`);
   close();
+}
+
+// The tap path: a chip carries the answer's number, the same thing the key is.
+function onTap(word) {
+  const n = parseInt(word, 10);
+  if (n >= 1) answer(n - 1);
 }
 
 function onKey(e) {
@@ -85,6 +93,7 @@ export function openTextRead(opts) {
   _answered = false;
   _shown = 0;
   _started = Date.now();
+  attachBoard(onTap);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   window.addEventListener('keydown', onKey, true);
   paint();
   _timer = setInterval(() => {
@@ -97,6 +106,7 @@ export function openTextRead(opts) {
 export function close() {
   if (!_open) return;
   _open = false;
+  detachBoard(onTap);
   clearInterval(_timer);
   _timer = null;
   window.removeEventListener('keydown', onKey, true);

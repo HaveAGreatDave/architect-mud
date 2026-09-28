@@ -367,8 +367,8 @@ function wireCook(g) {
   const onUp = () => { if (g.phase === 'work') FAMILIES[g.family].input(g, false); };
   const onKey = e => { if (e.key === 'Escape') { g.lab.close(); return; } if (e.repeat) return; if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (g.phase === 'work') FAMILIES[g.family].input(g, true); else if (g.phase === 'quench') quenchStrike(g); } };
   const onKeyUp = e => { if (e.code === 'Space' || e.key === ' ') { if (g.phase === 'work') FAMILIES[g.family].input(g, false); } };
-  canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerdown', onDown); window.addEventListener('pointerup', onUp); window.addEventListener('keydown', onKey); window.addEventListener('keyup', onKeyUp);
-  g.lab.onClose(() => { g.closed = true; canvas.removeEventListener('pointermove', onMove); canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); if (g.raf) cancelAnimationFrame(g.raf); FAMILIES[g.family] && FAMILIES[g.family].exit(g); });
+  canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerdown', onDown); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp); window.addEventListener('keydown', onKey); window.addEventListener('keyup', onKeyUp);
+  g.lab.onClose(() => { g.closed = true; canvas.removeEventListener('pointermove', onMove); canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); if (g.raf) cancelAnimationFrame(g.raf); FAMILIES[g.family] && FAMILIES[g.family].exit(g); });
 }
 
 function toQuench(g, label) { if (g.phase !== 'work' && g.phase !== 'liquid') return; const wasWork = g.phase === 'work'; g.phase = 'quench'; g.quenchT = 0; g.quenchTapped = false; if (wasWork) FAMILIES[g.family].exit(g); g.lab.ticker(`${label}, strike SPACE as the ring meets the mark.`); }

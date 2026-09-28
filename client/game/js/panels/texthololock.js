@@ -17,7 +17,7 @@
 // is a real act of timing rather than a formality, and coarse enough to read.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { esc, bar, paintRow, heading, ensureTextUiStyles } from './textui.js';
+import { esc, bar, paintRow, heading, ensureTextUiStyles, attachBoard, detachBoard } from './textui.js';
 import {
   setHololockSkin, startHololockGame, stopHololockGame, hololockSet, hololockPos,
 } from './hololock.js';
@@ -141,6 +141,7 @@ export function openTextHololock(opts = {}) {
   const state = startHololockGame(_opts);
   if (!state) { setHololockSkin(null); return false; }
   _open = true;
+  attachBoard(command);   // claim #area-pane: a phone keeps it shut until an app says it owns it
   window.addEventListener('keydown', onKey);
   paint(state);
   return true;
@@ -149,6 +150,7 @@ export function openTextHololock(opts = {}) {
 export function close() {
   if (!_open) return;
   _open = false;
+  detachBoard(command);   // hand the pane back to the phone layout
   window.removeEventListener('keydown', onKey);
   stopHololockGame();
   setHololockSkin(null);
