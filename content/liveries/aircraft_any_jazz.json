@@ -1,0 +1,21 @@
+{
+  "blurb": "Teal, purple and magenta splatter on cup-paper white. The loudest thing on the ramp.",
+  "default": false,
+  "exterior": {
+    "accent": "#c22b8c",
+    "base": "#18b8c2",
+    "finish": "gloss",
+    "ground": "#eee7d6",
+    "pattern": "jazz",
+    "trim": "#5a2c9c"
+  },
+  "id": "jazz",
+  "interior": {
+    "cabin": "#1a1230",
+    "uphol": "quilted"
+  },
+  "kind": "aircraft",
+  "model": "any",
+  "name": "Jazz Wave",
+  "unlock": null
+}

@@ -1,0 +1,19 @@
+{
+  "blurb": "Flat black on flat black. For flights nobody logs.",
+  "default": false,
+  "exterior": {
+    "base": "#14171c",
+    "finish": "matte",
+    "pattern": "solid",
+    "trim": "#20242b"
+  },
+  "id": "nightops",
+  "interior": {
+    "cabin": "#0e1013",
+    "uphol": "mesh"
+  },
+  "kind": "aircraft",
+  "model": "any",
+  "name": "Night Ops",
+  "unlock": null
+}

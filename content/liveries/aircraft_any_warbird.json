@@ -1,0 +1,19 @@
+{
+  "blurb": "Field green over a pale belly, with yellow bands you can identify from a mile off.",
+  "default": false,
+  "exterior": {
+    "base": "#4c5340",
+    "finish": "matte",
+    "pattern": "warbird",
+    "trim": "#e2b21c"
+  },
+  "id": "warbird",
+  "interior": {
+    "cabin": "#232a1c",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "any",
+  "name": "Warbird",
+  "unlock": null
+}

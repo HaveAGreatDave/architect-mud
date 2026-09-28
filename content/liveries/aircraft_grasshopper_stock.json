@@ -1,0 +1,19 @@
+{
+  "blurb": "Grass green with a straw-yellow flank. It hops. It is green. Nobody argued.",
+  "default": true,
+  "exterior": {
+    "base": "#5f8f3a",
+    "finish": "gloss",
+    "pattern": "twotone",
+    "trim": "#d8c24a"
+  },
+  "id": "stock",
+  "interior": {
+    "cabin": "#26301c",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "grasshopper",
+  "name": "Meadow Green",
+  "unlock": null
+}

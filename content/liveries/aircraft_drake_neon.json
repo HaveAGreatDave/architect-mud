@@ -1,0 +1,21 @@
+{
+  "blurb": "Black with magenta and cyan. Loud enough to hear from the ground.",
+  "default": false,
+  "exterior": {
+    "base": "#121216",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#e61eaa",
+    "variant": "neon"
+  },
+  "id": "neon",
+  "interior": {
+    "cabin": "#3a2616",
+    "itrim": "stock",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "drake",
+  "name": "Neon",
+  "unlock": null
+}

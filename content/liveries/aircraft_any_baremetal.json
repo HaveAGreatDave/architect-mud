@@ -1,0 +1,19 @@
+{
+  "blurb": "Polished aluminium and nothing else. Honest, and hard to miss.",
+  "default": false,
+  "exterior": {
+    "base": "#7d838b",
+    "finish": "satin",
+    "pattern": "bare",
+    "trim": "#9aa0a8"
+  },
+  "id": "baremetal",
+  "interior": {
+    "cabin": "#2a2e33",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "any",
+  "name": "Bare Metal",
+  "unlock": null
+}

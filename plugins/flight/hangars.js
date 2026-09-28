@@ -11,10 +11,12 @@ import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
   FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, craftIsVtol, getZone,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope,
-  detach, getLivePlayer, resetSurfaces, acquirableTypes, airfieldOf, fieldName } from './state.js';
+  detach, getLivePlayer, resetSurfaces, acquirableTypes, airfieldOf, fieldName, hangarTileFor, REFUEL_PRICE_PER_UNIT } from './state.js';
 import { normalizeLivery, sanitizeLivery, parsePartsArg, signatureScore, describeExterior,
-  paintCost, isPaintable, readSchemes, schemeOf,
-  PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS, TRIMS, CABIN_TRIMS, PLATE_DEFAULT, PLATE_CHARS, PLATE_MAX } from './livery.js';
+  paintCost, isPaintable, readSchemes, schemeOf, liveryFromSet, classDefault,
+  PATTERNS, FINISHES, UPHOLSTERY, DECALS, TRIMS, CABIN_TRIMS, PLATE_DEFAULT, PLATE_CHARS, PLATE_MAX } from './livery.js';
+import { unlockedLiveries, unlockKeysFor, liveriesFor } from '../../client/shared/livery-sets.js';
+import { getFlagsIn } from '../../server/engine/flags.js';
 import { fieldStocks } from './acquisition.js';
 import { pilotStatusForField, charterParkedAt } from './charter.js';
 import { isPilotLicensed } from './checkride.js';
@@ -102,6 +104,23 @@ async function saveCd(tgt, cd) {
 }
 const clean = (s) => String(s || '').replace(/[<>]/g, '').trim();
 
+// ── Livery sets (content/liveries/) ────────────────────────────────────────────
+// The unlock flags every set on these classes names, read in one go. Hydrated players answer from
+// memory (server/engine/flags.js), so this is not a query on the hot path.
+async function liveryUnlocks(player, classes) {
+  const keys = [...new Set([...new Set(classes)].flatMap(cls => unlockKeysFor('aircraft', cls)))];
+  if (!keys.length) return new Set();
+  const got = await getFlagsIn(player, keys).catch(() => new Map());
+  return new Set([...got].filter(([, v]) => v != null && v !== false && v !== 0 && v !== '0' && v !== 'false').map(([k]) => k));
+}
+// The sets a player may pick for a class, each resolved into the livery it would paint.
+function setsFor(cls, unlocks) {
+  return unlockedLiveries('aircraft', cls, (k) => unlocks.has(k)).map(s => {
+    const { text, ...look } = liveryFromSet(s);
+    return { id: s.id, name: s.name, blurb: s.blurb, factory: s.default, look };
+  });
+}
+
 // ── The unified 3D hangar-bay (client renders; server owns the data) ──────────
 // One card per aircraft of the player's parked at this field (owned on the ramp,
 // stored in a bay, or a rental), plus any wreck sitting here. Livery, tune curves,
@@ -119,10 +138,17 @@ async function buildCards(player, field) {
      ORDER BY a.is_wreck, a.rental, t.price_buy`,
     [field.id, player.id]);
   // Range widens with the pilot's own Fabrication (same for every card) + per-craft kits.
-  const fab = await effectiveSkill(player, 'fabrication');
+  const [fab, unlocks] = await Promise.all([effectiveSkill(player, 'fabrication'), liveryUnlocks(player, rows.map(r => r.class))]);
   return rows.map(r => {
-    const lv = normalizeLivery(r.custom_data), cap = r.fuel_capacity || 1;
-    const schemes = Object.entries(readSchemes(r.custom_data)).map(([name, s]) => ({ name, base: s.base, trim: s.trim, accent: s.accent, variant: s.variant || 'stock', parts: s.parts || {} }));
+    const lv = normalizeLivery(r.custom_data, r.class), cap = r.fuel_capacity || 1;
+    // Saved sets carry the whole look. One saved before sets did (base..uphol only) fills the rest
+    // from the class default, the same as a set applied fresh. The flat fields are what the
+    // scheme cards draw; `look` is the whole thing to try on.
+    const schemes = Object.entries(readSchemes(r.custom_data)).map(([name, s]) => {
+      const look = sanitizeLivery(s, classDefault(r.class));
+      return { name, base: look.base, trim: look.trim, accent: look.accent, variant: look.variant, parts: look.parts, look };
+    });
+    const sets = setsFor(r.class, unlocks);
     const cd = r.custom_data || {};
     // Full template numbers the performance model reads (state.computeStats/perfAxes).
     const type = { class: r.class, seats: r.seats, cargo_capacity: r.cargo_capacity,
@@ -142,9 +168,14 @@ async function buildCards(player, field) {
 
       damage: r.damage, hullPct: Math.max(0, Math.round((1 - r.damage) * 100)),
       fuelPct: Math.max(0, Math.min(100, Math.round((r.fuel / partCap) * 100))), fuelType: r.fuel_type,
+      // The bench's Fuel tab: the tank in units and what filling it costs at the pump price.
+      fuelNow: Math.round(r.fuel), fuelCap: Math.round(partCap), fillCost: Math.ceil(Math.max(0, partCap - r.fuel) * REFUEL_PRICE_PER_UNIT),
+      // The Stores tab: what she carries. Rails and racks reload free when she parks (parkAt), so
+      // on the hangar floor they are always full and this is a readout, not a shop.
+      stores: { rails: Math.max(r.hardpoints || 0, partEnvelope(parts).hardpoints), bombs: (r.tdata && r.tdata.bombs) || 0, salvo: (r.tdata && r.tdata.salvo) || 1 },
       location: r.is_wreck ? 'wreck' : (r.hangar_id ? 'hangar' : 'ramp'),
       rental: !!r.rental, wreck: !!r.is_wreck, paintable: isPaintable(r),
-      livery: lv, schemes, signature: signatureScore(lv), paintCost: paintCost({ class: r.class }),
+      livery: lv, schemes, sets, signature: signatureScore(lv), paintCost: paintCost({ class: r.class }),
       // Repair (mechanics bench): what a DIY vs. shop fix would cost right now.
       diyCost: r.rental ? 0 : Math.ceil(r.damage * r.hull_hp * 6),
       shopCost: r.rental ? 0 : Math.ceil(r.damage * r.hull_hp * 15),
@@ -289,6 +320,23 @@ async function textHangarBay(player, field, selectId, opts) {
 // `opts.refreshOnly` marks this push as a background refresh (e.g. after a remote
 // tablet sale): the client updates the hangar bay only if it's already open on
 // screen, and ignores it otherwise instead of popping the 3D hangar open.
+// ── The GLASS hangar ─────────────────────────────────────────────────────────
+// Boarding lives in index.js, which imports this file, so it hands the one function over at load
+// instead of this file importing it back.
+let boardIntoHangar = null;
+export function setHangarBoarder(fn) { boardIntoHangar = fn; }
+// The aircraft this player is sitting in at the field, on the ground: on the hangar floor where
+// the field has a hangar, on its own ramp or pad where it has not. That is the service bay, and
+// every push while it holds sends the bench to the cockpit instead of the pane.
+function servicedCraft(player, field) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live || live.row.airborne || live.row.parked_zone_id !== field.id) return null;
+  const spot = hangarTileFor(field) || field;
+  if (spot.grid_x == null) return null;
+  const fx = live.fx ?? live.row.grid_x, fy = live.fy ?? live.row.grid_y;
+  return Math.hypot(fx - spot.grid_x, fy - spot.grid_y) < 0.5 ? live : null;
+}
+
 export async function pushHangarBay(player, selectId, opts = {}) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Hangars are at the airfields.' };
@@ -310,6 +358,7 @@ export async function pushHangarBay(player, selectId, opts = {}) {
   // turn round into the lift, and the Sky Pad bay would bloom over the elevator
   // car until the next look. Checked again at the send, below.
   const askedFrom = player.current_zone;
+  const svc = servicedCraft(player, field);
   const { rows: mine } = await query('SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
   const craft = await buildCards(player, field);
   // A charter this player already booked shows as a fuelled, boarding-ready CHARTER
@@ -355,6 +404,11 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     // Tells the client whether "Close" also has to walk the player back out to
     // the ramp (standing inside the walk-in hangar) or just dismisses the panel
     // (opened from the open ramp itself, where there's no interior to leave).
+    // Maintain and Launch board you and work on her from the cockpit at every field; `hangar` says
+    // whether that is on a GLASS hangar floor or out on the pad. `service` marks the push for the
+    // bench docked on the cockpit rather than the pane.
+    cockpitBench: true, hangar: !!hangarTileFor(field),
+    service: !!svc, serviceId: svc?.row.id || null,
     inHangar: inHangarInterior(player),
     exitDir: hangarExitDir(player),
     refreshOnly: !!opts.refreshOnly,
@@ -370,7 +424,7 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     charterWaiting,
     sky: skyState(),   // time-of-day + weather, visible through the open bay door
     canBuy, canRent, lots, licensed, isAdmin,
-    catalog: { patterns: PATTERNS, finishes: FINISHES, uphol: UPHOLSTERY, decals: DECALS, presets: PRESETS, trims: TRIMS, cabinTrims: CABIN_TRIMS, plateDefault: PLATE_DEFAULT, plateChars: PLATE_CHARS, plateMax: PLATE_MAX },
+    catalog: { patterns: PATTERNS, finishes: FINISHES, uphol: UPHOLSTERY, decals: DECALS, trims: TRIMS, cabinTrims: CABIN_TRIMS, plateDefault: PLATE_DEFAULT, plateChars: PLATE_CHARS, plateMax: PLATE_MAX },
     tuneParams: Object.entries(TUNE_PARAMS).map(([id, p]) => ({ id, label: p.label, lo: p.lo, hi: p.hi, desc: p.desc })),
   } });
   return { type: 'noop' };
@@ -411,7 +465,7 @@ async function cmdPaintset(args, raw, player) {
   const plate = plateArg === undefined ? undefined : plateArg === '-' ? '' : plateArg.replace(/_/g, ' ');
   const { ac, err } = await paintTarget(player, id); if (err) return err;
 
-  const prev = normalizeLivery(ac.custom_data);
+  const prev = normalizeLivery(ac.custom_data, ac.class);
   const next = { ...sanitizeLivery({ base, trim, accent, ground, pattern, finish, cabin, uphol, decal, variant, itrim, plate, parts }, prev), text: prev.text };
   if (JSON.stringify(next) !== JSON.stringify(prev)) {
     const fee = paintCost({ class: ac.class });
@@ -425,51 +479,95 @@ async function cmdPaintset(args, raw, player) {
   return pushHangarBay(player);
 }
 
-// Saved paint schemes (like tune profiles, but for the whole look): scheme <save|load|delete> <name>.
-// Saving stashes the craft's CURRENT paint; loading swaps to a saved look for FREE (you paid to
-// design it once) — so you can keep several liveries and change on a whim.
+// Saved sets and dev liveries: scheme <save|load|delete> <name>.
+// A set is the whole look (exterior, cabin, nameplate). `save` stashes the craft's current look
+// under a name, private to this aircraft. `load` puts a set on: one of hers by name, or a livery
+// from content/liveries/ by id or name if the pilot has it unlocked. Loading is a respray and
+// costs the same class-scaled fee as painting by hand; nothing changes, nothing is charged.
 async function cmdScheme(args, raw, player) {
   const { id, rest: a } = popCraftId(args);
   const sub = (a[0] || '').toLowerCase();
   const name = clean(a.slice(1).join(' ')).toLowerCase().slice(0, 16);
   const owned = await ownedCraft(player, id);
-  if (owned?.notOwned) return { type: 'emote', message: 'You can only manage schemes on an aircraft you own.' };
+  if (owned?.notOwned) return { type: 'emote', message: 'You can only manage sets on an aircraft you own.' };
   if (!owned) return { type: 'emote', message: 'No aircraft of your own here.' };
   if (owned.live?.row.airborne) return { type: 'emote', message: 'Land first.' };
   if (!fieldOf(player)) return { type: 'emote', message: 'Do it at a field.' };
-  const { rows } = await query('SELECT id, custom_data FROM aircraft WHERE id=$1', [owned.id]);
-  const cd = rows[0]?.custom_data || {};
+  const { rows } = await query('SELECT a.id, a.custom_data, t.class, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1', [owned.id]);
+  const ac = rows[0]; if (!ac) return { type: 'emote', message: 'No aircraft of your own here.' };
+  const cd = ac.custom_data || {};
   const schemes = { ...readSchemes(cd) };
+  const keepSchemes = async () => {
+    const next = { ...cd, livery: { ...normalizeLivery(cd, ac.class), schemes } };
+    await query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify(next), owned.id]);
+    if (owned.live) owned.live.row.custom_data = next;
+  };
 
   if (sub === 'save') {
-    if (!name) return { type: 'emote', message: 'Name the scheme: <b>scheme save &lt;name&gt;</b>.' };
-    schemes[name] = schemeOf(cd.livery);
-    await query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify({ ...cd, livery: { ...normalizeLivery(cd), schemes } }), owned.id]);
-    if (owned.live) owned.live.row.custom_data = { ...cd, livery: { ...normalizeLivery(cd), schemes } };
-    out(player.id, `<span class="item-grant">Saved this look as scheme "${name}".</span>`);
+    if (!name) return { type: 'emote', message: 'Name the set: <b>scheme save &lt;name&gt;</b>.' };
+    schemes[name] = schemeOf(cd.livery, ac.class);
+    await keepSchemes();
+    out(player.id, `<span class="item-grant">Saved this look as "${name}".</span>`);
     return pushHangarBay(player);
   }
-  if (sub === 'load') {
-    if (!schemes[name]) return { type: 'emote', message: `No saved scheme "${name}".` };
-    await writeLivery({ id: owned.id, custom_data: cd }, sanitizeLivery({ parts: {}, variant: 'stock', itrim: 'stock', ...schemes[name] }, normalizeLivery(cd)));
-    out(player.id, `<span class="item-grant">Swapped to scheme "${name}", no charge.</span>`);
+  if (sub === 'load' || sub === 'wear') {
+    if (!name) return { type: 'emote', message: 'Name the set: <b>scheme load &lt;name&gt;</b>.' };
+    let look = null, label = name;
+    if (schemes[name]) look = sanitizeLivery(schemes[name], classDefault(ac.class));
+    else {
+      const unlocks = await liveryUnlocks(player, [ac.class]);
+      const set = liveriesFor('aircraft', ac.class).find(l => l.id === name || l.name.toLowerCase() === name);
+      if (set && set.unlock && !unlocks.has(set.unlock)) return { type: 'emote', message: `The shop won't spray ${set.name} for you. Not yet.` };
+      if (set) { look = liveryFromSet(set); label = set.name; }
+    }
+    if (!look) return { type: 'emote', message: `No set called "${name}" for the ${ac.tname}.` };
+    const res = await applyLook(player, ac, look, label);
+    if (res) return res;
     return pushHangarBay(player);
   }
   if (sub === 'delete' || sub === 'del') {
-    if (!schemes[name]) return { type: 'emote', message: `No saved scheme "${name}".` };
+    if (!schemes[name]) return { type: 'emote', message: `No saved set "${name}".` };
     delete schemes[name];
-    await query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify({ ...cd, livery: { ...normalizeLivery(cd), schemes } }), owned.id]);
-    if (owned.live) owned.live.row.custom_data = { ...cd, livery: { ...normalizeLivery(cd), schemes } };
+    await keepSchemes();
     return pushHangarBay(player);
   }
   return { type: 'emote', message: 'scheme <save|load|delete> &lt;name&gt;' };
 }
 
+// Exposed for plugins/flight/regress.js.
+export const _liveryTest = { applyLook: (...a) => applyLook(...a), setsFor, liveryUnlocks };
+
+// Put a whole look on a craft for the class-scaled respray fee. The markings line survives; a look
+// identical to what she wears is free because no work was done. Returns an emote on refusal.
+async function applyLook(player, ac, look, label) {
+  const prev = normalizeLivery(ac.custom_data, ac.class);
+  const next = { ...sanitizeLivery(look, classDefault(ac.class)), text: prev.text };
+  if (JSON.stringify(next) === JSON.stringify(prev)) { out(player.id, `She's already wearing ${label}.`); return null; }
+  const fee = paintCost({ class: ac.class });
+  if ((player.credits || 0) < fee) return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵. You're short.` };
+  player.credits -= fee;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await writeLivery(ac, next);
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  out(player.id, `<span class="item-grant">The ${ac.tname} rolls out of the paint bay in ${label}: ${fee}₵.</span>`);
+  return null;
+}
+
 // Panel button actions that mutate then re-render: hangaract <store|pull> <id>.
-async function cmdHangarAct(args, raw, player) {
+async function cmdHangarAct(args, raw, player, broadcast) {
   const op = (args[0] || '').toLowerCase(), id = args[1];
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Hangars are at the airfields.' };
+  // SERVICE and LAUNCH: board her to work on her or to fly. On the hangar floor where the field has
+  // a GLASS hangar, on her pad where it has not. Service opens the bench on the cockpit with the
+  // camera outside her at 3/4; launch puts you in the seat.
+  if ((op === 'service' || op === 'launch') && id) {
+    const res = boardIntoHangar ? await boardIntoHangar(player, id, broadcast) : null;
+    if (!res) return pushHangarBay(player, id);
+    if (!player.aircraftId) return res;   // refused (not yours, not parked here, already aboard)
+    if (op === 'service') { await pushHangarBay(player, id); }
+    return res;
+  }
   const { rows: mine } = await query('SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
   if ((op === 'store' || op === 'pull') && !mine.length) { await pushHangarBay(player); return { type: 'emote', message: 'You need to <b>hangar rent</b> a bay here first.' }; }
   if (op === 'store' && id) {

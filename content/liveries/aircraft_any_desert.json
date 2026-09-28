@@ -1,0 +1,19 @@
+{
+  "blurb": "Sand and khaki splinter camo, sun-faded before it left the booth.",
+  "default": false,
+  "exterior": {
+    "base": "#b79a63",
+    "finish": "weathered",
+    "pattern": "splinter",
+    "trim": "#6d5c38"
+  },
+  "id": "desert",
+  "interior": {
+    "cabin": "#3a3324",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "any",
+  "name": "Desert",
+  "unlock": null
+}

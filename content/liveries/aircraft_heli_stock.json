@@ -1,0 +1,19 @@
+{
+  "blurb": "Deep teal over a bone belly, the colour of the thing she is named after.",
+  "default": true,
+  "exterior": {
+    "base": "#1f7a6e",
+    "finish": "gloss",
+    "pattern": "twotone",
+    "trim": "#d9d4c4"
+  },
+  "id": "stock",
+  "interior": {
+    "cabin": "#1c2a28",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "heli",
+  "name": "Dragonfly Teal",
+  "unlock": null
+}

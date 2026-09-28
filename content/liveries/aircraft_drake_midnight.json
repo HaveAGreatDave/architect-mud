@@ -1,0 +1,21 @@
+{
+  "blurb": "Night plumage with a red bill. The cockpit stays in walnut.",
+  "default": false,
+  "exterior": {
+    "base": "#1c1e24",
+    "finish": "satin",
+    "pattern": "factory",
+    "trim": "#c4963c",
+    "variant": "midnight"
+  },
+  "id": "midnight",
+  "interior": {
+    "cabin": "#3a2616",
+    "itrim": "stock",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "drake",
+  "name": "Midnight",
+  "unlock": null
+}

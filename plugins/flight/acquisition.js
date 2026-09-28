@@ -174,7 +174,10 @@ export async function refuelAt(args, raw, player) {
   const cap = effStats(live).fuelCap;
   const need = cap - live.row.fuel;
   if (need <= 0.5) return { type: 'emote', message: 'The tank is already full.' };
-  const want = args[0] ? Math.min(need, Math.max(0, parseInt(args[0], 10) || 0)) : need;
+  // An amount is a number; anything else (the hangar bench sends her id) means fill her. This read
+  // `parseInt(id) || 0` and pumped nothing for the price of nothing.
+  const asked = parseInt(args[0], 10);
+  const want = Number.isFinite(asked) ? Math.min(need, Math.max(0, asked)) : need;
   const cost = Math.ceil(want * REFUEL_PRICE_PER_UNIT);
   if ((player.credits || 0) < cost) return { type: 'emote', message: `Fuel runs ${REFUEL_PRICE_PER_UNIT}₵/unit. You can't cover ${cost}₵.` };
   player.credits -= cost;

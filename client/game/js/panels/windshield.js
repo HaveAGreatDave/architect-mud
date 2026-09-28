@@ -18779,16 +18779,33 @@ const BAY = {
 // ≈ 0.43 / 0.196). A haulage shed as two-and-a-bit tall storeys ≈ 26 ft to the ridge, which is what
 // an aircraft collides with and what `buildingRoofFt` reports.
 const BAY_FLOORS = 2.2;
+// ── THE AIRCRAFT HANGAR IS THE SAME SHED AT AIRCRAFT SCALE ───────────────────
+// An airfield's hangar tile (`flags.aircraft_hangar`) is a bay too, with `bk: 'air'`, and every
+// reader of the shed's size asks `bayDims(cell)` rather than reading BAY. Sized for the largest
+// thing the own ship draws: at 1.9x its contact size a Leviathan is 0.84 across, 0.96 long and 0.65
+// to the top of her fin, so the shed fills its tile, the door is nearly the whole front and the head
+// clears that fin. The height earns its keep twice: the maintenance view's 3/4 camera has to orbit
+// INSIDE the building (the cutaway is off, see BAY_CUTAWAY_ON), which a truck-height roof would put
+// it on top of. scripts/shapes/hangar.mjs holds every airframe against these numbers.
+// ⚠ AND ITS DOOR SENSES FROM INSIDE ACROSS THE WHOLE SHED (IN_SENSE/IN_OPEN), NOT THE TRUCK'S 0.40.
+// The sensor measures the vehicle's CENTRE, and an aeroplane's nose is 0.2 to 0.48 tiles ahead of it,
+// so on the truck's numbers she was through the door before it had lifted. A hangar door is up
+// whenever an aircraft stands in the front of the shed, which is also what the maintenance camera
+// needs when it stands off in the doorway, and what "in the seat, ready to go" looks like.
+const HANGAR_BAY = { HW: 0.49, HL: 0.49, WALL: 0.72, RIDGE: 0.86, DOOR_W: 0.45, DOOR_H: 0.68, LANE: 0.05, IN_SENSE: 0.98, IN_OPEN: 0.6 };
+// Worth the same storey height the truck shed's ridge is, so CFIT lands on the roof it draws.
+const HANGAR_FLOORS = HANGAR_BAY.RIDGE * (BAY_FLOORS / BAY.RIDGE);
+export const bayDims = (cell) => (cell && cell.bk === 'air' ? HANGAR_BAY : BAY);
 // The roof line at a point across the shed, in world-z: a straight gable from eaves to ridge, which
 // is exactly the two pitches drawVehicleBay paints. `lx` is the local cross-shed coordinate.
-const bayTopZ = (lx) => BAY.WALL + (BAY.RIDGE - BAY.WALL) * Math.max(0, 1 - Math.abs(lx) / BAY.HW);
+const bayTopZ = (lx, D = BAY) => D.WALL + (D.RIDGE - D.WALL) * Math.max(0, 1 - Math.abs(lx) / D.HW);
 const isBay = (cell) => cell && cell.mark === 'bay';
-function floorsOf(cell) { return isBay(cell) ? BAY_FLOORS : floorsFor(cell && cell.bt, cell && cell.flr); }
+function floorsOf(cell) { return isBay(cell) ? (cell.bk === 'air' ? HANGAR_FLOORS : BAY_FLOORS) : floorsFor(cell && cell.bt, cell && cell.flr); }
 // Deterministic building height for a cell: floors × per-storey, with a small stable
 // jitter off the seed so same-type neighbours aren't a dead-flat skyline. A bay takes neither —
 // every shed is the same shed, and a jittered one would collide off its own roofline.
 function floorHeight(cell, seed) {
-  if (isBay(cell)) return BAY.RIDGE;
+  if (isBay(cell)) return bayDims(cell).RIDGE;
   return floorsOf(cell) * FLOOR_Z * (0.9 + frac(seed) * 0.2) * RENDER_TUNE.bldgH * (RENDER_TUNE.bldgStretch || 1);
 }
 
@@ -18943,8 +18960,9 @@ export function modelTopAt(wx, wy, cell, px, py, inFeet) {
     const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
     const ox = px - wx, oy = py - wy;
     const lx = ox * ct + oy * st, ly = -ox * st + oy * ct;
-    if (Math.abs(lx) > BAY.HW || Math.abs(ly) > BAY.HL) return 0;
-    const z = bayTopZ(lx);
+    const D = bayDims(cell);
+    if (Math.abs(lx) > D.HW || Math.abs(ly) > D.HL) return 0;
+    const z = bayTopZ(lx, D);
     return inFeet ? altForRoofZ(z) : z;
   }
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
@@ -19109,8 +19127,9 @@ export function groundObstructionAt(wx, wy, cell, px, py, clearZ = 0.01, stepZ =
     // opens for the thing arriving at it, so approach it and it lifts, come at the wall beside it
     // and it does not.
     const [lx, ly] = bayLocal(px, py, wx, wy, cell);
-    if (bayDoorSense(lx, ly) > 0.5) return 0;
-    if (Math.abs(lx) <= BAY.DOOR_W + 0.02 && Math.abs(ly - BAY.HL) < 0.10) return BAY.DOOR_H;
+    const D = bayDims(cell);
+    if (bayDoorSense(lx, ly, D) > 0.5) return 0;
+    if (Math.abs(lx) <= D.DOOR_W + 0.02 && Math.abs(ly - D.HL) < 0.10) return D.DOOR_H;
     return 0;
   }
   if (buildingHeightZ(wx, wy, cell) <= 0) return 0;
@@ -33676,6 +33695,19 @@ function modelBox(cls, armed, variant) {
   const box = { len: f * S, wid: g * S };                     // half-extents, in tiles — drawAircraftModel's own ground scale
   _modelBoxCache.set(faces, box);
   return box;
+}
+// What a hangar door has to clear for this airframe, in tiles: half-span and half-length (modelBox,
+// so the rotor disc is left out; a parked helicopter's blades are not what fouls a door) and her
+// height off the floor, disc left out again. scripts/shapes/hangar.mjs holds these against HANGAR_BAY.
+export function hangarFit(cls, armed) {
+  const b = modelBox(cls, armed, '');
+  let lo = 1e9, hi = -1e9;
+  for (const face of aircraftFaces(cls, 1, !!armed)) {
+    if (face.role === 'rotor') continue;
+    for (const p of face.p) { if (p[2] < lo) lo = p[2]; if (p[2] > hi) hi = p[2]; }
+  }
+  const S = (CONTACT_SIZE[cls] || 0.11) * ownExtMul(cls) * CONTACT_VS;
+  return { wid: b.wid, len: b.len, top: lo <= hi ? S * (hi - lo) : 0 };
 }
 // The distance the camera must hold from the model's CENTRE to keep every face in front of the near
 // plane, at the bearing it is actually orbiting from. `deg` is degrees off dead-astern, which is
@@ -49823,7 +49855,11 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
         // ⚠ BAKED UNCONDITIONALLY, because `bakeSignText` is what registers this arm as signing
         // itself and it registers on the way IN — a bake skipped for want of a name during the
         // capture leaves `armSignsItself` false and the kit hangs a second board on the building.
-        const nam = bakeSignText(sign || 'SOLENNE RESIDENCES', '#f0d29a', night ? 1 : 0, false);
+        // ⚠ SCRIPT, AND SO IN THE NAME'S OWN CASE. The Solenne letters its podium in a cursive hand, the
+        // one address in the city that signs itself like an invitation. `sign` is the name uppercased
+        // for every board that wants capitals, and script set in capitals is a row of loops nobody can
+        // read, so this takes `name` as authored.
+        const nam = bakeSignText((name || '').trim() || 'Solenne Residences', '#f0d29a', night ? 1 : 0, false, undefined, undefined, { font: 'script' });
         const nhw = podW * 0.42, [nlx, nly] = F(-nhw, sgnY), [nrx, nry] = F(nhw, sgnY);
         const iz0 = sgnZ0 + (sgnZ1 - sgnZ0) * 0.24, iz1 = sgnZ1 - (sgnZ1 - sgnZ0) * 0.24;
         const TL = cam.proj(nlx, nly, iz1), TR = cam.proj(nrx, nry, iz1), BR = cam.proj(nrx, nry, iz0), BL = cam.proj(nlx, nly, iz0);
@@ -49875,7 +49911,21 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
         // The deck slab itself — wider than the lantern it caps, the way a helideck oversails its
         // core. A captured box, so the sim collides with the pad you can see and lands ON it.
         draw3DBoxAt(ctx, cam, dx, dy, padR, deckZ0, deckZ1, pal, seed + 21, night, alpha, true, twist);
-        helideck(ctx, cam, dx, dy, deckZ1 + 0.002, padR * 0.86, gold, warm, night, alpha, now, seed); }
+        helideck(ctx, cam, dx, dy, deckZ1 + 0.002, padR * 0.86, gold, warm, night, alpha, now, seed);
+        // 5b) THE STAIR HEAD: the housing the stair comes up through onto the deck. ⚠ IN A CORNER,
+        //     BECAUSE THAT IS THE ONLY PLACE ON THIS ROOF ANYTHING MAY STAND. The touchdown circle is
+        //     0.86 of the deck's half-width and the deck is square, so its four corners are the one
+        //     ground outside it: set at 0.8 on both axes with a 0.12 half-width, the housing's nearest
+        //     face is 0.96 out, clear of the circle. It takes the rear corner, away from the street, and
+        //     it is a captured box like the deck, so the sim collides with it rather than landing on it.
+        const sw = padR * 0.12, sa = padR * 0.8, sh = h * 0.045, ct = Math.cos(twist), st2 = Math.sin(twist);
+        const corners = [[sa, sa], [sa, -sa], [-sa, sa], [-sa, -sa]].map(([lx, ly]) => [lx * ct - ly * st2, lx * st2 + ly * ct]);
+        const [cxw, cyw] = corners.reduce((b, c) => (c[0] * E[0] + c[1] * E[1] < b[0] * E[0] + b[1] * E[1] ? c : b));
+        draw3DBoxAt(ctx, cam, dx + cxw, dy + cyw, sw, deckZ1, deckZ1 + sh, stone, seed + 23, night, alpha, true, twist);
+        // Its door, a bronze leaf on the face toward the middle of the deck, and a lamp over it.
+        const inX = -Math.sign(cxw * ct + cyw * st2), dxw = inX * (sw + 0.002) * ct, dyw = inX * (sw + 0.002) * st2;
+        draw3DBoxAt(ctx, cam, dx + cxw + dxw, dy + cyw + dyw, 0.002, deckZ1, deckZ1 + sh * 0.74, bronze, seed + 24, night, alpha, false, twist, sw * 0.42);
+        if (night) glowPool(ctx, cam, dx + cxw + dxw, dy + cyw + dyw, deckZ1 + sh * 0.82, warm, 5, alpha * 0.5); }
       if (night) {
         glowPool(ctx, cam, dx, dy, baseZ, warm, 22, alpha * 0.3);                     // warm lobby wash
         glowPool(ctx, cam, dx, dy, baseZ + (topZ - baseZ) * 0.5, gold, 13, alpha * 0.2);  // mid sky-lobby glow
@@ -65889,18 +65939,19 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         if (bcut > 0.5 || bInside) continue;
         const toWorldB = ([lx, ly]) => [it.dx + lx * ct - ly * st, it.dy + lx * st + ly * ct];
         const k = 1 - OCC_SHRINK;
+        const BD = bayDims(it.c);
         const slab = (sx0, sx1, z0, z1) => {
           const zt = z1 * k;
           if (!(sx1 > sx0) || !(zt > z0)) return;
-          boxQuads(cam, [[sx0, -BAY.HL], [sx1, -BAY.HL], [sx1, BAY.HL], [sx0, BAY.HL]].map(toWorldB), z0, zt, quads, it.f <= OCC_KEEP_TILES);
+          boxQuads(cam, [[sx0, -BD.HL], [sx1, -BD.HL], [sx1, BD.HL], [sx0, BD.HL]].map(toWorldB), z0, zt, quads, it.f <= OCC_KEEP_TILES);
         };
-        slab(-BAY.HW, -BAY.DOOR_W, 0, BAY.WALL);     // the two solid flanks…
-        slab(BAY.DOOR_W, BAY.HW, 0, BAY.WALL);
-        slab(-BAY.DOOR_W, BAY.DOOR_W, BAY.DOOR_H, BAY.WALL);   // …and the header over the opening
+        slab(-BD.HW, -BD.DOOR_W, 0, BD.WALL);     // the two solid flanks…
+        slab(BD.DOOR_W, BD.HW, 0, BD.WALL);
+        slab(-BD.DOOR_W, BD.DOOR_W, BD.DOOR_H, BD.WALL);   // …and the header over the opening
         // The leaf itself. A roller door goes UP, so what is left of it hangs from the head and the
         // gap opens underneath — which is the half a truck drives through.
         const open = bayDoorOpen(it.dx, it.dy, it.c);
-        if (open < 0.98) slab(-BAY.DOOR_W, BAY.DOOR_W, BAY.DOOR_H * open, BAY.DOOR_H);
+        if (open < 0.98) slab(-BD.DOOR_W, BD.DOOR_W, BD.DOOR_H * open, BD.DOOR_H);
         contribute(it);
         continue;
       }
@@ -67418,25 +67469,29 @@ const BAY_IN_OPEN = 0.14;
 // are the same door. A second copy of these four constants in the physics is a building whose
 // picture and behaviour disagree, which is the worst of the three possible bugs here.
 const _bayVehicles = [];   // [dx, dy] per vehicle, in the own-ship-relative world frame this file uses
+// ⚠ ANY VEHICLE, SINCE AN AIRFIELD HAS A HANGAR. This took trucks only while the depot was the one
+// shed, so an aircraft taxiing at a hangar door found it shut. The own ship opens a door whatever it
+// is; a contact opens one when it is a truck or an aircraft on the ground (one overhead is not
+// arriving at anything).
 export function setBayVehicles(v) {
   _bayVehicles.length = 0;
   if (!v) return;
-  if (v.cls === 'truck') _bayVehicles.push([0, 0]);                 // the own ship is the origin of this frame
-  if (v.contacts) for (const c of v.contacts) if (c.cls === 'truck') _bayVehicles.push([c.dx, c.dy]);
+  if (v.cls) _bayVehicles.push([0, 0]);                              // the own ship is the origin of this frame
+  if (v.contacts) for (const c of v.contacts) if (c.cls === 'truck' || c.onGround) _bayVehicles.push([c.dx, c.dy]);
 }
 // How far up the door on the tile at (dx, dy) is: 0 shut, 1 fully up. Pure, and cheap enough to
 // call from a collision sweep — the occupant list is at most a handful of rigs.
 // The sensor itself, given one body's position in the shed's own frame. ONE curve, two callers, and
 // that is the whole reason it is a function: the door you can see and the door that stops you must
 // be the same door.
-function bayDoorSense(lx, ly) {
-  const { HW, HL, DOOR_W } = BAY;
+function bayDoorSense(lx, ly, D = BAY) {
+  const { HW, HL, DOOR_W } = D;
   const inside = Math.abs(lx) < HW && Math.abs(ly) < HL;
   // Measured to the DOORWAY, not the tile centre, so it means the same thing from the apron and
   // from the back wall; the lateral term is what stops a rig passing down the far side of the yard
   // from opening it.
   const d = Math.hypot(Math.max(0, Math.abs(lx) - DOOR_W), ly - HL);
-  const s0 = inside ? BAY_IN_SENSE : BAY_SENSE_TILES, s1 = inside ? BAY_IN_OPEN : BAY_OPEN_TILES;
+  const s0 = inside ? (D.IN_SENSE ?? BAY_IN_SENSE) : BAY_SENSE_TILES, s1 = inside ? (D.IN_OPEN ?? BAY_IN_OPEN) : BAY_OPEN_TILES;
   return clamp((s0 - d) / Math.max(0.01, s0 - s1), 0, 1);
 }
 // Put a point into the shed's frame. `ox, oy` is the body, `dx, dy` the tile, both in whatever
@@ -67451,8 +67506,9 @@ function bayLocal(ox, oy, dx, dy, cell) {
 export function bayDoorOpen(dx, dy, cell) {
   if (!_bayVehicles.length || !cell) return 0;
   let best = 0;
+  const D = bayDims(cell);
   for (const [vx, vy] of _bayVehicles) {
-    const o = bayDoorSense(...bayLocal(vx, vy, dx, dy, cell));
+    const o = bayDoorSense(...bayLocal(vx, vy, dx, dy, cell), D);
     if (o > best) best = o;
   }
   return best;
@@ -67531,7 +67587,7 @@ const BAY_CUT_LEAVE = 0.9;   // tiles of apron over which a shed stops being the
 // wall you can see through hides nothing, a wall you cannot see through hides everything, and
 // there is no third state for them to disagree about.
 function bayCutaway(cam, dx, dy, cell) {
-  const { HW, HL, WALL } = BAY;
+  const { HW, HL, WALL } = bayDims(cell);
   const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
   const camWX = (cam.ex || 0) - dx, camWY = (cam.ey || 0) - dy;
   const camLX = camWX * ct + camWY * st, camLY = -camWX * st + camWY * ct;
@@ -67563,7 +67619,11 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // Local (right, forward) → world. Forward is OUT THROUGH THE DOOR.
   const F = (lx, ly) => [dx + lx * ct - ly * st, dy + lx * st + ly * ct];
   const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
-  const { HW, HL, WALL, RIDGE, DOOR_W, DOOR_H, LANE } = BAY;
+  // ⚠ TWO SHEDS, ONE FUNCTION. An aircraft hangar (`bk: 'air'`) is this building at aircraft scale:
+  // the shell, the door, the roof, the lights and both GL sinks are shared, and only the floor, its
+  // paint and the fittings differ. A second copy of the shed would be a second door to get wrong.
+  const D = bayDims(cell), air = cell.bk === 'air';
+  const { HW, HL, WALL, RIDGE, DOOR_W, DOOR_H, LANE } = D;
 
   // ── WHERE THE CAMERA IS, IN THE SHED'S OWN FRAME ───────────────────────────
   // The eye sits `back` tiles astern of the focus (makeCam), so in the chase view it is NOT at the
@@ -67707,10 +67767,13 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // pass paints the road in, and the apron tongue runs it out past the threshold to the tile edge —
   // which is what welds the inside to the street instead of ending the building at a doorstep.
   const FZ = 0.0015, MZ = 0.003;   // slab, then paint a hair above it (they never z-fight — see `layer`)
+  // A hangar floor is sealed concrete, pale so the high-bays light it: a workshop for aeroplanes is
+  // swept, and a dark floor under a white fuselage reads as a cave.
+  const FLOOR = air ? [148, 150, 146] : ASPHALT;
   bayFace([[-HW, -HL, FZ], [HW, -HL, FZ], [HW, HL, FZ], [-HW, HL, FZ]],
-    interior ? inn(...ASPHALT, 1.18) : ex(...ASPHALT, 1.1), { layer: 0 });
+    interior ? inn(...FLOOR, 1.18) : ex(...FLOOR, 1.1), { layer: 0 });
   bayFace([[-DOOR_W - 0.03, HL, FZ], [DOOR_W + 0.03, HL, FZ], [DOOR_W + 0.03, 0.5, FZ], [-DOOR_W - 0.03, 0.5, FZ]],
-    ex(...ASPHALT, 1.02), { layer: 0 });
+    ex(...FLOOR, 1.02), { layer: 0 });
   // Oil. A floor nobody has ever dropped anything on is a rendering, not a workshop — three stains
   // seeded off the tile so they stay put frame to frame.
   for (let i = 0; i < 3; i++) {
@@ -67725,6 +67788,16 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // hatched keep-clear inside the threshold that says the door comes down here.
   const stripe = (x0, x1, y0, y1, col = YELLOW) => bayFace([[x0, y0, MZ], [x1, y0, MZ], [x1, y1, MZ], [x0, y1, MZ]], col, { layer: 1 });
   const LINE = 0.008;
+  if (air) {
+    // A HANGAR IS ONE AEROPLANE'S ROOM. The taxi line runs from the stop bar straight out through the
+    // door (the line you leave on), and the white wingtip lines down both walls are the clearance a
+    // wing has to stay inside while she is pushed back.
+    stripe(-LINE, LINE, -HL * 0.4, HL);
+    stripe(-0.06, 0.06, -HL * 0.4 - LINE * 2, -HL * 0.4);                       // the stop bar
+    for (const sx of [-1, 1]) for (let y = -HL + 0.04; y < HL - 0.03; y += 0.1) {
+      stripe(sx * (HW - 0.035) - LINE * 0.6, sx * (HW - 0.035) + LINE * 0.6, y, y + 0.055, night ? 'rgba(210,214,220,0.5)' : 'rgba(236,238,242,0.6)');
+    }
+  } else {
   // The lane, both edges, running the full depth and out through the door.
   for (const s of [-1, 1]) stripe(s * LANE - LINE, s * LANE + LINE, -HL + 0.02, HL);
   // Its dashed centreline — the aiming mark you drive out on.
@@ -67733,6 +67806,7 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   for (const y of [-HL + 0.02, 0, HL - 0.02]) stripe(-HW + 0.015, -LANE, y - LINE, y + LINE);
   // Tractor bays: three shallower stalls down the right.
   for (let i = 0; i <= 3; i++) { const y = -HL + 0.02 + i * ((2 * HL - 0.04) / 3); stripe(LANE, HW - 0.015, y - LINE, y + LINE); }
+  }
   // Keep-clear under the door: real diagonals, clipped to the box by the same clipper the near
   // plane uses. A zebra of upright bars would have read as a threshold strip; this reads as paint
   // that means DON'T STAND HERE, which is what it is for.
@@ -67753,9 +67827,13 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     bayFace([[cx + halfW, cy - halfL, MZ], [cx - halfW, cy - halfL, MZ], [cx - halfW, cy + halfL, MZ], [cx + halfW, cy + halfL, MZ]],
       null, { layer: 1, tex });
   };
-  floorText('TRAILER', -0.31, -0.24, 0.13, 0.026, '#d8ba3a');
-  floorText('TRAILER', -0.31, 0.23, 0.13, 0.026, '#d8ba3a');
-  for (let i = 0; i < 3; i++) floorText(String(i + 1), 0.31, -HL + 0.02 + (i + 0.5) * ((2 * HL - 0.04) / 3), 0.028, 0.03, '#d8ba3a');
+  if (air) {
+    floorText('STOP', 0, -HL * 0.4 - 0.05, 0.06, 0.022, '#d8ba3a');
+  } else {
+    floorText('TRAILER', -0.31, -0.24, 0.13, 0.026, '#d8ba3a');
+    floorText('TRAILER', -0.31, 0.23, 0.13, 0.026, '#d8ba3a');
+    for (let i = 0; i < 3; i++) floorText(String(i + 1), 0.31, -HL + 0.02 + (i + 0.5) * ((2 * HL - 0.04) / 3), 0.028, 0.03, '#d8ba3a');
+  }
 
   // ── THE SHELL ──────────────────────────────────────────────────────────────
   // Each wall is a skirt and an upper panel rather than one quad: the dark impact skirt around the
@@ -67782,9 +67860,10 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     const inner = s * DOOR_W, outer = s * HW;
     bayFace([[inner, HL, 0], [outer, HL, 0], [outer, HL, DOOR_H], [inner, HL, DOOR_H]], two(...STEEL, 0.86, 0.86), { stroke: 'rgba(0,0,0,0.3)' });
     // Hazard diagonals up the jamb, because the one thing a driver hits in a shed is the doorway.
+    const jw = Math.min(0.035, HW - DOOR_W - 0.002);
     for (let z = 0.01; z < DOOR_H - 0.02; z += 0.036) {
-      bayFace([[inner, HL - 0.002, z], [inner + s * 0.035, HL - 0.002, z + 0.018],
-               [inner + s * 0.035, HL - 0.002, z + 0.036], [inner, HL - 0.002, z + 0.018]], YELLOW_DIM, { stroke: null });
+      bayFace([[inner, HL - 0.002, z], [inner + s * jw, HL - 0.002, z + 0.018],
+               [inner + s * jw, HL - 0.002, z + 0.036], [inner, HL - 0.002, z + 0.018]], YELLOW_DIM, { stroke: null });
     }
   }
 
@@ -67815,8 +67894,9 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
              [DOOR_W, HL - 0.008, DOOR_H], [-DOOR_W, HL - 0.008, DOOR_H]], two(126, 134, 142, 0.82, 0.95), { stroke: 'rgba(0,0,0,0.55)' });
     // Slats. A flat panel reads as a sheet of card, and a roller door is the one object in a yard
     // everybody has looked at closely.
-    for (let i = 1; i < 9; i++) {
-      const z = doorBottom + (DOOR_H - doorBottom) * (i / 9);
+    const SLATS = air ? 12 : 9;
+    for (let i = 1; i < SLATS; i++) {
+      const z = doorBottom + (DOOR_H - doorBottom) * (i / SLATS);
       bayFace([[-DOOR_W, HL - 0.009, z], [DOOR_W, HL - 0.009, z], [DOOR_W, HL - 0.009, z + 0.0022], [-DOOR_W, HL - 0.009, z + 0.0022]],
         'rgba(0,0,0,0.35)', { stroke: null });
     }
@@ -67900,6 +67980,28 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
         inn(236, 108, 36, 0.75 + 0.25 * Math.abs(Math.cos(a0))), o);
     }
   };
+  if (air) {
+    // ── THE HANGAR'S KIT ─────────────────────────────────────────────────────
+    // What a hangar keeps along its walls, clear of the wingtip lines: a tug to push her back, a
+    // step stand to reach the cowl, the red chest, chocks where her mains stop, and a fire cart by
+    // the door. Sized off the cockpit eye (0.24 tiles to a pilot's head).
+    // The tug, back right: a low yellow box, a cab block on it, four black wheels.
+    boxC(HW - 0.17, HW - 0.05, -HL + 0.085, -HL + 0.165, 0.008, 0.03, [214, 170, 40], 1);
+    boxC(HW - 0.09, HW - 0.055, -HL + 0.095, -HL + 0.155, 0.03, 0.05, [60, 64, 70], 0.9);
+    for (const [wx2, wy2] of [[HW - 0.155, -HL + 0.085], [HW - 0.065, -HL + 0.085], [HW - 0.155, -HL + 0.165], [HW - 0.065, -HL + 0.165]]) {
+      prism(wx2, wy2, 0.01, 0, 0.012, [30, 30, 32], 1, 1.4);
+    }
+    // The step stand on the left wall: three treads climbing toward the middle of the shed.
+    for (let i = 0; i < 3; i++) boxC(-HW + 0.03, -HW + 0.09, 0.02 + i * 0.02, 0.04 + i * 0.02, 0, 0.03 + i * 0.028, [150, 156, 162], 0.9);
+    // The tool chest, right wall, and its drawer fronts.
+    boxC(HW - 0.085, HW - 0.02, 0.02, 0.06, 0, 0.052, [176, 36, 32], 1);
+    for (let d = 0; d < 3; d++) boxC(HW - 0.084, HW - 0.021, 0.018, 0.022, 0.012 + d * 0.013, 0.02 + d * 0.013, [210, 210, 214], 0.9);
+    // Chocks, where the main wheels come to rest behind the stop bar.
+    for (const cx of [-0.075, 0.075]) boxC(cx - 0.01, cx + 0.01, -HL * 0.4 + 0.05, -HL * 0.4 + 0.062, 0, 0.008, [226, 190, 40], 1);
+    // The fire cart by the door: a red bottle on a trolley.
+    boxC(-HW + 0.03, -HW + 0.07, HL - 0.12, HL - 0.08, 0, 0.012, [60, 64, 70], 0.9);
+    prism(-HW + 0.05, HL - 0.1, 0.012, 0.012, 0.05, [190, 34, 30], 1);
+  } else {
   // The bench along the right wall, a vice on it, and the red chest beside it.
   boxC(HW - 0.1, HW - 0.02, -HL + 0.2, -HL + 0.36, 0, 0.036, [70, 74, 80], 0.9);           // the cabinet under it
   boxC(HW - 0.105, HW - 0.015, -HL + 0.195, -HL + 0.365, 0.036, 0.042, [150, 112, 70], 1);  // the worktop
@@ -67927,6 +68029,7 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   prism(-HW + 0.12, -HL + 0.28, 0.014, 0, 0.042, [150, 44, 40], 0.9);
   // Cones either side of the doorway — the one thing every yard in the world has at its door.
   for (const cx of [-DOOR_W / 2 - 0.05, DOOR_W / 2 + 0.05]) cone(cx, HL - 0.05, 0.012, 0.03);
+  }
 
   // ── PAINT ──────────────────────────────────────────────────────────────────
   // Ground layers first (they stack, they do not sort), then the world back→front.
@@ -68032,7 +68135,7 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // The name over the door, and a lamp each side of it. Only from outside — this is the sign that
   // tells you which yard you are looking at from the road.
   if (!inside) {
-    const label = String(cell.bn || 'DEPOT').toUpperCase().slice(0, 18);
+    const label = String(cell.bn || (air ? 'HANGAR' : 'DEPOT')).toUpperCase().slice(0, 18);
     const tex = bakeSignText(label, '#ffca6a', night ? 1 : 0, false);
     if (tex) {
       // ⚠ THE BOARD AND THE LETTERING ARE TWO THINGS, AND THE LETTERING MUST NOT BE HAND-WOUND.
@@ -68052,8 +68155,11 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
       // world quad through `cam.unproj`, which cannot be mirrored because the screen is the screen;
       // it is also the one path every other sign in the city already goes through, and it falls
       // back to the canvas by itself when GL is off.
-      const BOARD = [[-DOOR_W, HL + 0.004, WALL - 0.012], [DOOR_W, HL + 0.004, WALL - 0.012],
-                     [DOOR_W, HL + 0.004, DOOR_H + 0.012], [-DOOR_W, HL + 0.004, DOOR_H + 0.012]];
+      // A hangar's header is a few centimetres of steel over a door that is nearly the whole front,
+      // so its board goes up on the gable instead, inside the triangle at every point.
+      const bw = air ? HW * 0.38 : DOOR_W, bz0 = air ? WALL + 0.008 : DOOR_H + 0.012, bz1 = air ? WALL + 0.058 : WALL - 0.012;
+      const BOARD = [[-bw, HL + 0.004, bz1], [bw, HL + 0.004, bz1],
+                     [bw, HL + 0.004, bz0], [-bw, HL + 0.004, bz0]];
       // ⚠ THE BOARD IS EMITTED WHATEVER THE CAMERA IS DOING; ONLY THE WORDS WAIT ON THE PROJECTION.
       // A board bolted to a wall is part of the shell, and the `f > 0.12` test below is a statement
       // about where the EYE is — so hanging the board off it makes the building's geometry a
