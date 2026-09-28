@@ -207,12 +207,21 @@ export default async function regress({ check, getPlayer }) {
       const target = anyNpc ? world.zones.get(anyNpc.zone_id) : null;
       check('courier: the world has somebody free to run an errand', !!target, String(anyNpc?.id));
       if (anyNpc && target) {
-        let sawAdvisor = false;
-        for (let i = 0; i < 25; i++) {
-          const pick = courier._test.pickCourier(target.id, anyNpc.id);
-          if (pick && pick.id === anyNpc.id) { sawAdvisor = true; break; }
-        }
-        check('courier: the advisor is never picked to carry it', !sawAdvisor, anyNpc.id);
+        // One draw with the dice pinned to the nearest candidate, in a room where the
+        // advisor is the only eligible NPC. The advisor would be the sole zero-hop
+        // candidate there, so if it were ever in the pool this draw would pick it.
+        // It was 25 random draws (18 s of pathfinding) from a shortlist of dozens,
+        // which would usually have missed it.
+        const lone = [...world.npcs.values()].find((n) => {
+          if (!n?.zone_id) return false;
+          const here = eligibleNpcs(n.zone_id);
+          return here.length === 1 && here[0].id === n.id;
+        }) || anyNpc;
+        const roll = Math.random;
+        Math.random = () => 0;
+        let pick;
+        try { pick = courier._test.pickCourier(lone.zone_id, lone.id); } finally { Math.random = roll; }
+        check('courier: the advisor is never picked to carry it', !(pick && pick.id === lone.id), lone.id);
       }
 
       // ⚠ A DROP IS NEVER CONJURED. Booking creates a booking, not a cache: until
