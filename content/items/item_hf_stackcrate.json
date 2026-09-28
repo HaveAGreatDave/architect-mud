@@ -4,9 +4,10 @@
   "id": "item_hf_stackcrate",
   "name": "a stacking crate",
   "tags": {
+    "container": 20000,
     "description": "Grey, lidded, and moulded to stack four high without slipping. It is the single most useful object sold anywhere in Halcyon Fields and it is sold here by accident, because the storage counter had a pallet of them left over and started shifting them."
   },
-  "type": "furniture",
+  "type": "misc",
   "value": 22,
   "weight": 900
 }
