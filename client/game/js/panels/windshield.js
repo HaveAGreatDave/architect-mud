@@ -56908,8 +56908,14 @@ function captureRawPass(m, fh, h, seed, dyOff) {
   // unpulled one second and so compared a contaminated list against a clean one, pairing by index:
   // that is the whole of its "stroke drawing through the building next door by up to 11.9 tiles".
   const savedStroke = STROKE_SINK, savedDecal = DECAL_SINK, savedSprite = SPRITE_SINK, savedMesh = MESH_SINK;
+  // ⚠ A FIRST CAPTURE CAN HAPPEN INSIDE A DRAW PASS, and a GL frame runs its arms with MASS_OFF and
+  // FLAT_OFF on. `drawWallTags` asks `shapeForModel` from the tile loop, and a primitive that checks
+  // MASS_OFF ahead of SHAPE_SINK then records nothing: halcyontowers captured 1 segment instead of 27,
+  // `shapeForModel` cached that, and every player tag on it was placed against the footprint, in mid-air.
+  const savedMass = MASS_OFF, savedFlat = FLAT_OFF;
   const sink = [];
   try {
+    MASS_OFF = false; FLAT_OFF = false;
     // Riding along: the sign helpers record here on their way out of the SHAPE_SINK guard, so the
     // derived kit can ask whether this arm already signs itself without a second run. See the ⚠ on
     // SIGN_SEEN. It accumulates across every pass of the capture, which is what we want — a blade
@@ -56935,6 +56941,7 @@ function captureRawPass(m, fh, h, seed, dyOff) {
     SHAPE_SINK = null; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
     SIGN_SEEN = savedSigns;
     STROKE_SINK = savedStroke; DECAL_SINK = savedDecal; SPRITE_SINK = savedSprite; MESH_SINK = savedMesh;
+    MASS_OFF = savedMass; FLAT_OFF = savedFlat;
   }
   return sink;
 }
