@@ -910,8 +910,8 @@ function veneer_(K, c, r, u, hr, hu, o) {
 }
 // A raised gold bead round the panel: four strips standing off it at an angle, each facing a
 // different way, so one edge or another flashes as the aircraft turns against the sun.
-function goldBead(K, Pn, hw, hh, hdr) {
-  const pts = [[-hw, -hh], [hw, -hh], [hw, hh + hdr], [-hw, hh + hdr]];
+function goldBead(K, Pn, hw, hh, hdr, ftr = 0) {
+  const pts = [[-hw, -hh - ftr], [hw, -hh - ftr], [hw, hh + hdr], [-hw, hh + hdr]];
   for (let i = 0; i < 4; i++) {
     const A = pts[i], B = pts[(i + 1) % 4];
     const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, L = Math.hypot(mx, my) || 1;
@@ -1670,22 +1670,23 @@ export function drakeFit(P, live, push) {
   // ⚠ ITS TOP STAYS UNDER THE EYE LINE: the forward view is the right eye, just to the right of
   // this, and a pod whose header rose past z 0 would stand across it. The gate casts the ray.
   const po = [0, 0.49, -0.208];   // centred under the screen, straight ahead of the pilot
-  const HW = 0.30, HH = 0.048, HDR = 0.07;          // HDR: the header band over the gauges, for the name
-  const oc = [0, HDR / 2];                            // the housing is centred on gauges + header
-  const back = panelCorners(add(po, [0, 0, HDR / 2]), HW + 0.02, HH + HDR / 2 + 0.02, 0.06);
-  const front = panelCorners(add(po, [0, 0, HDR / 2]), HW + 0.02, HH + HDR / 2 + 0.02, -0.004);
+  // HDR: the header band over the gauges, the name's ALONE, so a long one ('QUACKHAWK DOWN') reads
+  // the full width. FTR: the strip under the gauges, where the fuel bar and the jewel lamps live.
+  const HW = 0.30, HH = 0.048, HDR = 0.07, FTR = 0.03;
+  const mid = (HDR - FTR) / 2, half = HH + (HDR + FTR) / 2;   // the housing spans footer + gauges + header
+  const back = panelCorners(add(po, [0, 0, mid]), HW + 0.02, half + 0.02, 0.06);
+  const front = panelCorners(add(po, [0, 0, mid]), HW + 0.02, half + 0.02, -0.004);
   for (let i = 0; i < 4; i++) {
     const j = (i + 1) % 4, n = norm(cross(sub(front[j], front[i]), sub(back[i], front[i])));
     K.face([front[i], front[j], back[j], back[i]], dot(n, front[i]) > 0 ? mul(n, -1) : n, 'dash', 0.1, T.walnutDk, 0);
   }
-  void oc;
   const Pn = facingPanel(K, po);
-  Pn.plate(roundRect(-HW - 0.012, -HH - 0.012, HW + 0.012, HH + HDR + 0.012, 0.03), T.gold, 0.05, 0);
-  Pn.plate(roundRect(-HW, -HH, HW, HH + HDR, 0.024), T.burl, 0, 0.001);
-  woodGrain(Pn, -HW + 0.012, -HH + 0.012, HW - 0.012, HH + HDR - 0.012, 0.0014);
-  goldBead(K, Pn, HW + 0.006, HH + 0.006, HDR);
+  Pn.plate(roundRect(-HW - 0.012, -HH - FTR - 0.012, HW + 0.012, HH + HDR + 0.012, 0.03), T.gold, 0.05, 0);
+  Pn.plate(roundRect(-HW, -HH - FTR, HW, HH + HDR, 0.024), T.burl, 0, 0.001);
+  woodGrain(Pn, -HW + 0.012, -HH - FTR + 0.012, HW - 0.012, HH + HDR - 0.012, 0.0014);
+  goldBead(K, Pn, HW + 0.006, HH + 0.006, HDR, FTR);
   // The name across the top of the gauges: the one thing on the panel that is not an instrument.
-  nameplate(Pn, 0, HH + HDR / 2 - 0.004, 0.026, (live && live.plate) || (T.quackhawk ? 'QUACKHAWK DOWN' : T.noir ? 'DARKWING' : 'DRAKE'), 2 * HW - 0.04);
+  nameplate(Pn, 0, HH + HDR / 2 - 0.004, 0.026, (live && live.plate) || (T.quackhawk ? 'QUACKHAWK DOWN' : T.noir ? 'DARKWING' : 'DRAKE'), 2 * HW - 0.03);
   // ⚠ ONE ROW OF SEVEN, so the pod is short enough to leave the yoke room under it in the forward
   // view. It was two rows of four and reached the bottom of the frame on its own.
   const R = 0.036, gx = (i) => -0.255 + i * 0.085;
@@ -1697,8 +1698,9 @@ export function drakeFit(P, live, push) {
   Pn.compass(gx(4), 0, R, hdg); goldRim(Pn, gx(4), 0, R);
   luxDial(Pn, gx(5), 0, R, clamp(0.5 + vsi / 3000, 0, 1), { a0: Math.PI, sweep: Math.PI * 1.8, ticks: 8, major: 2 });
   modeDial(Pn, gx(6), 0, R, wings, fold);
-  // Fuel along the left of the header, and the jewel lamps along its right.
-  const hv = HH + HDR / 2 - 0.004, fz = fuel < 0.15 ? C.red : C.green;
+  // Fuel along the left of the footer, and the jewel lamps along its right: off the header, so
+  // nothing sits beside the name.
+  const hv = -HH - FTR / 2 + 0.002, fz = fuel < 0.15 ? C.red : C.green;
   Pn.rect(-0.27, hv - 0.007, -0.13, hv + 0.007, C.black, 0, 0.003);
   Pn.rect(-0.268, hv - 0.005, -0.268 + 0.136 * fuel, hv + 0.005, fz, 0.85, 0.005);
   [[fuel < 0.15, C.amber], [rpm < 0.85 && powered && fold < 0.5, C.red], [!!L.stall, C.red], [!powered, C.amber]]
