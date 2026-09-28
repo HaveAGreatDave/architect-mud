@@ -27,6 +27,7 @@ import { createBillboardLayer } from './billboards.js';
 import { createGroundLayer } from './ground.js';
 import { createSolidsLayer } from './solids.js';
 import { createFaunaLayer } from './fauna.js';
+import { createActorLayer } from './actors.js';
 import { createMurmurGPU } from './murmur-gpu.js';
 // The interior's own clip range, in tiles. A cab is about 0.10 of a tile end to end at a driver's
 // eye height, so this brackets it with room to spare — and because the pass clears depth first,
@@ -1733,7 +1734,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // ⚠ IT TAKES THE MASS CAMERA. The rig is collected in MAP-WINDOW tiles for exactly the reason
       // the mesh is — see the ⚠ above on mMassCam — so it reflects through the same shifted camera
       // and lands on the same pixels at the same depth.
-      if (solidQuads || faunaInst || cloudList.length) drawSolids(mMassCam, cssH, { fog: opts.fog || null });
+      if (solidQuads || faunaInst || actorInst || cloudList.length) drawSolids(mMassCam, cssH, { fog: opts.fog || null, actors: true });
       // ── AND THE SKY OVER ALL OF IT ────────────────────────────────────────────────────────────
       //
       // A puddle shows what is ABOVE it, and above most of a street is sky. The buffer held the city
@@ -1853,6 +1854,12 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const faunaLayer = () => (fnl || (fnl = createFaunaLayer(gl)));
   let faunaInst = 0;
   const instRecs = [];
+  // …AND PEOPLE, the same way: a pavement figure close enough to be a mesh arrives as a record with
+  // `.actor` (see gl/actors.js and drawActorFigure), in the same list, and is drawn by the same two calls.
+  let acl = null;
+  const actorLayer = () => (acl || (acl = createActorLayer(gl)));
+  let actorInst = 0;
+  const actorRecs = [];
   // ⚠ AND A MURMURATION ARRIVES AS ONE RECORD (`.cloud`), NOT AS ITS BIRDS. Its simulation is stepped
   // HERE, once a frame, because this is the one call guaranteed to come before both the mirror prepass
   // and the main pass — so both draw the flock where it is this frame, not where it was last frame.
@@ -1862,10 +1869,12 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   function uploadSolids(lists) {
     const all = [];
     instRecs.length = 0;
+    actorRecs.length = 0;
     cloudList.length = 0;
     const clouds = [];
     for (const l of lists) if (l && l.length) for (const q of l) {
       if (q.cloud) clouds.push(q);
+      else if (q.actor) actorRecs.push(q);
       else (q.inst ? instRecs : all).push(q);
     }
     // every cloud of the frame stepped under one save of the GL state, not one each
@@ -1879,6 +1888,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (mg && clouds.length) mg.sweep(clouds[0].now);
     solidQuads = all.length ? solidsLayer().upload(all) : 0;
     faunaInst = (instRecs.length || fnl) ? faunaLayer().upload(instRecs) : 0;
+    actorInst = (actorRecs.length || acl) ? actorLayer().upload(actorRecs) : 0;
     return solidQuads;
   }
   function drawSolids(cam, cssH, opts) {
@@ -1888,8 +1898,15 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (opts && opts.film) return solidQuads ? solidsLayer().draw(cam, cssH || canvas.height, opts) : 0;
     if (solidQuads) n += solidsLayer().draw(cam, cssH || canvas.height, opts || {});
     if (faunaInst) faunaLayer().draw(cam, cssH || canvas.height, opts || {});
+    // People only when asked: the main pass draws them after the ground instead (drawActors, and the
+    // note beside its call in world.js), and only the mirror prepass wants them here.
+    if (actorInst && opts && opts.actors) actorLayer().draw(cam, cssH || canvas.height, opts);
     if (cloudList.length) faunaLayer().drawClouds(cam, cssH || canvas.height, canvas.width, canvas.height, opts || {}, cloudList);
     return n;
+  }
+
+  function drawActors(cam, cssH, opts) {
+    return actorInst ? actorLayer().draw(cam, cssH || canvas.height, opts || {}) : 0;
   }
 
   // ── THE INTERIOR: A VIEWMODEL PASS, AND IT HAS TO BE ONE ──────────────
@@ -1994,7 +2011,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Handed the window's cells and the eye in the MESH frame; see gl/skyline.js and the ⚠ on 
   // in world.js. Called before , because the strip is a uniform that draw reads.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, drawSolids, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, beginTarget, composite, hdrPeak, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

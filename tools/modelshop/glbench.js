@@ -6332,3 +6332,85 @@ export function runMurmurCpu({ n = 20000, phase = 'air', back = 6, hour = 17, W 
   return rows;
 }
 if (typeof window !== 'undefined') window.__glMurmurCpu = runMurmurCpu;
+
+// ── DO THE PAVEMENT PEOPLE DRAW AS MESHES? ─────────────────────────────────────────────────────
+//
+// scripts/shapes/actors.mjs proves the sweep hands near figures to gl/actors.js as records. Whether
+// those records turn into people on the screen needs a real context, which is this. A street under a
+// cab, people on both kerbs near and far and a hitcher on the verge; painted with the mesh on and off
+// on the same clock, so the only thing that moved is the figures. `shot: true` hands back the frame
+// with the meshes as a data URL, to look at.
+//
+// A mesh that draws nothing reports 0 changed pixels, which is also what an unwired feature reports,
+// so the verdict is FAILED at 0 rather than OK.
+// `stand: true` swaps the cab for the standing camera the telescope and staff freelook use, a little
+// way down the pavement, which is where somebody is close enough to be looked at.
+// `walk: true` sends everybody a tile north after they have settled, and paints them mid-stride.
+export function runActors({ W = 960, H = 540, hour = 13, thresh = 12, shot = false, stand = false, yaw = 0, cx = 0.36, cy = 0.35, cz = 0.12, walk = false } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__actorbench'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const grab = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const realNow = performance.now.bind(performance);
+  const realDate = Date.now;
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, mesh: RENDER_TUNE.actorMesh };
+  const out = { ok: false };
+  try {
+    const RR = 20, NN = RR * 2 + 1, C = { x: 500, y: 500 };
+    const map = Array.from({ length: NN }, (_, ry) => Array.from({ length: NN }, (_, rx) => {
+      if (rx === RR) return { kind: 'land', biome: 'city', flr: 0, road: 1, rd: 'ns', pw: 1, sl: ry % 3 === 0 ? 1 : undefined };
+      if (Math.abs(rx - RR) === 1) return { kind: 'land', biome: 'city', flr: 0, bt: 'shop', is_building: 1, floors: 3 + ((rx * 7 + ry * 3) % 4) };
+      return { kind: 'land', biome: 'city', flr: 0 };
+    }));
+    // Six-character tokens like the server's, spread over both kerbs and a few tiles of street.
+    const actors = Array.from({ length: 14 }, (_, i) => ({
+      t: (Math.imul(i + 11, 2654435761) >>> 0).toString(36).slice(0, 7),
+      x: C.x, y: C.y - (stand ? 0.5 : 1) - (i % 7) * (stand ? 0.45 : 0.9) - (i > 6 ? 0.2 : 0),
+    }));
+    const common = { worldBlend: 1, height: 0, propMul: 1.75, hour, weather: 'clear', speed: 0, resFloor: 1,
+      map, heading: 0, mapCenter: { ...C }, actors, roadside: { x: C.x + 0.55, y: C.y - 1.6, t: 'hk4x9s2' } };
+    const view = stand
+      ? { ...common, external: true, hideOwnShip: true, phase: 'cruise', mapOffset: { x: 0, y: 0 }, acX: C.x, acY: C.y, airport: 'default',
+          freeCam: { x: cx, y: cy, z: cz, yaw, pitch: 0, roll: 0, fov: 1 } }
+      : { ...common, cls: 'truck', variant: 'hauler', phase: 'ground', eyeH: 0.12, fovMul: 1.22, mapOffset: { x: 0.18, y: 0.2 } };
+    let T = 1e6;
+    performance.now = () => T; Date.now = () => T;
+    const paint = (mesh) => {
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.actorMesh = mesh;
+      paintWindshield('__actorbench', view);
+      T += 1000;                                  // past the fade-in, and the bake runs to completion on a pinned clock
+      paintWindshield('__actorbench', view);
+      if (walk) {
+        const moved = { ...view, actors: actors.map((a) => ({ ...a, y: a.y - 1 })) };
+        for (let i = 0; i < 40; i++) { T += 100; paintWindshield('__actorbench', moved); }
+      }
+      T += 16;
+      paintWindshield('__actorbench', walk ? { ...view, actors: actors.map((a) => ({ ...a, y: a.y - 1 })) } : view);
+      return grab();
+    };
+    const on = paint(1);
+    const url = shot ? el.toDataURL('image/png') : null;
+    const off = paint(0);
+    let n = 0;
+    for (let i = 0; i < on.length; i += 4) {
+      if (Math.abs(on[i] - off[i]) + Math.abs(on[i + 1] - off[i + 1]) + Math.abs(on[i + 2] - off[i + 2]) > thresh) n++;
+    }
+    out.changedPx = n;
+    out.verdict = n ? 'OK — the near figures draw differently as meshes' : 'FAILED — mesh on and off paint the same frame';
+    if (url) out.shot = url;
+    out.frame = glLastFrame();
+    out.ok = true;
+  } finally {
+    performance.now = realNow; Date.now = realDate;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor; RENDER_TUNE.actorMesh = was.mesh;
+    uninstall(); holder.remove();
+  }
+  console.table([{ verdict: out.verdict, changedPx: out.changedPx }]);
+  return out;
+}
+if (typeof window !== 'undefined') window.__glActors = runActors;

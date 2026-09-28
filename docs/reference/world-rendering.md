@@ -673,9 +673,11 @@ wall into the one system whose whole design is that there isn't one. You drive t
 placement comes from the cell's own `rd` connector letters, with the side held per-figure off the
 token so nobody hops kerbs mid-block.
 
-**The figure is an abstraction, not a small human.** A head on a body, no limbs. At the size this
-draws, legs are a pixel wide and read as jitter; motion is carried entirely by the bob. Height-gated
-(`v.height < 0.22`), so it really lives in the truck cab and on low passes.
+**Far away the figure is an abstraction; close up it's a person.** The billboard is a head on a
+body with no limbs, because at a few pixels legs read as jitter and the bob carries the motion. On
+GLASS 2, somebody taller than `RENDER_TUNE.actorMeshPx` (8 device pixels) is drawn as a skinned
+mesh instead (see below). The whole layer only draws while `v.height < 0.22`, so it lives in the
+truck cab, the standing camera and on low passes.
 
 **Going 1:1 made `zone.npcs` drift visible, and that is what finally got it swept.** The set had no
 reconciler for years because drift in it showed as *nothing* — `getZoneNpcs` filters ids it cannot
@@ -689,6 +691,47 @@ drifted set and is blind to a wrongly-written field — `moveNpcToZone` is still
 Coverage: `shapes:smoke`'s view sweep cycles four actor frames (arrive → walk → vanish beside a
 building → appear), and the flight regress suite asserts the 1:1 count, the opaque token, the square
 window, the empty-is-a-real-answer case and the indoors exclusion.
+
+### Close figures as meshes (as built)
+
+[actor3d.js](../../client/game/js/panels/actor3d.js) builds one skinned body (coat, trousers,
+shoes, hands and a face) on a 17-bone skeleton, with three looping clips: walk, idle and wave. The
+walk's joint curves follow clinical gait data, and its root motion is solved so the foot that's
+down stays still. The bake skins every vertex for every frame and writes two RGBA16F textures,
+positions and normals, with a column per vertex and three rows per frame: 762×336 texels, about
+4 MB for the pair. [gl/actors.js](../../client/game/js/panels/gl/actors.js) draws everybody in one
+instanced call, picking and blending texture rows by `gl_VertexID` the way `gl/fauna.js` does for
+the birds.
+
+- **Who gets one.** `drawActorFigure` pushes a record into `FAUNA_SINK` instead of a billboard when
+  GLASS 2 is on, `installGLActorMesh(true)` has run (only `gl/install.js` and the gate call it),
+  `RENDER_TUNE.actorMesh` is 1, the bake has finished, and the figure is at least `actorMeshPx`
+  tall. Everybody else, and everybody on GLASS 1, is the billboard.
+- **Size.** The mesh is scaled so its head tops out where the billboard's does
+  (`ACTOR_TOP · ACTOR_S · _propK / cam.depth` tiles), so crossing the LOD line doesn't change
+  anybody's height.
+- **Motion.** A walker's gait phase is the distance covered over the stride, so the feet match the
+  ground at any pace. Walkers turn toward the way they're going at 4 rad/s, and starting or
+  stopping blends walk and idle over 350 ms. The hitcher plays the wave and faces the camera.
+- **Outfits come from the token, never the NPC.** Coat, trousers, skin, hair and shoes are picked
+  by weight from `ACTOR_OUTFITS` off `actorHash(t, …)`. Dressing a figure in the NPC's real clothes
+  would make the coat an identity you could read from a street away, which is the tracker the
+  opaque token exists to prevent. With an outfit, the billboard's tone bucket comes from the coat's
+  lightness, so a figure keeps its brightness across the LOD switch.
+- **Draw order.** The main pass draws people after the ground, not with the solids. The pavement
+  band is translucent paint a kerb's height above the road and figures stand at road level like the
+  billboards, so drawn before it the band blended over their lower legs. The mirror prepass still
+  draws them with the solids.
+- **The bake is incremental.** It costs about 2 ms a frame for 112 frames, so the street pass runs
+  it 2 ms at a time and draws billboards until it's done.
+
+Gate: `npm run gl:actors` ([scripts/shapes/actors.mjs](../../scripts/shapes/actors.mjs)) checks
+the bake (texture size, clean loops, a foot always on the ground, outward winding, planted feet),
+the outfits (deterministic per token, varied, every colour reachable) and the sweep: near figures
+become records and far ones stay billboards, no record carries a token or an id, a walker faces its
+heading and its gait matches the distance moved, the hitcher faces the camera, and nothing changes
+with the switch off. The pixels are checked in the Modelshop with `__glActors()`, which renders the
+street with the mesh on and off, from the cab or the standing camera.
 
 ## Street furniture — pavement, crossings, lamps, signals (as built)
 
