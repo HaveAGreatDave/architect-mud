@@ -24410,7 +24410,10 @@ function rampTex(a, b) {
 // ⚠ AND THE QUAD'S CORNERS ARE ITS UVs: the head of the ramp lands on corner 0, so a caller hands
 // its points over in reading order — top-left, top-right, bottom-right, bottom-left — the same
 // order every other textured quad in this file arrives in.
-function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT, tag = '', solid = false, ramp = null) {
+// `skin` is the same idea one step further: `{ key, img }`, a page baked by the caller that
+// replaces the fill on the GPU (the Shingles' weathered tarps, `clothTex`). The 2-D fallback still
+// paints `css`, which the caller sets to the page's own base colour, so the two agree at a glance.
+function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT, tag = '', solid = false, ramp = null, skin = null) {
   const pr = W.map((q) => cam.proj(q[0], q[1], q[2]));
   if (pr.some((q) => q.f <= 0.1)) return;
   const paint = () => {
@@ -24444,8 +24447,8 @@ function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT, tag = '', solid
   // the arc's springing. That is what St Garneau's belfries were wearing — a grey slab over each
   // pair of openings, masking the holes and the doors under them — and the 2-D fallback never showed
   // it, because `paint` fills the whole path. A fan is one entry per triangle and the same picture.
-  const KEY = (tag ? tag + '|' : '') + (ramp ? 'ramp|' + ramp[0] + '|' + ramp[1] : 'solid|' + css),
-        IMG = ramp ? rampTex(ramp[0], ramp[1]) : solidTex(css), SOL = solid && TUNE.glBoardDepth !== 0;
+  const KEY = (tag ? tag + '|' : '') + (skin ? skin.key : ramp ? 'ramp|' + ramp[0] + '|' + ramp[1] : 'solid|' + css),
+        IMG = skin ? skin.img : ramp ? rampTex(ramp[0], ramp[1]) : solidTex(css), SOL = solid && TUNE.glBoardDepth !== 0;
   if (w.length < 4) { DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, p: [w[0], w[1], w[2], w[2]] }); return; }
   if (w.length === 4) { DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, p: w }); return; }
   for (let i = 1; i + 1 < w.length; i++) {
@@ -37865,28 +37868,6 @@ const TARPS = [
   [140, 116, 74],   // ochre site sheet
   [112, 84, 66],    // orange, most of the way to rust
 ];
-// The camp writes on itself. Short, hand-painted, and none of it is a joke: these are the things
-// somebody living here would bother putting on a sheet other people walk past.
-//
-// ⚠ THE LIST IS THREE REGISTERS AND NOT ONE, and that is what stops a row of camp tiles reading as
-// a slogan wall. A TERRITORY line is addressed outward, at the city; a NOTICE is addressed at the
-// lane, and is the only one with a practical purpose; a NAME is addressed at one person who may
-// not be coming. The third kind is the one that does the work — a camp that only ever shouts is a
-// protest, and a camp with somebody's name and a date on a tarp is people living somewhere.
-// ⚠ And nothing here is a joke and nothing here is a verdict. [story.md] gets no help from a wall
-// that is bleak about itself; what these are is short, because paint is expensive.
-const CAMP_SLOGANS = [
-  // territory
-  'BETTER THAN THE UNDER', 'NO ROOM', 'WE WERE HERE FIRST', 'THIS IS OURS NOW',
-  'THE WALL CAME TO US',
-  // notice
-  'WATER 2 DOORS', 'NO FIRES AFTER DARK', 'BOIL IT TWICE', 'KNOCK FIRST',
-  'SHARE OR MOVE ON', 'ASK FOR HESTIA',
-  // somebody
-  'MARGIT COME BACK', 'STILL WAITING', 'WE KEPT YOUR PLACE', 'HE WAS SIX',
-  'ROSA LIVED HERE', 'NOT GONE', 'I AM NOT MOVING',
-];
-
 function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   if (ADORN_TIER < ADORN_CHEAP) return;
   const near = ADORN_TIER >= ADORN_NEAR;
@@ -37901,12 +37882,11 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
   // few pixels leaking round the edge), and a pool on the ground beside a dark wedge reads as a
   // lamp somebody left outside. The night factor is LIFTED rather than cancelled, so a lit tent is
   // still a night-time tent and not a daylight one pasted into the dark.
-  const tone = (rgb, k, warm = 0) => {
-    const n = 1 - nightF * 0.62 * (1 - warm * 0.72);
-    const a = warm * nightF;
-    const r = rgb[0] * k * n + a * 96, g = rgb[1] * k * n + a * 62, b = rgb[2] * k * n + a * 18;
-    return 'rgb(' + Math.min(255, Math.round(r)) + ',' + Math.min(255, Math.round(g)) + ',' + Math.min(255, Math.round(b)) + ')';
-  };
+  // ⚠ IT IS `slumTone` NOW, the same arithmetic quantised, so a tent near to can wear the baked
+  // page (`clothTex`) its colour keys, and the sheets on the buildings match these exactly.
+  const tone = (rgb, k, warm = 0) => slumTone(rgb, k, nightF, warm);
+  // A tent's canvas: the weathered page near to, the flat colour beyond (see `clothTex`).
+  const cloth = (pts, css, tag) => clothFill(ctx, cam, pts, css, alpha, DECO_LIFT * 0.1, tag);
   // Sun shading off the frame's own key (LIGHT_STATE, the light the walls are shaded against), so
   // the slope turned to the sun is the bright one whichever way the camp faces; `up` is how much of
   // a face looks at the sky. No light state (a capture pass) falls back to the fixed 1 / 0.62 / 0.78
@@ -37955,24 +37935,24 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
       // every seat that can see the tile and is a third of the cost for nothing.
       const P = [[cx - w, cy - l, 0], [cx - w, cy + l, 0], [cx + w, cy - l, 0], [cx + w, cy + l, 0],
                  [cx, cy - l, t], [cx, cy + l, t]];
-      emitDecoFill(ctx, cam, [P[0], P[1], P[5], P[4]], shade, alpha, DECO_LIFT * 0.1, 'camp|slope');
-      emitDecoFill(ctx, cam, [P[2], P[3], P[5], P[4]], lit, alpha, DECO_LIFT * 0.1, 'camp|slope');
-      emitDecoFill(ctx, cam, [P[0], P[2], P[4]], gab, alpha, DECO_LIFT * 0.1, 'camp|gable');
+      cloth([P[0], P[1], P[5], P[4]], shade, 'camp|slope');
+      cloth([P[2], P[3], P[5], P[4]], lit, 'camp|slope');
+      cloth([P[0], P[2], P[4]], gab, 'camp|gable');
     } else if (kind === 1) {
       // A FLAT TARP ON POSTS, which is the commonest thing in the concept art and the one shape a
       // ridge tent cannot stand in for: a sheet held up at the corners, open on every side, with a
       // SAG in it. The sag is two quads at slightly different heights rather than a curve, the same
       // trick the flophouse roof uses, and it is what stops this reading as a table.
       const s = t * 0.74, sag = t * 0.60;
-      emitDecoFill(ctx, cam, [[cx - w, cy - l, s], [cx, cy - l, sag], [cx, cy + l, sag], [cx - w, cy + l, s]], shade, alpha, DECO_LIFT * 0.1, 'camp|tarp');
-      emitDecoFill(ctx, cam, [[cx + w, cy - l, s], [cx, cy - l, sag], [cx, cy + l, sag], [cx + w, cy + l, s]], lit, alpha, DECO_LIFT * 0.1, 'camp|tarp');
+      cloth([[cx - w, cy - l, s], [cx, cy - l, sag], [cx, cy + l, sag], [cx - w, cy + l, s]], shade, 'camp|tarp');
+      cloth([[cx + w, cy - l, s], [cx, cy - l, sag], [cx, cy + l, sag], [cx + w, cy + l, s]], lit, 'camp|tarp');
       if (near) for (const [px, py] of [[cx - w, cy - l], [cx + w, cy - l], [cx - w, cy + l], [cx + w, cy + l]])
         emitWire(ctx, cam, [px, py, 0], [px, py, s], 1, DARK, alpha, { lift: DECO_LIFT * 0.1 });
     } else {
       // A LEAN-TO: one slope from a high edge down to the ground, with a back wall. Half a tent,
       // which is what you build when you have half a tarp.
-      emitDecoFill(ctx, cam, [[cx - w, cy - l, t], [cx + w, cy - l, t], [cx + w, cy + l, 0], [cx - w, cy + l, 0]], lit, alpha, DECO_LIFT * 0.1, 'camp|lean');
-      emitDecoFill(ctx, cam, [[cx - w, cy - l, 0], [cx + w, cy - l, 0], [cx + w, cy - l, t], [cx - w, cy - l, t]], shade, alpha, DECO_LIFT * 0.1, 'camp|lean');
+      cloth([[cx - w, cy - l, t], [cx + w, cy - l, t], [cx + w, cy + l, 0], [cx - w, cy + l, 0]], lit, 'camp|lean');
+      cloth([[cx - w, cy - l, 0], [cx + w, cy - l, 0], [cx + w, cy - l, t], [cx - w, cy - l, t]], shade, 'camp|lean');
     }
 
     // THE PATCH. A smaller quad in a DIFFERENT tarp's colour laid on the lit slope, which is the
@@ -37982,9 +37962,8 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
       const pt = TARPS[Math.floor(frac(seed * 91 + i * 7) * TARPS.length) % TARPS.length];
       const pw = w * 0.42, pl = l * 0.38, pz = t * (kind === 2 ? 0.62 : 0.46);
       const ox = cx + w * 0.34, oy = cy + (frac(seed + i * 11) - 0.5) * l * 0.7;
-      emitDecoFill(ctx, cam, [[ox - pw, oy - pl, pz + pl * 0.5], [ox + pw, oy - pl, pz + pl * 0.5],
-                              [ox + pw, oy + pl, pz], [ox - pw, oy + pl, pz]],
-        tone(pt, 0.86), alpha, DECO_LIFT * 0.1, 'camp|patch');
+      cloth([[ox - pw, oy - pl, pz + pl * 0.5], [ox + pw, oy - pl, pz + pl * 0.5],
+             [ox + pw, oy + pl, pz], [ox - pw, oy + pl, pz]], tone(pt, 0.86), 'camp|patch');
     }
 
     // The spill out of the open end. Small, and at the GABLE rather than at the centre: the mouth
@@ -38063,38 +38042,248 @@ function drawTentCamp(ctx, cam, dx, dy, fh, seed, night, alpha) {
     glowPool(ctx, cam, bx, by, fh * 0.02, '255,140,58', 26, alpha * 0.22 * nightF);
   }
 
-  // ── THE PAINT ──────────────────────────────────────────────────────────────
-  // One tile in four has something written on the biggest sheet facing the lane. ⚠ It goes through
-  // `bakeTagText` rather than `bakeSignText` because it is a scrawl and not signage — a hand-style
-  // marker run, which is what somebody writes on canvas — and through `emitSurfaceText`, which
-  // takes PROJECTED corners. Near tier only: below a certain size it is a smear, and a smear where
-  // a sentence should be is worse than bare tarp.
-  // ⚠ IT WAS ONE TILE IN FOUR AND THAT WAS TOO FEW TO READ AS A PLACE THAT WRITES ON ITSELF: at
-  // three lines and a quarter of the tiles, a walk down the Pitch passed two sheets with anything
-  // on them. Two in three now, and one tile in three of those carries a SECOND at a different
-  // height in a different ink — which is what a sheet that has been up for years looks like, and
-  // it is also what stops the two registers reading as one voice.
-  if (near) for (let k = 0; k < 2; k++) {
-    // Two tiles in three carry a line; one in three carries a second, and every tile with a second
-    // has a first, so the pair is a sheet written on twice rather than two unrelated rolls.
-    if (k === 0 ? (seed % 3) === 2 : (seed % 3) !== 0) continue;
-    const sw = fh * (0.34 + frac(seed * 17 + k * 7) * 0.10);
-    const sz = fh * (k ? 0.17 : 0.31), sy = dy - R * (k ? 0.42 : 0.30);
-    const sx = dx + (frac(seed * 23 + k * 31) - 0.5) * R * (k ? 0.8 : 0.5);
-    const hh = fh * (k ? 0.11 : 0.15);
-    const P = (ox, oz) => cam.proj(sx + ox, sy, oz);
-    const TL = P(-sw, sz), TR = P(sw, sz), BR = P(sw, sz - hh), BL = P(-sw, sz - hh);
-    if (![TL, TR, BR, BL].every((q) => q && q.f > 0.12)) continue;
-    // ⚠ THE SECOND LINE IS TAKEN FROM A DIFFERENT PART OF THE LIST, never re-rolled freely: two
-    // territory lines on one tarp is a placard, and the pairing that carries the district is a
-    // notice over somebody's name. The offset walks the roll past its own register.
-    const n = CAMP_SLOGANS.length;
-    const idx = (Math.floor(frac(seed * 29 + k * 53) * n) + (k ? 7 : 0)) % n;
-    // Chalk-white, or the ink the rest of the camp scrounges. Both are what is to hand.
-    const ink = k && (seed & 2) ? '#c9a46a' : '#e6e0cf';
-    const tex = bakeTagText(CAMP_SLOGANS[idx], null, ink, 0, seed + k * 101, 3, 'handstyle');
-    if (tex) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha * (k ? 0.78 : 0.9));
+  // ⚠ THERE IS NO PAINT ON THE CANVAS ANY MORE. Two tiles in three used to carry a hand-painted
+  // slogan (eighteen lines in three registers), and none of them had ever drawn: the camp ran at
+  // whatever tier the last building left behind, which is never NEAR, and the paint was near tier
+  // only. When that was fixed at the call site the slogans came off rather than on, under the
+  // district's rule that nothing in the Shingles carries words (the block comment over the Old
+  // Coldwater arms). The weathered canvas (`clothTex`) is what the sheets carry instead.
+}
+
+// ── THE SHINGLES' REPAIRS — the Pitch's tarps, carried onto the buildings beside it ──────────
+// Old Coldwater is mended the way the camp is: with whatever sheet was to hand, tied down over
+// whatever came off. Every arm in that block reaches for the same three things, a DRAPED SHEET
+// with a sag in it, a CURTAIN hung down a wall in strips, and a HOLE, so they live here once. Six
+// arms drawing a tarp six ways would be six tarps that do not match the tents forty feet away.
+//
+// ⚠ NONE OF IT IS MASS, for the camp's reason: a sheet has a sag in it and a box cannot. It all
+// goes through `emitDecoFill`, which GLASS 2 depth-tests, so every sheet is authored PROUD of the
+// surface it lies on. In that surface's plane it ties on the depth buffer, and a tie is a loss.
+//
+// ⚠ POINTS ARE MODEL-LOCAL and go through the arm's own `W3`, so a tarp turns with the entrance
+// the way every box in the arm does.
+//
+// ⚠ AND THE PULL IS A TIE-BREAKER, NEVER A LIFT, and a small one. Every sheet here is already
+// authored two or three FACE_EPS proud of what it lies on, so the pull only has to settle a tie;
+// at 0.02 it dragged a curtain's hem out past a jetty corner and a rope's end out of the post it
+// was tied to, and `glself` counted both (scripts/shapes/glself.mjs).
+const SLUM_PULL = DECO_PULL * 0.1;
+const SLUM_ROPE = 'rgb(46,42,37)';
+// Galvanised sheet gone dull, and the same sheet gone to rust. Every patch here is one or the other.
+const SLUM_TIN = [112, 110, 100], SLUM_RUST = [116, 80, 56];
+// A sheet's sun term: the camp's `faceK` asked of a face at any angle rather than three fixed ones.
+// The normal is turned toward the eye, because a sheet is seen from whichever side the eye is on,
+// and the underside of an awning is the dark side whatever the sun is doing.
+function slumFaceK(cam, w) {
+  const a = w[0], b = w[1], c = w[w.length - 1];
+  const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+  const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+  let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const L = Math.hypot(nx, ny, nz) || 1;
+  nx /= L; ny /= L; nz /= L;
+  if (nx * ((cam.ex || 0) - a[0]) + ny * ((cam.ey || 0) - a[1]) + nz * ((cam.EH || 0) - a[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+  const LS = LIGHT_STATE;
+  const up = Math.max(0, nz), down = Math.max(0, -nz);
+  if (!LS) return 0.62 + 0.3 * up - 0.1 * down;
+  const litC = clamp(0.5 + (nx * LS.sx + ny * LS.sy) * 0.5, 0, 1);
+  return 0.50 + 0.48 * (litC * (1 - up - down) + 0.86 * up);
+}
+// The camp's `tone`, shared by the camp and the buildings. `warm` is a lamp under the sheet: it
+// lights the sheet from inside, so it is a term on the colour rather than a glow beside it (the ⚠
+// on the camp's own shading). ⚠ BOTH INPUTS ARE QUANTISED, because the colour string is the decal's
+// key and, near to, the key of a baked page (`clothTex`): a continuous shade mints a page per face,
+// and a continuous night mints the whole camp again every frame through dusk.
+function slumTone(rgb, k, nightF, warm = 0) {
+  const q = Math.round(k * 24) / 24, nq = Math.round(nightF * 16) / 16;
+  const n = 1 - nq * 0.62 * (1 - warm * 0.72), a = warm * nq;
+  return 'rgb(' + Math.min(255, Math.round(rgb[0] * q * n + a * 96)) + ',' + Math.min(255, Math.round(rgb[1] * q * n + a * 62))
+    + ',' + Math.min(255, Math.round(rgb[2] * q * n + a * 18)) + ')';
+}
+// ── THE WEATHER ON A SHEET ───────────────────────────────────────────────────────────────────
+// A tarp that has been up for years is not one colour. The top has gone pale in the sun, the foot
+// has taken the mud off the lane, water has stood in it and dried in rings, and it has been folded
+// in the same place so often the fold shows. A flat fill says none of that, so near to, every sheet
+// in the Shingles and the Pitch wears a baked page instead: grain and a faint weave, the bleached
+// head, dirt rising from the foot to a ragged line, two stain rings with the runs under them, a
+// crease, and mildew in the lower half. `tin` is the same page for a sheet of corrugate: ribs
+// instead of weave and rust instead of mud.
+//
+// ⚠ ONE PAGE PER COLOUR, NEVER PER SHEET. The page is keyed on the colour the flat fill would have
+// been, so near-tier cloth mints exactly the pages the solid fills already did and no more; the
+// four stain layouts are picked off a hash of that colour rather than rolled per sheet, which is
+// what keeps the two slopes of one tent from matching without multiplying the count by four.
+// ⚠ AND THE FOOT IS v = 1. The quad's corners are its UVs, so a caller hands its corners through
+// `clothOrder`, which puts the high edge first whichever way the sheet was walked.
+// ⚠ AND NEAR TIER ONLY. A page of grain minified to a few pixels shimmers as you move; the flat
+// fill is what a sheet looks like from further off anyway.
+const CLOTH_PX = 32;
+function clothTex(css, kind = 'cloth') {
+  let hv = 0;
+  for (let i = 0; i < css.length; i++) hv = (hv * 31 + css.charCodeAt(i)) | 0;
+  const variant = Math.abs(hv) & 3;
+  const key = 'cloth|' + kind + '|' + css;
+  const img = bakeQuadTex(key, CLOTH_PX, CLOTH_PX, (g, W, H) => {
+    g.fillStyle = css; g.fillRect(0, 0, W, H);
+    // A stub context (the node smoke) hands back no pixels; the page is then the flat fill.
+    const page = typeof g.getImageData === 'function' ? g.getImageData(0, 0, W, H) : null;
+    const d = page && page.data;
+    if (!d || d.length !== W * H * 4) return;
+    const hsh = (x, y, k) => frac(Math.sin(x * 127.1 + y * 311.7 + k * 74.7) * 43758.5453);
+    const ph = variant * 2.3;
+    const stains = [0, 1].map((j) => [0.2 + 0.6 * frac(variant * 0.37 + j * 0.53), 0.18 + 0.4 * frac(variant * 0.61 + j * 0.29), 0.1 + 0.08 * j]);
+    const fold = 0.45 + 0.35 * frac(variant * 0.43 + 0.2);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const u = x / (W - 1), v = y / (H - 1), i = (y * W + x) * 4;
+      let m = 1 + (hsh(x, y, variant) - 0.5) * 0.16, rust = 0;
+      if (kind === 'tin') {
+        m *= (x & 3) < 2 ? 1.07 : 0.9;
+        rust = clamp((v - 0.45 + (hsh(x >> 2, y >> 2, variant + 9) - 0.5) * 0.6) * 2.2, 0, 1);
+      } else {
+        if ((x + y) & 1) m *= 0.985;
+        m *= 1 + 0.07 * (1 - v);
+        const c = u * 0.7 + v - fold;
+        if (Math.abs(c) < 0.035) m *= c > 0 ? 0.9 : 1.08;
+        for (const [sx, sy, r] of stains) {
+          const dd = Math.hypot(u - sx, v - sy);
+          m *= 1 - 0.22 * Math.exp(-((dd - r) * (dd - r)) / 0.0012) - (dd < r ? 0.05 : 0);
+          if (v > sy && Math.abs(u - sx - r * 0.3) < 0.025) m *= 1 - 0.12 * (1 - (v - sy));
+        }
+        if (v > 0.35 && hsh(x, y, variant + 3) > 0.965) m *= 0.6;
+      }
+      const edge = 0.56 + 0.13 * Math.sin(u * 8.2 + ph) + 0.07 * Math.sin(u * 19.1 + ph * 1.7);
+      const dirt = clamp((v - edge) / (1 - edge), 0, 1);
+      m *= 1 - 0.46 * dirt;
+      d[i] = clamp(d[i] * m * (1 + 0.04 * dirt + 0.3 * rust), 0, 255);
+      d[i + 1] = clamp(d[i + 1] * m * (1 - 0.12 * rust), 0, 255);
+      d[i + 2] = clamp(d[i + 2] * m * (1 - 0.12 * dirt - 0.4 * rust), 0, 255);
+    }
+    g.putImageData(page, 0, 0);
+  });
+  return { key, img };
+}
+// A sheet's corners with its HIGH edge first, so `clothTex`'s foot lands at the bottom. A triangle
+// (a gable) is its apex twice and then its base, which squeezes the page to a point at the top.
+function clothOrder(w) {
+  if (w.length === 3) {
+    const t = w[0][2] >= w[1][2] ? (w[0][2] >= w[2][2] ? 0 : 2) : (w[1][2] >= w[2][2] ? 1 : 2);
+    return [w[t], w[t], w[(t + 1) % 3], w[(t + 2) % 3]];
   }
+  if (w.length !== 4) return w;
+  return (w[0][2] + w[1][2]) >= (w[2][2] + w[3][2]) ? w : [w[2], w[3], w[0], w[1]];
+}
+// A sheet in world points, textured near to. The camp and `slumSheet` both come through here.
+function clothFill(ctx, cam, w, css, alpha, lift, tag, kind = 'cloth') {
+  if (ADORN_TIER < ADORN_NEAR || !kind) { emitDecoFill(ctx, cam, w, css, alpha, lift, tag); return; }
+  emitDecoFill(ctx, cam, clothOrder(w), css, alpha, lift, tag, false, null, clothTex(css, kind));
+}
+// One sheet through `pts` (model-local, three or four of them), shaded by where it faces. `kind`
+// is the page it wears near to (`clothTex`), or null for a plain fill.
+function slumSheet(ctx, cam, W3, pts, rgb, nightF, alpha, warm = 0, kind = 'cloth') {
+  const w = pts.map((p) => W3(p[0], p[1], p[2]));
+  clothFill(ctx, cam, w, slumTone(rgb, slumFaceK(cam, w), nightF, warm), alpha, SLUM_PULL, 'slum|sheet', kind);
+}
+// A DRAPED TARP, from its head edge `a`→`b` to its foot edge `d`→`c`, with the fold halfway between
+// the two dropped by `sag`. Two quads meeting at a fold rather than a curve, the trick the camp's
+// flat tarp and the flophouse ridge both use, and the fold is what stops it reading as a board.
+// `patch` lays a smaller sheet of a different tarp over the head half: nothing here was ever one
+// piece.
+function slumDrape(ctx, cam, W3, a, b, c, d, sag, rgb, nightF, alpha, warm = 0, patch = null) {
+  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2 - sag];
+  const m0 = mid(a, d), m1 = mid(b, c);
+  slumSheet(ctx, cam, W3, [a, b, m1, m0], rgb, nightF, alpha, warm);
+  slumSheet(ctx, cam, W3, [m0, m1, c, d], rgb, nightF, alpha, warm);
+  if (patch && ADORN_TIER >= ADORN_NEAR) {
+    // A third of the way along the head half and a little proud of it, so the depth buffer has it.
+    const L = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t + FACE_EPS];
+    const h0 = L(a, b, 0.22), h1 = L(a, b, 0.52), f0 = L(m0, m1, 0.22), f1 = L(m0, m1, 0.52);
+    slumSheet(ctx, cam, W3, [L(h0, f0, 0.25), L(h1, f1, 0.25), L(h1, f1, 0.85), L(h0, f0, 0.85)], patch, nightF, alpha, warm);
+  }
+}
+// A CURTAIN: a sheet hung from the line `A`→`B` (model-local [x, y]) at height `z1`, in `n` strips
+// that each stop at a different height, because a hung tarp tears from the bottom and nobody hems
+// it. `drop` is the longest strip. The strips are separate quads so the ragged edge costs nothing.
+function slumCurtain(ctx, cam, W3, A, B, z1, drop, n, rgb, seed, nightF, alpha, warm = 0) {
+  for (let i = 0; i < n; i++) {
+    const t0 = i / n, t1 = (i + 1) / n;
+    const x0 = A[0] + (B[0] - A[0]) * t0, y0 = A[1] + (B[1] - A[1]) * t0;
+    const x1 = A[0] + (B[0] - A[0]) * t1, y1 = A[1] + (B[1] - A[1]) * t1;
+    const z0 = z1 - drop * (0.55 + frac(seed * 7 + i * 13) * 0.45);
+    slumSheet(ctx, cam, W3, [[x0, y0, z1], [x1, y1, z1], [x1, y1, z0], [x0, y0, z0]], rgb, nightF, alpha, warm);
+  }
+}
+// A HOLE in a wall: a ragged dark opening with the broken edge of the wall showing round it.
+// `P(u, z, o)` maps a position across the face, a height and an outward offset to a model-local
+// point ON that face and already proud of it. The rim goes on the face and the void FACE_EPS in
+// front of it, so the depth buffer keeps them in that order.
+// ⚠ THE OUTLINE IS NEARLY CONVEX ON PURPOSE. `emitDecoFill` fans a polygon from its first corner,
+// and a deep notch would fan a sliver outside the hole. Eleven corners, each nudged round and out by
+// its own roll, is ragged at every distance a hole is visible from and only shallowly concave; eight
+// evenly spaced ones read from the lane as an octagonal window.
+function slumHole(ctx, cam, W3, P, u, z, ru, rz, rim, seed, alpha) {
+  const ring = (s, o) => {
+    const pts = [];
+    for (let i = 0; i < 11; i++) {
+      const t = (i + (frac(seed * 5 + i * 3) - 0.5) * 0.6) / 11 * Math.PI * 2, r = s * (0.66 + frac(seed * 11 + i * 17) * 0.48);
+      const p = P(u + Math.cos(t) * ru * r, z + Math.sin(t) * rz * r, o);
+      pts.push(W3(p[0], p[1], p[2]));
+    }
+    return pts;
+  };
+  emitDecoFill(ctx, cam, ring(1.22, 0), rim, alpha, SLUM_PULL, 'slum|hole');
+  emitDecoFill(ctx, cam, ring(1, FACE_EPS), 'rgba(16,14,13,0.97)', alpha, SLUM_PULL, 'slum|hole');
+}
+// AN OPENING on a face, in the three states every window in the Shingles is in: 0 BOARDED, a pale
+// panel with two planks nailed across it at an angle nobody measured (the ruin's own boarding);
+// 1 DEAD, black; 2 LIVED IN, black by day and a warm pane after dark. `P` is `slumHole`'s mapper.
+function slumOpening(ctx, cam, W3, P, u, z, w, hh, kind, seed, nightF, alpha) {
+  const q = [P(u - w, z + hh, 0), P(u + w, z + hh, 0), P(u + w, z - hh, 0), P(u - w, z - hh, 0)].map((p) => W3(p[0], p[1], p[2]));
+  const css = kind === 0 ? 'rgba(74,62,46,0.96)' : (kind === 2 && nightF > 0.3) ? 'rgba(204,146,82,0.92)' : 'rgba(16,14,13,0.97)';
+  emitDecoFill(ctx, cam, q, css, alpha, SLUM_PULL, 'slum|opening');
+  if (kind !== 0 || ADORN_TIER < ADORN_NEAR) return;
+  for (const k of [0.32, 0.68]) {
+    const zz = z - hh + 2 * hh * k, tilt = (frac(seed * 13 + k * 97) - 0.5) * hh * 0.6;
+    const a = P(u - w * 1.14, zz - tilt, FACE_EPS), b = P(u + w * 1.14, zz + tilt, FACE_EPS);
+    emitWire(ctx, cam, W3(a[0], a[1], a[2]), W3(b[0], b[1], b[2]), 3, 'rgb(96,82,60)', alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL });
+  }
+}
+// A SCRAWL: spray paint with no words in it. Two zigzag passes at arm's height and a couple of drips
+// run down from them, in the kit's own spray colours, so the Shingles is painted on as heavily as
+// anywhere in the city while carrying no lettering at all. ⚠ WORDS ARE THE ONE THING IT MUST NOT
+// GROW: a throw-up reads as a logo at any distance a cab sees it from, and after dark `bakeTagText`
+// lights it, which on a slum wall is a sign. Near tier, because 2px of colour at range is noise.
+function slumScrawl(ctx, cam, W3, P, u, z, w, hh, seed, nightF, alpha) {
+  if (ADORN_TIER < ADORN_NEAR) return;
+  const base = TAG_COLS[Math.floor(frac(seed * 53) * TAG_COLS.length) % TAG_COLS.length];
+  const col = nightF > 0.3 ? tagMix(base, '#1a1c22', 0.55) : base;
+  const o = { lift: DECO_LIFT * 0.1, pull: SLUM_PULL };
+  const at = (x, zz) => { const p = P(x, zz, FACE_EPS); return W3(p[0], p[1], p[2]); };
+  for (let pass = 0; pass < 2; pass++) {
+    const n = 5 + pass * 2;
+    let prev = null;
+    for (let k = 0; k <= n; k++) {
+      const x = u - w + (2 * w * k) / n;
+      const zz = z + (k % 2 ? hh : -hh) * (0.45 + frac(seed * 7 + k * 13 + pass * 31) * 0.6) + pass * hh * 0.35;
+      const p = at(x, zz);
+      if (prev) emitWire(ctx, cam, prev, p, 2, col, alpha * 0.9, o);
+      prev = p;
+    }
+  }
+  for (let k = 0; k < 2; k++) {
+    const x = u + (frac(seed * 59 + k * 17) - 0.5) * w * 1.4;
+    emitWire(ctx, cam, at(x, z - hh * 0.4), at(x, z - hh * (1.4 + frac(seed * 61 + k) * 1.6)), 1, col, alpha * 0.7, o);
+  }
+}
+// A ROPE, near tier only: a guy line is 1px of dark at any range, and at a distance a building's
+// ropes read as a scribble over the sheet they are holding down (the camp's own guy-line note).
+function slumRope(ctx, cam, W3, a, b, alpha) {
+  if (ADORN_TIER < ADORN_NEAR) return;
+  emitWire(ctx, cam, W3(a[0], a[1], a[2]), W3(b[0], b[1], b[2]), 1, SLUM_ROPE, alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL });
+}
+// Is the model-local face with outward normal (nx, ny), standing `off` out from the tile centre,
+// turned toward the eye? The arm's own `frontVis` asked of any of the four faces.
+function slumFaceVis(cam, dx, dy, E, nx, ny, off) {
+  const wx = nx * E[1] + ny * E[0], wy = -nx * E[0] + ny * E[1];
+  return (wx * (dx + wx * off) + wy * (dy + wy * off) - (wx * (cam.ex || 0) + wy * (cam.ey || 0))) < 0;
 }
 function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   draw3DBoxAt(ctx, cam, dx, dy, fh, 0, h * 0.7, bi, seed, night, alpha, true);
@@ -53545,11 +53734,18 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
     }
     // ── OLD COLDWATER (docs/proposals/old-coldwater.md) ──────────────────────
     // The Shingles: five trades and a ruin, on the oldest ground in the city. What holds the six
-    // together is a rule rather than a palette — NOT ONE OF THEM CARRIES A LIT SIGN. Every other
-    // arm in this switch ends in a marquee, a blade or a fascia; these end in a window, a bulb or
-    // nothing, because a district where the buildings advertise is a district with money in it.
+    // together is a rule rather than a palette — NOT ONE OF THEM CARRIES A SIGN WITH WORDS ON IT,
+    // lit or painted. Every other arm in this switch ends in a marquee, a blade or a fascia; these
+    // end in a window, a bulb or nothing, because a district where the buildings advertise is a
+    // district with money in it. The kit is held to the same rule (SLUM_DECLINE, UNSIGNED_TRADE).
     // After dark this block is five small warm rectangles and a brazier, and that is the whole
     // read of it from the air.
+    //
+    // ⚠ AND EVERY ONE OF THEM IS SHORT OF A PIECE (the shanty pass). A corner storey gone, a roof
+    // open to the sky, a breach nailed over, and a tarp from the Pitch over whatever came off,
+    // through the helpers beside `drawTentCamp` so the sheets on the buildings match the sheets
+    // on the tents. The rule for what is broken: MASS is never gated on the camera or the tier (the
+    // mesh is captured once and shared by every tile), and everything painted on is.
     case 'ruin': {   // A house that came down and was never cleared, because clearing it would mean
       // agreeing whose it was. The one arm here with no door, no window, no sign and no light: a
       // `ruin` tile carries no `facade` tag, so it never reaches the icon path or
@@ -53631,26 +53827,72 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       }
       // 9) THE PAINT. A ruin is the wall every reference photograph of graffiti was ever taken
       //    against: no glazing, no sign, no camera, nobody to complain to, and eleven years of it.
-      //    ⚠ IT IS PAINTED HERE RATHER THAN LEFT TO THE DERIVED KIT. `TAG_DENSE` eases this trade's
-      //    gates and the kit's own note records that nobody has yet seen a piece land on one of
-      //    these walls — the kit needs a bare RUN at its paint band, and this arm's frontage is two
-      //    short boxes with openings in them rather than the long clear flank it searches for.
-      if (frontVis && ADORN_TIER >= ADORN_NEAR) {
+      //    ⚠ IT IS PAINTED HERE RATHER THAN LEFT TO THE DERIVED KIT, which declines paint for the
+      //    whole slum (SLUM_DECLINE). ⚠ AND IT HAS NO WORDS IN IT. This drew five throw-ups off
+      //    `bakeTagText`, and a bubble-letter word on a black opening read from the lane as a shop
+      //    board, lit after dark. `slumScrawl` is the same five patches of paint with the letters
+      //    taken out of them.
+      const nightF = night ? clamp(night, 0, 1) : 0;
+      if (frontVis) {
         const fy = FD + FACE_EPS * 2;
+        const P = (u, z, o) => [u, fy + o, z];
         for (let i = 0; i < 5; i++) {
           const hi = i < 2;
           const bz = (hi ? gable : mid) * (0.22 + frac(seed * 31 + i * 17) * 0.30);
-          const bh = fh * (0.055 + frac(seed * 37 + i * 7) * 0.035);
-          const bw = fh * (0.13 + frac(seed * 41 + i * 5) * 0.09);
+          const bh = fh * (0.035 + frac(seed * 37 + i * 7) * 0.025);
+          const bw = fh * (0.10 + frac(seed * 41 + i * 5) * 0.07);
           const bx = (hi ? hiX : loX) + (frac(seed * 43 + i * 19) - 0.5) * HW * 0.9;
-          const P = (ox, oz) => { const [wx, wy] = F(bx + ox, fy); return cam.proj(wx, wy, oz); };
-          const q = [P(-bw, bz + bh), P(bw, bz + bh), P(bw, bz - bh), P(-bw, bz - bh)];
-          if (!q.every((p) => p && p.f > 0.12)) continue;
-          // The hand is rolled off the same number the word comes from, which is the rule the kit
-          // already follows: a fresh roll for the hand shifts the stream and moves the word too.
-          const v = Math.floor(frac(seed * 53 + i * 29) * 997);
-          const tex = bakeTagText(tagWordFor(v), null, TAG_COLS[v % TAG_COLS.length], night ? 1 : 0, v, 3 + (v % 3), tagHandFor(v));
-          if (tex) emitSurfaceText(ctx, cam, q, tex, false, alpha);
+          slumScrawl(ctx, cam, W3, P, bx, bz, bw, bh, seed * 3 + i * 29, nightF, alpha);
+        }
+      }
+      // 9b) AND THE BACK GETS THE SAME, because on both ruins the back is what the lane sees. A
+      //     ruin has no door, so its front is `faceVec`'s default (south, onto the Pitch), and
+      //     Ropewalk and Rag Row were looking at the one bare wall in the district. Giving the tiles
+      //     an `entrance` would fix the facing and make each a door the map audit then looks for.
+      if (slumFaceVis(cam, dx, dy, E, 0, -1, FD)) {
+        const by = -FD - FACE_EPS * 2;
+        const P = (u, z, o) => [u, by - o, z];
+        slumOpening(ctx, cam, W3, P, hiX - HW * 0.44, gable * 0.29, HW * 0.26, gable * 0.13, 0, seed + 3, nightF, alpha);
+        slumOpening(ctx, cam, W3, P, hiX + HW * 0.44, gable * 0.71, HW * 0.26, gable * 0.13, 1, seed + 4, nightF, alpha);
+        slumOpening(ctx, cam, W3, P, loX + HW * 0.35, mid * 0.5, HW * 0.26, mid * 0.24, 1, seed + 5, nightF, alpha);
+        slumScrawl(ctx, cam, W3, P, hiX + HW * 0.25, gable * 0.24, fh * 0.14, fh * 0.045, seed * 3 + 7, nightF, alpha);
+        slumScrawl(ctx, cam, W3, P, loX - HW * 0.35, mid * 0.30, fh * 0.12, fh * 0.04, seed * 3 + 11, nightF, alpha);
+      }
+      // 10) SOMEBODY LIVES IN THE OPEN HALF. A tarp is slung off the standing half's party wall and
+      //     over the broken one, resting on the teeth, with its far edge hanging down the outside
+      //     wall. It is the one thing that turns a heap into an address, and the camp's own
+      //     colours are the reason it reads as the Pitch having moved indoors. The teeth come up
+      //     through it; nobody here was going to cut holes in a good sheet.
+      const ti = Math.floor(frac(seed * 61) * TARPS.length) % TARPS.length;
+      const warm = nightF > 0.3 ? 0.55 : 0;
+      {
+        const x0 = hiX + HW + FACE_EPS * 2, x1 = loX + HW + FACE_EPS * 2;
+        const yb = -FD * 0.92, yf = FD * (0.10 + frac(seed * 67) * 0.22);
+        const zh = mid + h * 0.12, zf = mid + h * 0.015;
+        slumDrape(ctx, cam, W3, [x0, yb, zh], [x0, yf, zh], [x1, yf, zf], [x1, yb, zf], h * 0.05,
+          TARPS[ti], nightF, alpha, warm, TARPS[(ti + 2) % TARPS.length]);
+        slumCurtain(ctx, cam, W3, [x1 + FACE_EPS, yb], [x1 + FACE_EPS, yf], zf, mid * 0.55, 4, TARPS[ti], seed, nightF, alpha, warm);
+        slumRope(ctx, cam, W3, [x1, yf, zf], [x1 + fh * 0.10, yf + fh * 0.08, 0], alpha);
+        slumRope(ctx, cam, W3, [x1, yb, zf], [x1 + fh * 0.10, yb - fh * 0.06, 0], alpha);
+        // The lamp under it: the spill at the open end, which is the only way out of a tarp a lamp
+        // has (the camp's gable-mouth rule).
+        if (warm) { const [gx, gy] = F(loX, yf + FD * 0.08); glowPool(ctx, cam, gx, gy, mid * 0.45, '255,186,104', 8, alpha * 0.34 * nightF); }
+      }
+      // 11) THE STOVEPIPE through the tarp, the tell that the lamp is not the only thing in there.
+      { const [px, py] = F(loX + HW * 0.35, -FD * 0.45); draw3DBoxAt(ctx, cam, px, py, fh * 0.018, 0, mid + h * 0.26, 'ty_oc_tin', seed + 50, night, alpha, true); }
+      // 12) A SHEET OF TIN LEANED ON THE FRONT of the open half, over what used to be a doorway.
+      //     A lean is a slope this projection's boxes cannot draw, so it is a sheet: foot out in the
+      //     lane, head against the wall, and three corrugations down it where you are close enough
+      //     to see them.
+      if (frontVis) {
+        // The foot stands on the near edge of the rubble rather than on the lane, a hand up: at the
+        // lane it was behind the spill from a cab, and the tie-breaker brought it through.
+        const x0 = loX + HW * 0.05, x1 = loX + HW * 0.62, top = mid * 0.72, fy = FD + FACE_EPS * 3;
+        const ft = fy + fh * 0.07, fz = h * 0.03;
+        slumSheet(ctx, cam, W3, [[x0, fy, top], [x1, fy, top], [x1, ft, fz], [x0, ft, fz]], SLUM_TIN, nightF, alpha, 0, 'tin');
+        if (ADORN_TIER >= ADORN_NEAR) for (let i = 1; i < 4; i++) {
+          const x = x0 + (x1 - x0) * i / 4;
+          emitWire(ctx, cam, W3(x, fy + FACE_EPS, top), W3(x, ft + FACE_EPS, fz), 1, 'rgba(40,40,36,0.7)', alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL });
         }
       }
       break;
@@ -53680,6 +53922,44 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       // 5) THE QUEUE RAIL. A bar on the front, and the only piece of street furniture in the
       //    district that somebody bolted down on purpose.
       { const [qx, qy] = F(0, fh * 0.74); draw3DBoxAt(ctx, cam, qx, qy, fh * 0.48, h * 0.13, h * 0.16, 'ty_oc_tank', seed + 7, night, alpha, true, faceYaw(E), fh * 0.03); }
+      // 6) THE HUT'S LEFT FLANK HAS BEEN KICKED IN and mended with two sheets of tin, one newer
+      //    than the other. They are mass, a hair proud of the boards, because a patch you can see
+      //    the edge of from the lane is a patch.
+      { const [ax, ay] = F(-fh * 0.53, fh * 0.12); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.012, h * 0.03, h * 0.22, 'ty_oc_tin', seed + 8, night, alpha, true, faceYaw(E), fh * 0.20); }
+      { const [bx, by] = F(-fh * 0.535, -fh * 0.24); draw3DBoxAt(ctx, cam, bx, by, fh * 0.012, h * 0.08, h * 0.26, 'ty_oc_tin', seed + 9, night, alpha, true, faceYaw(E), fh * 0.14); }
+      const nightF = night ? clamp(night, 0, 1) : 0;
+      const hw = fh * 0.52 + FACE_EPS * 2;
+      // 7) THE HUT'S ROOF IS A TARP NOW, because the tank sweats and the lid under it rotted first.
+      //    Flat on the lid, pulled over the back edge and hanging down it, and tied off to the
+      //    trestle legs, which are the only things here strong enough to tie to.
+      slumSheet(ctx, cam, W3, [[-hw, -hw, hutTop + FACE_EPS], [hw * 0.55, -hw, hutTop + FACE_EPS], [hw * 0.55, hw, hutTop + FACE_EPS], [-hw, hw, hutTop + FACE_EPS]], TARPS[0], nightF, alpha);
+      slumCurtain(ctx, cam, W3, [-hw, -hw], [hw * 0.55, -hw], hutTop, h * 0.16, 4, TARPS[0], seed, nightF, alpha);
+      // Tied round the inner corner of each leg, never at its centre, which is inside the post.
+      slumRope(ctx, cam, W3, [-hw, -hw, hutTop], [-fh * 0.60, -fh * 0.60, deck * 0.5], alpha);
+      slumRope(ctx, cam, W3, [-hw, hw, hutTop], [-fh * 0.60, fh * 0.60, deck * 0.5], alpha);
+      // 8) THE QUEUE GETS A SHEET OVER IT, from the hut's eaves out past the rail to two sticks, in
+      //    a different tarp from the roof because it came from a different place.
+      for (const s of [-1, 1]) { const [px, py] = F(s * fh * 0.58, fh * 0.96); draw3DBoxAt(ctx, cam, px, py, fh * 0.015, 0, h * 0.19, 'ty_oc_board_dk', seed + 10, night, alpha, true); }
+      slumDrape(ctx, cam, W3, [-fh * 0.62, hw, hutTop - h * 0.02], [fh * 0.62, hw, hutTop - h * 0.02],
+        [fh * 0.62, fh * 0.96, h * 0.19], [-fh * 0.62, fh * 0.96, h * 0.19], h * 0.02, TARPS[3], nightF, alpha, 0, TARPS[1]);
+      // 9) THE TANK WEEPS RUST from under its top hoop, in three streaks that taper as they run.
+      //    Each point sits on the tank's own taper, a hair proud, so a streak follows the plate
+      //    down rather than standing off it at the bottom. Near tier: at range it is a few pixels of
+      //    a colour the tank already nearly is. (It was a riveted patch first, and a square of rust
+      //    with a drip under it read from the lane as a board on a post.)
+      if (frontVis && ADORN_TIER >= ADORN_NEAR) {
+        const rad = (z) => fh * (0.62 - 0.04 * (z - deck) / (tankTop - deck)) * Math.cos(Math.PI / 11) + FACE_EPS * 2;
+        const on = (u, z) => [u, Math.sqrt(Math.max(0, rad(z) * rad(z) - u * u)), z];
+        const zt = tankTop - h * 0.08;
+        for (let i = 0; i < 3; i++) {
+          const u = fh * (-0.22 + i * 0.19 + (frac(seed * 17 + i) - 0.5) * 0.06), w = fh * (0.022 + frac(seed * 5 + i) * 0.012);
+          const zb = zt - (tankTop - deck) * (0.35 + frac(seed * 13 + i * 7) * 0.40);
+          slumSheet(ctx, cam, W3, [on(u - w, zt), on(u + w, zt), on(u + w * 0.3, zb), on(u - w * 0.3, zb)], SLUM_RUST, nightF, alpha * 0.85, 0, null);
+        }
+      }
+      if (slumFaceVis(cam, dx, dy, E, 1, 0, fh * 0.52)) {
+        slumScrawl(ctx, cam, W3, (u, z, o) => [fh * 0.52 + FACE_EPS * 2 + o, u, z], fh * 0.10, h * 0.15, fh * 0.20, h * 0.03, seed + 11, nightF, alpha);
+      }
       if (night) { const [gx, gy] = F(0, fh * 0.52); glowPool(ctx, cam, gx, gy, h * 0.24, '255,214,150', 7, alpha * 0.20); }
       break;
     }
@@ -53784,23 +54064,81 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       // 2) THREE JETTIED TIMBER STOREYS, each wider than the one under it. The oversail is small
       //    and it is cumulative, which is exactly how the real thing looks.
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.86, ground, s1, pal, seed + 1, night, alpha, false);
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, s1, s2, pal, seed + 2, night, alpha, false);
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.97, s2, eaves, pal, seed + 3, night, alpha, false);
+      // ⚠ THIS ONE HAS A LID NOW, because the storey above it no longer covers all of it: where
+      //    the top floor came down, its floor is what you see from the air, open to the weather.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, s1, s2, pal, seed + 2, night, alpha, true);
+      // THE TOP STOREY IS TWO-THIRDS OF ONE. The left corner came down years ago and took its
+      // share of the roof with it; the right two-thirds stands, and the chimney breast stands on
+      // its own in the gap, because a stack is the only part of a timber house that was brick.
+      const brk = -fh * 0.25;   // the line the top floor broke along
+      { const [ax, ay] = F((brk + fh * 0.97) / 2, 0); draw3DBoxAt(ctx, cam, ax, ay, (fh * 0.97 - brk) / 2, s2, eaves, pal, seed + 3, night, alpha, false, faceYaw(E), fh * 0.97); }
+      // What is left of the fallen corner: a stub of wall a hand high with no lid, and three
+      // lengths of front and back wall standing proud of it at three heights, the ruin's teeth.
+      { const [bx, by] = F((brk - fh * 0.97) / 2, 0); draw3DBoxAt(ctx, cam, bx, by, (fh * 0.97 + brk) / 2, s2, s2 + h * 0.04, pal, seed + 11, night, alpha, false, faceYaw(E), fh * 0.97); }
+      for (let i = 0; i < 3; i++) {
+        const [tx, ty] = F(-fh * (0.86 - i * 0.24), (i === 1 ? -1 : 1) * fh * 0.93);
+        draw3DBoxAt(ctx, cam, tx, ty, fh * 0.09, s2, s2 + h * (0.06 + frac(seed * 19 + i * 7) * 0.08), pal, seed + 12 + i, night, alpha, true, faceYaw(E), fh * 0.035);
+      }
       // 3) THE ROOF, in split shingles, and the reason the district is called the Shingles. Drawn
       //    as two courses with the upper one NARROW AND BARELY PROUD, because the ridge has given:
       //    a sag is not a curve this projection can draw, and a roof that steps down toward its
       //    own middle reads as one from every angle you can actually see this building from.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.97, eaves, eaves + h * 0.07, 'ty_oc_shake', seed + 4, night, alpha, true);
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.60, eaves + h * 0.07, eaves + h * 0.10, 'ty_oc_shake', seed + 5, night, alpha, true);
+      //    Over the standing two-thirds only.
+      { const [rx, ry] = F((brk + fh * 0.97) / 2, 0);
+        draw3DBoxAt(ctx, cam, rx, ry, (fh * 0.97 - brk) / 2, eaves, eaves + h * 0.07, 'ty_oc_shake', seed + 4, night, alpha, true, faceYaw(E), fh * 0.97);
+        draw3DBoxAt(ctx, cam, rx, ry, fh * 0.38, eaves + h * 0.07, eaves + h * 0.10, 'ty_oc_shake', seed + 5, night, alpha, true, faceYaw(E), fh * 0.60); }
       // 4) THE EXTERNAL STAIR, bolted to the flank. There is no diagonal in this projection, so it
-      //    is drawn as its LANDINGS — four boxes stepping up the side — which is what a stair
-      //    actually reads as from any distance at which this building is on screen at all.
+      //    is drawn as its LANDINGS, boxes stepping up the side, which is what a stair actually
+      //    reads as from any distance at which this building is on screen at all. ⚠ THE THIRD ONE
+      //    IS MISSING and that is the point of it: it went, nobody put it back, and the top floor
+      //    is reached from inside or not at all.
       for (let i = 0; i < 4; i++) {
+        if (i === 2) continue;
         const [lx, ly] = F(fh * 0.90, fh * (0.40 - i * 0.26));
         draw3DBoxAt(ctx, cam, lx, ly, fh * 0.09, h * (0.10 + i * 0.20), h * (0.14 + i * 0.20), 'ty_oc_board_dk', seed + 6 + i, night, alpha, true, faceYaw(E), fh * 0.14);
       }
       // 5) THE CHIMNEY off the front-desk stove, which never goes out.
       { const [cx, cy] = F(-fh * 0.48, -fh * 0.40); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.09, s2, eaves + h * 0.26, 'ty_oc_brick_dk', seed + 10, night, alpha, true); }
+      // 6) TIN OVER THE WORST OF THE BOARDS: one sheet across the second floor's front where a
+      //    window was, and one down the first floor's flank, mass and a hair proud, because the
+      //    edge is the patch.
+      { const [px, py] = F(fh * 0.56, fh * 0.932); draw3DBoxAt(ctx, cam, px, py, fh * 0.15, s1 + h * 0.03, s1 + h * 0.15, 'ty_oc_tin', seed + 16, night, alpha, true, faceYaw(E), fh * 0.012); }
+      { const [px, py] = F(-fh * 0.872, -fh * 0.18); draw3DBoxAt(ctx, cam, px, py, fh * 0.012, ground + h * 0.02, ground + h * 0.15, 'ty_oc_tin', seed + 17, night, alpha, true, faceYaw(E), fh * 0.17); }
+      const nightF = night ? clamp(night, 0, 1) : 0;
+      // 7) THE TARP OVER THE GAP. Head nailed along the standing wall under the eaves, foot on the
+      //    teeth, and the far edge let down the west flank in strips. It covers the front of the
+      //    break and not the back, so from the air you see sheet, then open floor, then the stack.
+      {
+        const xh = brk - FACE_EPS * 2, xf = -fh * 0.97 - FACE_EPS * 2, yb = -fh * 0.28, yf = fh * 0.97 + FACE_EPS * 2;
+        const zh = eaves - h * 0.04, zf = s2 + h * 0.07;
+        slumDrape(ctx, cam, W3, [xh, yb, zh], [xh, yf, zh], [xf, yf, zf], [xf, yb, zf], h * 0.05, TARPS[0], nightF, alpha, 0, TARPS[4]);
+        // The fall stops short of the front corner: its hem there hangs past the jetty of the storey
+        // below, where a cab sees it through that storey's corner, and the tie-breaker brings it out.
+        slumCurtain(ctx, cam, W3, [xf - FACE_EPS, yb], [xf - FACE_EPS, fh * 0.30], zf, h * 0.16, 4, TARPS[0], seed, nightF, alpha);
+        slumRope(ctx, cam, W3, [xf, yf, zf], [-fh * 0.86 - FACE_EPS, fh * 0.45, s1 - h * 0.05], alpha);
+        slumRope(ctx, cam, W3, [xf, yb, zf], [-fh * 0.86 - FACE_EPS, yb, s1 - h * 0.05], alpha);
+        // The rafters the roof left behind over the open back of the break, hanging off the wall
+        // plate toward the teeth. Near tier, the ruin's joists' reason.
+        for (let i = 0; i < 3; i++) {
+          const ry = -fh * (0.60 + i * 0.13);
+          slumRope(ctx, cam, W3, [brk - FACE_EPS, ry, eaves], [brk - fh * (0.34 + frac(seed * 23 + i) * 0.30), ry, s2 + h * 0.08], alpha);
+        }
+      }
+      // 8) THE OPENINGS. The front had none drawn, and a doss house with no windows reads as a
+      //    shed. Every storey gets a few, rolled per tile across the three states, and the door
+      //    is a tarp hung across a hole, which is what the door of a place like this is.
+      if (frontVis) {
+        const rows = [[ground, s1, fh * 0.86, [-0.52, 0, 0.52]], [s1, s2, fh * 0.92, [-0.56, -0.04, 0.28]], [s2, eaves, fh * 0.97, [0.12, 0.62]]];
+        rows.forEach(([z0, z1, y, xs], r) => xs.forEach((ux, i) => {
+          const kind = Math.floor(frac(seed * 31 + r * 7 + i * 13) * 3);
+          const P = (u, z, o) => [u, Math.min(y, 0.44) + FACE_EPS * 2 + o, z];
+          slumOpening(ctx, cam, W3, P, fh * ux, (z0 + z1) / 2, fh * 0.09, (z1 - z0) * 0.26, kind, seed + r * 5 + i, nightF, alpha);
+        }));
+        const dy0 = Math.min(fh * 0.80, 0.44) + FACE_EPS * 2;
+        slumOpening(ctx, cam, W3, (u, z, o) => [u, dy0 + o, z], -fh * 0.10, h * 0.095, fh * 0.13, h * 0.095, 1, seed, nightF, alpha);
+        slumScrawl(ctx, cam, W3, (u, z, o) => [u, dy0 + o, z], fh * 0.42, h * 0.13, fh * 0.20, h * 0.03, seed + 7, nightF, alpha);
+        slumCurtain(ctx, cam, W3, [-fh * 0.23, dy0 + FACE_EPS * 2], [fh * 0.03, dy0 + FACE_EPS * 2], h * 0.19, h * 0.19, 3, TARPS[2], seed + 3, nightF, alpha);
+      }
       if (night) {
         // Lit windows up the front, small and few. Most of the beds are taken and most of the
         // people in them are asleep; the landing lamp is the only thing burning all night.
@@ -53820,30 +54158,55 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       // 1) THE HALL, deliberately deeper than it is wide: the long axis runs BACK from the lane,
       //    so from the street this is a narrow gable and from the air it is a shed.
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.70, 0, wallTop, pal, seed, night, alpha, false, faceYaw(E), fh * 0.96);
-      // 2) THE ROOF, one span of galvanised sheet, proud all round.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.76, wallTop, ridge, 'ty_oc_tin', seed + 1, night, alpha, true, faceYaw(E), fh * 1.00);
+      // 2) THE ROOF, one span of galvanised sheet, proud all round. It was. The back third rusted
+      //    through over the range and came in, so the tin stops a third of the way short of the
+      //    back wall and what is over the kitchen is a tarp, with a hole left round the stack
+      //    because nobody wanted a sheet that close to a flue.
+      const rb = -fh * 0.30;   // where the tin gives out
+      { const [rx, ry] = F(0, (rb + fh * 1.00) / 2); draw3DBoxAt(ctx, cam, rx, ry, fh * 0.76, wallTop, ridge, 'ty_oc_tin', seed + 1, night, alpha, true, faceYaw(E), (fh * 1.00 - rb) / 2); }
       // 3) THE CHIMNEY. A range with four pots on it needs a real stack, and it is the tallest
       //    thing on the building by a long way.
       { const [cx, cy] = F(fh * 0.40, -fh * 0.70); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.13, 0, ridge + h * 0.34, 'ty_oc_brick_dk', seed + 2, night, alpha, true); }
       // 4) THE QUEUE CANOPY, a slab on two posts over the pavement at head height. A soffit down
       //    there is a shape nothing else in this district has, and after dark it is what the light
-      //    out of the serving hatch actually lands on.
-      { const [ax, ay] = F(0, fh * 1.00); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.72, h * 0.22, h * 0.25, 'ty_oc_tin', seed + 3, night, alpha, true, faceYaw(E), fh * 0.20); }
+      //    out of the serving hatch actually lands on. ⚠ HALF OF IT IS TIN AND HALF IS A TARP: the
+      //    east end blew off in a storm and was put back with what the Pitch could spare.
+      { const [ax, ay] = F(-fh * 0.30, fh * 1.00); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.42, h * 0.22, h * 0.25, 'ty_oc_tin', seed + 3, night, alpha, true, faceYaw(E), fh * 0.20); }
       for (const px of [-fh * 0.62, fh * 0.62]) {
         const [qx, qy] = F(px, fh * 1.14); draw3DBoxAt(ctx, cam, qx, qy, fh * 0.035, 0, h * 0.22, 'ty_oc_board_dk', seed + 4, night, alpha, false);
       }
-      // THE NAME BOARD IS PAINT, like Stuff It's and for a different reason: there has never been
-      // any money for a light and there has never been any point advertising a queue. ⚠ `dn: 0`
-      // rather than the `night ? 1 : 0` every lit caller passes, so it stays paint after dark.
-      // It sits ABOVE the canopy and BELOW the eaves, on the hall's own front wall at y 0.97.
+      // 5) THE WEAR, painted on. ⚠ THE NAME BOARD THAT USED TO BE HERE IS GONE ON PURPOSE: nothing in
+      //    the Shingles has words on it, and she has never needed a sign to tell the queue where it
+      //    is standing. Where it hung is a boarded-up window now.
+      const nightF = night ? clamp(night, 0, 1) : 0;
+      // The tarp over the kitchen, from the torn edge of the tin down over the back wall, stopping
+      // short of the stack; and the rafters that are left over the hole round it.
+      {
+        const yh = rb - FACE_EPS * 2, yf = -fh * 1.00 - FACE_EPS * 2, xl = -fh * 0.78, xr = fh * 0.24;
+        slumDrape(ctx, cam, W3, [xl, yh, ridge], [xr, yh, ridge], [xr, yf, wallTop + h * 0.01], [xl, yf, wallTop + h * 0.01],
+          h * 0.04, TARPS[1], nightF, alpha, 0, TARPS[3]);
+        slumCurtain(ctx, cam, W3, [xl, yf - FACE_EPS], [xr, yf - FACE_EPS], wallTop + h * 0.01, h * 0.15, 4, TARPS[1], seed, nightF, alpha);
+        slumRope(ctx, cam, W3, [xl, yf, wallTop], [-fh * 0.70 - FACE_EPS, -fh * 0.80, h * 0.20], alpha);
+        for (const rx of [fh * 0.60, fh * 0.68]) slumRope(ctx, cam, W3, [rx, rb, wallTop + h * 0.02], [rx, -fh * 0.94, wallTop - h * 0.02], alpha);
+      }
+      // The tarp half of the queue canopy, and the strip of it that hangs off the front.
+      {
+        const x0 = fh * 0.12, x1 = fh * 0.72, yw = fh * 0.97, yo = fh * 1.18;
+        slumDrape(ctx, cam, W3, [x0, yw, h * 0.25], [x1, yw, h * 0.25], [x1, yo, h * 0.215], [x0, yo, h * 0.225], h * 0.02, TARPS[4], nightF, alpha);
+        slumCurtain(ctx, cam, W3, [x0, yo + FACE_EPS], [x1, yo + FACE_EPS], h * 0.215, h * 0.05, 3, TARPS[4], seed + 1, nightF, alpha);
+      }
+      // A tin sheet over a hole in one flank, and a tarp nailed over a worse one in the other.
+      { const [px, py] = F(fh * 0.712, fh * 0.30); draw3DBoxAt(ctx, cam, px, py, fh * 0.012, h * 0.05, h * 0.30, 'ty_oc_tin', seed + 5, night, alpha, true, faceYaw(E), fh * 0.20); }
+      if (slumFaceVis(cam, dx, dy, E, -1, 0, fh * 0.70)) {
+        slumCurtain(ctx, cam, W3, [-fh * 0.70 - FACE_EPS * 2, -fh * 0.20], [-fh * 0.70 - FACE_EPS * 2, fh * 0.42], h * 0.37, h * 0.27, 3, TARPS[2], seed + 2, nightF, alpha);
+      }
       if (frontVis) {
-        const PT = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
-        const bz0 = h * 0.31, bz1 = h * 0.41, bhw = fh * 0.60, byy = fh * 0.97;
-        const TL = PT(-bhw, byy, bz1), TR = PT(bhw, byy, bz1), BR = PT(bhw, byy, bz0), BL = PT(-bhw, byy, bz0);
-        if ([TL, TR, BR, BL].every((q) => q.f > 0.12)) {
-          const tex = bakeSignText(sign || 'NO SUCH THING', '#e8dcbe', 0, false);
-          if (tex) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha);
-        }
+        const fy = fh * 0.96 + FACE_EPS * 2;
+        const P = (u, z, o) => [u, fy + o, z];
+        slumOpening(ctx, cam, W3, P, -fh * 0.34, h * 0.35, fh * 0.20, h * 0.05, 0, seed, nightF, alpha);
+        slumOpening(ctx, cam, W3, P, fh * 0.22, h * 0.13, fh * 0.15, h * 0.04, 2, seed + 1, nightF, alpha);
+        slumHole(ctx, cam, W3, P, fh * 0.40, h * 0.35, fh * 0.09, h * 0.045, 'rgb(78,62,50)', seed, alpha);
+        slumScrawl(ctx, cam, W3, P, -fh * 0.40, h * 0.12, fh * 0.18, h * 0.03, seed + 5, nightF, alpha);
       }
       if (night) { const [gx, gy] = F(0, fh * 0.92); glowPool(ctx, cam, gx, gy, h * 0.20, '255,198,126', 9, alpha * 0.26); }
       break;
@@ -53854,15 +54217,42 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       // no name on this building anywhere, which is the other half of the same fact.
       const wallTop = h * 0.34, ridge = h * 0.44;
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.68, 0, wallTop, pal, seed, night, alpha, false);
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.74, wallTop, ridge, 'ty_oc_tin', seed + 1, night, alpha, true);
+      // THE ROOF is tin with its back corner gone, as two slabs in an L round the hole. The flue
+      // comes up through the gap, which is how the gap started.
+      { const [ax, ay] = F(0, fh * 0.32); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.74, wallTop, ridge, 'ty_oc_tin', seed + 1, night, alpha, true, faceYaw(E), fh * 0.42); }
+      { const [bx, by] = F(fh * 0.32, -fh * 0.42); draw3DBoxAt(ctx, cam, bx, by, fh * 0.42, wallTop, ridge, 'ty_oc_tin', seed + 7, night, alpha, true, faceYaw(E), fh * 0.32); }
       // THE WINDOW: one opening, sill to head, filling most of the front of a very small building.
       { const [wx, wy] = F(0, fh * 0.58); draw3DBoxAt(ctx, cam, wx, wy, fh * 0.40, h * 0.12, h * 0.28, 'ty_oc_glass', seed + 2, night, alpha, false, faceYaw(E), fh * 0.14); }
       // THE LEAN-TO over the bench, where the queue sits. Lower and shallower than the canteen's
-      // canopy two doors down, and the same idea, because it is the same problem.
-      { const [ax, ay] = F(fh * 0.50, fh * 0.84); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.34, h * 0.22, h * 0.25, 'ty_oc_tin', seed + 3, night, alpha, true, faceYaw(E), fh * 0.20); }
-      { const [px, py] = F(fh * 0.80, fh * 1.00); draw3DBoxAt(ctx, cam, px, py, fh * 0.03, 0, h * 0.22, 'ty_oc_board_dk', seed + 4, night, alpha, false); }
+      // canopy two doors down, and the same idea, because it is the same problem. It was tin; it
+      // is a tarp on two sticks now (see below), so only the sticks and the bench are mass.
+      for (const px of [fh * 0.20, fh * 0.80]) { const [qx, qy] = F(px, fh * 1.00); draw3DBoxAt(ctx, cam, qx, qy, fh * 0.03, 0, h * 0.22, 'ty_oc_board_dk', seed + 4, night, alpha, false); }
       { const [bx, byy] = F(fh * 0.50, fh * 0.88); draw3DBoxAt(ctx, cam, bx, byy, fh * 0.30, h * 0.07, h * 0.10, 'ty_oc_board_dk', seed + 5, night, alpha, true, faceYaw(E), fh * 0.07); }
       { const [fx2, fy2] = F(-fh * 0.40, -fh * 0.42); draw3DBoxAt(ctx, cam, fx2, fy2, fh * 0.06, wallTop, ridge + h * 0.22, 'ty_oc_brick_dk', seed + 6, night, alpha, true); }
+      // Tin over a kicked-in panel on the far flank, mass and a hair proud.
+      { const [px, py] = F(fh * 0.692, -fh * 0.30); draw3DBoxAt(ctx, cam, px, py, fh * 0.012, h * 0.04, h * 0.24, 'ty_oc_tin', seed + 8, night, alpha, true, faceYaw(E), fh * 0.16); }
+      const nightF = night ? clamp(night, 0, 1) : 0;
+      // The tarp over the missing corner of the roof, off the edge of the tin and down the flank.
+      {
+        const xh = -fh * 0.10 - FACE_EPS * 2, xf = -fh * 0.74 - FACE_EPS * 2, y0 = -fh * 0.76, y1 = -fh * 0.10;
+        slumDrape(ctx, cam, W3, [xh, y0, ridge], [xh, y1, ridge], [xf, y1, wallTop + h * 0.01], [xf, y0, wallTop + h * 0.01], h * 0.04, TARPS[0], nightF, alpha, 0, TARPS[2]);
+        slumCurtain(ctx, cam, W3, [xf - FACE_EPS, y0], [xf - FACE_EPS, y1], wallTop + h * 0.01, h * 0.16, 3, TARPS[0], seed, nightF, alpha);
+        slumRope(ctx, cam, W3, [xf, y0, wallTop], [-fh * 0.68 - FACE_EPS, y0 + fh * 0.1, h * 0.06], alpha);
+      }
+      // The lean-to's sheet, from over the window head out to the sticks.
+      slumDrape(ctx, cam, W3, [fh * 0.16, fh * 0.72 + FACE_EPS * 2, h * 0.30], [fh * 0.84, fh * 0.72 + FACE_EPS * 2, h * 0.30],
+        [fh * 0.84, fh * 1.02, h * 0.215], [fh * 0.16, fh * 1.02, h * 0.215], h * 0.02, TARPS[1], nightF, alpha);
+      if (slumFaceVis(cam, dx, dy, E, -1, 0, fh * 0.68)) {
+        slumScrawl(ctx, cam, W3, (u, z, o) => [-fh * 0.68 - FACE_EPS * 2 - o, u, z], fh * 0.22, h * 0.13, fh * 0.18, h * 0.03, seed + 9, nightF, alpha);
+      }
+      // A pane that went and was taped rather than replaced: glass costs what a week of her work
+      // costs, and tape is tape. Near tier, and only on the side you can see.
+      if (frontVis && ADORN_TIER >= ADORN_NEAR) {
+        const ty = fh * 0.72 + FACE_EPS * 2, tape = 'rgba(214,206,176,0.85)';
+        const [ax, bx, z0, z1] = [fh * 0.06, fh * 0.34, h * 0.14, h * 0.26];
+        emitWire(ctx, cam, W3(ax, ty, z0), W3(bx, ty, z1), 2, tape, alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL });
+        emitWire(ctx, cam, W3(ax, ty, z1), W3(bx, ty, z0), 2, tape, alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL });
+      }
       if (night) { const [gx, gy] = F(0, fh * 0.72); glowPool(ctx, cam, gx, gy, h * 0.20, '255,236,196', 11, alpha * 0.38); }
       break;
     }
@@ -53871,22 +54261,54 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
       // inside. Nothing else in Coldwater is deliberately unfinished, and from the air the tile
       // reads as a building with its front torn off, which is exactly what it is.
       const counter = h * 0.16, backTop = h * 0.46, ridge = h * 0.56;
-      // 1) THE BACK ROOM, full height. The still is in there and it is the only part with walls.
-      { const [bx, byy] = F(0, -fh * 0.34); draw3DBoxAt(ctx, cam, bx, byy, fh * 0.72, 0, backTop, pal, seed, night, alpha, false, faceYaw(E), fh * 0.50); }
-      { const [rx, ry] = F(0, -fh * 0.34); draw3DBoxAt(ctx, cam, rx, ry, fh * 0.78, backTop, ridge, 'ty_oc_tin', seed + 1, night, alpha, true, faceYaw(E), fh * 0.56); }
+      // 1) THE BACK ROOM, full height. The still is in there and it is the only part with walls,
+      //    and not all of those: the corner round the still went (nobody will say how), so the
+      //    room stands two-thirds of its width under its roof and the last third is a wall a
+      //    little over head height with teeth along the top, open to the sky.
+      const brk = fh * 0.30;   // where the back room broke
+      { const [bx, byy] = F((brk - fh * 0.72) / 2, -fh * 0.34); draw3DBoxAt(ctx, cam, bx, byy, (brk + fh * 0.72) / 2, 0, backTop, pal, seed, night, alpha, false, faceYaw(E), fh * 0.50); }
+      { const [bx, byy] = F((brk + fh * 0.72) / 2, -fh * 0.34); draw3DBoxAt(ctx, cam, bx, byy, (fh * 0.72 - brk) / 2, 0, h * 0.26, pal, seed + 6, night, alpha, false, faceYaw(E), fh * 0.50); }
+      for (let i = 0; i < 3; i++) {
+        const [tx, ty] = F(i < 2 ? fh * (0.42 + i * 0.20) : fh * 0.70, i < 2 ? -fh * 0.82 : -fh * 0.20);
+        draw3DBoxAt(ctx, cam, tx, ty, i < 2 ? fh * 0.07 : fh * 0.025, h * 0.26, h * (0.30 + frac(seed * 29 + i * 5) * 0.09), pal, seed + 7 + i, night, alpha, true, faceYaw(E), i < 2 ? fh * 0.025 : fh * 0.08);
+      }
+      { const [rx, ry] = F((brk - fh * 0.78) / 2 + fh * 0.03, -fh * 0.34); draw3DBoxAt(ctx, cam, rx, ry, (brk + fh * 0.78) / 2 + fh * 0.03, backTop, ridge, 'ty_oc_tin', seed + 1, night, alpha, true, faceYaw(E), fh * 0.56); }
       // 2) THE COUNTER — the front wall, waist high and no higher. A wall that stops at h*0.16 in
       //    a city where every other wall goes to a roof IS the silhouette; there is nothing else
       //    to this building and nothing else needed.
       { const [cx, cy] = F(0, fh * 0.56); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.76, 0, counter, 'ty_oc_board_dk', seed + 2, night, alpha, true, faceYaw(E), fh * 0.30); }
-      // 3) THE TARPAULIN on its frame, over the whole open half. `ty_oc_canvas` is in PLAIN_WALL:
-      //    no pattern at all, which is the one thing every surface in that family has in common.
-      { const [tx, ty] = F(0, fh * 0.44); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.82, h * 0.38, h * 0.43, 'ty_oc_canvas', seed + 3, night, alpha, true, faceYaw(E), fh * 0.46); }
+      // 3) THE TARPAULIN on its frame, over the whole open half. It was a canvas slab; it is a sheet
+      //    now (below), draped off the back room's eaves to the two front posts with a sag in it and
+      //    a hem torn to strips, because the frame is the only rigid thing about it.
       for (const px of [-fh * 0.74, fh * 0.74]) {
         const [px2, py2] = F(px, fh * 0.86); draw3DBoxAt(ctx, cam, px2, py2, fh * 0.035, 0, h * 0.38, 'ty_oc_board_dk', seed + 4, night, alpha, false);
       }
       // 4) THE FLUE off the still, up the back wall and out. It is the only part of the operation
-      //    visible from the lane, and it is the part that would convict her.
+      //    visible from the lane, and it is the part that would convict her. It stands in the
+      //    broken corner now, on its own, which has not made it any less obvious.
       { const [fx2, fy2] = F(fh * 0.48, -fh * 0.70); draw3DBoxAt(ctx, cam, fx2, fy2, fh * 0.05, h * 0.20, ridge + h * 0.28, 'ty_oc_tin', seed + 5, night, alpha, true); }
+      const nightF = night ? clamp(night, 0, 1) : 0;
+      // The bulb over the counter lights the sheet above it from underneath, the camp's lit-tent
+      // rule, so the front tarp is a warm tarp after dark rather than a black one with a glow in it.
+      const warm = nightF > 0.3 ? 0.5 : 0;
+      {
+        const yh = fh * 0.16 + FACE_EPS * 2, yf = fh * 0.90;
+        slumDrape(ctx, cam, W3, [-fh * 0.82, yh, h * 0.44], [fh * 0.82, yh, h * 0.44], [fh * 0.82, yf, h * 0.37], [-fh * 0.82, yf, h * 0.37],
+          h * 0.03, TARPS[3], nightF, alpha, warm, TARPS[0]);
+        slumCurtain(ctx, cam, W3, [-fh * 0.82, yf + FACE_EPS], [fh * 0.82, yf + FACE_EPS], h * 0.37, h * 0.07, 6, TARPS[3], seed, nightF, alpha, warm);
+        // One side screened off with a second sheet, which is the only wall the bar has.
+        slumCurtain(ctx, cam, W3, [-fh * 0.80, yh], [-fh * 0.80, yf], h * 0.37, h * 0.24, 3, TARPS[2], seed + 4, nightF, alpha);
+        slumRope(ctx, cam, W3, [fh * 0.82, yf, h * 0.37], [fh * 0.92, fh * 1.02, 0], alpha);
+        slumRope(ctx, cam, W3, [-fh * 0.82, yf, h * 0.37], [-fh * 0.92, fh * 1.02, 0], alpha);
+      }
+      // …and the broken corner of the back room under a third, off the edge of the roof and down
+      // the flank.
+      {
+        const xh = brk + FACE_EPS * 2, xf = fh * 0.74 + FACE_EPS * 2, y0 = -fh * 0.86, y1 = fh * 0.14;
+        slumDrape(ctx, cam, W3, [xh, y0, backTop - h * 0.03], [xh, y1, backTop - h * 0.03], [xf, y1, h * 0.29], [xf, y0, h * 0.29], h * 0.04, TARPS[1], nightF, alpha);
+        slumCurtain(ctx, cam, W3, [xf + FACE_EPS, y0], [xf + FACE_EPS, y1], h * 0.29, h * 0.17, 4, TARPS[1], seed + 2, nightF, alpha);
+      }
+      if (frontVis) slumScrawl(ctx, cam, W3, (u, z, o) => [u, fh * 0.86 + FACE_EPS * 2 + o, z], fh * 0.30, h * 0.085, fh * 0.20, h * 0.025, seed + 3, nightF, alpha);
       if (night) {
         // One bulb over the counter. It is the last light before the Curtain, and everybody in
         // the district can tell you whether it is on from the far end of Ropewalk.
@@ -61041,17 +61463,14 @@ const TAG_COLS = ['#b8f03a', '#ff4a9a', '#5fd0ff', '#ffcf3e', '#ff6a4a', '#c88cf
 // draw. What replaces them is authored a few hundred lines down: a warm glazed shopfront with iron
 // mullions, and a clerestory under the eaves on the flanks, which is where a workshop's light
 // actually comes from.
-// ⚠ THE PAINT RATION IS A PROPERTY OF THE DISTRICT AND THE KIT HAS NO IDEA WHAT A DISTRICT IS.
-// Every `sprayOn` gate below is one number tuned for an ordinary Coldwater street, where a tagged
-// wall is an event; in Old Coldwater a wall that has NOT been painted is the event, and the four
-// gates together were giving a slum building about the same coverage as a bank. This is the same
-// shape of knob as KIT_DECLINE — keyed on `tradeOf(m)`, read once, no new authored field — and it
-// scales the gates rather than replacing them, so the RELATIVE ration is preserved: a back wall
-// is still likelier than a street face here, for the reason that comment gives.
-// ⚠ It must never reach 0. A district where every wall is painted reads as wallpaper, and the
-// bare brick between two pieces is the thing that says the piece is paint.
-const TAG_DENSE = new Set(['ruin', 'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller']);
-const TAG_EASE = 0.26;   // a dense wall's gates are a quarter of an ordinary one's
+// The kit sections the six slum trades decline, as one list so they cannot drift apart. Why each
+// is here is in the note under `flophouse` in KIT_DECLINE.
+// ⚠ `paint` AND `pier` ARE THE TWO SECTIONS ONLY THIS LIST NAMES (the note at each gate says why), and
+// `paint` replaced a knob. `TAG_DENSE` used to
+// scale the paint gates by a quarter for these six so the slum carried more throw-ups than a bank,
+// and nothing else ever read it. Every piece of kit paint is a word (`bakeTagText`), and the
+// Shingles carries no words, so the arms paint their own walls with `slumScrawl` instead.
+const SLUM_DECLINE = ['sign', 'signRoof', 'neon', 'ground', 'roof', 'stair', 'cope', 'wall', 'paint', 'pier'];
 // ── AND WHICH BUILDINGS NOBODY IS GOING TO WASH ────────────────────────────
 //
 // A `grime` run down a bare face, for the buildings where the weather is the only thing still
@@ -61059,12 +61478,17 @@ const TAG_EASE = 0.26;   // a dense wall's gates are a quarter of an ordinary on
 //
 // ⚠ THE ENTRY BAR IS KIT_DECLINE’S, ASKED THE OTHER WAY ROUND: would this be true of the building
 // whoever built it. A ruin qualifies because there is nobody left to clean it, and that is a fact
-// about the building rather than about the district — which is why this is not `TAG_DENSE` with a
-// second reader. Paint is something people do; this is what the rain does.
+// about the building rather than about the district. Paint is something people do; this is what
+// the rain does.
 //
 // ⚠ AND IT MUST STAY SHORT. Every wall in Coldwater is weathered by `matGrain` and its material
 // already; this is a RUN down a face, which is an event on a wall rather than a property of one,
 // and a city where every building has one is a city with no ruins in it.
+// ⚠ THE REST OF THE SHINGLES WAS TRIED HERE AND TAKEN BACK OUT. The street-face run hangs off
+// `base`, the kit's frontmost box, and on the water seller, the canteen, the bonesetter and the
+// shebeen that is a canopy, a stall or a counter standing clear of any wall, so the run came down
+// through open air and on into the ground as a dark wedge under the building. Their arms paint
+// their own wear instead.
 const GRIME_TRADE = new Set(['ruin']);
 const KIT_DECLINE = { meridian: ['signRoof'], clinic: ['signRoof'], stitch: ['signRoof'], embassy: ['signRoof'],
   // ⚠ AN EMPTY SHOP DECLINES THE NEON, AND ONLY THE NEON. `neonRun` is architectural light — the
@@ -61097,8 +61521,8 @@ const KIT_DECLINE = { meridian: ['signRoof'], clinic: ['signRoof'], stitch: ['si
   // it, which is the test for an entry here. It also showed up as a real defect and not only as a
   // taste one:  counted the hoarding's back board and soffit INSIDE the tank they were
   // standing on, which is the leak that made this the shortest building in the city to trip that
-  // gate. The rest of its kit stays.
-  water_seller: ['signRoof', 'wall'],
+  // gate. ⚠ It takes the rest of the slum's list now as well; see the note under `flophouse`.
+  water_seller: SLUM_DECLINE,
   // ⚠ THE STATION AND THE POUND DECLINE BOTH, and it is the kit being wrong rather than taste. The
   // candidate loop finds the highest deck and stands a backlit hoarding on legs on it: on the booth
   // that deck is a CANOPY OVER A PUBLIC WEIGHBRIDGE and on the pound it is the top of a palisade,
@@ -61114,9 +61538,15 @@ const KIT_DECLINE = { meridian: ['signRoof'], clinic: ['signRoof'], stitch: ['si
   // hard when `bareRuns` finds nowhere clean, so bare wall is a PRECONDITION for a tag — but four
   // seeds of Bed Rock still showed none after this, and the Modelshop preview could not be made to
   // settle the question (its texture caches warm on the first render of a type, so a canvas-mint
-  // count answers for the cache rather than for the building). Do not read this entry as the
-  // reason TAG_DENSE works; nobody has yet seen TAG_DENSE put a piece on a wall.
-  flophouse: ['wall'], soup_kitchen: ['wall'], bonesetter: ['wall'], shebeen: ['wall'], ruin: ['wall'],
+  // count answers for the cache rather than for the building).
+  // ⚠ AND SINCE THE SHANTY PASS IT DECLINES EVERY SECTION THAT ASSUMES A LANDLORD. Nothing in the
+  // Shingles carries a sign with words on it (see the block comment over the arms): not a board, a
+  // blade, a hoarding or a tube. `ground` is a glazed shopfront under an awning with a lit vending
+  // machine at the kerb, `roof` is plant standing on what is now a tarp over a hole, `stair` is a
+  // fire escape somebody inspected and `cope` is a neat band along a wall top the arms break on
+  // purpose. `riser` stays: a downpipe hanging off a bracket is exactly what these walls have.
+  flophouse: SLUM_DECLINE, soup_kitchen: SLUM_DECLINE, bonesetter: SLUM_DECLINE, shebeen: SLUM_DECLINE,
+  ruin: SLUM_DECLINE,
   helpings: ['signRoof', 'wall', 'stair'], clone: ['stair'], kitchenware: ['ground', 'wall'],
   // ⚠ THE SOLENNE DECLINES THE SHOP AND THE ROOF, AND ONE OF THE TWO IS A REAL BUG RATHER THAN A
   // MATTER OF TASTE. `ground` and `stair` are taste: the arm draws its own reveal, canopy, columns
@@ -61217,6 +61647,13 @@ const UNSIGNED_TRADE = new Set([
   // buildings advertise is a district with money in it. A heap with no door advertises nothing,
   // and there is nobody left to pay for the electricity.
   'ruin',
+  // ⚠ AND THE REST OF THE SHINGLES, which is the district rule above applied to the kit rather than
+  // only to the arms. The derived board over the door, the blade and the roundel were all reaching
+  // these five, and "A STITCH IN TIME" stood on a lit hoarding over a one-room clinic the arm's own
+  // note says has no name on it anywhere. Everyone who uses these places already knows where they
+  // are. `KIT_DECLINE` shuts the `sign` section as well; this is what keeps the roundel out, which
+  // does not ask that section.
+  'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller',
 ]);
 // Does this building letter its own frontage? The two answers the kit needs, in one place, so the
 // name board, the corner blade and the roof hoarding cannot disagree about it.
@@ -61269,7 +61706,9 @@ const BAY_TRADE = new Set([
 // on anything, and a heap of brick with no roof cannot be carrying one.
 const NO_AD_TRADE = new Set(['power', 'dynamo', 'dw_turbine', 'trm_charge', 'signalbox', 'damwall',
   'interstack', 'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'asc_vats',
-  'clone', 'refinery', 'fuel_yard', 'ruin']);
+  'clone', 'refinery', 'fuel_yard', 'ruin',
+  // …and the rest of the Shingles, for the ruin's reason: nobody rents a wall in Old Coldwater.
+  'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller']);
 // ⚠ `RENDER_TUNE` AND NOT THE PER-VIEW `TUNE`, BECAUSE THE LIST IS CACHED PER MODEL. A view can
 // override a tunable (`VIEW_TUNABLE`), and two views can paint in one frame — so a per-view value
 // read here would be baked into a cache the other view then reads, and which view got there first
@@ -62225,7 +62664,10 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   // `spent` counter, so position in this function IS priority. Behind the glazing and the plumbing,
   // ahead of the roof plant — because a bare back wall is a bigger hole in a street than a missing
   // condenser on a deck nobody at eye height can see.
-  if (rich && RENDER_TUNE.glPier !== 0 && wallH > 0.26 && main.hw > 0.1 && main.fd > 0.1) {
+  // ⚠ AND IT CAN BE DECLINED (`pier`, see SLUM_DECLINE), which is the one exception to "a pier is the
+  // structure showing". A rank of pale fins down a wall one brick thick with a tarp nailed over half
+  // of it is the tidiest thing on the Shingles, and a slum is exactly where that reads as money.
+  if (wants('pier') && rich && RENDER_TUNE.glPier !== 0 && wallH > 0.26 && main.hw > 0.1 && main.fd > 0.1) {
     // The front grid's own column pitch, which is what a structural bay is here — see the ⚠ above.
     const BAY = 1.5 * COL_PITCH_RICH;
     const pz0 = main.z0 + Math.min(wallH * 0.05, 0.018);
@@ -62806,9 +63248,8 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   // dirty first and somebody paints over it afterwards, and `grime` is deliberately out of
   // `PAINT_WALL` so the piece still lands wherever the search was going to put it.
   //
-  // ⚠ AND IT IS KEYED ON THE TRADE, NOT ON THE DISTRICT. `TAG_DENSE` scales a ration because paint
-  // is something people do and people are unevenly distributed; this is what the rain does, and it
-  // does it to every building. What a ruin has that a lived-in slum house has not is that nobody
+  // ⚠ AND IT IS KEYED ON THE TRADE, NOT ON THE DISTRICT. Paint is something people do and people
+  // are unevenly distributed; this is what the rain does, and it does it to every building. What a ruin has that a lived-in slum house has not is that nobody
   // is going to wash it off — which is a fact about the building, so the entry bar here is the
   // same as KIT_DECLINE’s: would this be true of the building whoever built it.
   if (GRIME_TRADE.has(tradeOf(m))) {
@@ -62869,7 +63310,8 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   // ⚠ THREE OF THE FOUR WALLS ARE RICH-ONLY, THE SAME BARGAIN 1d AND 1e STRIKE. The street face
   // keeps its slot on both lists; the flanks and the back are where 1d hangs plumbing and 1e stands
   // piers, so they are walls a GLASS 2 frame is already paying for.
-  {
+  // ⚠ AND A BUILDING CAN DECLINE IT (`paint`, see SLUM_DECLINE): every piece this places is a word.
+  if (wants('paint')) {
     // ── HOW BIG A PIECE IS: AN ARM, NOT A STOREY ───────────────────────────────────────────────
     //
     // A throw-up is as tall as the person who sprayed it could reach, so the band is the same on
@@ -62911,9 +63353,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     // fitting next door, and without it every piece on a shopfront is a rectangle wedged exactly
     // between the glass and the corner, which reads as a panel rather than as paint.
     const TAG_GAP_PAD = 0.006;
-    // The four gates below are scaled by this and nothing else — see TAG_DENSE.
-  const G = TAG_DENSE.has(tradeOf(m)) ? ((g) => g * TAG_EASE) : ((g) => g);
-  const sprayOn = (face, plane, mid, run, z0, z1, street, salt) => {
+    const sprayOn = (face, plane, mid, run, z0, z1, street, salt) => {
       const gf = reach(z0, z1);
       // ⚠ THE HAND IS ROLLED OFF THE VARIANT THAT WAS ALREADY BEING ROLLED, not off a new salt.
       // Every piece in the city is placed by this function and its colour, its word and its
@@ -62951,7 +63391,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
         n: 3 + Math.round(dRand(seed, salt + 2) * 3), v });
     };
     // The street face. Unchanged ration — what changes is that it now lands on brick.
-    if (bh > 0.05 && base.hw > 0.1 && dRand(seed, 77) > G(0.62)) {
+    if (bh > 0.05 && base.hw > 0.1 && dRand(seed, 77) > 0.62) {
       sprayOn(false, by, base.cx, base.hw, base.z0, base.z1, true, 210);
     }
     if (rich && main.hw > 0.08 && main.fd > 0.08) {
@@ -62959,7 +63399,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
       // no window, no sign and no camera on it is the wall every reference photograph of graffiti
       // was taken against, and until now it was the one wall in Coldwater that had never held any.
       const backY = main.cy - main.fd;
-      if (backY < -0.02 && dRand(seed, 214) > G(0.34)) {
+      if (backY < -0.02 && dRand(seed, 214) > 0.34) {
         sprayOn(false, backY, main.cx, main.hw, main.z0, main.z1, false, 215);
       }
       // ⚠ THE LOPSIDED-MASS GUARD IS 1d's AND 1e's, WORD FOR WORD, and for their reason: `faceY`
@@ -62970,7 +63410,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
         // reached through `svcSide` rather than re-rolled, which is what stops a third expression of
         // "which side is the service side" drifting away from 1d's and 1e's.
         for (const [sd, gate, salt] of [[svcSide, 0.42, 219], [-svcSide, 0.62, 223]]) {
-          if (dRand(seed, salt) <= G(gate)) continue;
+          if (dRand(seed, salt) <= gate) continue;
           sprayOn(true, sd > 0 ? fxPos : fxNeg, -main.cy, main.fd, main.z0, main.z1, false, salt + 1);
         }
       }
@@ -65155,7 +65595,16 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // ⚠ A CAMP CAN BE PITCHED ON A CURTAIN TILE (927,917 and 927,918, Old Coldwater's east edge), and
     // a bare `continue` here skipped the wall on both and opened a two-tile gap in the Curtain. So a
     // curtain tile falls through to the wall below; every branch in between is keyed on another mark.
-    if (it.c.mark === 'camp') { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha); if (!it.c.cur) continue; }
+    // ⚠ AND IT PICKS ITS OWN TIER, off the same radial ladder the buildings use below. It used to
+    // inherit whatever the last building's `finally` left in ADORN_TIER, which is always RICH, so
+    // everything the camp keeps for arm's length (patches, guy lines, clutter, the weathered
+    // canvas) had never drawn in the game at all.
+    if (it.c.mark === 'camp') {
+      ADORN_TIER = (TUNE.detailNear || 0) > 0 && Math.hypot(it.dx, it.dy) < TUNE.detailNear ? ADORN_NEAR : ADORN_RICH;
+      try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha); }
+      finally { ADORN_TIER = ADORN_RICH; }
+      if (!it.c.cur) continue;
+    }
     if (it.c.mark === 'strip') { if (markHidden(cam, it.dx, it.dy, 0.30, 0.55)) continue; emitMarked(() => drawStripMarks(ctx, cam, it.dx, it.dy, it.c.strip, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, it.seed)); continue; }
     // The depot bay: a shed with a roller door you drive through. Drawn from the same list as every
     // other building, so it fogs, sorts and occludes like one; it is only the SHAPE that is special.

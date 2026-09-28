@@ -110,9 +110,9 @@ name is what the beds feel like and what the building is standing on, and he did
 either.
 
 **No Such Thing** feeds people for nothing. A long low hall with a chimney at one end and a
-canopy over the queue, and a painted board across the front that says NO SUCH THING and nothing
-else, because everybody already knows the rest of it. She has run it for nineteen years and gets
-extremely short with anyone who calls it charity.
+canopy over the queue, and no name anywhere on it, because everybody already knows where it is.
+(It had a painted board until the shanty pass; see below.) She has run it for nineteen years and
+gets extremely short with anyone who calls it charity.
 
 **A Stitch In Time** sets bones and closes wounds and does not ask where you got them. One room,
 a lit window, a bench under a lean-to for the queue. The distinction from Co-Pay & Pray is not
@@ -190,7 +190,7 @@ five weathered tarpaulin colours and patched with each other, because every shee
 been mended with whatever the last one was made of. Over them: poles taller than anything under
 them, a cable strung between and on past both of them to the tile edge so a row of camp tiles
 reads as one line rather than ten pairs of sticks, and a lamp hanging off the cable. A banner on
-one tile in three, drums and crates on the mud, and a slogan hand-painted on one sheet in four.
+one tile in three, and drums and crates on the mud.
 
 ⚠ **A LIT TENT IS A WARM TARP, NEVER A GLOW BESIDE A TENT.** A lamp under canvas lights the
 canvas, from the inside, so it is a term on the surface colour rather than a sprite. Two reasons
@@ -207,25 +207,9 @@ tile so a row of camp tiles is a sawtooth rather than a fence rail.
 
 ### The paint
 
-⚠ **IT IS WIRED AND NOBODY HAS SEEN IT LAND.** `TAG_DENSE` scales all four `sprayOn` gates by
-`TAG_EASE` (0.26) for the six slum types — the same shape of knob as `KIT_DECLINE`, keyed the same
-way on `tradeOf(m)`, scaling the gates rather than replacing them so the relative ration between a
-street face and a back wall is preserved.
-
-What is measured here is the PROBLEM, not the fix. Four seeds of Bed Rock at the eased gate showed
-**zero** pieces; the paint pass returns hard when `bareRuns` finds nowhere clean; and the Modelshop
-preview could not settle it, because its texture caches warm on the first render of a type, so a
-canvas-mint count answers for the cache rather than for the building. The slum also declines the
-`wall` section, which is right on its own merits — a doss house has no glazing rhythm and every
-opening these buildings have is one their own arm drew — and is **not** established as the thing
-that makes the paint appear. Somebody should stand in front of one of these in the game before
-this section is rewritten.
-
-The camp's own graffiti is a separate path and does not go through the kit at all: one tile in
-four paints a slogan on the biggest sheet facing the lane, through `bakeTagText` with the
-`handstyle` hand (a marker scrawl, which is what somebody writes on canvas) rather than
-`bakeSignText`, and through `emitSurfaceText`. Near tier only: below a certain size it is a smear,
-and a smear where a sentence should be is worse than bare tarp.
+Superseded by the shanty pass, below. The kit's paint was a density knob (`TAG_DENSE`) over the
+six slum trades, and every piece it placed was a word, so it was replaced by a `paint` decline and
+wordless scrawls drawn by the arms. The camp's hand-painted slogans went at the same time.
 
 ## Shipping it
 
@@ -321,13 +305,10 @@ timber panel with two planks nailed across it at an angle nobody measured — wi
 black void, because the tile wants both: the first is a house somebody still owns and the second is
 a hole in a wall.
 
-⚠ **The paint is applied in the arm and not left to the derived kit.** `TAG_DENSE` already eases
-this trade's gates and the section above records that nobody had ever seen a piece land on one of
-these walls. The reason is structural rather than a tuning miss: the kit needs a bare RUN at its
-paint band, and this frontage is two short boxes with openings in them rather than the long clear
-flank `bareRuns` searches for. Five pieces now, across both halves, each with a hand rolled off the
-same number its word comes from — which is the kit's own rule, because a fresh roll for the hand
-shifts the stream and moves the word with it.
+**The paint is applied in the arm and not left to the derived kit.** The kit needs a bare run at
+its paint band, and this frontage is two short boxes with openings in them rather than the long
+clear flank `bareRuns` searches for. The five pieces were throw-ups when this pass shipped; the
+shanty pass took the words out of them.
 
 **More tents, and a density that varies.** The pitch count was five on every tile, and one density
 over ten tiles reads as a layout — a campsite with numbered pitches rather than ground people keep
@@ -344,13 +325,89 @@ cockpit could not see. 927,918 (The Corner) joins them. ⚠ **927,916 deliberate
 is the one tile whose whole job is the view through the Curtain, and this doc's own rule is that the
 far side stays a view.
 
-**The camp writes more on itself, in three registers.** Three slogans became eighteen, and the list
-is deliberately not one voice: a **territory** line is addressed outward at the city, a **notice** is
-addressed at the lane and is the only kind with a practical purpose, and a **name** is addressed at
-one person who may not be coming. The third does the work — a camp that only ever shouts is a
-protest, and a camp with somebody's name on a tarp is people living somewhere. It lands on two tiles
-in three rather than one in four, and one tile in three of those carries a second line lower down in
-a different ink, ⚠ **taken from a different part of the list rather than re-rolled freely**, because
-two territory lines on one sheet is a placard.
+**The camp wrote on itself, in three registers**: eighteen slogans addressed at the city, at the
+lane, and at one person who may not be coming. They never drew in the game (the camp's near tier
+never ran; see the shanty pass) and were taken out rather than switched on.
 
-Nothing here is a joke and nothing here is a verdict.
+---
+
+## The shanty pass (2026-09-28)
+
+The brief: the Shingles should read as a shanty town from the lane and from the air. Nothing
+carries a sign with words on it, every building is short of a piece, and tarps cover what came off.
+The renderer is the only thing that changed. Content, rooms and mechanics are as they were.
+
+### No words anywhere
+
+The arms had one sign left (the canteen's painted board), and the derived kit was hanging more on
+five of the six: a board over the door, a corner blade, a trade roundel, a rooftop hoarding (A
+Stitch In Time wore its own name on a lit panel), a gable ad, and graffiti. Graffiti here is words
+too: `bakeTagText` letters a throw-up and lights it after dark, and on a slum wall that reads as a
+shop sign.
+
+- The canteen board is gone.
+- All six trades are in `UNSIGNED_TRADE` and `NO_AD_TRADE`, and decline the kit sections that
+  assume money through one list, `SLUM_DECLINE` in windshield.js: `sign`, `signRoof`, `neon`,
+  `ground`, `roof`, `stair`, `cope`, `wall`, `paint` and `pier`.
+- `paint` and `pier` are sections only this list names. `paint` gates the kit's graffiti pass;
+  `pier` gates the rear and flank pilaster ranks, pale fins that read as the tidiest thing in the
+  district. `TAG_DENSE` and `TAG_EASE` are deleted: nothing else read them.
+- The arms draw their own paint with `slumScrawl`: zigzag passes and drips in the kit's spray
+  colours, with no letters. The ruin's five throw-ups became five scrawls.
+- The camp's slogans are gone (see the camp tier below).
+
+### A piece missing from each
+
+| Building | What came off | What covers it |
+|---|---|---|
+| A Collapsed Terrace, The Burnt House | already half down | a tarp off the party wall over the open half, falling down the outer wall; a stovepipe through it; a sheet of tin leaned on the front; the back dressed too |
+| Mains Squeeze | the hut's roof rotted under the sweating tank; a flank kicked in | a tarp on the roof tied to the legs; two tin sheets on the flank; a tarp over the queue on two sticks; rust weeping down the tank |
+| Bed Rock | the top storey's corner, with its share of the roof; the third stair landing | a tarp from the standing wall to the teeth; the chimney breast stands alone in the gap; boarded, dead and lit windows; a tarp for a door |
+| No Such Thing | the back third of the tin roof round the stack; half the queue canopy | a tarp over the kitchen with a hole left round the flue; a tarp on the canopy's east half; a boarded window, a breach and a tarp over a hole in one flank |
+| A Stitch In Time | the roof's back corner | a tarp over the gap, the lean-to re-covered in a tarp, a taped pane |
+| Still Standing | the back room's corner round the still | a tarp over the corner, the front canvas redone as a draped sheet with a torn hem, one side screened with a second sheet |
+
+⚠ **Mass never depends on the camera or the tier.** The mesh is captured once and shared by every
+tile, so a box drawn only when you can see it is a box missing for someone else. Everything painted
+on (sheets, holes, openings, scrawls, ropes) is gated on the face being visible or on near tier.
+
+⚠ **The ruins have no entrance**, so their dressed face is `faceVec`'s default (south, onto the
+Pitch) and the lane sees their back. Giving them `flags.entrance` would make each one a door the map
+audit then looks for, so the arm dresses the back as well.
+
+### The helpers
+
+Beside `drawTentCamp`, so the sheets on the buildings match the tents: `slumSheet`, `slumDrape` (two
+quads meeting at a sagging fold), `slumCurtain` (a sheet hung in strips with a ragged hem),
+`slumHole`, `slumOpening`, `slumScrawl`, `slumRope` and `slumFaceVis`. All of it is decals, depth
+tested, authored a few `FACE_EPS` proud of what it lies on.
+
+⚠ **The pull is a tie-breaker and a small one** (`SLUM_PULL`, a tenth of `DECO_PULL`). At 0.02 a
+curtain's hem was dragged out past a jetty corner and a rope's end out of the trestle leg it was
+tied to, and `glself` counted both.
+
+### Weathered canvas
+
+Near to, every tent and tarp wears a baked 32 px page instead of a flat fill (`clothTex`): grain and
+a faint weave, a sun-bleached head, dirt rising from the foot to a ragged line, two stain rings with
+runs under them, a crease, and mildew in the lower half. Tin gets ribs and rust instead.
+`emitDecoFill` takes the page as an optional `skin`; the 2-D fallback paints the flat colour.
+
+- **One page per colour.** The page is keyed on the colour the flat fill would have been, and the
+  stain layout is picked off a hash of that colour, so near-tier cloth mints the pages the solid
+  fills already did and no more. `slumTone` quantises the shade and the night for the same reason:
+  a continuous night re-minted the whole camp every frame through dusk.
+- **The foot is v = 1.** A decal's corners are its UVs, so `clothOrder` hands a sheet over high edge
+  first, and a gable as its apex twice.
+- **A grime overlay was the first idea and cannot work.** Decals write no depth to each other and
+  draw in the order their keys were first seen, so an overlay batched before its sheet is simply
+  covered by it.
+
+### The camp's near tier had never run
+
+The camp mark is drawn from the sweep with whatever `ADORN_TIER` the last building's `finally` left,
+which is always RICH. So patches, guy lines, clutter, the lamp bodies and the slogans had never
+drawn in the game. It now picks its tier off the same radial ladder the buildings use
+(`TUNE.detailNear`). Switching the tier on would have put the slogans on the tarps for the first
+time, as words, so they came out instead.
+
