@@ -95,6 +95,14 @@ export function mountWorldMap(host, data, opts = {}) {
   };
   const home = () => {
     const b = size(); sc = Math.min(b.width / W, b.height / H); ox = (b.width - W * sc) / 2; oy = (b.height - H * sc) / 2;
+    // A phone held upright: the world is about twice as wide as it is tall, so fitting all of it
+    // to the width left a strip across the middle of an empty screen. Fill the height instead and
+    // open on "you"; the rest is a drag or a pinch away. Wide hosts (every desktop) are untouched.
+    if (tablet && H * sc < b.height * 0.5) {
+      sc = b.height / H; oy = 0;
+      const cx = data.you ? data.you.x - X0 + 0.5 : W / 2;
+      ox = clamp(b.width / 2 - cx * sc, b.width - W * sc, 0);
+    }
   };
 
   const path = (p) => { ctx.beginPath(); for (let i = 0; i < p.length; i += 2) { const x = ox + p[i] * sc, y = oy + p[i + 1] * sc; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } };
@@ -226,17 +234,60 @@ export function mountWorldMap(host, data, opts = {}) {
     e.preventDefault(); const b = cv.getBoundingClientRect(), f = Math.exp(-e.deltaY * 0.0015);
     const nx = e.clientX - b.left, ny = e.clientY - b.top; ox = nx - (nx - ox) * f; oy = ny - (ny - oy) * f; sc *= f; draw();
   }, { passive: false });
-  cv.addEventListener('pointerdown', (e) => { drag = [e.clientX, e.clientY, ox, oy]; cv.setPointerCapture(e.pointerId); });
-  cv.addEventListener('pointerup', () => { drag = null; });
-  cv.addEventListener('pointermove', (e) => {
-    if (drag) { ox = drag[2] + e.clientX - drag[0]; oy = drag[3] + e.clientY - drag[1]; tip.style.display = 'none'; draw(); return; }
-    const b = cv.getBoundingClientRect(), mx = e.clientX - b.left, my = e.clientY - b.top;
+  // ── POINTERS: A MOUSE HOVERS, A FINGER TAPS AND PINCHES ──
+  // It was built for a mouse: the wheel zoomed and hovering named the ground. A touch screen has
+  // neither, so on a phone the map could be dragged and nothing else. Every live pointer is kept,
+  // one of them drags, two of them pinch (zooming about the point between the fingers, and
+  // following it as they move), and a press that lifts where it went down is a tap, which names
+  // the ground the way a hover does.
+  const pts = new Map();
+  let pinch = null, tap = null;
+  const pinchNow = () => {
+    const [a, c] = [...pts.values()];
+    return { d: Math.hypot(a[0] - c[0], a[1] - c[1]) || 1, mx: (a[0] + c[0]) / 2, my: (a[1] + c[1]) / 2 };
+  };
+  function nameAt(clientX, clientY) {
+    const b = cv.getBoundingClientRect(), mx = clientX - b.left, my = clientY - b.top;
     const gx = Math.floor((mx - ox) / sc), gy = Math.floor((my - oy) / sc);
     if (gx < 0 || gy < 0 || gx >= W || gy >= H) { hov = null; tip.style.display = 'none'; draw(); return; }
     hov = [gx, gy]; tip.innerHTML = describe(gx, gy); tip.style.display = 'block';
-    tip.style.left = Math.min(mx + 14, b.width - 200) + 'px'; tip.style.top = Math.min(my + 14, b.height - 60) + 'px'; draw();
+    tip.style.left = Math.max(4, Math.min(mx + 14, b.width - 200)) + 'px'; tip.style.top = Math.max(4, Math.min(my + 14, b.height - 60)) + 'px'; draw();
+  }
+  cv.addEventListener('pointerdown', (e) => {
+    cv.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 1) { drag = [e.clientX, e.clientY, ox, oy]; tap = [e.clientX, e.clientY]; pinch = null; }
+    else if (pts.size === 2) { drag = null; tap = null; pinch = { ...pinchNow(), sc, ox, oy }; tip.style.display = 'none'; }
   });
-  cv.addEventListener('pointerleave', () => { tip.style.display = 'none'; hov = null; draw(); });
+  const lift = (e) => {
+    if (!pts.delete(e.pointerId)) return;
+    if (pts.size >= 2) { pinch = { ...pinchNow(), sc, ox, oy }; return; }
+    pinch = null;
+    // One finger left of a pinch carries on as a drag from where it is now, never as a tap.
+    if (pts.size === 1) { const [p] = pts.values(); drag = [p[0], p[1], ox, oy]; tap = null; return; }
+    drag = null;
+    if (tap && e.type === 'pointerup' && e.pointerType !== 'mouse' && Math.hypot(e.clientX - tap[0], e.clientY - tap[1]) < 8) nameAt(e.clientX, e.clientY);
+    tap = null;
+  };
+  cv.addEventListener('pointerup', lift);
+  cv.addEventListener('pointercancel', lift);
+  cv.addEventListener('pointermove', (e) => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pinch && pts.size >= 2) {
+      const s = pinchNow(), b = cv.getBoundingClientRect(), f = s.d / pinch.d;
+      sc = pinch.sc * f;
+      ox = (s.mx - b.left) - (pinch.mx - b.left - pinch.ox) * f;
+      oy = (s.my - b.top) - (pinch.my - b.top - pinch.oy) * f;
+      draw(); return;
+    }
+    if (drag) {
+      if (tap && Math.hypot(e.clientX - tap[0], e.clientY - tap[1]) >= 8) tap = null;
+      ox = drag[2] + e.clientX - drag[0]; oy = drag[3] + e.clientY - drag[1]; tip.style.display = 'none'; draw(); return;
+    }
+    if (e.pointerType === 'mouse') nameAt(e.clientX, e.clientY);
+  });
+  // A finger "leaves" the moment it lifts, which would take a tap's label straight back down.
+  cv.addEventListener('pointerleave', (e) => { if (e.pointerType !== 'mouse') return; tip.style.display = 'none'; hov = null; draw(); });
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { home(); draw(); }) : null;
   ro?.observe(host);
   home(); draw();
