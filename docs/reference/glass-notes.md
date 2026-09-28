@@ -409,6 +409,8 @@ Its noise floor is now measured with the subject present (the wall-only floor mi
 
 `have` keeps the kit out of a section somebody has drawn; `KIT_DECLINE` keeps it out of a section nobody should. One entry: `meridian`, a 1930s deco apartment landmark (stone lantern under a verdigris cupola, name cut in a limestone frieze), which was getting a backlit hoarding on legs over the roof. The rest of its kit stays. Add an entry only if the part would be wrong on that building whoever built it; an arm with preferences about its own facade should draw the facade.
 
+Two sections exist only to be declined, because no arm draws them: `paint` (the kit's graffiti pass; every piece it places is a word) and `pier` (the rear and flank pilaster ranks). The six Old Coldwater trades decline both, through one list, `SLUM_DECLINE`. See [old-coldwater.md](../proposals/old-coldwater.md#the-shanty-pass-2026-09-28).
+
 ## What's left on the canvas
 
 The world is on GLASS 2, but `windshield.js` stays: it runs the 173 arms producing mesh, lights and decals, owns the scene, occluder field, LOD and collision, and draws the overlay. GLASS 2 is its rasteriser. With the dial pinned, at 640×360 a cab frame is 2.8–3.6 ms and an aircraft frame 6.5–8.3 ms, the city is the smaller part (1.1–3.7 ms), and the 2-D adornment queue is 43 faces. The remaining canvas overlay (ridge, sky and clouds, weather, dash, glass, badges) should stay: no ordering problem, no measurable cost, and moving HUD text would need a glyph atlas.

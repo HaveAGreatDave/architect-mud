@@ -74,7 +74,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [tools/studio/README.md](tools/studio/README.md): the Studio (`npm run studio`): the file-based map editor for `content/`
 - [docs/reference/building-shapes.md](docs/reference/building-shapes.md): building geometry recorded via `SHAPE_SINK`, driving LOD, occlusion, shadows and CFIT collision (as built)
 - [docs/proposals/coldwater-infill.md](docs/proposals/coldwater-infill.md): fourteen infill buildings (as built). Run `node scripts/content/sitecheck.mjs` before siting; an open mid-block tile is usually somebody's street access
-- [docs/proposals/old-coldwater.md](docs/proposals/old-coldwater.md): the south-east slums (as built). Tents are a `mark`, never a `building_type`; 925,917 is a storm drain into the Under
+- [docs/proposals/old-coldwater.md](docs/proposals/old-coldwater.md): the south-east slums (as built). Tents are a `mark`, never a `building_type`; 925,917 is a storm drain into the Under. Nothing there carries words, painted or lit (`SLUM_DECLINE`)
 - [docs/proposals/halcyon-fields-infill.md](docs/proposals/halcyon-fields-infill.md): Halcyon Fields streets and 42 buildings (as built). A door's direction is fixed by `flags.entrance`
 - [docs/zone-redesign-2026-07.md](docs/zone-redesign-2026-07.md): why zone fields have the shape they do
 - [docs/lore-wildblood.md](docs/lore-wildblood.md): Wildblood canon, read before writing mutants or the Under. The Under was theirs first
