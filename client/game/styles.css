@@ -4990,7 +4990,7 @@ html.map-poi-color .map-bld-label {
 #galley-panel {
 	display: none; position: fixed; right: 24px; top: 90px; width: 300px; max-height: 70vh;
 	z-index: 160; background: var(--bg2); border: 1px solid var(--cyan); flex-direction: column;
-	font-size: 13px;
+	font-size: 0.8125rem;
 }
 #galley-panel.active { display: flex; }
 #galley-panel .glly-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--cyan); color: var(--cyan); user-select: none; }
@@ -5001,7 +5001,7 @@ html.map-poi-color .map-bld-label {
 #galley-panel .glly-mini { display: none; }
 #galley-panel.glly-folded .glly-mini { display: flex; gap: 8px; flex: 1; }
 #galley-panel.glly-folded .glly-title { display: none; }
-.glly-mg { display: flex; align-items: center; gap: 3px; font-size: 11px; }
+.glly-mg { display: flex; align-items: center; gap: 3px; font-size: 0.6875rem; }
 .glly-mg i { display: inline-block; width: 38px; height: 5px; background: rgba(127,127,127,0.25); }
 .glly-mg b { display: block; height: 100%; background: var(--green, #4c8); }
 .glly-mg.glly-mid b { background: var(--yellow, #db3); }
@@ -5012,13 +5012,13 @@ html.map-poi-color .map-bld-label {
 .glly-fill { height: 100%; background: var(--green, #4c8); }
 .glly-mid .glly-fill { background: var(--yellow, #db3); }
 .glly-low .glly-fill { background: var(--red, #d44); }
-.glly-sec { color: var(--cyan); margin-top: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+.glly-sec { color: var(--cyan); margin-top: 6px; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.08em; }
 .glly-items, .glly-pax { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .glly-items li { display: flex; gap: 6px; align-items: center; }
 .glly-items .glly-name { flex: 1; }
 .glly-items button { background: none; border: 1px solid var(--cyan); color: var(--cyan); cursor: pointer; font: inherit; padding: 1px 8px; }
 .glly-to { max-width: 90px; font: inherit; background: var(--bg2); color: inherit; border: 1px solid rgba(127,127,127,0.5); }
-.glly-pax span { opacity: 0.7; font-size: 12px; }
+.glly-pax span { opacity: 0.7; font-size: 0.75rem; }
 .glly-empty { opacity: 0.6; }
 
 /* A small store (the Drake's galley fridge and locker): a bar-fridge-sized window. */
