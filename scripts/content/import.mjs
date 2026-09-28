@@ -219,12 +219,19 @@ try {
         const pkWhere = entry.pk.map((c, i) => `"${c}"=$${i + 1}`).join(' AND ');
         const { rows } = await client.query(`SELECT * FROM ${entry.table} WHERE ${pkWhere}`, entry.pk.map(c => incoming.data[c]));
         if (!rows.length) continue; // row doesn't exist locally — plain insert, no conflict
-        const dbJson = canonicalJson(rowToFileObject(entry, rows[0]));
-        if (dbJson === canonicalJson(incoming.data)) continue; // already matches incoming
-        let markerJson = null;
+        let markerData = null;
         try {
-          markerJson = canonicalJson(JSON.parse(git('show', `${marker}:${path}`)));
+          markerData = JSON.parse(git('show', `${marker}:${path}`));
         } catch { /* file didn't exist at marker */ }
+        // Compare only the columns this import writes: keys in either file version,
+        // plus omitWhenNull columns (absent means NULL). A DB column neither file
+        // names (furniture.light_type 'lamp', a zone's ambient_theme default) survives
+        // the upsert untouched, so it can't be stomped and mustn't count as a conflict.
+        const written = new Set([...Object.keys(incoming.data), ...Object.keys(markerData || {}), ...(entry.omitWhenNull || [])]);
+        const dbObj = Object.fromEntries(Object.entries(rowToFileObject(entry, rows[0])).filter(([k]) => written.has(k)));
+        const dbJson = canonicalJson(dbObj);
+        if (dbJson === canonicalJson(incoming.data)) continue; // already matches incoming
+        const markerJson = markerData === null ? null : canonicalJson(markerData);
         if (markerJson !== null && dbJson === markerJson) continue; // untouched since last import
         conflicts.push(`${entry.table}/${incoming.name}`);
       }

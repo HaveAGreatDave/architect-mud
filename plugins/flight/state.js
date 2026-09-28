@@ -533,6 +533,25 @@ export function fieldFor(player) {
   return fieldOpenTo(f, player) ? f : null;
 }
 
+// ── THE FIELD'S HANGAR BUILDING ──────────────────────────────────────────────
+// The map_world tile whose GLASS hangar opens onto this field: a facade with
+// `flags.aircraft_hangar` whose `world_exit_zone` is the field's ramp tile. It is drawn as a
+// `bay` with `bk: 'air'` (deriveSurfaceCell below; windshield.js bayDims), and `hangaract service|launch`
+// stands an aircraft on it. One scan per field, cached; a zone reload clears it (index.js).
+const _hangarTiles = new Map();
+export function hangarTileFor(field) {
+  if (!field) return null;
+  if (_hangarTiles.has(field.id)) return _hangarTiles.get(field.id);
+  const hit = getAllZones().find(z => z.flags?.aircraft_hangar && z.flags.world_exit_zone === field.id && z.grid_x != null) || null;
+  _hangarTiles.set(field.id, hit);
+  return hit;
+}
+export function clearHangarTiles() { _hangarTiles.clear(); }
+// Which way an aircraft on the hangar floor faces: out through the door, which is the facade's
+// entrance side. Headings are compass degrees stored as strings (toDeg).
+const ENT_DEG = { north: 0, east: 90, south: 180, west: 270 };
+export function hangarHeading(tile) { return String(ENT_DEG[tile?.flags?.entrance] ?? 0); }
+
 // Does this field serve this player at all? A PRIVATE field — a building's own pad
 // (`residents_only: "<building>"`) — serves only that building's residents.
 //
@@ -1134,7 +1153,9 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // marking those would put every one of them through the mark dispatch to draw nothing.
   const plz = cell.flags?.scale_plaza || undefined;
   const plzDrawn = plz && plz.k !== 'apron' ? 1 : 0;
-  const mark = cell.flags?.vehicle_bay ? 'bay'
+  // An airfield's hangar is the same shed at aircraft scale (windshield.js bayDims): a `bay` mark,
+  // told apart by `bk`, so every reader of the shed (door, CFIT roof, occlusion) takes it for free.
+  const mark = (cell.flags?.vehicle_bay || cell.flags?.aircraft_hangar) ? 'bay'
     : cell.flags?.yacht ? 'yacht'
     : cell.flags?.perimeter_gate ? 'gate'
     : cell.flags?.road_sign ? 'sign'
@@ -1367,7 +1388,8 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // and nothing is authored. Undefined on every other tile in the world, so it costs no egress there.
   const prp = (cell.flags?.boat_fuel && cell.flags?.building_type !== 'fuel_dock') ? 'fuel' : cell.flags?.boat_hardstanding ? 'hard'
     : (cell.flags?.truck_yard && cell.flags?.truck_fuel) ? 'apron' : undefined;
-  return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  const bk = cell.flags?.aircraft_hangar ? 'air' : undefined;
+  return { prp, kind, biome, road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, bf, bq, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
@@ -1536,7 +1558,7 @@ export function gaugePayload(live) {
 
   return {
     craft: t.name, tail: a.name || t.name, class: t.class,
-    livery: normalizeLivery(a.custom_data),   // interior (cabin/upholstery) shows in the cockpit chrome
+    livery: normalizeLivery(a.custom_data, t.class),   // interior (cabin/upholstery) shows in the cockpit chrome
     band: a.altitude_band, bandLabel: BAND_LABEL[a.altitude_band] || a.altitude_band,
     bandIndex: BANDS.indexOf(a.altitude_band), ceiling: eff.ceiling,
     heading: degToCardinal(deg), headingDeg: deg,
@@ -1939,7 +1961,7 @@ export function pushContext(live) {
 // dead-reckoning between relays, hull, and a short tail readout. Built fresh each relay.
 export function airContact(live) {
   const a = live.row;
-  const lv = normalizeLivery(a.custom_data);   // paint the viewer renders the bogey in
+  const lv = normalizeLivery(a.custom_data, live.type?.class);   // paint the viewer renders the bogey in
   return {
     id: a.id,
     livery: { base: lv.base, trim: lv.trim, pattern: lv.pattern, finish: lv.finish, variant: lv.variant },

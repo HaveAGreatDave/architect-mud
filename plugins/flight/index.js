@@ -14,14 +14,14 @@ import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/s
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
-import { invalidateCoordIndex, crewedAircraft } from './state.js';
+import { invalidateCoordIndex, crewedAircraft, hangarTileFor, clearHangarTiles, hangarHeading } from './state.js';
 
 // A DEV-PANEL TILE EDIT MOVES THE WORLD, and `surfaceAt` is an index OVER positions rather than
 // a read THROUGH them — so without this it answers with the world as it stood at boot, for the
 // life of the process. Everything spatial rides on it: the flight sim's ground, the truck
 // corridor's composition, groundObstructionAt, the map rim that decides where a region's gates
 // are. Nulling is O(1) and the rebuild is paid by the next reader that wants it.
-registerZoneReloadHook(() => invalidateCoordIndex());
+registerZoneReloadHook(() => { invalidateCoordIndex(); clearHangarTiles(); });
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getTimeScale } from '../../server/engine/gametime.js';
@@ -51,7 +51,7 @@ import { commands as drakeStoreCommands } from './drake-stores.js';
 import { commands as acquisitionCommands, refuelAt, refuelParked, fieldStocks } from './acquisition.js';
 import { commands as combatCommands, tickCombat, relayContacts } from './combat.js';
 import { commands as contractCommands, checkContractDelivery, checkCargoDropDelivery, waitingDropAt, ensureFreightDrops, isFreightLicensed } from './contracts.js';
-import { commands as hangarCommands, pushHangarBay } from './hangars.js';
+import { commands as hangarCommands, pushHangarBay, setHangarBoarder } from './hangars.js';
 import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters, chaseCont, stepToward, CRUISE_TILES } from './charter.js';
 import { isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride } from './checkride.js';
 import './onboard.js';   // the once-ever "this is an airfield, and the licence is free" briefing
@@ -204,7 +204,7 @@ async function cmdBoard(args, raw, player, broadcast) {
 
 // The actual boarding — shared by the direct-match path above and the SIFT
 // disambiguation replay (registerAction('flight.board') below).
-async function boardFound(found, player, broadcast) {
+async function boardFound(found, player, broadcast, opts = {}) {
   if ((player.posture || 'standing') !== 'standing')
     return { type: 'emote', message: 'You need to be on your feet to climb aboard.' };
 
@@ -238,6 +238,16 @@ async function boardFound(found, player, broadcast) {
   const park = getZone(live.row.parked_zone_id);
   if (park && park.grid_x != null && (live.row.grid_x !== park.grid_x || live.row.grid_y !== park.grid_y)) {
     live.row.grid_x = park.grid_x; live.row.grid_y = park.grid_y; live.fx = park.grid_x; live.fy = park.grid_y;
+    await persist(live).catch(() => {});
+  }
+  // ON THE HANGAR FLOOR (hangaract service|launch): she stands on the field's hangar tile, nose to
+  // the door, instead of on the ramp. Only her position moves; parked_zone_id stays the field, so
+  // every service (paint, fuel, repair) still resolves against it, and the next ordinary board
+  // re-snaps her to the ramp by the rule above.
+  if (opts.at) {
+    live.row.grid_x = opts.at.grid_x; live.row.grid_y = opts.at.grid_y;
+    live.fx = opts.at.grid_x; live.fy = opts.at.grid_y;
+    live.row.heading = hangarHeading(opts.at);
     await persist(live).catch(() => {});
   }
   const seat = pilotOf(live) ? 'passenger' : 'pilot';
@@ -323,6 +333,24 @@ async function boardFound(found, player, broadcast) {
     : '';
   return { type: 'emote', message: `${scramble}You climb aboard the ${live.type.name}. ${hint}${cargoHint}${licenseHint}` };
 }
+
+// ── Aboard for the bench ─────────────────────────────────────────────────────
+// `hangaract service|launch <id>` (hangars.js) asks for this: board your own aircraft to work on
+// her or take her out. On a field with a GLASS hangar she stands on its floor, nose to the door;
+// on one without (a helipad, the Solenne's roof, a desert strip) she stays where she is parked, and
+// that pad is the 3D area the bench works in. Null only off a field. Registered into hangars.js
+// rather than imported by it, because this file already imports that one.
+async function boardIntoHangar(player, acId, broadcast) {
+  const field = fieldFor(player);
+  if (!field) return null;
+  if (player.aircraftId) return { type: 'emote', message: "You're already aboard." };
+  const found = (await parkedPool(field.id)).find(r => r.id === acId);
+  if (!found) return { type: 'emote', message: "She isn't parked here." };
+  if (found.owner_id !== player.id) return { type: 'emote', message: 'Only her owner takes her out of here.' };
+  const tile = hangarTileFor(field);
+  return boardFound(found, player, broadcast, tile ? { at: tile } : {});
+}
+setHangarBoarder(boardIntoHangar);
 
 // Boarding a boat from the water lives in the swimming plugin (it owns the waterline);
 // `embark`/`disembark` are ours, so we hand the verb over when there's no aircraft in
@@ -926,7 +954,7 @@ function sendFlightSim(player, live) {
     type: 'flight_sim',
     craftType: live.type.id.replace(/^ac_/, ''),
     craftClass: live.type.class,
-    livery: normalizeLivery(live.row.custom_data),   // paint-bay scheme the external chase model renders in
+    livery: normalizeLivery(live.row.custom_data, live.type.class),   // paint-bay scheme the external chase model renders in
     deviceName: live.type.name,
     airport: groundTheme(zone), helipad: vtolOnlyField(zone),
     gx: live.row.grid_x, gy: live.row.grid_y, heading: toDeg(live.row.heading),
@@ -1805,13 +1833,13 @@ async function describeAirfield(zone, player) {
   // No walk-in hangar here → board straight off the ramp. Name each craft by its
   // livery colour so the paint reads at a glance; `examine` gives the full look.
   const { rows } = await query(
-    "SELECT a.name, a.custom_data, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1 AND a.is_wreck=0 AND (a.custom_data->>'charter') IS DISTINCT FROM 'true' ORDER BY a.name LIMIT 4",
+    "SELECT a.name, a.custom_data, t.name tname, t.class FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1 AND a.is_wreck=0 AND (a.custom_data->>'charter') IS DISTINCT FROM 'true' ORDER BY a.name LIMIT 4",
     [zone.id]
   ).catch(() => ({ rows: [] }));
   if (rows.length) {
     // Each craft name is a click → `examine <name>`, which opens its action menu
     // (embark / refuel / maintenance + cargo) rather than just a static description.
-    const names = rows.map(r => { const c = rampColorWord(r.custom_data?.livery); return `<span class="action-link" data-action="cmd" data-cmd="examine ${r.name}" title="look it over: embark / refuel / maintenance">a ${c ? c + ' ' : ''}${r.tname}</span>`; });
+    const names = rows.map(r => { const c = rampColorWord(r.custom_data?.livery, r.class); return `<span class="action-link" data-action="cmd" data-cmd="examine ${r.name}" title="look it over: embark / refuel / maintenance">a ${c ? c + ' ' : ''}${r.tname}</span>`; });
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
     line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${list} parked here: click one for its actions</span>`;
   }
@@ -2082,7 +2110,7 @@ async function matchCraftHere(args, player) {
   if (!field) return null;
   const { rows } = await query(
     `SELECT a.id, a.name, a.owner_id, a.rental, a.custom_data, a.fuel,
-            t.name tname, t.fuel_capacity, t.fuel_type, t.cargo_capacity, t.seats
+            t.name tname, t.class, t.fuel_capacity, t.fuel_type, t.cargo_capacity, t.seats
        FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id
       WHERE a.parked_zone_id=$1 AND a.is_wreck=0 AND (a.custom_data->>'charter') IS DISTINCT FROM 'true'`,
     [field.id]);
@@ -2119,12 +2147,12 @@ function craftActionMenu(m, player) {
 }
 async function cmdExamineCraft(args, raw, player, broadcast) {
   const m = await matchCraftHere(args, player);
-  if (m) return { type: 'examine', message: describeExterior(m.custom_data?.livery, m.tname, m.name) + craftActionMenu(m, player) };
+  if (m) return { type: 'examine', message: describeExterior(m.custom_data?.livery, m.tname, m.name, m.class) + craftActionMenu(m, player) };
   return interactionsCommands.examine(args, raw, player, broadcast);   // prior owner → engine
 }
 async function cmdLookCraft(args, raw, player, broadcast) {
   const m = await matchCraftHere(args, player);
-  if (m) return { type: 'examine', message: describeExterior(m.custom_data?.livery, m.tname, m.name) + craftActionMenu(m, player) };
+  if (m) return { type: 'examine', message: describeExterior(m.custom_data?.livery, m.tname, m.name, m.class) + craftActionMenu(m, player) };
   return gametableCommands.look(args, raw, player, broadcast);         // prior owner → engine
 }
 

@@ -1128,6 +1128,44 @@ name**, the **livery**, and **saveable tune profiles** (`modify save/load <name>
 quick curve shortcut, now equally owner-gated (`ownedCraft`); rentals and
 other people's aircraft can't be modified.
 
+**The GLASS hangar and the card floor** (as built). The hangar panel opens on a hand of cards, one
+per aircraft at the field (`vehicle-card.js`, the marina's and depot's cards). Under each card are
+**Maintain** and **Launch**; clicking the card selects her for refuel, inspect, store and sell.
+- **A field with a hangar building** (`flags.aircraft_hangar` on the facade whose `world_exit_zone` is
+  the ramp; `hangarTileFor` in `state.js`) is drawn by GLASS as a taxi-in shed at aircraft scale
+  (see [glass-notes.md](reference/glass-notes.md)). `hangaract service <id>` and `hangaract launch <id>`
+  board your aircraft standing on that tile, nose to the door (`boardFound`'s `at`). Only her position
+  moves; `parked_zone_id` stays the field, so every service still resolves.
+- **Maintain** pushes the bay with `service: true`: `hangar-bay.js` docks the bench on the cockpit
+  (`cockpitServiceHost`), the camera goes outside her at 3/4 (`cockpitView('ext', { quarter })`), and
+  the working paint rides to the model as a preview (`cockpitPreview`). Nothing is charged until Apply.
+  **Launch ▸** folds the bench away and switches to the seat. The hangar door is up while she stands
+  in the front of the shed, so you start her and taxi out.
+- **Launch** from the card boards you straight into the seat on the hangar floor.
+- **A field without one** does the same where she is parked, so its pad is the 3D area: the helipads,
+  the Echelon's deck and the Solenne's roof (which has a stair head in its rear corner, outside the
+  touchdown circle). Only Coldwater Regional has a hangar building so far. A pilot without a licence
+  can't take the seat, so their Maintain opens the bench in the pane.
+- **The bench's Fuel tab** fills her at the pump price; the **Stores** tab (armed airframes only)
+  shows guns, rails and rack. Stores reload free whenever she parks (`parkAt`), so there is nothing to buy.
+
+**Liveries** (as built). A livery set is a whole look for one class: exterior paint, cabin
+trim and nameplate together. Devs author them as `content/liveries/aircraft_<class>_<id>.json`
+(schema in `client/shared/livery-schema.js`), and `npm run liveries:bake` bakes them into
+`client/shared/liveries.js`; `node scripts/shapes/liveries.mjs` fails on a stale bake, a value the
+paint shop doesn't know, or a class with no default. Read them through `client/shared/livery-sets.js`.
+- **Every class has a `default` set**, and an unpainted aircraft wears it (`normalizeLivery(cd, cls)`).
+  Meshes with authored paint wear it through the `factory` pattern; the Dragonfly, Mayfly and
+  Grasshopper have none, so theirs is a real paint job. A stored livery in the old stock grey reads
+  as unpainted, matching `liveryPalette`'s rule.
+- **`model: "any"`** sets (the old one-click presets) are offered on every class. A set with an
+  `unlock` flag is offered only to a player who has that `player_flags` key set.
+- **Players save their own** with `scheme <tail> save <name>`, into `custom_data.livery.schemes`,
+  private to that aircraft. A saved set holds the whole look, factory scheme and plate included.
+- **Applying any set is a respray** and costs `paintCost(class)`: `scheme <tail> load <name>` takes a
+  saved set by name or a livery by id or name. Putting on what she already wears is free. The
+  hangar's Paint tab opens on **Sets**; clicking one previews it on the model, and Apply charges.
+
 **The tuning model (one source of truth).** `state.computeStats(type, tune, cargo,
 kits)` is the single function that bends a template's base numbers by the four
 continuous knobs, the cabin load, and any fitted kits — and **both** the flight

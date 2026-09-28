@@ -6246,7 +6246,7 @@ function fsimFrame(now) {
     // Prop/rotor spin is driven by engine RPM (spooled fraction of throttle → reacts to the
     // engine being on and to throttle, with spool lag), NOT airspeed — so she turns at idle on
     // the ramp and winds up with the throttle instead of only spinning once she's moving.
-    external: F.external, extZoom: F.extZoom || 1, freeCam: freeCam.view(), cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, livery: F.livery, ...(F.cls === 'drake' && F.livery?.variant && F.livery.variant !== 'stock' ? { variant: F.livery.variant } : {}), enginePct: d.rpm,
+    external: F.external, extZoom: F.extZoom || 1, freeCam: freeCam.view(), cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, livery: LIVERY_PREVIEW || F.livery, ...(F.cls === 'drake' && (LIVERY_PREVIEW || F.livery)?.variant && (LIVERY_PREVIEW || F.livery).variant !== 'stock' ? { variant: (LIVERY_PREVIEW || F.livery).variant } : {}), enginePct: d.rpm,
     // The modelled cockpits' weapons and working controls (interior-<id>.js). ⚠ NOT `armed`, which
     // above already means "this helicopter is the Viper" and picks the cabin.
     weaponsArmed: !!F.armed, weapon: F.weapon, bombs: F.bombs, missiles: F.msl, ammo: F.gunRounds,
@@ -7124,6 +7124,31 @@ export function flightSimAASites(msg) {
 // room `look`/`move` renders from clobbering the cockpit out from under the pilot.
 export function isFlightSimActive() { return !!_fsim; }
 
+// ── THE HANGAR'S HOOKS ───────────────────────────────────────────────────────
+// The hangar bench comes to the cockpit when she is standing on the hangar floor (hangar-bay.js,
+// service mode), the way the depot's comes to the cab (cab-view.js cabServiceHost). It needs three
+// things from the seat and they are all here, so it never reaches into F: somewhere to mount, a
+// paint job shown on her before it is bought, and the camera.
+export function cockpitServiceHost() { return _fsim ? document.querySelector('#fsim-root .fsim-view') : null; }
+// ⚠ A PREVIEW, NEVER THE PAINT: it sits over F.livery in the chase view only, is cleared when the
+// bench closes, and the server's push after a respray replaces F.livery with the real thing.
+let LIVERY_PREVIEW = null;
+export function cockpitPreview({ livery = null } = {}) { LIVERY_PREVIEW = livery || null; }
+/** Read the view ('ext' or 'cab') with no argument; set it with one. */
+export function cockpitView(mode, { quarter = false } = {}) {
+  const F = _fsim; if (!F) return null;
+  if (mode === 'ext' || mode === 'cab') F.setExternalView?.(mode === 'ext');
+  if (quarter && mode === 'ext') {
+    // The maintenance shot: 3/4 off her FRONT-RIGHT, a little above, dollied all the way in to the
+    // renderer's standoff so the eye is in the hangar with her (windshield.js clamps a zoom under the
+    // standoff to it). Same angle arithmetic as the cab's opening shot.
+    F.orbitResetting = false;
+    F.extOrbit = ((225 - (RENDER_TUNE.chaseYaw || 0)) % 360 + 360) % 360;
+    F.extPitch = 0.32; F.extZoom = 0.01;
+  }
+  return F.external ? 'ext' : 'cab';
+}
+
 // True while the discrete cockpit HUD (charter passengers, and any non-continuous
 // aircraft occupant) owns the area pane — same purpose as isFlightSimActive() above,
 // for the OTHER cockpit renderer. Without this, a `refresh`-flagged zone_event (e.g.
@@ -7149,6 +7174,9 @@ export function flightSimSnapshot() {
 export function closeFlightSim() {
   const F = _fsim; if (!F) return;
   _fsim = null;
+  LIVERY_PREVIEW = null;
+  // A bench docked on this cockpit (hangar-bay.js service mode) goes with it.
+  window.dispatchEvent(new Event('fsim:closed'));
   if (F.raf) cancelAnimationFrame(F.raf);
   if (F.toastT) clearTimeout(F.toastT);
   F.dkTipEl?.remove();   // the Drake switch tooltip lives on <body>, so the seat has to take it down

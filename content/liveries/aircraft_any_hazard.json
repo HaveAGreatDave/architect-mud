@@ -1,0 +1,19 @@
+{
+  "blurb": "Yellow and black chevrons. Everyone will see you coming, including the guns.",
+  "default": false,
+  "exterior": {
+    "base": "#f2b01e",
+    "finish": "gloss",
+    "pattern": "hazard",
+    "trim": "#1a1a1a"
+  },
+  "id": "hazard",
+  "interior": {
+    "cabin": "#2a2410",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "any",
+  "name": "Hazard",
+  "unlock": null
+}

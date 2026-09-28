@@ -1,0 +1,19 @@
+{
+  "blurb": "Gloss red with white stripes. Goes faster, according to the painter.",
+  "default": false,
+  "exterior": {
+    "base": "#b81f24",
+    "finish": "gloss",
+    "pattern": "stripes",
+    "trim": "#e8e8e8"
+  },
+  "id": "racing",
+  "interior": {
+    "cabin": "#2a1416",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "any",
+  "name": "Racing Red",
+  "unlock": null
+}

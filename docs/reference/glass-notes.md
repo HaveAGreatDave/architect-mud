@@ -867,6 +867,16 @@ The **Depot in the depth buffer** slider; 0 puts it back on the canvas.
 
 Gate: `npm run gl:bay` ([scripts/shapes/bay.mjs](../../scripts/shapes/bay.mjs), in `shapes:smoke` and the push chain) checks the geometry arrives and stands up, orbiting the camera moves none of it, moving the camera inside its own tile moves none of it, `glBay 0` collects none, and a GLASS 1 control still paints one. The `cam.ox/oy` check compares two sub-tile camera positions; a bounding-box check couldn't fail.
 
+### The aircraft hangar is the same shed
+
+An airfield's hangar tile (`flags.aircraft_hangar`) derives as `mark: 'bay'` with `bk: 'air'`, and everything that sizes the shed asks `bayDims(cell)`: the drawer, the door sensor, the CFIT roof probe, `groundObstructionAt` and the occluder slabs. `HANGAR_BAY` is sized for the Leviathan, the biggest own ship (0.84 across, 0.96 long, 0.65 to her fin at 1.9x contact size). Only the floor, its paint and the fittings differ between the two kinds; the shell, the door, the roof, the lights and both sinks are one code path.
+
+- The height isn't just for the fin. The maintenance view's 3/4 camera orbits inside the building, because the cutaway is off, and a truck-height roof would put it on top of the roof.
+- Trap: the door sensor measures the vehicle's centre. An aircraft's nose is 0.2 to 0.48 tiles ahead of hers, so on the truck's inside numbers (0.40/0.14) she went through the door before it lifted. `HANGAR_BAY.IN_SENSE/IN_OPEN` keep it up while she stands in the front of the shed.
+- `setBayVehicles` takes any own ship and any contact on the ground, not trucks only. An aircraft rolling at a door used to find it shut.
+
+Gate: [scripts/shapes/hangar.mjs](../../scripts/shapes/hangar.mjs) (in `gl:bay`, `shapes:smoke` and the push chain) checks the hangar arrives at its own ridge, orbiting doesn't change it, every airframe fits through the door, under the head and inside the shed (`hangarFit`), and the door opens for an aircraft outside and stays up for one parked inside.
+
 Trap: every harness installs a GL hook that returns `null` (the no-WebGL2 path), so none reaches `drawSolids`. A stale identifier in that function passed all 26 shape gates, `client:smoke` and `imports:smoke`, and killed the GL pass on the first real frame. Use the Modelshop, A/B on `RENDER_TUNE.glBay` with everything else fixed.
 
 Trap: don't cache-bust the import (`import('…/windshield.js?v=' + Date.now())`). It builds a second module graph; `install.js` imports `installGLWorld` from the unbusted specifier, so the hook lands on the old copy and both sides of the A/B come back pure 2-D and identical. Reload the page.

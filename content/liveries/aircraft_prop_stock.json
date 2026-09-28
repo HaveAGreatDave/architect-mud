@@ -1,0 +1,19 @@
+{
+  "blurb": "Cream fuselage, red spinner and cheat line. The way every Mule left the works.",
+  "default": true,
+  "exterior": {
+    "base": "#e6e4dc",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#c43a26"
+  },
+  "id": "stock",
+  "interior": {
+    "cabin": "#4a3a2a",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "prop",
+  "name": "Mule Cream",
+  "unlock": null
+}

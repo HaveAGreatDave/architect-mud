@@ -8,7 +8,12 @@
 // the anti-air gun solution and the ground/police notice reach: dark + matte +
 // camo hides, bright + gloss + hazard shouts. Nothing here reads the DB or DOM.
 
+import { defaultLivery } from '../../client/shared/livery-sets.js';
+
 // ── The model ─────────────────────────────────────────────────────────────────
+// LIVERY_DEFAULT is the floor every field falls back to, not what a new aircraft wears: that is its
+// class's default set in content/liveries/ (classDefault below). It is only seen whole on a class
+// with no default set, which the liveries gate makes impossible.
 export const LIVERY_DEFAULT = {
   base: '#5a5f66', trim: '#8a9099', accent: '#c22b8c', ground: '#eee7d6', pattern: 'bare', finish: 'satin',
   decal: 'none', cabin: '#2a2e33', uphol: 'standard', text: '', variant: 'stock', itrim: 'stock', plate: '',
@@ -76,6 +81,10 @@ export const DECALS = [
 // Exterior patterns. `sig` is the signature multiplier the pattern contributes
 // (1 = neutral; <1 hides, >1 shouts). Camo hides; hazard chevrons shout.
 export const PATTERNS = [
+  // The maker's own paint: an authored mesh wears the colours its file paints (liveryPalette in
+  // aircraft3d.js reads 'factory' as no paint job). base/trim then only name those colours for the
+  // swatches and the examine line. A class's default livery (content/liveries/) is usually this.
+  { id: 'factory',  label: 'Factory',         sig: 1.00 },
   { id: 'bare',     label: 'Bare Metal',      sig: 1.00 },
   { id: 'solid',    label: 'Solid',           sig: 1.00 },
   { id: 'twotone',  label: 'Two-Tone',        sig: 1.00 },
@@ -107,20 +116,7 @@ export const UPHOLSTERY = [
   { id: 'mesh',     label: 'Tactical Mesh' },
 ];
 
-// One-click curated schemes (all fields at once) shown beside the hex pickers.
-export const PRESETS = [
-  { id: 'baremetal', label: 'Bare Metal',  base: '#7d838b', trim: '#9aa0a8', pattern: 'bare',     finish: 'satin',     cabin: '#2a2e33', uphol: 'standard' },
-  { id: 'nightops',  label: 'Night Ops',   base: '#14171c', trim: '#20242b', pattern: 'solid',    finish: 'matte',     cabin: '#0e1013', uphol: 'mesh' },
-  { id: 'hazard',    label: 'Hazard',      base: '#f2b01e', trim: '#1a1a1a', pattern: 'hazard',   finish: 'gloss',     cabin: '#2a2410', uphol: 'standard' },
-  { id: 'desert',    label: 'Desert',      base: '#b79a63', trim: '#6d5c38', pattern: 'splinter', finish: 'weathered', cabin: '#3a3324', uphol: 'leather' },
-  { id: 'racing',    label: 'Racing Red',  base: '#b81f24', trim: '#e8e8e8', pattern: 'stripes',  finish: 'gloss',     cabin: '#2a1416', uphol: 'leather' },
-  { id: 'coldblue',  label: 'Cold Blue',   base: '#274b7a', trim: '#7fb0e0', pattern: 'twotone',  finish: 'satin',     cabin: '#16202e', uphol: 'quilted' },
-  { id: 'jazz',      label: 'Jazz Wave',   base: '#18b8c2', trim: '#5a2c9c', accent: '#c22b8c', ground: '#eee7d6', pattern: 'jazz', finish: 'gloss', cabin: '#1a1230', uphol: 'quilted' },
-  // The old attack scheme: field green over a pale belly, with the cowl, the rudder and the
-  // wingtips in a yellow you can identify from a mile off. The renderer derives the belly and the
-  // camo break from `base`, so this row is genuinely just the two colours (see faceBaseRgb).
-  { id: 'warbird',   label: 'Warbird',     base: '#4c5340', trim: '#e2b21c', pattern: 'warbird',  finish: 'matte',     cabin: '#232a1c', uphol: 'leather' },
-];
+// The one-click schemes that used to sit here are liveries now: content/liveries/aircraft_any_*.json.
 
 const PATTERN_IDS = new Set(PATTERNS.map(p => p.id));
 const FINISH_IDS = new Set(FINISHES.map(f => f.id));
@@ -161,24 +157,33 @@ export function colorName(hex) {
 // ── Normalise ─────────────────────────────────────────────────────────────────
 // custom_data.livery may be absent, a legacy free-text STRING (the old
 // `modify livery <text>`), or the structured object. Always yield a full object.
-export function normalizeLivery(cd) {
+// Pass the class: an aircraft nobody has painted wears its class's default set, not grey.
+export function normalizeLivery(cd, cls = null) {
   const raw = cd && cd.livery;
-  if (typeof raw === 'string') return { ...LIVERY_DEFAULT, text: raw.slice(0, 80) };
-  if (!raw || typeof raw !== 'object') return { ...LIVERY_DEFAULT };
+  const d = classDefault(cls);
+  if (typeof raw === 'string') return { ...d, text: raw.slice(0, 80) };
+  if (!raw || typeof raw !== 'object') return d;
+  // ⚠ STOCK GREY IS UNPAINTED. Before class defaults, saving a scheme or writing markings on a new
+  // aircraft stored LIVERY_DEFAULT whole. The renderer already reads that as "no paint job"
+  // (liveryPalette's stockGrey), so the server does too, and the class default shows through.
+  const stockGrey = String(raw.base || '').toLowerCase() === LIVERY_DEFAULT.base && String(raw.trim || '').toLowerCase() === LIVERY_DEFAULT.trim
+    && (!raw.pattern || raw.pattern === 'bare');
+  if (stockGrey) return { ...d, text: typeof raw.text === 'string' ? raw.text.slice(0, 80) : '', plate: cleanPlate(raw.plate) || d.plate };
+  // Anything the stored object leaves out falls back to the class default, not to grey.
   return {
-    base:    isHex(raw.base) ? raw.base : LIVERY_DEFAULT.base,
-    trim:    isHex(raw.trim) ? raw.trim : LIVERY_DEFAULT.trim,
-    accent:  isHex(raw.accent) ? raw.accent : LIVERY_DEFAULT.accent,
-    ground:  isHex(raw.ground) ? raw.ground : LIVERY_DEFAULT.ground,
-    pattern: PATTERN_IDS.has(raw.pattern) ? raw.pattern : LIVERY_DEFAULT.pattern,
-    finish:  FINISH_IDS.has(raw.finish) ? raw.finish : LIVERY_DEFAULT.finish,
-    decal:   DECAL_IDS.has(raw.decal) ? raw.decal : LIVERY_DEFAULT.decal,
-    cabin:   isHex(raw.cabin) ? raw.cabin : LIVERY_DEFAULT.cabin,
-    uphol:   UPHOL_IDS.has(raw.uphol) ? raw.uphol : LIVERY_DEFAULT.uphol,
+    base:    isHex(raw.base) ? raw.base : d.base,
+    trim:    isHex(raw.trim) ? raw.trim : d.trim,
+    accent:  isHex(raw.accent) ? raw.accent : d.accent,
+    ground:  isHex(raw.ground) ? raw.ground : d.ground,
+    pattern: PATTERN_IDS.has(raw.pattern) ? raw.pattern : d.pattern,
+    finish:  FINISH_IDS.has(raw.finish) ? raw.finish : d.finish,
+    decal:   DECAL_IDS.has(raw.decal) ? raw.decal : d.decal,
+    cabin:   isHex(raw.cabin) ? raw.cabin : d.cabin,
+    uphol:   UPHOL_IDS.has(raw.uphol) ? raw.uphol : d.uphol,
     text:    typeof raw.text === 'string' ? raw.text.slice(0, 80) : '',
-    variant: TRIM_IDS.has(raw.variant) ? raw.variant : 'stock',
-    itrim: CABIN_IDS.has(raw.itrim) ? raw.itrim : CABIN_IDS.has(raw.variant) ? raw.variant : 'stock',
-    plate: cleanPlate(raw.plate),
+    variant: TRIM_IDS.has(raw.variant) ? raw.variant : d.variant,
+    itrim: CABIN_IDS.has(raw.itrim) ? raw.itrim : CABIN_IDS.has(raw.variant) ? raw.variant : d.itrim,
+    plate: typeof raw.plate === 'string' ? cleanPlate(raw.plate) : d.plate,
   };
 }
 
@@ -202,6 +207,19 @@ export function sanitizeLivery(patch, prev = LIVERY_DEFAULT) {
   };
 }
 
+// ── Sets (content/liveries/) ────────────────────────────────────────────────
+// A set is a whole look: its exterior, interior and plate. Applied, it REPLACES the look rather
+// than patching it, so a key the set leaves out goes back to the floor (no stray decal carried
+// over from the last job). Only the owner's hand-written markings line survives.
+export function liveryFromSet(set, text = '') {
+  return { ...sanitizeLivery({ ...set.exterior, ...set.interior, plate: set.plate || '' }, LIVERY_DEFAULT), text };
+}
+// What a class wears off the line.
+export function classDefault(cls) {
+  const d = cls ? defaultLivery('aircraft', cls) : null;
+  return d ? liveryFromSet(d) : { ...LIVERY_DEFAULT };
+}
+
 // Saved paint schemes live at custom_data.livery.schemes = { name: {core fields} }.
 // Kept OUT of normalizeLivery so the frequent cockpit HUD payload stays lean; the
 // hangar layer reads/writes them directly through these two helpers.
@@ -209,10 +227,12 @@ export function readSchemes(cd) {
   const s = cd && cd.livery && cd.livery.schemes;
   return (s && typeof s === 'object') ? s : {};
 }
-// The core (non-schemes, non-text) fields that make up one saved scheme.
-export function schemeOf(livery) {
-  const lv = normalizeLivery({ livery });
-  return { base: lv.base, trim: lv.trim, accent: lv.accent, ground: lv.ground, pattern: lv.pattern, finish: lv.finish, decal: lv.decal, cabin: lv.cabin, uphol: lv.uphol };
+// The fields that make up one saved scheme: the whole look, the same as a dev set (factory
+// scheme, cockpit trim and nameplate included), minus the markings line and the schemes themselves.
+export function schemeOf(livery, cls = null) {
+  const lv = normalizeLivery({ livery }, cls);
+  return { base: lv.base, trim: lv.trim, accent: lv.accent, ground: lv.ground, pattern: lv.pattern, finish: lv.finish, decal: lv.decal,
+    variant: lv.variant, cabin: lv.cabin, uphol: lv.uphol, itrim: lv.itrim, plate: lv.plate };
 }
 
 // ── Signature / conspicuousness ───────────────────────────────────────────────
@@ -238,7 +258,7 @@ export function signatureScore(livery) {
 // off its row. This is what the noise reach and AA gun solution scale by (the
 // airframe's own loudness/size is the base it multiplies).
 export function conspicuousnessMult(live) {
-  return signatureMult(normalizeLivery(live?.row?.custom_data));
+  return signatureMult(normalizeLivery(live?.row?.custom_data, live?.type?.class));
 }
 
 // ── Prose (room examine) ──────────────────────────────────────────────────────
@@ -274,8 +294,8 @@ const DECAL_CLAUSE = {
   // that was worth painting on, and they were not wrong.
   shrike:     'A small grey bird is painted on the cowl, holding something on a long thorn.',
 };
-export function describeExterior(livery, typeName, tail) {
-  const lv = normalizeLivery({ livery });
+export function describeExterior(livery, typeName, tail, cls = null) {
+  const lv = normalizeLivery({ livery }, cls);
   const name = tail ? `${typeName} "${tail}"` : typeName;
   let body;
   if (lv.pattern === 'bare') {
@@ -293,8 +313,8 @@ export function describeExterior(livery, typeName, tail) {
 }
 
 // Short colour word for the room's "on the ramp" line (bare = no colour word).
-export function rampColorWord(livery) {
-  const lv = normalizeLivery({ livery });
+export function rampColorWord(livery, cls = null) {
+  const lv = normalizeLivery({ livery }, cls);
   return lv.pattern === 'bare' ? '' : colorName(lv.base);
 }
 

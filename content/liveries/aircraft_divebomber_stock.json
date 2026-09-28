@@ -1,0 +1,19 @@
+{
+  "blurb": "Olive drab over a pale blue belly. Built to be looked down on and not noticed.",
+  "default": true,
+  "exterior": {
+    "base": "#4a5840",
+    "finish": "matte",
+    "pattern": "factory",
+    "trim": "#84a0b8"
+  },
+  "id": "stock",
+  "interior": {
+    "cabin": "#232a1c",
+    "uphol": "mesh"
+  },
+  "kind": "aircraft",
+  "model": "divebomber",
+  "name": "Field Olive",
+  "unlock": null
+}

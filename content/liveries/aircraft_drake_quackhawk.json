@@ -1,0 +1,22 @@
+{
+  "blurb": "Special edition. Bald eagle outside; red, white and blue inside.",
+  "default": false,
+  "exterior": {
+    "base": "#3e2a1c",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#f2f0ea",
+    "variant": "quackhawk"
+  },
+  "id": "quackhawk",
+  "interior": {
+    "cabin": "#1d2c52",
+    "itrim": "quackhawk",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "drake",
+  "name": "Quackhawk Down",
+  "plate": "QUACKHAWK DOWN",
+  "unlock": null
+}

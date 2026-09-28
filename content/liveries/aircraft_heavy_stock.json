@@ -1,0 +1,19 @@
+{
+  "blurb": "Gloss white with a blue cheat line, like a freight line that still pays its bills.",
+  "default": true,
+  "exterior": {
+    "base": "#e4e6e8",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#1e4896"
+  },
+  "id": "stock",
+  "interior": {
+    "cabin": "#2a3140",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "heavy",
+  "name": "Company White",
+  "unlock": null
+}

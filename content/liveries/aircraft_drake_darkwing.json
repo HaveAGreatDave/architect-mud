@@ -1,0 +1,22 @@
+{
+  "blurb": "Carbon plumage and gold fittings, inside and out. Badged DARKWING on the dash.",
+  "default": false,
+  "exterior": {
+    "base": "#1e1f24",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#d6aa4a",
+    "variant": "noir"
+  },
+  "id": "darkwing",
+  "interior": {
+    "cabin": "#1a1b1f",
+    "itrim": "noir",
+    "uphol": "quilted"
+  },
+  "kind": "aircraft",
+  "model": "drake",
+  "name": "Darkwing",
+  "plate": "DARKWING",
+  "unlock": null
+}

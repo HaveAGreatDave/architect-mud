@@ -19,6 +19,8 @@ import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor, rgbTriplet } from
 import { showConfirmDialog } from './confirm.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { compactHidePanel } from '../../../shared/compact-view.js';
+import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyles, barTone } from './vehicle-card.js';
+import { cockpitServiceHost, cockpitPreview, cockpitView } from './cockpit.js';
 
 let B = null;       // { data, screen, selId, work (paint edit copy) }
 let raf = null;      // shared spin/scene-draw loop
@@ -41,6 +43,10 @@ export function openHangarBay(data) {
   // already-open bay — if the panel is closed, ignore it rather than popping the
   // 3D hangar open over whatever the player is actually looking at (the tablet).
   if (data?.refreshOnly && !B) return;
+  if (data?.service) return openService(data);
+  // A pane push while the bench is docked on the cockpit (a 'hangar' typed from the seat) leaves the
+  // bench where it is: the pane is the cockpit's while you are sitting in her.
+  if (B?.service) return;
   const freshOpen = !B;
   // Snap the top pane back to its default auto size so the whole hangar UI fits the
   // interface, regardless of any manual drag height left on the previous room look.
@@ -65,6 +71,26 @@ export function openHangarBay(data) {
   render();
 }
 
+// ── THE SERVICE BAY ──────────────────────────────────────────────────────────
+// Sitting in her on the GLASS hangar floor (`hangaract service`), the bench is an overlay on the
+// cockpit rather than a pane app, the way the depot's is on the cab (truck-depot.js). The camera is
+// outside her at 3/4 and IS the preview: the working paint rides to it through cockpitPreview, and
+// nothing is charged until Apply. Launch folds the bench away and puts you in the seat.
+function openService(data) {
+  const was = B && B.service ? B : null;
+  const c = (data.craft || []).find(x => x.id === data.serviceId);
+  B = { screen: 'bench', service: true, selId: data.serviceId, data,
+    benchTab: was?.benchTab, paintTab: was?.paintTab,
+    // The working copy survives a re-push (every Apply sends one) unless the bench is new.
+    work: was && was.selId === data.serviceId && was.work ? was.work : (c ? { ...c.livery } : null) };
+  ensureStyles();
+  ensureCardStyles();
+  if (!was) cockpitView('ext', { quarter: true });
+  render();
+}
+// The seat's own close takes the bench with it.
+window.addEventListener('fsim:closed', () => { if (B?.service) closeHangarBay(); });
+
 export function openCharterScreen(data) {
   if (!B) openHangarBay({});
   charterData = data;
@@ -75,9 +101,12 @@ export function openCharterScreen(data) {
 
 export function closeHangarBay() {
   closeColorPicker({ silent: true });
+  // A bench docked on the cockpit never held the pane, so it has none to hand back.
+  const docked = !!B?.service;
+  if (docked) cockpitPreview({ livery: null });
   stopHangarAmbience();   // the render loop drove the weather bed; it stops now, so silence it
   document.body.classList.remove('hb-fullscreen', 'hb-hidepanel');   // drop the immersive layout so the room look isn't left with the log/command box hidden
-  window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
+  if (!docked) window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
   if (raf) { cancelAnimationFrame(raf); raf = null; }
   B = null; charterData = null;
   // Tear the panel out of the pane immediately rather than leaving it (with its
@@ -89,7 +118,7 @@ export function closeHangarBay() {
 // Escape backs out one screen at a time (matches the header/toolbar back button);
 // bound once at module load, not per-render, so it never stacks up duplicate handlers.
 window.addEventListener('keydown', (e) => {
-  if (!B || e.key !== 'Escape') return;
+  if (!B || B.service || e.key !== 'Escape') return;
   if (B.screen !== 'floor') { go('floor'); } else if (B.data?.inHangar) { sendCmdSilent(B.data.exitDir || 'out'); } else { closeHangarBay(); sendCmdSilent('look'); }
 });
 
@@ -113,44 +142,49 @@ function bayCanvas(id, cls, livery, tint, size, extra = '') {
   return `<canvas class="hb-bay" id="${id}" data-hb-cls="${esc(cls || '')}" data-hb-livery="${esc(JSON.stringify(livery || {}))}" data-hb-tint="${esc(tint || '')}" style="width:${size}px;height:${Math.round(size * 0.78)}px" ${extra}></canvas>`;
 }
 
-// The floor is ONE 3D room (a single <canvas>, one shared camera) — every craft
-// you own here plus the pilot-tinted CHARTER Mule sit in it side by side, not a
-// row of separate thumbnail cards. Selection/hover is done by hit-testing the
-// scene's own screen-space regions (sceneHits, refreshed every draw), since
-// there's no per-plane DOM element to click.
+// THE FLOOR IS A HAND OF CARDS, the way the truck depot and the marina open: one card per aircraft
+// here, and under each the two things you came for. Maintain boards her with the bench on the
+// cockpit and the camera outside at 3/4; Launch puts you in the seat. Both happen on the GLASS
+// hangar floor where the field has one (`hangar`) and out on her pad where it has not (the
+// Solenne's roof). A pilot without a licence cannot take the seat, so their Maintain keeps the
+// bench in the pane. Clicking the card itself selects her for the rest (refuel, inspect, store, sell).
 function floorScreen() {
-  const d = B.data, craft = (d.craft || []).filter(c => !c.wreck);
+  const d = B.data, craft = d.craft || [];
   const sel = craft.find(c => c.id === B.selId) || null;
   const pilot = d.pilot || { present: false };
   const hasCharterTile = d.canRent !== undefined;
-  const empty = !craft.length && !pilot.present && !d.charterWaiting;
+  const pct = (n) => Math.max(0, Math.min(100, Math.round(n || 0)));
+  const cards = craft.map(c => {
+    const badge = c.wreck ? '<span class="vc-badge hired">WRECK</span>'
+      : c.rental ? '<span class="vc-badge hired">HIRED</span>'
+      : c.location === 'hangar' ? '<span class="vc-badge owned">STORED</span>' : '<span class="vc-badge owned">OWNED</span>';
+    const sub = c.wreck ? 'salvage or rebuild' : `${esc(c.typeName)} · fuel ${pct(c.fuelPct)}%`;
+    const acts = c.wreck ? '' : `<div class="vc-acts">
+        <button class="vc-mini" data-act="service" data-id="${esc(c.id)}" title="${d.hangar ? 'Into the hangar to work on her' : 'Work on her where she stands'}">⚙ Maintain</button>
+        <button class="vc-mini hb-launch" data-act="launch" data-id="${esc(c.id)}" data-tail="${esc(c.tail)}" title="${d.hangar ? 'Into the seat, on the hangar floor' : 'Into the seat'}">✈ Launch</button>
+      </div>`;
+    return `<div class="vc-wrap${c.id === B.selId ? ' hb-picked' : ''}">
+      <button class="vc-card ${cardStyleFor(c.id)}" data-pick="${esc(c.id)}" aria-label="${esc(`${c.tail}, ${c.typeName}`)}" title="Select her">
+        <canvas class="vc-cv" data-card="${esc(c.id)}" aria-hidden="true"></canvas>
+        ${badge}
+        <span class="vc-plate"><b>${esc(c.tail)}</b><span class="vc-sub">${sub}</span>
+          <span class="vc-bar" title="hull ${pct(c.hullPct)}%"><i class="${barTone((c.hullPct || 0) / 100)}" style="width:${pct(c.hullPct)}%"></i></span></span>
+      </button>${acts}
+    </div>`;
+  }).join('');
+  const slot = (act, label, sub, glyph) => `<div class="vc-wrap"><button class="vc-card slot" data-act="${act}" aria-label="${esc(label)}">
+      <canvas class="vc-cv" data-slot="${esc(glyph)}" aria-hidden="true"></canvas>
+      <span class="vc-plate"><b>${esc(label)}</b><span class="vc-sub">${esc(sub)}</span></span></button></div>`;
+  const unrated = !d.licensed && !d.isAdmin && d.venue !== 'helipad';
+  const slots = [
+    unrated ? slot('checkride', 'Get your licence', 'a checkride in a loaner', '✈') : '',
+    pilot && hasCharterTile ? slot('charter-card', 'Charter a flight', d.charterWaiting ? `${pilot.name} is ready` : pilot.present ? `${pilot.name} on duty` : 'pilot off shift', '⟲') : '',
+    d.canBuy || d.canRent ? slot('buyrent', 'Buy or rent', 'the dealer\'s lot', '+') : '',
+  ].join('');
+  const empty = !craft.length ? `<p class="hb-hint">No aircraft of yours are here yet.${d.canBuy || d.canRent ? '' : ' There\'s no dealer or rental desk at this field either.'}</p>` : '';
 
-  // The 3D scene draws an empty bay fine with zero entries (just the backdrop,
-  // no planes) — always mount the canvas so an empty hangar still looks like a
-  // hangar, and say so as a hint over it instead of replacing it with text.
-  const stage = `<canvas id="hb-scene" class="hb-scene"></canvas>`;
-
-  const mulePrompt = d.charterWaiting
-    ? `, or the ${esc(pilot.name)}-coloured Mule: it's fuelled and waiting for you`
-    : pilot.present ? `, or the ${esc(pilot.name)}-coloured Mule to charter a ride` : '';
-  // The info panel is now a pure read-out (name + bars) — every action moved down
-  // to the dedicated toolbar so the buttons live in one separate control tray.
-  const info = sel ? `
-    <div class="hb-info">
-      <div class="hb-info-name">${esc(sel.tail)} <span class="hb-info-type">${esc(sel.typeName)}</span> ${locBadge(sel)}</div>
-      <div class="hb-bars">
-        <span class="hb-bl">HULL</span><span class="hb-bar"><i style="width:${sel.hullPct}%;background:${barCol(sel.hullPct)}"></i></span>
-        <span class="hb-bl">FUEL</span><span class="hb-bar"><i style="width:${sel.fuelPct}%;background:#4fb8e0"></i></span>
-      </div>
-    </div>` : empty
-      ? `<div class="hb-hint">No aircraft of yours are here yet.${d.canBuy || d.canRent ? '' : ' There\'s no dealer or rental desk at this field either.'}</div>`
-      : hasCharterTile ? `<div class="hb-hint">Click a plane to select it${mulePrompt}.</div>` : '';
-
-  // Left group = the selected craft's actions (only when one's picked); right
-  // group = the always-present field actions (Buy/Rent, Exit).
+  // What is left for the selected card: the jobs that are not Maintain or Launch.
   const craftActs = sel ? [
-    !sel.wreck ? tbtn('✈', 'Fly', `data-act="embark" data-tail="${esc(sel.tail)}"`, 'hb-accent hb-go') : '',
-    !sel.wreck ? tbtn('⚙', 'Maintenance', 'data-act="bench"') : '',
     !sel.wreck && (d.fuelStocks || []).includes(sel.fuelType) && sel.fuelPct < 100 ? tbtn('⛽', 'Refuel', 'data-act="refuel"') : '',
     tbtn('◉', 'Inspect', 'data-act="inspect"'),
     d.hasBay && !sel.wreck && sel.location === 'ramp' ? tbtn('⤓', 'Store', 'data-act="store"') : '',
@@ -160,16 +194,24 @@ function floorScreen() {
   ].join('') : '';
 
   return `
-    <div class="hb-floor">${stage}</div>
-    ${info}
+    <div class="hb-floor hb-hand">${empty}<div class="vc-hand">${cards}${slots}</div></div>
     <div class="hb-toolbar">
       <div class="hb-tb-group">${craftActs}</div>
       <div class="hb-tb-group hb-tb-right">
-        ${!d.isAdmin && !d.licensed ? tbtn('✈', 'Get your pilot licence', 'data-act="checkride"', 'hb-accent') : ''}
-        ${d.canBuy || d.canRent ? tbtn('⊕', 'Buy / Rent', 'data-act="buyrent"', 'hb-accent') : ''}
         ${tbtn('⏻', d.inHangar ? 'Exit Hangar' : 'Close', 'data-act="close"', 'hb-close')}
       </div>
     </div>`;
+}
+// The cards, painted once per render (vehicle-card.js: a card is a still life, never a loop).
+function paintCards() {
+  const root = document.getElementById('hb-root'); if (!root || !B) return;
+  const craft = B.data?.craft || [];
+  for (const cv of root.querySelectorAll('canvas[data-card]')) {
+    const c = craft.find(x => x.id === cv.dataset.card); if (!c) continue;
+    paintVehicleCard(cv, { style: cardStyleFor(c.id), seed: cardSeed(c.id),
+      v: { cls: c.wreck ? 'wreck' : c.class, armed: c.class === 'heli' && c.hardpoints > 0, livery: c.livery, yaw: 0.62, fit: 2.1, elev: 0.26 } });
+  }
+  for (const cv of root.querySelectorAll('canvas[data-slot]')) paintSlotCard(cv, { style: 'showroom', seed: cv.dataset.slot.charCodeAt(0), glyph: cv.dataset.slot });
 }
 // The scene's entries: your craft (livery as-is) plus, when a pilot's on duty,
 // the CHARTER Mule solid-painted in their signature colour.
@@ -396,7 +438,8 @@ function plateRow(c, cat) {
 }
 function selectRow(label, field, opts) {
   return `<label class="hb-ctl"><span>${label}</span><select data-sel-field="${field}">${
-    opts.map(o => `<option value="${o.id}"${o.id === B.work[field] ? ' selected' : ''}>${o.label}</option>`).join('')
+    // "Name · blurb" labels show just the name; the blurb rides on the tooltip.
+    opts.map(o => `<option value="${o.id}" title="${o.label}"${o.id === B.work[field] ? ' selected' : ''}>${String(o.label).split(' · ')[0]}</option>`).join('')
   }</select></label>`;
 }
 // Paint gets its own EXTERIOR/INTERIOR/SCHEMES sub-tabs — it's the one section
@@ -405,11 +448,11 @@ function paintTabHtml(c, cat, dirty) {
   if (!c.paintable) {
     return `<div class="hb-note">${c.wreck ? 'A wreck: nothing worth painting.' : c.rental ? "Rentals can't be painted." : 'You can only paint an aircraft you own.'}</div>`;
   }
-  const pt = ['exterior', 'interior', 'schemes'].includes(B.paintTab) ? B.paintTab : (B.paintTab = 'exterior');
+  const pt = ['exterior', 'interior', 'sets'].includes(B.paintTab) ? B.paintTab : (B.paintTab = 'sets');
   const subtabs = `<div class="hb-subtabs">
+    <button class="hb-subtab${pt === 'sets' ? ' hb-subtab-active' : ''}" data-paint-tab="sets">Sets</button>
     <button class="hb-subtab${pt === 'exterior' ? ' hb-subtab-active' : ''}" data-paint-tab="exterior">Exterior</button>
     <button class="hb-subtab${pt === 'interior' ? ' hb-subtab-active' : ''}" data-paint-tab="interior">Interior</button>
-    <button class="hb-subtab${pt === 'schemes' ? ' hb-subtab-active' : ''}" data-paint-tab="schemes">Schemes</button>
   </div>`;
   const applyRow = `<div class="hb-apply-row">
     <button class="hb-btn hb-accent" data-act="paint-apply"${dirty ? '' : ' disabled'}>Apply · ${c.paintCost}₵</button>
@@ -418,7 +461,6 @@ function paintTabHtml(c, cat, dirty) {
   let panel;
   if (pt === 'exterior') {
     panel = `
-      <div class="hb-presets">${(cat.presets || []).map(p => `<button class="hb-preset" data-preset="${p.id}"><span class="hb-chip" style="background:${p.base};box-shadow:inset 0 0 0 3px ${p.trim}"></span>${p.label}</button>`).join('')}</div>
       <div class="hb-ctls">
         ${swatchRow('Base', 'base')}${swatchRow('Trim', 'trim')}
         ${B.work.pattern === 'jazz' ? swatchRow('Accent', 'accent') + swatchRow('Ground', 'ground') : ''}
@@ -432,13 +474,52 @@ function paintTabHtml(c, cat, dirty) {
       <div class="hb-ctls">${(cat.cabinTrims || {})[c.class] ? selectRow('Cabin trim', 'itrim', cat.cabinTrims[c.class]) : ''}${swatchRow('Cabin', 'cabin')}${selectRow('Upholstery', 'uphol', cat.uphol)}${plateRow(c, cat)}</div>
       ${applyRow}`;
   } else {
+    // A set is a whole look: click one to try it on the model, Apply to have it sprayed.
+    const wearing = (look) => ['base', 'trim', 'pattern', 'finish', 'decal', 'variant', 'cabin', 'uphol', 'itrim', 'plate']
+      .every(k => String(look[k] ?? '') === String(B.work[k] ?? ''));
+    const chip = (l) => `<span class="hb-chip" style="background:${l.base};box-shadow:inset 0 0 0 3px ${l.trim}"></span>`;
+    const liveries = (c.sets || []).map(st => `<button class="hb-set${wearing(st.look) ? ' hb-set-on' : ''}" data-set="${esc(st.id)}" title="${esc(st.blurb || '')}">${chip(st.look)}<span class="hb-set-name">${esc(st.name)}</span>${st.factory ? '<em>factory</em>' : ''}</button>`).join('');
+    const mine = (c.schemes || []).length
+      ? c.schemes.map(sc => `<span class="hb-scheme"><button class="hb-scheme-load${wearing(sc.look) ? ' hb-set-on' : ''}" data-scheme-load="${esc(sc.name)}">${chip(sc.look)}${esc(sc.name)}</button><button class="hb-scheme-del" data-scheme-del="${esc(sc.name)}" aria-label="Delete set ${esc(sc.name)}">✕</button></span>`).join('')
+      : '<span class="hb-dim">none saved yet</span>';
     panel = `
-      <div class="hb-schemes">${(c.schemes || []).length
-        ? c.schemes.map(s => `<span class="hb-scheme"><button class="hb-scheme-load" data-scheme-load="${esc(s.name)}"><span class="hb-chip" style="background:${s.base};box-shadow:inset 0 0 0 3px ${s.trim}"></span>${esc(s.name)}</button><button class="hb-scheme-del" data-scheme-del="${esc(s.name)}" aria-label="Delete scheme ${esc(s.name)}">✕</button></span>`).join('')
-        : '<span class="hb-dim">none saved yet</span>'}</div>
-      <div class="hb-scheme-save"><input id="hb-scheme-name" placeholder="scheme name" maxlength="16"><button class="hb-btn" data-act="scheme-save"${dirty ? ' disabled title="Apply your paint first"' : ''}>Save current look</button></div>`;
+      <div class="hb-set-head">Liveries</div>
+      <div class="hb-sets">${liveries || '<span class="hb-dim">none for this airframe</span>'}</div>
+      <div class="hb-set-head">Your sets</div>
+      <div class="hb-schemes">${mine}</div>
+      <div class="hb-scheme-save"><input id="hb-scheme-name" placeholder="set name" maxlength="16"><button class="hb-btn" data-act="scheme-save"${dirty ? ' disabled title="Apply your paint first"' : ''}>Save current look</button></div>
+      ${applyRow}`;
   }
   return subtabs + panel;
+}
+
+// Fuel: the tank as the same lit gauge the hull gets, and the pump if this field has her fuel.
+function fuelTabHtml(c) {
+  const pct = Math.max(0, Math.min(100, c.fuelPct || 0));
+  const col = pct < 20 ? '#ff6b6b' : pct < 45 ? '#ffb26b' : '#4fb8e0';
+  const stocked = (B.data.fuelStocks || []).includes(c.fuelType);
+  const full = (c.fuelCap || 0) - (c.fuelNow || 0) < 1;
+  const gauge = `<div class="hb-hull-gauge">
+      <div class="hb-hull-num" style="color:${col}">${pct}<small>%</small></div>
+      <div class="hb-hull-track"><i style="width:${pct}%;background:${col};color:${col}"></i><u style="left:20%"></u><u style="left:45%"></u></div>
+      <div class="hb-hull-verdict">${c.fuelNow ?? '?'} of ${c.fuelCap ?? '?'} units of ${esc(c.fuelType || 'fuel')}.</div>
+    </div>`;
+  const act = full ? '<div class="hb-note">Tanks full. She could fly to the Curtain and argue with it.</div>'
+    : !stocked ? `<div class="hb-note">This field doesn't pump ${esc(c.fuelType || 'her fuel')}. Find a field that does.</div>`
+    : `<div class="hb-repair-row"><button class="hb-btn hb-accent" data-act="refuel">Fill her up · ${c.fillCost}₵</button></div>`;
+  return gauge + act;
+}
+// Stores: what she carries. Rails and racks are reloaded on the ramp every time she parks, so on
+// the hangar floor they are full; this says so rather than selling what she already has.
+function storesTabHtml(c) {
+  const s = c.stores || {};
+  const row = (k, v) => `<div class="hb-kv"><span>${k}</span><b>${v}</b></div>`;
+  return `<div class="hb-stores">
+      ${row('Guns', 'loaded, and they stay that way')}
+      ${s.rails > 0 ? row('Missile rails', `${s.rails} of ${s.rails}${s.salvo > 1 ? ` · fires ${s.salvo} at a time` : ''}`) : ''}
+      ${s.bombs > 0 ? row('Bomb rack', `${s.bombs} of ${s.bombs}`) : ''}
+    </div>
+    <div class="hb-note">The armourers reload her every time she parks at a field. There's nothing to buy here, and nothing missing.</div>`;
 }
 
 // Hull — the airframe's condition read as a shop docket: a big lit gauge with the
@@ -735,13 +816,15 @@ function benchScreen() {
   const c = (B.data.craft || []).find(x => x.id === B.selId);
   if (!c) return '<div class="hb-empty">Pick an aircraft on the floor first.</div><div class="hb-toolbar"><button class="hb-btn" data-act="back">Back</button></div>';
   if (!B.work) B.work = { ...c.livery };
-  const cat = B.data.catalog || { patterns: [], finishes: [], uphol: [], presets: [] };
+  const cat = B.data.catalog || { patterns: [], finishes: [], uphol: [] };
   const dirty = JSON.stringify(B.work) !== JSON.stringify(c.livery);
   const canTune = !c.wreck && !c.rental;
 
   const tabs = [
     { id: 'paint', label: 'Paint', ico: '🎨' },
     { id: 'hull', label: 'Hull', ico: '🔧' },
+    ...(!c.wreck ? [{ id: 'fuel', label: 'Fuel', ico: '⛽' }] : []),
+    ...(!c.wreck && c.stores && (c.stores.rails > 0 || c.stores.bombs > 0) ? [{ id: 'stores', label: 'Stores', ico: '🎯' }] : []),
     ...(c.hopperCap > 0 && !c.wreck ? [{ id: 'hopper', label: 'Hopper', ico: '💧' }] : []),
     ...(canTune ? [{ id: 'tuning', label: 'Tuning', ico: '🎛' }, { id: 'kits', label: 'Kits', ico: '⚙' }] : []),
     ...(c.configurable ? [{ id: 'weight', label: 'W&B', ico: '⚖' }] : []),
@@ -768,6 +851,8 @@ function benchScreen() {
   </div>`;
 
   const body = B.benchTab === 'hull' ? hullTabHtml(c)
+    : B.benchTab === 'fuel' ? fuelTabHtml(c)
+    : B.benchTab === 'stores' ? storesTabHtml(c)
     : B.benchTab === 'hopper' ? hopperTabHtml(c)
     : B.benchTab === 'tuning' ? tuningTabHtml(c)
     : B.benchTab === 'kits' ? kitsTabHtml(c)
@@ -788,6 +873,9 @@ function benchScreen() {
           `data-hb-src="work" data-hb-zoom="${zoom}" data-hb-flat="1"` + (armed ? ' data-hb-armed="1"' : ''));
       })();
   const stageCap = B.benchTab === 'tuning' ? 'PERFORMANCE ENVELOPE' : 'BAY 1 · LIVE PREVIEW';
+  // Docked on the cockpit the camera outside her is the preview, so the turntable goes; the tuning
+  // radar stays, because a performance envelope is not something the glass can show.
+  const svc = !!B.service, showStage = !svc || B.benchTab === 'tuning';
 
   return `
     <div class="hb-bench">
@@ -796,10 +884,10 @@ function benchScreen() {
         ${navBar}
       </div>
       <div class="hb-bench-main">
-        <div class="hb-bench-stage">
+        ${showStage ? `<div class="hb-bench-stage">
           <div class="hb-stage-frame"><span class="hb-stage-grid"></span>${stage}<span class="hb-stage-glow"></span></div>
           <div class="hb-stage-cap">${stageCap}</div>
-        </div>
+        </div>` : ''}
         <div class="hb-bench-panels">
           <div class="hb-bench-card">
             <div class="hb-card-head"><span class="hb-card-dot"></span>${esc((tabs.find(t => t.id === B.benchTab) || tabs[0]).label).toUpperCase()}</div>
@@ -808,10 +896,10 @@ function benchScreen() {
         </div>
       </div>
     </div>
-    <div class="hb-toolbar">
+    ${svc ? '' : `<div class="hb-toolbar">
       <div class="hb-tb-group">${!c.wreck ? tbtn('✈', 'Fly', `data-act="embark" data-tail="${esc(c.tail)}"`, 'hb-accent hb-go') : ''}</div>
       <div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div>
-    </div>`;
+    </div>`}`;
 }
 
 // ── Render dispatch ─────────────────────────────────────────────────────────
@@ -820,6 +908,7 @@ function render() {
   // setAreaPane rebuilds #hb-root, so drop any live colour popover first — otherwise
   // cpState would point at a detached node (it no longer self-closes on outside click).
   closeColorPicker({ silent: true });
+  if (B.service) { renderService(); return; }
   const d = B.data || {};
   const title = B.screen === 'charter' ? 'CHARTER' : B.screen === 'buyrent' ? 'BUY / RENT' : B.screen === 'bench' ? 'MECHANICS BENCH' : B.screen === 'inspect' ? 'INSPECT' : 'HANGAR BAY';
   const body = B.screen === 'charter' ? charterScreen() : B.screen === 'buyrent' ? buyRentScreen() : B.screen === 'bench' ? benchScreen() : B.screen === 'inspect' ? inspectScreen() : floorScreen();
@@ -846,6 +935,26 @@ function render() {
   // The bench no longer scrolls as a page (the tab body is the only scroll region, and
   // only as a last resort), so the stage needs no sticky offset measuring any more.
   if (B.screen === 'bench' && B.benchTab === 'tuning') paintTuning();
+  if (B.screen === 'floor') { ensureCardStyles(); paintCards(); }
+}
+
+function renderService() {
+  const host = cockpitServiceHost();
+  if (!host) { closeHangarBay(); return; }
+  let el = document.getElementById('hb-root');
+  if (!el || el.parentElement !== host) { el?.remove(); el = document.createElement('div'); el.id = 'hb-root'; host.appendChild(el); }
+  el.className = 'hb-svc';
+  const d = B.data || {}, c = (d.craft || []).find(x => x.id === B.selId);
+  // The balance is on the bench's own summary strip, so the head is the place and the way out.
+  el.innerHTML = `<div class="hb-head"><span class="hb-title">⚙ ${esc(d.field || 'HANGAR')}</span>
+      <button class="hb-btn hb-accent hb-go" data-act="launch-seat" title="Fold the bench away and take the seat">✈ Launch ▸</button></div>
+    <div class="hb-body">${benchScreen()}</div>`;
+  wire();
+  startSpin();
+  if (B.benchTab === 'tuning') paintTuning();
+  // The working paint rides to the chase camera until it is applied or thrown away.
+  const dirty = c && B.work && JSON.stringify(B.work) !== JSON.stringify(c.livery);
+  cockpitPreview({ livery: dirty ? B.work : null });
 }
 
 function wire() {
@@ -855,6 +964,12 @@ function wire() {
   on('[data-bench-tab]', 'click', (e) => { B.benchTab = e.currentTarget.getAttribute('data-bench-tab'); render(); });
   on('[data-paint-tab]', 'click', (e) => { B.paintTab = e.currentTarget.getAttribute('data-paint-tab'); render(); });
 
+  on('[data-pick]', 'click', (e) => {
+    B.selId = e.currentTarget.getAttribute('data-pick');
+    const c = (B.data.craft || []).find(x => x.id === B.selId);
+    B.work = c ? { ...c.livery } : null;
+    render();
+  });
   const scene = root.querySelector('#hb-scene');
   if (scene) scene.addEventListener('click', (e) => {
     const r = scene.getBoundingClientRect();
@@ -974,9 +1089,30 @@ function wire() {
     if (act === 'checkride') { sendCmdSilent('checkride'); closeHangarBay(); return; }
     if (act === 'charter-any') { charterAny = !charterAny; render(); return; }
     if (act === 'embark') { sendCmdSilent(`embark ${e.currentTarget.getAttribute('data-tail')}`); closeHangarBay(); return; }
+    // The two card buttons. Through the GLASS hangar when the field has one, else the old pair.
+    if (act === 'service') {
+      const id = e.currentTarget.getAttribute('data-id');
+      if (B.data.cockpitBench && (B.data.licensed || B.data.isAdmin)) { closeHangarBay(); sendCmdSilent(`hangaract service ${id}`); return; }
+      const c = (B.data.craft || []).find(x => x.id === id);
+      B.selId = id; B.work = c ? { ...c.livery } : null; B.tune = null; B.tuneFor = null; B.kitSel = null; go('bench'); return;
+    }
+    if (act === 'launch') {
+      const t = e.currentTarget;
+      sendCmdSilent(B.data.cockpitBench ? `hangaract launch ${t.getAttribute('data-id')}` : `embark ${t.getAttribute('data-tail')}`);
+      closeHangarBay(); return;
+    }
+    // From the docked bench: fold it away and look out of the windscreen. She is already in the seat.
+    if (act === 'launch-seat') { cockpitView('cab'); closeHangarBay(); return; }
+    if (act === 'charter-card') {
+      if (!B.data.licensed && !B.data.isAdmin && B.data.venue !== 'helipad') { sendCmdSilent('checkride'); closeHangarBay(); return; }
+      if (B.data.charterWaiting) { sendCmdSilent('embark'); closeHangarBay(); }
+      else if (B.data.pilot?.present) sendCmdSilent('charterinfo');
+      return;
+    }
     if (act === 'store') { sendCmdSilent(`hangaract store ${B.selId}`); return; }
     if (act === 'pull') { sendCmdSilent(`hangaract pull ${B.selId}`); return; }
-    if (act === 'refuel') { sendCmdSilent(`refuel ${B.selId}`); refetch(); return; }
+    // Docked on the cockpit you are aboard her, and `refuel` aboard means this aircraft.
+    if (act === 'refuel') { sendCmdSilent(B.service ? 'refuel' : `refuel ${B.selId}`); refetch(); return; }
     if (act === 'repair') { sendCmdSilent(`repair ${B.selId}`); refetch(); return; }
     if (act === 'repair-pro') { sendCmdSilent(`repair ${B.selId} hangar`); refetch(); return; }
     // Pours ONE container and refetches — the can list and the gauge both move, and the server's
@@ -1012,11 +1148,40 @@ function wire() {
     B.work.plate = v;
   });
   on('[data-sel-field]', 'change', (e) => { B.work[e.currentTarget.getAttribute('data-sel-field')] = e.currentTarget.value; render(); });
-  on('[data-preset]', 'click', (e) => {
-    const p = (B.data.catalog?.presets || []).find(x => x.id === e.currentTarget.getAttribute('data-preset'));
-    if (p) { B.work = { ...B.work, base: p.base, trim: p.trim, accent: p.accent || B.work.accent, pattern: p.pattern, finish: p.finish, cabin: p.cabin, uphol: p.uphol }; render(); }
+  // A long trim name ("Quackhawk Down · special edition") shrinks to fit its
+  // select instead of running past it. If it would drop below 10px the label
+  // moves above the select to give it the whole cell. Full name on the tooltip.
+  root.querySelectorAll('[data-sel-field]').forEach((sel) => {
+    const opt = sel.options[sel.selectedIndex];
+    sel.title = opt?.title || opt?.text || '';
+    const row = sel.parentNode, base = parseFloat(getComputedStyle(sel).fontSize) || 12;
+    const probe = document.createElement('span');
+    probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font:inherit';
+    probe.textContent = opt?.text || '';
+    row.appendChild(probe);
+    const fit = () => {
+      const room = sel.clientWidth - 38;   // padding + arrow
+      let px = base;
+      const w = (p) => { probe.style.fontSize = p + 'px'; return probe.offsetWidth; };
+      while (room > 0 && w(px) > room && px > 10) px -= 0.5;
+      sel.style.fontSize = px < base ? px + 'px' : '';
+      return room <= 0 || w(px) <= room;
+    };
+    const scs = getComputedStyle(sel);
+    Object.assign(probe.style, { fontFamily: scs.fontFamily, fontWeight: scs.fontWeight, letterSpacing: scs.letterSpacing });
+    if (!fit()) { row.classList.add('hb-ctl-stack'); fit(); }
+    probe.remove();
   });
-  on('[data-scheme-load]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} load ${e.currentTarget.getAttribute('data-scheme-load')}`));
+  // Trying a set on only changes the working copy, so the model previews it; Apply charges.
+  const selCard = () => (B.data.craft || []).find(x => x.id === B.selId);
+  on('[data-set]', 'click', (e) => {
+    const st = (selCard()?.sets || []).find(x => x.id === e.currentTarget.getAttribute('data-set'));
+    if (st) { B.work = { ...B.work, ...st.look }; render(); }
+  });
+  on('[data-scheme-load]', 'click', (e) => {
+    const sc = (selCard()?.schemes || []).find(x => x.name === e.currentTarget.getAttribute('data-scheme-load'));
+    if (sc) { B.work = { ...B.work, ...sc.look }; render(); }
+  });
   on('[data-scheme-del]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} delete ${e.currentTarget.getAttribute('data-scheme-del')}`));
   on('[data-knob]', 'pointerdown', startKnobDrag);
   on('[data-kit]', 'click', (e) => sendCmdSilent(`installkit ${B.selId} ${e.currentTarget.getAttribute('data-kit')}`));
@@ -1265,6 +1430,24 @@ function ensureStyles() {
 
   /* Floor — one 3D scene canvas, not a row of cards */
   #hb-root .hb-floor { position:relative; flex:1 1 auto; display:flex; min-height:280px; }
+  #hb-root .hb-floor.hb-hand { display:block; overflow:auto; min-height:0; padding:4px 2px 8px; }
+  #hb-root .hb-hand .vc-hand { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
+  #hb-root .vc-wrap.hb-picked .vc-card { outline:2px solid var(--hb-atm-accent); outline-offset:2px; }
+  #hb-root .vc-mini.hb-launch { color:var(--hb-atm-accent); }
+  #hb-root .hb-stores { display:grid; gap:6px; margin-bottom:8px; }
+  #hb-root .hb-kv { display:flex; justify-content:space-between; gap:10px; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim);
+    padding:6px 8px; border-radius:6px; background:color-mix(in srgb, var(--hb-atm-accent) 6%, var(--bg2)); }
+  #hb-root .hb-kv b { color:var(--tos-fg); font-weight:600; text-align:right; }
+  /* THE DOCKED BENCH: an overlay on the cockpit glass, right-hand side, the view showing past it. */
+  #hb-root.hb-svc { position:absolute; z-index:40; right:10px; top:46px; bottom:10px; width:min(460px,46%);
+    display:flex; flex-direction:column; min-height:0; padding:8px; border-radius:10px; white-space:normal;
+    background:color-mix(in srgb, var(--bg2) 86%, transparent); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 36%, var(--border)); box-shadow:0 12px 30px rgba(0,0,0,.55); }
+  #hb-root.hb-svc .hb-head { gap:8px; }
+  #hb-root.hb-svc .hb-title { flex:1 1 auto; min-width:0; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #hb-root.hb-svc .hb-head .hb-go { flex:0 0 auto; white-space:nowrap; }
+  #hb-root.hb-svc .hb-body { flex:1 1 auto; min-height:0; overflow:auto; }
+  #hb-root.hb-svc .hb-bench-main { grid-template-columns:1fr; }
   #hb-root .hb-scene { width:100%; height:100%; min-height:280px; display:block; border-radius:8px; cursor:pointer; }
   #hb-root .hb-inspect { cursor:grab; touch-action:none; outline:none; }
   #hb-root .hb-inspect:active { cursor:grabbing; }
@@ -1646,13 +1829,8 @@ function ensureStyles() {
   #hb-root .hb-wb-tile b small { font-size:10px; opacity:0.6; margin-left:1px; }
   #hb-root .hb-wb-tile u { display:block; text-decoration:none; font-size:8.5px; color:var(--text-dim); margin-top:3px; }
   #hb-root .hb-loadout-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
-  #hb-root .hb-presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:7px; }
-  #hb-root .hb-preset { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:var(--tos-fg); cursor:pointer;
-    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px; padding:5px 9px; font-family:inherit;
-    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, border-color .12s; }
-  #hb-root .hb-preset:hover { filter:brightness(1.1); border-color:var(--hb-atm-accent); }
   #hb-root .hb-chip { width:14px; height:14px; border-radius:3px; display:inline-block; }
-  #hb-root .hb-ctls { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
+  #hb-root .hb-ctls { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px 12px; }
   #hb-root .hb-ctl { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--tos-fg-dim); letter-spacing:1px; }
   #hb-root .hb-ctl input[type=color] { width:44px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); border-radius:5px; background:none; cursor:pointer; }
   /* The swatch chip: a lacquered paint sample beside its hex code. */
@@ -1668,13 +1846,25 @@ function ensureStyles() {
   /* The colour-picker popover's own rules live with it in ./color-picker.js — it
      mounts on <body>, so they were never scoped under #hb-root anyway, and the
      spray can needs the same ones. The theme tokens above are what it copies. */
-  #hb-root .hb-ctl select { flex:1; max-width:130px; padding:5px 6px; font-family:inherit; cursor:pointer;
+  #hb-root .hb-ctl.hb-ctl-stack { flex-direction:column; align-items:stretch; }
+  #hb-root .hb-ctl.hb-ctl-stack select { width:auto; flex:none; }
+  #hb-root .hb-ctl select { flex:1 1 0; width:0; min-width:0; text-overflow:ellipsis; padding:5px 6px; font-family:inherit; cursor:pointer;
     color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; }
   #hb-root .hb-apply-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
   #hb-root .hb-schemes { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
   #hb-root .hb-scheme { display:inline-flex; align-items:center; background:var(--hb-surf-lo); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px; overflow:hidden;
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi); }
+  #hb-root .hb-set-head { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim); margin:8px 0 5px; }
+  #hb-root .hb-sets { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:6px; }
+  #hb-root .hb-set { display:flex; align-items:center; gap:7px; min-width:0; padding:6px 9px; font-family:inherit; font-size:10px; letter-spacing:1px; cursor:pointer;
+    color:var(--tos-fg); text-align:left; background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px;
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, border-color .12s; }
+  #hb-root .hb-set:hover { filter:brightness(1.1); border-color:var(--hb-atm-accent); }
+  #hb-root .hb-set-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #hb-root .hb-set em { font-style:normal; font-size:9px; letter-spacing:1px; color:var(--tos-fg-dim); }
+  #hb-root .hb-set-on { border-color:var(--hb-atm-accent); box-shadow:0 0 0 1px var(--hb-atm-accent) inset; }
   #hb-root .hb-scheme-load { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:var(--tos-fg); cursor:pointer; background:none; border:none; padding:5px 6px 5px 8px; font-family:inherit; }
   #hb-root .hb-scheme-del { background:none; border:none; border-left:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); color:var(--tos-fg-dim); cursor:pointer; padding:5px 7px; font-family:inherit; }
   #hb-root .hb-scheme-del:hover { color:#ff8a8a; }

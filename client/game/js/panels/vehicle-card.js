@@ -218,7 +218,7 @@ export function paintVehicleCard(cv, { style, seed = 0, v = null, dim = false } 
     let anchor = null;
     try {
       anchor = drawHangarFloorBay(sc, {
-        w, h, flat: true, cls: v.cls, variant: v.variant || '', livery: v.livery || {},
+        w, h, flat: true, cls: v.cls, variant: v.variant || '', livery: v.livery || {}, armed: !!v.armed,
         yaw: v.yaw ?? 0.62, elev: v.elev ?? 0.3, zoom: v.zoom ?? 1, fit: v.fit ?? 1.7,
       });
     } catch { anchor = null; }

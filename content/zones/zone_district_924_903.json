@@ -9,6 +9,7 @@
     "west": "zone_hangar_outskirts"
   },
   "flags": {
+    "aircraft_hangar": true,
     "building_name": "Coldwater Regional Hangar",
     "building_type": "hangar",
     "district": "docks",

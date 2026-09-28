@@ -1,0 +1,19 @@
+{
+  "blurb": "Two tones of blue, the colour of a sky you would rather be in.",
+  "default": false,
+  "exterior": {
+    "base": "#274b7a",
+    "finish": "satin",
+    "pattern": "twotone",
+    "trim": "#7fb0e0"
+  },
+  "id": "coldblue",
+  "interior": {
+    "cabin": "#16202e",
+    "uphol": "quilted"
+  },
+  "kind": "aircraft",
+  "model": "any",
+  "name": "Cold Blue",
+  "unlock": null
+}

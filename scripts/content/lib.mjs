@@ -339,7 +339,10 @@ export function isRuntimeResidueId(table, id) {
 // both refuse outright, for everybody, on every table. The three that were listed have the same
 // shape: hand-authored, versioned in git, baked into a module, never a row. Add the word in the
 // same commit as the directory.
-export const NON_TABLE_DIRS = new Set(['map', 'building_models', 'vehicle_models', 'fauna_models']);
+//
+// `liveries` is the same shape without the suffix: whole paint sets per vehicle model, baked by
+// scripts/shapes/bake-liveries.mjs into client/shared/liveries.js and gated by shapes/liveries.mjs.
+export const NON_TABLE_DIRS = new Set(['map', 'building_models', 'vehicle_models', 'fauna_models', 'liveries']);
 
 // ── Asset refs ──────────────────────────────────────────────────────────────
 //

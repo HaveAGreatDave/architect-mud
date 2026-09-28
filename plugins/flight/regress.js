@@ -6,11 +6,14 @@ import { _test } from './index.js';
 import { withinShift, pilotTarget, charterOwnsPilot, stepToward, charterFare, pilotColor } from './charter.js';
 import { signatureMult, signatureScore, colorName, describeExterior,
   normalizeLivery, sanitizeLivery, conspicuousnessMult, paintCost, isPaintable,
-  readSchemes, schemeOf } from './livery.js';
+  readSchemes, schemeOf, classDefault, liveryFromSet, LIVERY_DEFAULT } from './livery.js';
+import { LIVERIES } from '../../client/shared/liveries.js';
+import { LIVERY_MODELS } from '../../client/shared/livery-schema.js';
+import { liveriesFor, liveryById, unlockedLiveries } from '../../client/shared/livery-sets.js';
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
-import { boundUnpoweredClimb } from './state.js';
+import { boundUnpoweredClimb, hangarTileFor, toDeg } from './state.js';
 import { thermalLift } from '../../client/shared/thermals.js';
-import { sellAircraft, cancelRental, flushAirborne, pushHangarBay } from './hangars.js';
+import { sellAircraft, cancelRental, flushAirborne, pushHangarBay, _liveryTest } from './hangars.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope, PYLON_MIN_TOW,
@@ -519,6 +522,34 @@ export default async function regress({ run, check, getPlayer }) {
   check('the Shrike decal is a real decal and describes itself', /thorn/i.test(describeExterior({ base: '#3d5245', trim: '#222', pattern: 'solid', finish: 'satin', decal: 'shrike' }, 'Shrike')));
   check('sanitizeLivery keeps a valid decal, drops junk', sanitizeLivery({ decal: 'killmarks' }).decal === 'killmarks' && sanitizeLivery({ decal: 'x' }, { decal: 'sigil' }).decal === 'sigil');
 
+  // ── Livery sets (content/liveries/) ─────────────────────────────────────────
+  // An unpainted aeroplane wears its class's default set. The failure this guards is the old one:
+  // every new airframe out of the works in the same gunmetal grey.
+  const greyClasses = LIVERY_MODELS.aircraft.filter(cls => normalizeLivery({}, cls).base === LIVERY_DEFAULT.base);
+  check('no aircraft class comes out of the works in stock grey', greyClasses.length === 0, greyClasses.join(', '));
+  check('a stored stock-grey livery reads as unpainted (the class default shows through)',
+    normalizeLivery({ livery: { base: LIVERY_DEFAULT.base, trim: LIVERY_DEFAULT.trim, pattern: 'bare', text: 'kept' } }, 'heli').base === classDefault('heli').base
+    && normalizeLivery({ livery: { base: LIVERY_DEFAULT.base, trim: LIVERY_DEFAULT.trim, pattern: 'bare', text: 'kept' } }, 'heli').text === 'kept');
+  check('a stored object missing fields fills from the class default, not grey', normalizeLivery({ livery: { text: 'x' } }, 'grasshopper').base === classDefault('grasshopper').base);
+  const qh = liveryById('aircraft', 'drake', 'quackhawk');
+  const qhLook = qh && liveryFromSet(qh);
+  check('Quackhawk Down is a Drake set: paint, cockpit and nameplate together',
+    !!qhLook && qhLook.variant === 'quackhawk' && qhLook.itrim === 'quackhawk' && qhLook.plate === 'QUACKHAWK DOWN', JSON.stringify(qhLook));
+  check('a set replaces the whole look (no decal carried over from before)', liveryFromSet({ exterior: { base: '#101010' }, interior: {} }).decal === 'none');
+  check('a generic (any) set is offered on every class', LIVERY_MODELS.aircraft.every(cls => liveriesFor('aircraft', cls).some(l => l.model === 'any')));
+  check("a Drake's own editions are not offered on a Mule", !liveriesFor('aircraft', 'prop').some(l => l.id === 'quackhawk'));
+  check('schemeOf saves the whole look (factory scheme, cockpit trim, plate)', (() => { const s = schemeOf(qhLook, 'drake'); return s.variant === 'quackhawk' && s.itrim === 'quackhawk' && s.plate === 'QUACKHAWK DOWN'; })());
+  {
+    // A locked set stays hidden until its flag is set. Pushed onto the baked table for the check
+    // and taken straight back off, so no other suite sees it.
+    const locked = { kind: 'aircraft', model: 'prop', id: 'zz_regress_locked', name: 'Locked', blurb: '', default: false, unlock: 'regress_livery_unlock', exterior: { base: '#123456' }, interior: {}, plate: '' };
+    LIVERIES.push(locked);
+    try {
+      check('a locked set is hidden without its flag', !unlockedLiveries('aircraft', 'prop', () => false).some(l => l.id === locked.id));
+      check('…and offered with it', unlockedLiveries('aircraft', 'prop', (k) => k === 'regress_livery_unlock').some(l => l.id === locked.id));
+    } finally { LIVERIES.pop(); }
+  }
+
   // ── Charter lifecycle cores (pure; content-independent state machine) ────────
   check('shift wraps midnight: 16:00 start covers 20:00', withinShift(16, 20) === true);
   check('shift wraps midnight: 16:00 start excludes 08:00', withinShift(16, 8) === false);
@@ -749,6 +780,36 @@ export default async function regress({ run, check, getPlayer }) {
     check('flushAirborne clears the ghost airborne flag', after.find(a => a.id === ghostId)?.airborne === 0, JSON.stringify(after));
     check('flushAirborne leaves a parked craft alone', after.find(a => a.id === parkedId)?.airborne === 0, JSON.stringify(after));
     await query('DELETE FROM aircraft WHERE id = ANY($1)', [[ghostId, parkedId]]);
+  }
+
+  // ── Applying a livery set charges the respray fee, once ─────────────────────
+  {
+    const lvId = 'aircraft_regress_livery';
+    await query('DELETE FROM aircraft WHERE id=$1', [lvId]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne) VALUES ($1,'ac_drake','REGR-LV1',$2,0,0,0)`, [lvId, p.id]);
+    const savedCredits = p.credits;
+    try {
+      p.credits = 100000;
+      const load = async () => (await query("SELECT a.id, a.custom_data, t.class, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1", [lvId])).rows[0];
+      const ac = await load();
+      check('an unpainted Drake reads as her default set', normalizeLivery(ac.custom_data, ac.class).pattern === 'factory');
+      const fee = paintCost({ class: 'drake' });
+      const set = liveryById('aircraft', 'drake', 'quackhawk');
+      await _liveryTest.applyLook(p, ac, liveryFromSet(set), set.name);
+      const after = await load();
+      const lv = normalizeLivery(after.custom_data, after.class);
+      check('applying a set charges the class respray fee', p.credits === 100000 - fee, `credits=${p.credits} fee=${fee}`);
+      check('…and paints the whole set on (exterior scheme, cockpit, plate)', lv.variant === 'quackhawk' && lv.itrim === 'quackhawk' && lv.plate === 'QUACKHAWK DOWN', JSON.stringify(lv));
+      await _liveryTest.applyLook(p, after, liveryFromSet(set), set.name);
+      check('wearing the set she already has costs nothing', p.credits === 100000 - fee, `credits=${p.credits}`);
+      p.credits = 0;
+      const refused = await _liveryTest.applyLook(p, after, liveryFromSet(liveryById('aircraft', 'drake', 'darkwing')), 'Darkwing');
+      check('a pilot who cannot pay is refused and nothing is painted', /short/i.test(refused?.message || '') && normalizeLivery((await load()).custom_data, 'drake').variant === 'quackhawk', refused?.message);
+    } finally {
+      p.credits = savedCredits;
+      await query('UPDATE players SET credits=$1 WHERE id=$2', [savedCredits, p.id]);
+      await query('DELETE FROM aircraft WHERE id=$1', [lvId]);
+    }
   }
 
   // ── Licensed freight drops (air-freight licence gate + pool top-up) ─────────
@@ -1334,6 +1395,69 @@ export default async function regress({ run, check, getPlayer }) {
     liveAircraft.delete(tpId);
     await query('DELETE FROM aircraft WHERE id=$1', [tpId]);
     p.current_zone = savedZoneTP; delete p.aircraftId; delete p.seat;
+  }
+
+  // ── The GLASS hangar: `hangaract service` stands her on the hangar floor ──────────────
+  // Coldwater Regional's hangar tile carries `aircraft_hangar`. The field finds it, the tile derives
+  // as an aircraft bay (the renderer draws it from HANGAR_BAY), and servicing a Mule boards you with
+  // her standing on that tile nose to the door, still parked at the field, and the bench pushed to
+  // the cockpit rather than the pane.
+  {
+    const ramp = getZone('zone_district_925_903');
+    const tile = hangarTileFor(ramp);
+    check('Coldwater Regional finds its GLASS hangar', tile?.id === 'zone_district_924_903', tile?.id);
+    const { surfaceAt, deriveSurfaceCell } = await import('./state.js');
+    const hc = surfaceAt(924, 903), hcell = hc ? deriveSurfaceCell(hc, 924, 903, surfaceAt) : null;
+    check('…and its tile derives as an aircraft bay', hcell?.mark === 'bay' && hcell?.bk === 'air', JSON.stringify({ mark: hcell?.mark, bk: hcell?.bk }));
+    const hid = 'aircraft_regress_hangar';
+    const savedZone = p.current_zone, savedBc = getBroadcast(), sent = [];
+    await query('DELETE FROM aircraft WHERE id=$1', [hid]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_mule','REGR-HG',$2,0,0,0,'zone_district_925_903',925,903,40)`, [hid, p.id]);
+    await setFlag('player', 'air_pilot_licensed', '1', p);
+    p.current_zone = 'zone_hangar_outskirts';
+    setBroadcast((zoneId, message, excludeId, targetId) => { sent.push({ targetId, message }); });
+    try {
+      const r = await run(`hangaract service ${hid}`);
+      const live = liveAircraft.get(hid);
+      check('hangaract service seats you in her', p.aircraftId === hid, r?.message);
+      check('…standing on the hangar floor, nose to the door',
+        !!live && live.row.grid_x === 924 && live.row.grid_y === 903 && toDeg(live.row.heading) === 90,
+        live && JSON.stringify({ x: live.row.grid_x, y: live.row.grid_y, h: live.row.heading }));
+      check('…still parked at the field, so paint, fuel and repair resolve', live?.row.parked_zone_id === 'zone_district_925_903');
+      const bay = sent.find(x => x.message?.type === 'hangar_bay_open')?.message?.data;
+      check('…and the bench comes to the cockpit', bay?.service === true && bay?.serviceId === hid && bay?.hangar === true,
+        JSON.stringify({ service: bay?.service, id: bay?.serviceId, hangar: bay?.hangar }));
+    } finally {
+      setBroadcast(savedBc);
+      liveAircraft.delete(hid);
+      await query('DELETE FROM aircraft WHERE id=$1', [hid]);
+      p.current_zone = savedZone; delete p.aircraftId; delete p.seat; delete p.textTravel;
+    }
+  }
+  // …and a field with no hangar building works on her where she stands. Threshold Helipad has none,
+  // so servicing a Dragonfly leaves her on the pad and still brings the bench to the cockpit: the
+  // pad is that field's 3D area, as the Solenne's roof is its own.
+  {
+    const hid = 'aircraft_regress_padservice';
+    const savedZone = p.current_zone, savedBc = getBroadcast(), sent = [];
+    await query('DELETE FROM aircraft WHERE id=$1', [hid]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_dragonfly','REGR-PD',$2,0,0,0,'zone_district_893_909',893,909,40)`, [hid, p.id]);
+    p.current_zone = 'zone_hangar_threshold';
+    setBroadcast((zoneId, message, excludeId, targetId) => { sent.push({ targetId, message }); });
+    try {
+      check('Threshold Helipad has no hangar building', !hangarTileFor(getZone('zone_district_893_909')));
+      const r = await run(`hangaract service ${hid}`);
+      const live = liveAircraft.get(hid);
+      check('servicing on a pad seats you in her where she stands', p.aircraftId === hid && live?.row.grid_x === 893 && live?.row.grid_y === 909, r?.message);
+      const bay = sent.find(x => x.message?.type === 'hangar_bay_open')?.message?.data;
+      check('…and the bench still comes to the cockpit, out on the pad', bay?.service === true && bay?.serviceId === hid && bay?.hangar === false,
+        JSON.stringify({ service: bay?.service, id: bay?.serviceId, hangar: bay?.hangar }));
+    } finally {
+      setBroadcast(savedBc);
+      liveAircraft.delete(hid);
+      await query('DELETE FROM aircraft WHERE id=$1', [hid]);
+      p.current_zone = savedZone; delete p.aircraftId; delete p.seat; delete p.textTravel;
+    }
   }
 
   // ── Walkable aircraft cabin — the Leviathan flying base, Phase 1 ─────────────
