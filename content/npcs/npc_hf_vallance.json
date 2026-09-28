@@ -166,12 +166,12 @@
     "root": {
       "options": [
         {
-          "label": "What are the dark screens?",
-          "next": "dark"
-        },
-        {
           "label": "What can I get from you?",
           "next": "__shop__"
+        },
+        {
+          "label": "What are the dark screens?",
+          "next": "dark"
         },
         {
           "label": "One credit a year?",

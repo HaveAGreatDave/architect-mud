@@ -151,14 +151,10 @@
           "next": "root"
         }
       ],
-      "text": "\"Doors are here, not north. North's the writers now, and they'll thank you not to knock.\" She taps the glass with a knuckle. \"Pass gets you inside and standing where the floor manager puts you. Clap when the sign says clap. Nobody films the monitors.\""
+      "text": "\"Doors are here, not north. North's the writers now, and they'll thank you not to knock.\" She taps the glass with a knuckle. \"Stage door's east, and the man on it checks the stamp. A pass is good for one taping: the one rolling now, or the next one if nothing is. Step out for air and the same pass gets you back in until it's over.\"\n\n\"Inside, you stand where the floor manager puts you. Clap when the sign says clap. Nobody films the monitors.\""
     },
     "root": {
       "options": [
-        {
-          "label": "What's taping?",
-          "next": "show"
-        },
         {
           "label": "Sell me a pass.",
           "next": "__shop__"
@@ -166,6 +162,10 @@
         {
           "label": "Where does the audience go?",
           "next": "house"
+        },
+        {
+          "label": "What's taping?",
+          "next": "show"
         },
         {
           "label": "Just looking.",

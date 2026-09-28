@@ -35,10 +35,24 @@
       ],
       "text": "He looks at it as though noticing it.\n\n\"Work.\"\n\nHe files eleven strokes and turns the piece.\n\n\"My mother put the middle third of that on the wall. Her hand is the small one. The top is her teacher and the corrections are mine and one day somebody will correct mine, and that'll be a good day and I won't be here for it.\"\n\nHe blows the dust off the work and holds it up.\n\n\"That's as much as you're getting and it's more than I meant to say.\""
     },
+    "rig": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He doesn't look up. \"Chrome. For a piece that's running under what it should.\"\n\n\"Carry the rig and <b>calibrate &lt;name&gt;</b>. It's used up doing it. An augment clinic's bench does the job better and you keep the rig.\""
+    },
     "root": {
       "actions": [],
       "first": "\"Mind the swarf.\" His hands don't stop. \"You can watch. Don't touch the board.\"",
       "options": [
+        {
+          "label": "What's the rig for?",
+          "next": "rig"
+        },
         {
           "actions": [],
           "conditions": [],

@@ -147,7 +147,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Anything that'll sit in a case and hold its value till the next desperate soul.\" He gestures at the wall of tickets. \"Tools, trinkets, the odd thing best not described on a receipt. I pay what it's worth to me, which is less than it is worth to you, and that gap is the whole business. Bring it round, I'll price it, no questions filed.\""
+      "text": "\"Anything that'll sit in a case and hold its value till the next desperate soul.\" He gestures at the wall of tickets. \"Tools, trinkets, the odd thing best not described on a receipt. I pay what it's worth to me, which is less than it is worth to you, and that gap is the whole business. Say <b>sell</b> and what it is, and I'll price it. No questions filed.\""
     },
     "bye": {
       "options": [],

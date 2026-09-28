@@ -175,6 +175,10 @@
           "next": "__shop__"
         },
         {
+          "label": "Where do I wash?",
+          "next": "wash"
+        },
+        {
           "label": "Free? Really?",
           "next": "free"
         },
@@ -201,6 +205,15 @@
         }
       ],
       "text": "\"When I started, the water came on for two hours a day and there was a queue round to Ironside.\" She shrugs. \"Now it's on all day and the queue's the same length. People don't come for the water.\" A beat. \"They come to be somewhere warm where nobody's asking them for anything.\""
+    },
+    "wash": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She points the razor at the arch. \"Baths are east, through there. Step into a stall and <b>shower</b>. That takes off everything, blood and worse included, and it costs you nothing.\"\n\n\"Soap's five a block, and it works anywhere there's a sink or a shower. <b>soap</b> and you scrub yourself down. <b>soap</b> and a name does it for somebody else, if they'll stand still for it.\""
     }
   },
   "faction": null,

@@ -157,10 +157,6 @@
         {
           "label": "\"Fair enough.\"",
           "next": "bye"
-        },
-        {
-          "label": "\"Who works the crane?\"",
-          "next": "crane"
         }
       ],
       "text": "\"That's it, yes.\" Very dry. \"<b>sell</b> whatever it is, and I'll give you a number. You won't like the number. Nobody likes the number. The number is correct.\""
@@ -168,28 +164,6 @@
     "bye": {
       "options": [],
       "text": "\"Mm,\" she says, already back in the ledger. \"Gate's open.\""
-    },
-    "crane": {
-      "options": [
-        {
-          "label": "\"You still climb up there?\"",
-          "next": "crane2"
-        },
-        {
-          "label": "\"What's this place?\"",
-          "next": "what"
-        }
-      ],
-      "text": "\"I do.\" She holds up a hand, flexes it once, and you hear something in it click. \"Forty-one years. My father sat in that cab, and his sister before him, and the seat's got a dip in it now that fits all three of us, which tells you something about the family and none of it flattering.\""
-    },
-    "crane2": {
-      "options": [
-        {
-          "label": "\"...Right. I'll let you get on.\"",
-          "next": "bye"
-        }
-      ],
-      "text": "\"Every day. Twice, if the delivery's awkward.\" She finally sets the pen down. \"There's a moment, when you've got four tonnes of somebody's whole life in the jaws and you're swinging it up onto row six, where the entire yard goes quiet and you can hear the cable working.\" A beat. \"I'll be doing that when I die. Probably in the specific sense.\""
     },
     "ledger": {
       "options": [
@@ -226,10 +200,6 @@
         {
           "label": "\"What's the third column for?\"",
           "next": "ledger"
-        },
-        {
-          "label": "\"Who works the crane?\"",
-          "next": "crane"
         }
       ],
       "text": "She looks up, weighs you by eye, and goes back to the ledger. \"If you're selling, put it on the board and I'll tell you what it's worth. If you're buying, it's in the pigeonholes and the prices are on the pigeonholes.\" A pause. \"If you're neither, there's a bar four streets over that'll be much happier to see you.\"\n\n\"Selling or buying?\""
@@ -252,10 +222,6 @@
         {
           "label": "\"Grim.\"",
           "next": "bye"
-        },
-        {
-          "label": "\"Who works the crane?\"",
-          "next": "crane"
         }
       ],
       "text": "\"Comes in as a car. Goes out as a bale. Comes back as a fence.\" She shrugs, and the shrug takes a while. \"Comes back again as whatever was left of the fence. There's a bumper out there in row four that I have bought three separate times off three separate people, and I'll buy it a fourth, and one of us is going to outlast the other.\""

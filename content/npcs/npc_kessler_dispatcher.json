@@ -42,6 +42,26 @@
       ],
       "text": "The catch is that the waste is out there and it doesn't care about your schedule. Things live in it. Some of them come to the road, because the road is where the food walks past.\n\nAnd the truck stops when you stop it, not before. I've had three come back with the front end folded up because somebody found out a wall is a wall at fifty. Watch where you're pointing it."
     },
+    "lesson": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I need a truck.",
+          "next": "truck"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not yet.",
+          "next": "bye"
+        }
+      ],
+      "text": "Then you start with the lesson, same as everybody. Say <b>roadtest</b>. The foreman gives you a school Drayman with nothing on the back, and it costs you nothing. Out of the yard, ten tiles down the road, back in, and park it. Bring it back and you're licensed.\n\nYou need that before you drive anything out of here, bought or hired. Owning a truck counts."
+    },
     "lw_core": {
       "_vine": {
         "x": 1200,
@@ -122,6 +142,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "I've never driven one.",
+          "next": "lesson"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "Where does the road go?",
           "next": "road"
         },
@@ -172,7 +199,7 @@
           "next": "bye"
         }
       ],
-      "text": "Then buy one. Four along the fence, and they're honestly priced, which out here means nobody has bothered to lie.\n\nThe Krell's thirteen hundred and it's exactly what thirteen hundred buys. It'll get you there and it won't get you there and back on one tank, so plan for that. The Ostrek is quick and small. The Drayman is what most people end up on and there's a reason. And the Orlov will swallow a whole market, if you have thirty grand and a reason.\n\nBuy small. Run it into the ground. Buy better. That's the job."
+      "text": "Then buy one. Four along the fence, and they're honestly priced, which out here means nobody has bothered to lie. <b>yard</b> puts all four up in front of you with the prices, and the trailers behind them, and you buy from there.\n\nThe Krell's thirteen hundred and it's exactly what thirteen hundred buys. It'll get you there and it won't get you there and back on one tank, so plan for that. The Ostrek is quick and small. The Drayman is what most people end up on and there's a reason. And the Orlov will swallow a whole market, if you have sixteen and a half thousand and a reason.\n\nNot ready to own one? <b>yard rent</b> hires one for two hours. Buy small. Run it into the ground. Buy better. That's the job."
     },
     "work": {
       "actions": [],
@@ -199,7 +226,7 @@
           "next": "bye"
         }
       ],
-      "text": "Two kinds. Contract work is off the board: somebody's paying a fixed number to get their box from here to there, and the number doesn't move whatever happens on the way. That's wages. Safe, dull, and it always pays.\n\nThe other kind is you buy something with your own money, drive it somewhere that wants it more, and sell it. That one can pay a great deal better and it can also put you in a hole. Your call which sort of person you are."
+      "text": "Two kinds. Contract work is off the board: somebody's paying a fixed number to get their box from here to there, and the number doesn't move whatever happens on the way. That's wages. Safe, dull, and it always pays.\n\nThe other kind is you buy something with your own money, drive it somewhere that wants it more, and sell it. That one can pay a great deal better and it can also put you in a hole. Your call which sort of person you are.\n\nBoth boards are in the shed, north through Bonded & Bothered. <b>haul</b> reads the contracts, and <b>haul</b> with a number puts that load on your trailer. <b>market</b> shows what the yard buys and sells today. Either way you want a trailer hitched first."
     }
   },
   "faction": null,

@@ -133,6 +133,21 @@
   "chitchat": [],
   "description": "A grizzled shipwright welded into a leather apron, forever half-finished with a hull he'll never launch. Sells the tools and scrap he isn't using, which is most of it.",
   "dialogue_tree": {
+    "boats": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_marina_lobby"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Not this one.\" He nods at the half-built hull. \"Fairweather Marina sells boats that float, over to the west. The clerk on the desk in the lobby sells and hires them, and Marit Colvane in the dock hall there does the repairs.\" He traces the route for you."
+    },
     "bye": {
       "options": [],
       "text": "\"Mind the stands on your way out.\""
@@ -142,6 +157,10 @@
         {
           "label": "What have you got?",
           "next": "__shop__"
+        },
+        {
+          "label": "Do you sell boats?",
+          "next": "boats"
         },
         {
           "label": "Just looking.",

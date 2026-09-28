@@ -340,6 +340,20 @@
       ],
       "text": "He weighs the recovered cells in one hand and, for the first time, actually smiles. \"Well. Look at you. Upright AND useful. Rare combination round here.\" He unclips the scratched flashlight from his belt and folds your fingers around it. \"This one’s mine. Was. Never left me in the dark. Graduation gift. Consider yourself a regular.\""
     },
+    "rig": {
+      "_vine": {
+        "x": 360,
+        "y": 1860
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He jerks a thumb at the dead panel on the wall. \"Practice. Buy a deck off the crates and <b>hack</b> the rig. There's nothing behind it: no credits, no shock, and nobody calls the police.\"\n\n\"A miss still wears the deck, same as on a real lock. When the rig's too easy for you, it says so.\""
+    },
     "root": {
       "_vine": {
         "x": 40,
@@ -352,12 +366,16 @@
           "next": "shop"
         },
         {
-          "label": "\"Two-Cell?\"",
-          "next": "lore"
+          "label": "What's the rig on the wall?",
+          "next": "rig"
         },
         {
           "label": "Where do you hit them, exactly?",
           "next": "aim_lesson"
+        },
+        {
+          "label": "\"Two-Cell?\"",
+          "next": "lore"
         },
         {
           "conditions": [

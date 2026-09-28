@@ -141,8 +141,21 @@
       "options": [],
       "text": "They turn back to the counter."
     },
+    "play": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Machines or cards.\" She tips her head at the slot row. \"At the machines, <b>spin</b> pulls for ten, or <b>spin</b> and a number bets that. Five to a hundred a pull.\"\n\n\"Cards are Margo's table, under the green lamp by the cage. Hold'em, called aloud. She deals from seven in the evening until three, every night but Thursday. <b>join</b> buys you in for a hundred and sits you down. If the table's short once you're sat, <b>summon</b> calls a player over. <b>leave</b> cashes your chips back into credits.\""
+    },
     "root": {
       "options": [
+        {
+          "label": "How do I play?",
+          "next": "play"
+        },
         {
           "label": "Let me see the stock.",
           "next": "shop"

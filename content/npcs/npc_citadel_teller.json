@@ -77,7 +77,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"You already have one.\" The faceplate glows a soft amber. \"Everyone does. The Franchise opens an account against your pattern the moment you're decanted, and the Compound administers a great many of them under contract. You have simply never had anything in yours.\" A pause, tuned by somebody who understood exactly how long a pause should be. \"The terminals in the alcoves will accept a deposit at any hour. I would encourage you to be that kind of customer. They're much easier to insure.\""
+      "text": "\"You already have one.\" The faceplate glows a soft amber. \"Everyone does. The Franchise opens an account against your pattern the moment you're decanted, and the Compound administers a great many of them under contract. You have simply never had anything in yours.\" A pause, tuned by somebody who understood exactly how long a pause should be. \"The terminals in the alcoves take deposits at any hour: <b>atm</b> opens one, or <b>deposit</b> and <b>withdraw</b> with an amount. Each will move up to two and a half thousand in any twenty-four hours, in each direction. I would encourage you to be that kind of customer. They're much easier to insure.\""
     },
     "bye": {
       "options": [],
@@ -172,7 +172,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then you have come to the correct window, and you have come to it on foot, which is how this window prefers it.\" The faceplate warms a shade. \"Ask me directly. <b>withdraw 9000 from teller</b>, or the figure of your choosing, and I'll move it in one motion, without a ceiling and without a fee. Ask the machine and the machine will say no, because the machine is a drawer.\" A pause. \"I'll also look at you for the duration. Customers rarely notice that this is the price.\""
+      "text": "\"Then you have come to the correct window, and you have come to it on foot, which is how this window prefers it.\" The faceplate warms a shade. \"Ask me directly. <b>withdraw 9000 from teller</b>, or the figure of your choosing, and I'll move it in one motion, without a ceiling and without a fee. <b>deposit 9000 to teller</b> works the same way in. Ask the machine and the machine will say no, because the machine is a drawer.\" A pause. \"I'll also look at you for the duration. Customers rarely notice that this is the price.\""
     },
     "large2": {
       "options": [
@@ -190,20 +190,20 @@
     "root": {
       "options": [
         {
-          "label": "\"What's this place?\"",
-          "next": "what"
+          "label": "\"I need to move a large sum.\"",
+          "next": "large"
         },
         {
           "label": "\"Can I open an account?\"",
           "next": "account"
         },
         {
-          "label": "\"I need to move a large sum.\"",
-          "next": "large"
-        },
-        {
           "label": "\"What are the fees?\"",
           "next": "fees"
+        },
+        {
+          "label": "\"What's this place?\"",
+          "next": "what"
         },
         {
           "label": "\"What's behind the steel door?\"",

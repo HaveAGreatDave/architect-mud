@@ -162,12 +162,12 @@
     "root": {
       "options": [
         {
-          "label": "Do they mind the building being called that?",
-          "next": "name"
-        },
-        {
           "label": "A reader's card, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "Do they mind the building being called that?",
+          "next": "name"
         },
         {
           "label": "What do the fellows actually study?",

@@ -162,12 +162,12 @@
     "root": {
       "options": [
         {
-          "label": "Why do you run the counter?",
-          "next": "why"
-        },
-        {
           "label": "Coffee, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "Why do you run the counter?",
+          "next": "why"
         },
         {
           "label": "What is the second notice about?",

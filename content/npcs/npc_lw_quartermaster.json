@@ -570,8 +570,8 @@
           "next": "l12_done"
         },
         {
-          "label": "What's the philosophy of the shelf?",
-          "next": "creed"
+          "label": "Let me see what I can draw.",
+          "next": "__shop__"
         },
         {
           "actions": [],
@@ -587,10 +587,6 @@
           "next": "fit_what"
         },
         {
-          "label": "Let me see what I can draw.",
-          "next": "__shop__"
-        },
-        {
           "_src": "lw_vigil",
           "conditions": [
             {
@@ -601,6 +597,10 @@
           ],
           "label": "Will you teach me?",
           "next": "teach"
+        },
+        {
+          "label": "What's the philosophy of the shelf?",
+          "next": "creed"
         },
         {
           "_src": "lw_vigil",
@@ -680,7 +680,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I fit gear to people,\" she says, without looking up from the ledger. \"Which means most of my job is looking at somebody for four seconds and knowing what they'll do under load. You can learn that. It isn't a gift. It's a habit with a very long run up.\"\n\nShe closes the ledger.\n\n\"Senses, and will. Noticing, and not giving in. `train senses` or `train will`, and bring me your hands clean.\""
+      "text": "\"I fit gear to people,\" she says, without looking up from the ledger. \"Which means most of my job is looking at somebody for four seconds and knowing what they'll do under load. You can learn that. It isn't a gift. It's a habit with a very long run up.\"\n\nShe closes the ledger.\n\n\"Senses, and will. Noticing, and not giving in. <b>train senses</b> or <b>train will</b>, and bring me your hands clean.\""
     }
   },
   "faction": "ideology_long_watch",

@@ -166,12 +166,12 @@
     "root": {
       "options": [
         {
-          "label": "Filed by date?",
-          "next": "date"
-        },
-        {
           "label": "What can you do for me?",
           "next": "__shop__"
+        },
+        {
+          "label": "Filed by date?",
+          "next": "date"
         },
         {
           "label": "Nobody comes up?",

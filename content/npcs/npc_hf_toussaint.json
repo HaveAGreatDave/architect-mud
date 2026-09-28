@@ -166,12 +166,16 @@
     "root": {
       "options": [
         {
-          "label": "What does line eleven actually mean?",
-          "next": "line11"
-        },
-        {
           "label": "What are you selling?",
           "next": "__shop__"
+        },
+        {
+          "label": "What does the filter do?",
+          "next": "filter"
+        },
+        {
+          "label": "What does line eleven actually mean?",
+          "next": "line11"
         },
         {
           "label": "The estate stopped paying you?",

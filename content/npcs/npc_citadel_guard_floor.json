@@ -166,16 +166,16 @@
     "root": {
       "options": [
         {
+          "label": "\"Where do I go?\"",
+          "next": "where"
+        },
+        {
           "label": "\"What's the rule in here?\"",
           "next": "rules"
         },
         {
           "label": "\"Are you armed?\"",
           "next": "guns"
-        },
-        {
-          "label": "\"Eleven years in one spot?\"",
-          "next": "years"
         },
         {
           "label": "\"How does this work with the cops next door?\"",
@@ -195,33 +195,20 @@
           "next": "bye"
         },
         {
-          "label": "\"Eleven years in one spot?\"",
-          "next": "years"
+          "label": "\"Where do I go?\"",
+          "next": "where"
         }
       ],
       "text": "\"Two,\" he says. \"Don't run in the hall. Don't stand still in the hall.\" He lets that sit. \"One of those tells me you've done something. The other tells me you're about to. Walk in, do your business, walk out, and I'll forget your face by the time the door shuts. That's the service I'm actually providing.\""
     },
-    "years": {
+    "where": {
       "options": [
         {
-          "label": "\"Four times in eleven years isn't bad.\"",
-          "next": "years2"
-        },
-        {
-          "label": "\"How does this work with the cops next door?\"",
-          "next": "police"
+          "label": "Back up.",
+          "next": "root"
         }
       ],
-      "text": "\"Eleven.\" No pride in it, no complaint. \"I've had to move four times. Twice was a medical thing and once was a kid who'd got himself very confused about which building the card room was.\""
-    },
-    "years2": {
-      "options": [
-        {
-          "label": "\"...right.\"",
-          "next": "bye"
-        }
-      ],
-      "text": "\"It isn't.\" The lenses tip fractionally toward the marble at his feet. \"That's the whole marketing budget, standing here in a coat. The columns and the bronze and me. That's the security. What's downstairs is just what happens if all three of us fail at once, and I would strongly encourage you not to find out how thorough the Compound got about that.\""
+      "text": "His hands stay folded. \"Terminals in the alcoves, for pocket money. They move twenty-five hundred a day each way and not a credit more. For more than that, you ask the machine behind the counter.\"\n\n\"North is the vestibule, and the box gallery past it. The arch reads you on the way in. If you're wanted, you're turned round. If you're carrying contraband you'll need a story, and if the story doesn't hold, you're arrested.\""
     }
   },
   "faction": null,

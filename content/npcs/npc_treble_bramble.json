@@ -181,6 +181,10 @@
           "next": "__shop__"
         },
         {
+          "label": "Can I try one?",
+          "next": "try"
+        },
+        {
           "label": "You do repairs in the shop window, effectively.",
           "next": "bench"
         },
@@ -206,6 +210,19 @@
         "first": "The man behind the counter is looking into the open body of something and talking before he looks up.\n\n\"Bramble. Onyeka.\" He turns the thing so you can see into it, assuming an interest you have not expressed. \"Somebody has had a go at this with a screwdriver and a theory.\"\n\nHe sets it down.\n\n\"Right. Walls are stock, case is the delicate stuff, bench is repairs and I do them out here where you can watch, which people find either reassuring or unbearable.\" He glances at the ceiling. \"Rooms up there are by the hour. It's loud. I did warn you, I'm warning you now, that's the warning.\"",
         "known": "\"Ah, good.\" He is pleased and makes no attempt to hide it. \"Listen to this a moment.\" He does something, somewhere, and it sounds different. \"That. That was not doing that on Tuesday.\""
       }
+    },
+    "try": {
+      "options": [
+        {
+          "label": "Sit me down.",
+          "cmd": "play"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Please.\" He waves at the end of the counter without looking up. \"The guitar on the hook and the upright by the end wall are both there for trying. Sit down at one with <b>play</b>, and <b>play stop</b> gets you up again.\"\n\n\"Everybody in the shop hears it.\""
     }
   },
   "faction": null,

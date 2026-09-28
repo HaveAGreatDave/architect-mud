@@ -166,12 +166,12 @@
     "root": {
       "options": [
         {
-          "label": "How often do you get called?",
-          "next": "called"
-        },
-        {
           "label": "What have you got?",
           "next": "__shop__"
+        },
+        {
+          "label": "How often do you get called?",
+          "next": "called"
         },
         {
           "label": "What happened to the third appliance?",

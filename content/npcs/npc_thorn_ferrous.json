@@ -63,6 +63,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Which of these could I use?",
+          "next": "use"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "Every blade on that rack is different.",
           "next": "blades"
         },
@@ -87,6 +94,26 @@
         "familiar": "\"Take that end,\" he says, and you do, and it's hot, and he doesn't notice.",
         "known": "\"You. Ordinary hands.\" The hammer picks its rhythm up behind you."
       }
+    },
+    "use": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Every blade on that rack is different.",
+          "next": "blades"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "He looks at your hands again.\n\n\"Spurblade or the spike, if you've had some practice with a knife. The ribsaw wants more than that. The flail wants somebody who's swung a club.\" He turns the piece on the anvil. \"I don't sell to a hand that can't use it.\"\n\n\"The apron's for fire. It takes the heat off your chest.\""
     }
   },
   "faction": "ideology_wildblood",

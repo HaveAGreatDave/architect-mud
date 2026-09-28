@@ -99,7 +99,7 @@
       "caps-run": 2
     },
     "content/npcs": {
-      "negative-parallelism": 47,
+      "negative-parallelism": 46,
       "constructed-irony": 17,
       "staged-reveal": 2,
       "aphoristic-closer": 5,
@@ -228,7 +228,7 @@
     "docs/combat.md": {
       "jargon-metaphor": 2,
       "aphoristic-closer": 1,
-      "em-dash": 119
+      "em-dash": 118
     },
     "docs/commands.md": {
       "jargon-metaphor": 1,

@@ -146,7 +146,7 @@
           "text": "\"What are the rules again?\""
         }
       ],
-      "text": "The folded arms don't move. \"Not my floor, not my problem. I don't watch the street.\" A pause exactly long enough to be a decision. \"But I stand out here four nights a week, and I've got eyes.\""
+      "text": "The folded arms don't move. \"Not my floor, not my problem. I don't watch the street.\" A pause exactly long enough to be a decision. \"But I've got eyes.\""
     },
     "root": {
       "options": [
@@ -159,6 +159,11 @@
           "label": "\"What goes on in the VIP room?\"",
           "next": "vip",
           "text": "\"What goes on in the VIP room?\""
+        },
+        {
+          "label": "\"How do I get into VIP?\"",
+          "next": "vip_in",
+          "text": "\"How do I get into VIP?\""
         },
         {
           "actions": [
@@ -208,12 +213,26 @@
           "text": "\"Fine, fine. No touching.\""
         },
         {
+          "label": "\"How much is enough?\"",
+          "next": "vip_in",
+          "text": "\"How much is enough?\""
+        },
+        {
           "label": "\"What are the rules again?\"",
           "next": "rules",
           "text": "\"What are the rules again?\""
         }
       ],
       "text": "The folded arms don't move. \"What happens behind that door isn't mine to talk about, and it isn't yours to ask me.\" He nods once at the dancers working the rail. \"You want the red room, that's between you and them. Spend enough and they'll tell you themselves. Out here on my floor?\" The eyes flatten. \"Hands off. That part I'll talk about all night.\""
+    },
+    "vip_in": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He tips his chin at the rail. \"You tip. <b>tip</b>, a dancer's name and an amount. Put a thousand on the rail in total and the red door, north, opens for you for a day.\""
     }
   },
   "faction": null,

@@ -139,7 +139,6 @@
     "He wipes his hands on his front. It does not help and he does it again.",
     "The hatch to the ovens bangs and a wave of heat comes through the room.",
     "He looks at the window stools, counts them occupied, and seems satisfied by the number.",
-    "\"Been up since three,\" he says, to the bench, not as a complaint.",
     "He writes a number on the back of a bag, looks at it, and crosses it out."
   ],
   "description": "A short, wide man with huge forearms and flour worked permanently into the creases of his hands. He's been up since three and it shows in his eyes. He talks while he works, and if you interrupt him he'll finish the sentence later.",
@@ -149,13 +148,19 @@
       "text": "A nod, and they go back to it before you have got the door open."
     },
     "coffee": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_stimcafe"
+        }
+      ],
       "options": [
         {
           "label": "Back.",
           "next": "root"
         }
       ],
-      "text": "\"Because I got asked four hundred times and I got tired.\" He nods at the till. \"There's a place two streets up that does it properly and does nothing else, and if I started doing it badly at half the price I'd take their trade and give people a worse morning. That's not a kindness, it's just bad bread with extra steps.\"\n\nA pause.\n\n\"Somebody's written underneath that it isn't very good. That's not me. I know who it is.\""
+      "text": "\"Battery Acid, two streets up.\" He nods at the till card. \"They do it properly and they do nothing else. I got asked four hundred times and I got tired, and if I started doing it badly at half the price I'd take their trade and give people a worse morning.\"\n\nA pause.\n\n\"Somebody's written underneath that it isn't very good. That's not me. I know who it is.\""
     },
     "gossip": {
       "actions": [
@@ -180,15 +185,6 @@
       ],
       "text": "\"Best on the row and I did nothing to earn it.\" He wipes his hands. \"Four stools in that window and people will wait for one. They're not waiting for the bread, they've already got the bread. They want to sit and look at the grass for ten minutes before whatever it is they're going to.\"\n\nHe goes back to the bench.\n\n\"I keep the glass clean at eye height and let the rest of it steam up. That's deliberate. It's warmer looking in than it is looking out.\""
     },
-    "hours": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Dough doesn't care what time you'd prefer.\" He shrugs with his whole upper body, which is a lot of upper body. \"It's ready when it's ready and if you're not there it goes past ready, and past ready is a thing you can taste and can't fix. So, three. Sometimes half two.\"\n\nHe scrapes the bench flat.\n\n\"The advantage is I'm finished at two in the afternoon and everybody who works normal hours thinks I'm on holiday.\""
-    },
     "root": {
       "options": [
         {
@@ -196,11 +192,7 @@
           "next": "__shop__"
         },
         {
-          "label": "Four in the morning?",
-          "next": "hours"
-        },
-        {
-          "label": "Why the card about the coffee?",
+          "label": "Where do I get a coffee?",
           "next": "coffee"
         },
         {
@@ -222,7 +214,7 @@
       "text": "\"Morning. It's morning somewhere.\" He doesn't look up from the bench. \"Trays are out, what's on them is what there is, and if you want something that isn't on them you want somewhere that isn't here.\"",
       "text_by_relation": {
         "familiar": "There is already a bag on the corner of the counter with the top folded over when you come in, and he hasn't looked up.\n\n\"Held it back,\" he says. \"You can not want it. It won't offend me and it won't go to waste.\"",
-        "first": "The baker glances up, registers a stranger, and goes back to what he's doing without breaking rhythm.\n\n\"Abel. This is mine, my father's before that, and before that it was a place that sold hats, which nobody believes.\" He turns a tray end for end. \"Trays are out. What's on them is what there is. I'm not being short with you, I've been up since three and this is as long as my sentences get.\"",
+        "first": "The baker glances up, registers a stranger, and goes back to what he's doing without breaking rhythm.\n\n\"Abel. This is mine, my father's before that, and before that it was a place that sold hats, which nobody believes.\" He turns a tray end for end. \"Trays are out. What's on them is what there is. I'm not being short with you. This is as long as my sentences get.\"",
         "known": "\"You again.\" He tips his chin at the second tray down without stopping. \"That one. They came out right this morning and they will not be there in an hour.\""
       }
     }

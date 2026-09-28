@@ -171,20 +171,20 @@
     "root": {
       "options": [
         {
-          "label": "Why physiotherapy, here?",
-          "next": "here"
-        },
-        {
           "label": "A band, then.",
           "next": "__shop__"
         },
         {
-          "label": "You worked at the clinic?",
-          "next": "clinic"
+          "label": "Why physiotherapy, here?",
+          "next": "here"
         },
         {
           "label": "Why is the rail only shiny in the middle?",
           "next": "rail"
+        },
+        {
+          "label": "You worked at the clinic?",
+          "next": "clinic"
         },
         {
           "label": "Heard anything?",

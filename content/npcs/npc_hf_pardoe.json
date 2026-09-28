@@ -175,12 +175,12 @@
     "root": {
       "options": [
         {
-          "label": "What does the charge actually cover?",
-          "next": "covers"
-        },
-        {
           "label": "Can I have a copy of anything?",
           "next": "__shop__"
+        },
+        {
+          "label": "What does the charge actually cover?",
+          "next": "covers"
         },
         {
           "label": "Who is Estate Management Ltd?",

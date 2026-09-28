@@ -162,12 +162,12 @@
     "root": {
       "options": [
         {
-          "label": "Which six are let?",
-          "next": "which"
-        },
-        {
           "label": "A viewing pass, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "Which six are let?",
+          "next": "which"
         },
         {
           "label": "Why does a building bend?",

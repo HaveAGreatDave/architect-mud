@@ -162,12 +162,12 @@
     "root": {
       "options": [
         {
-          "label": "What is the column nobody explains?",
-          "next": "column"
-        },
-        {
           "label": "A plot note, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "What is the column nobody explains?",
+          "next": "column"
         },
         {
           "label": "Who is actually buying here?",

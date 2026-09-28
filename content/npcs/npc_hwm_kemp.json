@@ -153,12 +153,12 @@
     "root": {
       "options": [
         {
-          "label": "Can I go up?",
-          "next": "up"
-        },
-        {
           "label": "What have you got?",
           "next": "__shop__"
+        },
+        {
+          "label": "Can I go up?",
+          "next": "up"
         },
         {
           "label": "What happens if it runs dry?",
@@ -194,7 +194,7 @@
           "next": "root"
         }
       ],
-      "text": "\"A hundred rungs inside a leg, in the dark, with a hatch at the top you have to shoulder.\" She looks at you levelly. \"It is not the climb that stops people. It is the last six feet coming out of the hatch onto the walkway with nothing round you yet.\"\n\n\"There are three keys. I have two. I am not going to tell you the third is unobtainable, because it is not, but I will tell you I have only ever let two people up and one of them worked here.\""
+      "text": "\"Go <b>up</b> from here.\" She nods at the leg. \"A hundred rungs inside it, in the dark, with a hatch at the top you have to shoulder.\"\n\n\"It is not the climb that stops people. It is the last six feet coming out of the hatch onto the walkway with nothing round you yet.\""
     },
     "up_view": {
       "options": [

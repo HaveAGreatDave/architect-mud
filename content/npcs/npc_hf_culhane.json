@@ -144,12 +144,12 @@
     "root": {
       "options": [
         {
-          "label": "What is the stone in the floor?",
-          "next": "stone"
-        },
-        {
           "label": "What are you selling?",
           "next": "__shop__"
+        },
+        {
+          "label": "What is the stone in the floor?",
+          "next": "stone"
         },
         {
           "label": "You see everybody, then.",

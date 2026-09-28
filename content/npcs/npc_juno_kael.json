@@ -140,6 +140,19 @@
   ],
   "description": "Juno Kael is tall and angular, her hair dye growing out in a gradient from platinum to black root. She wears a faded Dead Space Interiors polo shirt tucked into cargo trousers. She tracks you with the patient, evaluating attention of someone who has spent a lot of time waiting for browsers to become buyers.",
   "dialogue_tree": {
+    "deliver": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        },
+        {
+          "label": "Show me what you've got.",
+          "next": "__shop__"
+        }
+      ],
+      "text": "'Everything in here is delivered. Nobody carries a sleep pod out the front door.' She taps the clipboard. 'It goes to a room you rent. No room, no sale. If you rent more than one, I'll ask which.'"
+    },
     "end": {
       "options": [],
       "text": "'Take your time.' She goes back to her clipboard."
@@ -183,6 +196,10 @@
         {
           "label": "How does pricing work?",
           "next": "pricing"
+        },
+        {
+          "label": "Do you deliver?",
+          "next": "deliver"
         },
         {
           "label": "Browse your wares.",

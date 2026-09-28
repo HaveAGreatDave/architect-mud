@@ -178,6 +178,10 @@
     "root": {
       "options": [
         {
+          "label": "What does a policy cover?",
+          "next": "cover"
+        },
+        {
           "label": "Why so little?",
           "next": "why"
         },
@@ -222,6 +226,15 @@
         }
       ],
       "text": "\"Because a policy that made you whole would make you reckless, and reckless clients are how insurers die. We soften the fall. We don't abolish gravity.\""
+    },
+    "cover": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "She turns a rate sheet round to face you. \"You buy it with <b>insure</b>, at this desk or at underwriting on fifty-one. A week's cover costs a tenth of the aircraft's agreed value, and every claim we've paid you adds a quarter to that, up to two and a half times.\"\n\n\"A covered write-off pays sixty per cent of agreed value, less a twelve per cent excess, and we keep the wreck. Shot down, ground fire, weather, a bird or an engine fire is covered in full. Anything else is pilot error and pays half. Flying impaired, flying into restricted airspace, or losing her inside three minutes of binding pays nothing.\"\n\n\"<b>policies</b> shows what you carry and how many days are left on it. A lapsed policy covers nothing.\""
     }
   },
   "faction": null,

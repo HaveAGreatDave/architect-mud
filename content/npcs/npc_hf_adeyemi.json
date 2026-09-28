@@ -166,16 +166,16 @@
     "root": {
       "options": [
         {
-          "label": "What is the problem?",
-          "next": "problem"
-        },
-        {
           "label": "What have you got?",
           "next": "__shop__"
         },
         {
           "label": "What is on the other floors?",
           "next": "floors"
+        },
+        {
+          "label": "What is the problem?",
+          "next": "problem"
         },
         {
           "label": "I will let you work.",

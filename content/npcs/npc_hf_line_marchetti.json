@@ -162,12 +162,12 @@
     "root": {
       "options": [
         {
-          "label": "Why do you keep writing dockets?",
-          "next": "dockets"
-        },
-        {
           "label": "A docket, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "Why do you keep writing dockets?",
+          "next": "dockets"
         },
         {
           "label": "Why did it stop?",

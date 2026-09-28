@@ -161,7 +161,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Eleven flats occupied.\" She does not hesitate and she does not soften it. \"Out of sixty-two. Two of the eleven are here at weekends only.\"\n\n\"It is a new estate. They take time. I have been told the number by people whose job is to know it, and the number they say is three years.\" She glances at the board. \"I have been here for two of them.\""
+      "text": "\"Eleven flats occupied.\" She does not hesitate and she does not soften it. \"Out of sixty-two. Two of the eleven are here at weekends only.\"\n\n\"It is a new estate. They take time. I have been told the number by people whose job is to know it, and the number they say is three years.\""
     },
     "gossip": {
       "options": [
@@ -179,14 +179,10 @@
           "next": "root"
         }
       ],
-      "text": "\"It is a shared room. That was the whole idea.\" She sounds like she is quoting and also like she agrees. \"Two towers, one room in the middle, so the people in one know the people in the other.\"\n\n\"The difficulty is that eleven households do not fill a room that size. So it is a very beautiful place to be the only person.\" A pause. \"I go up at the end of a shift. I like it.\""
+      "text": "\"It is a shared room. That was the whole idea.\" She sounds like she is quoting and also like she agrees. \"Two towers, one room in the middle, so the people in one know the people in the other.\"\n\n\"The difficulty is that eleven households do not fill a room that size. So it is a very beautiful place to be the only person.\""
     },
     "root": {
       "options": [
-        {
-          "label": "How many people actually live here?",
-          "next": "empty"
-        },
         {
           "label": "A fob for the bridge, then.",
           "next": "__shop__"
@@ -194,6 +190,10 @@
         {
           "label": "What is the link for?",
           "next": "link"
+        },
+        {
+          "label": "How many people actually live here?",
+          "next": "empty"
         },
         {
           "label": "Who built all this?",

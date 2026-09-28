@@ -293,6 +293,10 @@
           "next": "__shop__"
         },
         {
+          "label": "What's each of those for?",
+          "next": "stock"
+        },
+        {
           "label": "What if I can't pay?",
           "next": "fees"
         },
@@ -322,6 +326,15 @@
         "first": "A tall woman in a green tunic comes through from the back pulling a cardigan on, and crouches immediately, at the level of whatever you have brought.\n\n\"Hello, you.\" A pause, and then, upward, almost as an afterthought: \"Constance Tiplady. Put him on the mat for me, don't lift him, just walk him on.\"\n\nShe does not look up.\n\n\"And don't apologise for him. Whatever he's doing in here, he doesn't do at home.\"",
         "known": "\"Ah.\" She is already up and moving toward the back. \"On the mat. Then through.\""
       }
+    },
+    "stock": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She touches each one as she names it. \"The wormer, the muzzle and the splint are for the animal. The wormer is dosed by his weight, and the muzzle is for when he hurts enough to bite.\"\n\n\"The salve heals a little, and it's as safe on you as it is on him.\""
     }
   }
 }

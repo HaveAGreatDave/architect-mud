@@ -165,16 +165,16 @@
     "root": {
       "options": [
         {
+          "label": "Anything to eat in here?",
+          "next": "__shop__"
+        },
+        {
           "label": "What's on the board?",
           "next": "story"
         },
         {
           "label": "What do you actually do here?",
           "next": "job"
-        },
-        {
-          "label": "Anything to eat in here?",
-          "next": "__shop__"
         },
         {
           "label": "Just looking.",

@@ -149,7 +149,7 @@
           "next": "__shop__"
         }
       ],
-      "text": "\"Sit at one. That's all it takes. Nobody's going to ask if you're any good.\" She nods at the window side. \"Mr Ferro comes up most days and Miss Krebs when she's speaking to him. If a board's got somebody at it and an empty chair opposite, that chair is an invitation. That's the whole etiquette of the room.\""
+      "text": "\"Sit at the inlaid table and you're playing.\" She nods at the window side. \"A hundred a side, taken when you sit down. Winner takes both, and a draw hands them back.\"\n\n\"Nobody opposite? <b>summon</b> and one of the regulars comes up to play you. Mr Ferro you can beat. Miss Krebs you won't. Put a name after it if you've a preference. Then <b>move</b> and your move, like <b>move e4</b>, or <b>resign</b> if it's gone.\""
     },
     "bye": {
       "options": [],
@@ -167,7 +167,7 @@
           "next": "root"
         }
       ],
-      "text": "Thea considers you for a moment longer than is comfortable. \"People talk over a board like the person pouring is part of the furniture. Eighteen years of it.\" She sets the cloth down. \"Here's one that's gone cold enough to repeat.\""
+      "text": "Thea considers you for a moment longer than is comfortable. \"People talk over a board like the person pouring is part of the furniture.\" She sets the cloth down. \"Here's one that's gone cold enough to repeat.\""
     },
     "roast": {
       "options": [
@@ -184,7 +184,7 @@
     },
     "root": {
       "familiar": "\"Yours is coming.\" The lever is already down. Her eyes stay on the pour. \"Board by the glass is free, if you're playing. I kept it free.\"",
-      "first": "The woman behind the counter watches you take in the window first, the way everyone does. \"They all look at the city,\" she says. \"Give it a week and you'll look at the boards instead.\" She sets a cup down on the marble without being asked. \"Thea Wrenn. I've been up here eighteen years. Coffee's eighteen credits and worth it once.\"",
+      "first": "The woman behind the counter watches you take in the window first, the way everyone does. \"They all look at the city,\" she says. \"Give it a week and you'll look at the boards instead.\" She sets a cup down on the marble without being asked. \"Thea Wrenn. Coffee's eighteen credits and worth it once.\"",
       "known": "\"Back, then.\" Thea reaches for a cup before you've said anything. \"Same as last time, or are we being adventurous?\"",
       "options": [
         {
@@ -192,12 +192,12 @@
           "next": "__shop__"
         },
         {
-          "label": "What's in the blend?",
-          "next": "roast"
+          "label": "How do I get a game?",
+          "next": "board"
         },
         {
-          "label": "Can anyone use the boards?",
-          "next": "board"
+          "label": "What's in the blend?",
+          "next": "roast"
         },
         {
           "label": "Hear anything worth hearing?",
@@ -212,7 +212,7 @@
           "next": "bye"
         }
       ],
-      "text": "Thea has the lever half-down before you've finished crossing the carpet. \"Morning. Blend's the blend, the boards are free, and the glass gets cleaned Thursdays.\" A pause, dry. \"Everything else up here you have to ask for.\""
+      "text": "Thea has the lever half-down before you've finished crossing the carpet. \"Morning. Blend's the blend, and the board by the glass plays for a hundred a side.\" A pause, dry. \"Everything else up here you have to ask for.\""
     },
     "view": {
       "options": [

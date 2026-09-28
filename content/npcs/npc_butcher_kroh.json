@@ -138,6 +138,15 @@
   ],
   "description": "A wide, unhurried woman with forearms like mooring rope and a butcher's way of looking at you slightly too long, as though pricing the cut. Her apron is rust-brown from the waist down and has been washed enough times that the colour is now the fabric. She talks while she works and never looks at the blade.",
   "dialogue_tree": {
+    "buys": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"If you cooked it, yes.\" She wipes the cleaver on her apron. \"Bring me a dish you made and I pay a good deal more for it than a general shop will, and more again the better it came out. Open the case and it's under Sell, or <b>sell</b> &lt;dish&gt;.\"\n\n\"Raw meat I pay for like anyone else does.\""
+    },
     "bye": {
       "options": [],
       "text": "She goes back to the block, and the rhythm picks up where it left off."
@@ -147,6 +156,10 @@
         {
           "label": "What have you got?",
           "next": "shop"
+        },
+        {
+          "label": "Do you buy cooking?",
+          "next": "buys"
         },
         {
           "label": "What's in the black cabinet?",
@@ -178,24 +191,15 @@
     "smoke": {
       "options": [
         {
-          "label": "How long does it take?",
-          "next": "smoke_deeper"
-        },
-        {
           "label": "I'll have a look.",
           "next": "shop"
-        }
-      ],
-      "text": "\"Everything that would've gone off before Friday.\" She is not embarrassed. \"Twelve hours of applewood and a thing stops being a problem and starts being expensive.\""
-    },
-    "smoke_deeper": {
-      "options": [
+        },
         {
           "label": "Fair enough.",
           "next": "root"
         }
       ],
-      "text": "\"Depends what it is and how much of it there is.\" She wipes the block down with the flat of her hand. \"The long ones I start before I close and take out before I open. Means I sleep here twice a week. Means the good stuff exists. You pick.\""
+      "text": "\"Everything that would've gone off before Friday.\" She is not embarrassed. \"Twelve hours of applewood and a thing stops being a problem and starts being expensive.\""
     }
   },
   "faction": null,

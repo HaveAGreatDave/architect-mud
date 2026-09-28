@@ -174,11 +174,30 @@
       ],
       "text": "\"Carboys. Coloured water. Never held anything.\" She looks up at them without affection. \"Chemists have had them in the window since before anybody now living was born and nobody has ever satisfactorily explained why. I inherited them with the lease and I would feel like a vandal taking them down.\"\n\nA pause.\n\n\"I have never worked out how to dust behind them. If you ever see me on a ladder, that is what is happening, and I would rather you walked straight past.\""
     },
+    "remedies": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_meltwater_clinic"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She listens to the whole question before she answers it. \"For a cut or a bleed, a bandage. The gauze works every time. The rag works more often than not, and it is cheaper for that reason.\"\n\n\"Pain pills heal you slowly, over about three minutes. Anti-rad tablets bring your radiation down; take one when you are back in from it. Tonic is for thirst, and it settles the nerves a little.\"\n\n\"Anything worse goes on Sister Adler's table at Co-Pay & Pray, a short walk west.\" She marks the way on your map."
+    },
     "root": {
       "options": [
         {
           "label": "Let's see what you've got.",
           "next": "__shop__"
+        },
+        {
+          "label": "What do I take for it?",
+          "next": "remedies"
         },
         {
           "label": "The night hatch.",

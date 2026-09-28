@@ -184,12 +184,12 @@
     "root": {
       "options": [
         {
-          "label": "How is this warm?",
-          "next": "heat"
-        },
-        {
           "label": "What have you got?",
           "next": "__shop__"
+        },
+        {
+          "label": "How is this warm?",
+          "next": "heat"
         },
         {
           "label": "Who pays for all this?",

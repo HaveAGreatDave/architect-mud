@@ -138,12 +138,25 @@
   ],
   "description": "A wide, unhurried man planted between you and the stage door, in a KSAB-violet blazer that was tailored for a smaller decade. His hands stay folded low and in front, and his eyes do the moving. There's a floor-manager's headset hooked over one ear that he plainly isn't listening to, and a strip of house tape on the ground by his boot that he has never stepped over.",
   "dialogue_tree": {
+    "buy": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "His eyes go to the lit window in the wall beside the door, and his head stays where it is. \"Box office. Dovie sells them, twenty-five a pass. She stamps it for the taping that's on, or the next one if nothing is.\"\n\n\"If something's taping and your pass is for it, you walk in east, and out and back in as often as you like until it finishes. If nothing's taping, nobody goes in.\""
+    },
     "bye": {
       "options": [],
       "text": "\"Mm.\" He's already looking past you at whoever's next."
     },
     "pass": {
       "options": [
+        {
+          "label": "Where do I get one?",
+          "next": "buy"
+        },
         {
           "label": "Understood.",
           "next": "root"
@@ -160,6 +173,10 @@
         {
           "label": "What's the pass for?",
           "next": "pass"
+        },
+        {
+          "label": "Where do I get one?",
+          "next": "buy"
         },
         {
           "label": "What if I'd rather not have one?",

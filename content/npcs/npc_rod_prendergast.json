@@ -155,16 +155,16 @@
           "next": "__shop__"
         },
         {
-          "label": "The statue over the road.",
-          "next": "statue"
+          "label": "How do I fish?",
+          "next": "starting"
         },
         {
           "label": "Is the bay safe to eat out of?",
           "next": "water"
         },
         {
-          "label": "I've never done this.",
-          "next": "starting"
+          "label": "The statue over the road.",
+          "next": "statue"
         },
         {
           "actions": [],
@@ -182,13 +182,19 @@
       }
     },
     "starting": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_district_909_905"
+        }
+      ],
       "options": [
         {
           "label": "Back.",
           "next": "root"
         }
       ],
-      "text": "\"Then you want the cheap rod, the small hooks and about a third of the line you think you want.\" He sets the reel down and is, briefly, entirely present. \"Everybody starts by buying tackle for the fish they intend to catch, which is the wrong end of it. Buy for the fish you will actually catch, which is small and stupid and plentiful, and you will catch some, and catching some is the only thing that makes anybody come back.\"\n\nHe picks the reel up again.\n\n\"Come back and I'll sell you the other end of it in a year.\""
+      "text": "\"Then all you need is the rod.\" He sets the reel down and is, briefly, entirely present. \"Stand anywhere the ground meets the water and <b>fish</b>, and wait. When something takes, you cast: pick your line, hold for depth, let go. The good fish are deep, and they fight harder. Then reel, and keep it on the line until it's yours. <b>fish</b> again for the next one.\"\n\n\"Bloodworm gets you more bites and better fish, and one goes on every fish you land. Lose a fight and the rod can take a knock.\"\n\n\"The pier is the place. North over the green to the Jetty Yard, and it runs out from there.\" He picks the reel up again."
     },
     "statue": {
       "options": [

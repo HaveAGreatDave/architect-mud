@@ -68,6 +68,19 @@
       "options": [],
       "text": "\"Don't let the door hit you. Actually, it might; the hinge is shot. I keep meaning to fix that.\""
     },
+    "deliver": {
+      "options": [
+        {
+          "label": "Browse your wares.",
+          "next": "__shop__"
+        },
+        {
+          "label": "See you around.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Course I deliver. You're not carrying a diner booth home on your back.\" She taps the ledger. \"It goes to a room you rent. No room, I don't sell you furniture. Rent more than one and I'll ask which.\""
+    },
     "gossip": {
       "actions": [
         {
@@ -82,36 +95,6 @@
       ],
       "text": "Marta wipes the counter, weighing what to share."
     },
-    "history": {
-      "options": [
-        {
-          "label": "What happened to the noodle bar?",
-          "next": "noodles"
-        },
-        {
-          "label": "Browse your wares.",
-          "next": "__shop__"
-        },
-        {
-          "label": "See you around.",
-          "next": "bye"
-        }
-      ],
-      "text": "\"Fifteen years in this spot. Before me it was a noodle bar. Before that, rubble. This city's got layers.\""
-    },
-    "noodles": {
-      "options": [
-        {
-          "label": "Browse your wares.",
-          "next": "__shop__"
-        },
-        {
-          "label": "See you around.",
-          "next": "bye"
-        }
-      ],
-      "text": "\"Owner got Custodian debt. You know how that goes. I bought the chair she left behind. Still got it. Twelve credits if you want it.\""
-    },
     "root": {
       "options": [
         {
@@ -119,8 +102,8 @@
           "next": "__shop__"
         },
         {
-          "label": "How long have you been here?",
-          "next": "history"
+          "label": "Do you deliver?",
+          "next": "deliver"
         },
         {
           "label": "Nice place.",
