@@ -809,6 +809,97 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // ── THE CLERK SELLS, AND THE DESK IS NEVER EMPTY ────────────────────────────────────────────
+  //
+  // Buying and hiring are done by talking to the clerk, so the timetable above is only half of
+  // "somebody is always here": the other half is the walk. The clerks live across town, and on the
+  // vendor default every handover left the lobby empty for the length of it. Their own graph holds
+  // the outgoing clerk until relieved and sends the relief in early (desk.js).
+  {
+    const { getNpc, moveNpcToZone } = await import('../../server/engine/world.js');
+    const { dispatchAction } = await import('../../server/engine/actions.js');
+    const { getRegisteredAINodes, isVendorWorkTime } = await import('../../server/engine/ai-behaviour.js');
+    const { getEnvironmentState } = await import('../../server/engine/environment.js');
+    const { query: q } = await import('../../server/models/db.js');
+    const D = await import('./desk.js');
+    const Y = await import('./yard.js');
+    const FMd = await import('../../client/game/js/panels/flight-model.js');
+    const LOBBY = 'zone_marina_lobby';
+    const day = getNpc('npc_marina_desk_day');
+    const night = getNpc('npc_marina_desk_night');
+    if (day && night) {
+      // ⚠ EVERY HULL ON THE LINE HAS A LINE TO ASK FOR IT, and nothing asks for one that is gone. A new
+      // type with no option is a boat nobody can buy; a stale id is a button that fails.
+      for (const clerk of [day, night]) {
+        const acts = Object.values(clerk.dialogue_tree || {}).flatMap((n) => n.actions || []);
+        for (const [action, verb] of [['BOAT_SELL', 'bought'], ['BOAT_HIRE', 'hired']]) {
+          const hulls = acts.filter((a) => a.action === action).map((a) => a.hull);
+          check(`${clerk.name}: every hull on the line can be ${verb} in conversation`,
+            FMd.BOAT_TYPES.every((t) => hulls.includes(t.id)), hulls.join(','));
+          check(`…and every ${action} names a hull on the line`,
+            hulls.every((h) => FMd.BOAT_TYPES.some((t) => t.id === h)), hulls.join(','));
+        }
+        const conds = Object.values(clerk.behaviour_graph?.nodes || {}).map((n) => n.condition_type || n.data?.condition_type);
+        check(`${clerk.name} holds the desk until relieved and sets off early`,
+          conds.includes('DESK_RELIEVED') && conds.includes('DESK_SHIFT_DUE'), conds.join(','));
+      }
+      const reg = getRegisteredAINodes().conditions;
+      check('the handover conditions are registered', reg.includes('DESK_RELIEVED') && reg.includes('DESK_SHIFT_DUE'));
+
+      const p = getPlayer();
+      const was = { zone: p.current_zone, credits: p.credits, day: day.zone_id, night: night.zone_id };
+      const hull = FMd.BOAT_TYPES[0];
+      try {
+        // One clerk in the room and the other at home: whoever is standing there serves.
+        moveNpcToZone(night.id, night.home_zone);
+        moveNpcToZone(day.id, LOBBY);
+        p.current_zone = LOBBY;
+        check('a clerk standing at the desk serves, whatever the clock says', D.clerkAt(LOBBY)?.id === day.id);
+        check('…and a clerk alone at the desk is not relieved', D.deskRelieved(day, LOBBY) === false);
+        // Both in the room: whoever the clock has on shift relieves the other, and never the reverse.
+        moveNpcToZone(night.id, LOBBY);
+        const onNow = isVendorWorkTime(day, getEnvironmentState()).working ? day : night;
+        const holding = onNow === day ? night : day;
+        check('the clerk on shift relieves the one holding over',
+          D.deskRelieved(holding, LOBBY) === true && D.deskRelieved(onNow, LOBBY) === false);
+        moveNpcToZone(night.id, night.home_zone);
+
+        const quote = await dispatchAction({ type: 'BOAT_QUOTE', actor: p, params: { what: 'sale' } });
+        check('the clerk reads out the line and the price', quote?.type === 'dialogue_line'
+          && FMd.BOAT_TYPES.every((t) => quote.text.includes(t.name) && quote.text.includes(t.price.toLocaleString())),
+          JSON.stringify(quote));
+        p.credits = 0;
+        const broke = await dispatchAction({ type: 'BOAT_SELL', actor: p, params: { hull: hull.id } });
+        check('…a sale you cannot pay for is the desk\'s own refusal', /You have ₵0/.test(broke?.text || ''), JSON.stringify(broke));
+        const bogus = await dispatchAction({ type: 'BOAT_SELL', actor: p, params: { hull: 'no_such_hull' } });
+        check('…and a hull that is not on the line is refused', bogus?.type === 'error', JSON.stringify(bogus));
+
+        if (await Y.firstFreeBerth(Y.berthsNear(LOBBY))) {
+          p.credits = hull.price;
+          const sold = await dispatchAction({ type: 'BOAT_SELL', actor: p, params: { hull: hull.id } });
+          const rows = await q('SELECT id FROM boats WHERE owner_id = $1', [p.id]);
+          check('talking to the clerk buys the boat', /Bought/.test(sold?.text || '') && rows.rows.length === 1,
+            JSON.stringify(sold) + ' rows=' + rows.rows.length);
+        }
+
+        // Nobody behind it: the conversation refuses in the typed verb's words.
+        moveNpcToZone(day.id, day.home_zone);
+        const empty = await dispatchAction({ type: 'BOAT_QUOTE', actor: p, params: { what: 'sale' } });
+        check('an empty desk sells nothing', /nobody behind the desk/i.test(empty?.text || ''), JSON.stringify(empty));
+      } finally {
+        await q('DELETE FROM boats WHERE owner_id = $1', [p.id]).catch(() => {});
+        moveNpcToZone(day.id, was.day);
+        moveNpcToZone(night.id, was.night);
+        p.current_zone = was.zone;
+        p.credits = was.credits;
+      }
+
+      // ⚠ THE RELIEF SETS OFF IN TIME. Due inside the walk means due now; a whole shift away is not.
+      const lead = D.deskLeadMinutes({ work_zone_id: LOBBY }, night.home_zone);
+      check('the walk in is measured, not assumed', lead > 15 && lead < 24 * 60, String(lead));
+    }
+  }
+
   // The reachability half. Fairweather is five rooms and two pontoons, and the whole place has to
   // answer as one — which is the bug the truck depot shipped and this is written against.
   {

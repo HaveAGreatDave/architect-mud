@@ -23,7 +23,8 @@ import { on } from '../../server/engine/events.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { hurtInWreck, wreckSeverity, wreckLines } from './breakup.js';
-import { cmdBoat, cmdBoats, cmdBerth, cmdRefit, boatEmbark, boatDisembark, aboard, berthKind, recoverAboard } from './yard.js';
+import { cmdBoat, cmdBoats, cmdBerth, cmdRefit, boatEmbark, boatDisembark, aboard, berthKind, recoverAboard, deskQuote } from './yard.js';
+import { BOAT_TYPES } from '../../client/game/js/panels/flight-model.js';
 // The seat. `yard.js` owns where a hull lives between runs; this owns the twenty seconds after you
 // step down into her — the helm the client paints, the telemetry back, and the events it reports.
 import { cmdHelm, cmdBoatSync, cmdBoatEvent, svcState } from './helm.js';
@@ -223,6 +224,49 @@ registerAction({
     // thing worse than closing it early is leaving somebody in it.
     sendToPlayer(actor.id, { type: 'boat_sim_close' });
     return out;
+  },
+});
+
+// ── THE CLERK SELLS ──────────────────────────────────────────────────────────
+// Buying and hiring are the desk clerk's job, so a player does both by talking to them. These are
+// dialogue actions a clerk's node fires on entry, and each one is the typed verb underneath (`boat
+// <type>`, `boat rent <type>`, `boat return`), so the conversation cannot sell on different terms
+// from the command, and the desk's own refusals (nobody behind it, wrong room, no money, no berth)
+// answer here in the same words. The result is a `dialogue_line`, which the runner appends to what
+// the clerk says. The hull is named by type id (`{ "action": "BOAT_SELL", "hull": "hydro" }`), never by
+// `type`, which is the action's own key on the flat form a dialogue node authors.
+const deskLine = (out) => ({ type: 'dialogue_line', text: out?.message || '' });
+const deskType = (id) => BOAT_TYPES.find((t) => t.id === id) || null;
+registerAction({
+  type: 'BOAT_QUOTE',
+  validate: ({ actor }) => (actor ? null : 'nobody there'),
+  handler: async ({ actor, params = {} }) => ({ type: 'dialogue_line', text: await deskQuote(actor, params.what) }),
+});
+registerAction({
+  type: 'BOAT_SELL',
+  validate: ({ actor, params = {} }) => (!actor ? 'nobody there' : deskType(params.hull) ? null : `no hull type "${params.hull}"`),
+  handler: async ({ actor, params }) => {
+    const out = await cmdBoat([params.hull], `boat ${params.hull}`, actor);
+    await repushMarina(actor, 'fleet');
+    return deskLine(out);
+  },
+});
+registerAction({
+  type: 'BOAT_HIRE',
+  validate: ({ actor, params = {} }) => (!actor ? 'nobody there' : deskType(params.hull) ? null : `no hull type "${params.hull}"`),
+  handler: async ({ actor, params }) => {
+    const out = await cmdBoat(['rent', params.hull], `boat rent ${params.hull}`, actor);
+    await repushMarina(actor, 'fleet');
+    return deskLine(out);
+  },
+});
+registerAction({
+  type: 'BOAT_RETURN',
+  validate: ({ actor }) => (actor ? null : 'nobody there'),
+  handler: async ({ actor }) => {
+    const out = await cmdBoat(['return'], 'boat return', actor);
+    await repushMarina(actor, 'fleet');
+    return deskLine(out);
   },
 });
 

@@ -305,7 +305,7 @@ The full list of action types: `GRANT_ITEM`, `REMOVE_ITEM`, `START_QUEST`, `COMP
 
 AI behaviour nodes come from a **separate** pair of catalogues (`AI_CONDITIONS`/`AI_ACTIONS` in `vine-schema-ai.js`) — see [ai-behaviour.md](ai-behaviour.md) for what each does at runtime.
 
-Plugins also register dialogue actions via `registerAction` that the editor catalog (`vine-action-types.js`) doesn't yet list, so they're authored by hand in the JSON. Notably **`GPS_TO`** (from the **gps** plugin, `params.zone`) plots a route onto the player's map and pushes a `gps_route` independently of the dialogue text — an NPC can send you somewhere (e.g. `npc_claude_merrin`). No-ops when you're already at the destination.
+Plugins also register dialogue actions via `registerAction` that the editor catalog (`vine-action-types.js`) doesn't yet list, so they're authored by hand in the JSON. Notably **`GPS_TO`** (from the **gps** plugin, `params.zone`) plots a route onto the player's map and pushes a `gps_route` independently of the dialogue text — an NPC can send you somewhere (e.g. `npc_claude_merrin`). No-ops when you're already at the destination. The **powerboat** plugin's `BOAT_QUOTE` (`what: sale | hire`), `BOAT_SELL` and `BOAT_HIRE` (`hull: <type id>`) and `BOAT_RETURN` let the marina desk clerks sell and hire boats in conversation; each returns a `dialogue_line` with the result.
 
 An action that returns `{ type: 'dialogue_line', text }` has its text **appended to the node's authored
 text**, and the client sets that with `innerHTML` — so a plugin action is how an NPC's spoken line

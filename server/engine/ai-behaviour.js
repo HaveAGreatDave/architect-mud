@@ -241,7 +241,7 @@ const NPC_TICK_SECONDS = 15;
 // Tiles a commuter covers per REAL minute. The game clock runs at
 // state.timeScale game-minutes per real minute, so the conversion to the
 // game-minutes the schedule is written in happens at the call site.
-const COMMUTE_TILES_PER_REAL_MIN = COMMUTE_STEPS_PER_TICK * (60 / NPC_TICK_SECONDS);
+export const COMMUTE_TILES_PER_REAL_MIN = COMMUTE_STEPS_PER_TICK * (60 / NPC_TICK_SECONDS);
 
 // How long after a missed arrival an NPC still bothers turning up, in GAME
 // minutes. Only consulted for NPCs whose arrive_by params have no schedule

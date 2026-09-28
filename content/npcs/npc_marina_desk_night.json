@@ -1,6 +1,115 @@
 {
   "banter": [],
-  "behaviour_graph": null,
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "check_work"
+      },
+      "check_work": {
+        "type": "action",
+        "action_type": "CHECK_VENDOR_WORK",
+        "goToWork": "go_to_work",
+        "haveLife": "off_due",
+        "endShift": "hold_desk",
+        "offWork": "off_due"
+      },
+      "go_to_work": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait"
+      },
+      "work_wait": {
+        "type": "wait",
+        "seconds": 60,
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "work_say",
+        "ifFalse": "check_work"
+      },
+      "work_say": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work"
+      },
+      "hold_desk": {
+        "type": "condition",
+        "condition_type": "DESK_RELIEVED",
+        "ifTrue": "go_home",
+        "ifFalse": "hold_wait"
+      },
+      "hold_wait": {
+        "type": "wait",
+        "seconds": 15,
+        "next": "hold_shift"
+      },
+      "hold_shift": {
+        "type": "condition",
+        "condition_type": "IS_VENDOR_WORK_TIME",
+        "ifTrue": "check_work",
+        "ifFalse": "hold_desk"
+      },
+      "go_home": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "check_work"
+      },
+      "off_due": {
+        "type": "condition",
+        "condition_type": "DESK_SHIFT_DUE",
+        "ifTrue": "go_early",
+        "ifFalse": "off_home_check"
+      },
+      "go_early": {
+        "type": "action",
+        "action_type": "GO_TO_WORK",
+        "next": "early_wait"
+      },
+      "early_wait": {
+        "type": "wait",
+        "seconds": 15,
+        "next": "check_work"
+      },
+      "off_home_check": {
+        "type": "condition",
+        "condition_type": "AT_HOME",
+        "ifTrue": "home_idle",
+        "ifFalse": "off_random"
+      },
+      "home_idle": {
+        "type": "action",
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work"
+      },
+      "off_random": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "branch_0": "have_life",
+        "branch_1": "go_home_off"
+      },
+      "have_life": {
+        "type": "action",
+        "action_type": "HAVE_LIFE",
+        "next": "check_work"
+      },
+      "go_home_off": {
+        "type": "action",
+        "action_type": "GO_HOME",
+        "next": "check_work"
+      }
+    }
+  },
   "chitchat": [
     "Sabbatini listens to something out on the water, decides it is nothing, and goes back to the book.",
     "She turns the desk lamp a few degrees further from her face.",
@@ -55,11 +164,36 @@
       ]
     },
     "buy": {
-      "text": "She turns the berth book round. \"Everything we sell is on the list. <b>use desk</b> and I will show you the lot, or <b>boat</b> reads it out. <b>boat</b> and a name buys that one.\"\n\n\"She comes with a full tank and a berth. I put her in the first free one, and <b>boats</b> tells you where she is from anywhere in the city.\"",
+      "text": "She turns the berth book round. \"This is what we sell. She comes with a full tank and the first free berth, and I write her into the book as soon as you say.\"",
+      "actions": [
+        {
+          "action": "BOAT_QUOTE",
+          "what": "sale"
+        }
+      ],
       "options": [
         {
-          "label": "Show me what you have.",
-          "cmd": "use desk"
+          "label": "I'll take the Rooster.",
+          "next": "sell_hydro"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "sell_hydro": {
+      "text": "She opens the berth book at the next clean line.",
+      "actions": [
+        {
+          "action": "BOAT_SELL",
+          "hull": "hydro"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
         },
         {
           "label": "Back up.",
@@ -68,12 +202,55 @@
       ]
     },
     "hire": {
-      "text": "She finds a rate card under the paperback. \"Any hull on the list, for two hours, at a fraction of the price. <b>boat rent</b> shows the rates and <b>boat rent</b> with a name takes one. One at a time.\"\n\n\"When the time is up and she is tied up here, she goes back by herself. <b>boat return</b> hands her back early. No paint or names on a hire.\"",
+      "text": "She finds a rate card under the paperback. \"Any hull on the list, for two hours, with a full tank. One at a time. Tie her up here when you are done and she goes back by herself, or bring me the key sooner. No paint or names on a hire.\"",
+      "actions": [
+        {
+          "action": "BOAT_QUOTE",
+          "what": "hire"
+        }
+      ],
       "options": [
         {
-          "label": "Show me the hire list.",
-          "cmd": "boat rent"
+          "label": "Hire the Rooster.",
+          "next": "hire_hydro"
         },
+        {
+          "label": "I'm bringing a hire back.",
+          "next": "return"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "hire_hydro": {
+      "text": "She checks the board for a free bay.",
+      "actions": [
+        {
+          "action": "BOAT_HIRE",
+          "hull": "hydro"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "return": {
+      "text": "She holds out a hand for the key.",
+      "actions": [
+        {
+          "action": "BOAT_RETURN"
+        }
+      ],
+      "options": [
         {
           "label": "Back up.",
           "next": "root"
