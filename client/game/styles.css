@@ -4980,46 +4980,24 @@ html.map-poi-color .map-bld-label {
 	isolation: isolate;
 	transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
-/* Folded to its header bar (the − button). */
-#container-box.ctr-folded { height: auto; padding: 8px 14px; }
+/* Folded to its header bar (the − button). The panel id makes it outrank .ctr-compact's height. */
+#container-panel #container-box.ctr-folded { height: auto; padding: 8px 14px; }
 #container-box.ctr-folded > :not(#container-header) { display: none; }
+/* A folded box is a title bar, not a dialog: the room behind it takes clicks again, so a folded
+   galley can ride out a flight over the cockpit, and a bar nobody has dragged parks top-right. */
+#container-panel.ctr-hud { pointer-events: none; align-items: flex-start; justify-content: flex-end; padding: 90px 16px; }
+#container-panel.ctr-hud #container-box { pointer-events: auto; width: auto; max-width: calc(100vw - 32px); }
 .ctr-head-btns { display: flex; gap: 6px; align-items: center; }
-#container-min, #container-galley { background: none; border: 1px solid var(--cyan); color: var(--cyan); cursor: pointer; padding: 2px 8px; font: inherit; }
+#container-min { background: none; border: 1px solid var(--cyan); color: var(--cyan); cursor: pointer; padding: 2px 8px; font: inherit; }
 
-/* The galley quick actions (panels/galley.js): a small floating window over any vehicle seat. */
-#galley-panel {
-	display: none; position: fixed; right: 24px; top: 90px; width: 300px; max-height: 70vh;
-	z-index: 160; background: var(--bg2); border: 1px solid var(--cyan); flex-direction: column;
-	font-size: 0.8125rem;
-}
-#galley-panel.active { display: flex; }
-#galley-panel .glly-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--cyan); color: var(--cyan); user-select: none; }
-#galley-panel .glly-head button { background: none; border: none; color: var(--cyan); cursor: pointer; font: inherit; padding: 0 4px; }
-#galley-panel.glly-folded .glly-body { display: none; }
-#galley-panel.glly-folded .glly-head { border-bottom: none; gap: 8px; }
-#galley-panel.glly-folded { width: auto; }
-#galley-panel .glly-mini { display: none; }
-#galley-panel.glly-folded .glly-mini { display: flex; gap: 8px; flex: 1; }
-#galley-panel.glly-folded .glly-title { display: none; }
-.glly-mg { display: flex; align-items: center; gap: 3px; font-size: 0.6875rem; }
-.glly-mg i { display: inline-block; width: 38px; height: 5px; background: rgba(127,127,127,0.25); }
-.glly-mg b { display: block; height: 100%; background: var(--green, #4c8); }
-.glly-mg.glly-mid b { background: var(--yellow, #db3); }
-.glly-mg.glly-low b { background: var(--red, #d44); }
-#galley-panel .glly-body { overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
-.glly-vital { display: grid; grid-template-columns: 56px 1fr 28px; gap: 6px; align-items: center; }
-.glly-track { height: 7px; background: rgba(127,127,127,0.25); }
-.glly-fill { height: 100%; background: var(--green, #4c8); }
-.glly-mid .glly-fill { background: var(--yellow, #db3); }
-.glly-low .glly-fill { background: var(--red, #d44); }
-.glly-sec { color: var(--cyan); margin-top: 6px; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.08em; }
-.glly-items, .glly-pax { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.glly-items li { display: flex; gap: 6px; align-items: center; }
-.glly-items .glly-name { flex: 1; }
-.glly-items button { background: none; border: 1px solid var(--cyan); color: var(--cyan); cursor: pointer; font: inherit; padding: 1px 8px; }
-.glly-to { max-width: 90px; font: inherit; background: var(--bg2); color: inherit; border: 1px solid rgba(127,127,127,0.5); }
-.glly-pax span { opacity: 0.7; font-size: 0.75rem; }
-.glly-empty { opacity: 0.6; }
+/* The galley's hunger and thirst, in its title bar (panels/container.js renderVitals). */
+#container-vitals:not([hidden]) { display: flex; gap: 10px; align-items: center; flex: 1; justify-content: flex-end; margin: 0 10px; }
+.ctr-vital { display: flex; align-items: center; gap: 4px; font-size: 0.6875rem; font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.ctr-vital i { display: inline-block; width: 38px; height: 5px; background: rgba(127,127,127,0.25); }
+.ctr-vital b { display: block; height: 100%; background: var(--green, #4c8); }
+.ctr-vital-mid b { background: var(--yellow, #db3); }
+.ctr-vital-low b { background: var(--red, #d44); }
+.ctr-vital-low { color: var(--red, #d44); }
 
 /* A small store (the Drake's galley fridge and locker): a bar-fridge-sized window. */
 #container-box.ctr-compact {
@@ -5028,6 +5006,11 @@ html.map-poi-color .map-bld-label {
 	padding: 14px;
 	gap: 8px;
 }
+/* A compact column is too narrow for a name beside its badge, weight and take button: the name
+   was squeezed to nothing. So the name gets its own line and the rest sits under it. */
+#container-box.ctr-compact .ctr-item-card { flex-wrap: wrap; row-gap: 4px; }
+#container-box.ctr-compact .ctr-item-card .ctr-name { flex: 1 0 100%; }
+#container-box.ctr-compact .ctr-item-card .ctr-meta { margin-left: auto; }
 
 /* Cold-appliance theming — applied only when the opened container (or its
    paired box) carries a `preserves` tag, i.e. an actual fridge/freezer, not

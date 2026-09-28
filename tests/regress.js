@@ -2728,6 +2728,84 @@ check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items
   }
 }
 
+// Passing food out of a fridge (passid, engine law beside pullid): the container
+// view lists who else is in the room (`company`) and stamps each food row with
+// how it's taken, and `passid <row> <player>` hands ONE of the stack straight to
+// them through the GIVE action. Food and drink only, people in the room only.
+{
+  const me = getPlayer();
+  const savedZone = me.current_zone;
+  const PZ = 'zone_pass_regress', PFURN = 'furn_pass_regress', MATE = '__regress_pass_mate';
+  const PFOOD = 'item_pass_regress_food', PDRINK = 'item_pass_regress_drink', PROCK = 'item_pass_regress_rock';
+  const PROBES = [
+    [PFOOD, 'pass probe pie', { consumable: true, perishable: true, restore_hunger: 20 }],
+    [PDRINK, 'pass probe soda', { consumable: true, restore_thirst: 20 }],
+    [PROCK, 'pass probe rock', { misc: true }],
+  ];
+  try {
+    for (const [id, name, tags] of PROBES) {
+      await query(`INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,$2,$2,'misc',0,100,$3)
+        ON CONFLICT (id) DO UPDATE SET name=$2, tags=$3`, [id, name, JSON.stringify(tags)]);
+    }
+    await insertFurniture({
+      id: PFURN, name: 'pass probe fridge', description: 'a fridge', object_type: 'container',
+      zone_id: PZ, flags: JSON.stringify({ container: 40000, preserves: 'refrigerated' }),
+    }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
+    await query('DELETE FROM player_inventory WHERE container_id=$1 OR player_id = ANY($2)', [PFURN, [MATE]]);
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,container_id) VALUES
+      ($1,'_restock',$2,3,1.0,$5), ($3,'_restock',$4,1,1.0,$5), ($6,'_restock',$7,1,1.0,$5)`,
+      ['pi_pass_food', PFOOD, 'pi_pass_drink', PDRINK, PFURN, 'pi_pass_rock', PROCK]);
+    registerTransientZone({ id: PZ, name: 'pass probe kitchen', description: 'A kitchen.' });
+    me.current_zone = PZ;
+    addPlayerToZone(me.id, PZ);
+
+    let v = await run(`opencontainer ${PFURN}`);
+    check('pass: an empty room offers nobody to pass to', v?.type === 'container_view' && !v.company, JSON.stringify(v?.company));
+    const rowOf = (view, id) => view?.containerItems?.find(r => r.id === id);
+    check('pass: a food row is stamped eat, a drink row drink, a rock neither',
+      rowOf(v, 'pi_pass_food')?.consume === 'eat' && rowOf(v, 'pi_pass_drink')?.consume === 'drink' && !rowOf(v, 'pi_pass_rock')?.consume,
+      [rowOf(v, 'pi_pass_food')?.consume, rowOf(v, 'pi_pass_drink')?.consume, rowOf(v, 'pi_pass_rock')?.consume].join());
+
+    setLivePlayer(MATE, { id: MATE, handle: 'Passmate', posture: 'standing', current_zone: PZ });
+    addPlayerToZone(MATE, PZ);
+    v = await run(`opencontainer ${PFURN}`);
+    check('pass: the view lists the other person in the room', v?.company?.length === 1 && v.company[0].id === MATE && v.company[0].name === 'Passmate', JSON.stringify(v?.company));
+
+    v = await run(`passid pi_pass_food ${MATE}`);
+    const qtyIn = async (owner, item, inBox) => Number((await query(
+      `SELECT COALESCE(SUM(quantity),0) AS n FROM player_inventory WHERE item_id=$1 AND ${inBox ? 'container_id=$2' : 'player_id=$2 AND container_id IS NULL'}`, [item, owner])).rows[0].n);
+    check('pass: one of a stack of three goes to them, two stay in the fridge',
+      await qtyIn(MATE, PFOOD, false) === 1 && await qtyIn(PFURN, PFOOD, true) === 2,
+      `mate=${await qtyIn(MATE, PFOOD, false)} fridge=${await qtyIn(PFURN, PFOOD, true)}`);
+    check('pass: the reply refreshes the fridge and says who got it', v?.type === 'container_view' && /Passmate/.test(v.mainMsg || ''), `${v?.type}:${v?.mainMsg}`);
+    check('pass: nothing passed through your own pack', await qtyIn(me.id, PFOOD, false) === 0);
+
+    await run(`passid pi_pass_food ${MATE}`);
+    check('pass: a second pass adds to what they hold', await qtyIn(MATE, PFOOD, false) === 2 && await qtyIn(PFURN, PFOOD, true) === 1);
+
+    await run(`passid pi_pass_drink ${MATE}`);
+    check('pass: the last one of something moves whole', await qtyIn(MATE, PDRINK, false) === 1 && await qtyIn(PFURN, PDRINK, true) === 0);
+
+    const rock = await run(`passid pi_pass_rock ${MATE}`);
+    check('pass: a thing that is not food or drink is refused', rock?.type === 'container_error' && await qtyIn(PFURN, PROCK, true) === 1, rock?.message);
+
+    removePlayerFromZone(MATE, PZ);
+    const gone = await run(`passid pi_pass_food ${MATE}`);
+    check('pass: someone who has left the room is refused', gone?.type === 'container_error' && await qtyIn(PFURN, PFOOD, true) === 1, gone?.message);
+    const self = await run(`passid pi_pass_food ${me.id}`);
+    check('pass: you cannot pass to yourself', self?.type === 'container_error', self?.message);
+  } finally {
+    removePlayerFromZone(me.id, PZ);
+    removePlayerFromZone(MATE, PZ);
+    removeLivePlayer(MATE);
+    removeTransientZone(PZ);
+    await query('DELETE FROM player_inventory WHERE container_id=$1 OR player_id=$2 OR item_id = ANY($3)', [PFURN, MATE, PROBES.map(p => p[0])]).catch(() => {});
+    await deleteFurniture(PFURN).catch(() => {});
+    await query('DELETE FROM items WHERE id = ANY($1)', [PROBES.map(p => p[0])]).catch(() => {});
+    me.current_zone = savedZone;
+  }
+}
+
 // Compartments (engine law in buildContainerView + describe's subBoxIds): one
 // piece of furniture that stores things in more than one place. Each shelf is a
 // whole container row, so what's under test is that they present as ONE piece —

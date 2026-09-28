@@ -1816,4 +1816,52 @@ export default async function regress({ run, check, getPlayer }) {
       liveAircraft.delete(id);
     }
   }
+
+  // ── The Drake's galley: the pantry's view, with the people aboard ─────────
+  // The pantry answers with the ordinary container panel marked `galley`, and lists everyone else
+  // aboard as `company`, so a click on food can pass it to them (`pantry sendid`). A stand-in live
+  // Drake is enough: the stores read only its row, its type class and its occupant set.
+  {
+    const { setLivePlayer, removeLivePlayer } = await import('../../server/engine/world.js');
+    const acId = 'aircraft_regress_galley', MATE = '__regress_galley_mate', FOOD = 'item_regress_galley_pie';
+    const owner = `_aircraft_${acId}_pantry`;
+    const savedAc = p.aircraftId;
+    try {
+      await query(`INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,'galley probe pie','a pie','misc',0,200,$2)
+        ON CONFLICT (id) DO UPDATE SET tags=$2`, [FOOD, JSON.stringify({ consumable: true, perishable: true, restore_hunger: 20 })]);
+      await query('DELETE FROM player_inventory WHERE player_id = ANY($1)', [[owner, MATE]]);
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ('pi_regress_galley',$1,$2,2,1.0)`, [owner, FOOD]);
+      liveAircraft.set(acId, { row: { id: acId, name: 'REGR-GALLEY', custom_data: {} }, type: { class: 'drake' }, occupants: new Set([p.id]) });
+      p.aircraftId = acId;
+
+      let v = await run('pantry view');
+      check('galley: the pantry answers with a container view marked galley', v?.type === 'container_view' && v.galley === true && v.storeVerb === 'pantry', `${v?.type}:${v?.galley}`);
+      check('galley: flying alone, nobody to pass to', !v?.company, JSON.stringify(v?.company));
+      check('galley: pantry food is stamped with how it is taken', v?.containerItems?.[0]?.consume === 'eat', v?.containerItems?.[0]?.consume);
+      const g = await run('pantry galley');
+      check('galley: `pantry galley` opens the same view, not a second window', g?.type === 'container_view' && g.galley === true, g?.type);
+
+      setLivePlayer(MATE, { id: MATE, handle: 'Galleymate', posture: 'standing', current_zone: p.current_zone });
+      liveAircraft.get(acId).occupants.add(MATE);
+      v = await run('pantry view');
+      check('galley: a passenger aboard is listed as company', v?.company?.length === 1 && v.company[0].id === MATE && v.company[0].name === 'Galleymate', JSON.stringify(v?.company));
+
+      v = await run(`pantry sendid pi_regress_galley ${MATE}`);
+      const held = await query('SELECT player_id, quantity FROM player_inventory WHERE item_id=$1', [FOOD]);
+      const qty = (who) => held.rows.filter(r => r.player_id === who).reduce((n, r) => n + r.quantity, 0);
+      check('galley: passing hands one to the passenger and leaves one aboard', qty(MATE) === 1 && qty(owner) === 1, JSON.stringify(held.rows));
+      check('galley: the reply is the refreshed galley, naming who got it', v?.type === 'container_view' && v.galley === true && /Galleymate/.test(v.mainMsg || ''), `${v?.type}:${v?.mainMsg}`);
+
+      liveAircraft.get(acId).occupants.delete(MATE);
+      const off = await run(`pantry sendid pi_regress_galley ${MATE}`);
+      const left = (await query('SELECT quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2', [owner, FOOD])).rows[0]?.quantity;
+      check('galley: someone who is not aboard is refused', off?.type === 'error' && left === 1, `${off?.message}:${left}`);
+    } finally {
+      liveAircraft.delete(acId);
+      removeLivePlayer(MATE);
+      p.aircraftId = savedAc;
+      await query('DELETE FROM player_inventory WHERE item_id=$1', [FOOD]).catch(() => {});
+      await query('DELETE FROM items WHERE id=$1', [FOOD]).catch(() => {});
+    }
+  }
 }

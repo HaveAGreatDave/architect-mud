@@ -1357,6 +1357,24 @@ function stampCondition(rows) {
   return rows;
 }
 
+// Stamp how a food or drink row is taken (`eat` or `drink`), so the panel's
+// item menu says Drink on a bottle and knows which rows it can pass to someone.
+// consumeVerb owns the reading; a bandage or a credit chip is `use` and gets no
+// stamp, because nobody passes you a roll of gauze across the kitchen.
+export function stampConsume(row) {
+  if (!hasTag(row, 'consumable')) return row;
+  const v = consumeVerb(row);
+  if (v === 'eat' || v === 'drink') row.consume = v;
+  return row;
+}
+
+// The other players in your room, as the container panel lists them.
+function roomCompany(player) {
+  return getZonePlayers(player.current_zone)
+    .filter(p => p.id !== player.id)
+    .map(p => ({ id: p.id, name: p.handle }));
+}
+
 // Furniture containers flagged `restock_items` (a list of item ids) act as a
 // bottomless dispenser: they keep exactly one of each listed item present.
 // Run on every container view (open + the refresh a pull/stow returns), so
@@ -1403,7 +1421,10 @@ async function loadBoxContents(container) {
   if (minted) containerItems = await readBox(container.id);   // only when something actually arrived
   const cap = containerCapacity(container);
   const used = containerItems.reduce((w, r) => w + (Number(r.weight) || 0) * (Number(r.quantity) || 0), 0);
-  for (const r of containerItems) r.name = titleCaseName(r.name);
+  for (const r of containerItems) {
+    r.name = titleCaseName(r.name);
+    stampConsume(r);
+  }
   stampCondition(containerItems);
   // Stamp `group` for the panel. The rows already carry tags, so this costs
   // nothing; the client starts a new section wherever `group` changes, and rows
@@ -1423,7 +1444,7 @@ async function buildContainerView(containerId, player) {
     query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]),
     loadBoxContents(container),
   ]);
-  for (const r of allInv) r.name = titleCaseName(r.name);   // list display — Title Case
+  for (const r of allInv) { r.name = titleCaseName(r.name); stampConsume(r); }   // list display — Title Case
   stampCondition(allInv);
   // A box offers only what belongs in one — the reason to open a fridge is the
   // food that would otherwise spoil, and the reason to open a dish cabinet is
@@ -1457,6 +1478,11 @@ async function buildContainerView(containerId, player) {
   // so the panel renders exactly what it rendered before this shipped.
   const tabs = compartmentsOf(container, player.current_zone);
   if (tabs.length > 1) view.compartments = tabs;
+  // Who else is in the room, so the panel can offer to pass them food and drink
+  // out of the box (passid). Read off the zone's live set, so it costs nothing.
+  // Never at a shop's cooler: the stock isn't yours to hand round.
+  const company = vendorStockOwner(container) ? [] : roomCompany(player);
+  if (company.length) view.company = company;
   // A container furniture can be more than a box — a wardrobe layers saved
   // outfits over the same storage. Handlers mutate `view` in place (retyping it
   // and hanging their own block off it); an unhooked container is untouched.
@@ -1745,6 +1771,48 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
   if (pe2) pv2.mainMsg = `You rummage through ${withArticle(container.name)}.`;
   if (vendorId) pv2.mainMsg = unpaidNote(item.name);
   return containerReply(pv2, player, pv2.mainMsg || `You take ${item.name} from ${container.name}.`);
+}
+
+// Pass one of something out of a box to someone else in the room: the beer out
+// of the fridge, handed over without it passing through your pack. The panel's
+// item menu sends it (`passid <row> <player>`); the typed version is `pull` then
+// `give`, which ends in the same place.
+//
+// One unit, never the stack. Food and drink only, which is what the menu offers.
+// The hand-over itself is the engine's GIVE action, so the recipient's line, the
+// stack merge and the item.given event are the ones an ordinary give produces.
+async function cmdPassById(rowId, toPid, player, broadcast) {
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.container_id IS NOT NULL`, [rowId]);
+  if (!rows.length) return { type:'container_error', message:'Item not found.' };
+  const item = rows[0];
+  item.name = titleCaseName(item.name);
+  const container = await loadContainerById(item.container_id, player);
+  if (!container) return { type:'container_error', message:'Not your container.' };
+  if (vendorStockOwner(container)) return { type:'container_error', message:`The ${item.name} isn't yours to hand round. Pay for it first.` };
+  if (!stampConsume(item).consume || hasTag(item, 'quest_item')) return { type:'container_error', message:`You can pass food and drink. The ${item.name} is neither.` };
+  const toPlayer = toPid && toPid !== player.id ? getZonePlayers(player.current_zone).find(p => p.id === toPid) : null;
+  if (!toPlayer) return { type:'container_error', message:"They aren't here any more." };
+  if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
+
+  // A stack gives up one unit as its own row, carrying the stack's freshness and
+  // wear. It starts in the passer's pack rather than the recipient's: GIVE merges
+  // into the recipient's matching stack, and a row already sitting there would
+  // match itself and be deleted.
+  let row = item;
+  if (item.quantity > 1) {
+    const id = randomUUID();
+    await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
+    await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,1,$4,$5)',
+      [id, player.id, item.item_id, item.condition ?? 1, JSON.stringify(item.custom_data || {})]);
+    row = { ...item, id, player_id: player.id, container_id: null, quantity: 1 };
+  }
+  await dispatchAction({ type:'GIVE', actor: player, params: { row, toPlayer }, context: { broadcast } });
+  // The room sees it handed over; the two of you already have your own lines.
+  broadcast?.(player.current_zone, { type:'zone_event', message:`${player.handle} passes ${toPlayer.handle} ${withArticle(item.name)} from ${withArticle(container.name)}.` }, player.id, null, toPlayer.id);
+  const view = await buildContainerView(container.id, player);
+  const line = `You pass ${toPlayer.handle} the ${item.name}.`;
+  if (view.type === 'container_view') view.mainMsg = line;
+  return containerReply(view, player, line);
 }
 
 // "all" / "all <filter>" — the bulk form shared by drop and stow. Returns null
@@ -2092,6 +2160,7 @@ export const handlers = {
   pull:  (args, raw, player) => cmdPull(args.join(' '), player),
   stowid: (args, raw, player, broadcast) => cmdStowById(args.join(' '), player, broadcast),
   pullid: (args, raw, player, broadcast) => cmdPullById(args[0], args[1], player, broadcast),
+  passid: (args, raw, player, broadcast) => cmdPassById(args[0], args[1], player, broadcast),
   opencontainer: (args, raw, player) => cmdOpenContainerById(args[0], player),
   closecontainer: (args, raw, player, broadcast) => cmdCloseContainer(args[0], player, broadcast),
 };

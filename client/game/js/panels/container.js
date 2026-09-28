@@ -1,4 +1,5 @@
 import { sendCmdSilent } from '../net.js';
+import { state } from '../state.js';
 import { makeFloatable } from './confirm.js';
 
 let containerDraggedId = null;
@@ -13,6 +14,49 @@ let freezerBoxId = null;
 let storeVerb = null;
 const stowCmd = (id, box, q) => storeVerb ? `${storeVerb} putid ${id}${q}` : `stowid ${id} ${box}${q}`;
 const pullCmd = (id, q) => storeVerb ? `${storeVerb} takeid ${id}${q}` : `pullid ${id}${q}`;
+// A vehicle's food store (the Drake's pantry) is its GALLEY: the view says `galley`, and the panel
+// titles itself Galley with your hunger and thirst in the title bar, so folding it to that bar
+// leaves a readout up for the whole flight. Eating from it goes through the store's own verb
+// (`pantry eatid <id>`) in one step rather than take-out-then-eat.
+let galley = false;
+let vitalsTimer = 0;
+// Everyone else in the room (or aboard), from the server, so a click on food or drink in the box
+// can pass it to them: `passid <row> <player>`, or the store's own `sendid` for a vehicle store.
+let company = [];
+const passCmd = (id, pid) => storeVerb ? `${storeVerb} sendid ${id} ${pid}` : `passid ${id} ${pid}`;
+
+// Hunger and thirst as two small gauges, read off the player state every player_update already
+// keeps current, so watching them costs no traffic.
+function renderVitals() {
+  const el = document.getElementById('container-vitals');
+  if (!el) return;
+  if (!galley) { el.innerHTML = ''; el.hidden = true; return; }
+  const p = state.player || {};
+  const gauge = (label, v) => {
+    const n = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+    const band = n <= 15 ? 'low' : n <= 40 ? 'mid' : 'ok';
+    return `<span class="ctr-vital ctr-vital-${band}" title="${label} ${n}"><span>${label}</span><i><b style="width:${n}%"></b></i>${n}</span>`;
+  };
+  el.innerHTML = gauge('Hunger', p.hunger) + gauge('Thirst', p.thirst);
+  el.hidden = false;
+}
+
+// Fold the window to its title bar, or open it back up. A folded box is a readout, not a dialog:
+// the room behind it takes clicks again and an undragged bar parks in the corner (the ctr-hud CSS),
+// which is what lets a folded galley stay up over the cockpit.
+function setFolded(f) {
+  const box = document.getElementById('container-box');
+  const minBtn = document.getElementById('container-min');
+  box.classList.toggle('ctr-folded', f);
+  document.getElementById('container-panel').classList.toggle('ctr-hud', f);
+  // A dragged window carries an inline width; the folded bar sizes to its title instead.
+  if (f) { box.dataset.w = box.style.width; box.style.width = ''; }
+  else if (box.dataset.w != null) { box.style.width = box.dataset.w; delete box.dataset.w; }
+  if (minBtn) {
+    minBtn.textContent = f ? '▢' : '−';
+    minBtn.setAttribute('aria-label', f ? 'Expand' : 'Minimise');
+  }
+}
 
 export function openContainerPanel(data) {
   activeContainerId = data.containerId;
@@ -24,17 +68,19 @@ export function openContainerPanel(data) {
   // its smaller shelf. Only the SIZE is compact; a window the player has already moved keeps its place.
   box.classList.toggle('ctr-compact', !!data.compact);
   // Minimise folds the window to its header bar; opening a box always opens it unfolded.
-  box.classList.remove('ctr-folded');
+  setFolded(false);
   const minBtn = document.getElementById('container-min');
-  if (minBtn) {
-    minBtn.textContent = '−';
-    minBtn.onclick = () => { const f = box.classList.toggle('ctr-folded'); minBtn.textContent = f ? '▢' : '−'; minBtn.setAttribute('aria-label', f ? 'Restore' : 'Minimise'); };
-  }
-  // A store that has a galley (the Drake's pantry) offers the quick-actions panel from here.
-  const gBtn = document.getElementById('container-galley');
-  if (gBtn) { gBtn.hidden = storeVerb !== 'pantry'; gBtn.onclick = () => sendCmdSilent('pantry galley'); }
+  if (minBtn) minBtn.onclick = () => {
+    const f = !box.classList.contains('ctr-folded');
+    setFolded(f);
+    // A Drake compartment's door follows the window: folded to its bar, the door shuts over the
+    // shelf; expanded, it opens again. The cockpit listens for both (cockpit.js).
+    if (storeVerb) window.dispatchEvent(new CustomEvent(f ? 'drake-store-close' : 'drake-store-open', { detail: storeVerb }));
+  };
   if (box.style.position === 'fixed') box.style.width = '';
   document.getElementById('container-panel').classList.add('active');
+  clearInterval(vitalsTimer);
+  vitalsTimer = galley ? setInterval(renderVitals, 1000) : 0;
 }
 
 export function refreshContainerPanel(data) {
@@ -47,6 +93,8 @@ export function refreshContainerPanel(data) {
 export function closeContainerPanel() {
   const cid = activeContainerId;
   document.getElementById('container-panel').classList.remove('active');
+  setFolded(false);
+  clearInterval(vitalsTimer); vitalsTimer = 0;
   activeContainerId = null;
   // A Drake compartment has no container row to close; the cockpit shuts its door instead.
   if (storeVerb) { window.dispatchEvent(new CustomEvent('drake-store-close', { detail: storeVerb })); storeVerb = null; return; }
@@ -195,7 +243,10 @@ function renderContainerPanel(data, { isOpen = false } = {}) {
   // Title the PIECE, not the shelf: the parent is always the first tab, so a
   // cabinet stays "Wall Cabinet" whichever shelf you're looking at, and the
   // shelf names itself on its tab and over its list.
-  document.getElementById('container-title').textContent = tabs.length ? tabs[0].name : fridge.name;
+  galley = !!data.galley;
+  company = Array.isArray(data.company) ? data.company : [];
+  document.getElementById('container-title').textContent = galley ? 'Galley' : tabs.length ? tabs[0].name : fridge.name;
+  renderVitals();
   // The unit's name is already the panel title; repeating it over every
   // compartment just reads as noise. Inside a cold cabinet the compartments
   // name themselves, the way the labels on a real appliance do. Ordinary
@@ -287,14 +338,30 @@ function openItemActions(item, source, containerId, anchor) {
         if (q != null) sendCmdSilent(stowCmd(item.id, containerId, item.quantity > 1 ? ` ${q}` : ''));
       } });
 
-  for (const a of ITEM_ACTIONS) {
-    if (!tags[a.tag]) continue;
+  // Food and drink say which they are: the server stamps `consume` ('eat' or 'drink') from the
+  // item's tags, so a bottle offers Drink. An unstamped consumable keeps the plain Eat.
+  const consume = item.consume || null;
+  for (const a0 of ITEM_ACTIONS) {
+    if (!tags[a0.tag]) continue;
+    const a = a0.tag === 'consumable' && consume
+      ? { ...a0, label: consume === 'drink' ? 'Drink' : 'Eat', cmd: (n) => `${consume} ${n}` }
+      : a0;
+    // A galley eats straight out of the store in one step (`pantry eatid <id>`).
+    if (a0.tag === 'consumable' && consume && inBox && galley && storeVerb) {
+      rows.push({ label: a.label, run: () => sendCmdSilent(`${storeVerb} ${consume}id ${item.id}`) });
+      continue;
+    }
     // A verb that acts on something you're HOLDING can't reach into the box, so
     // it takes the item out first and then acts. Stating that in the label beats
     // offering a button that quietly does nothing.
     rows.push(a.held && inBox
       ? { label: `${a.label} (take out first)`, run: () => { sendCmdSilent(pullCmd(item.id, '')); setTimeout(() => sendCmdSilent(a.cmd(name)), 120); } }
       : { label: a.label, run: () => sendCmdSilent(a.cmd(name)) });
+  }
+  // Pass it to someone: one per person in the room (or aboard), one of the stack per click, and
+  // it goes straight from the box into their hands.
+  if (inBox && consume) {
+    for (const q of company) rows.push({ label: `Pass to ${q.name}`, run: () => sendCmdSilent(passCmd(item.id, q.id)) });
   }
   rows.push({ label: 'Examine', run: () => sendCmdSilent(`examine ${name}`) });
   if (!inBox) rows.push({ label: 'Drop', run: () => sendCmdSilent(`drop ${name}`) });

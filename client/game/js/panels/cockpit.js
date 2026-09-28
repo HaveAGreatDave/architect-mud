@@ -4250,14 +4250,16 @@ export function openFlightSim(opts = {}) {
       ramp: () => drakeRamp(),
       dive: () => F.subToggle?.(),
       // The two compartments under the dash. Opening one also lists what is in it (drake-stores.js).
-      // The door animates open and the ordinary container panel comes up over it; closing the panel
-      // shuts the door again (container.js fires drake-store-close).
+      // The door animates open and the ordinary container panel comes up over it; closing the panel,
+      // or folding it to its title bar, shuts the door again (container.js fires drake-store-close),
+      // and expanding a folded one opens it (drake-store-open).
       pantry: () => { F.dk.pantry = !F.dk.pantry; if (F.dk.pantry) sendCmdSilent('pantry view'); },
       locker: () => { F.dk.locker = !F.dk.locker; if (F.dk.locker) sendCmdSilent('locker view'); },
     };
     if (!window.__drakeStoreClose) {
       window.__drakeStoreClose = true;
       window.addEventListener('drake-store-close', (e) => { const G = _fsim; if (G?.dk && (e.detail === 'pantry' || e.detail === 'locker')) G.dk[e.detail] = false; });
+      window.addEventListener('drake-store-open', (e) => { const G = _fsim; if (G?.dk && (e.detail === 'pantry' || e.detail === 'locker')) G.dk[e.detail] = true; });
     }
     const clamp1 = (x) => clampNum(x, -1, 1);
     let dkDrag = null;   // { kind, x0, y0, rect, a0, e0, t0 }
