@@ -6518,7 +6518,7 @@ export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = nul
 // grounded in a real space.
 const FLOOR_Z = -0.27;   // ground plane, just under the wheels
 function drawInspectBackdrop(ctx, w, h, venue = null, sky = null) {
-  if (venue === 'helipad') {
+  if (venue === 'helipad' || venue === 'ramp') {
     // Open sky over the pad — the live sky/weather palette, sea-dark toward the deck.
     const pal = skyPalette(sky), g = ctx.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, rgbStr(pal.top)); g.addColorStop(0.5, rgbStr(pal.hor)); g.addColorStop(1, rgbStr(mix3(pal.hor, [8, 12, 18], 0.7)));
@@ -6752,6 +6752,65 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
   ctx.strokeStyle = 'rgba(36,44,52,0.95)'; ctx.lineWidth = 4;                  // heavy door frame
   ctx.beginPath(); ctx.moveTo(DP[0].sx, DP[0].sy); for (let i = 1; i < DP.length; i++) ctx.lineTo(DP[i].sx, DP[i].sy); ctx.closePath(); ctx.stroke();
 }
+// ── Walk-inspect: the open ramp ───────────────────────────────────────────────
+// A craft parked outside (no hangar, or not stored in it) is worked on where she stands: a
+// concrete apron under the live sky, a painted tie-down box around her, a taxi line out to a
+// runway along one side with its edge lights, and a hazy tree-and-shed line on the horizon.
+// Same free `proj` as the model, drawn first so she sits on it.
+function drawRampRoom(ctx, proj, sky) {
+  const F0 = FLOOR_Z, pal = skyPalette(sky), night = pal.night;
+  const poly = (pts, style) => {
+    const cl = clipNear(pts, proj); if (cl.length < 3) return;
+    const P = cl.map(p => proj(p[0], p[1], p[2]));
+    ctx.beginPath(); ctx.moveTo(P[0].sx, P[0].sy); for (let i = 1; i < P.length; i++) ctx.lineTo(P[i].sx, P[i].sy); ctx.closePath();
+    ctx.fillStyle = typeof style === 'function' ? style(P) : style; ctx.fill();
+  };
+  const flat = (f0, g0, f1, g1, style, dz = 0) => poly([[f0, g0, F0 + dz], [f1, g0, F0 + dz], [f1, g1, F0 + dz], [f0, g1, F0 + dz]], style);
+  // Grass out to the horizon, then the concrete.
+  flat(-60, -60, 60, 60, (P) => {
+    const ys = P.map(q => q.sy), g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
+    g.addColorStop(0, rgbStr(mix3(pal.hor, [40, 52, 36], 0.6))); g.addColorStop(1, rgbStr(mix3([46, 60, 38], [10, 14, 12], night * 0.8)));
+    return g;
+  });
+  const conc = mix3([112, 114, 110], [26, 28, 32], night * 0.75);
+  flat(-9, -5, 9, 5, rgbStr(conc));
+  // The runway along the left, with its centreline and edge lights.
+  const asph = mix3([58, 60, 62], [16, 17, 20], night * 0.75);
+  flat(-40, -11, 40, -6.5, rgbStr(asph), 0.001);
+  for (let f = -38; f < 38; f += 3) flat(f, -8.84, f + 1.6, -8.66, 'rgba(236,236,230,0.8)', 0.002);
+  const lit = night > 0.35;
+  for (let f = -36; f <= 36; f += 4) for (const g of [-11.1, -6.4]) {
+    const c = proj(f, g, F0 + 0.03); if (c.z <= ROOM_NEAR) continue;
+    const r = Math.max(1, Math.min(6, 10 / c.z));
+    ctx.fillStyle = lit ? 'rgba(255,238,190,0.95)' : 'rgba(210,210,200,0.7)';
+    ctx.beginPath(); ctx.arc(c.sx, c.sy, r, 0, 7); ctx.fill();
+  }
+  // Tie-down box and the taxi line out of it.
+  const box = 'rgba(232,196,70,0.85)';
+  flat(-2.2, -1.9, 2.2, -1.82, box, 0.002); flat(-2.2, 1.82, 2.2, 1.9, box, 0.002);
+  flat(-2.2, -1.9, -2.12, 1.9, box, 0.002); flat(2.12, -1.9, 2.2, 1.9, box, 0.002);
+  flat(2.2, -0.04, 7, 0.04, box, 0.002); flat(6.96, -6.5, 7.04, 0.04, box, 0.002);
+  // A horizon line of trees and sheds, tangential billboards so it wraps as you turn.
+  for (let i = 0; i < 26; i++) {
+    const a = i / 26 * Math.PI * 2, R = 34 + hash01(i * 4.1) * 6;
+    const cf = Math.cos(a) * R, cg = Math.sin(a) * R, tf = -Math.sin(a), tg = Math.cos(a);
+    const hw = 1.6 + hash01(i * 2.3) * 2.4, top = F0 + 0.8 + hash01(i * 6.7) * 1.8;
+    const P = [[cf - tf * hw, cg - tg * hw, F0], [cf + tf * hw, cg + tg * hw, F0], [cf + tf * hw, cg + tg * hw, top], [cf - tf * hw, cg - tg * hw, top]].map(p => proj(p[0], p[1], p[2]));
+    if (P.some(q => q.z <= ROOM_NEAR)) continue;
+    ctx.fillStyle = rgbStr(mix3(pal.hor, [30, 38, 32], 0.45));
+    ctx.beginPath(); ctx.moveTo(P[0].sx, P[0].sy); for (let k = 1; k < 4; k++) ctx.lineTo(P[k].sx, P[k].sy); ctx.closePath(); ctx.fill();
+  }
+  // A soft contact shadow under her.
+  const o = proj(0, 0, F0);
+  if (o.z > ROOM_NEAR) {
+    const rr = Math.max(30, Math.min(220, 260 / o.z));
+    const rg = ctx.createRadialGradient(o.sx, o.sy, 1, o.sx, o.sy, rr);
+    rg.addColorStop(0, 'rgba(0,0,0,0.35)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save(); ctx.translate(o.sx, o.sy); ctx.scale(1, 0.35); ctx.translate(-o.sx, -o.sy);
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(o.sx, o.sy, rr, 0, 7); ctx.fill(); ctx.restore();
+  }
+}
+
 // ── Walk-inspect: the Echelon's open boat helipad ─────────────────────────────
 // The yacht variant of drawInspectRoom — no roof, no walls. An open non-slip deck
 // disc (painted 'H' + ring of breathing red pad lights), a low guard rail around the
@@ -7315,9 +7374,11 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     eyeW = [camDist * cosE, 0, camDist * sinE];   // orbit eye in (fx,gy,hz) space: solves camZ = camDist, camY = 0
   }
   const helipad = venue === 'helipad';
+  const ramp = venue === 'ramp';
   if (floor && cam && helipad) drawHelipadRoom(ctx, proj, sky, w, h);   // walk view: an open boat helipad (deck draws its own ground)
+  else if (floor && cam && ramp) drawRampRoom(ctx, proj, sky);         // parked outside: open apron under the live sky
   else if (floor && cam) drawInspectRoom(ctx, proj, sky);              // walk view: a real 3D hangar around you, live sky through the bay door
-  if (floor && !(cam && helipad)) drawFloorGrid(ctx, proj);   // 3D ground under the plane (the helipad draws its own deck instead)
+  if (floor && !(cam && (helipad || ramp))) drawFloorGrid(ctx, proj);   // 3D ground under the plane (the pad and the apron draw their own)
   const drawn = [];
   for (const face of faces) {
     if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
