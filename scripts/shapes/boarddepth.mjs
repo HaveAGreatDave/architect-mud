@@ -65,8 +65,28 @@ const boxOf = (d) => {
 // texture yet queues nothing. So a cold sweep against a warm one differs by twelve quads for
 // reasons that have nothing to do with the flag, which is exactly the shape of a false finding.
 decalsOf();
+// Boards are what glBoardDepth makes write depth. Since glSignDepth, lettering, neon tubes and
+// blades write depth too, and pairing against them matched words with themselves or with another
+// sign standing in front of them on screen, which is ordinary occlusion, not a board hiding its name.
+const wasSign0 = ws.RENDER_TUNE.glSignDepth;
+ws.RENDER_TUNE.glSignDepth = 0;
+const boardKeys = new Set(decalsOf().filter((r) => r.d.solid).map((r) => r.d.key));
+ws.RENDER_TUNE.glSignDepth = wasSign0;
 const live = decalsOf();
-const solid = live.filter((r) => r.d.solid);
+const solid = live.filter((r) => r.d.solid && boardKeys.has(r.d.key));
+// A quad's world normal (Newell). A hoarding's back face is authored in reverse, so its normal
+// points opposite the painted face and the words on it. When the quad in front of the words is
+// one of those, the eye is behind the sign and the slab covering its lettering is right. The
+// comparison is relative, so a mirrored facing (which flips every winding) can't fool it.
+const normalOf = (d) => {
+  let nx = 0, ny = 0, nz = 0;
+  for (let i = 0; i < d.p.length; i++) {
+    const u = d.p[i], v = d.p[(i + 1) % d.p.length];
+    nx += (u[1] - v[1]) * (u[2] + v[2]); ny += (u[2] - v[2]) * (u[0] + v[0]); nz += (u[0] - v[0]) * (u[1] + v[1]);
+  }
+  return [nx, ny, nz];
+};
+const opposed = (a, b) => { const m = normalOf(a), n = normalOf(b); return m[0] * n[0] + m[1] * n[1] + m[2] * n[2] < 0; };
 const models = new Set(solid.map((r) => r.model));
 
 // ── 1. THE BOARDS ASK, AND ENOUGH OF THEM DO THAT THIS IS NOT VACUOUS ─────────
@@ -80,15 +100,16 @@ for (const r of live) {
   }
 }
 
-// ── 2. LETTERING NEVER WRITES DEPTH, AND IS ALWAYS IN FRONT OF ITS OWN BOARD ──
-// The first half keeps a glyph bake's antialiased rim out of the depth buffer, where the prepass's
-// half-alpha cut would give it a staircase silhouette. The second is the silent one: the words are
-// a separate quad pulled toward the eye by `DETAIL_LIFT * 2.5` against the board's `DETAIL_LIFT`,
-// and if that ever stops being true the board hides its own name — no throw, no warning, just a
-// lit empty slab, which reads as text that failed to render rather than as a z-order bug.
+// ── 2. LETTERING IS ALWAYS IN FRONT OF ITS OWN BOARD ──
+// The silent one: the words are a separate quad pulled toward the eye past the board's DETAIL_LIFT,
+// and if that ever stops being true the board hides its own name. No throw, no warning, just a lit
+// empty slab, which reads as text that failed to render rather than as a z-order bug.
+// Lettering writes depth exactly when glSignDepth is on (it's cut at half alpha, so only the
+// letterforms write, never the halo); at 0 it's paint only, as shipped.
+const wantLetterDepth = ws.RENDER_TUNE.glSignDepth !== 0;
 for (const r of live) {
-  if (tag(r.d).startsWith('st:') && r.d.solid) {
-    problems.push(`${r.model}: LETTERING asked to write depth — a glyph bake is paint, and the prepass's cut would cost it its own edge`);
+  if (tag(r.d).startsWith('st:') && !!r.d.solid !== wantLetterDepth) {
+    problems.push(`${r.model}: LETTERING ${wantLetterDepth ? 'wrote no depth with glSignDepth on, so a cloud behind a sign against sky draws over its words' : 'asked to write depth with glSignDepth = 0'}`);
     break;
   }
 }
@@ -100,12 +121,12 @@ for (const r of live) {
   for (const s of solid) {
     if (s.model !== r.model) continue;
     const bb = boxOf(s.d), bf = meanF(s.d);
-    if (!bb || bf == null) continue;
+    if (!bb || bf == null || opposed(r.d, s.d)) continue;
     if (tb.cx < bb.x0 || tb.cx > bb.x1 || tb.cy < bb.y0 || tb.cy > bb.y1) continue;   // the words are not on this board
     pairs++;
     worst = Math.min(worst, bf - tf);
     if (!(tf < bf)) {
-      problems.push(`${r.model}: the lettering on a depth-writing board sits ${(tf - bf).toFixed(4)} tiles BEHIND it — the board covers its own words and the sign goes blank`);
+      problems.push(`${r.model}: the lettering on a depth-writing board sits ${(tf - bf).toFixed(4)} tiles BEHIND its ${tag(s.d)} board — the board covers its own words and the sign goes blank`);
       break;
     }
   }
@@ -113,12 +134,12 @@ for (const r of live) {
 if (!pairs) problems.push('no lettering was found on any depth-writing board — the pairing found nothing, so the clearance above is unchecked rather than proved');
 
 // ── 3. THE OFF SWITCH IS THE RENDERER THAT SHIPPED ───────────────────────────
-const was = ws.RENDER_TUNE.glBoardDepth;
-ws.RENDER_TUNE.glBoardDepth = 0;
+const was = ws.RENDER_TUNE.glBoardDepth, wasSign = ws.RENDER_TUNE.glSignDepth;
+ws.RENDER_TUNE.glBoardDepth = 0; ws.RENDER_TUNE.glSignDepth = 0;
 const off = decalsOf();
-ws.RENDER_TUNE.glBoardDepth = was;
-if (off.some((r) => r.d.solid)) problems.push('glBoardDepth = 0 still pushed a depth-writing quad — the off switch is not the renderer that shipped');
-if (off.length !== live.length) problems.push(`glBoardDepth changed how many decals were drawn (${live.length} → ${off.length}) — it may only change how one is sorted`);
+ws.RENDER_TUNE.glBoardDepth = was; ws.RENDER_TUNE.glSignDepth = wasSign;
+if (off.some((r) => r.d.solid)) problems.push('glBoardDepth = glSignDepth = 0 still pushed a depth-writing quad — the off switch is not the renderer that shipped');
+if (off.length !== live.length) problems.push(`the depth flags changed how many decals were drawn (${live.length} → ${off.length}) — it may only change how one is sorted`);
 
 if (REPORT) {
   const byTag = new Map();
@@ -135,4 +156,4 @@ if (problems.length) {
   if (problems.length > 12) console.error('  · … and ' + (problems.length - 12) + ' more of the same shape');
   process.exit(1);
 }
-console.log(`✓ boarddepth — ${solid.length} board quad(s) on ${models.size} model(s) write depth, lettering writes none and clears its board by ${worst.toFixed(4)} tiles, and the flag's 0 removes it.`);
+console.log(`✓ boarddepth — ${solid.length} board quad(s) on ${models.size} model(s) write depth, lettering writes depth only under glSignDepth and clears its board by ${worst.toFixed(4)} tiles, and the flag's 0 removes it.`);
