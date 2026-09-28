@@ -45,7 +45,7 @@ const FAR = { dy: -6.0, tier: ws.ADORN_RICH };
 // is the only frame this bug exists in: with no decal sink the pass declines on purpose, because
 // on the 2-D painter a sign is eight affine strips and shedding it is the renderer working.
 function lettering(m, at) {
-  const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: at.dy, tier: at.tier, collect: true });
+  const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: at.dy, tier: at.tier, collect: true, who: false });
   if (r.threw) return null;
   // `st:` is `signTexKey`'s prefix — one id per baked lettering canvas, so this counts SIGNS and
   // not the boards, frames, soffits and legs that share the layer.

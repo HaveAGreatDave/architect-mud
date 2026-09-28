@@ -48,7 +48,7 @@ function frameDecals(m, ent, gft, tune) {
   try {
     const r = ws.canvasResidue(m, {
       cam, dx: DX, dy: DY, fh: FH, h: H, seed: SEED, night: 1, E: ent,
-      bn: 'THE EXAMPLE', collect: true, gft,
+      bn: 'THE EXAMPLE', collect: true, gft, who: false,
     });
     if (r.threw) throw new Error(r.threw);
     return (r.sink && r.sink.decals) || [];

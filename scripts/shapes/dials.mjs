@@ -37,6 +37,10 @@ const VIEW = {
   cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12, hour: 13,
   weather: 'clear', speed: 0.4, map, heading: 0,
   mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0, y: 0 },
+  // A coarse floor. Under the stub the Mode-7 ground is a per-texel JS raster and was 63% of this
+  // gate's time, while the frame times the dials read are faked below. `perfDS` is still added on
+  // top of it, and neither dial reads `pixel`.
+  tune: { pixel: 16 },
 };
 
 // The quantisers, restated because the smoke has to compute the naive answer the deadband

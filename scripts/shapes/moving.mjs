@@ -117,6 +117,11 @@ const UNSEEN = new Map([
 ]);
 
 const ws = await loadWindshield();
+// A coarse floor for every frame this file paints. Under the stub the Mode-7 ground is a per-texel
+// JS raster, and over open water every texel also samples the swell: together about 70% of this
+// gate's time. The floor is the same in every pair of frames compared below, so none of them can
+// tell. `canvasResidue` never draws a floor at all.
+ws.RENDER_TUNE.pixel = 16;
 const cam = ws.makeCam(640, 160, 360, { heading: 0, height: 0, eyeH: 0.24, map: null });
 const reg = ws.shapeModelRegistry();
 const byKey = new Map(reg.map((e) => [e.key, e.m]));

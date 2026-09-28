@@ -120,7 +120,7 @@ for (const biome of ['citycore', 'uptown', 'marquee', 'freight', 'oldcoldwater']
 // `cam.unproj`, which a stub camera has not got, and the derived detail kit is screen-size gated,
 // so at the default eight tiles most of what a building wears is never emitted to be counted.
 const cam = ws.makeCam(640, 160, 360, { heading: 0, height: 0, eyeH: 0.24, map: null });
-const run = (m, cell) => ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: -2, cell, collect: true });
+const run = (m, cell) => ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: -2, cell, collect: true, who: false });
 const alphaOf = (r) => (r.sink?.sprites || []).reduce((a, L) => a + (L.a || 0), 0);
 
 let models = 0, threw = 0;

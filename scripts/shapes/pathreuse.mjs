@@ -60,7 +60,11 @@ el.getContext = () => new Proxy({}, {
 });
 
 const TUNE = ws.RENDER_TUNE;
-const SAVED = { wallLodPx: TUNE.wallLodPx, fog: TUNE.fog };
+const SAVED = { wallLodPx: TUNE.wallLodPx, fog: TUNE.fog, pixel: TUNE.pixel };
+// A coarse floor for the views that take the global tune. The Mode-7 ground is a per-texel JS
+// raster under the stub, and it paints with one putImageData and one drawImage, so no path it
+// could draw is counted here. The truck cab brings its own `pixel` and is unaffected.
+TUNE.pixel = 16;
 // ⚠ `fog` is a strength multiplier on a squared distance ramp that is zero inside FOG_NEAR, and the
 // smoke's world is 8 tiles across — so an ordinary 0.2 lands under the 0.004 threshold the overlay
 // is gated on and no wall in this scene ever fogs. 20 is what it takes to make an 8-tile building
@@ -160,7 +164,7 @@ for (const p of PASSES) {
   check(T.fills > 0 && views.ran > 0, `${p.name}: the suite painted nothing — the harness is not reaching the renderer`);
   check(T.reused > 0, `${p.name}: no path was ever filled twice — the one-path rule has been undone`);
 }
-TUNE.wallLodPx = SAVED.wallLodPx; TUNE.fog = SAVED.fog;
+TUNE.wallLodPx = SAVED.wallLodPx; TUNE.fog = SAVED.fog; TUNE.pixel = SAVED.pixel;
 
 for (const r of results) {
   console.log(`  · ${r.name.padEnd(18)} ${String(r.paths).padStart(6)} paths / ${String(r.fills).padStart(6)} fills + ${String(r.strokes).padStart(5)} strokes  →  ${((r.paths - r.clips) / (r.fills + r.strokes)).toFixed(3)} paint paths per paint (+${r.clips} clips) · ${(r.build / r.total * 100).toFixed(0)}% of calls describe paths`);

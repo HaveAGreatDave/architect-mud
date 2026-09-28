@@ -67,7 +67,7 @@ for (const { key, m } of ws.shapeModelRegistry()) {
   models++;
   for (const heading of HEADINGS) {
     const cam = ws.makeCam(640, 160, 360, { heading, height: 0, eyeH: 0.24, map: null });
-    const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', collect: true, dx: 0, dy: -DIST });
+    const r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', collect: true, dx: 0, dy: -DIST, who: false });
     if (r.threw) { if (heading === 0) threw++; continue; }
     if (!r.sink) continue;
     // ⚠ INDEXED WITHIN THE KEY, because one model pushes several decals sharing a texture id and a

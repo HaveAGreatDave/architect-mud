@@ -77,7 +77,7 @@ for (const { key, m } of ws.shapeModelRegistry()) {
     // ⚠ NIGHT AND CLOSE, the same two settings `glresidue` records having had to learn: the signage
     // is night-gated and the detail layer is screen-size gated, so a day census at eight tiles is a
     // census of nothing.
-    try { r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: -2, fh, h }); }
+    try { r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: -2, fh, h, who: false }); }
     finally { ws.signStandCensus(null); }
     if (r && r.threw) { threw++; continue; }
     for (const b of census) {

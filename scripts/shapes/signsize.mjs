@@ -71,7 +71,7 @@ for (const { key, m } of ws.shapeModelRegistry()) {
     const census = [];
     ws.signStandCensus(census);
     let r;
-    try { r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: -2, fh, h }); }
+    try { r = ws.canvasResidue(m, { cam, night: 1, bn: 'THE EXAMPLE', dy: -2, fh, h, who: false }); }
     finally { ws.signStandCensus(null); }
     if (r && r.threw) { threw++; continue; }
     for (const b of census) {

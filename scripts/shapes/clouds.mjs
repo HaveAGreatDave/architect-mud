@@ -119,7 +119,10 @@ for (const weather of WEATHER) {
   for (const [ax, ay, where] of SEATS) {
     for (const height of HEIGHTS) {
       for (const [lbl, hour] of [['day', 13], ['night', 2]]) {
-        const base = { cls: 'prop', phase: 'cruise', worldBlend: 1, map: SCENE, heading: 0, speed: 0.4, hour, height };
+        // A coarse floor. With no WebGL the Mode-7 ground is a per-texel JS raster, and at the
+        // default `pixel: 1` it was 99% of this gate's 11 minutes. The deck never reads the floor's
+        // texel size, and its cost is the canvas-call delta between two frames with the same floor.
+        const base = { cls: 'prop', phase: 'cruise', worldBlend: 1, map: SCENE, heading: 0, speed: 0.4, hour, height, tune: { pixel: 16 } };
         const tag = `${weather} ${where} h${height} ${lbl}`;
         cases++;
         let bare = 0, full = 0;

@@ -38902,7 +38902,12 @@ export function canvasResidue(m, opts = {}) {
   const out = { canvas: {}, faces: 0, mesh: 0, decals: 0, sprites: 0, scatter: 0, threw: null };
   try {
     FACE_SINK = []; MESH_SINK = null; DECAL_SINK = []; SPRITE_SINK = []; SCATTER_SINK = []; STROKE_SINK = [];
-    GL_CELLS = []; MASS_OFF = true; FLAT_OFF = true; ADORN_TIER = tier; EMIT_TALLY = out.canvas;
+    GL_CELLS = []; MASS_OFF = true; FLAT_OFF = true; ADORN_TIER = tier;
+    // ⚠ `who: false` IS FOR A CALLER THAT ONLY READS THE SINKS. The tally names every face and
+    // stroke by walking the stack (emitWho), and that walk was about 90% of the gates that call
+    // this in a loop. Off, `out.canvas` stays empty and strokes carry no `_who`, so a census must
+    // leave it on. The default stays on so a caller that forgets pays in time, not in a blind census.
+    EMIT_TALLY = opts.who === false ? null : out.canvas;
     PULL_OFF = !!opts.noPull;
     // ── AND WHAT THE GRID IS DOING TO THIS BUILDING, IF THE CALLER SAYS ────────────────────────
     //
