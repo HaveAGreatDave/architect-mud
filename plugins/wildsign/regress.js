@@ -19,7 +19,11 @@ export default async function regress({ check }) {
     for (const h of hawks) {
       const T = 1e12;
       const kills = groundKillsSince(h, T, 24 * 3600e3, W.preyFor(z, h, T));
-      if (kills.length) { found = { h, k: kills[0], zone: z }; break; }
+      // A kill with no later one on its own tile inside the sign's hour: a hawk that hunts again
+      // soon would leave fresh sign where the expiry check below expects none.
+      const tile = (q) => `${Math.round(q.x)},${Math.round(q.y)}`;
+      const lone = kills.find((q) => !kills.some((o) => o !== q && tile(o) === tile(q) && o.at > q.at && o.at <= q.at + W.SIGN_MS + 120e3));
+      if (lone) { found = { h, k: lone, zone: z }; break; }
     }
   }
   check('wildsign: the world has a red-tail that kills something within a day', !!found);

@@ -1771,7 +1771,7 @@ export default async function regress({ check, run, getPlayer }) {
 
     // 'any' is the catch-all, and a state the author did not cover still falls
     // through to the state pool rather than to nothing.
-    const anyVoiced = { flags: { delivery_lines: { any: { fumbles: ['— hah —'] } } } };
+    const anyVoiced = { flags: { delivery_lines: { any: { fumbles: ['...hah...'] } } } };
     let sawAny = false;
     for (let i = 0; i < 80; i++) if (_test.garbleLine(line, 0.9, 'mellow', anyVoiced).includes('...hah...')) sawAny = true;
     check("an 'any' pool reaches a state it doesn't name", sawAny, 'the catch-all never fired');
@@ -2194,18 +2194,18 @@ export default async function regress({ check, run, getPlayer }) {
       const puck = L(mkItem('hockey'));
       const ball = L(mkItem('baseball'));
       check('guide: a hockey slot is captioned CLUSTER PUCK, never DEADBALL',
-        /^CLUSTER PUCK — /.test(puck || '') && !/DEADBALL/.test(puck || ''), String(puck));
+        /^CLUSTER PUCK: /.test(puck || '') && !/DEADBALL/.test(puck || ''), String(puck));
       check('guide: a baseball slot is still captioned DEADBALL',
-        /^DEADBALL — /.test(ball || ''), String(ball));
+        /^DEADBALL: /.test(ball || ''), String(ball));
 
       // …and the branch that used to break it, now asserted on purpose: a pending
       // final outranks the regular caption, per sport, without leaking across.
       setPhase('baseball', { phase: 'worldseries', finalistA: 'Static Saints', finalistB: 'Bunker Hill Bruisers' });
       const wsBall = L(mkItem('baseball'));
       check('guide: a pending World Series outranks the DEADBALL caption',
-        /WORLD SERIES — Static Saints vs Bunker Hill Bruisers/.test(wsBall || ''), String(wsBall));
+        /WORLD SERIES: Static Saints vs Bunker Hill Bruisers/.test(wsBall || ''), String(wsBall));
       check('guide: …and a baseball final never re-captions the hockey slot',
-        /^CLUSTER PUCK — /.test(L(mkItem('hockey')) || ''), String(L(mkItem('hockey'))));
+        /^CLUSTER PUCK: /.test(L(mkItem('hockey')) || ''), String(L(mkItem('hockey'))));
     } finally {
       caches.clear();
       for (const [k, v] of saved) caches.set(k, v);

@@ -1141,7 +1141,7 @@ export default async function regress({ run, check, getPlayer }) {
         await pushHangarBay(p);
         check('text flight display gets the text hangar, never the 3D bay panel',
           !sent.some(s => s.message?.type === 'hangar_bay_open')
-          && sent.some(s => s.message?.type === 'output' && /HANGAR —/.test(s.message.message || '')),
+          && sent.some(s => s.message?.type === 'output' && /HANGAR: /.test(s.message.message || '')),
           sent.map(s => s.message?.type).join(',') || 'nothing sent');
 
         // A background refresh has nothing to say in text — reprinting the whole
@@ -1165,7 +1165,7 @@ export default async function regress({ run, check, getPlayer }) {
         await pushHangarBay(p);
         check('the middle rung gets the text hangar as well',
           !sent.some(s => s.message?.type === 'hangar_bay_open')
-          && sent.some(s => s.message?.type === 'output' && /HANGAR —/.test(s.message.message || '')),
+          && sent.some(s => s.message?.type === 'output' && /HANGAR: /.test(s.message.message || '')),
           sent.map(s => s.message?.type).join(',') || 'nothing sent');
 
         // …and the graphical player is untouched by any of this.
