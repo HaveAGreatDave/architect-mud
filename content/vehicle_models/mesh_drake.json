@@ -1625,6 +1625,67 @@
             20
           ],
           "livery": "fixed"
+        },
+        "hub": {
+          "rgb": [
+            58,
+            62,
+            72
+          ],
+          "livery": "fixed"
+        },
+        "walnut": {
+          "rgb": [
+            28,
+            40,
+            82
+          ],
+          "alt": [
+            40,
+            56,
+            108
+          ],
+          "livery": "fixed"
+        },
+        "rampIn": {
+          "rgb": [
+            28,
+            40,
+            82
+          ],
+          "livery": "fixed"
+        },
+        "saloon": {
+          "rgb": [
+            236,
+            234,
+            228
+          ],
+          "livery": "fixed"
+        },
+        "seat": {
+          "rgb": [
+            242,
+            240,
+            234
+          ],
+          "livery": "fixed"
+        },
+        "carpet": {
+          "rgb": [
+            128,
+            24,
+            32
+          ],
+          "livery": "fixed"
+        },
+        "bay": {
+          "rgb": [
+            20,
+            22,
+            28
+          ],
+          "livery": "fixed"
         }
       }
     },
