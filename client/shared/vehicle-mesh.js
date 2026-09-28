@@ -216,6 +216,8 @@ const COMMON_FIELDS = {
   paint: { t: 'str', hint: 'paint slot (params.paints) this part wears' },
   when: { t: 'str', hint: 'drawn only while this channel is above zero: a room seen through a door' },
   whenNot: { t: 'str', hint: 'drawn UNLESS this channel is above zero: a part that can break off' },
+  scheme: { t: 'str', hint: 'drawn only under this paint scheme (params.schemes): a special edition\'s own skin' },
+  schemeNot: { t: 'str', hint: 'drawn under every scheme but this one: the skin a scheme part replaces' },
   anim: { t: 'obj', hint: 'a moving part: { ch, pivot: [f,g,h], axis: [f,g,h], ang: [at 0, at 1] degrees, slide: [f,g,h] at 1, span: [a, b] of the channel, back: [c, d] where it returns, def }; ch "gear" is the landing gear' },
 };
 export const PART_KINDS = {
@@ -589,6 +591,10 @@ function applyXf(faces, from, xf) {
 function emitPart(p, faces, cx, path, srcs) {
   if (p.minDetail != null && cx.detail < p.minDetail) return;
   if (p.maxDetail != null && cx.detail > p.maxDetail) return;
+  // A scheme's own geometry. A pair (`scheme` on the new skin, `schemeNot` on the one it replaces)
+  // swaps a surface rather than laying one over another, which the painter's sort would fight.
+  if (p.scheme != null && p.scheme !== cx.scheme) return;
+  if (p.schemeNot != null && p.schemeNot === cx.scheme) return;
   if (cx.detail === 0 && p.lod0) p = { ...p, ...p.lod0 };
   const from = faces.length;
   switch (p.kind) {
@@ -643,16 +649,19 @@ function emitPart(p, faces, cx, path, srcs) {
 // resolved object (colour and livery mapping), shared by every face of that slot, so faceBaseRgb
 // needs no mesh lookup to colour it.
 // `scheme` picks a paint job from `params.schemes`: a map of slot -> { rgb, alt } that overrides
-// those slots' colours and leaves the rest alone. Unknown or absent: the paints as authored.
+// those slots' colours and leaves the rest alone. Unknown or absent: the paints as authored. It
+// also picks the parts marked `scheme` / `schemeNot` (see emitPart).
+// ⚠ A SCHEME ENTRY IS THE WHOLE COLOUR. An entry without an `alt` is a flat colour, not the new rgb
+// sheened toward the stock slot's alt: that is how a white Quackhawk ruff grew orange quills.
 export function compileMesh(params, { detail = 1, scheme = null } = {}) {
   const faces = [], srcs = [], warnings = [];
-  const cx = { detail, paints: params.paints || null };
+  const cx = { detail, scheme, paints: params.paints || null };
   (params.parts || []).forEach((p, i) => emitPart(p, faces, cx, 'parts[' + i + ']', srcs));
   if (params.paints) {
     const slots = {};
     const sch = (scheme && params.schemes && params.schemes[scheme]) || {};
     for (const [k, s0] of Object.entries(params.paints)) {
-      const s = sch[k] ? { ...s0, ...sch[k] } : s0;
+      const s = sch[k] ? { ...s0, alt: undefined, ...sch[k] } : s0;
       slots[k] = { name: k, rgb: s.rgb, livery: s.livery || 'base', ...(s.alt ? { alt: s.alt } : {}) };
     }
     for (const f of faces) if (typeof f.paint === 'string') {
@@ -877,6 +886,15 @@ export function validateMesh(params, file = '<mesh>') {
       if (s && s.livery != null && !['base', 'trim', 'fixed'].includes(s.livery)) errors.push(at('paints.' + k + '.livery must be base, trim or fixed'));
     }
   }
+  // A part gated on a scheme nobody has is a part that silently never draws (or always does).
+  (function walk(list, path) {
+    (list || []).forEach((p, i) => {
+      if (!isPlain(p)) return;
+      for (const k of ['scheme', 'schemeNot']) if (p[k] != null && !(params.schemes && isPlain(params.schemes[p[k]])))
+        errors.push(at(path + '[' + i + '].' + k + ' names no scheme in params.schemes: ' + JSON.stringify(p[k])));
+      if (p.parts) walk(p.parts, path + '[' + i + '].parts');
+    });
+  })(params.parts, 'parts');
   if (errors.length) return { errors, warnings };
   for (const detail of [0, 1]) {
     let faces;
