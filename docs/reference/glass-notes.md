@@ -765,6 +765,20 @@ Rules:
 - `__tagSheet()` lays out one row per hand. It used to lay out one per colour scheme, and since both come off `variant` that could silently show none of a hand.
 - Known limit: the kit sizes a tag to the bare gap it finds, so most kit rollers are 0.04 tiles wide. Widening needs a change to what the kit calls a paintable gap.
 
+## Throw-up spacing and letterforms
+
+A throw-up advanced each letter 0.72 to 0.84 of its box so every letter bit into the one before it. On a four-letter handle that read as style; on a sentence a player sprayed it buried a third of each letter and COLDWATER LIES came out as a row of blobs.
+
+- `tagLayout` spaces letters by their outlines. Each letter gives its body as line segments (a traced path, the offset edges of a stroke, or a box for a font letter), cut into 2px bands. Each band is grown by a disc of half `TAG_GAP` (`tagGrow`) and a letter moves left until its grown outline meets the grown outline of every earlier letter on the line. Spacing by bands alone left an A and a V with parallel diagonals under a pixel apart at right angles. Lines nest the same way by columns.
+- The bake lays every keyline, then every fill. With the letters apart, the gap between two bodies is always keyline, so a piece has one outline round the outside and a single line between each pair. Drips start at the foot of the outline and go under the letters; they used to start inside the letter and draw a bar through it.
+- Letterforms are `TAG_FACES` in `client/shared/tag-strokes.js`, shaped by `TAG_FACE_SPEC`. `bubble` is the traced sheet; `round`, `block` and `sharp` stroke one skeleton alphabet. A keyline is the same path stroked wider, so a mitred letter's keyline and block stay mitred.
+- Stroke weight decides whether the counters survive. An E has three arms in one letter height, so above about 0.3 of the ink height the gaps close. The weights were set by rendering the whole alphabet per face and reading it back (`__tagSheet({ faces: true })`).
+- The canvas offers a full mitre or a bevel and nothing between. At the sharp face's weight an N or W corner's full point is four half-strokes long, so corners are drawn bevelled and `tagJoinPoly` adds the point back, cut off at `clip` half-strokes. The cut moves out with the grow so the keyline runs round the end at its own width.
+- A letter can carry an alternative under a face's name in `TAG_STROKES`. The upright faces use an arched A, since a pointed apex at their weight closes the counter and `sharp` keeps the point. `round` takes its G bar as a separate stroke, since smoothing curls a joined bar into a 6.
+- `trace-sheet.cjs` gave the i's dot to the H beside it (the first letter it touched), so every H had a dot and every I was a stem. A small piece now joins the letter it overlaps most. Only H and I changed on re-tracing.
+- `tagPreview` (the spray can) bakes with the cache off, since a draft per keystroke would evict the walls in the street.
+- Gate: `node scripts/shapes/tagspace.mjs`, in the push chain and `shapes:smoke`. No two letters come closer than the gap, letters in a word touch, every A to Z and 0 to 9 has a drawn or stroked glyph in every face, and no point reaches past 0.8 of a cell. Distances are taken on the outlines by scanline and segment distance, never from the layout's own bands.
+
 ## Halcyon Fields tint (`RENDER_TUNE.hfTint`)
 
 `hfTint` 0 puts the quarter back on one hue, byte for byte.

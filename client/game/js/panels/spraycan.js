@@ -12,18 +12,22 @@
 // length. This panel is a nicer way to say a sentence the server was always going
 // to check.
 //
-// STYLE IS DATA, NEVER MARKUP. The payload is {t: text, r: runs} — never a string
-// of tags — so nothing here can smuggle HTML into a room description no matter what
-// somebody types. The runs count CHARACTERS THE PLAYER TYPED; the server escapes
+// STYLE IS DATA, NEVER MARKUP. The payload is {t: text, r: runs, f: letterform} —
+// never a string of tags — so nothing here can smuggle HTML into a room description
+// no matter what somebody types. The runs count CHARACTERS THE PLAYER TYPED; the server escapes
 // the text afterwards and realigns the two. See plugins/graffiti/paint.js.
 //
 // The preview is the honest one: it renders exactly what the room line will render,
 // on a strip of wall, because a tag you can't see before you spray it is a tag you
-// only get right by accident.
+// only get right by accident. Under it is the other half: the piece as the flight
+// window will paint it on the building, baked by the renderer's own code in the
+// letterform you picked (bubble, round, block or sharp).
 
 import { sendCmdSilent } from '../net.js';
 import { mountOverlay } from './minigame-common.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
+import { tagPreview } from './windshield.js';
+import { TAG_FACES } from '../../../shared/tag-strokes.js';
 
 const F_BOLD = 1, F_ITALIC = 2, F_UNDER = 4, F_STRIKE = 8;
 
@@ -33,7 +37,18 @@ const F_BOLD = 1, F_ITALIC = 2, F_UNDER = 4, F_STRIKE = 8;
 const RACK = ['#ffffff', '#f2f2f2', '#c9ced4', '#8a9099', '#3b4149', '#101317', '#ff2d55', '#ff5c00',
   '#ffb300', '#ffe600', '#8cff2d', '#00e676', '#00d0d0', '#2196ff', '#7c4dff', '#ff2ddd'];
 
-let S = null;   // { text, colors[], flags[], sel:{a,b}|null, walls, wall, saved, ... }
+let S = null;   // { text, colors[], flags[], sel:{a,b}|null, face, walls, wall, saved, ... }
+
+// How each letterform is offered. `null` leaves it to the wall, which is what a tag
+// typed with `tag` gets: the hand (throw-up, handstyle or stencil) and the letters are
+// both rolled off the street it is on.
+const FACE_LABEL = { bubble: 'bubble', round: 'round', block: 'block', sharp: 'sharp' };
+const FACE_TIP = {
+  bubble: 'Fat hand-drawn bubble letters',
+  round: 'Puffy and even, every corner rounded off',
+  block: 'Square-cut and upright',
+  sharp: 'Leaning, mitred to points, chisel-cut ends',
+};
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -142,15 +157,43 @@ function savedHtml() {
     S = swap;
     return `<div class="sp-saved">
       <button type="button" class="sp-load" data-load="${sv.id}" title="Load onto the can">${ink}</button>
-      <span class="sp-saved-name">${esc(sv.name)}</span>
+      <span class="sp-saved-name">${esc(sv.name)}${sv.face ? ` · ${esc(FACE_LABEL[sv.face] || '')}` : ''}</span>
       <button type="button" class="sp-bin" data-del="${sv.id}" title="Bin it">✕</button>
     </div>`;
   }).join('');
 }
 
+// The piece on the wall. Baked by the renderer, so it costs a canvas bake: done at
+// most once a frame however fast the colour wheel is dragged.
+function paintPiece() {
+  if (!S || S.pieceFrame) return;
+  S.pieceFrame = requestAnimationFrame(() => {
+    if (!S) return;
+    S.pieceFrame = 0;
+    const cv = S.$('sp-piece');
+    const g = cv.getContext('2d');
+    const W = cv.clientWidth || 520, H = 118;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    let tex = null;
+    try { tex = S.text.trim() ? tagPreview(S.text, runsFromChars(S.colors, S.flags, S.text.length), S.face) : null; } catch { tex = null; }
+    S.$('sp-piece-note').textContent = !S.text.trim() ? ''
+      : S.face ? `${FACE_LABEL[S.face]} letters` : 'any style: the wall picks the letters and the hand';
+    if (!tex) return;
+    const k = Math.min((W - 12) / tex.width, (H - 8) / tex.height);
+    g.drawImage(tex, (W - tex.width * k) / 2, (H - tex.height * k) / 2, tex.width * k, tex.height * k);
+  });
+}
+
 function paint() {
   if (!S) return;
   S.$('sp-preview').innerHTML = previewHtml();
+  for (const b of S.overlay.querySelectorAll('[data-face]')) {
+    b.classList.toggle('sp-active', (b.getAttribute('data-face') || null) === (S.face || null));
+  }
+  paintPiece();
   S.$('sp-strip').innerHTML = stripHtml();
   S.$('sp-count').textContent = `${S.text.length}/${S.maxLen}`;
   S.$('sp-count').classList.toggle('sp-over', S.text.length > S.maxLen);
@@ -244,6 +287,7 @@ function strip() {
 // command line can't carry this any other way.
 function payload(name) {
   const obj = { t: S.text, r: runsFromChars(S.colors, S.flags, S.text.length) };
+  if (S.face) obj.f = S.face;
   if (name) obj.n = name;
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 }
@@ -288,6 +332,12 @@ function ensureStyles() {
       repeating-linear-gradient(90deg,rgba(0,0,0,0.22) 0 1px,transparent 1px 46px);
     box-shadow:inset 0 0 0 1px rgba(0,0,0,0.5), inset 0 10px 26px rgba(0,0,0,0.45); }
   #sp-root .sp-empty { color:var(--tos-fg-dim2); font-size:11px; letter-spacing:1px; font-style:italic; }
+  /* The piece as the flight window paints it, on the same brick as the strip above. */
+  #sp-root .sp-piece { display:block; width:100%; height:118px; margin-top:7px; border-radius:7px;
+    background:repeating-linear-gradient(0deg,#4a3a31 0 13px,#3f3129 13px 15px),
+      repeating-linear-gradient(90deg,rgba(0,0,0,0.22) 0 1px,transparent 1px 46px);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.5), inset 0 10px 26px rgba(0,0,0,0.35); }
+  #sp-root .sp-piece-note { font-size:9px; letter-spacing:1px; color:var(--tos-fg-dim2); margin-top:4px; min-height:11px; }
   #sp-root .sp-input { width:100%; box-sizing:border-box; margin-top:10px; padding:8px 10px; font-family:inherit; font-size:14px;
     letter-spacing:1px; color:var(--tos-fg); background:rgba(0,0,0,0.4); outline:none;
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 26%, transparent); border-radius:7px; }
@@ -372,6 +422,13 @@ export function openSprayCan(msg) {
       </div>
       <div class="sp-wall" id="sp-preview"></div>
       <input class="sp-input" id="sp-text" maxlength="${Number(msg.maxLen) || 48}" placeholder="what are you writing?" autocomplete="off" spellcheck="false">
+      <div class="sp-lab">Style</div>
+      <div class="sp-row">
+        <button type="button" class="sp-btn" data-face="" title="Leave it to the wall">any</button>
+        ${TAG_FACES.map(f => `<button type="button" class="sp-btn" data-face="${f}" title="${esc(FACE_TIP[f] || '')}">${esc(FACE_LABEL[f] || f)}</button>`).join('')}
+      </div>
+      <canvas class="sp-piece" id="sp-piece"></canvas>
+      <div class="sp-piece-note" id="sp-piece-note"></div>
       <div class="sp-lab">Letters <span class="sp-count" id="sp-count"></span></div>
       <div class="sp-strip" id="sp-strip"></div>
       <div class="sp-row" style="margin-top:6px">
@@ -410,12 +467,12 @@ export function openSprayCan(msg) {
     // Esc closes the can. When the colour wheel is up it owns Esc first — it listens
     // in the CAPTURE phase and stops propagation there, so this handler never sees
     // the press and one Esc puts away one thing.
-    onClose: () => { closeColorPicker({ silent: true }); S = null; },
+    onClose: () => { closeColorPicker({ silent: true }); if (S?.pieceFrame) cancelAnimationFrame(S.pieceFrame); S = null; },
   });
 
   const $ = (id) => overlay.querySelector('#' + id);
   S = {
-    text: '', colors: [], flags: [], sel: null, ink: '#ff2d55',
+    text: '', colors: [], flags: [], sel: null, ink: '#ff2d55', face: null, pieceFrame: 0,
     fade: ['#ff2d55', '#ffb300', '#00e676', '#2196ff'],
     walls, wall, saved: Array.isArray(msg.saved) ? msg.saved : [],
     maxLen: Number(msg.maxLen) || 48, saveCap: Number(msg.saveCap) || 12,
@@ -456,6 +513,9 @@ export function openSprayCan(msg) {
   stripEl.addEventListener('pointercancel', endDrag);
 
   $('sp-all').addEventListener('click', () => { S.sel = null; paint(); });
+  for (const b of overlay.querySelectorAll('[data-face]')) {
+    b.addEventListener('click', () => { S.face = TAG_FACES.includes(b.getAttribute('data-face')) ? b.getAttribute('data-face') : null; paint(); });
+  }
   $('sp-wall').addEventListener('change', (e) => { S.wall = e.target.value; });
   $('sp-rainbow').addEventListener('click', rainbow);
   $('sp-strip-btn').addEventListener('click', strip);
@@ -497,6 +557,7 @@ export function openSprayCan(msg) {
         S.text = sv.text;
         const cf = charsFromRuns(sv.style, sv.text.length);
         S.colors = cf.colors; S.flags = cf.flags; S.sel = null;
+        S.face = TAG_FACES.includes(sv.face) ? sv.face : null;
         input.value = sv.text;
         $('sp-savename').value = sv.name;
         note(`Loaded "${sv.name}".`);

@@ -39,6 +39,7 @@ import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { seaShelter, SURF_DEPTH_Q, surfHullGain, seaHeadingFor, setSeaHeading, seaRotPair } from '../../../shared/sea-swell.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
 import { TAG_GLYPHS } from '../../../shared/tag-glyphs.js';
+import { TAG_STROKES, TAG_FACES } from '../../../shared/tag-strokes.js';
 // A mesh file's moving parts — wings that swing out, anything on a hinge — posed per aircraft here.
 import { animFacePoints } from '../../../shared/vehicle-mesh.js';
 import { hfCastFor, hfTint, hfSkinFor } from '../../../shared/hf-tint.js';
@@ -42936,15 +42937,466 @@ function tagGlyph(ch, cell) {
   }
   return hit;
 }
+// ── FOUR LETTERFORMS FOR THE THROW-UP ───────────────────────────────────────────────────────────
+//
+// `bubble` is the traced sheet above: fat, soft and hand-drawn. The other three are the stroke
+// alphabet in `tag-strokes.js`, stroked three ways:
+//
+//   round   thick, every corner smoothed off, round ends. A neater, puffier cousin of the bubble.
+//   block   square ends and mitred corners. Chunky and upright.
+//   sharp   thinner, mitred to points, leaning forward, and every free end cut to a chisel point.
+//
+// ⚠ A KEYLINE IS THE SAME PATH STROKED WIDER, which is why the stroke alphabet can do this at all:
+// every pass of the bake asks for "the letter grown by this much", and for a stroked letter that
+// is the stroke plus that much. A mitred letter's keyline and block shadow stay mitred with it.
+// Only a grow wider than the letter's own stroke goes round, because that is the cloud, and a
+// cloud with corners on it is not overspray.
+//
+// The list itself (TAG_FACES) lives in tag-strokes.js, because the graffiti plugin checks a
+// player's choice against it.
+//
+// Weighted like the hands, toward the sheet: it is the house style, the others are the variety.
+const TAG_FACE_ROLL = ['bubble', 'bubble', 'bubble', 'bubble', 'round', 'round', 'block', 'block', 'sharp', 'sharp', 'sharp'];
+const tagFaceFor = (v) => TAG_FACE_ROLL[Math.floor(dRand(v | 0, 4417) * TAG_FACE_ROLL.length) % TAG_FACE_ROLL.length];
+// `sw` is the stroke as a share of the letter's ink height and `xs` stretches the letter wide.
+// `smooth` is how many rounds of corner cutting the path gets. `shear` leans it forward. `clip` is
+// how far a corner's point may reach, in half-strokes (see `tagJoinPoly`); 0 is a round corner.
+// `rot` (in radians) and `bob` (in cells) bound how far one letter may tip and ride off the line.
+// `bubble` only carries the last two: its own letters come off the sheet, and the few characters
+// the sheet lacks are drawn `round`, the nearest stroked face.
+// ⚠ THE STROKE WEIGHT DECIDES WHETHER THE COUNTERS SURVIVE. An E has three arms in one letter
+// height, so above about 0.3 of it the gaps between them close and the letter is a block with
+// notches in it. Each of these was set by rendering the whole alphabet and reading it back.
+const TAG_FACE_SPEC = {
+  bubble: { rot: 0.08, bob: 0.05 },
+  round: { sw: 0.32, xs: 1.1, smooth: 3, clip: 0, cap: 'round', shear: 0.05, rot: 0.09, bob: 0.07 },
+  block: { sw: 0.29, xs: 1.06, smooth: 0, clip: 1.5, cap: 'square', shear: 0, rot: 0.035, bob: 0.03 },
+  sharp: { sw: 0.25, xs: 0.94, smooth: 0, clip: 2.8, cap: 'butt', shear: 0.24, chisel: 1, rot: 0.05, bob: 0.04 },
+};
+
+// Corner cutting: every pass replaces each corner with two points a quarter of the way along its
+// sides. Three passes turn a chamfered O into an oval and a Z into a ribbon. The ends of an open
+// stroke stay where they are.
+function tagChaikin(pts, closed, passes) {
+  let p = pts;
+  for (let it = 0; it < passes; it++) {
+    const out = closed ? [] : [p[0]];
+    for (let i = 0; i + 1 < p.length; i++) {
+      const a = p[i], b = p[i + 1];
+      out.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+    }
+    out.push(closed ? out[0] : p[p.length - 1]);
+    p = out;
+  }
+  return p;
+}
+
+// A letter from the stroke alphabet, scaled to the bake's cell and centred on the origin the way a
+// traced glyph is. Cached per face and cell like the traced paths.
+const _tagStrokeGlyphs = new Map();
+function tagStrokeGlyph(ch, face, cell) {
+  const S0 = TAG_STROKES[ch.toUpperCase()];
+  const S = (S0 && S0[face]) || S0;
+  const F = TAG_FACE_SPEC[face];
+  if (!S || !F || !F.sw) return null;
+  const key = ch.toUpperCase() + '|' + face + '|' + cell;
+  const hit = _tagStrokeGlyphs.get(key);
+  if (hit) return hit;
+  const inkH = cell * TAG_GLYPH_H;
+  const sw = inkH * F.sw, k = inkH - sw, half = S.w * F.xs * 0.5;
+  // Centred, stretched, and leant: x moves right as y goes up.
+  const P = ([x, y]) => { const Y = (y - 0.5) * k; return [(x * F.xs - half) * k - Y * F.shear, Y]; };
+  const same = (a, b) => a[0] === b[0] && a[1] === b[1];
+  const closed = S.s.map((pl) => pl.length > 2 && same(pl[0], pl[pl.length - 1]));
+  const strokes = S.s.map((pl, i) => {
+    const pts = pl.map(P);
+    return F.smooth ? tagChaikin(pts, closed[i], F.smooth) : pts;
+  });
+  // The chisel: each free end of a sharp letter carries on past the cut as a right triangle, so the
+  // stroke ends in a point on one side and square on the other — the cut of a knife, not an arrow.
+  // The point goes to the side that faces up-right, so every end on a letter is cut the same way.
+  const spikes = [];
+  if (F.chisel) {
+    strokes.forEach((pl, i) => {
+      if (closed[i] || pl.length < 2) return;
+      for (const [e, f] of [[pl[0], pl[1]], [pl[pl.length - 1], pl[pl.length - 2]]]) {
+        const dx = e[0] - f[0], dy = e[1] - f[1], L = Math.hypot(dx, dy) || 1;
+        const ux = dx / L, uy = dy / L;
+        let nx = -uy, ny = ux;
+        if (nx - ny < 0) { nx = -nx; ny = -ny; }
+        const h = sw * 0.5;
+        spikes.push([[e[0] + nx * h, e[1] + ny * h], [e[0] - nx * h, e[1] - ny * h],
+          [e[0] + nx * h + ux * sw * 0.95, e[1] + ny * h + uy * sw * 0.95]]);
+      }
+    });
+  }
+  // Every corner that turns, with the two directions it turns between.
+  const corners = [];
+  if (F.clip) strokes.forEach((pl, i) => {
+    const n = pl.length;
+    for (let j = 0; j < n; j++) {
+      const at0 = j === 0, atN = j === n - 1;
+      if (!closed[i] && (at0 || atN)) continue;
+      if (closed[i] && atN) continue;           // the closing point repeats the first
+      const a = pl[at0 ? n - 2 : j - 1], p = pl[j], b = pl[j + 1];
+      const lu = Math.hypot(p[0] - a[0], p[1] - a[1]), lv = Math.hypot(b[0] - p[0], b[1] - p[1]);
+      if (lu < 1e-6 || lv < 1e-6) continue;
+      corners.push({ p, u: [(p[0] - a[0]) / lu, (p[1] - a[1]) / lu], v: [(b[0] - p[0]) / lv, (b[1] - p[1]) / lv] });
+    }
+  });
+  const G = { strokes, closed, dots: (S.dot || []).map(P), spikes, corners, sw, key: inkH * 0.075, spec: F };
+  _tagStrokeGlyphs.set(key, G);
+  return G;
+}
+
+// ⚠ A CLIPPED MITRE, BECAUSE THE CANVAS ONLY OFFERS A POINT OR NOTHING. `lineJoin = 'miter'` runs a
+// corner out to its full point until the point passes `miterLimit`, then cuts it off flat at the
+// stroke. An N or a W at a sharp letter's weight turns through about 30°, where the full point is
+// four half-strokes long and the keyline's point is longer again: with a limit high enough to keep
+// the point, the letters grew spikes reaching well past their own height, and a limit low enough
+// to stop that takes the point off altogether. So corners are drawn bevelled and this polygon adds
+// the point back, cut off square at `clip` half-strokes.
+// ⚠ THE CUT MOVES OUT WITH THE GROW, not with the width: a keyline must run round the end of the
+// point at the keyline's own width, so the clip distance is the body's plus half the grow.
+function tagJoinPoly(G, c, grow) {
+  const h = (G.sw + grow) * 0.5;
+  const [u0, u1] = c.u, [v0, v1] = c.v, [px, py] = c.p;
+  const cross = u0 * v1 - u1 * v0;
+  if (Math.abs(cross) < 1e-4) return null;
+  const sg = cross > 0 ? 1 : -1;
+  const c1 = [px + sg * u1 * h, py - sg * u0 * h], c2 = [px + sg * v1 * h, py - sg * v0 * h];
+  const s = Math.sqrt(Math.max(0, (1 + (u0 * v0 + u1 * v1)) * 0.5));   // sin of half the inside angle
+  if (s < 1e-3) return null;
+  let mx = u0 - v0, my = u1 - v1;
+  const ml = Math.hypot(mx, my) || 1;
+  mx /= ml; my /= ml;
+  const dT = h / s, d1 = h * s, L = G.spec.clip * G.sw * 0.5 + grow * 0.5;
+  const T = [px + mx * dT, py + my * dT];
+  if (dT <= L) return [c.p, c1, T, c2];
+  const k = (L - d1) / (dT - d1);
+  return [c.p, c1, [c1[0] + (T[0] - c1[0]) * k, c1[1] + (T[1] - c1[1]) * k],
+    [c2[0] + (T[0] - c2[0]) * k, c2[1] + (T[1] - c2[1]) * k], c2];
+}
+
+// Draw a stroked letter grown by `grow` pixels, in the context's current paint.
+function tagStrokeDraw(ctx, G, op, grow) {
+  const lw = G.sw + grow;
+  const soft = grow > G.sw;
+  const F = G.spec;
+  ctx.save();
+  const paint = op === 'stroke' ? ctx.strokeStyle : ctx.fillStyle;
+  ctx.strokeStyle = paint;
+  ctx.fillStyle = paint;
+  ctx.lineWidth = lw;
+  ctx.lineJoin = soft || !F.clip ? 'round' : 'bevel';
+  ctx.lineCap = soft ? 'round' : F.cap;
+  ctx.beginPath();
+  G.strokes.forEach((pl, i) => {
+    ctx.moveTo(pl[0][0], pl[0][1]);
+    for (let j = 1; j < pl.length; j++) ctx.lineTo(pl[j][0], pl[j][1]);
+    if (G.closed[i]) ctx.closePath();
+  });
+  ctx.stroke();
+  for (const [x, y] of G.dots) {
+    ctx.beginPath();
+    if (soft || F.cap === 'round') ctx.arc(x, y, lw * 0.5, 0, Math.PI * 2);
+    else ctx.rect(x - lw * 0.5, y - lw * 0.5, lw, lw);
+    ctx.fill();
+  }
+  if (!soft && G.corners.length) {
+    ctx.beginPath();
+    for (const c of G.corners) {
+      const poly = tagJoinPoly(G, c, grow);
+      if (!poly) continue;
+      ctx.moveTo(poly[0][0], poly[0][1]);
+      for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
+      ctx.closePath();
+    }
+    ctx.fill();
+  }
+  if (G.spikes.length) {
+    ctx.lineWidth = Math.max(grow, 0);
+    ctx.lineJoin = soft ? 'round' : 'miter';
+    ctx.miterLimit = 4;
+    ctx.beginPath();
+    for (const t of G.spikes) { ctx.moveTo(t[0][0], t[0][1]); ctx.lineTo(t[1][0], t[1][1]); ctx.lineTo(t[2][0], t[2][1]); ctx.closePath(); }
+    ctx.fill();
+    if (grow > 0) ctx.stroke();
+  }
+  ctx.restore();
+}
+
 // One letter, stroked or filled, whichever source it comes from. `ox` is the font path's left
-// edge; a traced glyph is already centred on the origin `at` translates to. `layer` picks the
-// traced body ('d') or its hand-drawn keyline ('line'); a font letter has only the one shape.
+// edge; a traced or stroked glyph is already centred on the origin `at` translates to. `layer`
+// picks the body ('d') or the body with its keyline ('line'); a font letter has only the one shape.
 function tagGlyphOp(ctx, q, ox, op, layer = 'd') {
   if (q.glyph) { const path = q.glyph[layer] || q.glyph.d; if (op === 'stroke') ctx.stroke(path); else ctx.fill(path); return; }
+  if (q.sk) { tagStrokeDraw(ctx, q.sk, op, (layer === 'line' ? q.sk.key * 2 : 0) + (op === 'stroke' ? ctx.lineWidth : 0)); return; }
   if (op === 'stroke') ctx.strokeText(q.ch, ox, 0); else ctx.fillText(q.ch, ox, 0);
 }
 
-function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'throw') {
+// ── WHERE A LETTER'S INK IS, AS LINE SEGMENTS ───────────────────────────────────────────────────
+//
+// The spacing works from the letter's real outline rather than its box, because a box is what put
+// the letters on top of each other. An A, a V or an L has most of its box empty, so boxes set
+// touching leave gaps, and boxes set overlapping (the old fix for the gaps) drive the full-width
+// rows of one letter deep into the next.
+//
+// Each source gives its body outline as segments in the glyph's own frame, centred on its origin:
+// a traced letter from its path, a stroked one from the offset edges of its stroke, and a font
+// letter as a box, which is the best that can be said of a face nobody measured.
+function tagPathSegs(d, k) {
+  const segs = [];
+  const tok = String(d || '').match(/[MCLZmclz]|-?\d*\.?\d+(?:e-?\d+)?/g) || [];
+  let start = null, prev = null, cmd = '';
+  const nums = [];
+  const flushPt = (x, y) => { if (prev) segs.push([prev[0], prev[1], x, y]); prev = [x, y]; };
+  for (const t of tok) {
+    if (/^[A-Za-z]$/.test(t)) {
+      cmd = t.toUpperCase();
+      if (cmd === 'Z') { if (prev && start) segs.push([prev[0], prev[1], start[0], start[1]]); prev = start; }
+      nums.length = 0;
+      continue;
+    }
+    nums.push(parseFloat(t) * k);
+    if (nums.length < 2) continue;
+    const x = nums[0], y = nums[1];
+    nums.length = 0;
+    if (cmd === 'M') { start = [x, y]; prev = [x, y]; cmd = 'L'; }
+    else flushPt(x, y);                 // a curve's control points hug it closely at this density
+  }
+  return segs;
+}
+function tagStrokeSegs(G) {
+  const segs = [], h = G.sw * 0.5;
+  const ring = (x, y, r) => {
+    for (let i = 0; i < 8; i++) {
+      const a0 = (i / 8) * Math.PI * 2, a1 = ((i + 1) / 8) * Math.PI * 2;
+      segs.push([x + Math.cos(a0) * r, y + Math.sin(a0) * r, x + Math.cos(a1) * r, y + Math.sin(a1) * r]);
+    }
+  };
+  G.strokes.forEach((pl, pi) => {
+    for (let i = 0; i + 1 < pl.length; i++) {
+      const [ax, ay] = pl[i], [bx, by] = pl[i + 1];
+      const L = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / L * h, ny = (bx - ax) / L * h;
+      segs.push([ax + nx, ay + ny, bx + nx, by + ny], [ax - nx, ay - ny, bx - nx, by - ny]);
+    }
+    for (let i = 0; i < pl.length; i++) {
+      const end = !G.closed[pi] && (i === 0 || i === pl.length - 1);
+      const [x, y] = pl[i];
+      if (!end || G.spec.cap === 'round') ring(x, y, h);
+      else if (G.spec.cap === 'square') {
+        const o = pl[i === 0 ? 1 : i - 1], L = Math.hypot(x - o[0], y - o[1]) || 1;
+        const ux = (x - o[0]) / L * h, uy = (y - o[1]) / L * h;
+        segs.push([x - uy + ux, y + ux + uy, x + uy + ux, y - ux + uy]);
+      }
+    }
+  });
+  // A corner's point reaches past the ring: its outline is the same polygon the draw fills.
+  for (const c of G.corners) {
+    const poly = tagJoinPoly(G, c, 0);
+    if (poly) for (let i = 0; i < poly.length; i++) segs.push([...poly[i], ...poly[(i + 1) % poly.length]]);
+  }
+  for (const [x, y] of G.dots) ring(x, y, h);
+  for (const t of G.spikes) for (let i = 0; i < 3; i++) segs.push([...t[i], ...t[(i + 1) % 3]]);
+  return segs;
+}
+
+// For every band of `step` pixels along one axis, the least and greatest coordinate on the other
+// that the segments reach. Bands run from `origin`, `n` of them. `swap` bands along x instead of y.
+function tagBands(segs, step, origin, n, swap) {
+  const lo = new Float32Array(n).fill(Infinity), hi = new Float32Array(n).fill(-Infinity);
+  for (const s of segs) {
+    let a0 = swap ? s[1] : s[0], b0 = swap ? s[0] : s[1], a1 = swap ? s[3] : s[2], b1 = swap ? s[2] : s[3];
+    if (b0 > b1) { const ta = a0, tb = b0; a0 = a1; b0 = b1; a1 = ta; b1 = tb; }
+    const r0 = Math.max(0, Math.floor((b0 - origin) / step)), r1 = Math.min(n - 1, Math.floor((b1 - origin) / step));
+    const d = b1 - b0;
+    for (let r = r0; r <= r1; r++) {
+      const t0 = origin + r * step;
+      const ya = Math.max(b0, t0), yb = Math.min(b1, t0 + step);
+      const xa = d > 1e-9 ? a0 + (a1 - a0) * (ya - b0) / d : a0;
+      const xb = d > 1e-9 ? a0 + (a1 - a0) * (yb - b0) / d : a1;
+      if (xa < lo[r]) lo[r] = xa; if (xb < lo[r]) lo[r] = xb;
+      if (xa > hi[r]) hi[r] = xa; if (xb > hi[r]) hi[r] = xb;
+    }
+  }
+  return { lo, hi };
+}
+
+// Band extents grown by a disc of radius `r`: the shape every point of the outline would sweep if
+// it were a coin of that size. Two grown shapes that only just meet are `2r` apart at their
+// nearest, in any direction, which is the distance spacing should mean. Two points in bands `k`
+// apart are taken to be `k - ½` bands apart in height: between the nearest they could be and the
+// centres, since the first set letters loose and the second let a pair come in under the gap.
+function tagGrow(b, r, step) {
+  const n = b.lo.length, K = Math.ceil(r / step) + 1;
+  const lo = new Float32Array(n).fill(Infinity), hi = new Float32Array(n).fill(-Infinity);
+  for (let i = 0; i < n; i++) {
+    for (let k = -K; k <= K; k++) {
+      const j = i + k;
+      if (j < 0 || j >= n || !(b.hi[j] >= b.lo[j])) continue;
+      const dy = Math.max(0, Math.abs(k) - 0.5) * step;
+      if (dy > r) continue;
+      const w = Math.sqrt(r * r - dy * dy);
+      if (b.lo[j] - w < lo[i]) lo[i] = b.lo[j] - w;
+      if (b.hi[j] + w > hi[i]) hi[i] = b.hi[j] + w;
+    }
+  }
+  return { lo, hi };
+}
+
+// ── THE LAYOUT, ONCE ────────────────────────────────────────────────────────────────────────────
+//
+// Where every letter of a throw-up goes, solved before anything is painted: five passes over the
+// same letters have to agree about where each one is. A pass that re-derived its own positions
+// would be a piece whose cloud and whose outline are in different places, which is the one
+// artefact a bake cannot recover from.
+//
+// Each letter gets its source, its tilt and its bob first, and then its outline in that pose.
+// Spacing reads the outline, band by band. Answers in the piece's own frame: `ax` is a letter's
+// centre along the line and `lineY[li]` the middle of its line; `segs` and `bands` are the
+// outline relative to those. `minX`..`maxY` bound every body. Null when nothing is drawable.
+//
+// ⚠ LETTERS TOUCH; THEY DO NOT OVERLAP. The last version advanced each letter by 0.72–0.84 of its
+// box so every letter bit into the one before it, and on a real word that buried a third of each
+// letter under its neighbour: COLDWATER read as a row of blobs. What a throw-up actually has is
+// letters set so close their outlines meet, with ONE keyline between them. So the letters are
+// spaced by their outlines to leave TAG_GAP between two bodies at their nearest, and the bake lays
+// every keyline before any fill, so that gap is always keyline and never wall.
+// ⚠ NEAREST IN ANY DIRECTION, NOT ACROSS. Spaced so each band had TAG_GAP of wall across it, an A
+// against a V left two parallel diagonals under a pixel apart at right angles, and the fills ran
+// together. Each outline is grown by half the gap (`tagGrow`) and the grown shapes are set touching.
+// `scripts/shapes/tagspace.mjs` holds the layout to that.
+const TAG_GAP = 0.07;
+// A word space is a break in the keyline, wide enough that the rim shows through it. The cloud
+// still runs across, so the piece stays one piece.
+const TAG_WORD = 0.30;
+// ⚠ BUBBLE LETTERS ARE INFLATED, NOT SET IN A FAT FACE. A font letter is grown by a round-joined
+// stroke of its own fill colour, which rounds every corner and closes the counters down to slots,
+// and the rim, outline and block grow by the same amount so the keyline stays a keyline. A traced
+// or stroked letter was drawn fat already and barely takes any.
+const TAG_PUFF = 0.08;
+// ⚠ THE LETTERS ARE STRETCHED AND THE LAYOUT HAS TO KNOW IT. No face that ships with an operating
+// system is as wide as a bubble letter, so a font letter is drawn through a horizontal scale — and
+// its outline is measured through the same scale, so the spacing sees what gets drawn.
+const TAG_FAT = 1.24;
+function tagLayout(body, lines, face, variant, CELL) {
+  const GAP = CELL * TAG_GAP, WORD = CELL * TAG_WORD, PUFF = CELL * TAG_PUFF, FAT = TAG_FAT;
+  const spec = TAG_FACE_SPEC[face] || TAG_FACE_SPEC.bubble;
+  const FACE_USED = TAG_FACE_SPEC[face] ? face : 'bubble';
+  const probe = texCanvas(8, 8).getContext('2d');
+  probe.font = TAG_FONT(CELL);
+  const R = (salt) => dRand(variant + body.length, 900 + salt);
+  const BAND = 2, SPAN = CELL * 1.4, NB = Math.ceil((SPAN * 2) / BAND);
+  const glyphs = [];
+  const lineGlyphs = lines.map(() => []);
+  for (let li = 0; li < lines.length; li++) {
+    const ln = lines[li];
+    let spaces = 0;
+    for (let ci = 0; ci < ln.length; ci++) {
+      const ch = ln[ci];
+      if (ch === ' ') { spaces++; continue; }
+      const glyph = FACE_USED === 'bubble' ? tagGlyph(ch, CELL) : null;
+      const sk = glyph ? null : tagStrokeGlyph(ch, FACE_USED === 'bubble' ? 'round' : FACE_USED, CELL);
+      const uw = glyph || sk ? 0 : (probe.measureText(ch).width || CELL * 0.5);
+      const fat = (glyph || sk ? 1 : FAT) * (0.96 + R(li * 17 + ci * 7) * 0.08);
+      const rot = (R(li * 31 + ci * 3) - 0.5) * 2 * spec.rot;
+      const bob = (R(li * 37 + ci * 5) - 0.5) * 2 * spec.bob * CELL;
+      let src;
+      if (glyph) src = tagPathSegs(TAG_GLYPHS[ch.toUpperCase()].d, CELL * TAG_GLYPH_H);
+      else if (sk) src = tagStrokeSegs(sk);
+      else {
+        // A font letter is a box a little over cap height, grown by its puff.
+        const hx = uw * 0.5 + PUFF, hy = CELL * 0.30 + PUFF;
+        src = [[-hx, -hy, hx, -hy], [hx, -hy, hx, hy], [hx, hy, -hx, hy], [-hx, hy, -hx, -hy]];
+      }
+      const cr = Math.cos(rot), sr = Math.sin(rot);
+      const T = (x, y) => [x * fat * cr - y * sr, x * fat * sr + y * cr + bob];
+      const segs = src.map((s) => [...T(s[0], s[1]), ...T(s[2], s[3])]);
+      const bands = tagBands(segs, BAND, -SPAN, NB, false);
+      let lo = Infinity, hi = -Infinity;
+      for (let r = 0; r < NB; r++) if (bands.hi[r] >= bands.lo[r]) { lo = Math.min(lo, bands.lo[r]); hi = Math.max(hi, bands.hi[r]); }
+      if (!(hi > lo)) continue;
+      const grown = tagGrow(bands, GAP * 0.5, BAND);
+      const q = { ch, li, ci, glyph, sk, uw, fat, rot, bob, segs, bands, grown, lo, hi, spaces, w: hi - lo };
+      spaces = 0;
+      glyphs.push(q);
+      lineGlyphs[li].push(q);
+    }
+  }
+  if (!glyphs.length) return null;
+
+  // Along the line: each letter goes as far left as it can while its grown outline clears the grown
+  // outline of every letter already placed on it. Against every earlier letter and not only the
+  // last, so a short letter tucked under a T's arm cannot let the next one run into the T.
+  for (const lg of lineGlyphs) {
+    for (let j = 0; j < lg.length; j++) {
+      const b = lg[j];
+      if (!j) { b.lx = -b.lo; continue; }
+      let x = -Infinity, words = 0;
+      for (let i = j - 1; i >= 0; i--) {
+        words += lg[i + 1].spaces;
+        const a = lg[i], gap = words ? WORD : 0;
+        for (let r = 0; r < NB; r++) {
+          if (!(b.grown.hi[r] >= b.grown.lo[r]) || !(a.grown.hi[r] >= a.grown.lo[r])) continue;
+          const need = a.lx + a.grown.hi[r] - b.grown.lo[r] + gap;
+          if (need > x) x = need;
+        }
+      }
+      // Nothing shared a band (a full stop after a letter with no foot): sit it off the last one.
+      const prev = lg[j - 1];
+      if (x === -Infinity) x = prev.lx + prev.hi - b.lo + GAP + (b.spaces ? WORD : 0);
+      b.lx = x;
+    }
+  }
+
+  // Down the piece: the same test turned on its side. Each line drops until it is GAP below every
+  // column of ink above it, so a short line nests up under a long one and the lines lock together
+  // as one piece instead of stacking as a paragraph.
+  let minX = Infinity, maxX = -Infinity;
+  const lineX = lines.map((_, li) => (li ? (R(li * 7) - 0.5) * CELL * 0.3 : 0));
+  for (let li = 0; li < lineGlyphs.length; li++) for (const q of lineGlyphs[li]) {
+    q.ax = lineX[li] + q.lx;
+    minX = Math.min(minX, q.ax + q.lo); maxX = Math.max(maxX, q.ax + q.hi);
+  }
+  const NC = Math.ceil((maxX - minX) / BAND) + 1;
+  const colsOf = (lg, dy) => {
+    const segs = [];
+    for (const q of lg) for (const s of q.segs) segs.push([s[0] + q.ax, s[1] + dy, s[2] + q.ax, s[3] + dy]);
+    return tagBands(segs, BAND, minX, NC, true);
+  };
+  const lineY = [0];
+  let above = colsOf(lineGlyphs[0], 0);
+  for (let li = 1; li < lineGlyphs.length; li++) {
+    const me = tagGrow(colsOf(lineGlyphs[li], 0), GAP * 0.5, BAND);
+    const over = tagGrow(above, GAP * 0.5, BAND);
+    let dy = -Infinity;
+    for (let c = 0; c < NC; c++) {
+      if (!(me.hi[c] >= me.lo[c]) || !(over.hi[c] >= over.lo[c])) continue;
+      dy = Math.max(dy, over.hi[c] - me.lo[c]);
+    }
+    if (dy === -Infinity) dy = lineY[li - 1] + CELL;
+    lineY.push(dy);
+    const placed = colsOf(lineGlyphs[li], dy);
+    for (let c = 0; c < NC; c++) {
+      if (placed.hi[c] > above.hi[c]) above.hi[c] = placed.hi[c];
+      if (placed.lo[c] < above.lo[c]) above.lo[c] = placed.lo[c];
+    }
+  }
+  let minY = Infinity, maxY = -Infinity;
+  for (let li = 0; li < lineGlyphs.length; li++) for (const q of lineGlyphs[li]) {
+    for (let r = 0; r < NB; r++) {
+      if (!(q.bands.hi[r] >= q.bands.lo[r])) continue;
+      const y = lineY[li] - SPAN + r * BAND;
+      if (y < minY) minY = y;
+      if (y + BAND > maxY) maxY = y + BAND;
+    }
+  }
+
+  return { glyphs, lineGlyphs, lineY, minX, maxX, minY, maxY, band: BAND, span: SPAN };
+}
+
+function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'throw', face = null, cache = true) {
   if (SHAPE_SINK || MESH_SINK) return null;   // allocates a canvas, which a capture must never do
   const body = String(text || '').trim();
   if (!body) return null;
@@ -42955,20 +43407,28 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
   // follows. A player who picked four colours letter by letter in the spray can has SAID what the
   // letters are; a handstyle is one ink, a stencil is one ink and a roller is two tones of one —
   // every other hand would quietly throw those choices away. See the ⚠ on TAG_SCHEMES.
-  const HAND = (hasRuns || !TAG_HANDS.includes(hand)) ? 'throw' : hand;
-  const key = `${body}|${colour}|${dn}|${variant}|${nMarks}|${HAND}|${runKey}`;
-  const hit = _tagTexCache.get(key);
+  // A named letterform is the same kind of statement, and it only exists on the throw-up.
+  const FACE = TAG_FACES.includes(face) ? face : null;
+  const HAND = (hasRuns || FACE || !TAG_HANDS.includes(hand)) ? 'throw' : hand;
+  const FACE_USED = FACE || tagFaceFor(variant);
+  const key = `${body}|${colour}|${dn}|${variant}|${nMarks}|${HAND}|${HAND === 'throw' ? FACE_USED : ''}|${runKey}`;
+  const hit = cache ? _tagTexCache.get(key) : null;
   if (hit) { _tagTexCache.delete(key); _tagTexCache.set(key, hit); return hit; }   // LRU touch
   // ⚠ CACHED HERE RATHER THAN IN THERE, so there is one table, one cap and one key for every piece
   // of paint in the city — a second cache inside `bakeTagHand` is a second thing to get the
   // eviction wrong in. It answers null for a body that leaves it no letters, which is not cached,
   // exactly as this function's own early returns are not.
+  // ⚠ `cache` IS FALSE ONLY FOR THE SPRAY CAN'S PREVIEW, which re-bakes on every keystroke: kept,
+  // those drafts would evict the walls actually standing in the street.
+  const keep = (tex) => {
+    if (!cache) return tex;
+    lruSweep(_tagTexCache, TAG_TEX_MAX, Math.max(1, TAG_TEX_MAX - (TAG_TEX_MAX >> 2)));
+    _tagTexCache.set(key, tex);
+    return tex;
+  };
   if (HAND !== 'throw') {
     const alt = bakeTagHand(HAND, body, colour, dn, variant | 0, nMarks);
-    if (!alt) return null;
-    lruSweep(_tagTexCache, TAG_TEX_MAX, Math.max(1, TAG_TEX_MAX - (TAG_TEX_MAX >> 2)));
-    _tagTexCache.set(key, alt);
-    return alt;
+    return alt ? keep(alt) : null;
   }
 
   const lines = tagLines(body);
@@ -42999,49 +43459,19 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
   const RIM = OUT * 2.8;          // the cloud's own colour, crisp, right against the outline
   const HALO = CELL * 0.55;       // …and the loose field of overspray outside that
   const BLK = CELL * 0.15;        // how far the block is offset
-  // ⚠ LETTERS OVERLAP, THEY DO NOT SIT BESIDE EACH OTHER. At 0.90 they nearly touched, which is
-  // spacing — a throw-up has none, and what the references show is each letter biting into the one
-  // before it so the outlines interlock. That interlock is most of what the shape reads as, and it
-  // is why the letters are stacked right to left (see PUFF below).
-  const TRACK = 0.72;
-  // ⚠ BUBBLE LETTERS ARE INFLATED, NOT SET IN A FAT FACE. Every letter is grown by a round-joined
-  // stroke of its own fill colour, which rounds every corner and closes the counters down to slots,
-  // and the rim, outline and block grow by the same amount so the keyline stays a keyline.
-  // ⚠ AND THE LETTERS ARE STACKED RIGHT TO LEFT. Left to right, each outline was a black line
-  // across the previous letter's fill, so two overlapping letters read as two stickers with the
-  // later one slapped over the earlier. Merging every outline into one pass was tried too, and it
-  // melts the word into one sausage with nothing to read. What the references do is put each
-  // letter ON TOP of the one after it, so the overlap reads as one letter tucked behind another.
-  const PUFF = CELL * 0.08;
-  // ⚠ THE LETTERS ARE STRETCHED AND THE LAYOUT HAS TO KNOW IT. No face that ships with an operating
-  // system is as wide as a bubble letter, so each one is drawn through a horizontal scale — and the
-  // advance is measured from the UNSCALED glyph, so a `fat` the layout does not know about walks the
-  // last letter of every word off the right-hand edge of its own canvas. One constant that both the
-  // measure and the draw read, with a per-letter wobble around it that is small enough not to.
-  const FAT = 1.24;
+  const PUFF = CELL * TAG_PUFF;
   const PAD_X = Math.round(HALO * 0.5 + PUFF + CELL * 0.18);
   const PAD_T = Math.round(HALO * 0.5 + PUFF + CELL * 0.12);
   const PAD_B = Math.round(HALO * 0.5 + CELL * 0.52);   // …and the drips hang below all of it
 
-  const probe = texCanvas(8, 8).getContext('2d');
-  probe.font = TAG_FONT(CELL);
-  // A traced letter carries its own width, already as wide as a bubble letter should be, so it
-  // takes no FAT stretch; only a font fallback does.
-  // A traced letter's width already includes its swash, so it needs less overlap to interlock.
-  const trackOf = (ch) => (tagGlyph(ch, CELL) ? 0.84 : TRACK);
-  const chW = (ch) => { const tg = tagGlyph(ch, CELL); return tg ? tg.w : (probe.measureText(ch).width || CELL * 0.5) * FAT; };
-  const lineW = lines.map((ln) => {
-    let w = 0;
-    for (let i = 0; i < ln.length; i++) w += chW(ln[i]) * (i === ln.length - 1 ? 1 : trackOf(ln[i]));
-    return Math.max(w, CELL * 0.6);
-  });
-  // ⚠ THE LINES NEST TOO, for the same reason the letters do. At 1.26 of a cell a second line sat
-  // clear underneath the first with a band of wall between them, which is how a paragraph is set
-  // and not how a piece is painted — the descender of one line runs down behind the next, and the
-  // glyph loop is line-major so the later line lands on top of the earlier one for free.
-  const LH = Math.round(CELL * 1.12);
-  const W = Math.ceil(Math.max(...lineW)) + PAD_X * 2;
-  const H = LH * lines.length + PAD_T + PAD_B;
+  const R = (salt) => dRand(variant + body.length, 900 + salt);
+  const L = tagLayout(body, lines, FACE_USED, variant, CELL);
+  if (!L) return null;
+  const { glyphs, lineGlyphs, lineY, minX, maxX, minY, maxY } = L;
+  for (const q of glyphs) q.ink = inks[starts[q.li] + q.ci] || P.mid;
+
+  const W = Math.ceil(maxX - minX) + PAD_X * 2;
+  const H = Math.ceil(maxY - minY) + PAD_T + PAD_B;
   const c = texCanvas(W, H);
   const g = c.getContext('2d');
   g.font = TAG_FONT(CELL);
@@ -43049,79 +43479,15 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
   g.textBaseline = 'middle';
   g.lineJoin = 'round';
   g.lineCap = 'round';
-
-  const R = (salt) => dRand(variant + body.length, 900 + salt);
-
-  // ── THE LAYOUT, ONCE ────────────────────────────────────────────────────────────────────────
-  // Solved before anything is painted, because five passes over the same letters have to agree
-  // about where each one is. A pass that re-derived its own positions would be a piece whose cloud
-  // and whose outline are in different places, which is the one artefact a bake cannot recover from.
-  const glyphs = [];
-  for (let li = 0; li < lines.length; li++) {
-    const ln = lines[li];
-    // Set from its own left edge rather than centred: a tag is written by an arm that starts where
-    // it starts, and a ragged right is what that produces.
-    let x = PAD_X + (R(li * 7) - 0.5) * CELL * 0.18;
-    const yMid = PAD_T + LH * li + LH * 0.5;
-    for (let ci = 0; ci < ln.length; ci++) {
-      const ch = ln[ci], w = chW(ch);
-      if (ch !== ' ') {
-        const glyph = tagGlyph(ch, CELL);
-        glyphs.push({
-          ch, w, li, ci, glyph,
-          uw: w / FAT,                                  // the face's own width, which is what fillText draws
-          x: x + w * 0.5,
-          y: yMid + (R(li * 37 + ci * 5) - 0.5) * CELL * 0.17,
-          rot: (R(li * 31 + ci * 3) - 0.5) * 0.30,      // ±9°, which reads as a hand and not a font
-          fat: (glyph ? 1 : FAT) * (0.95 + R(li * 17 + ci * 7) * 0.10),   // each letter its own width, as a can gives it
-          ink: inks[starts[li] + ci] || P.mid,
-        });
-      }
-      x += w * (ci === ln.length - 1 ? 1 : trackOf(ch));
-    }
+  for (let li = 0; li < lineGlyphs.length; li++) for (const q of lineGlyphs[li]) {
+    q.x = PAD_X - minX + q.ax;
+    q.my = PAD_T - minY + lineY[li];     // the line's own middle; the outline is measured from here
+    q.y = q.my + q.bob;
   }
-  if (!glyphs.length) return null;
   // ⚠ CENTRED ON THE UNSCALED WIDTH, INSIDE THE SCALE. `fillText` draws the face's own glyph and
   // the transform stretches it, so an origin taken from the STRETCHED width shifts every letter
   // left by half its own stretch — which reads as the whole word drifting off its cloud.
   const at = (q, fn) => { g.save(); g.translate(q.x, q.y); g.rotate(q.rot); g.scale(q.fat, 1); fn(-q.uw * 0.5); g.restore(); };
-
-  // ── THE LIMBS THAT JOIN ONE LETTER TO THE NEXT ──────────────────────────────────────────────
-  //
-  // A throw-up is not a row of separate letters, it is ONE RIBBON with letters in it — the paint
-  // runs out of the foot of one form and into the next, and that continuity is what separates a
-  // piece from a word set in a fat face. Overlapping the letters (see TRACK) gets part of the way
-  // and cannot get the rest: two round-shouldered glyphs that overlap still read as two glyphs, and
-  // the letters that do NOT overlap — an I beside an L, a T beside a J — leave the ribbon cut.
-  //
-  // ⚠ RATIONED, BECAUSE EVERY PAIR JOINED IS A FENCE. In the references some letters are carried
-  // through and some are simply next to each other; a bar under every pair reads as underlining,
-  // which is a thing nobody sprays. Rolled per pair off the same deterministic stream everything
-  // else in the bake uses.
-  //
-  // ⚠ AND THE LIMB GOES ON BEFORE BOTH LETTERS, WHICH IS THE ONLY ORDER THAT WORKS. Drawn after the
-  // letter it leaves, its own black keyline is a line ACROSS that letter's fill — a seam where the
-  // form is supposed to be continuous, which is worse than the gap it was closing. Laid down first,
-  // both letters' outlines and fills cover its ends and it shows only in the gap between them,
-  // which is exactly where a ribbon shows.
-  const links = [];
-  for (let i = 1; i < glyphs.length; i++) {
-    const a = glyphs[i - 1], b = glyphs[i];
-    if (a.li !== b.li || b.ci !== a.ci + 1) continue;     // not neighbours: a wrap, or a space between them
-    if (R(700 + i * 13) <= 0.42) continue;
-    // Out of the right of one form and into the left of the next, well inside both so the ends are
-    // buried. Low by default — paint carried along the foot of the letters is the commonest
-    // handstyle — and through the middle on a few, which is what stops the low one becoming a rule.
-    const low = R(720 + i * 7) > 0.30;
-    const off = low ? CELL * 0.25 : -CELL * 0.02;
-    links.push({
-      x0: a.x + a.w * 0.22, y0: a.y + off,
-      x1: b.x - b.w * 0.22, y1: b.y + off,
-      cx: (a.x + b.x) * 0.5, cy: (a.y + b.y) * 0.5 + off + CELL * (low ? 0.07 : -0.05),
-      t: CELL * (0.20 + R(740 + i * 5) * 0.10),
-    });
-  }
-  const limb = (k) => { g.beginPath(); g.moveTo(k.x0, k.y0); g.quadraticCurveTo(k.cx, k.cy, k.x1, k.y1); };
 
   // 1. THE CLOUD. One pass, so the overlaps merge into a single field instead of stacking alpha
   //    into a darker patch behind every letter. Loose and half-transparent: this is the paint that
@@ -43133,7 +43499,6 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
   g.shadowColor = P.halo;
   g.shadowBlur = CELL * 0.30;
   for (const q of glyphs) at(q, (ox) => tagGlyphOp(g, q, ox, 'stroke', 'line'));
-  for (const k of links) { limb(k); g.stroke(); }     // the cloud is round the WHOLE form, limbs included
   // …and a few loose blobs off the edge of it, because a can held at arm's length does not stop
   // where the letters do. Without them the cloud is an offset outline of the word, which is a
   // shape no aerosol makes.
@@ -43158,28 +43523,63 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
   g.fillStyle = P.line;
   g.lineWidth = RIM + PUFF * 2;
   for (const q of glyphs) at(q, (ox) => { tagGlyphOp(g, q, ox, 'stroke', 'line'); tagGlyphOp(g, q, ox, 'fill', 'line'); });
-  for (const k of links) { g.lineWidth = k.t + RIM + PUFF * 2; limb(k); g.stroke(); }
   g.restore();
 
-  // 2b. THE LIMBS, in three passes over all of them rather than three per limb — two bars meeting
-  //     at a letter would otherwise put one's outline across the other's fill, which is the seam
-  //     this whole layer exists to remove. Under the letters: see the ⚠ on `links`.
-  for (const k of links) { g.strokeStyle = P.halo; g.lineWidth = k.t + RIM + PUFF * 2; limb(k); g.stroke(); }
-  for (const k of links) { g.strokeStyle = P.line; g.lineWidth = k.t + OUT + PUFF * 2; limb(k); g.stroke(); }
-  for (const k of links) {
-    // The same vertical fade the letters carry, so a limb is lit like the form it belongs to
-    // rather than reading as a pipe laid across it.
-    const fade = g.createLinearGradient(0, Math.min(k.y0, k.y1) - k.t, 0, Math.max(k.y0, k.y1) + k.t);
-    fade.addColorStop(0, hasRuns ? tagMix(P.mid, '#ffffff', 0.30) : P.top);
-    fade.addColorStop(0.55, P.mid);
-    fade.addColorStop(1, hasRuns ? tagMix(P.mid, '#000000', 0.28) : P.bot);
-    g.strokeStyle = fade;
-    g.lineWidth = k.t + PUFF * 2;
-    limb(k);
-    g.stroke();
-  }
+  // A traced or stroked letter was drawn fat and keeps its own counters; inflating it again fills
+  // them in. Only a font fallback gets the full puff.
+  const puffOf = (q) => (q.glyph || q.sk ? PUFF * 0.15 : PUFF);
+  // 3. The cloud's crisp rim goes round the whole word at once, so it never cuts a letter.
+  for (const q of glyphs) at(q, (ox) => { g.strokeStyle = P.halo; g.lineWidth = q.glyph || q.sk ? RIM - OUT : RIM + puffOf(q) * 2; tagGlyphOp(g, q, ox, 'stroke', 'line'); });
 
-  // 3–4. THE RIM, THEN EACH LETTER'S OUTLINE AND FILL, right to left — see the ⚠ on PUFF.
+  // 4. THE DRIPS. One or two on a piece, never one under every letter — that would read as a fringe
+  //    somebody drew rather than as paint that got away.
+  // ⚠ UNDER THE LETTERS, FROM THE FOOT OF THE OUTLINE. They used to start a quarter of a cell below
+  //    the letter's middle and go on after the fills, which put a black bar down the lower half of
+  //    whichever letter they fell from — on a real word that cut an E into an F and an O into a U.
+  //    A drip is the outline running, so it starts where the outline is lowest at that point and
+  //    goes down, and the letter above it covers its top.
+  g.save();
+  g.strokeStyle = P.line;
+  g.fillStyle = P.line;
+  g.lineCap = 'round';
+  let drips = 0;
+  for (const q of glyphs) {
+    if (drips >= 3 || R(q.li * 53 + q.ci * 11) <= 0.68) continue;
+    const lx = (q.lo + q.hi) * 0.5 + (R(q.ci * 5) - 0.5) * q.w * 0.5;
+    let foot = -Infinity;
+    for (const s of q.segs) {
+      const x0 = Math.min(s[0], s[2]), x1 = Math.max(s[0], s[2]);
+      if (lx < x0 || lx > x1) continue;
+      const y = x1 - x0 > 1e-9 ? s[1] + (s[3] - s[1]) * (lx - s[0]) / (s[2] - s[0]) : Math.max(s[1], s[3]);
+      if (y > foot) foot = y;
+    }
+    if (foot === -Infinity) continue;
+    drips++;
+    const dh = CELL * (0.20 + R(q.ci * 3) * 0.34);
+    const dx2 = q.x + lx;
+    const top = q.my + foot - OUT;
+    const wob = (R(q.ci * 7) - 0.5) * CELL * 0.05;
+    g.lineWidth = Math.max(2, CELL * 0.075);
+    g.beginPath();
+    g.moveTo(dx2, top);
+    g.lineTo(dx2 + wob, top + OUT + dh);
+    g.stroke();
+    g.beginPath();                                    // …and the bead it ends in
+    g.arc(dx2 + wob, top + OUT + dh, g.lineWidth * 0.72, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.restore();
+
+  // 5. EVERY KEYLINE, THEN EVERY FILL. ⚠ THIS ORDER IS THE SEAMLESS PART. With the outlines all
+  //    down first, no letter's outline is ever drawn across another letter's paint: where two
+  //    letters meet, the only thing between them is the strip of keyline the spacing left, so the
+  //    word has one continuous outline round the outside and a single line between each pair.
+  //    ⚠ THE OLD ORDER WAS OUTLINE-AND-FILL PER LETTER, and it only worked because the letters sat
+  //    on top of each other; with them apart it would put a doubled line in every join.
+  for (const q of glyphs) at(q, (ox) => {
+    if (q.glyph || q.sk) { g.fillStyle = P.line; tagGlyphOp(g, q, ox, 'fill', 'line'); }
+    else { g.strokeStyle = P.line; g.lineWidth = OUT + puffOf(q) * 2; tagGlyphOp(g, q, ox, 'stroke'); }
+  });
   const fillOf = (q) => {
     const fade = g.createLinearGradient(0, -CELL * 0.5, 0, CELL * 0.46);
     fade.addColorStop(0, hasRuns ? tagMix(q.ink, '#ffffff', 0.30) : P.top);
@@ -43187,36 +43587,39 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
     fade.addColorStop(1, hasRuns ? tagMix(q.ink, '#000000', 0.28) : P.bot);
     return fade;
   };
-  // A traced letter was drawn bubbly and keeps its own inner lines; inflating it again fills them
-  // in. Only a font fallback gets the full puff.
-  const puffOf = (q) => (q.glyph ? PUFF * 0.15 : PUFF);
   // The inflated letter: its glyph plus a round stroke of the same paint round it.
   const blob = (q, ox, paint) => {
     g.fillStyle = paint; g.strokeStyle = paint; g.lineWidth = puffOf(q) * 2;
     tagGlyphOp(g, q, ox, 'stroke'); tagGlyphOp(g, q, ox, 'fill');
   };
-  // The cloud's crisp rim goes round the whole word at once, so it never cuts a letter.
-  for (const q of glyphs) at(q, (ox) => { g.strokeStyle = P.halo; g.lineWidth = q.glyph ? RIM - OUT : RIM + puffOf(q) * 2; tagGlyphOp(g, q, ox, 'stroke', 'line'); });
-  // Then the letters RIGHT TO LEFT, each outline and fill together, so every letter sits on top of
-  // the one after it and tucks into it: its keyline crosses the next letter's shoulder the way a
-  // bubble letter overlaps its neighbour, and the word reads forwards. The inner shade at the foot
-  // of each letter is what sells the overlap as depth rather than as two shapes touching.
+  const shadeOf = (q) => tagMix(hasRuns ? q.ink : P.mid, '#000000', 0.34);
   for (let i = glyphs.length - 1; i >= 0; i--) {
     const q = glyphs[i];
     at(q, (ox) => {
-      // A traced letter's keyline is YOUR line, varying in weight the way it does on the sheet, so it
-      // is filled rather than stroked at one width. A font fallback still gets the stroked keyline.
-      if (q.glyph) { g.fillStyle = P.line; tagGlyphOp(g, q, ox, 'fill', 'line'); }
-      else { g.strokeStyle = P.line; g.lineWidth = OUT + puffOf(q) * 2; tagGlyphOp(g, q, ox, 'stroke'); }
       blob(q, ox, fillOf(q));
       // …and the shading drawn on the sheet, in a darker cut of this letter's own ink.
       if (q.glyph && q.glyph.shade) {
         g.save(); g.globalAlpha = 0.8;
-        g.fillStyle = tagMix(hasRuns ? q.ink : P.mid, '#000000', 0.34);
+        g.fillStyle = shadeOf(q);
         g.fill(q.glyph.shade);
         g.restore();
       }
     });
+  }
+  // A letter with no drawn shading gets the shadow side of its own stroke instead: the letter minus
+  // itself nudged up and left, which leaves a crescent along the bottom and right of every stroke.
+  // On its own canvas so the cut-out only removes shading, never paint.
+  const unshaded = glyphs.filter((q) => !(q.glyph && q.glyph.shade));
+  if (unshaded.length) {
+    const sh = texCanvas(W, H), s = sh.getContext('2d');
+    s.font = g.font; s.textAlign = 'left'; s.textBaseline = 'middle'; s.lineJoin = 'round'; s.lineCap = 'round';
+    const put = (q, dx, dy) => { s.save(); s.translate(q.x + dx, q.y + dy); s.rotate(q.rot); s.scale(q.fat, 1);
+      const ox = -q.uw * 0.5; s.lineWidth = puffOf(q) * 2; tagGlyphOp(s, q, ox, 'stroke'); tagGlyphOp(s, q, ox, 'fill'); s.restore(); };
+    for (const q of unshaded) { s.fillStyle = s.strokeStyle = shadeOf(q); put(q, 0, 0); }
+    s.globalCompositeOperation = 'destination-out';
+    s.fillStyle = s.strokeStyle = '#000000';
+    for (const q of unshaded) put(q, -CELL * 0.07, -CELL * 0.08);
+    g.save(); g.globalAlpha = 0.8; g.drawImage(sh, 0, 0); g.restore();
   }
   // The gloss. Enamel out of a can is shiny at the TOP-LEFT of every stroke, and on a bubble letter
   // that is a crescent: the letter minus itself shifted down and right. Built on its own canvas so
@@ -43232,31 +43635,6 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
     for (const q of glyphs) hat(q, CELL * 0.045, CELL * 0.06);
     g.save(); g.globalAlpha = 0.7; g.drawImage(hl, 0, 0); g.restore();
   }
-
-  // 5. THE DRIPS. One or two on a piece, never one under every letter — that would read as a fringe
-  //    somebody drew rather than as paint that got away.
-  g.save();
-  g.strokeStyle = P.line;
-  g.fillStyle = P.line;
-  g.lineCap = 'round';
-  let drips = 0;
-  for (const q of glyphs) {
-    if (drips >= 3 || R(q.li * 53 + q.ci * 11) <= 0.68) continue;
-    drips++;
-    const dh = CELL * (0.20 + R(q.ci * 3) * 0.34);
-    const dx2 = q.x + (R(q.ci * 5) - 0.5) * q.w * 0.5;
-    const top = q.y + CELL * 0.28;
-    const wob = (R(q.ci * 7) - 0.5) * CELL * 0.05;
-    g.lineWidth = Math.max(2, CELL * 0.075);
-    g.beginPath();
-    g.moveTo(dx2, top);
-    g.lineTo(dx2 + wob, top + dh);
-    g.stroke();
-    g.beginPath();                                    // …and the bead it ends in
-    g.arc(dx2 + wob, top + dh, g.lineWidth * 0.72, 0, Math.PI * 2);
-    g.fill();
-  }
-  g.restore();
 
   // 6. THE SCRAWLS. Placed OUTSIDE the piece's own line boxes, at the four corners of the canvas in
   //    a fixed order — a scrawl over the middle of a throw-up is a thing that happens on a real wall
@@ -43291,9 +43669,7 @@ function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'thr
   // that sheds leaves an ordinary wall. Without this every model carrying a tag failed signrange on
   // the day the tag learned to spell.
   c.__tagPaint = 1;
-  lruSweep(_tagTexCache, TAG_TEX_MAX, Math.max(1, TAG_TEX_MAX - (TAG_TEX_MAX >> 2)));
-  _tagTexCache.set(key, c);
-  return c;
+  return keep(c);
 }
 
 // How big a tag is on a wall, in tile units, and WHERE ON THE FRONTAGE IT GOES.
@@ -43341,13 +43717,29 @@ const TAG_MIN_PX = 14;
 // front of a building that happens to be wearing it — so judging a change to the bake meant driving
 // to Velk's Pre-Owned and squinting. `tools/modelshop`'s `__tagSheet()` calls this and nothing in
 // the game does. Null under a capture, exactly as the bake is.
-export const tagArtwork = (text, colour, variant = 0, night = 0, marks = 3, hand = null) =>
+export const tagArtwork = (text, colour, variant = 0, night = 0, marks = 3, hand = null, face = null) =>
   bakeTagText(text || tagWordFor(variant), null, colour, night ? 1 : 0, variant, marks,
-    hand || tagHandFor(variant));
+    hand || tagHandFor(variant), face);
 // The five recipes by name, so `__tagSheet()` can lay one row out per hand rather than hoping the
-// variant roll happens to visit all of them.
+// variant roll happens to visit all of them. The four throw-up letterforms likewise.
 export const tagHandList = () => TAG_HANDS.slice();
+export const tagFaceList = () => TAG_FACES.slice();
 export const tagWordList = () => TAG_WORDS.slice();
+// A throw-up's layout without the bake, for `scripts/shapes/tagspace.mjs`: every letter's outline
+// where the bake puts it, plus the spacing it was set to. Needs no canvas beyond a measureText.
+export const tagLayoutOf = (text, face, variant = 0) => {
+  const body = String(text || '').trim();
+  const CELL = 64;
+  const L = body ? tagLayout(body, tagLines(body), face, variant, CELL) : null;
+  return L && { ...L, cell: CELL, gap: CELL * TAG_GAP, word: CELL * TAG_WORD };
+};
+// The spray can's preview: the player's words and runs as the throw-up they will go up as, in the
+// letterform they picked. Never cached — it re-bakes on every keystroke. See the ⚠ on `cache`.
+// ⚠ ONLY THE LETTERS ARE THE WALL'S. The colour scheme and the wobble are rolled off the street tile
+// the tag is keyed on, which the dialog does not know, so an unpainted tag can come out silver or
+// bone on the wall where this shows it in the can's own green.
+export const tagPreview = (text, runs, face = null, colour = '#b8f03a') =>
+  bakeTagText(text, runs, colour, 0, 0, 0, 'throw', face || 'bubble', false);
 
 // How far the mass reaches along a world direction, at the height the paint goes on.
 //
@@ -43682,8 +44074,9 @@ function tagWallParts(m, fh, h, seed, flank) {
 
 // Paint every tag this tile is carrying.
 //
-// `gft` is the cell s own list, each entry `{ t, r, c, n }` — the words, the style runs, a fallback
-// colour and the world outward NORMAL of the wall it went on. The normal is what puts the tag on the
+// `gft` is the cell s own list, each entry `{ t, r, c, n, v, f }` — the words, the style runs, a
+// fallback colour, the world outward NORMAL of the wall it went on, a variant, and the letterform
+// the player picked in the can (absent when they left it to the wall). The normal is what puts the tag on the
 // wall the player actually stood in front of rather than on the entrance face: it is derived
 // server-side from the street tile the row is keyed on, because that is where both grid positions
 // exist. Nothing in the client works out which side of a building it is looking at.
@@ -43773,8 +44166,11 @@ function drawWallTags(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, ent, gft) 
     // be a player's words rendered a third the size for a reason they never asked for.
     // `t.h` is read but nothing sends one yet: when the spray can learns to offer a hand it arrives
     // here as data and this line does not change.
-    const hand = TAG_HANDS_PLAYER.includes(String(t && t.h)) ? String(t.h) : tagHandForPlayer(t.v | 0);
-    const tex = bakeTagText(t.t, t.r, /^#[0-9a-f]{6}$/i.test(String(t.c || '')) ? t.c : '#b8f03a', night > 0.5 ? 1 : 0, (t.v | 0), 3, hand);
+    // `t.f` is the letterform picked in the can, and picking one makes it a throw-up: the face only
+    // exists there. Left unpicked, the hand and the face are both rolled off the wall.
+    const face = TAG_FACES.includes(String(t && t.f)) ? String(t.f) : null;
+    const hand = face ? 'throw' : TAG_HANDS_PLAYER.includes(String(t && t.h)) ? String(t.h) : tagHandForPlayer(t.v | 0);
+    const tex = bakeTagText(t.t, t.r, /^#[0-9a-f]{6}$/i.test(String(t.c || '')) ? t.c : '#b8f03a', night > 0.5 ? 1 : 0, (t.v | 0), 3, hand, face);
     if (!tex) continue;
     // ⚠ `onCanvas` IS FALSE AND `pull` IS THE DEFAULT HAIR. There is no board under a tag — the paint
     // is on the wall, and the wall is in the mesh — so this is the case `emitSurfaceText` calls its
@@ -58433,7 +58829,7 @@ const AUTHORED_DETAIL = {
     if (!(wRaw > 0) || !(hh > 0)) return;
     const v = d.v | 0;
     const tex = bakeTagText(d.word || tagWordFor(v), null, d.color || '#b8f03a',
-      c.night > 0.5 ? 1 : 0, v, d.n, d.hand || tagHandFor(v));
+      c.night > 0.5 ? 1 : 0, v, d.n, d.hand || tagHandFor(v), d.face || null);
     if (!tex) return;
     // ⚠ FAILS CLOSED, WHICH IS THE OPPOSITE OF `massExtent`'s RULE AND FOR THE OPPOSITE REASON.
     // There, an unknown shape guesses LONG, because a tag buried inside a wall looks exactly like

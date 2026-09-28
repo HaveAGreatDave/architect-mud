@@ -26,7 +26,7 @@
 // resolution is forced, because all three of those change what you are looking at. Nothing here
 // should ever grow a number to compare across days; that is what the benches in glbench.js are,
 // and they are deliberately a different file.
-import { paintWindshield, RENDER_TUNE, tagArtwork, tagWordList, tagHandList } from '/client/game/js/panels/windshield.js';
+import { paintWindshield, RENDER_TUNE, tagArtwork, tagWordList, tagHandList, tagFaceList } from '/client/game/js/panels/windshield.js';
 import { installGL, glLastFrame } from '/client/game/js/panels/gl/install.js';
 
 let _world = null, _uninstall = null, _canvas = null;
@@ -292,6 +292,8 @@ export function streetHide() {
 //   __tagSheet({ words: ['COLDWATER LIES'], scale: 1 })   // a player's own can, unshrunk
 //   __tagSheet({ hand: 'roller' })            // one hand only, every word
 //   __tagSheet({ hands: false })              // back to three rows of colour SCHEMES
+//   __tagSheet({ faces: true })               // one row per throw-up letterform: bubble, round, block, sharp
+//   __tagSheet({ face: 'sharp' })             // every throw-up in one letterform
 //   __tagSheetHide()
 //
 // ⚠ THE ROWS ARE HANDS NOW AND WERE COLOUR SCHEMES. Both are chosen off the same `variant`, so a
@@ -311,8 +313,16 @@ export function tagSheet(opts = {}) {
     // One row per colour scheme, because the scheme is picked off the variant and an author
     // choosing `v` is choosing between them without being told so.
     for (let s = 0; s < 3; s++) for (let i = 0; i < words.length; i++) {
-      const tex = tagArtwork(words[i], colour, s + i * 3, night, marks, opts.hand || 'throw');
+      const tex = tagArtwork(words[i], colour, s + i * 3, night, marks, opts.hand || 'throw', opts.face || null);
       if (tex) cells.push({ tex, label: words[i] + ' · v' + (s + i * 3) });
+    }
+  } else if (opts.faces || opts.face) {
+    // One row per letterform. A face only exists on the throw-up, so naming one makes every
+    // cell a throw-up whatever the variant would have rolled.
+    const faces = opts.face ? [opts.face] : tagFaceList();
+    for (const f of faces) for (let i = 0; i < words.length; i++) {
+      const tex = tagArtwork(words[i], colour, i * 3, night, marks, 'throw', f);
+      if (tex) cells.push({ tex, label: f + ' · ' + words[i] });
     }
   } else {
     const hands = opts.hand ? [opts.hand] : tagHandList();
