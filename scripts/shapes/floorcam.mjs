@@ -83,8 +83,18 @@ const SEATS = [
 // MAP-WINDOW coordinates — `cam.proj` takes CRAFT-relative ones, which is the `ox`/`oy` on the way
 // in. Nothing here is a fourth derivation: every number comes off the two objects under test.
 function roundTrip(f, cam, sx, sy) {
-  const d = f.EH / ((sy - f.horizonY) / f.depth);
-  const l = ((sx - f.cx) / f.halfW) * d * f.LAT;
+  let d = f.EH / ((sy - f.horizonY) / f.depth);
+  let l = ((sx - f.cx) / f.halfW) * d * f.LAT;
+  // Under pitch a row is no longer a depth, and horizonY is the principal point: the same ray the
+  // shader casts (gl/floor.js, uPitch), or a pitched chase reads as a floor 140px off its camera.
+  if (f.pitch) {
+    const cp = Math.cos(f.pitch), sp = Math.sin(f.pitch);
+    const ys = -(sy - f.horizonY) / f.depth, u = ys * cp - sp;
+    if (!(u < -1e-4)) return [0, 0];   // sky: the shader discards it
+    const fz = f.EH / -u;
+    d = (cp + ys * sp) * fz;
+    l = ((sx - f.cx) / f.halfW) * fz * f.LAT;
+  }
   const wx = f.ax + d * f.sinh + l * f.cosh, wy = f.ay - d * f.cosh + l * f.sinh;
   const q = cam.proj(wx - cam.ox, wy - cam.oy, 0);
   return [q.sx - sx, q.sy - sy];
