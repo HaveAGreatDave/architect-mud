@@ -57,6 +57,9 @@ const VEHICLES = [
   // it was missing from this list entirely, which is how the one airframe with a bespoke mesh
   // ended up being the one you could not look at.
   { key: 'vehicle:heli/viper', vehicle: { cls: 'heli', variant: '', armed: true }, m: { type: 'viper' } },
+  // The Drake's factory paint jobs (mesh_drake.json 'schemes'). The variant IS the scheme name, so
+  // without these the special editions could only be seen by buying one in the game.
+  ...['noir', 'midnight', 'neon', 'ivory', 'quackhawk'].map((s) => ({ key: 'vehicle:drake/' + s, vehicle: { cls: 'drake', variant: s }, m: { type: 'drake ' + s } })),
 ];
 // The animals. A third renderer, and the shortest of the three: fauna3d.js has no camera at all,
 // so a subject is a pose and a bearing rather than a seat.
