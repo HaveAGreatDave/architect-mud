@@ -286,7 +286,15 @@ const baseView = () => ({
     vs: 0, band: 'low', onGround: false, hullPct: 100, reg: 'BOGEY', cls: 'prop', altDiff: 300 }],
 });
 
+// ⚠ ON A PINNED CLOCK. Birds, flocks and weather run off the wall clock, so an unpinned frame drew
+// ~620 more ops whenever a flock happened to be in view and the shed check failed at random.
+const T0 = 1.7e12;
 function run(mutate) {
+  const dn = Date.now, pn = performance.now;
+  Date.now = () => T0; performance.now = () => 1e6;
+  try { return runAt(mutate); } finally { Date.now = dn; performance.now = pn; }
+}
+function runAt(mutate) {
   TALLY.ops = {}; TALLY.text = [];
   const v = baseView();
   if (mutate) mutate(v);
@@ -298,7 +306,11 @@ function run(mutate) {
   };
 }
 
+// Warmed first: the cold frame bakes and captures, and what it carries into the next frame (lazy
+// caches, the frame governor) made the marks-off count swing between ~1,300 and ~1,900 ops, which
+// failed the shed check about half the time with no change to the code.
 ws.navMarks(true);
+run(); run();
 const on = run();
 ws.navMarks(false);
 const off = run();
