@@ -439,13 +439,19 @@
       "text": "\"No.\"\n\nHe doesn't dress it up and he doesn't apologise for it.\n\n\"Everybody who comes through that door can carry a box. What I can't see from here is what a man does with two hours and nobody watching him, and there's no way to ask that turns up a true answer. So I don't ask.\"\n\nHe picks the thing back up.\n\n\"You'll be asked to hold a room one day with something in it that matters. I know what you're now. Go and eat.\""
     },
     "repair_talk": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_watts_shop"
+        }
+      ],
       "options": [
         {
           "label": "Back.",
           "next": "root"
         }
       ],
-      "text": "\"Bring it here.\" He clears a space on the bench with his forearm.\n\n\"I fix what the city has given up on. Radios, motors, pumps, the honest machines that don't need the grid holding their hand. Costs less than a new one and it'll outlive you.\"\n\nHe sets the iron down.\n\n\"That isn't nostalgia. That's engineering.\""
+      "text": "He lifts a gun oil kit off the rack. \"Carry one of these and you fix it yourself. <b>repair</b> &lt;item&gt;, wherever you are. How far it comes back is down to your hands, and a bad hand can finish off something that's already failing.\"\n\n\"Everything on these walls runs without the grid holding its hand.\" He sets the iron down. \"That isn't nostalgia. That's engineering.\"\n\n\"If you'd sooner pay somebody, Watts has a bench at Watts The Damage. He's in from ten in the morning till ten at night.\""
     },
     "root": {
       "options": [
@@ -467,13 +473,6 @@
           "next": "meet_offer"
         },
         {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "Why is this room called the Vice?",
-          "next": "why_vice"
-        },
-        {
           "conditions": [
             {
               "flag": "quest_lw_meet",
@@ -492,6 +491,13 @@
         {
           "label": "Show me what you have got.",
           "next": "__shop__"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why is this room called the Vice?",
+          "next": "why_vice"
         },
         {
           "conditions": [

@@ -410,6 +410,10 @@
           "next": "shop"
         },
         {
+          "label": "What's any of it for?",
+          "next": "uses"
+        },
+        {
           "conditions": [
             {
               "relation": "known"
@@ -440,6 +444,23 @@
         }
       ],
       "text": "\"Take a look. Cash only, no refunds, no tears.\""
+    },
+    "uses": {
+      "_vine": {
+        "x": 420,
+        "y": 900
+      },
+      "options": [
+        {
+          "label": "Let me see the stock.",
+          "next": "shop"
+        },
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Toluene's the one that goes.\" He doesn't ask what for. \"Every cook on a lab bench takes a can of it alongside the raw, and it needs a proper chem lab. It'll not cook on a stove.\"\n\n\"A palladium ampoule and a dead power cell <b>craft</b> into a live one, if you've the electronics for it. The respirator is for ashfall: wear it outside when the ash is down and you'll not choke. The BHT is the dear one. <b>preserve</b> &lt;food&gt; with a vial and it keeps a good while longer, and a splice won't hold without it.\""
     }
   },
   "faction": null,

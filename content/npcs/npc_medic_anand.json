@@ -141,11 +141,28 @@
       "options": [],
       "text": "They turn back to the counter."
     },
+    "charge": {
+      "options": [
+        {
+          "label": "Patch me up.",
+          "next": "treat"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Three a point you're down, fifteen at the least, and thirty on top if I have to stop a bleed first.\" She doesn't look up. \"Forty for each wound and sixty a stage for frostbite. A kit only gets those so far. I clear them.\"\n\n\"Cash first, then the table.\""
+    },
     "root": {
       "options": [
         {
           "label": "Patch me up.",
           "next": "treat"
+        },
+        {
+          "label": "What do you charge?",
+          "next": "charge"
         },
         {
           "label": "Let me see the stock.",

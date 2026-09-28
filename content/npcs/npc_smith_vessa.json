@@ -136,6 +136,16 @@
     "bye": {
       "text": "She's already back at the wheel."
     },
+    "fix": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root",
+          "text": "Fair enough."
+        }
+      ],
+      "text": "\"Put it on the bench.\" She doesn't stop working. \"<b>repair</b> and what it is, and I'll put it right while you wait. <b>repair</b> on its own and I take whatever you've got on you that's worst. Blades are mine, but I'll do a coat or a gun if it's what you've brought.\"\n\n\"Price goes by how far gone it is. People I know pay less. I'm at the forge nine till six, every day but Thursday.\""
+    },
     "green": {
       "options": [
         {
@@ -162,6 +172,11 @@
           "label": "Let me see what you have.",
           "next": "shop",
           "text": "Let me see what you have."
+        },
+        {
+          "label": "Can you fix this?",
+          "next": "fix",
+          "text": "Can you fix this?"
         },
         {
           "label": "I don't know one end from the other.",

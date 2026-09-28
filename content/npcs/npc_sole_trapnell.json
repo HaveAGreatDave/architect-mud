@@ -134,7 +134,6 @@
     "Trapnell drives four tacks without taking the others out of his mouth.",
     "He turns a boot over, looks at the wear across the heel, and puts it down facing the other way.",
     "The wheel spins up under the bench. He holds something to it for two seconds and it stops mattering.",
-    "\"Four days. It's four days because it's four days, not because I'm busy.\"",
     "He cuts a sole out of the bend in one pass and holds the offcut up to the light before he puts it in the box.",
     "\"You walk on the outside edge. Both of them. I'm not telling you off, I'm telling you what I'm building for.\"",
     "He works dubbin into a welt with his thumb, in circles, for longer than seems necessary.",
@@ -142,7 +141,6 @@
     "He opens a drawer, takes one tack out of it, and closes it again.",
     "\"That's a good boot with a bad sole on it. Somebody put a bad sole on a good boot. It happens and it's a shame.\"",
     "He threads a needle at arm's length, on the second go, and is visibly annoyed about the second go.",
-    "\"No, I'll not do it while you wait. If I could do it while you waited it wouldn't be worth doing.\"",
     "He glances at the low window at a pair of legs going past and identifies them without looking up.",
     "\"Laces are free with a repair. They always have been. It's not an offer.\"",
     "He squares a pair on the shelf so the tags hang the same way."
@@ -151,7 +149,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "He is already back on the wheel. \"Four days.\""
+      "text": "He is already back on the wheel."
     },
     "good": {
       "options": [
@@ -179,24 +177,11 @@
     "repair": {
       "options": [
         {
-          "label": "Why four days?",
-          "next": "repair_why"
-        },
-        {
           "label": "Back.",
           "next": "root"
         }
       ],
-      "text": "\"Soles, heels, welts, stitching, and I'll put a toe cap on if you insist and then I'll tell you it looks like a toe cap.\" He does not look up. \"Four days, tag on the laces, shelf by the door.\"\n\nHe spits a tack into his hand and drives it.\n\n\"Bring me both. Never one. People bring me one and I do the one, and then they're walking on two different boots and they come back in a month to tell me I've done something to their knee.\""
-    },
-    "repair_why": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Because the leather's got to sit,\" he says. \"You cut it, you wet it, you work it on the last, and then you leave it, and what it does while it's left is the difference between a sole and a sole that lifts at the toe in November.\"\n\nHe glances up, once, over the glasses.\n\n\"Everybody who's ever offered me more to do it quicker has offered me less than a second repair would cost them. I've done that sum for people at this bench and watched them go quiet.\""
+      "text": "\"Soles, heels, welts, stitching, and anything else you wear that's coming apart.\" He does not look up. \"<b>repair</b> and what it is, and I'll do it here while you sit in that chair. <b>repair</b> on its own and I take whichever of your things is worst.\"\n\nHe spits a tack into his hand and drives it.\n\n\"I charge by how far gone it is, and less once I know you. I'm at this bench eight till six, Saturdays till one, and not Sundays.\""
     },
     "walk": {
       "options": [
@@ -237,11 +222,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Sit down if you're stopping.\" He does not look up. \"Both boots, not one, tag goes through the laces, four days. And laces are free with a repair before you ask, because everybody asks.\"",
+      "text": "\"Sit down if you're stopping.\" He does not look up. \"Boots on the bench and I'll do them while you watch. That's what the chair's for.\"",
       "text_by_relation": {
-        "familiar": "He reaches under the bench without looking and puts a pair on the counter, finished, tags still on, and only then looks up over the glasses.\n\n\"I did the welt as well,\" he says. \"It was going. I've not charged you for it and I'd rather not have a conversation about that.\"",
-        "first": "A narrow man on a stool glances at your feet before he glances at your face, which turns out to be the order he does everything in.\n\n\"Oswin Trapnell.\" Three tacks in his lips make it sound like less of a name than it is. \"Soles, heels, welts. Four days, and four days is what it takes, not what I feel like.\"\n\nHe drives a tack, flat, one blow.\n\n\"Bring me both of them. Never one. And there's a chair, and it faces this way on purpose.\"",
-        "known": "\"Ah.\" He does not look up. \"They're not ready and you know they're not ready. Sit down anyway.\""
+        "familiar": "He looks at your boots before he looks at you, and nods at the chair.\n\n\"Sit down,\" he says. \"Let's see what you've done to them.\"",
+        "first": "A narrow man on a stool glances at your feet before he glances at your face, which turns out to be the order he does everything in.\n\n\"Oswin Trapnell.\" Three tacks in his lips make it sound like less of a name than it is. \"Soles, heels, welts.\"\n\nHe drives a tack, flat, one blow.\n\n\"Bring me both of them. Never one. And there's a chair, and it faces this way on purpose.\"",
+        "known": "\"Ah.\" He does not look up. \"What's coming apart?\""
       }
     }
   },

@@ -182,6 +182,15 @@
       ],
       "text": "\"Ha. That's when they finally remember I exist.\" His grin is all pride. \"An EMP storm rolls through and every clever gadget in the city lies down and dies, but a wire's still a wire, and a breaker still throws by hand. When it goes black and stays black, it's men like me they come looking for. Trusted with the keys to the whole grid, because we're the only ones left who can keep it running. Whole districts breathing because one grease-handed nobody knew which junction box to weld.\" He looks you over, nods slow. \"You've got the hands for it. I can tell. Most people flinch from a dead machine. You didn't.\""
     },
+    "fix": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He clears a square foot of bench. \"Hand it over. <b>repair</b> and the name of it, and I'll put it right while you stand there. <b>repair</b> on its own and I take whatever you're carrying that's worst off. Clothes, armour, blades, guns, tools: if it wears, I fix it.\"\n\n\"I charge by how far gone it is, and less to faces I know. Anything a storm's cooked, I can re-flash on the same bench. I'm here ten in the morning till ten at night.\"\n\n\"With oil and a rag, or one of my torches, you can <b>repair</b> it yourself anywhere. How far you get depends on your hands, and a botch can finish off something that was nearly gone.\""
+    },
     "gossip": {
       "actions": [
         {
@@ -239,6 +248,14 @@
     "root": {
       "options": [
         {
+          "label": "Can you fix this?",
+          "next": "fix"
+        },
+        {
+          "label": "Show me what you're selling.",
+          "next": "__shop__"
+        },
+        {
           "label": "How does a man make a living fixing things down here?",
           "next": "career"
         },
@@ -249,10 +266,6 @@
         {
           "label": "What happens when the storms hit?",
           "next": "emp"
-        },
-        {
-          "label": "Show me what you're selling.",
-          "next": "__shop__"
         },
         {
           "label": "Heard anything worth knowing?",

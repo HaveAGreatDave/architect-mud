@@ -149,8 +149,7 @@
     "\"Anybody wants their money, they get their money. I don't want to hear about the weather.\"",
     "She squares the spike, which is not something that can be squared.",
     "\"If it's a dead heat I pay both. It's on the wall in the back. Go and look if you want.\"",
-    "She writes a number on her hand, looks at it, and rubs it off.",
-    "\"Closing at two. I said two and it will be two.\""
+    "She writes a number on her hand, looks at it, and rubs it off."
   ],
   "description": "A short, square-shouldered woman of about fifty behind the grille, chalk down one cardigan sleeve, a pencil behind her ear. She doesn't smile and doesn't commiserate. Her hands and her arithmetic are fast, and so is her call on whether she's taking your bet.",
   "dialogue_tree": {
@@ -165,7 +164,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Two leagues, both on the wall.\" She does not look at it. \"Deadball up top, in white. Cluster Puck underneath, in yellow, because three people once bet on the wrong sport in one week and I am not going through that again.\"\n\nShe taps the counter with one knuckle.\n\n\"Right-hand column's what the price was before it moved. That's there so nobody has to take my word for it.\""
+      "text": "\"Two leagues, both on the wall.\" She does not look at it. \"Deadball up top, in white. Cluster Puck underneath, in yellow, because three people once bet on the wrong sport in one week and I am not going through that again.\"\n\nShe taps the counter with one knuckle.\n\n\"Right-hand column's what the price was before it moved. That's there so nobody has to take my word for it.\"\n\n\"Deadball's on KSAB at six in the evening, Monday, Wednesday and Friday. Cluster Puck's the same hour, Tuesday, Thursday and Sunday. For the league tables, <b>standings baseball</b> or <b>standings hockey</b>.\""
     },
     "board_price": {
       "options": [

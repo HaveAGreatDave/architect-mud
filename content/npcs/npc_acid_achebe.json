@@ -165,24 +165,11 @@
       ],
       "text": "\"Because the moment I tell you what it's worth, I am in the trade,\" she says. \"And if I am in the trade then every weight I ever give you has a reason behind it, and you will never be able to tell which ones.\"\n\nHer hands do not move.\n\n\"A weight is a fact. What it's worth is an argument, and there are eleven places within a mile who will have that argument with you happily. I am the only one who will not, and that is the entire business.\""
     },
-    "queue": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"People walking back in,\" she says. \"They come through the gate at first light with something heavy and they want to know what it is before somebody in a warmer room tells them.\"\n\nA very slight pause.\n\n\"By ten it is empty and it stays empty. I have thought about shutting at noon and I don't, because somebody once came in at twenty past four having walked since the night before, and I would rather sit here six hours for that than not be here.\""
-    },
     "root": {
       "options": [
         {
           "label": "Why no opinions?",
           "next": "noopinion"
-        },
-        {
-          "label": "There's a queue some mornings.",
-          "next": "queue"
         },
         {
           "label": "You keep your hands flat.",

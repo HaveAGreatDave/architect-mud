@@ -188,12 +188,16 @@
     "root": {
       "options": [
         {
-          "label": "Who are the members?",
-          "next": "members"
-        },
-        {
           "label": "A day ticket, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "Where do I sit?",
+          "next": "sit"
+        },
+        {
+          "label": "Who are the members?",
+          "next": "members"
         },
         {
           "label": "How do I join?",
@@ -230,6 +234,15 @@
         }
       ],
       "text": "\"If you need to be told what it is, it is not for you.\" He says it flatly, as a piece of information rather than a snub, and then softens it about a degree. \"That was the thinking. I did not do the thinking.\"\n\n\"The practical effect is that half the boulevard has walked past this door for years believing it is somebody's house. I have not corrected them.\""
+    },
+    "sit": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The smoking room is south, through the door behind me.\" He does not turn round. \"Four armchairs at the fire, and the fire is lit. Take any chair that is free.\""
     }
   },
   "faction": null,

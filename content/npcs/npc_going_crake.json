@@ -153,12 +153,12 @@
     "root": {
       "options": [
         {
-          "label": "Where does all this come from?",
-          "next": "where"
-        },
-        {
           "label": "Catalogue, please.",
           "next": "__shop__"
+        },
+        {
+          "label": "Where does all this come from?",
+          "next": "where"
         },
         {
           "label": "Who buys any of it?",

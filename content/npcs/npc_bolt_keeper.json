@@ -151,6 +151,12 @@
       "text": "He doesn't turn round. \"Fella says a thing's fixed when it works. I say a thing's fixed when it works without you.\" A long pause. \"He's been winning for about a year, which tells you something about the year.\""
     },
     "fix": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_watts_shop"
+        }
+      ],
       "options": [
         {
           "label": "Show me, then.",
@@ -161,7 +167,7 @@
           "next": "root"
         }
       ],
-      "text": "\"I sell parts. Watts up at the turbine hall does benches.\" He taps a drawer. \"What I'll do is tell you which of these you actually need, which is usually the cheaper one, and that's why I'm still here and the place before me isn't.\""
+      "text": "\"I sell parts. Watts does benches, at Watts The Damage, just north-east of here.\" He traces the route for you. \"He's in from ten in the morning till ten at night. Take it into his shop and <b>repair</b> &lt;item&gt;, and he puts it right for a fee.\"\n\n\"Or do it yourself. The gun-oil kit on the pegboard is a patch kit. Carry one and <b>repair</b> &lt;item&gt; works anywhere, as far as your hands will take it.\""
     },
     "gossip": {
       "actions": [
@@ -362,4 +368,3 @@
   "wanders": 0,
   "work_zone_id": "zone_bolt_shop"
 }
-

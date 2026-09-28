@@ -133,7 +133,6 @@
   "chitchat": [
     "\"Bar's open. It doesn't close, it just changes hands.\"",
     "\"You're up late. So's everyone who ends up here.\"",
-    "\"Lowry does the daylight. I do the rest.\"",
     "\"Whatever you're about to tell me, I've already heard it at four in the morning.\"",
     "\"Drink it or don't. The stool's the same price.\"",
     "\"Nothing good gets ordered after two. Doesn't stop anyone.\"",
@@ -162,6 +161,9 @@
       ],
       "text": "Imogen puts the paperback down and looks at you properly."
     },
+    "bye": {
+      "text": "She's back in the paperback before you're off the stool."
+    },
     "gossip": {
       "actions": [
         {
@@ -176,6 +178,15 @@
       ],
       "text": "She checks the stairwell before she says anything."
     },
+    "house": {
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "\"Washroom's through the door east.\" She points with the paperback. \"The rooms are upstairs. Walk into one nobody's living in and you'll see the weekly rent. <b>rent</b> takes it, and you pay again every week or you're out.\"\n\n\"The two cash machines are here in the lobby: <b>withdraw</b> and <b>deposit</b>. The card table's behind you, and <b>join</b> buys you in.\""
+    },
     "menu": {
       "options": [
         {
@@ -183,7 +194,7 @@
           "next": "root"
         }
       ],
-      "text": "Same list as the day shift, minus the theatre. The Reserve if you're paying for the idea of it, the Swill if you're not. Canapes are whatever Lowry didn't get through, and they were his idea of complimentary, not mine."
+      "text": "\"The Reserve is wine from the old cellar, and it's the one that settles your nerves. The Swill does as much for your thirst and costs next to nothing.\" She nods at the plate on the bar. \"Canapés if you're hungry.\""
     },
     "poker": {
       "actions": [
@@ -206,6 +217,10 @@
           "next": "menu"
         },
         {
+          "label": "Where's what in here?",
+          "next": "house"
+        },
+        {
           "label": "Any advice for someone new?",
           "next": "advice"
         },
@@ -223,13 +238,13 @@
         },
         {
           "label": "Never mind.",
-          "next": null
+          "next": "bye"
         }
       ],
       "text": "\"Evening. Or morning. Take your pick, the tap doesn't care.\"",
       "text_by_relation": {
         "familiar": "\"There you are.\" The paperback goes face-down before you've got to the stool. \"Sit. You can tell me what happened while I pour.\"",
-        "first": "\"You're new, or you've never been up this late.\" She marks her page with a beer mat. \"Imogen. I have the bar from eight at night until Lowry turns up hungover and calls me valued colleague. Sit where you like, nobody's reserved anything since the Handoff.\"",
+        "first": "\"You're new, or you've never been up this late.\" She marks her page with a beer mat. \"Imogen. I pour, there's food if you're hungry, and the card table's behind you. Sit where you like, nobody's reserved anything since the Handoff.\"",
         "known": "\"Back at this hour. That's twice.\" She's already reaching for a glass. \"Same again, or are we branching out?\""
       }
     },

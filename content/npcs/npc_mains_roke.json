@@ -166,12 +166,12 @@
     "root": {
       "options": [
         {
-          "label": "How old is it?",
-          "next": "old"
-        },
-        {
           "label": "What have you got?",
           "next": "__shop__"
+        },
+        {
+          "label": "How old is it?",
+          "next": "old"
         },
         {
           "label": "Why does a pump house look like this?",

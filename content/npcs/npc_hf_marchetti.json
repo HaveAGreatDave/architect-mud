@@ -163,6 +163,21 @@
       ],
       "text": "She looks at the corner of the model for a moment longer than she needs to.\n\n\"The concert terrace,\" she says. \"Yes. That is a gasholder.\"\n\nShe does not explain it away and does not apologise for it either.\n\n\"The model was built to the consented scheme. The scheme changed. Rebuilding the model costs more than a plot is worth, so it stands, and I tell anyone who spots it, and about one person in thirty spots it.\" A pause. \"You are the first this month.\""
     },
+    "flat": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_hf_chainfree_lobby"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Not from this room.\" She finds it on the model with the corner of the folder. \"Chain Free, on the corner of Kettle Lane and Sorrel Way, lets three flats on the third floor at two hundred a week. Marius Lindqvist has the desk inside the door. Stand in the flat you want and <b>rent</b>.\"\n\nThe way lights up on your map."
+    },
     "phase3": {
       "options": [
         {
@@ -175,12 +190,16 @@
     "root": {
       "options": [
         {
-          "label": "What is actually built?",
-          "next": "built"
-        },
-        {
           "label": "What is for sale?",
           "next": "__shop__"
+        },
+        {
+          "label": "Can I get a flat here?",
+          "next": "flat"
+        },
+        {
+          "label": "What is actually built?",
+          "next": "built"
         },
         {
           "label": "Who is buying?",

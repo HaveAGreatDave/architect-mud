@@ -162,12 +162,12 @@
     "root": {
       "options": [
         {
-          "label": "No soil at all?",
-          "next": "soil"
-        },
-        {
           "label": "Leaves, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "No soil at all?",
+          "next": "soil"
         },
         {
           "label": "Who eats all this?",

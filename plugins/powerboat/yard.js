@@ -304,6 +304,23 @@ export async function cmdBoat(args, raw, player) {
     + `\n<span class="text-dim">She is at ${home.zone.name}, ${KIND_WORD[berthKind(home.zone)]}. ₵${type.price.toLocaleString()} gone.</span>`);
 }
 
+// ── THE CLERK'S QUOTE ────────────────────────────────────────────────────────
+// What the desk clerk reads out when you ask to buy or hire: the list `boat` and `boat rent` print,
+// as lines in the conversation, and whether there is anywhere to put one. The berth is asked first so
+// the click after it is not a sale refused for want of room.
+export async function deskQuote(player, what) {
+  if (!deskReady(player)) return `<span class="text-dim">${deskRefusal(player)}</span>`;
+  const hire = what === 'hire';
+  const lines = BOAT_TYPES.map((t) => hire
+    ? `<span class="text-cyan">${t.name}</span>: <span class="text-green">₵${boatRentFee(t).toLocaleString()}</span> for ${BOAT_RENT_TERM_MS / 3600000} hours, tank full`
+    : `<span class="text-cyan">${t.name}</span>: <span class="text-green">₵${t.price.toLocaleString()}</span>\n<span class="text-dim">${t.blurb}</span>`);
+  const home = await firstFreeBerth(berthsNear(player.current_zone));
+  const room = home
+    ? `She would go to ${home.zone.name}, ${KIND_WORD[berthKind(home.zone)]}.`
+    : 'Every berth here is taken, so there is nowhere to put one.';
+  return `${lines.join('\n')}\n<span class="text-dim">${room} You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`;
+}
+
 // ── THE HIRE DESK ────────────────────────────────────────────────────────────
 // See service.js for the model. One hire at a time, at a yard that sells hulls, into the first free
 // berth — which from the Dock Hall is the covered dock, so a hire comes out of the same slot a
@@ -396,7 +413,7 @@ export function coveredRoomAtTile(zoneId) {
 }
 export const _forgetSlots = () => { _slotIndex = null; };
 
-async function firstFreeBerth(zones) {
+export async function firstFreeBerth(zones) {
   for (const zone of zones) {
     const cap = berthCapacity(zone);
     if (!cap) continue;

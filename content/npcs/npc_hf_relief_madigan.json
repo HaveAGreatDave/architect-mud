@@ -184,12 +184,12 @@
     "root": {
       "options": [
         {
-          "label": "Why is this tower full when the others are empty?",
-          "next": "full"
-        },
-        {
           "label": "Tea, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "Why is this tower full when the others are empty?",
+          "next": "full"
         },
         {
           "label": "What are you all building?",

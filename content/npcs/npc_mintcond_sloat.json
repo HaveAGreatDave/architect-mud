@@ -288,7 +288,7 @@
           "next": "tapes"
         }
       ],
-      "text": "\"Then I write the date under your name.\" He lets that sit. \"And then, every day after that, it costs you. And when it costs you enough, the wall stops opening for you, and it doesn't start again until we're square.\" He turns a page. \"Two people on that wall have their names underlined twice. They're not, at present, customers.\""
+      "text": "\"Then I write the date under your name.\" He lets that sit. \"And then, every day after that, it costs you. And when it costs you enough, the wall stops opening for you, and it doesn't start again until we're square.\" He turns a page. \"Two people on that wall have their names underlined twice. They're not, at present, customers.\"\n\n\"Fifteen a day. After three weeks I stop counting and add a hundred and twenty for the print. <b>settle</b> squares you.\""
     },
     "looking": {
       "options": [
@@ -330,6 +330,19 @@
       ],
       "text": "\"Because a card isn't a receipt.\" He says it like he has said it a thousand times, and he has. \"It's a record of a person on a particular day, in what they happened to be wearing, with whatever they happened to be carrying, and it's PERMANENT, and it's the only permanent thing most people in this city will ever own.\" He straightens the cloth on the glass. \"The bank treated that like a novelty item next to the deposit boxes. So. Stand on the carpet when you're ready and I'll strike you a good one.\""
     },
+    "press": {
+      "options": [
+        {
+          "label": "The mint press. Since when?",
+          "next": "mint"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Stand on the carpet and <b>mint</b>.\" He points the book at the press. \"It shows you the card first, and that costs nothing. <b>mint confirm</b> strikes it. Two thousand five hundred, and once a week at most.\"\n\n\"It takes what you're wearing, what you're carrying and the last thing you said in this shop, so say something worth keeping first. The Architect Draft machine sells sleeves at two hundred and fifty: <b>buypack</b> at the machine, <b>openpack</b> wherever you like. Duplicates you <b>scrap</b> here, twenty-five apiece.\""
+    },
     "read": {
       "options": [
         {
@@ -358,16 +371,20 @@
           "next": "__shop__"
         },
         {
+          "label": "How does the press work?",
+          "next": "press"
+        },
+        {
+          "label": "What are the tapes for?",
+          "next": "tapes"
+        },
+        {
           "label": "What should I actually read?",
           "next": "read"
         },
         {
           "label": "The mint press. Since when?",
           "next": "mint"
-        },
-        {
-          "label": "What are the tapes for?",
-          "next": "tapes"
         },
         {
           "label": "What's grading?",
@@ -446,7 +463,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Rental.\" He says the word with some satisfaction. \"Not sale. There are eleven working tape decks in this district and about forty tapes, and if I sold them there would be four tapes and one very rich idiot.\" He points the book at the bead curtain. \"Back room, the wall. Card in the slot means it's out, blank slot means it's in. You take a tape, I write your name on the card, and you bring it back.\""
+      "text": "\"Rental.\" He says the word with some satisfaction. \"Not sale. There are eleven working tape decks in this district and about forty tapes, and if I sold them there would be four tapes and one very rich idiot.\" He points the book at the bead curtain. \"Back room, the wall. Card in the slot means it's out, blank slot means it's in. You take a tape, I write your name on the card, and you bring it back.\"\n\n\"<b>rentals</b> at the wall reads it. <b>borrow</b> and a title takes one for a week, for twenty. <b>returntape</b> puts it back.\""
     }
   },
   "faction": null,

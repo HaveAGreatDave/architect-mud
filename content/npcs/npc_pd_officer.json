@@ -109,7 +109,7 @@
           "next": "end"
         }
       ],
-      "text": "'...Petty heat only. And it'll cost you. Don't make it weird.' (use: bribe)"
+      "text": "'Petty heat only: one star, maybe two. Say <b>bribe</b> and it costs two-fifty for every star on you, and one of them comes off. Don't make it weird.'"
     },
     "end": {
       "options": [],
@@ -139,7 +139,7 @@
           "next": "end"
         }
       ],
-      "text": "'Hand me the chip. If it's chargeable, there's a bounty in it for you.' (use: submit <datachip>)"
+      "text": "'Hand me the chip: <b>submit &lt;datachip&gt;</b>. If it's chargeable, there's a bounty in it for you.'"
     }
   },
   "faction": null,

@@ -29,7 +29,11 @@
       "BOAT_DISEMBARK",
       "BOAT_HELM",
       "BOAT_FUEL",
-      "BOAT_TOW"
+      "BOAT_TOW",
+      "BOAT_QUOTE",
+      "BOAT_SELL",
+      "BOAT_HIRE",
+      "BOAT_RETURN"
     ],
     "tagGated": []
   },

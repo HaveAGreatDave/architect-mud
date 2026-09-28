@@ -13,6 +13,15 @@
       "options": [],
       "text": "She goes back to the crate straps and checks the one she already checked."
     },
+    "kit": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I don't advise. I'll tell you how it's used.\" She sets a brick of putty square on the counter.\n\n\"A charge goes on a thing, never a person. <b>breach &lt;thing&gt;</b>, pick your fuse, then seat the leads. The whole room hears the fuse start, and the blast takes everybody in it, you included. It's a crime every time, seen or not. <b>defuse</b> takes a live one off, yours or anybody's.\"\n\n\"You <b>plant</b> the tripwire and the bug, and they tell you when something moves or makes a noise. <b>sweep</b> finds the ones somebody else planted.\""
+    },
     "lore": {
       "options": [
         {
@@ -30,12 +39,16 @@
           "next": "shop"
         },
         {
-          "label": "Who were you, upstairs?",
-          "next": "lore"
+          "label": "How is this stuff used?",
+          "next": "kit"
         },
         {
           "label": "How do I get at the good stuff?",
           "next": "trust"
+        },
+        {
+          "label": "Who were you, upstairs?",
+          "next": "lore"
         }
       ],
       "text": [

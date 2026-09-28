@@ -124,6 +124,10 @@
           "next": "__shop__"
         },
         {
+          "label": "Do you buy anything?",
+          "next": "shells"
+        },
+        {
           "label": "Back up a second.",
           "next": "root"
         }
@@ -376,6 +380,15 @@
         "first": "A man stands before you.<br>He's dressed for pest control in the twenty-third century.<br>His suit is a sealed composite thing in institutional grey, reinforced at the joints and cinched tight around the body. It looks less like something a man wears to spray for cockroaches and more like something a man wears to enter a contaminated reactor. A compact respirator hangs around his neck. Sensor modules sit over one shoulder. Blue gloves cover his hands. A utility harness carries injector darts, chemical canisters, traps, probes and several devices whose purposes are probably best left unexplained.<br>There's a company patch on his chest.<br><strong>TOM'S NEIGHBOURHOOD PEST CONTROL.</strong>",
         "known": "\"People don't appreciate good extermination until the walls start moving. You here to lend a hand?\""
       }
+    },
+    "shells": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Shells.\" He taps the ledge. \"Roach carapace, cut off at the seam. I pay near enough double what anybody on the surface will give you for it. Bring it here and <b>sell carapace</b>.\"\n\n\"They work the sump, west, and the silt, south.\""
     },
     "standdown": {
       "actions": [

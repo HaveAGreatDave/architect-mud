@@ -382,9 +382,9 @@ the open a couple of tiles west.
 
 ⚠ **THE ONLY THING IN THE BUILDING THAT SHUTS IS THE RESTAURANT.** The desk is staffed round the
 clock by two people on twelve hours each (Ninian Quillon days, Odile Sabbatini nights), and the dock
-does not lock — there is no lock on it. That is a mechanism rather than a line of prose:
-`work_zone_id` plus a `vendor_schedule` is what the default vendor graph reads, so the lobby has
-somebody behind it at every hour and never two at once.
+does not lock — there is no lock on it. The timetable gives the lobby somebody at every hour and never
+two at once; the handover graph in [The desk](#the-desk) is what keeps somebody standing there while
+the two of them change over.
 
 ⚠ **A `vendor_schedule` BLOCK DID NOT WRAP MIDNIGHT, AND THAT IS WHY THIS EXISTS.** `{ from: 18,
 to: 6 }` is how anybody writes a night shift and `h >= 18 && h < 6` is false at every hour of the
@@ -444,8 +444,27 @@ with time afloat, stopped by lifting her out. ⚠ A hull with no service record 
 
 ## The desk
 
-Hulls are bought and hired at the lobby desk only ([desk.js](desk.js)): `use desk` with a clerk on
-shift behind it opens the sale and hire screen, and `boat <name>` / `boat rent` refuse anywhere else.
+Hulls are bought and hired at the lobby desk only ([desk.js](desk.js)), from the clerk behind it.
 The dock hall deals the hand of your own boats on arrival; the lobby and the rest of the building open
-nothing on their own. A clerk is somebody whose `work_zone_id` is the desk's room and who is on shift
-and present (`isVendorClosed`). The desk is furniture flagged `marina_desk`.
+nothing on their own. A clerk is somebody whose `work_zone_id` is the desk's room and who is standing
+in it: the one on shift if they're in, otherwise whichever desk clerk is there. The desk is furniture
+flagged `marina_desk`.
+
+**You buy by talking to the clerk.** "I want to buy a boat" reads out the line, the price, the berth
+she'd go to and your balance; "I'll take the Rooster" buys her. Hiring and handing a hire back work
+the same way. The clerk's nodes fire four dialogue actions registered in [index.js](index.js):
+`BOAT_QUOTE` (`what: sale | hire`), `BOAT_SELL` and `BOAT_HIRE` (`hull: <type id>`) and
+`BOAT_RETURN`. Each is the typed verb underneath (`boat <type>`, `boat rent <type>`, `boat return`),
+so the conversation sells on the same terms and refuses in the same words. `use desk` and the typed
+verbs still work. ⚠ **Every hull on the line needs a sell and a hire option in both clerks' trees**,
+and regress fails when a new type in `BOAT_TYPES` has none, because that is a boat nobody can buy.
+
+**The desk is never empty at a handover.** The clerks live across town, and on the default vendor
+graph the outgoing clerk walks off at the hour while the relief only sets out once their own shift has
+started, so every handover left the lobby empty for the length of the walk. The two clerks carry
+their own `behaviour_graph` (content) with two conditions from [desk.js](desk.js):
+
+- `DESK_SHIFT_DUE`: off duty and the next shift starts within the walk (measured with `findPath`,
+  doubled, plus fifteen game-minutes), so they walk in and wait at the desk.
+- `DESK_RELIEVED`: at the end of a shift they stay at the desk until the other clerk is standing there
+  on shift. Held so long that their own next shift starts, they go back to the ordinary loop.

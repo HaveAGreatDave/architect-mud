@@ -162,6 +162,10 @@
       ],
       "text": "Lowry leans on the bar and sizes you up."
     },
+    "bye": {
+      "options": [],
+      "text": "\"Valued guest.\" Lowry goes back to the glass."
+    },
     "gossip": {
       "actions": [
         {
@@ -199,11 +203,24 @@
       ],
       "text": "Lowry nods toward the card table."
     },
+    "rooms": {
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "\"Upstairs, valued guest. Three floors, four units to a landing.\" He sets the glass down. \"Walk into one nobody's living in and <b>rent</b>, and it's yours. Most go for a hundred, a few on the third floor for fifty, and it comes off you again every seven days. Miss it and you're out.\"\n\n\"Inside, <b>lock</b> and <b>unlock</b> work your door, and <b>upgrade lock</b> buys a better one. The washroom is through the east door, and the two ATMs here take <b>deposit</b> and <b>withdraw</b>.\""
+    },
     "root": {
       "options": [
         {
           "label": "What's on the menu?",
           "next": "menu"
+        },
+        {
+          "label": "Can I get a room here?",
+          "next": "rooms"
         },
         {
           "label": "Any advice for someone new?",
@@ -223,7 +240,7 @@
         },
         {
           "label": "Never mind.",
-          "next": null
+          "next": "bye"
         }
       ],
       "text": "Welcome to the Embassy Lounge, valued guest. We maintain certain standards here, within reason. What can I get you?"

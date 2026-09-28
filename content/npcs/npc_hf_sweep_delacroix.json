@@ -184,12 +184,12 @@
     "root": {
       "options": [
         {
-          "label": "Why are some buildings a different colour?",
-          "next": "colour"
-        },
-        {
           "label": "A phase plan, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "Why are some buildings a different colour?",
+          "next": "colour"
         },
         {
           "label": "There are twelve drawers and nine phases.",

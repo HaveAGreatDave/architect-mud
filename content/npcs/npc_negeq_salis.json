@@ -231,7 +231,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Tuesday, then. Earlier if it's bright.\""
+      "text": "\"Come back when you want a sitting.\" She is already back in the ledger."
     },
     "chrome": {
       "options": [
@@ -304,11 +304,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Sittings by arrangement, and the arrangement is the weather.\" She does not get up. \"If it's bright I can do you today. If it isn't I'll do you Tuesday and it'll be better, and I'd rather you had the better one.\"",
+      "text": "\"Portraits.\" She does not get up. \"One plate, taken upstairs under the north glass, printed and mounted for you to keep. Cards are the small prints, for giving away.\"",
       "text_by_relation": {
         "familiar": "She has the plate box out and the stool already moved before you have got the door shut, and she glances at the roof once.\n\n\"Good light,\" she says. \"Twenty minutes of it. Don't take your coat off, it's right as it is.\"",
-        "first": "The woman at the desk looks at your face for about two seconds longer than is comfortable, and then does not look at it again.\n\n\"Benedetta Salis.\" She turns the ledger round. \"Sittings by arrangement, and what I'm arranging is the weather rather than my time. Bright, and it's today. Not bright, and it's Tuesday, and Tuesday will be better.\"\n\nShe finds a pen.\n\n\"Don't smile. You can. Nobody ever has been glad of it.\"",
-        "known": "\"You.\" She glances up at the roof glass. \"It's flat out there. Come back when it isn't, or sit today and don't complain to me about it in a year.\""
+        "first": "The woman at the desk looks at your face for about two seconds longer than is comfortable, and then does not look at it again.\n\n\"Benedetta Salis.\" She turns the ledger round. \"Portraits. One plate, taken upstairs under the north glass, printed and mounted for you to keep. Cards are the small prints, for giving to people. Plates and fixer are for anybody working their own camera.\"\n\nShe finds a pen.\n\n\"Don't smile. You can. Nobody ever has been glad of it.\"",
+        "known": "\"You.\" She glances up at the roof glass. \"Another sitting, or cards?\""
       }
     }
   }

@@ -94,7 +94,9 @@ boolean` — read caches, never the DB); actions may be async
 (`fn(entity, params, { broadcast, query, ai, zone, zoneId, node }) →
 port-string | 'RUNNING' | undefined`). The broadcast plugin registers
 `CHANNEL_HAS_VIEWERS`, `IS_BROADCAST_SCHEDULED`, `AT_WORK_ZONE`, and
-`BROADCAST_SAY` this way. `getRegisteredAINodes()` lists what plugins have added.
+`BROADCAST_SAY` this way, and powerboat registers `DESK_SHIFT_DUE` and `DESK_RELIEVED` for the
+marina desk clerks' handover ([plugins/powerboat/README.md](../plugins/powerboat/README.md#the-desk)).
+`getRegisteredAINodes()` lists what plugins have added.
 
 The editor's own catalogues (`AI_CONDITIONS`/`AI_ACTIONS` in
 `client/devpanel/js/vine/vine-schema-ai.js`) are a separate list — a node type

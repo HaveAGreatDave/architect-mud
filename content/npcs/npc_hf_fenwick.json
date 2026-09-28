@@ -166,12 +166,12 @@
     "root": {
       "options": [
         {
-          "label": "What is in the fourth bay?",
-          "next": "fourth"
-        },
-        {
           "label": "What are you selling?",
           "next": "__shop__"
+        },
+        {
+          "label": "What is in the fourth bay?",
+          "next": "fourth"
         },
         {
           "label": "This was meant to be offices.",

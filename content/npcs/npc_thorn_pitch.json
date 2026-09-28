@@ -55,10 +55,37 @@
       ],
       "text": "\"Not sure yet.\"\n\nHe stirs it, tastes it off his wrist, makes a face that's entirely professional, and stirs it again.\n\n\"Somebody brought in a sack of something off the north flats. Looks like it should be food. Half of what looks like it should be food out here will shut your kidneys in a day and a half.\" He puts the lid back. \"So it sits in the third pot for a week and it goes to me first and to nobody else, and if it's all right in a fortnight it's dinner.\"\n\nHe says this the way another man would say he's thinking about painting the shed."
     },
+    "road": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's in the third pot?",
+          "next": "pots"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Broth. It fills you and it mends you a bit.\" He tastes off his wrist. \"Thorn tea takes some of the rads out and numbs your tongue for a minute.\"\n\n\"Jerky if you're carrying it a long way. It keeps. The herbs don't.\""
+    },
     "root": {
       "actions": [],
       "first": "\"You're the one at the gate.\" A bowl arrives before you have agreed to anything. \"Eat that. It's safe. I would know.\"",
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's good for the road?",
+          "next": "road"
+        },
         {
           "actions": [],
           "conditions": [],

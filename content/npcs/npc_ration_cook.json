@@ -141,6 +141,15 @@
       "options": [],
       "text": "He turns back to the register."
     },
+    "help_yourself": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Help yourself.\" He jerks a thumb at the aisles. \"Chiller, freezer, the shelves and the kitchenware rack. <b>take</b> &lt;item&gt; from chiller, or whichever one it's in. It isn't yours till you've paid.\"\n\n\"<b>checkout</b> at this counter settles up. Walk out without doing it and that's theft, and the camera's watching.\""
+    },
     "oranges": {
       "options": [
         {
@@ -174,6 +183,14 @@
           "next": "shop"
         },
         {
+          "label": "How does it work here?",
+          "next": "help_yourself"
+        },
+        {
+          "label": "Will you buy what I cook?",
+          "next": "sell_food"
+        },
+        {
           "conditions": [
             {
               "item": "item_orange",
@@ -185,6 +202,15 @@
         }
       ],
       "text": "\"Aisles are where they are. Prices on the shelf, cash on the counter.\""
+    },
+    "sell_food": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Cooked, yes.\" He looks at your hands before your face. \"I pay more for a dish you've cooked than for anything else you could sell me, and the better it's cooked, the more you get.\"\n\n\"Bring it here and <b>sell</b> &lt;dish&gt;.\""
     },
     "shop": {
       "actions": [

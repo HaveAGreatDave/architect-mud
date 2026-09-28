@@ -132,15 +132,6 @@
       "options": [],
       "text": "\"Mind the step at the hood. Everybody does it once.\" He is already looking past you at the door."
     },
-    "job": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"It is a job.\" A pause, and then, because you are still there: \"I did the tower at the Yards end for nine years. Four hundred and some, every one of them in and out twice a day, half of them wanting something. You could not hear yourself.\"\n\nHe looks down the hall.\n\n\"I thought I would like this. I would like it better with about forty more people in it.\""
-    },
     "quiet": {
       "options": [
         {
@@ -153,12 +144,12 @@
     "root": {
       "options": [
         {
-          "label": "Who lives here?",
-          "next": "who"
-        },
-        {
           "label": "What have you got?",
           "next": "__shop__"
+        },
+        {
+          "label": "Who lives here?",
+          "next": "who"
         },
         {
           "label": "Is it always this quiet?",
@@ -178,10 +169,6 @@
     },
     "who": {
       "options": [
-        {
-          "label": "That is a strange job.",
-          "next": "job"
-        },
         {
           "label": "Back.",
           "next": "root"

@@ -152,8 +152,21 @@
       ],
       "text": "Skene doesn't look up from the board. \"A woman brought a slate in. It was doing a thing. I fixed the thing.\" <span class=\"text-dim\">He sets the iron down, which he doesn't do.</span> \"Then it did the thing again, in my shop, at two in the morning, with me in it. The sign went up the following week and the sign is the whole of what I have to say about it.\""
     },
+    "parts": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Parts.\" He points the iron at the wall without looking up. \"Signal boards go into most of the spy kit: tripwires, drones, relays. A dead industrial cell and a palladium ampoule from the chem supply <b>craft</b> back into a working battery.\"\n\n\"<b>recipes</b> tells you which of those your hands are up to.\""
+    },
     "root": {
       "options": [
+        {
+          "label": "What's any of it good for?",
+          "next": "parts"
+        },
         {
           "label": "What's with the exorcisms line on the sign?",
           "next": "exorcism"

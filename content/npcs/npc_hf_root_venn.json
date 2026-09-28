@@ -153,12 +153,12 @@
     "root": {
       "options": [
         {
-          "label": "What are you testing for?",
-          "next": "testing"
-        },
-        {
           "label": "A sampling kit, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "What are you testing for?",
+          "next": "testing"
         },
         {
           "label": "Why grow anything at all here?",

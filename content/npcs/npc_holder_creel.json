@@ -175,12 +175,12 @@
     "root": {
       "options": [
         {
-          "label": "How do you read it?",
-          "next": "read"
-        },
-        {
           "label": "What have you got?",
           "next": "__shop__"
+        },
+        {
+          "label": "How do you read it?",
+          "next": "read"
         },
         {
           "label": "Is any of this dangerous?",

@@ -60,6 +60,10 @@
       "first": "\"Are you bleeding?\" It's the first thing she says and it isn't rhetorical. \"No. Right. Then sit down and don't touch anything.\"",
       "options": [
         {
+          "label": "What should I carry?",
+          "next": "supplies"
+        },
+        {
           "actions": [],
           "conditions": [],
           "enabled": true,
@@ -87,6 +91,16 @@
         "familiar": "\"Sit down. How is the thing.\" She doesn't say which thing and doesn't need to.",
         "known": "\"You. Still upright.\" She finds her place in the book with one finger."
       }
+    },
+    "supplies": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "She points along the shelf with the pencil.\n\n\"Gauze stops bleeding. The rag does the same, some of the time. The splint is for a break.\"\n\n\"The kit's the one to have. It keeps working on you for five minutes after you open it, and it sees to frostbite.\""
     }
   },
   "faction": "ideology_exodus",

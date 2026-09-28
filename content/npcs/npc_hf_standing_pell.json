@@ -153,12 +153,12 @@
     "root": {
       "options": [
         {
-          "label": "Why do you come here?",
-          "next": "why"
-        },
-        {
           "label": "A cup, then.",
           "next": "__shop__"
+        },
+        {
+          "label": "Why do you come here?",
+          "next": "why"
         },
         {
           "label": "Do you think a line will ever come?",

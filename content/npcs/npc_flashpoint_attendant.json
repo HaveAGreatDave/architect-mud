@@ -163,11 +163,11 @@
           "next": "root"
         }
       ],
-      "text": "\"Two islands, same fuel, same price, and one of them has a shorter hose than the other.\" She points with the pencil without looking. \"That one. People pull up on the wrong side, and then they blame the pump, and then I have to come out and say a sentence I have now said eleven thousand times.\" The roll unspools another inch under her thumb. \"The meter is honest, though. That's the one thing on this lot I would swear to.\""
+      "text": "She points south with the pencil without looking. \"Pumps are out front. Park the rig under the canopy and <b>fuel</b>. It fills as far as your money goes and stops there.\"\n\n\"For a can, stand at a pump and <b>fill</b> it. The pylon by the kerb has the prices, and the cash machine's in here if you're short. A box of spares off my shelf is what <b>fix</b> wants when a rig breaks down on the road.\""
     },
     "root": {
       "actions": [],
-      "first": "She looks up, clocks you, clocks the door swinging shut behind you, and goes back to the roll. \"Pumps are metered, urn's hot, and the toilet key is on the spoon.\" A beat, as though she has remembered the rest of it. \"Nadine. I open at two and I'm here until it gets light, so if you're ever in here in proper daylight, it isn't me.\"",
+      "first": "She looks up, clocks you, clocks the door swinging shut behind you, and goes back to the roll. \"Pumps are metered, urn's hot, and the toilet key is on the spoon.\" A beat, as though she has remembered the rest of it. \"Nadine.\"",
       "options": [
         {
           "actions": [],
@@ -180,14 +180,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What's the tally for?",
-          "next": "tally"
-        },
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "Anything I should know about the pumps?",
+          "label": "How do I fuel up?",
           "next": "pumps"
         },
         {
@@ -219,15 +212,6 @@
         "known": "\"You again.\" She turns the receipt roll over without marking it. \"Go on, then.\""
       }
     },
-    "tally": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "She looks at the receipt roll as though she hasn't thought about it in years. \"Rigs on the lot. One stroke each.\" She turns it over. \"I started counting to prove the late shift wasn't worth staffing. It's not. They staffed it anyway, and I never stopped counting, so now it's just a thing I do with my hands.\""
-    },
     "urn": {
       "options": [
         {
@@ -235,7 +219,7 @@
           "next": "root"
         }
       ],
-      "text": "\"It's hot, it's there, and the urn has never run dry on my shift.\" She nods at it. \"That's the entire pitch and I'm not going to improve it for you.\" A shrug. \"Bring your own cup if you have got one. The paper ones run out twice a month and I have stopped pretending I'm going to order more.\""
+      "text": "\"It's hot, and it's coffee.\" She nods at the urn. \"<b>vend</b> and it pours you a cup and takes the money. Look at it first if you want the price.\""
     }
   },
   "faction": null,

@@ -54,6 +54,26 @@
       ],
       "text": "\"When they come. They mostly do not.\" A dry look. \"They get as far as the poles and they have a good long think and they go home, which is the poles working exactly as intended, so I can hardly complain about it and I do, constantly.\n\nYou got past them. So either you're stupid or you're broke. Both is common.\""
     },
+    "right": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Let me see what you have.",
+          "next": "shop"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Rad-meds, and clothes.\" She doesn't look round. \"The orange pills take some of the rads out of you. The tablets take more.\"\n\n\"The clothes are for when something's grown that a city coat won't go over: a tail, wings, a shell, extra limbs, a big head. I sell them to people the town has vouched for, and more of them the more it vouches. The flask in the case is for people who've been through the Pool.\""
+    },
     "root": {
       "actions": [],
       "first": "\"You'll be wanting water, and you aren't having the tank water, you're having a jar of it like everybody else.\" She's already reaching for one. \"Rindle. This is mine. What else.\"",
@@ -64,6 +84,13 @@
           "enabled": true,
           "label": "Let me see what you have.",
           "next": "shop"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's on the right-hand shelves?",
+          "next": "right"
         },
         {
           "actions": [],
@@ -232,4 +259,3 @@
   "wanders": 0,
   "work_zone_id": "zone_thorn_rindles"
 }
-

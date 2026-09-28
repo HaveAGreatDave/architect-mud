@@ -153,40 +153,6 @@
       ],
       "text": "\"I'm aware,\" says Dorrit, with enormous dignity. \"I was eleven years in a bonded store and about four days into this blanket when I named her, and I hadn't learned the trade yet.\" <span class=\"text-dim\">He doesn't appear even slightly embarrassed.</span> \"It's her name now. You don't get to take a thing's name off it because you've since read up.\""
     },
-    "how": {
-      "_vine": {
-        "x": 460,
-        "y": 440
-      },
-      "options": [
-        {
-          "label": "You had a shop?",
-          "next": "how_press"
-        },
-        {
-          "label": "Sorry to hear it.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Bonded store, forty yards that way.\" He doesn't point. \"Eleven years. Then the bond went and the stock went with it, and I came out the back door with what I could carry, which was a blanket and an eye.\" <span class=\"text-dim\">He squares off a row.</span> \"Turns out the eye was the business. The rest was overheads.\""
-    },
-    "how_press": {
-      "_vine": {
-        "x": 880,
-        "y": 440
-      },
-      "options": [
-        {
-          "label": "Fair enough.",
-          "next": "root"
-        },
-        {
-          "label": "Leave him to it.",
-          "next": "bye"
-        }
-      ],
-      "text": "\"I have a shop,\" Dorrit corrects, without any edge at all. \"It's four foot by six and I take it home at night. Nobody's ever raised the rent on it and nobody's ever put a shutter through it.\" <span class=\"text-dim\">He looks along the lane at the roller doors, all of them down, all of them stencilled.</span> \"Ask any of that lot how their eleven years went.\""
-    },
     "prices": {
       "_vine": {
         "x": 460,
@@ -251,10 +217,6 @@
         {
           "label": "How does the pricing work?",
           "next": "prices"
-        },
-        {
-          "label": "How long have you been on this lane?",
-          "next": "how"
         },
         {
           "label": "There's a cat down this lane.",

@@ -165,11 +165,24 @@
       ],
       "text": "\"Thirty square feet, swept twice a day, and I do it myself.\" A small pause. \"You are selling people something that will be inside them by tonight. The window can be the best window on the street and it does not matter at all if the flags outside it are filthy, because people decide on the way in, not at the counter.\"\n\nShe squares the knife again.\n\n\"The shop either side of me has stopped sweeping theirs since I started doing mine. I have decided not to mind.\""
     },
+    "cook": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She squares the knife to the block. \"Raw meat, sausage and meatballs can make you ill uncooked. The tinned meat you can eat as it comes.\"\n\n\"One piece in a pan on a stove, and <b>fry</b> it hard. Meat, potatoes and stock in a pot is a stew, and you <b>cook</b> the pot. <b>cook</b> works out the method from the pan if you don't want to name one.\""
+    },
     "root": {
       "options": [
         {
           "label": "Let's see what you've got.",
           "next": "__shop__"
+        },
+        {
+          "label": "How should I cook it?",
+          "next": "cook"
         },
         {
           "label": "The block's worn through.",
@@ -194,7 +207,7 @@
       "text": "\"Case is today. Rail is what's left of today.\" She wipes the scale with the side of her hand. \"Tell me what you're doing with it and I'll tell you what you want, and those are usually two different things.\"",
       "text_by_relation": {
         "familiar": "She has something wrapped before you have finished crossing the sawdust.\n\n\"I put this by,\" she says. \"It wants slow and it wants a lid and it wants leaving alone, and you are the only person who comes in here who will actually leave it alone.\"",
-        "first": "The woman behind the block sets down the knife, squares it to the edge, and looks at you.\n\n\"Mbeki. Greta.\" She nods at the slanted case. \"That's today. The rail behind me is what's left of today and it goes home with me at four, so if you come in at half three you do very well out of it.\"\n\nShe turns the scale face toward you a fraction, which it already was.\n\n\"Scale faces you. It has always faced you. I'm not going to make a speech about it, I just want you to have noticed.\"",
+        "first": "The woman behind the block sets down the knife, squares it to the edge, and looks at you.\n\n\"Mbeki. Greta.\" She nods at the slanted case. \"That's today, and the rail behind me is what's left of it. I shut at four.\"\n\nShe turns the scale face toward you a fraction, which it already was.\n\n\"Scale faces you. It has always faced you. I'm not going to make a speech about it, I just want you to have noticed.\"",
         "known": "\"You.\" She is already reaching. \"Don't tell me. Tell me what you're cooking and I'll tell you what you're buying, we've been through this.\""
       }
     },
