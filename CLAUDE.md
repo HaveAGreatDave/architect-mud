@@ -180,7 +180,8 @@ When you add a plugin or a verb, add `plugins/<name>/regress.js` (default export
 ### Reading a run
 
 - **The pre-push hook runs `npm run test:regress`**, `pretest:regress` included. Add a gate to [scripts/gates/manifest.mjs](scripts/gates/manifest.mjs) and the push gate gets it.
-- **No trailing `N/N passed` line means the run was killed, not that a test failed.** Re-run standalone before looking for a bug. A complete run is about 9,500 lines.
+- **No trailing `N/N passed` line means the run was killed, not that a test failed.** Re-run standalone before looking for a bug.
+- **A run is quiet.** A failing check prints when it fails; a passing one doesn't. Each layer and each plugin suite ends with one line of counts and CPU, and the run ends with the five slowest sections and `N/N passed`: about 200 lines in all. `npm run test:regress -- --verbose` prints every check (about 11,000 lines), and `node scripts/gates/run.mjs --verbose` prints every gate's output.
 - **Don't read the exit code through a pipe.** `npm run test:regress 2>&1 | tail -4` reports `tail`'s status. Redirect instead: `npm run test:regress > /tmp/reg.txt 2>&1; echo $?`, then read the `N/N passed` line or look for a `— FAILURES (n) —` block.
 - **Never run two regress suites at once.** `pretest:regress` runs `scripts/kill-orphans.js`, which kills any running `tests/regress.js`, so the second run silently kills the first.
 - **`EMAXCONNSESSION`** means something is holding Neon pool connections (pool size 15), usually an orphaned `node server/index.js`. `kill-orphans.js` runs before every regress and before `npm run dev`; run it by hand with `npm run kill:orphans`. It's Windows-only, only targets this repo's entrypoints (`server/index.js`, `tests/regress.js`, `sync-commits.js`, `scripts/dev.mjs`, `tools/studio/serve.mjs`, `tools/modelshop/serve.mjs`), and never runs in production. If it can't reach the process, wait about 90 seconds.
